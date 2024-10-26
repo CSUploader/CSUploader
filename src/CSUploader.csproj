@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Upload\FileHosters\AndroidFileHost.cs" />
+    <Compile Remove="Upload\FileHosters\BRupload.cs" />
+    <Compile Remove="Upload\FileHosters\Datafile.cs" />
+    <Compile Remove="Upload\FileHosters\ExLoad.cs" />
+    <Compile Remove="Upload\FileHosters\ExtMatrix.cs" />
+    <Compile Remove="Upload\FileHosters\FileBoom.cs" />
+    <Compile Remove="Upload\FileHosters\Filecloud.cs" />
+    <Compile Remove="Upload\FileHosters\FilesMonster.cs" />
+    <Compile Remove="Upload\FileHosters\FlashBit.cs" />
+    <Compile Remove="Upload\FileHosters\GigaPeta.cs" />
+    <Compile Remove="Upload\FileHosters\HitFile.cs" />
+    <Compile Remove="Upload\FileHosters\IcerBox.cs" />
+    <Compile Remove="Upload\FileHosters\IsraCloud.cs" />
+    <Compile Remove="Upload\FileHosters\KatFile.cs" />
+    <Compile Remove="Upload\FileHosters\Keep2Share.cs" />
+    <Compile Remove="Upload\FileHosters\NitroFlare.cs" />
+    <Compile Remove="Upload\FileHosters\Novafile.cs" />
+    <Compile Remove="Upload\FileHosters\Openload.cs" />
+    <Compile Remove="Upload\FileHosters\Rapidu.cs" />
+    <Compile Remove="Upload\FileHosters\RareFile.cs" />
+    <Compile Remove="Upload\FileHosters\ShareOnline.cs" />
+    <Compile Remove="Upload\FileHosters\TakeFile.cs" />
+    <Compile Remove="Upload\FileHosters\TezFiles.cs" />
+    <Compile Remove="Upload\FileHosters\UbiqFile.cs" />
+    <Compile Remove="Upload\FileHosters\UniBytes.cs" />
+    <Compile Remove="Upload\FileHosters\Uploaded.cs" />
+    <Compile Remove="Upload\FileHosters\UploadGIG.cs" />
+    <Compile Remove="Upload\FileHosters\Upstore.cs" />
+    <Compile Remove="Upload\FileHosters\Uptobox.cs" />
+    <Compile Remove="Upload\FileHosters\WuShare.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="12.0.1" />
+    <PackageReference Include="EntityFramework" Version="6.4.4" />
+    <PackageReference Include="Microsoft-WindowsAPICodePack-Core" Version="1.1.4" />
+    <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="ObjectListView.Fungusware" Version="2.9.3" />
+    <PackageReference Include="SQLite.CodeFirst" Version="1.7.0.34" />
+    <PackageReference Include="Squid-Box.SevenZipSharp" Version="1.5.0.366" />
+  </ItemGroup>
+
+</Project>

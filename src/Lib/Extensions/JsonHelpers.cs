@@ -1,0 +1,30 @@
+﻿// <copyright file="JsonHelpers.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
+
+namespace CSUploader.Extensions
+{
+    public static class JsonHelpers
+    {
+        public static bool TryDeserializeObject<T>(string value, [NotNullWhen(true)] out T? result)
+            where T : class, new()
+        {
+            try
+            {
+                result = JsonSerializer.Deserialize<T>(value);
+
+                return result != null;
+            }
+            catch
+            {
+                result = null;
+
+                return false;
+            }
+        }
+    }
+}
