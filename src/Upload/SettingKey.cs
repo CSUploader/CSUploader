@@ -3,16 +3,15 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public static class SettingKey
 {
-    public static class SettingKey
-    {
-        public static string TempArchiveDirectory { get; } = "tempArchiveDirectory";
+    public static string TempArchiveDirectory { get; } = "tempArchiveDirectory";
 
-        public static string MaxConcurrentCPUJobs { get; } = "maxConcurrentCPUJobs";
+    public static string MaxConcurrentCPUJobs { get; } = "maxConcurrentCPUJobs";
 
-        public static string MaxConcurrentUploadJobs { get; } = "maxConcurrentUploadJobs";
+    public static string MaxConcurrentUploadJobs { get; } = "maxConcurrentUploadJobs";
 
-        public static string SpeedLimit { get; } = "speedLimit";
-    }
+    public static string SpeedLimit { get; } = "speedLimit";
 }

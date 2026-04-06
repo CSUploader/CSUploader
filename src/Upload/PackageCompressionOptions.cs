@@ -5,25 +5,24 @@
 
 using CSUploader.Lib.Compression;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class PackageCompressionOptions
 {
-    public class PackageCompressionOptions
-    {
-        public Compressor? Compressor { get; set; }
+    public Compressor? Compressor { get; set; }
 
-        /// <summary>
-        /// Directory to save the compressed file(s) to.
-        /// </summary>
-        public string? OutputDirectoryPath { get; set; }
+    /// <summary>
+    /// Directory to save the compressed file(s) to.
+    /// </summary>
+    public string? OutputDirectoryPath { get; set; }
 
-        /// <summary>
-        /// Temporary directory to store the files when compressing.
-        /// </summary>
-        public string? TemporaryDirectory { get; set; }
+    /// <summary>
+    /// Temporary directory to store the files when compressing.
+    /// </summary>
+    public string? TemporaryDirectory { get; set; }
 
-        /// <summary>
-        /// Archive password.
-        /// </summary>
-        public string? ArchivePassword { get; set; }
-    }
+    /// <summary>
+    /// Archive password.
+    /// </summary>
+    public string? ArchivePassword { get; set; }
 }

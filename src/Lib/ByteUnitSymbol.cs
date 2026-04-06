@@ -5,65 +5,64 @@
 
 using System.ComponentModel;
 
-namespace CSUploader.Lib
+namespace CSUploader.Lib;
+
+public enum ByteUnitSymbol
 {
-    public enum ByteUnitSymbol
-    {
-        // Both
-        [Description("Byte(s)")]
-        B = ByteBase.Binary,
+    // Both
+    [Description("Byte(s)")]
+    B = ByteBase.Binary,
 
-        // Binary IEC
-        [Description("Kibibyte(s)")]
-        KiB,
+    // Binary IEC
+    [Description("Kibibyte(s)")]
+    KiB,
 
-        [Description("Mebibyte(s)")]
-        MiB,
+    [Description("Mebibyte(s)")]
+    MiB,
 
-        [Description("Gibibyte(s)")]
-        GiB,
+    [Description("Gibibyte(s)")]
+    GiB,
 
-        [Description("Tebibyte(s)")]
-        TiB,
+    [Description("Tebibyte(s)")]
+    TiB,
 
-        [Description("Pebibyte(s)")]
-        PiB,
+    [Description("Pebibyte(s)")]
+    PiB,
 
-        [Description("Exbibyte(s)")]
-        EiB,
+    [Description("Exbibyte(s)")]
+    EiB,
 
-        [Description("Zebibyte(s)")]
-        ZiB,
+    [Description("Zebibyte(s)")]
+    ZiB,
 
-        [Description("Yobibyte(s)")]
-        YiB,
+    [Description("Yobibyte(s)")]
+    YiB,
 
-        // Decimal Metric
-        [Description("Byte(s)")]
-        Byte = ByteBase.Decimal,
+    // Decimal Metric
+    [Description("Byte(s)")]
+    Byte = ByteBase.Decimal,
 
-        [Description("Kilobyte(s)")]
-        kB,
+    [Description("Kilobyte(s)")]
+    kB,
 
-        [Description("Megabyte(s)")]
-        MB,
+    [Description("Megabyte(s)")]
+    MB,
 
-        [Description("Gigabyte(s)")]
-        GB,
+    [Description("Gigabyte(s)")]
+    GB,
 
-        [Description("Terabyte(s)")]
-        TB,
+    [Description("Terabyte(s)")]
+    TB,
 
-        [Description("Petabyte(s)")]
-        PB,
+    [Description("Petabyte(s)")]
+    PB,
 
-        [Description("Exabyte(s)")]
-        EB,
+    [Description("Exabyte(s)")]
+    EB,
 
-        [Description("Zettabyte(s)")]
-        ZB,
+    [Description("Zettabyte(s)")]
+    ZB,
 
-        [Description("Yottabyte(s)")]
-        YB
-    }
+    [Description("Yottabyte(s)")]
+    YB
 }

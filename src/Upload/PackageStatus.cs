@@ -5,27 +5,26 @@
 
 using CSUploader.Lib;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+/// <summary>
+/// The status of a package file.
+/// </summary>
+public class PackageStatus
 {
     /// <summary>
-    /// The status of a package file.
+    /// Gets or sets the job.
     /// </summary>
-    public class PackageStatus
-    {
-        /// <summary>
-        /// Gets or sets the job.
-        /// </summary>
-        /// <value>
-        /// The job.
-        /// </value>
-        public PackageJob Job { get; set; } = PackageJob.None;
+    /// <value>
+    /// The job.
+    /// </value>
+    public PackageJob Job { get; set; } = PackageJob.None;
 
-        /// <summary>
-        /// Gets or sets the status.
-        /// </summary>
-        /// <value>
-        /// The status.
-        /// </value>
-        public JobStatus Status { get; set; } = JobStatus.Idle;
-    }
+    /// <summary>
+    /// Gets or sets the status.
+    /// </summary>
+    /// <value>
+    /// The status.
+    /// </value>
+    public JobStatus Status { get; set; } = JobStatus.Idle;
 }

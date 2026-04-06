@@ -5,271 +5,270 @@
 
 using CSUploader.Lib;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+/// <summary>
+/// Abstract class for packages.
+/// </summary>
+public abstract class PackageDetails
 {
+    private CancellationTokenSource cancellationTokenSource = new();
+
+    private PauseTokenSource pauseTokenSource = new();
+
     /// <summary>
-    /// Abstract class for packages.
+    /// Event triggered when the status changed.
     /// </summary>
-    public abstract class PackageDetails
+    public event EventHandler<PackageStatusChangedEventArgs>? StatusChanged;
+
+    /// <summary>
+    /// Gets or sets the name of the package.
+    /// </summary>
+    public virtual string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the size of the archive package.
+    /// </summary>
+    public virtual long? Size { get; protected set; }
+
+    /// <summary>
+    /// Gets or sets the file hosters used the package is uploading to.
+    /// </summary>
+    public virtual FileHosterClient[] FileHosters { get; protected set; } = [];
+
+    /// <summary>
+    /// Gets or sets the connection icons.
+    /// </summary>
+    public virtual string[] Connection { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the gateway used for the package (i.e. the proxy ip:port and type (socks5, etc.)).
+    /// </summary>
+    public virtual string? Gateway { get; set; }
+
+    /// <summary>
+    /// Gets or sets the upload mode (free / registered / premium).
+    /// </summary>
+    public virtual UploadMode? UploadMode { get; set; }
+
+    /// <summary>
+    /// Gets the package status (idle, compressing, uploading, captcha, etc.)
+    /// </summary>
+    public virtual PackageStatus Status { get; private set; } = new();
+
+    /// <summary>
+    /// Gets or sets the error string if Status is Error.
+    /// </summary>
+    public virtual string? Error { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bytes remaining of package to upload.
+    /// </summary>
+    public virtual long? BytesRemaining { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the package is enabled or disabled.
+    /// </summary>
+    public virtual bool Enabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date the package was added (created).
+    /// </summary>
+    public virtual DateTime AddedDate { get; set; } = DateTime.Now;
+
+    /// <summary>
+    /// Gets or sets the date the package started (uploading, compressing, etc.)
+    /// </summary>
+    public virtual DateTime? StartedDate { get; protected set; }
+
+    /// <summary>
+    /// Gets or sets the date the package finished uploading.
+    /// </summary>
+    public virtual DateTime? FinishedDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the duration the file is uploading (when uploading; pause/stopped/etc. time is not included).
+    /// </summary>
+    public virtual TimeSpan? Duration { get; set; }
+
+    /// <summary>
+    /// Gets or sets the job speed.
+    /// </summary>
+    public virtual long? Speed { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time remaining until the job is complete.
+    /// </summary>
+    public virtual TimeSpan? TimeRemaining { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bytes uploaded.
+    /// </summary>
+    public virtual long? BytesLoaded { get; set; }
+
+    /// <summary>
+    /// Gets or sets the progress left (in %).
+    /// </summary>
+    public virtual double? Progress { get; set; }
+
+    /// <summary>
+    /// Gets or sets the file path of the file on disk.
+    /// </summary>
+    public virtual string? SaveFrom { get; set; }
+
+    /// <summary>
+    /// Gets or sets the password of the package.
+    /// </summary>
+    public virtual string? Password { get; set; }
+
+    /// <summary>
+    /// Gets or sets the priority.
+    /// </summary>
+    /// <value>
+    /// The priority.
+    /// </value>
+    public virtual int Priority { get; set; }
+
+    /// <summary>
+    /// Gets the next job.
+    /// </summary>
+    /// <returns>The next job, or null if finished.</returns>
+    public abstract PackageJob? GetNextJob();
+
+    /// <summary>
+    /// Starts the job as an asynchronous operation.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    public void StartAsync(PackageJob job)
     {
-        private CancellationTokenSource cancellationTokenSource = new();
-
-        private PauseTokenSource pauseTokenSource = new();
-
-        /// <summary>
-        /// Event triggered when the status changed.
-        /// </summary>
-        public event EventHandler<PackageStatusChangedEventArgs>? StatusChanged;
-
-        /// <summary>
-        /// Gets or sets the name of the package.
-        /// </summary>
-        public virtual string Name { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Gets or sets the size of the archive package.
-        /// </summary>
-        public virtual long? Size { get; protected set; }
-
-        /// <summary>
-        /// Gets or sets the file hosters used the package is uploading to.
-        /// </summary>
-        public virtual FileHosterClient[] FileHosters { get; protected set; } = Array.Empty<FileHosterClient>();
-
-        /// <summary>
-        /// Gets or sets the connection icons.
-        /// </summary>
-        public virtual string[] Connection { get; set; } = Array.Empty<string>();
-
-        /// <summary>
-        /// Gets or sets the gateway used for the package (i.e. the proxy ip:port and type (socks5, etc.)).
-        /// </summary>
-        public virtual string? Gateway { get; set; }
-
-        /// <summary>
-        /// Gets or sets the upload mode (free / registered / premium).
-        /// </summary>
-        public virtual UploadMode? UploadMode { get; set; }
-
-        /// <summary>
-        /// Gets the package status (idle, compressing, uploading, captcha, etc.)
-        /// </summary>
-        public virtual PackageStatus Status { get; private set; } = new();
-
-        /// <summary>
-        /// Gets or sets the error string if Status is Error.
-        /// </summary>
-        public virtual string? Error { get; set; }
-
-        /// <summary>
-        /// Gets or sets the bytes remaining of package to upload.
-        /// </summary>
-        public virtual long? BytesRemaining { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether the package is enabled or disabled.
-        /// </summary>
-        public virtual bool Enabled { get; set; }
-
-        /// <summary>
-        /// Gets or sets the date the package was added (created).
-        /// </summary>
-        public virtual DateTime AddedDate { get; set; } = DateTime.Now;
-
-        /// <summary>
-        /// Gets or sets the date the package started (uploading, compressing, etc.)
-        /// </summary>
-        public virtual DateTime? StartedDate { get; protected set; }
-
-        /// <summary>
-        /// Gets or sets the date the package finished uploading.
-        /// </summary>
-        public virtual DateTime? FinishedDate { get; set; }
-
-        /// <summary>
-        /// Gets or sets the duration the file is uploading (when uploading; pause/stopped/etc. time is not included).
-        /// </summary>
-        public virtual TimeSpan? Duration { get; set; }
-
-        /// <summary>
-        /// Gets or sets the job speed.
-        /// </summary>
-        public virtual long? Speed { get; set; }
-
-        /// <summary>
-        /// Gets or sets the time remaining until the job is complete.
-        /// </summary>
-        public virtual TimeSpan? TimeRemaining { get; set; }
-
-        /// <summary>
-        /// Gets or sets the bytes uploaded.
-        /// </summary>
-        public virtual long? BytesLoaded { get; set; }
-
-        /// <summary>
-        /// Gets or sets the progress left (in %).
-        /// </summary>
-        public virtual double? Progress { get; set; }
-
-        /// <summary>
-        /// Gets or sets the file path of the file on disk.
-        /// </summary>
-        public virtual string? SaveFrom { get; set; }
-
-        /// <summary>
-        /// Gets or sets the password of the package.
-        /// </summary>
-        public virtual string? Password { get; set; }
-
-        /// <summary>
-        /// Gets or sets the priority.
-        /// </summary>
-        /// <value>
-        /// The priority.
-        /// </value>
-        public virtual int Priority { get; set; }
-
-        /// <summary>
-        /// Gets the next job.
-        /// </summary>
-        /// <returns>The next job, or null if finished.</returns>
-        public abstract PackageJob? GetNextJob();
-
-        /// <summary>
-        /// Starts the job as an asynchronous operation.
-        /// </summary>
-        /// <param name="job">The job.</param>
-        public void StartAsync(PackageJob job)
+        if (Status?.Status == JobStatus.Running)
         {
-            if (Status?.Status == JobStatus.Running)
+            return;
+        }
+
+        cancellationTokenSource = new CancellationTokenSource();
+        pauseTokenSource = new PauseTokenSource();
+
+        ChangeStatus(job, JobStatus.Running);
+
+        Task.Run(async () =>
+        {
+            try
             {
-                return;
+                if (cancellationTokenSource.IsCancellationRequested)
+                {
+                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                }
+
+                await pauseTokenSource.PauseIfRequestedAsync();
+
+                await StartAsync(job, pauseTokenSource.Token, cancellationTokenSource.Token);
             }
-
-            cancellationTokenSource = new CancellationTokenSource();
-            pauseTokenSource = new PauseTokenSource();
-
-            ChangeStatus(job, JobStatus.Running);
-
-            Task.Run(async () =>
+            catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
             {
-                try
-                {
-                    if (cancellationTokenSource.IsCancellationRequested)
-                    {
-                        cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                    }
-
-                    await pauseTokenSource.PauseIfRequestedAsync();
-
-                    await StartAsync(job, pauseTokenSource.Token, cancellationTokenSource.Token);
-                }
-                catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
-                {
-                    ChangeStatus(job, JobStatus.Cancelled);
-                }
-                catch (Exception ex)
-                {
-                    ChangeStatus(job, ex.Message);
-                }
-            });
-        }
-
-        /// <summary>
-        /// Pauses the job.
-        /// </summary>
-        public void PauseAsync(bool resume)
-        {
-            if (Status== null)
-            {
-                return;
+                ChangeStatus(job, JobStatus.Cancelled);
             }
-
-            ChangeStatus(Status.Job, resume ? JobStatus.Running : JobStatus.Paused);
-
-            Task.Run(async () =>
+            catch (Exception ex)
             {
-                if (resume)
-                {
-                    await pauseTokenSource.ResumeAsync();
-                }
-                else
-                {
-                    await pauseTokenSource.PauseAsync();
-                }
-            });
-        }
-
-        /// <summary>
-        /// Stops the current job as asynchronous operation.
-        /// </summary>
-        public void Stop()
-        {
-            cancellationTokenSource.Cancel();
-        }
-
-        /// <summary>
-        /// Changes the status.
-        /// </summary>
-        /// <param name="job">The job.</param>
-        /// <param name="newStatus">The new status.</param>
-        public void ChangeStatus(PackageJob job, JobStatus newStatus)
-        {
-            if (Status?.Job == job && Status?.Status == newStatus)
-            {
-                return;
+                ChangeStatus(job, ex.Message);
             }
+        });
+    }
 
-            JobStatus? previousStatus = Status?.Status;
-            Status = new PackageStatus
+    /// <summary>
+    /// Pauses the job.
+    /// </summary>
+    public void PauseAsync(bool resume)
+    {
+        if (Status== null)
+        {
+            return;
+        }
+
+        ChangeStatus(Status.Job, resume ? JobStatus.Running : JobStatus.Paused);
+
+        Task.Run(async () =>
+        {
+            if (resume)
             {
-                Job = job,
-                Status = newStatus
-            };
+                await pauseTokenSource.ResumeAsync();
+            }
+            else
+            {
+                await pauseTokenSource.PauseAsync();
+            }
+        });
+    }
 
-            FireStatusChanged(job, previousStatus, newStatus);
-        }
+    /// <summary>
+    /// Stops the current job as asynchronous operation.
+    /// </summary>
+    public void Stop()
+    {
+        cancellationTokenSource.Cancel();
+    }
 
-        /// <summary>
-        /// Changes the status.
-        /// </summary>
-        /// <param name="job">The job.</param>
-        /// <param name="error">The error.</param>
-        public void ChangeStatus(PackageJob job, string error)
+    /// <summary>
+    /// Changes the status.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    /// <param name="newStatus">The new status.</param>
+    public void ChangeStatus(PackageJob job, JobStatus newStatus)
+    {
+        if (Status?.Job == job && Status?.Status == newStatus)
         {
-            Error = error;
-
-            ChangeStatus(job, JobStatus.Failed);
+            return;
         }
 
-        /// <summary>
-        /// Starts the asynchronous.
-        /// </summary>
-        /// <param name="job">The job.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <param name="pauseToken">The pause token.</param>
-        /// <returns>The <see cref="Task"/> representing the asynchronous operation.</returns>
-        protected abstract Task StartAsync(PackageJob job, PauseToken pauseToken = default, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Fires the status changed.
-        /// </summary>
-        /// <param name="job">The job.</param>
-        /// <param name="previousStatus">The previous status.</param>
-        /// <param name="newStatus">The new status.</param>
-        protected void FireStatusChanged(PackageJob job, JobStatus? previousStatus, JobStatus newStatus)
+        JobStatus? previousStatus = Status?.Status;
+        Status = new PackageStatus
         {
-            StatusChanged?.Invoke(this, new PackageStatusChangedEventArgs(this, job, previousStatus, newStatus));
-        }
+            Job = job,
+            Status = newStatus
+        };
 
-        /// <summary>
-        /// Fires the status changed.
-        /// </summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="PackageStatusChangedEventArgs"/> instance containing the event data.</param>
-        protected void FireStatusChanged(object? sender, PackageStatusChangedEventArgs e)
-        {
-            StatusChanged?.Invoke(sender, e);
-        }
+        FireStatusChanged(job, previousStatus, newStatus);
+    }
+
+    /// <summary>
+    /// Changes the status.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    /// <param name="error">The error.</param>
+    public void ChangeStatus(PackageJob job, string error)
+    {
+        Error = error;
+
+        ChangeStatus(job, JobStatus.Failed);
+    }
+
+    /// <summary>
+    /// Starts the asynchronous.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="pauseToken">The pause token.</param>
+    /// <returns>The <see cref="Task"/> representing the asynchronous operation.</returns>
+    protected abstract Task StartAsync(PackageJob job, PauseToken pauseToken = default, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fires the status changed.
+    /// </summary>
+    /// <param name="job">The job.</param>
+    /// <param name="previousStatus">The previous status.</param>
+    /// <param name="newStatus">The new status.</param>
+    protected void FireStatusChanged(PackageJob job, JobStatus? previousStatus, JobStatus newStatus)
+    {
+        StatusChanged?.Invoke(this, new PackageStatusChangedEventArgs(this, job, previousStatus, newStatus));
+    }
+
+    /// <summary>
+    /// Fires the status changed.
+    /// </summary>
+    /// <param name="sender">The sender.</param>
+    /// <param name="e">The <see cref="PackageStatusChangedEventArgs"/> instance containing the event data.</param>
+    protected void FireStatusChanged(object? sender, PackageStatusChangedEventArgs e)
+    {
+        StatusChanged?.Invoke(sender, e);
     }
 }

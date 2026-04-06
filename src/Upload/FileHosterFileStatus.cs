@@ -3,34 +3,33 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public enum FileHosterFileStatus
 {
-    public enum FileHosterFileStatus
-    {
-        Free,
+    Free,
 
-        RegisteredOnly,
+    RegisteredOnly,
 
-        PremiumOnly,
+    PremiumOnly,
 
-        Deleted,
+    Deleted,
 
-        NotFound,
+    NotFound,
 
-        Private,
+    Private,
 
-        PasswordProtected,
+    PasswordProtected,
 
-        Expired,
+    Expired,
 
-        Unavailable,
+    Unavailable,
 
-        TooBig,
+    TooBig,
 
-        Error,
+    Error,
 
-        Hotlink,
+    Hotlink,
 
-        Unknown
-    }
+    Unknown
 }

@@ -3,17 +3,16 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+// POST /api/v2/user/info?token=arsd4h37ecfkdqd16uolf5nai1
+public class UserInfoResponse
 {
-    // POST /api/v2/user/info?token=arsd4h37ecfkdqd16uolf5nai1
-    public class UserInfoResponse
-    {
-        [JsonProperty("token")]
-        public string? Token { get; set; }
+    [JsonPropertyName("token")]
+    public string? Token { get; set; }
 
-        [JsonProperty("user")]
-        public User? User { get; set; }
-    }
+    [JsonPropertyName("user")]
+    public User? User { get; set; }
 }

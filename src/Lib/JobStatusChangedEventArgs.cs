@@ -3,18 +3,17 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Lib
+namespace CSUploader.Lib;
+
+public class JobStatusChangedEventArgs : EventArgs
 {
-    public class JobStatusChangedEventArgs : EventArgs
+    public JobStatusChangedEventArgs(JobStatus? previousStatus, JobStatus newStatus)
     {
-        public JobStatusChangedEventArgs(JobStatus? previousStatus, JobStatus newStatus)
-        {
-            PreviousStatus = previousStatus;
-            NewStatus = newStatus;
-        }
-
-        public JobStatus? PreviousStatus { get; private set; }
-
-        public JobStatus NewStatus { get; private set; }
+        PreviousStatus = previousStatus;
+        NewStatus = newStatus;
     }
+
+    public JobStatus? PreviousStatus { get; private set; }
+
+    public JobStatus NewStatus { get; private set; }
 }

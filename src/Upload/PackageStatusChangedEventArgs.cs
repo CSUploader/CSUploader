@@ -5,19 +5,18 @@
 
 using CSUploader.Lib;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class PackageStatusChangedEventArgs : JobStatusChangedEventArgs
 {
-    public class PackageStatusChangedEventArgs : JobStatusChangedEventArgs
+    public PackageStatusChangedEventArgs(PackageDetails package, PackageJob packageJob, JobStatus? previousStatus, JobStatus newStatus)
+        : base(previousStatus, newStatus)
     {
-        public PackageStatusChangedEventArgs(PackageDetails package, PackageJob packageJob, JobStatus? previousStatus, JobStatus newStatus)
-            : base(previousStatus, newStatus)
-        {
-            Package = package;
-            PackageJob = packageJob;
-        }
-
-        public PackageDetails Package { get; private set; }
-
-        public PackageJob PackageJob { get; private set; }
+        Package = package;
+        PackageJob = packageJob;
     }
+
+    public PackageDetails Package { get; private set; }
+
+    public PackageJob PackageJob { get; private set; }
 }

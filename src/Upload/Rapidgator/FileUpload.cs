@@ -3,27 +3,26 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using CSUploader.Extensions;
-using Newtonsoft.Json;
+using CSUploader.Lib.Extensions;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+public class FileUpload
 {
-    public class FileUpload
-    {
-        [JsonProperty("upload_id")]
-        public string? UploadId { get; set; }
+    [JsonPropertyName("upload_id")]
+    public string? UploadId { get; set; }
 
-        [JsonProperty("url")]
-        public string? Url { get; set; }
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 
-        [JsonProperty("file")]
-        [JsonConverter(typeof(SingleOrArrayJsonConverter<FileFile>))]
-        public FileFile[] File { get; set; } = Array.Empty<FileFile>();
+    [JsonPropertyName("file")]
+    [JsonConverter(typeof(SingleOrArrayJsonConverter<FileFile>))]
+    public FileFile[] File { get; set; } = [];
 
-        [JsonProperty("state")]
-        public int State { get; set; }
+    [JsonPropertyName("state")]
+    public int State { get; set; }
 
-        [JsonProperty("state_label")]
-        public string? StateLabel { get; set; }
-    }
+    [JsonPropertyName("state_label")]
+    public string? StateLabel { get; set; }
 }

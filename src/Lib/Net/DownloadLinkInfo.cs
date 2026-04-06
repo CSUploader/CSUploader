@@ -3,12 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Lib.Net
-{
-    public class DownloadLinkInfo
-    {
-        public string? FileName { get; set; }
+namespace CSUploader.Lib.Net;
 
-        public long FileSize { get; set; }
-    }
+public class DownloadLinkInfo
+{
+    public string? FileName { get; set; }
+
+    public long FileSize { get; set; }
 }

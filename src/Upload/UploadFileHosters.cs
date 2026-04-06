@@ -3,10 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class UploadFileHosters
 {
-    public class UploadFileHosters
-    {
-        public FileHosterClient[] FileHosters { get; set; } = Array.Empty<FileHosterClient>();
-    }
+    public FileHosterClient[] FileHosters { get; set; } = [];
 }

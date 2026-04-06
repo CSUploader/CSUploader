@@ -3,13 +3,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Extensions
+namespace CSUploader.Lib.Extensions;
+
+internal static class PathExtensions
 {
-    internal static class PathExtensions
+    public static string GetTemporaryDirectory()
     {
-        public static string GetTemporaryDirectory()
-        {
-            return Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        }
+        return Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
     }
 }

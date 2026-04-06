@@ -5,32 +5,31 @@
 
 using CSUploader.Dal;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class PackageOptions
 {
-    public class PackageOptions
-    {
-        /// <summary>
-        /// Gets or sets the directory path to the files.
-        /// </summary>
-        /// <value>
-        /// The directory path to the files.
-        /// </value>
-        public string? DirectoryPath { get; set; }
+    /// <summary>
+    /// Gets or sets the directory path to the files.
+    /// </summary>
+    /// <value>
+    /// The directory path to the files.
+    /// </value>
+    public string? DirectoryPath { get; set; }
 
-        /// <summary>
-        /// Gets or sets the compression options.
-        /// </summary>
-        /// <value>
-        /// The compression options.
-        /// </value>
-        public PackageCompressionOptions CompressionOptions { get; set; } = new();
+    /// <summary>
+    /// Gets or sets the compression options.
+    /// </summary>
+    /// <value>
+    /// The compression options.
+    /// </value>
+    public PackageCompressionOptions CompressionOptions { get; set; } = new();
 
-        /// <summary>
-        /// Gets or sets the file hosters.
-        /// </summary>
-        /// <value>
-        /// The file hosters.
-        /// </value>
-        public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosters { get; set; } = new();
-    }
+    /// <summary>
+    /// Gets or sets the file hosters.
+    /// </summary>
+    /// <value>
+    /// The file hosters.
+    /// </value>
+    public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosters { get; set; } = [];
 }

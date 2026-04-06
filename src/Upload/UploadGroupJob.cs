@@ -4,17 +4,17 @@
 // </copyright>
 
 using CSUploader.Dal;
+using CSUploader.Lib.Compression.ZevenZip;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class UploadGroupJob
 {
-    public class UploadGroupJob
-    {
-        public string? InputDirectoryPath { get; set; }
+    public string? InputDirectoryPath { get; set; }
 
-        public ZevenZip.CompressionOptions CompressionOptions { get; set; } = new();
+    public ZevenZip.CompressionOptions CompressionOptions { get; set; } = new();
 
-        public string? OutputFilePath { get; set; }
+    public string? OutputFilePath { get; set; }
 
-        public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosters { get; set; } = new();
-    }
+    public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosters { get; set; } = [];
 }

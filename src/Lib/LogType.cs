@@ -3,16 +3,15 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Lib
+namespace CSUploader.Lib;
+
+public enum LogType
 {
-    public enum LogType
-    {
-        Status,
+    Status,
 
-        Http,
+    Http,
 
-        Error,
+    Error,
 
-        UI
-    }
+    UI
 }

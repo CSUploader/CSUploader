@@ -5,18 +5,17 @@
 
 using CSUploader.Lib.Crypto;
 
-namespace CSUploader.Upload
-{
-    public class FileHosterHashingProgressEventArgs : HashingProgressEventArgs
-    {
-        public FileHosterHashingProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
-            : base(size, bytesProcessed, dateTimeStarted)
-        {
-        }
+namespace CSUploader.Upload;
 
-        public FileHosterHashingProgressEventArgs(HashingProgressEventArgs e)
-            : base(e.Size, e.BytesProcessed, e.DateTimeFinish)
-        {
-        }
+public class FileHosterHashingProgressEventArgs : HashingProgressEventArgs
+{
+    public FileHosterHashingProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
+        : base(size, bytesProcessed, dateTimeStarted)
+    {
+    }
+
+    public FileHosterHashingProgressEventArgs(HashingProgressEventArgs e)
+        : base(e.Size, e.BytesProcessed, e.DateTimeFinish)
+    {
     }
 }

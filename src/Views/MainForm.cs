@@ -7,348 +7,361 @@ using BrightIdeasSoftware;
 using CSUploader.Controls.Models;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Upload;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace CSUploader.Views
+namespace CSUploader.Views;
+
+/// <summary>
+/// Main form.
+/// </summary>
+/// <seealso cref="Form" />
+public partial class MainForm : Form
 {
+    private readonly IServiceProvider _services;
+    private readonly IAppLogger _logger;
+    private readonly AppSettings _settings;
+    private readonly HashSet<TabPage> tabPageControlsLoaded = [];
+
     /// <summary>
-    /// Main form.
+    /// Initializes a new instance of the <see cref="MainForm"/> class.
     /// </summary>
-    /// <seealso cref="Form" />
-    public partial class MainForm : Form
+    public MainForm(IServiceProvider services)
     {
-        private readonly HashSet<TabPage> tabPageControlsLoaded = new();
+        _services = services;
+        _logger = services.GetRequiredService<IAppLogger>();
+        _settings = services.GetRequiredService<AppSettings>();
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="MainForm"/> class.
-        /// </summary>
-        public MainForm()
+        // Create controls
+        InitializeComponent();
+
+        // Add callbacks
+        Load += MainForm_Load;
+
+        tcMain.SelectedIndexChanged += TcMain_SelectedIndexChanged;
+    }
+
+    private object TextBoxLogLock { get; } = new object();
+
+    private Dictionary<LogType, Tuple<FastObjectListView, List<LogListViewModel>>> LogObjectListViews { get; set; } = [];
+
+    private SettingManager SettingManager { get; set; } = null!;
+    private FileHosterLoginManager FileHosterLoginManager { get; set; } = null!;
+    private UploadPackageManager UploadPackageManager { get; set; } = null!;
+
+    private async void MainForm_Load(object? sender, EventArgs e)
+    {
+        LogObjectListViews = new Dictionary<LogType, Tuple<FastObjectListView, List<LogListViewModel>>>
         {
-            // Create controls
-            InitializeComponent();
+            { LogType.Status, CreateLogObjectListView("Status") },
+            { LogType.Http, CreateLogObjectListView("HTTP") },
+            { LogType.Error, CreateLogObjectListView("Errors") },
+            { LogType.UI, CreateLogObjectListView("UI") }
+        };
 
-            // Add callbacks
-            Load += MainForm_Load;
+        // Set callbacks first (so we can get logs)
+        _logger.OnLogOutput += Log_OnLogOutput;
 
-            tcMain.SelectedIndexChanged += TcMain_SelectedIndexChanged;
+        // Initialize database
+        bool dbInitialized = await ProgressForm.ExecuteAsync(this, "Initializing database...", false, (form, cancellationToken) =>
+        {
+            try
+            {
+                FirstRun.InitializeDatabase(_services);
+                return Task.FromResult(true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return Task.FromResult(false);
+            }
+        });
+
+        if (!dbInitialized)
+        {
+            GUIHelper.Error(this, "Failed to load database.");
+            Close();
+            return;
         }
 
-        private object TextBoxLogLock { get; } = new object();
+        SettingManager = _services.GetRequiredService<SettingManager>();
+        FileHosterLoginManager = _services.GetRequiredService<FileHosterLoginManager>();
+        UploadPackageManager = _services.GetRequiredService<UploadPackageManager>();
 
-        private Dictionary<LogType, Tuple<FastObjectListView, List<LogListViewModel>>> LogObjectListViews { get; set; } = new();
+        _logger.Log(this, LogType.Status, "Database initialized.");
 
-        private Database Database => _db ?? throw new NullReferenceException(nameof(_db));
-        private Database? _db = null;
-
-        private async void MainForm_Load(object? sender, EventArgs e)
+        // Load settings
+        await ProgressForm.ExecuteAsync(this, "Loading settings...", false, async (form, cancellationToken) =>
         {
-            LogObjectListViews = new Dictionary<LogType, Tuple<FastObjectListView, List<LogListViewModel>>>
-            {
-                { LogType.Status, CreateLogObjectListView("Status") },
-                { LogType.Http, CreateLogObjectListView("HTTP") },
-                { LogType.Error, CreateLogObjectListView("Errors") },
-                { LogType.UI, CreateLogObjectListView("UI") }
-            };
+            await LoadSettingsAsync(cancellationToken);
+        });
 
-            // Set callbacks first (so we can get logs)
-            Logger.OnLogOutput += Log_OnLogOutput;
+        // Load previous uploads
+        await ProgressForm.ExecuteAsync(this, "Loading previous uploads...", false, async (form, cancellationToken) =>
+        {
+            await LoadUploadedAsync(cancellationToken);
+        });
 
-            // Load stuff
-            _db = await ProgressForm.ExecuteAsync(this, "Initializing database...", false, (form, cancellationToken) =>
-            {
-                // Initialize database
-                try
-                {
-                    return Task.FromResult<Database?>(FirstRun.InitializeDatabase());
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return Task.FromResult(null as Database);
-                }
-            });
+        _logger.Log(this, LogType.Status, "Settings loaded.");
 
-            if (_db == null)
+        if (!DidTabPageControlLoad(tpUploads))
+        {
+            MainForm_UploadsTabPage_Load(sender, e);
+        }
+
+        foreach (KeyValuePair<LogType, Tuple<FastObjectListView, List<LogListViewModel>>> objectListViewKeyValuePair in LogObjectListViews)
+        {
+            ObjectListView objectListView = objectListViewKeyValuePair.Value.Item1;
+
+            int remainingWidth = objectListView.Width - 25;  // remove scrollbar
+            remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[0], 115, remainingWidth);
+            remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[1], 200, remainingWidth);
+            remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[2], 250, remainingWidth);
+            remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[3], 74, remainingWidth);
+            remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[5], 62, remainingWidth);
+            SetColumnWidth(objectListView, objectListView.AllColumns[4], remainingWidth);
+        }
+
+        _logger.Log(this, LogType.Status, "MainForm loaded.");
+
+        TcMain_SelectedIndexChanged(tcMain, e);
+    }
+
+    private void ObjectListViewLog_MouseDoubleClick(object? sender, MouseEventArgs e)
+    {
+        if (sender is not ObjectListView objectListView)
+        {
+            return;
+        }
+
+        if (objectListView.SelectedObject != null)
+        {
+            if (objectListView.SelectedObject is not LogListViewModel listViewLogItem)
             {
-                GUIHelper.Error(this, "Failed to load database.");
-                Close();
                 return;
             }
 
-            Logger.Log(this, LogType.Status, $"Database initialized.");
+            // Don't block UI (don't show it as dialogue)
+            LogDetailsForm logDetailsForm = new(listViewLogItem);
+            logDetailsForm.Show();
+        }
+    }
 
-            // Load settings
-            await ProgressForm.ExecuteAsync(this, "Loading settings...", false, async (form, cancellationToken) =>
+    private void TcMain_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (sender is not TabControl tabControl)
+        {
+            return;
+        }
+
+        if (tabControl.SelectedTab == tpUpload)
+        {
+            if (!DidTabPageControlLoad(tpUpload))
             {
-                await LoadSettingsAsync(cancellationToken);
-            });
+                MainForm_UploadTabPage_Load(sender, e);
+            }
 
-            // Load previous uploads
-            await ProgressForm.ExecuteAsync(this, "Loading previous uploads...", false, async (form, cancellationToken) =>
-            {
-                await LoadUploadedAsync(cancellationToken);
-            });
-
-            Logger.Log(this, LogType.Status, "Settings loaded.");
-
+            MainForm_UploadTabPage_Focus(sender, e);
+        }
+        else if (tabControl.SelectedTab == tpUploads)
+        {
             if (!DidTabPageControlLoad(tpUploads))
             {
                 MainForm_UploadsTabPage_Load(sender, e);
             }
 
-            foreach (KeyValuePair<LogType, Tuple<FastObjectListView, List<LogListViewModel>>> objectListViewKeyValuePair in LogObjectListViews)
+            MainForm_UploadsTabPage_Focus(sender, e);
+        }
+        else if (tabControl.SelectedTab == tpSettings)
+        {
+            if (!DidTabPageControlLoad(tpSettings))
             {
-                ObjectListView objectListView = objectListViewKeyValuePair.Value.Item1;
-
-                int remainingWidth = objectListView.Width - 25;  // remove scrollbar
-                remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[0], 115, remainingWidth);
-                remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[1], 200, remainingWidth);
-                remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[2], 250, remainingWidth);
-                remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[3], 74, remainingWidth);
-                remainingWidth = SetColumnWidth(objectListView, objectListView.AllColumns[5], 62, remainingWidth);
-                SetColumnWidth(objectListView, objectListView.AllColumns[4], remainingWidth);
+                MainForm_SettingsTabPage_Load(sender, e);
             }
 
-            Logger.Log(this, LogType.Status, "MainForm loaded.");
+            MainForm_SettingsTabPage_Focus(sender, e);
+        }
+    }
 
-            TcMain_SelectedIndexChanged(tcMain, e);
+    private void Log_OnLogOutput(object? sender, LogEvent e)
+    {
+        if (InvokeRequired)
+        {
+            Invoke((MethodInvoker)delegate { Log_OnLogOutput(sender, e); });
+            return;
         }
 
-        private void ObjectListViewLog_MouseDoubleClick(object? sender, MouseEventArgs e)
+        // Write the output.
+        lock (TextBoxLogLock)
         {
-            if (sender is not ObjectListView objectListView)
+            LogListViewModel listViewLogItem = new()
             {
-                return;
-            }
-
-            if (objectListView.SelectedObject != null)
-            {
-                if (objectListView.SelectedObject is not LogListViewModel listViewLogItem)
-                {
-                    return;
-                }
-
-                // Don't block UI (don't show it as dialogue)
-                LogDetailsForm logDetailsForm = new(listViewLogItem);
-                logDetailsForm.Show();
-            }
-        }
-
-        private void TcMain_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (sender is not TabControl tabControl)
-            {
-                return;
-            }
-
-            if (tabControl.SelectedTab == tpUpload)
-            {
-                if (!DidTabPageControlLoad(tpUpload))
-                {
-                    MainForm_UploadTabPage_Load(sender, e);
-                }
-
-                MainForm_UploadTabPage_Focus(sender, e);
-            }
-            else if (tabControl.SelectedTab == tpUploads)
-            {
-                if (!DidTabPageControlLoad(tpUploads))
-                {
-                    MainForm_UploadsTabPage_Load(sender, e);
-                }
-
-                MainForm_UploadsTabPage_Focus(sender, e);
-            }
-            else if (tabControl.SelectedTab == tpSettings)
-            {
-                if (!DidTabPageControlLoad(tpSettings))
-                {
-                    MainForm_SettingsTabPage_Load(sender, e);
-                }
-
-                MainForm_SettingsTabPage_Focus(sender, e);
-            }
-        }
-
-        private void Log_OnLogOutput(object? sender, LogEvent e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke((MethodInvoker)delegate { Log_OnLogOutput(sender, e); });
-                return;
-            }
-
-            // Write the output.
-            lock (TextBoxLogLock)
-            {
-                LogListViewModel listViewLogItem = new()
-                {
-                    LogType = e.LogType,
-                    DateTime = e.DateTime,
-                    Filename = e.Filename,
-                    Function = e.Function,
-                    LineNumber = e.LineNumber,
-                    Message = e.Message,
-                    ThreadId = e.ThreadId
-                };
-                AddLogListViewModel(listViewLogItem);
-            }
-        }
-
-        private void AddLogListViewModel(LogListViewModel logListViewModel)
-        {
-            // Check listview to add item to
-            if (!LogObjectListViews.TryGetValue(logListViewModel.LogType, out Tuple<FastObjectListView, List<LogListViewModel>>? kvp))
-            {
-                string? logTypeStr = Enum.GetName(typeof(LogType), logListViewModel.LogType);
-                MessageBox.Show($"No list view found for log type `{logTypeStr}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            // Add item to listview
-            kvp.Item2.Add(logListViewModel);
-            kvp.Item1.SetObjects(kvp.Item2);
-
-            if (cbLogAutoScroll.Checked)
-            {
-                // Auto scroll to last added entry
-                kvp.Item1.EnsureModelVisible(logListViewModel);
-            }
-        }
-
-        private static int SetColumnWidth(ObjectListView objectListView, OLVColumn column, int width, int? maxWidth = null)
-        {
-            objectListView.AllColumns.First(c => ReferenceEquals(c, column)).Width = width;
-            return maxWidth.HasValue ? maxWidth.Value - width : width;
-        }
-
-        private bool DidTabPageControlLoad(TabPage tabPage)
-        {
-            return !tabPageControlsLoaded.Add(tabPage);
-        }
-
-        private Tuple<FastObjectListView, List<LogListViewModel>> CreateLogObjectListView(string name)
-        {
-            TabPage logTabPage = new(name);
-
-            FastObjectListView fastObjectListView = new()
-            {
-                Name = $"objectListViewLog{name}",
-                BackColor = Color.FromArgb(244, 252, 254),
-                GridLines = true,
-                Dock = DockStyle.Fill,
-                FullRowSelect = true,
-                LabelWrap = false,
-                Location = new Point(3, 3),
-                MultiSelect = false,
-                Size = new Size(1255, 229),
-                View = View.Details,
-                HeaderFormatStyle = tlvHeaderFormatStyle,
-                UseAlternatingBackColors = true,
-                AlternateRowBackColor = Color.FromArgb(239, 246, 248),
-                ShowGroups = false
+                LogType = e.LogType,
+                DateTime = e.DateTime,
+                Filename = e.Filename,
+                Function = e.Function,
+                LineNumber = e.LineNumber,
+                Message = e.Message,
+                ThreadId = e.ThreadId
             };
+            AddLogListViewModel(listViewLogItem);
+        }
+    }
 
-            fastObjectListView.AllColumns.AddRange(new[]
+    private void AddLogListViewModel(LogListViewModel logListViewModel)
+    {
+        // Check listview to add item to
+        if (!LogObjectListViews.TryGetValue(logListViewModel.LogType, out Tuple<FastObjectListView, List<LogListViewModel>>? kvp))
+        {
+            string? logTypeStr = Enum.GetName(typeof(LogType), logListViewModel.LogType);
+            MessageBox.Show($"No list view found for log type `{logTypeStr}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        // Add item to listview
+        kvp.Item2.Add(logListViewModel);
+        kvp.Item1.SetObjects(kvp.Item2);
+
+        if (cbLogAutoScroll.Checked)
+        {
+            // Auto scroll to last added entry
+            kvp.Item1.EnsureModelVisible(logListViewModel);
+        }
+    }
+
+    private static int SetColumnWidth(ObjectListView objectListView, OLVColumn column, int width, int? maxWidth = null)
+    {
+        objectListView.AllColumns.First(c => ReferenceEquals(c, column)).Width = width;
+        return maxWidth.HasValue ? maxWidth.Value - width : width;
+    }
+
+    private bool DidTabPageControlLoad(TabPage tabPage)
+    {
+        return !tabPageControlsLoaded.Add(tabPage);
+    }
+
+    private Tuple<FastObjectListView, List<LogListViewModel>> CreateLogObjectListView(string name)
+    {
+        TabPage logTabPage = new(name);
+
+        FastObjectListView fastObjectListView = new()
+        {
+            Name = $"objectListViewLog{name}",
+            BackColor = Color.FromArgb(244, 252, 254),
+            GridLines = true,
+            Dock = DockStyle.Fill,
+            FullRowSelect = true,
+            LabelWrap = false,
+            Location = new Point(3, 3),
+            MultiSelect = false,
+            Size = new Size(1255, 229),
+            View = View.Details,
+            HeaderFormatStyle = tlvHeaderFormatStyle,
+            UseAlternatingBackColors = true,
+            AlternateRowBackColor = Color.FromArgb(239, 246, 248),
+            ShowGroups = false
+        };
+
+        fastObjectListView.AllColumns.AddRange(
+        [
+            new OLVColumn
             {
-                new OLVColumn
+                Name = $"columnHeaderLog{name}DateTime",
+                Text = "Date/time",
+                Width = 74,
+                AspectGetter = (object rowObject) => ((LogListViewModel)rowObject).DateTime.ToString("yyyy/MM/dd HH:mm:ss")
+            },
+            new OLVColumn
+            {
+                Name = $"columnHeaderLog{name}FileName",
+                Text = "File name",
+                Width = 117,
+                AspectName = nameof(LogListViewModel.Filename)
+            },
+            new OLVColumn
+            {
+                Name = $"columnHeaderLog{name}Function",
+                Text = "Function",
+                Width = 97,
+                AspectName = nameof(LogListViewModel.Function)
+            },
+            new OLVColumn
+            {
+                Name = $"columnHeaderLog{name}LineNumber",
+                Text = "Line number",
+                Width = 77,
+                AspectName = nameof(LogListViewModel.LineNumber)
+            },
+            new OLVColumn
+            {
+                Name = $"columnHeaderLog{name}Message",
+                Text = "Message",
+                Width = 666,
+                AspectGetter = (object rowObject) =>
                 {
-                    Name = $"columnHeaderLog{name}DateTime",
-                    Text = "Date/time",
-                    Width = 74,
-                    AspectGetter = (object rowObject) => ((LogListViewModel)rowObject).DateTime.ToString("yyyy/MM/dd HH:mm:ss")
-                },
-                new OLVColumn
-                {
-                    Name = $"columnHeaderLog{name}FileName",
-                    Text = "File name",
-                    Width = 117,
-                    AspectName = nameof(LogListViewModel.Filename)
-                },
-                new OLVColumn
-                {
-                    Name = $"columnHeaderLog{name}Function",
-                    Text = "Function",
-                    Width = 97,
-                    AspectName = nameof(LogListViewModel.Function)
-                },
-                new OLVColumn
-                {
-                    Name = $"columnHeaderLog{name}LineNumber",
-                    Text = "Line number",
-                    Width = 77,
-                    AspectName = nameof(LogListViewModel.LineNumber)
-                },
-                new OLVColumn
-                {
-                    Name = $"columnHeaderLog{name}Message",
-                    Text = "Message",
-                    Width = 666,
-                    AspectGetter = (object rowObject) =>
+                    if (rowObject is not LogListViewModel m || string.IsNullOrEmpty(m.Message))
                     {
-                        if (rowObject is not LogListViewModel m || string.IsNullOrEmpty(m.Message))
-                        {
-                            return null;
-                        }
-
-                        string message = m.Message;
-                        if (message.Contains(Environment.NewLine))
-                        {
-                            string[] messages = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                            if (messages.Any())
-                            {
-                                message = messages.First();
-                            }
-
-                            message = $"{message} (Double click log message to see details)";
-                        }
-                        else if (message.Length > 200)
-                        {
-                            message = message[..200];
-                        }
-
-                        return message;
+                        return null;
                     }
-                },
-                new OLVColumn
-                {
-                    Name = $"columnHeaderLog{name}ThreadId",
-                    Text = "Thread ID",
-                    Width = 66,
-                    AspectName = nameof(LogListViewModel.ThreadId)
+
+                    string message = m.Message;
+                    if (message.Contains(Environment.NewLine, StringComparison.Ordinal))
+                    {
+                        string[] messages = message.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                        if (messages.Length != 0)
+                        {
+                            message = messages.First();
+                        }
+
+                        message = $"{message} (Double click log message to see details)";
+                    }
+                    else if (message.Length > 200)
+                    {
+                        message = message[..200];
+                    }
+
+                    return message;
                 }
-            });
-
-            fastObjectListView.MouseDoubleClick += ObjectListViewLog_MouseDoubleClick;
-
-            fastObjectListView.RebuildColumns();
-
-            List<LogListViewModel> models = new();
-            fastObjectListView.SetObjects(models);
-
-            logTabPage.Controls.Add(fastObjectListView);
-            tcFilesLogs.TabPages.Add(logTabPage);
-
-            return new Tuple<FastObjectListView, List<LogListViewModel>>(fastObjectListView, models);
-        }
-
-        private void BtnUploads_MouseEnter(object sender, EventArgs e)
-        {
-            if (sender is not Button button)
+            },
+            new OLVColumn
             {
-                return;
+                Name = $"columnHeaderLog{name}ThreadId",
+                Text = "Thread ID",
+                Width = 66,
+                AspectName = nameof(LogListViewModel.ThreadId)
             }
+        ]);
 
-            button.FlatStyle = FlatStyle.Popup;
-        }
+        fastObjectListView.MouseDoubleClick += ObjectListViewLog_MouseDoubleClick;
 
-        private void BtnUploads_MouseLeave(object sender, EventArgs e)
+        fastObjectListView.RebuildColumns();
+
+        List<LogListViewModel> models = [];
+        fastObjectListView.SetObjects(models);
+
+        logTabPage.Controls.Add(fastObjectListView);
+        tcFilesLogs.TabPages.Add(logTabPage);
+
+        return new Tuple<FastObjectListView, List<LogListViewModel>>(fastObjectListView, models);
+    }
+
+    private void BtnUploads_MouseEnter(object sender, EventArgs e)
+    {
+        if (sender is not Button button)
         {
-            if (sender is not Button button)
-            {
-                return;
-            }
-
-            button.FlatStyle = FlatStyle.Flat;
+            return;
         }
+
+        button.FlatStyle = FlatStyle.Popup;
+    }
+
+    private void BtnUploads_MouseLeave(object sender, EventArgs e)
+    {
+        if (sender is not Button button)
+        {
+            return;
+        }
+
+        button.FlatStyle = FlatStyle.Flat;
     }
 }

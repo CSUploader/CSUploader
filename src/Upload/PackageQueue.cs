@@ -5,99 +5,98 @@
 
 using System.Diagnostics.CodeAnalysis;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class PackageQueue
 {
-    public class PackageQueue
+    private readonly object lockObject = new();
+
+    private readonly LinkedList<PackageQueueItem> queue = new();
+
+    public void Enqueue(PackageJob packageJob, PackageDetails packageDetails)
     {
-        private readonly object lockObject = new();
-
-        private readonly LinkedList<PackageQueueItem> queue = new();
-
-        public void Enqueue(PackageJob packageJob, PackageDetails packageDetails)
+        lock (lockObject)
         {
-            lock (lockObject)
+            // Check if item is already queued
+            if (queue.Any(i => ReferenceEquals(i.PackageDetails, packageDetails)))
             {
-                // Check if item is already queued
-                if (queue.Any(i => ReferenceEquals(i.PackageDetails, packageDetails)))
-                {
-                    return;
-                }
-
-                PackageQueueItem queueItem = new(packageDetails, packageJob);
-                
-                queue.AddLast(queueItem);
-
                 return;
+            }
+
+            PackageQueueItem queueItem = new(packageDetails, packageJob);
+            
+            queue.AddLast(queueItem);
+
+            return;
+        }
+    }
+
+    public bool TryDequeue<T>(PackageJob packageJob, [NotNullWhen(true)] out T? package)
+        where T : class
+    {
+        package = null;
+
+        lock (lockObject)
+        {
+            PackageQueueItem? queueItem = null;
+            foreach (PackageQueueItem item in queue.Where(i => i.PackageJob == packageJob && i.PackageDetails is T))
+            {
+                if (queueItem == null || item.PackageDetails.Priority > queueItem.PackageDetails.Priority)
+                {
+                    queueItem = item;
+                }
+            }
+
+            if (queueItem != null)
+            {
+                package = queueItem.PackageDetails as T;
+                if (package != null)
+                {
+                    queue.Remove(queueItem);
+                    return true;
+                }
             }
         }
 
-        public bool TryDequeue<T>(PackageJob packageJob, [NotNullWhen(true)] out T? package)
-            where T : class
+        return false;
+    }
+
+    public bool Remove(PackageDetails packageDetails)
+    {
+        lock (lockObject)
         {
-            package = null;
-
-            lock (lockObject)
+            PackageQueueItem? item = queue.FirstOrDefault(i => ReferenceEquals(i.PackageDetails, packageDetails));
+            if (item != null)
             {
-                PackageQueueItem? queueItem = null;
-                foreach (PackageQueueItem item in queue.Where(i => i.PackageJob == packageJob && i.PackageDetails is T))
-                {
-                    if (queueItem == null || item.PackageDetails.Priority > queueItem.PackageDetails.Priority)
-                    {
-                        queueItem = item;
-                    }
-                }
-
-                if (queueItem != null)
-                {
-                    package = queueItem.PackageDetails as T;
-                    if (package != null)
-                    {
-                        queue.Remove(queueItem);
-                        return true;
-                    }
-                }
+                queue.Remove(item);
+                return true;
             }
 
             return false;
         }
+    }
 
-        public bool Remove(PackageDetails packageDetails)
+    public bool IsQueued(PackageDetails packageDetails)
+    {
+        lock (lockObject)
         {
-            lock (lockObject)
-            {
-                PackageQueueItem? item = queue.FirstOrDefault(i => ReferenceEquals(i.PackageDetails, packageDetails));
-                if (item != null)
-                {
-                    queue.Remove(item);
-                    return true;
-                }
-
-                return false;
-            }
+            return queue.Any(i => ReferenceEquals(i.PackageDetails, packageDetails));
         }
+    }
 
-        public bool IsQueued(PackageDetails packageDetails)
+    public bool Any(Func<PackageDetails, bool> action)
+    {
+        lock (lockObject)
         {
-            lock (lockObject)
-            {
-                return queue.Any(i => ReferenceEquals(i.PackageDetails, packageDetails));
-            }
+            return queue.Any(i => action(i.PackageDetails));
         }
+    }
 
-        public bool Any(Func<PackageDetails, bool> action)
+    public int Count(PackageJob packageJob)
+    {
+        lock (lockObject)
         {
-            lock (lockObject)
-            {
-                return queue.Any(i => action(i.PackageDetails));
-            }
-        }
-
-        public int Count(PackageJob packageJob)
-        {
-            lock (lockObject)
-            {
-                return queue.Count(i => i.PackageJob == packageJob);
-            }
+            return queue.Count(i => i.PackageJob == packageJob);
         }
     }
 }

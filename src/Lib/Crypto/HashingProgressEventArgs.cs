@@ -3,13 +3,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Lib.Crypto
+namespace CSUploader.Lib.Crypto;
+
+public class HashingProgressEventArgs : OperationProgressEventArgs
 {
-    public class HashingProgressEventArgs : OperationProgressEventArgs
+    public HashingProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
+        : base(size, bytesProcessed, dateTimeStarted)
     {
-        public HashingProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
-            : base(size, bytesProcessed, dateTimeStarted)
-        {
-        }
     }
 }

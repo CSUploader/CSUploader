@@ -3,43 +3,42 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+public class FolderFolder
 {
-    public class FolderFolder
-    {
-        [JsonProperty("folder_id")]
-        public int Id { get; set; }
+    [JsonPropertyName("folder_id")]
+    public int Id { get; set; }
 
-        [JsonProperty("mode")]
-        public int Mode { get; set; }
+    [JsonPropertyName("mode")]
+    public int Mode { get; set; }
 
-        [JsonProperty("mode_label")]
-        public string? ModeLabel { get; set; }
+    [JsonPropertyName("mode_label")]
+    public string? ModeLabel { get; set; }
 
-        [JsonProperty("parent_folder_id")]
-        public int? ParentFolderId { get; set; }
+    [JsonPropertyName("parent_folder_id")]
+    public int? ParentFolderId { get; set; }
 
-        [JsonProperty("name")]
-        public string? Name { get; set; }
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
-        [JsonProperty("url")]
-        public string? Url { get; set; }
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 
-        [JsonProperty("nb_folders")]
-        public int? NBFolders { get; set; }
+    [JsonPropertyName("nb_folders")]
+    public int? NBFolders { get; set; }
 
-        [JsonProperty("nb_files")]
-        public int? NBFiles { get; set; }
+    [JsonPropertyName("nb_files")]
+    public int? NBFiles { get; set; }
 
-        [JsonProperty("size_files")]
-        public int? SizeFiles { get; set; }
+    [JsonPropertyName("size_files")]
+    public int? SizeFiles { get; set; }
 
-        [JsonProperty("created")]
-        public long Created { get; set; }
+    [JsonPropertyName("created")]
+    public long Created { get; set; }
 
-        [JsonProperty("folders")]
-        public FolderFolder[] Folders { get; set; } = Array.Empty<FolderFolder>();
-    }
+    [JsonPropertyName("folders")]
+    public FolderFolder[] Folders { get; set; } = [];
 }

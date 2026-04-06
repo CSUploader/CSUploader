@@ -3,16 +3,15 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+public class UserStorage
 {
-    public class UserStorage
-    {
-        [JsonProperty("total")]
-        public long? Total { get; set; }
+    [JsonPropertyName("total")]
+    public long? Total { get; set; }
 
-        [JsonProperty("left")]
-        public long? Left { get; set; }
-    }
+    [JsonPropertyName("left")]
+    public long? Left { get; set; }
 }

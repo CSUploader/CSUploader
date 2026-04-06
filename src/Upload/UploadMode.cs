@@ -3,23 +3,22 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public enum UploadMode
 {
-    public enum UploadMode
-    {
-        /// <summary>
-        /// Free mode
-        /// </summary>
-        Free,
+    /// <summary>
+    /// Free mode
+    /// </summary>
+    Free,
 
-        /// <summary>
-        /// Registered mode
-        /// </summary>
-        Registered,
+    /// <summary>
+    /// Registered mode
+    /// </summary>
+    Registered,
 
-        /// <summary>
-        /// Premium mode
-        /// </summary>
-        Premium
-    }
+    /// <summary>
+    /// Premium mode
+    /// </summary>
+    Premium
 }

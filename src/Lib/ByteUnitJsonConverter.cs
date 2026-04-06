@@ -1,103 +1,37 @@
-﻿// <copyright file="ByteUnitJsonConverter.cs" company="CSUploader">
+// <copyright file="ByteUnitJsonConverter.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Lib
+namespace CSUploader.Lib;
+
+public class ByteUnitJsonConverter : JsonConverter<ByteUnit>
 {
-    public class ByteUnitJsonConverter : JsonConverter
+    public override ByteUnit? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        public ByteUnitJsonConverter()
+        if (reader.TokenType == JsonTokenType.String)
         {
-        }
-
-        public ByteUnitJsonConverter(object parameters)
-        {
-            switch (parameters)
-            {
-                case ByteUnitSymbol[] byteUnitSymbols:
-                    ByteUnitSymbol = byteUnitSymbols.First();
-                    break;
-
-                case ByteUnitPrefix[] byteUnitPrefixes:
-                    ByteUnitPrefix = byteUnitPrefixes.First();
-                    break;
-            }
-        }
-
-        private ByteUnitSymbol? ByteUnitSymbol { get; set; }
-
-        private ByteUnitPrefix? ByteUnitPrefix { get; set; }
-
-        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-        {
-            if (reader.Value is ByteUnit byteUnit)
+            string? value = reader.GetString();
+            if (value != null && ByteUnit.TryParseSize(value, out ByteUnit? byteUnit))
             {
                 return byteUnit;
             }
-
-            if (reader.Value is string value)
-            {
-                if (ByteUnit.TryParseSize(value, out ByteUnit? byteUnit2))
-                {
-                    return byteUnit2;
-                }
-            }
-
-            try
-            {
-                double bytes = Convert.ToDouble(reader.Value);
-                if (ByteUnitSymbol.HasValue)
-                {
-                    return new ByteUnit(bytes, ByteUnitSymbol.Value);
-                }
-
-                if (ByteUnitPrefix.HasValue)
-                {
-                    return new ByteUnit(bytes, ByteUnitPrefix.Value);
-                }
-
-                return new ByteUnit(bytes, Lib.ByteUnitSymbol.B);
-            }
-            catch
-            {
-                return existingValue;
-            }
         }
 
-        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+        if (reader.TokenType == JsonTokenType.Number)
         {
-            if (value is ByteUnit byteUnit)
-            {
-                writer.WriteValue(byteUnit.ToFriendlyString());
-            }
+            double bytes = reader.GetDouble();
+            return new ByteUnit(bytes, ByteUnitSymbol.B);
         }
 
-        public override bool CanConvert(Type objectType)
-        {
-            return objectType == typeof(ByteUnit) ||
-                objectType == typeof(double) ||
-                objectType == typeof(double?) ||
-                objectType == typeof(float) ||
-                objectType == typeof(float?) ||
-                objectType == typeof(long) ||
-                objectType == typeof(long?) ||
-                objectType == typeof(ulong) ||
-                objectType == typeof(ulong?) ||
-                objectType == typeof(int) ||
-                objectType == typeof(int?) ||
-                objectType == typeof(uint) ||
-                objectType == typeof(uint?) ||
-                objectType == typeof(short) ||
-                objectType == typeof(short?) ||
-                objectType == typeof(ushort) ||
-                objectType == typeof(ushort?) ||
-                objectType == typeof(byte) ||
-                objectType == typeof(byte?) ||
-                objectType == typeof(sbyte) ||
-                objectType == typeof(sbyte?);
-            }
+        return null;
+    }
+
+    public override void Write(Utf8JsonWriter writer, ByteUnit value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToFriendlyString());
     }
 }

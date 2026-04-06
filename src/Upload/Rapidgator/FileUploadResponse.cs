@@ -3,13 +3,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+public class FileUploadResponse
 {
-    public class FileUploadResponse
-    {
-        [JsonProperty("upload")]
-        public FileUpload? Upload { get; set; }
-    }
+    [JsonPropertyName("upload")]
+    public FileUpload? Upload { get; set; }
 }

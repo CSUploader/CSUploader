@@ -6,25 +6,24 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
-namespace CSUploader.Extensions
+namespace CSUploader.Lib.Extensions;
+
+public static class JsonHelpers
 {
-    public static class JsonHelpers
+    public static bool TryDeserializeObject<T>(string value, [NotNullWhen(true)] out T? result)
+        where T : class, new()
     {
-        public static bool TryDeserializeObject<T>(string value, [NotNullWhen(true)] out T? result)
-            where T : class, new()
+        try
         {
-            try
-            {
-                result = JsonSerializer.Deserialize<T>(value);
+            result = JsonSerializer.Deserialize<T>(value);
 
-                return result != null;
-            }
-            catch
-            {
-                result = null;
+            return result != null;
+        }
+        catch
+        {
+            result = null;
 
-                return false;
-            }
+            return false;
         }
     }
 }

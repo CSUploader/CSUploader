@@ -3,12 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
-{
-    public enum AccountType
-    {
-        Free,
+namespace CSUploader.Upload;
 
-        Premium
-    }
+public enum AccountType
+{
+    Free,
+
+    Premium
 }

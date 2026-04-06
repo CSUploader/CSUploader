@@ -3,18 +3,17 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Lib.Net
-{
-    public enum Protocol
-    {
-        /// <summary>
-        /// HTTP/HTTPS
-        /// </summary>
-        Http,
+namespace CSUploader.Lib.Net;
 
-        /// <summary>
-        /// FTP
-        /// </summary>
-        Ftp
-    }
+public enum Protocol
+{
+    /// <summary>
+    /// HTTP/HTTPS
+    /// </summary>
+    Http,
+
+    /// <summary>
+    /// FTP
+    /// </summary>
+    Ftp
 }

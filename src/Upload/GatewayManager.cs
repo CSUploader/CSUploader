@@ -3,9 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class GatewayManager
 {
-    public class GatewayManager
-    {
-    }
 }

@@ -7,23 +7,22 @@ using System.Net;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class FileHosterUploadProgressEventArgs : ProtocolUploadProgressEventArgs
 {
-    public class FileHosterUploadProgressEventArgs : ProtocolUploadProgressEventArgs
+    public FileHosterUploadProgressEventArgs(HttpUploadProgressEventArgs e)
+        : base(e.Size, e.BytesProcessed, e.DateTimeStarted)
     {
-        public FileHosterUploadProgressEventArgs(HttpUploadProgressEventArgs e)
-            : base(e.Size, e.BytesProcessed, e.DateTimeStarted)
-        {
-        }
+    }
 
-        public FileHosterUploadProgressEventArgs(DateTime startDateTime, UploadProgressChangedEventArgs e)
-            : base(e.TotalBytesToSend, e.BytesSent, startDateTime)
-        {
-        }
+    public FileHosterUploadProgressEventArgs(DateTime startDateTime, UploadProgressChangedEventArgs e)
+        : base(e.TotalBytesToSend, e.BytesSent, startDateTime)
+    {
+    }
 
-        public FileHosterUploadProgressEventArgs(long size, long bytesUploaded, DateTime dateTimeStarted)
-            : base(size, bytesUploaded, dateTimeStarted)
-        {
-        }
+    public FileHosterUploadProgressEventArgs(long size, long bytesUploaded, DateTime dateTimeStarted)
+        : base(size, bytesUploaded, dateTimeStarted)
+    {
     }
 }

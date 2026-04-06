@@ -6,41 +6,40 @@
 using BrightIdeasSoftware;
 using System.Collections;
 
-namespace CSUploader.Components
+namespace CSUploader.Controls;
+
+public class MultiImageTextRenderer : BaseRenderer
 {
-    public class MultiImageTextRenderer : BaseRenderer
+    public MultiImageTextRenderer()
     {
-        public MultiImageTextRenderer()
+    }
+
+    public override void Render(Graphics g, Rectangle r)
+    {
+        DrawBackground(g, r);
+
+        object imageSelector = OLVSubItem.ImageSelector;
+
+        int offset = 0;
+        if (imageSelector is ICollection collection)
         {
+            // We want the first icons to line up
+            // DrawImages() calculates the .X with 1 pixel padding
+            // Remove it here so the .X lines with all other first images
+            r.X -= 1;
+            offset = DrawImages(g, r, collection);
+        }
+        else if (imageSelector is Image image)
+        {
+            offset = DrawImage(g, r, image);
         }
 
-        public override void Render(Graphics g, Rectangle r)
+        if (Aspect is string text && !string.IsNullOrEmpty(text))
         {
-            DrawBackground(g, r);
+            r.X += offset;
+            r.Width -= offset;
 
-            object imageSelector = OLVSubItem.ImageSelector;
-
-            int offset = 0;
-            if (imageSelector is ICollection collection)
-            {
-                // We want the first icons to line up
-                // DrawImages() calculates the .X with 1 pixel padding
-                // Remove it here so the .X lines with all other first images
-                r.X -= 1;
-                offset = DrawImages(g, r, collection);
-            }
-            else if (imageSelector is Image image)
-            {
-                offset = DrawImage(g, r, image);
-            }
-
-            if (Aspect is string text && !string.IsNullOrEmpty(text))
-            {
-                r.X += offset;
-                r.Width -= offset;
-
-                DrawText(g, r, text);
-            }
+            DrawText(g, r, text);
         }
     }
 }

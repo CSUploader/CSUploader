@@ -6,16 +6,15 @@
 using CSUploader.Dal;
 using CSUploader.Upload;
 
-namespace CSUploader.Controls.Models
+namespace CSUploader.Controls.Models;
+
+public class FileHosterListViewModel
 {
-    public class FileHosterListViewModel
-    {
-        public bool Use { get; set; }
+    public bool Use { get; set; }
 
-        public FileHosterClient? FileHoster { get; set; }
+    public FileHosterClient? FileHoster { get; set; }
 
-        public FileHosterLoginDto[] Accounts { get; set; } = Array.Empty<FileHosterLoginDto>();
+    public FileHosterLoginDto[] Accounts { get; set; } = [];
 
-        public FileHosterLoginDto? SelectedAccount { get; set; }
-    }
+    public FileHosterLoginDto? SelectedAccount { get; set; }
 }

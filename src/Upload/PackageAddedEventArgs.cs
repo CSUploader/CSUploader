@@ -3,18 +3,17 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-namespace CSUploader.Upload
+namespace CSUploader.Upload;
+
+public class PackageAddedEventArgs : EventArgs
 {
-    public class PackageAddedEventArgs : EventArgs
+    public PackageAddedEventArgs(PackageDetails? parentPackage, PackageDetails[] childPackages)
     {
-        public PackageAddedEventArgs(PackageDetails? parentPackage, PackageDetails[] childPackages)
-        {
-            ParentPackage = parentPackage;
-            ChildPackages = childPackages;
-        }
-
-        public PackageDetails? ParentPackage { get; private set; }
-
-        public PackageDetails[] ChildPackages { get; private set; }
+        ParentPackage = parentPackage;
+        ChildPackages = childPackages;
     }
+
+    public PackageDetails? ParentPackage { get; private set; }
+
+    public PackageDetails[] ChildPackages { get; private set; }
 }

@@ -1,4 +1,4 @@
-﻿// <copyright file="UploadPackageFileDbm.cs" company="CSUploader">
+// <copyright file="UploadPackageFileDbm.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -6,42 +6,38 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace CSUploader.Dal
+namespace CSUploader.Dal;
+
+[Table("UploadPackageFile")]
+public class UploadPackageFileDbm
 {
-    [Table("UploadPackageFile")]
-    public partial class UploadPackageFileDbm
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public int Id { get; set; }
 
-        [Required]
-        public string? FileName { get; set; }
+    [Required]
+    public string FileName { get; set; } = string.Empty;
 
-        [Required]
-        public string? FileDirectory { get; set; }
+    [Required]
+    public string FileDirectory { get; set; } = string.Empty;
 
-        [Required]
-        public string? FileSize { get; set; }
+    public long FileSize { get; set; }
 
-        [Required]
-        public string? FileHoster { get; set; }
+    [Required]
+    public string FileHoster { get; set; } = string.Empty;
 
-        [Required]
-        public DateTime StartDateTime { get; set; }
+    public DateTime StartDateTime { get; set; }
 
-        [Required]
-        public DateTime FInishedDateTime { get; set; }
+    public DateTime FinishedDateTime { get; set; }
 
-        [Required]
-        public string? CompressionPassword { get; set; }
+    [Required]
+    public string CompressionPassword { get; set; } = string.Empty;
 
-        [Required]
-        public string? FileUrl { get; set; }
+    [Required]
+    public string FileUrl { get; set; } = string.Empty;
 
-        [Required]
-        public string? FileHosterName { get; set; }
+    [Required]
+    public string FileHosterName { get; set; } = string.Empty;
 
-        public virtual UploadPackageDbm? Package { get; set; }
-    }
+    public UploadPackageDbm? Package { get; set; }
 }

@@ -1,38 +1,37 @@
-﻿// <copyright file="SecondsTimespanConverter.cs" company="CSUploader">
+// <copyright file="SecondsTimespanConverter.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Extensions
+namespace CSUploader.Lib.Extensions;
+
+public class SecondsTimespanConverter : JsonConverter<TimeSpan>
 {
-    public class SecondsTimespanConverter : JsonConverter<TimeSpan>
+    public override TimeSpan Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        public override TimeSpan ReadJson(JsonReader reader, Type objectType, TimeSpan existingValue, bool hasExistingValue, JsonSerializer serializer)
+        if (reader.TokenType == JsonTokenType.String)
         {
-            if (reader.Value is string value)
+            string? value = reader.GetString();
+            if (value != null && double.TryParse(value, out double seconds))
             {
-                if (double.TryParse(value, out double seconds))
-                {
-                    return TimeSpan.FromSeconds(seconds);
-                }
-            }
-
-            try
-            {
-                double seconds = Convert.ToDouble(reader.Value);
                 return TimeSpan.FromSeconds(seconds);
             }
-            catch
-            {
-                return existingValue;
-            }
         }
 
-        public override void WriteJson(JsonWriter writer, TimeSpan value, JsonSerializer serializer)
+        if (reader.TokenType == JsonTokenType.Number)
         {
-            writer.WriteValue(value.ToString());
+            double seconds = reader.GetDouble();
+            return TimeSpan.FromSeconds(seconds);
         }
+
+        return default;
+    }
+
+    public override void Write(Utf8JsonWriter writer, TimeSpan value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString());
     }
 }

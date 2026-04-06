@@ -5,20 +5,19 @@
 
 using CSUploader.Upload;
 
-namespace CSUploader.Dal
+namespace CSUploader.Dal;
+
+public class FileHosterLoginDto
 {
-    public partial class FileHosterLoginDto
-    {
-        public int Id { get; set; }
+    public int Id { get; set; }
 
-        public string? FileHosterName { get; set; }
+    public string? FileHosterName { get; set; }
 
-        public string? Username { get; set; }
+    public string? Username { get; set; }
 
-        public string? Password { get; set; }
+    public string? Password { get; set; }
 
-        public bool Disabled { get; set; }
+    public bool Disabled { get; set; }
 
-        public AccountType AccountType { get; set; }
-    }
+    public AccountType AccountType { get; set; }
 }

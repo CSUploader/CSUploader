@@ -5,25 +5,24 @@
 
 using System.Runtime.InteropServices;
 
-namespace CSUploader.Extensions
+namespace CSUploader.Lib.Extensions;
+
+internal static class NativeMethods
 {
-    internal static class NativeMethods
+    private const uint SWP_NOSIZE = 0x0001;
+
+    private const uint SWP_NOMOVE = 0x0002;
+
+    private const uint TOPMOST_FLAGS = SWP_NOMOVE | SWP_NOSIZE;
+
+    private static readonly nint HWND_TOPMOST = new(-1);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(nint hWnd, nint hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    public static bool AlwaysOnTop(this Form form, bool alwaysOnTop)
     {
-        private const uint SWP_NOSIZE = 0x0001;
-
-        private const uint SWP_NOMOVE = 0x0002;
-
-        private const uint TOPMOST_FLAGS = SWP_NOMOVE | SWP_NOSIZE;
-
-        private static readonly IntPtr HWND_TOPMOST = new(-1);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-        public static bool AlwaysOnTop(this Form form, bool alwaysOnTop)
-        {
-            return SetWindowPos(form.Handle, HWND_TOPMOST, 0, 0, 0, 0, TOPMOST_FLAGS);
-        }
+        return SetWindowPos(form.Handle, HWND_TOPMOST, 0, 0, 0, 0, TOPMOST_FLAGS);
     }
 }

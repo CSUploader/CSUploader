@@ -3,55 +3,69 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Data.Common;
-using System.Data.Entity;
-using System.Diagnostics.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
 
-namespace CSUploader.Dal
+namespace CSUploader.Dal;
+
+public class CSUploaderDbContext : DbContext
 {
-    public class CSUploaderDbContext : DbContext
+    private static readonly string DefaultDbPath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory,
+        "CSUploader.db");
+
+    public CSUploaderDbContext()
     {
-        public CSUploaderDbContext()
-            : this("CSUploaderDb")
+    }
+
+    public CSUploaderDbContext(DbContextOptions<CSUploaderDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<SettingDbm> Settings => Set<SettingDbm>();
+
+    public DbSet<FileHosterLoginDbm> FileHosterLogins => Set<FileHosterLoginDbm>();
+
+    public DbSet<UploadPackageDbm> UploadPackages => Set<UploadPackageDbm>();
+
+    public DbSet<UploadPackageFileDbm> UploadPackageFiles => Set<UploadPackageFileDbm>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        if (!optionsBuilder.IsConfigured)
         {
-            Configure();
+            optionsBuilder.UseSqlite($"Data Source={DefaultDbPath}");
         }
+    }
 
-        public CSUploaderDbContext(string nameOrConnectionString)
-            : base(nameOrConnectionString)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FileHosterLoginDbm>(entity =>
         {
-            Configure();
-        }
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AccountType)
+                .HasConversion<int>();
+        });
 
-        public CSUploaderDbContext(DbConnection connection, bool contextOwnsConnection)
-            : base(connection, contextOwnsConnection)
+        modelBuilder.Entity<SettingDbm>(entity =>
         {
-            Configure();
-        }
+            entity.HasKey(e => e.Id);
+        });
 
-        [NotNull]
-        public virtual DbSet<SettingDbm>? Settings { get; set; }
-
-        [NotNull]
-        public virtual DbSet<FileHosterLoginDbm>? FileHosterLogins { get; set; }
-
-        [NotNull]
-        public virtual DbSet<UploadPackageDbm>? UploadPackages { get; set; }
-
-        [NotNull]
-        public virtual DbSet<UploadPackageFileDbm>? UploadPackageFiles { get; set; }
-
-        protected override void OnModelCreating(DbModelBuilder modelBuilder)
+        modelBuilder.Entity<UploadPackageDbm>(entity =>
         {
-            CSUploaderModelConfiguration.Configure(modelBuilder);
-            //CSUploaderDbInitializer initializer = new(modelBuilder);
-            //Database.SetInitializer<CSUploaderDbContext>(initializer);
-        }
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasMany(e => e.Files)
+                .WithOne(f => f.Package)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        private void Configure()
+        modelBuilder.Entity<UploadPackageFileDbm>(entity =>
         {
-            Configuration.LazyLoadingEnabled = true;
-            Configuration.ProxyCreationEnabled = true;
-        }
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+        });
     }
 }

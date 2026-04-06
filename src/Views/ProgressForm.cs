@@ -4,115 +4,114 @@
 // </copyright>
 
 using System.Diagnostics;
-using CSUploader.Extensions;
 using CSUploader.Lib;
+using CSUploader.Lib.Extensions;
 
-namespace CSUploader.Views
+namespace CSUploader.Views;
+
+public partial class ProgressForm : Form
 {
-    public partial class ProgressForm : Form
+    private CancellationTokenSource cancellationTokenSource = new();
+
+    public ProgressForm(IWin32Window ownerWindow, string labelText, bool showCancelButton)
     {
-        private CancellationTokenSource cancellationTokenSource = new();
+        InitializeComponent();
 
-        public ProgressForm(IWin32Window ownerWindow, string labelText, bool showCancelButton)
+        TextLabel.Text = $"{labelText}" + Environment.NewLine + $"Please wait...";
+
+        ProgressBar.Step = 10;
+        ProgressBar.Minimum = 0;
+        ProgressBar.Maximum = 100;
+
+        timer1.Interval = 200;
+        timer1.Tick += Timer1_Tick;
+
+        if (!showCancelButton)
         {
-            InitializeComponent();
+            CancelActionButton.Visible = false;
+            Size = new Size(Size.Width, Size.Height - CancelActionButton.Size.Height);
+        }
 
-            TextLabel.Text = $"{labelText}" + Environment.NewLine + $"Please wait...";
+        Show(ownerWindow);
+    }
 
-            ProgressBar.Step = 10;
-            ProgressBar.Minimum = 0;
-            ProgressBar.Maximum = 100;
+    public static async Task ExecuteAsync(IWin32Window ownerWindow, string labelText, bool allowCancel, Func<ProgressForm, CancellationToken, Task> func)
+    {
+        await ExecuteAsync(ownerWindow, labelText, allowCancel, async (form, cancellationToken) =>
+        {
+            await func(form, cancellationToken);
+            return true;
+        });
+    }
 
-            timer1.Interval = 200;
-            timer1.Tick += Timer1_Tick;
+    public static async Task<T?> ExecuteAsync<T>(IWin32Window ownerWindow, string labelText, bool allowCancel, Func<ProgressForm, CancellationToken, Task<T?>> func)
+    {
+        ProgressForm progressForm = new(ownerWindow, labelText, allowCancel);
+        CancellationToken cancellationToken = progressForm.cancellationTokenSource.Token;
+        T? result = default;
+        try
+        {
+            // Somehow calling func() will lag the progressform painting,
+            // so we add a little delay at the beginning to fully paint the whole progressform
+            await Task.Delay(20);
 
-            if (!showCancelButton)
+            if (allowCancel)
             {
-                CancelActionButton.Visible = false;
-                Size = new Size(Size.Width, Size.Height - CancelActionButton.Size.Height);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
-            Show(ownerWindow);
+            Stopwatch sw = Stopwatch.StartNew();
+            result = await func(progressForm, allowCancel ? cancellationToken : default);
+            sw.Stop();
         }
-
-        public static async Task ExecuteAsync(IWin32Window ownerWindow, string labelText, bool allowCancel, Func<ProgressForm, CancellationToken, Task> func)
+        catch (Exception ex)
         {
-            await ExecuteAsync(ownerWindow, labelText, allowCancel, async (form, cancellationToken) =>
+            Logger.Current.Log(null, LogType.Error, $"Exception occurred: {ex.Message}" + Environment.NewLine + ex.ToString());
+            if ((ex is OperationCanceledException) || ex.InnerException != null)
             {
-                await func(form, cancellationToken);
-                return true;
-            });
-        }
-
-        public static async Task<T?> ExecuteAsync<T>(IWin32Window ownerWindow, string labelText, bool allowCancel, Func<ProgressForm, CancellationToken, Task<T?>> func)
-        {
-            ProgressForm progressForm = new(ownerWindow, labelText, allowCancel);
-            CancellationToken cancellationToken = progressForm.cancellationTokenSource.Token;
-            T? result = default;
-            try
-            {
-                // Somehow calling func() will lag the progressform painting,
-                // so we add a little delay at the beginning to fully paint the whole progressform
-                await Task.Delay(20);
-
-                if (allowCancel)
+                if (ex.InnerException is OperationCanceledException)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    throw ex.InnerException;
                 }
-
-                Stopwatch sw = Stopwatch.StartNew();
-                result = await func(progressForm, allowCancel ? cancellationToken : default);
-                sw.Stop();
-            }
-            catch (Exception ex)
-            {
-                Logger.Log(null, LogType.Error, $"Exception occurred: {ex.Message}" + Environment.NewLine + ex.ToString());
-                if ((ex is OperationCanceledException) || ex.InnerException != null)
+                else if (ex.InnerException != null && ex.InnerException.Message.Contains("Operation cancelled by user", StringComparison.Ordinal))
                 {
-                    if (ex.InnerException is OperationCanceledException)
-                    {
-                        throw ex.InnerException;
-                    }
-                    else if (ex.InnerException != null && ex.InnerException.Message.Contains("Operation cancelled by user"))
-                    {
-                        throw new OperationCanceledException(cancellationToken);
-                    }
+                    throw new OperationCanceledException(cancellationToken);
                 }
-
-                // Only log non-cancellation exceptions
-                Logging.ShowMessageBox(ex, "Exception occured", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                // Rethrow so we don't lose the stack trace
-                throw;
-            }
-            finally
-            {
-                progressForm.timer1.Stop();
-                progressForm.Close();
             }
 
-            return result;
-        }
+            // Only log non-cancellation exceptions
+            MessageBox.Show(ex.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
-        private void ProgressForm_Load(object? sender, EventArgs e)
+            // Rethrow so we don't lose the stack trace
+            throw;
+        }
+        finally
         {
-            timer1.Start();
-
-            this.AlwaysOnTop(true);
+            progressForm.timer1.Stop();
+            progressForm.Close();
         }
 
-        private void Timer1_Tick(object? sender, EventArgs e)
+        return result;
+    }
+
+    private void ProgressForm_Load(object? sender, EventArgs e)
+    {
+        timer1.Start();
+
+        this.AlwaysOnTop(true);
+    }
+
+    private void Timer1_Tick(object? sender, EventArgs e)
+    {
+        ProgressBar.PerformStep();
+        if (ProgressBar.Value >= ProgressBar.Maximum)
         {
-            ProgressBar.PerformStep();
-            if (ProgressBar.Value >= ProgressBar.Maximum)
-            {
-                ProgressBar.Value = 0;
-            }
+            ProgressBar.Value = 0;
         }
+    }
 
-        private void CancelActionButton_Click(object? sender, EventArgs e)
-        {
-            cancellationTokenSource.Cancel();
-        }
+    private void CancelActionButton_Click(object? sender, EventArgs e)
+    {
+        cancellationTokenSource.Cancel();
     }
 }

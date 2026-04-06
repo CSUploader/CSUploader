@@ -1,51 +1,50 @@
-﻿// <copyright file="SingleOrArrayJsonConverter.cs" company="CSUploader">
+// <copyright file="SingleOrArrayJsonConverter.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Extensions
+namespace CSUploader.Lib.Extensions;
+
+public class SingleOrArrayJsonConverter<T> : JsonConverter<T[]>
 {
-    public class SingleOrArrayJsonConverter<T> : JsonConverter
+    public override T[]? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        public override bool CanWrite => true;
-
-        public override bool CanConvert(Type objectType)
+        if (reader.TokenType == JsonTokenType.StartArray)
         {
-            return objectType == typeof(List<T>);
-        }
-
-        public override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-        {
-            JToken token = JToken.Load(reader);
-            if (token.Type == JTokenType.Array)
+            List<T> items = [];
+            while (reader.Read())
             {
-                if (token.HasValues)
+                if (reader.TokenType == JsonTokenType.EndArray)
                 {
-                    T[]? items = token.ToObject<T[]>();
-                    if (items != null)
-                    {
-                        return items;
-                    }
+                    return items.ToArray();
                 }
 
-                return Array.Empty<T>();
+                T? item = JsonSerializer.Deserialize<T>(ref reader, options);
+                if (item != null)
+                {
+                    items.Add(item);
+                }
             }
 
-            T? item = token.ToObject<T>();
-            return item != null ? new T[] { item } : Array.Empty<T>(); ;
+            return items.ToArray();
         }
 
-        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-        {
-            if (value is List<T> list && list.Count == 1)
-            {
-                value = list[0];
-            }
+        T? singleItem = JsonSerializer.Deserialize<T>(ref reader, options);
+        return singleItem != null ? [singleItem] : [];
+    }
 
-            serializer.Serialize(writer, value);
+    public override void Write(Utf8JsonWriter writer, T[] value, JsonSerializerOptions options)
+    {
+        if (value.Length == 1)
+        {
+            JsonSerializer.Serialize(writer, value[0], options);
+        }
+        else
+        {
+            JsonSerializer.Serialize<T[]>(writer, value, options);
         }
     }
 }

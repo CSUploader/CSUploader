@@ -3,37 +3,36 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace CSUploader.Upload.Rapidgator
+namespace CSUploader.Upload.Rapidgator;
+
+public class FileFile
 {
-    public class FileFile
-    {
-        [JsonProperty("file_id")]
-        public string? FileId { get; set; }
+    [JsonPropertyName("file_id")]
+    public string? FileId { get; set; }
 
-        [JsonProperty("mode")]
-        public int Mode { get; set; }
+    [JsonPropertyName("mode")]
+    public int Mode { get; set; }
 
-        [JsonProperty("mode_label")]
-        public string? ModeLabel { get; set; }
+    [JsonPropertyName("mode_label")]
+    public string? ModeLabel { get; set; }
 
-        [JsonProperty("folder_id")]
-        public string? FolderId { get; set; }
+    [JsonPropertyName("folder_id")]
+    public string? FolderId { get; set; }
 
-        [JsonProperty("name")]
-        public string? Name { get; set; }
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
-        [JsonProperty("hash")]
-        public string? Hash { get; set; }
+    [JsonPropertyName("hash")]
+    public string? Hash { get; set; }
 
-        [JsonProperty("size")]
-        public long Size { get; set; }
+    [JsonPropertyName("size")]
+    public long Size { get; set; }
 
-        [JsonProperty("created")]
-        public long Created { get; set; }
+    [JsonPropertyName("created")]
+    public long Created { get; set; }
 
-        [JsonProperty("url")]
-        public string? Url { get; set; }
-    }
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 }

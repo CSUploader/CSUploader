@@ -5,23 +5,22 @@
 
 using System.Net;
 
-namespace CSUploader.Lib.Net.Http
+namespace CSUploader.Lib.Net.Http;
+
+public class HttpUploadProgressEventArgs : ProtocolUploadProgressEventArgs
 {
-    public class HttpUploadProgressEventArgs : ProtocolUploadProgressEventArgs
+    public HttpUploadProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
+        : base(size, bytesProcessed, dateTimeStarted)
     {
-        public HttpUploadProgressEventArgs(long size, long bytesProcessed, DateTime dateTimeStarted)
-            : base(size, bytesProcessed, dateTimeStarted)
-        {
-        }
+    }
 
-        public HttpUploadProgressEventArgs(DateTime startDateTime, UploadProgressChangedEventArgs e)
-            : base(e.TotalBytesToSend, e.BytesSent, startDateTime)
-        {
-        }
+    public HttpUploadProgressEventArgs(DateTime startDateTime, UploadProgressChangedEventArgs e)
+        : base(e.TotalBytesToSend, e.BytesSent, startDateTime)
+    {
+    }
 
-        protected HttpUploadProgressEventArgs()
-            : base()
-        {
-        }
+    protected HttpUploadProgressEventArgs()
+        : base()
+    {
     }
 }
