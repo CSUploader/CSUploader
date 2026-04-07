@@ -1,0 +1,37 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<Window x:Class="CSUploader.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:CSUploader.Views"
+        xmlns:vm="clr-namespace:CSUploader.ViewModels"
+        mc:Ignorable="d"
+        Title="CSUploader"
+        Width="1650" Height="1220"
+        WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}">
+
+    <Grid>
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+            <TabItem Header="Upload">
+                <views:UploadView DataContext="{Binding UploadViewModel}" />
+            </TabItem>
+            <TabItem Header="Uploads">
+                <views:UploadsView DataContext="{Binding UploadsViewModel}" />
+            </TabItem>
+            <TabItem Header="Uploaded">
+                <views:UploadedView DataContext="{Binding UploadedViewModel}" />
+            </TabItem>
+            <TabItem Header="Settings">
+                <views:SettingsView DataContext="{Binding SettingsViewModel}" />
+            </TabItem>
+            <TabItem Header="Logs">
+                <views:LogsView DataContext="{Binding LogsViewModel}" />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

@@ -1,0 +1,158 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<UserControl x:Class="CSUploader.Views.UploadsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:UploadsViewModel}"
+             d:DesignWidth="1600" d:DesignHeight="1100"
+             Background="#f4fcfe">
+
+    <UserControl.Resources>
+        <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
+        <conv:TimeSpanFormatConverter x:Key="TimeSpanFormatConverter" />
+        <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <ToolBar Grid.Row="0" Band="0" BandIndex="0">
+            <Button Command="{Binding StartCommand}" ToolTip="Start">
+                <Image Source="{StaticResource ButtonStartImage}" Width="24" Height="24" />
+            </Button>
+            <Button Command="{Binding PauseCommand}" ToolTip="Pause">
+                <Image Source="{StaticResource ButtonPauseImage}" Width="24" Height="24" />
+            </Button>
+            <Button Command="{Binding StopCommand}" ToolTip="Stop">
+                <Image Source="{StaticResource ButtonStopImage}" Width="24" Height="24" />
+            </Button>
+        </ToolBar>
+
+        <!-- TreeView with Packages and PackageFiles -->
+        <TreeView Grid.Row="1" ItemsSource="{Binding Packages}" Margin="4"
+                  BorderBrush="#ccc" BorderThickness="1">
+
+            <TreeView.Resources>
+                <!-- Context Menu shared by Package and PackageFile -->
+                <ContextMenu x:Key="ItemContextMenu">
+                    <MenuItem Header="Retry" Command="{Binding RetryCommand}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource ActionRetryImage}" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Stop" Command="{Binding StopCommand}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </ContextMenu>
+            </TreeView.Resources>
+
+            <!-- Package (Parent) Template -->
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding PackageFiles}">
+                    <Grid Height="28" ContextMenu="{StaticResource ItemContextMenu}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="250" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Name -->
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" Margin="4,0" FontWeight="SemiBold" />
+
+                        <!-- Size -->
+                        <TextBlock Grid.Column="1" Text="{Binding Size, Converter={StaticResource ByteUnitConverter}}"
+                                   VerticalAlignment="Center" Margin="4,0" />
+
+                        <!-- Status -->
+                        <TextBlock Grid.Column="2" Text="{Binding Status.Status}" VerticalAlignment="Center" Margin="4,0" />
+
+                        <!-- Progress Bar Cell -->
+                        <Grid Grid.Column="3" Margin="4,3" x:Name="PackageProgressGrid">
+                            <Border Background="#e8e8e8" CornerRadius="2" />
+                            <Border Background="#b3d9ed" CornerRadius="2" HorizontalAlignment="Left">
+                                <Border.Width>
+                                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                        <Binding Path="Progress" />
+                                        <Binding Path="ActualWidth" ElementName="PackageProgressGrid" />
+                                    </MultiBinding>
+                                </Border.Width>
+                            </Border>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding Progress, StringFormat='{}{0:0.00}%'}"
+                                       FontSize="11" />
+                        </Grid>
+
+                        <!-- Speed -->
+                        <TextBlock Grid.Column="4" Text="{Binding Speed, Converter={StaticResource ByteUnitConverter}}"
+                                   VerticalAlignment="Center" Margin="4,0" />
+
+                        <!-- ETA -->
+                        <TextBlock Grid.Column="5" Text="{Binding TimeRemaining, Converter={StaticResource TimeSpanFormatConverter}}"
+                                   VerticalAlignment="Center" Margin="4,0" />
+                    </Grid>
+
+                    <!-- PackageFile (Child) Template -->
+                    <HierarchicalDataTemplate.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Height="24" Background="#eff6f8" ContextMenu="{StaticResource ItemContextMenu}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="250" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="200" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Name -->
+                                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="4,0" />
+
+                                <!-- Size -->
+                                <TextBlock Grid.Column="1" Text="{Binding Size, Converter={StaticResource ByteUnitConverter}}"
+                                           VerticalAlignment="Center" Margin="4,0" />
+
+                                <!-- File Hoster -->
+                                <TextBlock Grid.Column="2" Text="{Binding FileHosters[0].Name}" VerticalAlignment="Center" Margin="4,0" />
+
+                                <!-- Status -->
+                                <TextBlock Grid.Column="3" Text="{Binding Status.Status}" VerticalAlignment="Center" Margin="4,0" />
+
+                                <!-- Progress Bar Cell -->
+                                <Grid Grid.Column="4" Margin="4,2" x:Name="FileProgressGrid">
+                                    <Border Background="#e8e8e8" CornerRadius="2" />
+                                    <Border Background="#b3d9ed" CornerRadius="2" HorizontalAlignment="Left">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                                <Binding Path="Progress" />
+                                                <Binding Path="ActualWidth" ElementName="FileProgressGrid" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Text="{Binding Progress, StringFormat='{}{0:0.00}%'}"
+                                               FontSize="11" />
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </HierarchicalDataTemplate.ItemTemplate>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+    </Grid>
+</UserControl>

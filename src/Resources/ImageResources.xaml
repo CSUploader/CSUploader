@@ -1,0 +1,60 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Action Images -->
+    <BitmapImage x:Key="ActionCancelImage" UriSource="pack://application:,,,/Properties/Images/action_cancel.png" />
+    <BitmapImage x:Key="ActionRetryImage" UriSource="pack://application:,,,/Properties/Images/action_retry.png" />
+
+    <!-- Button Images -->
+    <BitmapImage x:Key="ButtonPauseImage" UriSource="pack://application:,,,/Properties/Images/button_pause.png" />
+    <BitmapImage x:Key="ButtonStartImage" UriSource="pack://application:,,,/Properties/Images/button_start.png" />
+    <BitmapImage x:Key="ButtonStopImage" UriSource="pack://application:,,,/Properties/Images/button_stop.png" />
+
+    <!-- File Type Images -->
+    <BitmapImage x:Key="FileType7zImage" UriSource="pack://application:,,,/Properties/Images/filetype_7z.png" />
+    <BitmapImage x:Key="FileTypeRarImage" UriSource="pack://application:,,,/Properties/Images/filetype_rar.png" />
+
+    <!-- Misc Images -->
+    <BitmapImage x:Key="GoDownImage" UriSource="pack://application:,,,/Properties/Images/go_down.png" />
+
+    <!-- Package Images -->
+    <BitmapImage x:Key="PackageClosedImage" UriSource="pack://application:,,,/Properties/Images/package_closed.png" />
+    <BitmapImage x:Key="PackageCompressingImage" UriSource="pack://application:,,,/Properties/Images/package_compressing.png" />
+    <BitmapImage x:Key="PackageOpenImage" UriSource="pack://application:,,,/Properties/Images/package_open.png" />
+
+    <!-- Status Images -->
+    <BitmapImage x:Key="StatusCancelledImage" UriSource="pack://application:,,,/Properties/Images/status_cancelled.png" />
+    <BitmapImage x:Key="StatusCompressingImage" UriSource="pack://application:,,,/Properties/Images/status_compressing.png" />
+    <BitmapImage x:Key="StatusFailedImage" UriSource="pack://application:,,,/Properties/Images/status_failed.png" />
+    <BitmapImage x:Key="StatusHashingImage" UriSource="pack://application:,,,/Properties/Images/status_hashing.png" />
+    <BitmapImage x:Key="StatusOkImage" UriSource="pack://application:,,,/Properties/Images/status_ok.png" />
+    <BitmapImage x:Key="StatusQueuedImage" UriSource="pack://application:,,,/Properties/Images/status_queued.png" />
+    <BitmapImage x:Key="StatusRunningImage" UriSource="pack://application:,,,/Properties/Images/status_running.png" />
+    <BitmapImage x:Key="StatusSuccessImage" UriSource="pack://application:,,,/Properties/Images/status_success.png" />
+    <BitmapImage x:Key="StatusUploadingImage" UriSource="pack://application:,,,/Properties/Images/status_uploading.png" />
+    <BitmapImage x:Key="StatusWarningImage" UriSource="pack://application:,,,/Properties/Images/status_warning.png" />
+
+    <!-- File Hoster Images -->
+    <BitmapImage x:Key="FileHosterRapidgatorImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidgator.png" />
+
+    <!-- Logo Images -->
+    <BitmapImage x:Key="LogoCsLogo128Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_128_128.png" />
+    <BitmapImage x:Key="LogoCsLogo256Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_256_256.png" />
+    <BitmapImage x:Key="LogoCsLogo54Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_54_54.png" />
+    <BitmapImage x:Key="LogoCsLogo54TransImage" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_54_54_trans.png" />
+    <BitmapImage x:Key="LogoCsLogo64Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_64_64.png" />
+    <BitmapImage x:Key="LogoIcon" UriSource="pack://application:,,,/Properties/Images/Logo/icon.ico" />
+    <BitmapImage x:Key="Logo128Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo-128x128.png" />
+    <BitmapImage x:Key="Logo48Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo-48x48.png" />
+    <BitmapImage x:Key="Logo14Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_14_14.png" />
+    <BitmapImage x:Key="Logo15Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_15_15.png" />
+    <BitmapImage x:Key="Logo16Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_16_16.png" />
+    <BitmapImage x:Key="Logo17Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_17_17.png" />
+    <BitmapImage x:Key="Logo18Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_18_18.png" />
+    <BitmapImage x:Key="Logo19Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_19_19.png" />
+    <BitmapImage x:Key="Logo20Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_20_20.png" />
+
+</ResourceDictionary>

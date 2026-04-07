@@ -1,0 +1,64 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<UserControl x:Class="CSUploader.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
+             d:DesignWidth="1600" d:DesignHeight="1100">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210" />
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Temp Archive Directory -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Temp Archive Directory:" VerticalAlignment="Center"
+                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,0,12" />
+
+        <!-- Max Concurrent CPU Jobs -->
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Max Concurrent CPU Jobs:" VerticalAlignment="Center"
+                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource CompactTextBoxStyle}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+        <!-- Max Concurrent Upload Jobs -->
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Max Concurrent Upload Jobs:" VerticalAlignment="Center"
+                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource CompactTextBoxStyle}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+        <!-- Speed Limit -->
+        <CheckBox Grid.Row="3" Grid.Column="0" Content="Enable Speed Limit" VerticalAlignment="Center"
+                  IsChecked="{Binding SpeedLimitEnabled}" Margin="0,0,12,12" />
+        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBox Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource CompactTextBoxStyle}" Width="80"
+                     IsEnabled="{Binding SpeedLimitEnabled}" />
+            <TextBlock Text="KB/s" VerticalAlignment="Center" Margin="8,0,0,0"
+                       Foreground="{StaticResource TextSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Save Button -->
+        <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="Save" Command="{Binding SaveCommand}"
+                Style="{StaticResource PrimaryButtonStyle}"
+                HorizontalAlignment="Left" Width="120" Height="34" Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,93 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<Window x:Class="CSUploader.Views.LogDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="clr-namespace:CSUploader.Converters"
+        xmlns:vm="clr-namespace:CSUploader.ViewModels"
+        mc:Ignorable="d"
+        Title="Log Details"
+        Width="800" Height="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        d:DataContext="{d:DesignInstance Type=vm:LogEntryViewModel}">
+
+    <Window.Resources>
+        <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header Fields -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Row 0 -->
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="DateTime:" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="Thread ID:" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding ThreadId, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+
+            <!-- Row 1 -->
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Filename:" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Filename, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+
+            <!-- Row 2 -->
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Function:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Function, Mode=OneWay}" IsReadOnly="True" />
+
+            <TextBlock Grid.Row="2" Grid.Column="3" Text="Line:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding LineNumber, Mode=OneWay}" IsReadOnly="True" />
+        </Grid>
+
+        <!-- Message Content -->
+        <TabControl Grid.Row="1">
+            <TabItem Header="Text">
+                <TextBox Text="{Binding Message, Mode=OneWay}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas"
+                         FontSize="12" />
+            </TabItem>
+            <TabItem Header="HTML">
+                <TextBox Text="{Binding Message, Mode=OneWay}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas"
+                         FontSize="12" />
+            </TabItem>
+        </TabControl>
+
+        <!-- Close Button -->
+        <Button Grid.Row="2" Content="Close" HorizontalAlignment="Right"
+                Width="80" Height="28" Margin="0,12,0,0"
+                Click="CloseButton_Click" IsCancel="True" />
+    </Grid>
+</Window>
