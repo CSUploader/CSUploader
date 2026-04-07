@@ -180,7 +180,7 @@ public abstract class PackageDetails
     /// </summary>
     public void PauseAsync(bool resume)
     {
-        if (Status== null)
+        if (Status is null)
         {
             return;
         }
@@ -189,13 +189,20 @@ public abstract class PackageDetails
 
         Task.Run(async () =>
         {
-            if (resume)
+            try
             {
-                await pauseTokenSource.ResumeAsync();
+                if (resume)
+                {
+                    await pauseTokenSource.ResumeAsync();
+                }
+                else
+                {
+                    await pauseTokenSource.PauseAsync();
+                }
             }
-            else
+            catch (Exception)
             {
-                await pauseTokenSource.PauseAsync();
+                // Pause/resume failures are non-fatal
             }
         });
     }

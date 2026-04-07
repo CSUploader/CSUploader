@@ -1,4 +1,4 @@
-﻿// <copyright file="Hashing.cs" company="CSUploader">
+// <copyright file="Hashing.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -20,25 +20,21 @@ public class Hashing
         DateTime dateTimeStarted = DateTime.Now;
         long totalBytesRead = 0;
         byte[] buffer = new byte[BufferSize];
-        int bytesRead = await stream.ReadAsync(buffer, cancellationToken);
-        while (bytesRead > 0)
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
 
+        int bytesRead;
+        while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             await pauseToken.PauseIfRequestedAsync();
+
+            totalBytesRead += bytesRead;
 
             hashAlgorithm.TransformBlock(buffer, 0, bytesRead, buffer, 0);
 
             FireHashingProgress(stream.Length, totalBytesRead, dateTimeStarted);
-
-            bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-            totalBytesRead += bytesRead;
         }
 
-        hashAlgorithm.TransformFinalBlock(buffer, 0, bytesRead);
+        hashAlgorithm.TransformFinalBlock(buffer, 0, 0);
 
         FireHashingFinished(true, dateTimeStarted, hashAlgorithm.Hash ?? []);
 
@@ -50,7 +46,7 @@ public class Hashing
         HashingProgress?.Invoke(this, new HashingProgressEventArgs(size, bytesProcessed, dateTimeStarted));
     }
 
-    protected virtual void FireHashingFinished(bool success,  DateTime dateTimeStarted, byte[] hash)
+    protected virtual void FireHashingFinished(bool success, DateTime dateTimeStarted, byte[] hash)
     {
         HashingFinished?.Invoke(this, new HashingFinishedEventArgs(success, dateTimeStarted, hash));
     }

@@ -69,9 +69,14 @@ public abstract class Compressor
             {
                 await CompressAsync(inputDirectoryPath, outputDirectoryPath, pauseTokenSource.Token, cancellationTokenSource.Token);
             }
-            catch (TaskCanceledException)
+            catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
             {
                 ChangeStatus(JobStatus.Cancelled);
+            }
+            catch (Exception ex)
+            {
+                Error = ex.Message;
+                ChangeStatus(JobStatus.Failed);
             }
         });
     }

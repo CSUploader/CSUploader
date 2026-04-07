@@ -1,4 +1,4 @@
-﻿// <copyright file="PackageManager.cs" company="CSUploader">
+// <copyright file="PackageManager.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -10,6 +10,7 @@ namespace CSUploader.Upload;
 public class PackageManager
 {
     private readonly PackageQueue packageQueue = new();
+    private readonly object _lock = new();
 
     public event EventHandler<PackageAddedEventArgs>? PackageAdded;
 
@@ -30,7 +31,13 @@ public class PackageManager
 
     public void StartPackages()
     {
-        foreach (PackageDetails packageDetails in Packages)
+        Package[] snapshot;
+        lock (_lock)
+        {
+            snapshot = [.. Packages];
+        }
+
+        foreach (PackageDetails packageDetails in snapshot)
         {
             StartPackage(packageDetails);
         }
@@ -62,7 +69,13 @@ public class PackageManager
     {
         IsPaused = !resume;
 
-        foreach (PackageDetails packageDetails in Packages)
+        Package[] snapshot;
+        lock (_lock)
+        {
+            snapshot = [.. Packages];
+        }
+
+        foreach (PackageDetails packageDetails in snapshot)
         {
             PausePackage(packageDetails, resume);
         }
@@ -82,7 +95,13 @@ public class PackageManager
 
     public void StopPackages()
     {
-        foreach (PackageDetails packageDetails in Packages)
+        Package[] snapshot;
+        lock (_lock)
+        {
+            snapshot = [.. Packages];
+        }
+
+        foreach (PackageDetails packageDetails in snapshot)
         {
             StopPackage(packageDetails);
         }
@@ -107,7 +126,10 @@ public class PackageManager
 
         if (packageDetails is Package package)
         {
-            Packages.Remove(package);
+            lock (_lock)
+            {
+                Packages.Remove(package);
+            }
 
             package.Remove();
         }
@@ -126,17 +148,20 @@ public class PackageManager
 
     private void AddPackage(Package package)
     {
-        if (Packages.Contains(package))
+        lock (_lock)
         {
-            return;
+            if (Packages.Contains(package))
+            {
+                return;
+            }
+
+            // Add event handlers
+            package.PackageFilesAdded += Package_PackageFilesAdded;
+            package.StatusChanged += Package_StatusChanged;
+
+            // Add to the list
+            Packages.Add(package);
         }
-
-        // Add event handlers
-        package.PackageFilesAdded += Package_PackageFilesAdded;
-        package.StatusChanged += Package_StatusChanged;
-
-        // Add to the list
-        Packages.Add(package);
 
         if (!package.RequiresCompression && !string.IsNullOrEmpty(package.SaveFrom))
         {
@@ -181,13 +206,23 @@ public class PackageManager
 
     private void StartPackageDetails(PackageDetails packageDetails, bool retry)
     {
-        if (packageDetails.Status.Status != JobStatus.Running)
+        // Capture status once to avoid race conditions
+        PackageStatus status = packageDetails.Status;
+        if (status is null)
         {
-            // Start packages with the same job
-            StartPackage(packageDetails.Status.Job);
+            return;
         }
 
-        if (packageDetails.Status.Status == JobStatus.Idle || packageDetails.Status.Status == JobStatus.Success)
+        JobStatus currentStatus = status.Status;
+        PackageJob currentJob = status.Job;
+
+        if (currentStatus != JobStatus.Running)
+        {
+            // Start packages with the same job
+            StartPackage(currentJob);
+        }
+
+        if (currentStatus == JobStatus.Idle || currentStatus == JobStatus.Success)
         {
             // Get next job for this package, and queue it if needed
             PackageJob? packageJob = packageDetails.GetNextJob();
@@ -196,41 +231,44 @@ public class PackageManager
                 Enqueue(packageJob.Value, packageDetails);
             }
         }
-        else if (retry && packageDetails.Status.Status != JobStatus.Running && packageDetails.Status.Status != JobStatus.Queued && packageDetails.Status.Status != JobStatus.Success)
+        else if (retry && currentStatus != JobStatus.Running && currentStatus != JobStatus.Queued && currentStatus != JobStatus.Success)
         {
             // Retry failed ones
-            Enqueue(packageDetails.Status.Job, packageDetails);
+            Enqueue(currentJob, packageDetails);
         }
     }
 
     private bool StartPackage(PackageJob job)
     {
-        // Get the maximum concurrent job count and find related jobs; these are jobs that should start if the given job is finished
+        // Get the maximum concurrent job count and find related jobs
         int? maxConcurrentJobs = null;
         List<PackageJob> relatedJobs = [job];
         if (job == PackageJob.Compression || job == PackageJob.Hashing)
         {
-            // Compression and hashing are related jobs
             maxConcurrentJobs = AppSettings.Current.MaxConcurrentCPUJobs;
             relatedJobs.Add(job == PackageJob.Compression ? PackageJob.Hashing : PackageJob.Compression);
         }
         else if (job == PackageJob.Upload)
         {
-            // Upload does not have a related job, but does have a concurrent job count
             maxConcurrentJobs = AppSettings.Current.MaxConcurrentUploadJobs;
         }
 
         // If the job has a maximum concurrent job limit, see if we've reached it
         if (maxConcurrentJobs.HasValue)
         {
+            Package[] snapshot;
+            lock (_lock)
+            {
+                snapshot = [.. Packages];
+            }
+
             // Get all packages count which have a related job and are running
-            int packageStatusCount = Packages.Where(p => p.Status != null).Count(p => relatedJobs.Contains(p.Status.Job) && p.Status.Status == JobStatus.Running);
+            int packageStatusCount = snapshot.Where(p => p.Status is not null).Count(p => relatedJobs.Contains(p.Status.Job) && p.Status.Status == JobStatus.Running);
 
             // Get all package files count in each package, which have a related job and are running
-            int packageFileStatusCount = Packages.Sum(p => p.Where(pf => pf != null && pf.Status != null).Count(pf => relatedJobs.Contains(pf.Status.Job) && pf.Status.Status == JobStatus.Running));
+            int packageFileStatusCount = snapshot.Sum(p => p.Where(pf => pf?.Status is not null).Count(pf => relatedJobs.Contains(pf.Status.Job) && pf.Status.Status == JobStatus.Running));
             if (packageStatusCount + packageFileStatusCount >= maxConcurrentJobs.Value)
             {
-                // Already running at maximum concurrent jobs; don't start a new one
                 return false;
             }
         }

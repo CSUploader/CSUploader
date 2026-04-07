@@ -134,9 +134,9 @@ public class RapidgatorClient : FileHosterClient
                 }
             }
 
-            // Create folder
-            DirectoryInfo directoryInfo = new(filePath);
-            FolderCreateResponse? folderCreateResponse = await HttpCreateFolderAsync(directoryInfo.Name, UserInfoResponse, cancellationToken);
+            // Create folder using the parent directory name
+            string folderName = Path.GetDirectoryName(filePath) is string dir ? new DirectoryInfo(dir).Name : "uploads";
+            FolderCreateResponse? folderCreateResponse = await HttpCreateFolderAsync(folderName, UserInfoResponse, cancellationToken);
             if (folderCreateResponse == null)
             {
                 UploadFinishedCallback("Failed to create folder");
@@ -269,9 +269,9 @@ public class RapidgatorClient : FileHosterClient
                 Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {fileUploadResponse.Status} {fileUploadResponse.Details}");
                 eventArgs = new FileHosterUploadFinishedEventArgs(false, fileUploadResponse.Details, startDateTime);
             }
-            else if (fileUploadResponse.Model?.Upload != null && fileUploadResponse.Model.Upload.File.Length != 0)
+            else if (fileUploadResponse.Model?.Upload?.File is { Length: > 0 })
             {
-                FileFile file = fileUploadResponse.Model.Upload.File.First();
+                FileFile file = fileUploadResponse.Model.Upload.File[0];
                 FileHosterFileStatus fileStatus = file.Mode == 0
                     ? FileHosterFileStatus.Free
                     : file.Mode == 1

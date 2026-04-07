@@ -174,66 +174,92 @@ public class PackageFile : PackageDetails
 
     private void FileHoster_UploadProgress(object? sender, FileHosterUploadProgressEventArgs e)
     {
-        Duration = DateTime.Now - e.DateTimeStarted;
-        BytesRemaining = e.BytesRemaining;
-        BytesLoaded = e.BytesProcessed;
-        Progress = e.Progress;
-        Speed = e.Speed;
-        Duration = e.TimeElapsed;
-        TimeRemaining = e.TimeRemaining;
+        try
+        {
+            BytesRemaining = e.BytesRemaining;
+            BytesLoaded = e.BytesProcessed;
+            Progress = e.Progress;
+            Speed = e.Speed;
+            Duration = e.TimeElapsed;
+            TimeRemaining = e.TimeRemaining;
+        }
+        catch (Exception)
+        {
+            // Event handler must not throw - progress update is non-critical
+        }
     }
 
     private void FileHoster_UploadFinished(object? sender, FileHosterUploadFinishedEventArgs e)
     {
-        IsUploadFinished = true;
-
-        Duration = e.TimeElapsed;
-        if (e.Success)
+        try
         {
-            BytesRemaining = null;
-            FileUrl = e.FileInfo?.Url;
-            Progress = 100.0;
+            IsUploadFinished = true;
+
+            Duration = e.TimeElapsed;
+            if (e.Success)
+            {
+                BytesRemaining = null;
+                FileUrl = e.FileInfo?.Url;
+                Progress = 100.0;
+            }
+            else
+            {
+                Error = e.Result;
+            }
+
+            Speed = null;
+            TimeRemaining = null;
+            FinishedDate = e.DateTimeFinished;
+
+            ChangeStatus(PackageJob.Upload, e.Success ? JobStatus.Success : JobStatus.Failed);
         }
-        else
+        catch (Exception)
         {
-            Error = e.Result;
+            // Event handler must not throw
         }
-
-        Speed = null;
-        TimeRemaining = null;
-        FinishedDate = e.DateTimeFinished;
-
-        ChangeStatus(PackageJob.Upload, e.Success ? JobStatus.Success : JobStatus.Failed);
     }
 
     private void FileHoster_HashingProgress(object? sender, FileHosterHashingProgressEventArgs e)
     {
-        Duration = DateTime.Now - e.DateTimeStarted;
-        BytesRemaining = e.BytesRemaining;
-        BytesLoaded = e.BytesProcessed;
-        Progress = e.Progress;
-        Speed = e.Speed;
-        Duration = e.TimeElapsed;
-        TimeRemaining = e.TimeRemaining;
+        try
+        {
+            BytesRemaining = e.BytesRemaining;
+            BytesLoaded = e.BytesProcessed;
+            Progress = e.Progress;
+            Speed = e.Speed;
+            Duration = e.TimeElapsed;
+            TimeRemaining = e.TimeRemaining;
+        }
+        catch (Exception)
+        {
+            // Event handler must not throw - progress update is non-critical
+        }
     }
 
     private void FileHoster_HashingFinished(object? sender, FileHosterHashingFinishedEventArgs e)
     {
-        Duration = e.TimeElapsed;
-
-        if (e.Success)
+        try
         {
-            Progress = 100.0;
-            BytesRemaining = IsUploadFinished ? null : Size;
+            Duration = e.TimeElapsed;
+
+            if (e.Success)
+            {
+                Progress = 100.0;
+                BytesRemaining = IsUploadFinished ? null : Size;
+            }
+            else
+            {
+                Error = e.Error;
+            }
+
+            Speed = null;
+            TimeRemaining = null;
+
+            ChangeStatus(PackageJob.Hashing, e.Success ? JobStatus.Success : JobStatus.Failed);
         }
-        else
+        catch (Exception)
         {
-            Error = e.Error;
+            // Event handler must not throw
         }
-
-        Speed = null;
-        TimeRemaining = null;
-
-        ChangeStatus(PackageJob.Hashing, e.Success ? JobStatus.Success : JobStatus.Failed);
     }
 }
