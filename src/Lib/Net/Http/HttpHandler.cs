@@ -8,6 +8,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System;
 
+using CSUploader.Lib;
+using CSUploader.Lib.Net;
+
 namespace CSUploader.Lib.Net.Http;
 
 public class HttpHandler : IProtocolHandler
@@ -32,9 +35,9 @@ public class HttpHandler : IProtocolHandler
         HttpClient = new HttpClient(clientHandler);
     }
 
-    public event EventHandler<HttpUploadProgressEventArgs>? UploadProgress;
+    public event EventHandler<OperationProgressEventArgs>? UploadProgress;
 
-    public event EventHandler<HttpUploadFinishedEventArgs>? UploadFinished;
+    public event EventHandler<ProtocolUploadFinishedEventArgs>? UploadFinished;
 
     protected HttpClient HttpClient { get; set; }
 
@@ -153,7 +156,7 @@ public class HttpHandler : IProtocolHandler
             var progressContent = new ProgressStreamContent(fileStream, (totalBytes, bytesTransferred) =>
             {
                 int percentage = (int)Math.Floor((100.0 / totalBytes) * bytesTransferred);
-                UploadProgress?.Invoke(this, new HttpUploadProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted));
+                UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted));
             }, cancellationToken);
 
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
@@ -163,19 +166,19 @@ public class HttpHandler : IProtocolHandler
             response.EnsureSuccessStatusCode();
             string result = await response.Content.ReadAsStringAsync(cancellationToken);
             
-            UploadFinished?.Invoke(this, new HttpUploadFinishedEventArgs(true, result, dateTimeStarted));
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(true, result, dateTimeStarted));
         }
         catch (OperationCanceledException)
         {
-            UploadFinished?.Invoke(this, new HttpUploadFinishedEventArgs(false, string.Empty, dateTimeStarted));
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, string.Empty, dateTimeStarted));
         }
         catch (HttpRequestException ex)
         {
-            UploadFinished?.Invoke(this, new HttpUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
         }
         catch (Exception ex)
         {
-            UploadFinished?.Invoke(this, new HttpUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
         }
     }
 

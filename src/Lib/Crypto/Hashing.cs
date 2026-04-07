@@ -5,11 +5,13 @@
 
 using System.Security.Cryptography;
 
+using CSUploader.Lib;
+
 namespace CSUploader.Lib.Crypto;
 
 public class Hashing
 {
-    public event EventHandler<HashingProgressEventArgs>? HashingProgress;
+    public event EventHandler<OperationProgressEventArgs>? HashingProgress;
 
     public event EventHandler<HashingFinishedEventArgs>? HashingFinished;
 
@@ -43,7 +45,7 @@ public class Hashing
 
     protected virtual void FireHashingProgress(long size, long bytesProcessed, DateTime dateTimeStarted)
     {
-        HashingProgress?.Invoke(this, new HashingProgressEventArgs(size, bytesProcessed, dateTimeStarted));
+        HashingProgress?.Invoke(this, new OperationProgressEventArgs(size, bytesProcessed, dateTimeStarted));
     }
 
     protected virtual void FireHashingFinished(bool success, DateTime dateTimeStarted, byte[] hash)

@@ -5,6 +5,7 @@
 
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Crypto;
 
 namespace CSUploader.Upload;
 
@@ -172,7 +173,7 @@ public class PackageFile : PackageDetails
         Progress = null;
     }
 
-    private void FileHoster_UploadProgress(object? sender, FileHosterUploadProgressEventArgs e)
+    private void FileHoster_UploadProgress(object? sender, OperationProgressEventArgs e)
     {
         try
         {
@@ -219,7 +220,7 @@ public class PackageFile : PackageDetails
         }
     }
 
-    private void FileHoster_HashingProgress(object? sender, FileHosterHashingProgressEventArgs e)
+    private void FileHoster_HashingProgress(object? sender, OperationProgressEventArgs e)
     {
         try
         {
@@ -236,7 +237,7 @@ public class PackageFile : PackageDetails
         }
     }
 
-    private void FileHoster_HashingFinished(object? sender, FileHosterHashingFinishedEventArgs e)
+    private void FileHoster_HashingFinished(object? sender, HashingFinishedEventArgs e)
     {
         try
         {

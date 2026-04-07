@@ -302,7 +302,7 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
         FireStatusChanged(sender, e);
     }
 
-    private void Compressor_StatusChanged(object? sender, CompressorStatusChangedEventArgs e)
+    private void Compressor_StatusChanged(object? sender, JobStatusChangedEventArgs e)
     {
         ChangeStatus(PackageJob.Compression, e.NewStatus);
     }

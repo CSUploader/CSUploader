@@ -4,7 +4,6 @@
 // </copyright>
 
 using CSUploader.Lib.Net;
-using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Upload;
 
@@ -13,8 +12,8 @@ public class FileHosterUploadFinishedEventArgs : ProtocolUploadFinishedEventArgs
     /// <summary>
     /// Initializes a new instance of the <see cref="FileHosterUploadFinishedEventArgs"/> class.
     /// </summary>
-    /// <param name="e">The <see cref="HttpUploadFinishedEventArgs"/> instance containing the event data.</param>
-    public FileHosterUploadFinishedEventArgs(HttpUploadFinishedEventArgs e)
+    /// <param name="e">The <see cref="ProtocolUploadFinishedEventArgs"/> instance containing the event data.</param>
+    public FileHosterUploadFinishedEventArgs(ProtocolUploadFinishedEventArgs e)
         : base()
     {
         Success = e.Success;
@@ -25,9 +24,9 @@ public class FileHosterUploadFinishedEventArgs : ProtocolUploadFinishedEventArgs
     /// <summary>
     /// Initializes a new instance of the <see cref="FileHosterUploadFinishedEventArgs"/> class.
     /// </summary>
-    /// <param name="e">The <see cref="HttpUploadFinishedEventArgs"/> instance containing the event data.</param>
+    /// <param name="e">The <see cref="ProtocolUploadFinishedEventArgs"/> instance containing the event data.</param>
     /// <param name="fileInfo">The file information.</param>
-    public FileHosterUploadFinishedEventArgs(HttpUploadFinishedEventArgs e, FileHosterFileInfo fileInfo)
+    public FileHosterUploadFinishedEventArgs(ProtocolUploadFinishedEventArgs e, FileHosterFileInfo fileInfo)
         : base(e.Success, e.Result, e.DateTimeFinished)
     {
         FileInfo = fileInfo;

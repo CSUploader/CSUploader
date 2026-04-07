@@ -245,16 +245,16 @@ public class RapidgatorClient : FileHosterClient
         return null;
     }
 
-    private void HttpHandler_UploadProgress(object? sender, HttpUploadProgressEventArgs e)
+    private void HttpHandler_UploadProgress(object? sender, OperationProgressEventArgs e)
     {
-        FileHosterUploadProgressEventArgs eventArgs = new(e);
+        OperationProgressEventArgs eventArgs = new(e.Size, e.BytesProcessed, e.DateTimeStarted);
 
         FireUploadProgress(this, eventArgs);
     }
 
-    private void HttpHandler_UploadFinished(object? sender, HttpUploadFinishedEventArgs e)
+    private void HttpHandler_UploadFinished(object? sender, ProtocolUploadFinishedEventArgs e)
     {
-        FileHosterUploadFinishedEventArgs eventArgs = new(e);
+        FileHosterUploadFinishedEventArgs eventArgs = new(e.Success, e.Result ?? string.Empty, e.DateTimeFinished);
         DateTime startDateTime = e.DateTimeFinished - e.TimeElapsed;
 
         if (string.IsNullOrEmpty(e.Result))

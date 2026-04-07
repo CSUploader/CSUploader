@@ -79,7 +79,7 @@ public abstract class FileHosterClient
     /// <summary>
     /// Occurs when uploading is in progress.
     /// </summary>
-    public event EventHandler<FileHosterUploadProgressEventArgs>? UploadProgress;
+    public event EventHandler<OperationProgressEventArgs>? UploadProgress;
 
     /// <summary>
     /// Occurs when uploading has finished.
@@ -89,12 +89,12 @@ public abstract class FileHosterClient
     /// <summary>
     /// Occurs when hashing is in progress.
     /// </summary>
-    public event EventHandler<FileHosterHashingProgressEventArgs>? HashingProgress;
+    public event EventHandler<OperationProgressEventArgs>? HashingProgress;
 
     /// <summary>
     /// Occurs when hashing has finished.
     /// </summary>
-    public event EventHandler<FileHosterHashingFinishedEventArgs>? HashingFinished;
+    public event EventHandler<HashingFinishedEventArgs>? HashingFinished;
 
     /// <summary>
     /// Gets the name of the file hoster.
@@ -178,8 +178,8 @@ public abstract class FileHosterClient
     /// Fires the upload progress event.
     /// </summary>
     /// <param name="sender">The sender.</param>
-    /// <param name="e">The <see cref="FileHosterUploadProgressEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireUploadProgress(object sender, FileHosterUploadProgressEventArgs e)
+    /// <param name="e">The <see cref="OperationProgressEventArgs"/> instance containing the event data.</param>
+    protected virtual void FireUploadProgress(object sender, OperationProgressEventArgs e)
     {
         UploadProgress?.Invoke(sender, e);
     }
@@ -198,8 +198,8 @@ public abstract class FileHosterClient
     /// Fires the hashing progress event.
     /// </summary>
     /// <param name="sender">The sender.</param>
-    /// <param name="e">The <see cref="FileHosterHashingProgressEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireHashingProgress(object sender, FileHosterHashingProgressEventArgs e)
+    /// <param name="e">The <see cref="OperationProgressEventArgs"/> instance containing the event data.</param>
+    protected virtual void FireHashingProgress(object sender, OperationProgressEventArgs e)
     {
         HashingProgress?.Invoke(sender, e);
     }
@@ -208,19 +208,19 @@ public abstract class FileHosterClient
     /// Fires the hashing finished event.
     /// </summary>
     /// <param name="sender">The sender.</param>
-    /// <param name="e">The <see cref="FileHosterHashingFinishedEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireHashingFinished(object sender, FileHosterHashingFinishedEventArgs e)
+    /// <param name="e">The <see cref="HashingFinishedEventArgs"/> instance containing the event data.</param>
+    protected virtual void FireHashingFinished(object sender, HashingFinishedEventArgs e)
     {
         HashingFinished?.Invoke(sender, e);
     }
 
-    private void Hashing_HashingProgress(object? sender, HashingProgressEventArgs e)
+    private void Hashing_HashingProgress(object? sender, OperationProgressEventArgs e)
     {
-        FireHashingProgress(this, new FileHosterHashingProgressEventArgs(e));
+        FireHashingProgress(this, e);
     }
 
     private void Hashing_HashingFinished(object? sender, HashingFinishedEventArgs e)
     {
-        FireHashingFinished(this, new FileHosterHashingFinishedEventArgs(e));
+        FireHashingFinished(this, e);
     }
 }

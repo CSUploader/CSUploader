@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Lib;
+
 namespace CSUploader.Lib.Compression;
 
 public abstract class Compressor
@@ -14,7 +16,7 @@ public abstract class Compressor
     /// <summary>
     /// Event when the status changed.
     /// </summary>
-    public event EventHandler<CompressorStatusChangedEventArgs>? StatusChanged;
+    public event EventHandler<JobStatusChangedEventArgs>? StatusChanged;
 
     /// <summary>
     /// Gets or sets the compression speed, in bytes.
@@ -143,15 +145,15 @@ public abstract class Compressor
     /// <param name="newStatus">The new status.</param>
     protected void FireStatusChanged(JobStatus? previousStatus, JobStatus newStatus)
     {
-        StatusChanged?.Invoke(this, new CompressorStatusChangedEventArgs(previousStatus, newStatus));
+        StatusChanged?.Invoke(this, new JobStatusChangedEventArgs(previousStatus, newStatus));
     }
 
     /// <summary>
     /// Fires the status changed.
     /// </summary>
     /// <param name="sender">The sender.</param>
-    /// <param name="e">The <see cref="PackageStatusChangedEventArgs"/> instance containing the event data.</param>
-    protected void FireStatusChanged(object sender, CompressorStatusChangedEventArgs e)
+    /// <param name="e">The <see cref="JobStatusChangedEventArgs"/> instance containing the event data.</param>
+    protected void FireStatusChanged(object sender, JobStatusChangedEventArgs e)
     {
         StatusChanged?.Invoke(sender, e);
     }
