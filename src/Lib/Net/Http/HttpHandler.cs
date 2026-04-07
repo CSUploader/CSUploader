@@ -53,7 +53,7 @@ public class HttpHandler : IProtocolHandler
 
         try
         {
-            HttpResponseMessage responseMessage = await HttpClient.GetAsync(url, cancellationToken);
+            using HttpResponseMessage responseMessage = await HttpClient.GetAsync(url, cancellationToken);
             string result = await responseMessage.Content.ReadAsStringAsync(cancellationToken);
             Logger.Current.Log(null, LogType.Http, result);
 
@@ -129,8 +129,8 @@ public class HttpHandler : IProtocolHandler
     {
         try
         {
-            HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
-            string result = await response.Content.ReadAsStringAsync();
+            using HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
+            string result = await response.Content.ReadAsStringAsync(cancellationToken);
             Logger.Current.Log(null, LogType.Http, result);
 
             return result;

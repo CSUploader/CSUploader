@@ -76,11 +76,11 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
 
         // ViewModels
-        services.AddTransient<MainViewModel>();
-        services.AddTransient<UploadViewModel>();
-        services.AddTransient<UploadsViewModel>();
-        services.AddTransient<UploadedViewModel>();
-        services.AddTransient<SettingsViewModel>();
-        services.AddTransient<LogsViewModel>();
+        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<UploadViewModel>();
+        services.AddSingleton<UploadsViewModel>();
+        services.AddSingleton<UploadedViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<LogsViewModel>();
     }
 }

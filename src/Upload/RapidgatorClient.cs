@@ -23,7 +23,7 @@ public class RapidgatorClient : FileHosterClient
     /// <summary>
     /// The hostname of the file hoster.
     /// </summary>
-    private static readonly string Hostname = "192.168.1.27/rapidgator";
+    private static readonly string Hostname = "rapidgator.net";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RapidgatorClient"/> class.

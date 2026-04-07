@@ -40,7 +40,7 @@
         </Grid.RowDefinitions>
 
         <!-- Auto-Scroll Checkbox -->
-        <CheckBox Grid.Row="0" Content="Auto-scroll" IsChecked="{Binding IsAutoScrollEnabled}" Margin="4,4,4,8" />
+        <CheckBox Grid.Row="0" Content="Auto-scroll" IsChecked="{Binding AutoScroll}" Margin="4,4,4,8" />
 
         <!-- Log Tabs -->
         <TabControl Grid.Row="1">
@@ -89,7 +89,7 @@
 
             <!-- UI Tab -->
             <TabItem Header="UI">
-                <DataGrid ItemsSource="{Binding UiLogs}" Style="{StaticResource LogDataGridStyle}">
+                <DataGrid ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />

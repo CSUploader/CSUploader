@@ -76,6 +76,12 @@ public partial class SettingsViewModel : ObservableObject
                     break;
             }
         }
+
+        // Apply loaded settings to runtime AppSettings
+        AppSettings.Current.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
+        AppSettings.Current.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        AppSettings.Current.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
+        AppSettings.Current.TempArchiveDirectory = TempArchiveDirectory;
     }
 
     [RelayCommand]

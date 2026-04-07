@@ -10,6 +10,11 @@ namespace CSUploader.Dal;
 public class UploadPackageStore(IDbContextFactory<CSUploaderDbContext> dbFactory)
     : Store<UploadPackageDbm>(dbFactory)
 {
+    protected override IQueryable<UploadPackageDbm> GetQuery(CSUploaderDbContext db)
+    {
+        return db.Set<UploadPackageDbm>().Include(p => p.Files);
+    }
+
     public async Task<UploadPackageDbm?> FindAsync(int id, CancellationToken cancellationToken = default)
     {
         return await FindFirstOrDefaultAsync(fu => fu.Id == id, cancellationToken);

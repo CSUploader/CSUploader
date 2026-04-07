@@ -39,29 +39,33 @@
         </ToolBar>
 
         <!-- TreeView with Packages and PackageFiles -->
-        <TreeView Grid.Row="1" ItemsSource="{Binding Packages}" Margin="4"
-                  BorderBrush="#ccc" BorderThickness="1">
+        <TreeView x:Name="uploadsTree" Grid.Row="1" ItemsSource="{Binding Packages}" Margin="4"
+                  BorderBrush="#ccc" BorderThickness="1"
+                  Tag="{Binding}">
 
-            <TreeView.Resources>
-                <!-- Context Menu shared by Package and PackageFile -->
-                <ContextMenu x:Key="ItemContextMenu">
-                    <MenuItem Header="Retry" Command="{Binding RetryCommand}">
+            <TreeView.ContextMenu>
+                <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                    <MenuItem Header="Retry"
+                              Command="{Binding RetryCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon>
                             <Image Source="{StaticResource ActionRetryImage}" Width="16" Height="16" />
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Stop" Command="{Binding StopCommand}">
+                    <MenuItem Header="Stop"
+                              Command="{Binding StopSelectedCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon>
                             <Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
-            </TreeView.Resources>
+            </TreeView.ContextMenu>
 
             <!-- Package (Parent) Template -->
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding PackageFiles}">
-                    <Grid Height="28" ContextMenu="{StaticResource ItemContextMenu}">
+                    <Grid Height="28">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="250" />
                             <ColumnDefinition Width="100" />
@@ -110,7 +114,7 @@
                     <!-- PackageFile (Child) Template -->
                     <HierarchicalDataTemplate.ItemTemplate>
                         <DataTemplate>
-                            <Grid Height="24" Background="#eff6f8" ContextMenu="{StaticResource ItemContextMenu}">
+                            <Grid Height="24" Background="#eff6f8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="250" />
                                     <ColumnDefinition Width="100" />

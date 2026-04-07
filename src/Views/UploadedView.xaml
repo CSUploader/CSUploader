@@ -19,7 +19,7 @@
     </UserControl.Resources>
 
     <Grid>
-        <TreeView ItemsSource="{Binding UploadPackages}" Margin="4"
+        <TreeView ItemsSource="{Binding Packages}" Margin="4"
                   BorderBrush="#ccc" BorderThickness="1">
 
             <!-- UploadPackageDto (Parent) Template -->

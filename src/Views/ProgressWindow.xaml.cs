@@ -17,43 +17,50 @@ public partial class ProgressWindow : Window
     }
 
     /// <summary>
-    /// Executes an asynchronous operation while displaying a progress window.
+    /// Executes an asynchronous operation while displaying a modal progress window.
+    /// Uses a proper TaskCompletionSource pattern: the async work starts on the Loaded event,
+    /// ShowDialog() blocks until Close() is called, and the result is returned after the dialog closes.
     /// </summary>
     /// <typeparam name="T">The return type of the operation.</typeparam>
     /// <param name="owner">The owner window.</param>
-    /// <param name="label">The label text to display.</param>
-    /// <param name="operation">The async operation to execute.</param>
-    /// <param name="cancellable">Whether to show the cancel button.</param>
-    /// <returns>The result of the async operation.</returns>
-    public static async Task<T> ExecuteAsync<T>(Window owner, string label, Func<CancellationToken, Task<T>> operation, bool cancellable = false)
+    /// <param name="labelText">The label text to display.</param>
+    /// <param name="allowCancel">Whether to show the cancel button.</param>
+    /// <param name="func">The async operation to execute.</param>
+    /// <returns>The result of the async operation, or default if cancelled.</returns>
+    public static async Task<T?> ExecuteAsync<T>(Window owner, string labelText, bool allowCancel, Func<CancellationToken, Task<T?>> func)
     {
         ProgressWindow progressWindow = new()
         {
             Owner = owner,
+            Title = "Please wait...",
         };
 
-        progressWindow.LabelText.Text = label;
+        progressWindow.LabelText.Text = labelText + Environment.NewLine + "Please wait...";
 
-        if (cancellable)
+        if (!allowCancel)
         {
-            progressWindow._cancellationTokenSource = new CancellationTokenSource();
-            progressWindow.CancelButton.Visibility = Visibility.Visible;
+            progressWindow.CancelButton.Visibility = Visibility.Collapsed;
         }
 
-        CancellationToken token = progressWindow._cancellationTokenSource?.Token ?? CancellationToken.None;
+        CancellationTokenSource cts = new();
+        progressWindow._cancellationTokenSource = cts;
 
-        T result = default!;
-        Exception? taskException = null;
+        T? result = default;
+        Exception? capturedException = null;
 
         progressWindow.Loaded += async (_, _) =>
         {
             try
             {
-                result = await operation(token);
+                result = await func(allowCancel ? cts.Token : CancellationToken.None);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is expected, not an error.
             }
             catch (Exception ex)
             {
-                taskException = ex;
+                capturedException = ex;
             }
             finally
             {
@@ -62,31 +69,30 @@ public partial class ProgressWindow : Window
         };
 
         progressWindow.ShowDialog();
+        cts.Dispose();
 
-        progressWindow._cancellationTokenSource?.Dispose();
-
-        if (taskException != null)
+        if (capturedException is not null)
         {
-            throw taskException;
+            MessageBox.Show(capturedException.ToString(), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         return result;
     }
 
     /// <summary>
-    /// Executes an asynchronous operation (no return value) while displaying a progress window.
+    /// Executes an asynchronous operation (no return value) while displaying a modal progress window.
     /// </summary>
     /// <param name="owner">The owner window.</param>
-    /// <param name="label">The label text to display.</param>
-    /// <param name="operation">The async operation to execute.</param>
-    /// <param name="cancellable">Whether to show the cancel button.</param>
-    public static async Task ExecuteAsync(Window owner, string label, Func<CancellationToken, Task> operation, bool cancellable = false)
+    /// <param name="labelText">The label text to display.</param>
+    /// <param name="allowCancel">Whether to show the cancel button.</param>
+    /// <param name="func">The async operation to execute.</param>
+    public static async Task ExecuteAsync(Window owner, string labelText, bool allowCancel, Func<CancellationToken, Task> func)
     {
-        await ExecuteAsync<object?>(owner, label, async ct =>
+        await ExecuteAsync<bool>(owner, labelText, allowCancel, async ct =>
         {
-            await operation(ct);
-            return null;
-        }, cancellable);
+            await func(ct);
+            return true;
+        });
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
