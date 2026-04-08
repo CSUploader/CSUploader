@@ -20,7 +20,7 @@ namespace CSUploader.ViewModels;
 public partial class UploadViewModel : ObservableObject
 {
     private readonly PackageManager _packageManager;
-    private readonly FileHosterLoginManager _fileHosterLoginManager;
+    private readonly FileHosterLoginRepository _fileHosterLoginRepository;
     private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
 
@@ -84,12 +84,12 @@ public partial class UploadViewModel : ObservableObject
 
     public UploadViewModel(
         PackageManager packageManager,
-        FileHosterLoginManager fileHosterLoginManager,
+        FileHosterLoginRepository fileHosterLoginRepository,
         IDialogService dialogService,
         IAppLogger logger)
     {
         _packageManager = packageManager;
-        _fileHosterLoginManager = fileHosterLoginManager;
+        _fileHosterLoginRepository = fileHosterLoginRepository;
         _dialogService = dialogService;
         _logger = logger;
 
@@ -125,7 +125,7 @@ public partial class UploadViewModel : ObservableObject
 
         foreach (string fileHosterName in FileHosterClient.FileHosters.Keys)
         {
-            FileHosterLoginDto[] accounts = await _fileHosterLoginManager.FindAsync(fileHosterName, cancellationToken);
+            FileHosterLoginDto[] accounts = await _fileHosterLoginRepository.FindAsync(fileHosterName, cancellationToken);
             FileHosters.Add(new FileHosterSelectionViewModel(fileHosterName, accounts));
         }
     }

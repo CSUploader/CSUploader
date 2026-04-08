@@ -57,17 +57,11 @@ public partial class App : Application
         services.AddDbContextFactory<CSUploaderDbContext>(options =>
             options.UseSqlite($"Data Source={dbPath}"));
 
-        // DAL - Stores
-        services.AddSingleton<SettingStore>();
-        services.AddSingleton<FileHosterLoginStore>();
-        services.AddSingleton<UploadPackageStore>();
-        services.AddSingleton<UploadPackageFileStore>();
-
-        // DAL - Managers
-        services.AddSingleton<SettingManager>();
-        services.AddSingleton<FileHosterLoginManager>();
-        services.AddSingleton<UploadPackageManager>();
-        services.AddSingleton<UploadPackageFileManager>();
+        // DAL - Repositories
+        services.AddSingleton<SettingRepository>();
+        services.AddSingleton<FileHosterLoginRepository>();
+        services.AddSingleton<UploadPackageRepository>();
+        services.AddSingleton<UploadPackageFileRepository>();
 
         // Upload
         services.AddSingleton<PackageManager>();

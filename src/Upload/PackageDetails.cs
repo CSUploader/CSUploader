@@ -12,9 +12,7 @@ namespace CSUploader.Upload;
 /// </summary>
 public abstract class PackageDetails
 {
-    private CancellationTokenSource cancellationTokenSource = new();
-
-    private PauseTokenSource pauseTokenSource = new();
+    private JobController _jobController = new();
 
     /// <summary>
     /// Event triggered when the status changed.
@@ -146,8 +144,7 @@ public abstract class PackageDetails
             return;
         }
 
-        cancellationTokenSource = new CancellationTokenSource();
-        pauseTokenSource = new PauseTokenSource();
+        _jobController = new JobController();
 
         ChangeStatus(job, JobStatus.Running);
 
@@ -155,14 +152,14 @@ public abstract class PackageDetails
         {
             try
             {
-                if (cancellationTokenSource.IsCancellationRequested)
+                if (_jobController.IsCancellationRequested)
                 {
-                    cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    _jobController.CancellationToken.ThrowIfCancellationRequested();
                 }
 
-                await pauseTokenSource.PauseIfRequestedAsync();
+                await _jobController.PauseIfRequestedAsync();
 
-                await StartAsync(job, pauseTokenSource.Token, cancellationTokenSource.Token);
+                await StartAsync(job, _jobController.PauseToken, _jobController.CancellationToken);
             }
             catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
             {
@@ -193,11 +190,11 @@ public abstract class PackageDetails
             {
                 if (resume)
                 {
-                    await pauseTokenSource.ResumeAsync();
+                    await _jobController.ResumeAsync();
                 }
                 else
                 {
-                    await pauseTokenSource.PauseAsync();
+                    await _jobController.PauseAsync();
                 }
             }
             catch (Exception)
@@ -212,7 +209,7 @@ public abstract class PackageDetails
     /// </summary>
     public void Stop()
     {
-        cancellationTokenSource.Cancel();
+        _jobController.Cancel();
     }
 
     /// <summary>

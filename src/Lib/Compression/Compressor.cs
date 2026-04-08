@@ -9,9 +9,7 @@ namespace CSUploader.Lib.Compression;
 
 public abstract class Compressor
 {
-    private readonly CancellationTokenSource cancellationTokenSource = new();
-
-    private readonly PauseTokenSource pauseTokenSource = new();
+    private readonly JobController _jobController = new();
 
     /// <summary>
     /// Event when the status changed.
@@ -69,7 +67,7 @@ public abstract class Compressor
         {
             try
             {
-                await CompressAsync(inputDirectoryPath, outputDirectoryPath, pauseTokenSource.Token, cancellationTokenSource.Token);
+                await CompressAsync(inputDirectoryPath, outputDirectoryPath, _jobController.PauseToken, _jobController.CancellationToken);
             }
             catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
             {
@@ -94,11 +92,11 @@ public abstract class Compressor
         {
             if (resume)
             {
-                await pauseTokenSource.ResumeAsync();
+                await _jobController.ResumeAsync();
             }
             else
             {
-                await pauseTokenSource.PauseAsync();
+                await _jobController.PauseAsync();
             }
         });
     }
@@ -108,7 +106,7 @@ public abstract class Compressor
     /// </summary>
     public void StopAsync()
     {
-        cancellationTokenSource.Cancel();
+        _jobController.Cancel();
     }
 
     /// <summary>

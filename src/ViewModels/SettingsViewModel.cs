@@ -12,7 +12,7 @@ namespace CSUploader.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
-    private readonly SettingManager _settingManager;
+    private readonly SettingRepository _settingRepository;
 
     [ObservableProperty]
     private int maxConcurrentCPUJobs = AppSettings.DefaultMaxConcurrentCPUJobs;
@@ -29,14 +29,14 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
 
-    public SettingsViewModel(SettingManager settingManager)
+    public SettingsViewModel(SettingRepository settingRepository)
     {
-        _settingManager = settingManager;
+        _settingRepository = settingRepository;
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
-        SettingDto[] settings = await _settingManager.GetAllAsync(cancellationToken);
+        SettingDto[] settings = await _settingRepository.GetAllAsync(cancellationToken);
 
         foreach (SettingDto setting in settings)
         {
@@ -101,16 +101,16 @@ public partial class SettingsViewModel : ObservableObject
 
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
     {
-        SettingDto? existing = await _settingManager.FindByKeyAsync(key, cancellationToken);
+        SettingDto? existing = await _settingRepository.FindByKeyAsync(key, cancellationToken);
 
         if (existing is not null)
         {
             existing.Value = value;
-            await _settingManager.UpdateAsync(existing, cancellationToken);
+            await _settingRepository.UpdateAsync(existing, cancellationToken);
         }
         else
         {
-            await _settingManager.InsertAsync(new SettingDto { Key = key, Value = value }, cancellationToken);
+            await _settingRepository.InsertAsync(new SettingDto { Key = key, Value = value }, cancellationToken);
         }
     }
 }

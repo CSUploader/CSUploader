@@ -1,30 +1,37 @@
-// <copyright file="UploadPackageManager.cs" company="CSUploader">
+// <copyright file="UploadPackageRepository.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Microsoft.EntityFrameworkCore;
+
 namespace CSUploader.Dal;
 
-public class UploadPackageManager(UploadPackageStore uploadPackageStore)
-    : StoreManager<UploadPackageDbm, UploadPackageDto, UploadPackageStore>(uploadPackageStore)
+public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFactory)
+    : Repository<UploadPackageDbm, UploadPackageDto>(dbFactory)
 {
+    protected override IQueryable<UploadPackageDbm> GetQuery(CSUploaderDbContext db)
+    {
+        return db.Set<UploadPackageDbm>().Include(p => p.Files);
+    }
+
     public async Task<UploadPackageDto?> FindAsync(int id, CancellationToken cancellationToken = default)
     {
-        UploadPackageDbm? dbm = await Store.FindAsync(id, cancellationToken);
-        return dbm is not null ? MapToDto(dbm) : null;
+        UploadPackageDbm? entity = await FindFirstOrDefaultAsync(fu => fu.Id == id, cancellationToken);
+        return entity is not null ? MapToDto(entity) : null;
     }
 
     public Task<int> DeleteAsync(int id, CancellationToken cancellationToken = default)
-        => Store.DeleteAsync(id, cancellationToken);
+        => DeleteByPredicateAsync(fu => fu.Id == id, cancellationToken);
 
     public Task<int> DeleteAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
-        => Store.DeleteAsync(ids, cancellationToken);
+        => DeleteByPredicateAsync(fu => ids.Contains(fu.Id), cancellationToken);
 
-    protected override UploadPackageDto MapToDto(UploadPackageDbm dbm) => new()
+    protected override UploadPackageDto MapToDto(UploadPackageDbm entity) => new()
     {
-        Id = dbm.Id,
-        Name = dbm.Name,
-        Files = dbm.Files.Select(f => new UploadPackageFileDto
+        Id = entity.Id,
+        Name = entity.Name,
+        Files = entity.Files.Select(f => new UploadPackageFileDto
         {
             Id = f.Id,
             FileName = f.FileName,
@@ -39,10 +46,10 @@ public class UploadPackageManager(UploadPackageStore uploadPackageStore)
         }).ToArray(),
     };
 
-    protected override void MapToDto(UploadPackageDbm dbm, UploadPackageDto dto)
+    protected override void MapToDto(UploadPackageDbm entity, UploadPackageDto dto)
     {
-        dto.Id = dbm.Id;
-        dto.Name = dbm.Name;
+        dto.Id = entity.Id;
+        dto.Name = entity.Name;
     }
 
     protected override UploadPackageDbm MapToDbm(UploadPackageDto dto) => new()
