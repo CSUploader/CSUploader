@@ -12,9 +12,12 @@ namespace CSUploader.Lib.Net.Http;
 
 public class HttpHandler
 {
-    public HttpHandler(HttpClient httpclient)
+    private readonly IAppLogger _logger;
+
+    public HttpHandler(HttpClient httpclient, IAppLogger logger)
     {
         HttpClient = httpclient;
+        _logger = logger;
     }
 
     public event EventHandler<OperationProgressEventArgs>? UploadProgress;
@@ -27,19 +30,19 @@ public class HttpHandler
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        Logger.Current.Log(null, LogType.Http, $"GET {url} HTTP/1.1");
+        _logger.Log(null, LogType.Http, $"GET {url} HTTP/1.1");
 
         try
         {
             using HttpResponseMessage responseMessage = await HttpClient.GetAsync(url, cancellationToken);
             string result = await responseMessage.Content.ReadAsStringAsync(cancellationToken);
-            Logger.Current.Log(null, LogType.Http, result);
+            _logger.Log(null, LogType.Http, result);
 
             return result;
         }
         catch (Exception ex)
         {
-            Logger.Current.Log(null, LogType.Error, $"Failed to send GET request to `{url}`: {ex.Message}{Environment.NewLine}{ex}");
+            _logger.Log(null, LogType.Error, $"Failed to send GET request to `{url}`: {ex.Message}{Environment.NewLine}{ex}");
             throw;
         }
     }

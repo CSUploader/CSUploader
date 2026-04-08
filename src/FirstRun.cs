@@ -12,12 +12,12 @@ namespace CSUploader;
 
 public static class FirstRun
 {
-    public static void InitializeDatabase(IServiceProvider services)
+    public static void InitializeDatabase(IServiceProvider services, IAppLogger logger)
     {
         IDbContextFactory<CSUploaderDbContext> factory = services.GetRequiredService<IDbContextFactory<CSUploaderDbContext>>();
         using CSUploaderDbContext ctx = factory.CreateDbContext();
         ctx.Database.EnsureCreated();
 
-        Logger.Current.Log(null, LogType.Status, "Initialized database");
+        logger.Log(null, LogType.Status, "Initialized database");
     }
 }

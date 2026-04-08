@@ -3,12 +3,20 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Lib;
 using SevenZip;
 
 namespace CSUploader.Lib.Compression.ZevenZip;
 
 public class ZevenZipCompressor : Compressor
 {
+    private readonly IAppLogger _logger;
+
+    public ZevenZipCompressor(IAppLogger logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Gets or sets the compression options.
     /// </summary>
@@ -73,7 +81,7 @@ public class ZevenZipCompressor : Compressor
         }
         catch (Exception ex)
         {
-            Logger.Current.Log(this, LogType.Error, $"Failed to compress directory: {ex}");
+            _logger.Log(this, LogType.Error, $"Failed to compress directory: {ex}");
         }
     }
 

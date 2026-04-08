@@ -228,7 +228,7 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
             // Upload it to each given file hoster
             foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
             {
-                FileHosterClient? fileHoster = FileHosterClient.FileHosters.Where(fh => fh.Key == kvp.Key.Name).Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol)).FirstOrDefault();
+                FileHosterClient? fileHoster = FileHosterClient.FileHosters.Where(fh => fh.Key == kvp.Key.Name).Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!)).FirstOrDefault();
                 if (fileHoster != null)
                 {
                     PackageFile packageFile = new(this, filePath, fileHoster, kvp.Value);

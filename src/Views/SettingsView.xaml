@@ -52,7 +52,7 @@
                      Style="{StaticResource CompactTextBoxStyle}" Width="80"
                      IsEnabled="{Binding SpeedLimitEnabled}" />
             <TextBlock Text="KB/s" VerticalAlignment="Center" Margin="8,0,0,0"
-                       Foreground="{StaticResource TextSecondaryBrush}" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
         </StackPanel>
 
         <!-- Save Button -->

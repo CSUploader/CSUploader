@@ -1,0 +1,29 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Colors - Surfaces -->
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#1E1E2E" />
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#252535" />
+    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#2A2A3C" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#3E3E52" />
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#33334A" />
+
+    <!-- Colors - Text -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E0E0E8" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A0A0B8" />
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#606070" />
+
+    <!-- Colors - Accent -->
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
+
+    <!-- Colors - DataGrid -->
+    <SolidColorBrush x:Key="DataGridHeaderBrush" Color="#2A2A3C" />
+    <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#222235" />
+    <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#33334A" />
+
+</ResourceDictionary>

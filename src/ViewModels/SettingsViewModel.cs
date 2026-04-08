@@ -13,6 +13,7 @@ namespace CSUploader.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingRepository _settingRepository;
+    private readonly AppSettings _settings;
 
     [ObservableProperty]
     private int maxConcurrentCPUJobs = AppSettings.DefaultMaxConcurrentCPUJobs;
@@ -29,9 +30,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
 
-    public SettingsViewModel(SettingRepository settingRepository)
+    public SettingsViewModel(SettingRepository settingRepository, AppSettings settings)
     {
         _settingRepository = settingRepository;
+        _settings = settings;
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
@@ -78,10 +80,10 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         // Apply loaded settings to runtime AppSettings
-        AppSettings.Current.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
-        AppSettings.Current.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
-        AppSettings.Current.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        AppSettings.Current.TempArchiveDirectory = TempArchiveDirectory;
+        _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
+        _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
+        _settings.TempArchiveDirectory = TempArchiveDirectory;
     }
 
     [RelayCommand]
@@ -93,10 +95,10 @@ public partial class SettingsViewModel : ObservableObject
         await SaveSettingAsync(SettingKey.TempArchiveDirectory, TempArchiveDirectory, cancellationToken);
 
         // Apply to the running AppSettings instance
-        AppSettings.Current.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
-        AppSettings.Current.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
-        AppSettings.Current.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        AppSettings.Current.TempArchiveDirectory = TempArchiveDirectory;
+        _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
+        _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
+        _settings.TempArchiveDirectory = TempArchiveDirectory;
     }
 
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)

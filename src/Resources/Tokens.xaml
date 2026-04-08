@@ -19,28 +19,6 @@
     <Thickness x:Key="RowSpacingMd">0,0,0,8</Thickness>
     <Thickness x:Key="SectionSpacing">0,0,0,6</Thickness>
 
-    <!-- Colors - Surfaces -->
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F8FAFB" />
-    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F0F2F4" />
-    <SolidColorBrush x:Key="BorderBrush" Color="#D1D5DB" />
-    <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E5E7EB" />
-
-    <!-- Colors - Text -->
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1F2937" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7280" />
-    <SolidColorBrush x:Key="TextDisabledBrush" Color="#9CA3AF" />
-
-    <!-- Colors - Accent -->
-    <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#1D4ED8" />
-    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
-
-    <!-- Colors - DataGrid -->
-    <SolidColorBrush x:Key="DataGridHeaderBrush" Color="#F3F4F6" />
-    <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#F9FAFB" />
-    <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#E5E7EB" />
-
     <!-- Typography -->
     <sys:Double x:Key="FontSizeXs">11</sys:Double>
     <sys:Double x:Key="FontSizeSm">12</sys:Double>
@@ -57,10 +35,10 @@
     <CornerRadius x:Key="RadiusSm">2</CornerRadius>
     <CornerRadius x:Key="RadiusMd">4</CornerRadius>
 
-    <!-- Common Styles -->
+    <!-- Common Styles (color references use DynamicResource for theme switching) -->
     <Style x:Key="FormLabelStyle" TargetType="TextBlock">
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
@@ -68,7 +46,7 @@
     <Style x:Key="SectionHeaderStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{StaticResource FontSizeLg}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="Margin" Value="0,0,0,6" />
     </Style>
 
@@ -91,8 +69,8 @@
     </Style>
 
     <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource AccentBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource AccentForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="16,6" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
@@ -108,7 +86,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+                            <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5" />

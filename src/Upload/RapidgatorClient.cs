@@ -25,14 +25,18 @@ public class RapidgatorClient : FileHosterClient
     /// </summary>
     private static readonly string Hostname = "rapidgator.net";
 
+    private readonly IAppLogger _logger;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RapidgatorClient"/> class.
     /// </summary>
     /// <param name="protocol">The protocol.</param>
+    /// <param name="logger">The application logger.</param>
     /// <exception cref="ArgumentOutOfRangeException">protocol - Protocol not supported.</exception>
-    public RapidgatorClient(Protocol protocol)
+    public RapidgatorClient(Protocol protocol, IAppLogger logger)
         : base(protocol)
     {
+        _logger = logger;
         if (protocol == Protocol.Http)
         {
             HttpClientHandler httpClientHandler = new()
@@ -59,7 +63,7 @@ public class RapidgatorClient : FileHosterClient
             Cookie languageCookie = new("lang", "en", "/", "www.rapidgator.com");
             httpClientHandler.CookieContainer.Add(languageCookie);
 
-            HttpHandler = new HttpHandler(httpClient);
+            HttpHandler = new HttpHandler(httpClient, _logger);
         }
         else if (protocol == Protocol.Ftp)
         {
@@ -212,7 +216,7 @@ public class RapidgatorClient : FileHosterClient
         }
         catch (Exception ex)
         {
-            Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to send HTTP GET: {ex}");
+            _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to send HTTP GET: {ex}");
             throw;
         }
 
@@ -225,7 +229,7 @@ public class RapidgatorClient : FileHosterClient
         {
             if (modelResponse?.Status != 200 || !string.IsNullOrEmpty(modelResponse.Details))
             {
-                Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to {action}: {modelResponse?.Status} {modelResponse?.Details}");
+                _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to {action}: {modelResponse?.Status} {modelResponse?.Details}");
                 return null;
             }
 
@@ -233,13 +237,13 @@ public class RapidgatorClient : FileHosterClient
         }
         else if (JsonHelpers.TryDeserializeObject(result, out Response? response))
         {
-            Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to {action}:{Environment.NewLine}"
+            _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to {action}:{Environment.NewLine}"
                 + $"Response Status: {response?.Status}{Environment.NewLine}"
                 + $"Response details: {response?.Details}{Environment.NewLine}");
         }
         else
         {
-            Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Action '{action}' failed to execute: {result}");
+            _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Action '{action}' failed to execute: {result}");
         }
 
         return null;
@@ -266,7 +270,7 @@ public class RapidgatorClient : FileHosterClient
         {
             if (fileUploadResponse.Status != 200)
             {
-                Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {fileUploadResponse.Status} {fileUploadResponse.Details}");
+                _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {fileUploadResponse.Status} {fileUploadResponse.Details}");
                 eventArgs = new FileHosterUploadFinishedEventArgs(false, fileUploadResponse.Details, startDateTime);
             }
             else if (fileUploadResponse.Model?.Upload?.File is { Length: > 0 })
@@ -293,7 +297,7 @@ public class RapidgatorClient : FileHosterClient
         }
         else if (JsonHelpers.TryDeserializeObject(e.Result, out Response? response) && !string.IsNullOrEmpty(response.Details))
         {
-            Logger.Current.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {response.Status} {response.Details}");
+            _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {response.Status} {response.Details}");
             eventArgs = new FileHosterUploadFinishedEventArgs(false, response.Details, startDateTime);
         }
 

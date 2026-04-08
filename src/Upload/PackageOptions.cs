@@ -4,11 +4,16 @@
 // </copyright>
 
 using CSUploader.Dal;
+using CSUploader.Lib;
 
 namespace CSUploader.Upload;
 
 public class PackageOptions
 {
+    /// <summary>
+    /// Gets or sets the application logger.
+    /// </summary>
+    public IAppLogger? Logger { get; set; }
     /// <summary>
     /// Gets or sets the directory path to the files.
     /// </summary>

@@ -23,6 +23,7 @@ public partial class UploadViewModel : ObservableObject
     private readonly FileHosterLoginRepository _fileHosterLoginRepository;
     private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
+    private readonly AppSettings _settings;
 
     // Action to switch tab (set by MainViewModel)
     public Action<int>? SwitchToTab { get; set; }
@@ -86,12 +87,14 @@ public partial class UploadViewModel : ObservableObject
         PackageManager packageManager,
         FileHosterLoginRepository fileHosterLoginRepository,
         IDialogService dialogService,
-        IAppLogger logger)
+        IAppLogger logger,
+        AppSettings settings)
     {
         _packageManager = packageManager;
         _fileHosterLoginRepository = fileHosterLoginRepository;
         _dialogService = dialogService;
         _logger = logger;
+        _settings = settings;
 
         // Set defaults
         SelectedCompressionLevel = ZevenZip.CompressionLevels.FirstOrDefault(x => x.Key == CompressionLevel.None);
@@ -184,7 +187,7 @@ public partial class UploadViewModel : ObservableObject
     private void BrowseOutputDirectory()
     {
         string? folder = _dialogService.BrowseFolder(
-            string.IsNullOrEmpty(OutputDirectory) ? AppSettings.Current.TempArchiveDirectory : OutputDirectory,
+            string.IsNullOrEmpty(OutputDirectory) ? _settings.TempArchiveDirectory : OutputDirectory,
             "Select Output Directory");
 
         if (folder is not null)
@@ -259,7 +262,8 @@ public partial class UploadViewModel : ObservableObject
     {
         PackageOptions options = new()
         {
-            DirectoryPath = directory
+            DirectoryPath = directory,
+            Logger = _logger
         };
 
         if (EnableCompression && Is7zSelected)
@@ -280,7 +284,7 @@ public partial class UploadViewModel : ObservableObject
 
             options.CompressionOptions = new PackageCompressionOptions
             {
-                Compressor = new ZevenZipCompressor
+                Compressor = new ZevenZipCompressor(_logger)
                 {
                     Options = new ZevenZip.CompressionOptions
                     {
@@ -295,7 +299,7 @@ public partial class UploadViewModel : ObservableObject
                     }
                 },
                 OutputDirectoryPath = OutputDirectory,
-                TemporaryDirectory = AppSettings.Current.TempArchiveDirectory,
+                TemporaryDirectory = _settings.TempArchiveDirectory,
                 ArchivePassword = ArchivePassword,
             };
         }
@@ -308,7 +312,7 @@ public partial class UploadViewModel : ObservableObject
                 continue;
             }
 
-            FileHosterClient? client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http);
+            FileHosterClient? client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, _logger);
             if (client is not null)
             {
                 options.FileHosters[client] = hoster.SelectedAccount;

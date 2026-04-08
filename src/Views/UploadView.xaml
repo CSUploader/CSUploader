@@ -21,7 +21,7 @@
             <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
             <Style.Triggers>
                 <Trigger Property="AlternationIndex" Value="1">
-                    <Setter Property="Background" Value="{StaticResource DataGridAltRowBrush}" />
+                    <Setter Property="Background" Value="{DynamicResource DataGridAltRowBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -43,12 +43,12 @@
 
         <!-- Compact column header style -->
         <Style x:Key="CompactColumnHeaderStyle" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{StaticResource DataGridHeaderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
             <Setter Property="Padding" Value="6,4" />
             <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource DataGridGridLineBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
         </Style>
     </UserControl.Resources>
@@ -92,7 +92,7 @@
 
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Result Preview:" Style="{StaticResource FormLabelStyle}" />
                 <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding PackageNamingResult, Mode=OneWay}"
-                         Style="{StaticResource CompactTextBoxStyle}" IsReadOnly="True" Background="{StaticResource SurfaceMutedBrush}" />
+                         Style="{StaticResource CompactTextBoxStyle}" IsReadOnly="True" Background="{DynamicResource SurfaceMutedBrush}" />
             </Grid>
         </GroupBox>
 
@@ -156,7 +156,7 @@
                     <StackPanel Grid.Row="2" Grid.Column="5" Orientation="Horizontal" Margin="0,0,12,6">
                         <TextBox Text="{Binding CpuThreads, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource CompactTextBoxStyle}" Width="45" />
-                        <TextBlock VerticalAlignment="Center" Margin="4,0,0,0" Foreground="{StaticResource TextSecondaryBrush}">
+                        <TextBlock VerticalAlignment="Center" Margin="4,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}">
                             <Run Text="/ " /><Run Text="{Binding MaxCpuThreads, Mode=OneTime}" />
                         </TextBlock>
                     </StackPanel>
@@ -190,13 +190,13 @@
                       CanUserReorderColumns="False"
                       HeadersVisibility="Column"
                       GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="{StaticResource DataGridGridLineBrush}"
+                      HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                       SelectionMode="Single"
                       SelectionUnit="FullRow"
                       RowHeaderWidth="0"
                       BorderThickness="1"
-                      BorderBrush="{StaticResource BorderBrush}"
-                      Background="{StaticResource SurfaceBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
+                      Background="{DynamicResource SurfaceBrush}"
                       AlternationCount="2"
                       RowStyle="{StaticResource CompactDataGridRowStyle}"
                       CellStyle="{StaticResource CompactDataGridCellStyle}"

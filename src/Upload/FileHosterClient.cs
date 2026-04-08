@@ -51,9 +51,9 @@ public abstract class FileHosterClient
         { "WuShare", "www.wushare.com" },
     });
 
-    private static Dictionary<string, Func<Protocol, FileHosterClient>> FileHosterFactory { get; } = new Dictionary<string, Func<Protocol, FileHosterClient>>
+    private static Dictionary<string, Func<Protocol, IAppLogger, FileHosterClient>> FileHosterFactory { get; } = new Dictionary<string, Func<Protocol, IAppLogger, FileHosterClient>>
     {
-        { "Rapidgator", (Protocol protocol) => new RapidgatorClient(protocol) },
+        { "Rapidgator", (Protocol protocol, IAppLogger logger) => new RapidgatorClient(protocol, logger) },
     };
 
     /// <summary>
@@ -135,12 +135,13 @@ public abstract class FileHosterClient
     /// </summary>
     /// <param name="name">The name of the file hoster.</param>
     /// <param name="protocol">The protocol the file hoster should use to upload.</param>
+    /// <param name="logger">The application logger.</param>
     /// <returns>An instance of a file hoster client if found; otherwise, null.</returns>
-    public static FileHosterClient? FindByHost(string name, Protocol protocol)
+    public static FileHosterClient? FindByHost(string name, Protocol protocol, IAppLogger logger)
     {
         return FileHosterFactory
                 .Where(fh => string.Equals(fh.Key, name, StringComparison.OrdinalIgnoreCase))
-                .Select(fh => fh.Value(protocol))
+                .Select(fh => fh.Value(protocol, logger))
                 .FirstOrDefault();
     }
 

@@ -7,6 +7,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:behaviors="clr-namespace:CSUploader.Behaviors"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:LogsViewModel}"
@@ -47,7 +48,9 @@
 
             <!-- Status Tab -->
             <TabItem Header="Status">
-                <DataGrid ItemsSource="{Binding StatusLogs}" Style="{StaticResource LogDataGridStyle}">
+                <DataGrid ItemsSource="{Binding StatusLogs}" Style="{StaticResource LogDataGridStyle}"
+                          MouseDoubleClick="DataGrid_MouseDoubleClick"
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
@@ -61,7 +64,9 @@
 
             <!-- HTTP Tab -->
             <TabItem Header="HTTP">
-                <DataGrid ItemsSource="{Binding HttpLogs}" Style="{StaticResource LogDataGridStyle}">
+                <DataGrid ItemsSource="{Binding HttpLogs}" Style="{StaticResource LogDataGridStyle}"
+                          MouseDoubleClick="DataGrid_MouseDoubleClick"
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
@@ -75,7 +80,9 @@
 
             <!-- Errors Tab -->
             <TabItem Header="Errors">
-                <DataGrid ItemsSource="{Binding ErrorLogs}" Style="{StaticResource LogDataGridStyle}">
+                <DataGrid ItemsSource="{Binding ErrorLogs}" Style="{StaticResource LogDataGridStyle}"
+                          MouseDoubleClick="DataGrid_MouseDoubleClick"
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
@@ -89,7 +96,9 @@
 
             <!-- UI Tab -->
             <TabItem Header="UI">
-                <DataGrid ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}">
+                <DataGrid ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}"
+                          MouseDoubleClick="DataGrid_MouseDoubleClick"
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />

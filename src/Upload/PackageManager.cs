@@ -11,6 +11,12 @@ public class PackageManager
 {
     private readonly PackageQueue packageQueue = new();
     private readonly object _lock = new();
+    private readonly AppSettings _settings;
+
+    public PackageManager(AppSettings settings)
+    {
+        _settings = settings;
+    }
 
     public event EventHandler<PackageAddedEventArgs>? PackageAdded;
 
@@ -245,12 +251,12 @@ public class PackageManager
         List<PackageJob> relatedJobs = [job];
         if (job == PackageJob.Compression || job == PackageJob.Hashing)
         {
-            maxConcurrentJobs = AppSettings.Current.MaxConcurrentCPUJobs;
+            maxConcurrentJobs = _settings.MaxConcurrentCPUJobs;
             relatedJobs.Add(job == PackageJob.Compression ? PackageJob.Hashing : PackageJob.Compression);
         }
         else if (job == PackageJob.Upload)
         {
-            maxConcurrentJobs = AppSettings.Current.MaxConcurrentUploadJobs;
+            maxConcurrentJobs = _settings.MaxConcurrentUploadJobs;
         }
 
         // If the job has a maximum concurrent job limit, see if we've reached it
