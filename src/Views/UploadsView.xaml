@@ -15,45 +15,14 @@
     <UserControl.Resources>
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
         <conv:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
-        <conv:DateTimeFormatConverter x:Key="DateTimeConverter" />
         <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
-        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <!-- Shared column widths so header + rows align -->
-        <GridLength x:Key="ColName">220</GridLength>
-        <GridLength x:Key="ColSize">80</GridLength>
-        <GridLength x:Key="ColHoster">100</GridLength>
-        <GridLength x:Key="ColStatus">130</GridLength>
-        <GridLength x:Key="ColSpeed">90</GridLength>
-        <GridLength x:Key="ColETA">80</GridLength>
-        <GridLength x:Key="ColBytesLoaded">90</GridLength>
-        <GridLength x:Key="ColProgress">160</GridLength>
-        <GridLength x:Key="ColSaveFrom">180</GridLength>
-        <GridLength x:Key="ColError">*</GridLength>
-
-        <!-- Row cell style -->
-        <Style x:Key="CellText" TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="Margin" Value="6,0" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
-
-        <!-- Column header style -->
-        <Style x:Key="HeaderCell" TargetType="TextBlock">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-            <Setter Property="Margin" Value="6,0" />
-        </Style>
-
-        <!-- Status bar label style -->
+        <!-- Status bar label/value styles -->
         <Style x:Key="StatusLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Margin" Value="0,0,3,0" />
         </Style>
         <Style x:Key="StatusValue" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -62,11 +31,28 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,16,0" />
         </Style>
+
+        <!-- Progress bar template for use in both package and file rows -->
+        <DataTemplate x:Key="ProgressCellTemplate">
+            <Grid x:Name="ProgressGrid" Margin="2,3">
+                <Border Background="{DynamicResource SurfaceMutedBrush}" CornerRadius="2" Height="14" />
+                <Border Background="#6BA5D7" CornerRadius="2" HorizontalAlignment="Left" Height="14">
+                    <Border.Width>
+                        <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                            <Binding Path="Progress" />
+                            <Binding Path="ActualWidth" ElementName="ProgressGrid" />
+                        </MultiBinding>
+                    </Border.Width>
+                </Border>
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
+                           FontSize="10" />
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -77,7 +63,7 @@
             <Button Command="{Binding StartCommand}" ToolTip="Start all uploads">
                 <Image Source="{StaticResource ButtonStartImage}" Width="20" Height="20" />
             </Button>
-            <Button Command="{Binding PauseCommand}" ToolTip="Pause / Resume (limits to 10 KiB/s)">
+            <Button Command="{Binding PauseCommand}" ToolTip="Pause / Resume">
                 <Image Source="{StaticResource ButtonPauseImage}" Width="20" Height="20" />
             </Button>
             <Button Command="{Binding StopCommand}" ToolTip="Stop all uploads">
@@ -85,51 +71,35 @@
             </Button>
         </ToolBar>
 
-        <!-- ═══ Column Headers (fixed row above TreeView) ═══ -->
-        <Border Grid.Row="1" Background="{DynamicResource DataGridHeaderBrush}"
-                BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1">
-            <Grid Height="26">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="20" /> <!-- TreeView expand gutter -->
-                    <ColumnDefinition Width="{StaticResource ColName}" />
-                    <ColumnDefinition Width="{StaticResource ColSize}" />
-                    <ColumnDefinition Width="{StaticResource ColHoster}" />
-                    <ColumnDefinition Width="{StaticResource ColStatus}" />
-                    <ColumnDefinition Width="{StaticResource ColSpeed}" />
-                    <ColumnDefinition Width="{StaticResource ColETA}" />
-                    <ColumnDefinition Width="{StaticResource ColBytesLoaded}" />
-                    <ColumnDefinition Width="{StaticResource ColProgress}" />
-                    <ColumnDefinition Width="{StaticResource ColSaveFrom}" />
-                    <ColumnDefinition Width="{StaticResource ColError}" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="1" Text="Name" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="2" Text="Size" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="3" Text="Hoster" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="4" Text="Status" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="5" Text="Speed" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="6" Text="ETA" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="7" Text="Loaded" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="8" Text="Progress" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="9" Text="Save to" Style="{StaticResource HeaderCell}" />
-                <TextBlock Grid.Column="10" Text="Error" Style="{StaticResource HeaderCell}" />
-            </Grid>
-        </Border>
-
-        <!-- ═══ TreeView (packages + files) ═══ -->
-        <TreeView x:Name="uploadsTree" Grid.Row="2"
+        <!-- ═══ Main DataGrid (Package rows with RowDetails for files) ═══ -->
+        <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   ItemsSource="{Binding Packages}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserResizeColumns="True"
+                  CanUserReorderColumns="True"
+                  CanUserSortColumns="True"
+                  SelectionMode="Extended"
+                  SelectionUnit="FullRow"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="All"
+                  HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                  VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   Background="{DynamicResource SurfaceBrush}"
+                  AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
+                  RowHeaderWidth="0"
                   BorderThickness="0"
-                  Padding="0"
+                  RowDetailsVisibilityMode="VisibleWhenSelected"
                   Tag="{Binding}">
 
-            <TreeView.InputBindings>
+            <DataGrid.InputBindings>
                 <KeyBinding Key="Delete" Command="{Binding RemoveCommand}"
-                            CommandParameter="{Binding SelectedItem, ElementName=uploadsTree}" />
-            </TreeView.InputBindings>
+                            CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}" />
+            </DataGrid.InputBindings>
 
-            <TreeView.ContextMenu>
+            <DataGrid.ContextMenu>
                 <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
                     <MenuItem Header="Retry" Command="{Binding RetryCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
@@ -143,155 +113,239 @@
                     <MenuItem Header="Remove" Command="{Binding RemoveCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 </ContextMenu>
-            </TreeView.ContextMenu>
+            </DataGrid.ContextMenu>
 
-            <TreeView.ItemContainerStyle>
-                <Style TargetType="TreeViewItem">
-                    <Setter Property="IsExpanded" Value="True" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0" />
+            <!-- Column header style -->
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="Padding" Value="6,4" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
+                    <Setter Property="BorderThickness" Value="0,0,1,1" />
+                    <Setter Property="HorizontalContentAlignment" Value="Left" />
                 </Style>
-            </TreeView.ItemContainerStyle>
+            </DataGrid.ColumnHeaderStyle>
 
-            <!-- ═══ Package row ═══ -->
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding}">
-                    <Grid Height="26" Margin="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{StaticResource ColName}" />
-                            <ColumnDefinition Width="{StaticResource ColSize}" />
-                            <ColumnDefinition Width="{StaticResource ColHoster}" />
-                            <ColumnDefinition Width="{StaticResource ColStatus}" />
-                            <ColumnDefinition Width="{StaticResource ColSpeed}" />
-                            <ColumnDefinition Width="{StaticResource ColETA}" />
-                            <ColumnDefinition Width="{StaticResource ColBytesLoaded}" />
-                            <ColumnDefinition Width="{StaticResource ColProgress}" />
-                            <ColumnDefinition Width="{StaticResource ColSaveFrom}" />
-                            <ColumnDefinition Width="{StaticResource ColError}" />
-                        </Grid.ColumnDefinitions>
+            <!-- Row style: compact height -->
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="Height" Value="24" />
+                </Style>
+            </DataGrid.RowStyle>
 
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource CellText}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Style="{StaticResource CellText}" />
-                        <TextBlock Grid.Column="2" Text="" Style="{StaticResource CellText}" /> <!-- Package shows hosters in child rows -->
-                        <TextBlock Grid.Column="3" Style="{StaticResource CellText}">
-                            <TextBlock.Text>
-                                <Binding Path="Status.Status" FallbackValue="" />
-                            </TextBlock.Text>
-                        </TextBlock>
-                        <TextBlock Grid.Column="4" Text="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
-                        <TextBlock Grid.Column="5" Text="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
-                        <TextBlock Grid.Column="6" Text="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Padding" Value="4,0" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                    <ContentPresenter VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#CBE1F5" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.CellStyle>
 
-                        <!-- Progress bar -->
-                        <Grid Grid.Column="7" Margin="6,4" x:Name="PkgProgressGrid">
-                            <Border Background="{DynamicResource SurfaceMutedBrush}" CornerRadius="2" />
-                            <Border Background="#6BA5D7" CornerRadius="2" HorizontalAlignment="Left">
-                                <Border.Width>
-                                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
-                                        <Binding Path="Progress" />
-                                        <Binding Path="ActualWidth" ElementName="PkgProgressGrid" />
-                                    </MultiBinding>
-                                </Border.Width>
-                            </Border>
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
-                                       FontSize="10" Foreground="{DynamicResource TextPrimaryBrush}" />
-                        </Grid>
+            <!-- ═══ Columns ═══ -->
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220" FontWeight="SemiBold">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
 
-                        <TextBlock Grid.Column="8" Text="{Binding SaveFrom}" Style="{StaticResource CellText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <TextBlock Grid.Column="9" Text="{Binding Error}" Style="{StaticResource CellText}" Foreground="Red" />
-                    </Grid>
+                <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="90" />
+                <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosters[0].Name, FallbackValue=''}" Width="110" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status.Status, FallbackValue=''}" Width="120" />
+                <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
+                <DataGridTextColumn Header="ETA" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
+                <DataGridTextColumn Header="Bytes Loaded" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
 
-                    <!-- ═══ PackageFile (child) row ═══ -->
-                    <HierarchicalDataTemplate.ItemTemplate>
+                <DataGridTemplateColumn Header="Progress" Width="160">
+                    <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid Height="24" Background="{DynamicResource DataGridAltRowBrush}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{StaticResource ColName}" />
-                                    <ColumnDefinition Width="{StaticResource ColSize}" />
-                                    <ColumnDefinition Width="{StaticResource ColHoster}" />
-                                    <ColumnDefinition Width="{StaticResource ColStatus}" />
-                                    <ColumnDefinition Width="{StaticResource ColSpeed}" />
-                                    <ColumnDefinition Width="{StaticResource ColETA}" />
-                                    <ColumnDefinition Width="{StaticResource ColBytesLoaded}" />
-                                    <ColumnDefinition Width="{StaticResource ColProgress}" />
-                                    <ColumnDefinition Width="{StaticResource ColSaveFrom}" />
-                                    <ColumnDefinition Width="{StaticResource ColError}" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource CellText}" />
-                                <TextBlock Grid.Column="1" Text="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Style="{StaticResource CellText}" />
-                                <TextBlock Grid.Column="2" Text="{Binding FileHosters[0].Name, FallbackValue=''}" Style="{StaticResource CellText}" />
-                                <TextBlock Grid.Column="3" Style="{StaticResource CellText}">
-                                    <TextBlock.Text>
-                                        <Binding Path="Status.Status" FallbackValue="" />
-                                    </TextBlock.Text>
-                                </TextBlock>
-                                <TextBlock Grid.Column="4" Text="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
-                                <TextBlock Grid.Column="5" Text="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
-                                <TextBlock Grid.Column="6" Text="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Style="{StaticResource CellText}" />
-
-                                <!-- Child progress bar -->
-                                <Grid Grid.Column="7" Margin="6,3" x:Name="FileProgressGrid">
-                                    <Border Background="{DynamicResource SurfaceMutedBrush}" CornerRadius="2" />
-                                    <Border Background="#82B8DE" CornerRadius="2" HorizontalAlignment="Left">
-                                        <Border.Width>
-                                            <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
-                                                <Binding Path="Progress" />
-                                                <Binding Path="ActualWidth" ElementName="FileProgressGrid" />
-                                            </MultiBinding>
-                                        </Border.Width>
-                                    </Border>
-                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
-                                               FontSize="10" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </Grid>
-
-                                <TextBlock Grid.Column="8" Text="{Binding SaveFrom}" Style="{StaticResource CellText}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <TextBlock Grid.Column="9" Text="{Binding Error}" Style="{StaticResource CellText}" Foreground="Red" />
+                            <Grid x:Name="PGrid" Margin="2,3">
+                                <Border Background="{DynamicResource SurfaceMutedBrush}" CornerRadius="2" Height="14" />
+                                <Border Background="#6BA5D7" CornerRadius="2" HorizontalAlignment="Left" Height="14">
+                                    <Border.Width>
+                                        <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                            <Binding Path="Progress" />
+                                            <Binding Path="ActualWidth" ElementName="PGrid" />
+                                        </MultiBinding>
+                                    </Border.Width>
+                                </Border>
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
+                                           FontSize="10" />
                             </Grid>
                         </DataTemplate>
-                    </HierarchicalDataTemplate.ItemTemplate>
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-        </TreeView>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-        <!-- ═══ Status Bar (JDownloader-style summary) ═══ -->
-        <Border Grid.Row="3" Background="{DynamicResource DataGridHeaderBrush}"
+                <DataGridTextColumn Header="Save to" Binding="{Binding SaveFrom}" Width="180">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="Red" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+
+            <!-- ═══ Row Details: child PackageFile list ═══ -->
+            <DataGrid.RowDetailsTemplate>
+                <DataTemplate>
+                    <DataGrid ItemsSource="{Binding}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              HeadersVisibility="None"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                              Background="{DynamicResource DataGridAltRowBrush}"
+                              BorderThickness="0"
+                              RowHeaderWidth="0"
+                              Margin="24,0,0,0">
+
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="FontSize" Value="11" />
+                                <Setter Property="Height" Value="22" />
+                            </Style>
+                        </DataGrid.RowStyle>
+
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Padding" Value="4,0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="DataGridCell">
+                                            <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.CellStyle>
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Name}" Width="196">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="90" />
+                            <DataGridTextColumn Binding="{Binding FileHosters[0].Name, FallbackValue=''}" Width="110" />
+                            <DataGridTextColumn Binding="{Binding Status.Status, FallbackValue=''}" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
+                            <DataGridTextColumn Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
+                            <DataGridTextColumn Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
+
+                            <DataGridTemplateColumn Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid x:Name="FPGrid" Margin="2,2">
+                                            <Border Background="{DynamicResource SurfaceMutedBrush}" CornerRadius="2" Height="12" />
+                                            <Border Background="#82B8DE" CornerRadius="2" HorizontalAlignment="Left" Height="12">
+                                                <Border.Width>
+                                                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                                                        <Binding Path="Progress" />
+                                                        <Binding Path="ActualWidth" ElementName="FPGrid" />
+                                                    </MultiBinding>
+                                                </Border.Width>
+                                            </Border>
+                                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
+                                                       FontSize="9" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Binding="{Binding SaveFrom}" Width="180">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding Error}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="Red" />
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DataTemplate>
+            </DataGrid.RowDetailsTemplate>
+        </DataGrid>
+
+        <!-- ═══ Status Bar ═══ -->
+        <Border Grid.Row="2" Background="{DynamicResource DataGridHeaderBrush}"
                 BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0"
-                Padding="8,4">
+                Padding="8,3">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Row 1 -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal">
                     <TextBlock Text="Package(s):" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding PackageCount}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="Total Bytes:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding TotalBytes}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="Bytes loaded:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding BytesLoaded}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="ETA:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding Eta}" Style="{StaticResource StatusValue}" />
                 </StackPanel>
 
-                <!-- Row 2 -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal">
                     <TextBlock Text="File(s):" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding FileCount}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="Upload speed:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding UploadSpeed}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="Remaining Bytes:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding RemainingBytes}" Style="{StaticResource StatusValue}" />
-
                     <TextBlock Text="Running Uploads:" Style="{StaticResource StatusLabel}" />
                     <TextBlock Text="{Binding RunningUploads}" Style="{StaticResource StatusValue}" />
                 </StackPanel>
