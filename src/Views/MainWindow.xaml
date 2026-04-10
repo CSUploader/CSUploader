@@ -10,7 +10,7 @@
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
         mc:Ignorable="d"
         Title="CSUploader"
-        Width="1650" Height="1220"
+        Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}">
