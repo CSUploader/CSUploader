@@ -318,51 +318,96 @@
             </DataGrid.RowDetailsTemplate>
         </DataGrid>
 
-        <!-- ═══ Bottom Panel (JD2 "Download Overview" style) ═══ -->
-        <Border Grid.Row="2" BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0">
+        <!-- ═══ Bottom Panel (JD2 "Download Overview" exact match) ═══ -->
+        <Border Grid.Row="2" BorderBrush="#B0B0B0" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Title bar -->
-                <Border Grid.Row="0" Background="#E8E8E8" Padding="6,3">
+                <!-- Title bar: green icon + title + close button -->
+                <Border Grid.Row="0" Padding="4,2">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#F0F0F0" Offset="0" />
+                            <GradientStop Color="#D8D8D8" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
                     <DockPanel>
-                        <TextBlock Text="Upload Overview" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <!-- Close button on right -->
+                        <Button DockPanel.Dock="Right" Width="16" Height="16" Margin="4,0,2,0"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                FontSize="10" Content="&#x2715;" Foreground="#808080"
+                                VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                ToolTip="Close overview" Padding="0" />
+
+                        <!-- Green arrow + title -->
+                        <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#333333">
+                            <Run Text="&#x25BC;" Foreground="#4CAF50" FontSize="10" /> <!-- Green down arrow -->
+                            <Run Text=" Upload Overview" />
+                        </TextBlock>
                     </DockPanel>
                 </Border>
 
-                <!-- Stats -->
-                <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" Padding="8,4">
+                <!-- Stats grid with fixed column alignment like JD2 -->
+                <Border Grid.Row="1" Background="#F8F8F8" Padding="6,3,6,4"
+                        BorderBrush="#D0D0D0" BorderThickness="0,1,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="2" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="50" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,1">
-                            <TextBlock Text="Package(s):" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding PackageCount}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="Total Bytes:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding TotalBytes}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="Bytes loaded:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding BytesLoaded}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="ETA:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding Eta}" Style="{StaticResource StatusValue}" />
-                        </StackPanel>
+                        <!-- Row 1: Package(s):  0    Total Bytes:  0 B    Bytes loaded:  0 B    ETA:  ~    Open Connections:  0 -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Package(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
 
-                        <StackPanel Grid.Row="1" Orientation="Horizontal">
-                            <TextBlock Text="Link(s):" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding FileCount}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="Uploadspeed:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding UploadSpeed}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="Remaining Bytes:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding RemainingBytes}" Style="{StaticResource StatusValue}" />
-                            <TextBlock Text="Running Uploads:" Style="{StaticResource StatusLabel}" />
-                            <TextBlock Text="{Binding RunningUploads}" Style="{StaticResource StatusValue}" />
-                        </StackPanel>
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="Total Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="4" Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="0" Grid.Column="6" Text="Bytes loaded:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="7" Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="0" Grid.Column="9" Text="ETA:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="10" Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="0" Grid.Column="12" Text="Open Connections:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="13" Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <!-- Row 2: Link(s):  0    Uploadspeed:  0 Byte/s    Remaining Bytes:  0 B    Running Uploads:  0 -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="3" Text="Uploadspeed:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="6" Text="Remaining Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="7" Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="9" Text="" FontSize="11" />
+                        <TextBlock Grid.Row="2" Grid.Column="10" Text="" FontSize="11" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="12" Text="Running Uploads:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Grid.Column="13" Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
                     </Grid>
                 </Border>
             </Grid>
