@@ -35,6 +35,44 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool showUploadOverview = true;
 
+    // ── Overview field visibility toggles ──
+
+    [ObservableProperty]
+    private bool showPackages = true;
+
+    [ObservableProperty]
+    private bool showLinks = true;
+
+    [ObservableProperty]
+    private bool showTotalBytes = true;
+
+    [ObservableProperty]
+    private bool showUploadspeed = true;
+
+    [ObservableProperty]
+    private bool showBytesLoaded = true;
+
+    [ObservableProperty]
+    private bool showRemainingBytes = true;
+
+    [ObservableProperty]
+    private bool showEta = true;
+
+    [ObservableProperty]
+    private bool showRunningUploads = true;
+
+    [ObservableProperty]
+    private bool showOpenConnections = true;
+
+    [ObservableProperty]
+    private bool showFinishedLinks;
+
+    [ObservableProperty]
+    private bool showSkippedLinks;
+
+    [ObservableProperty]
+    private bool showFailedLinks;
+
     public ObservableCollection<Package> Packages { get; } = [];
 
     // ── Summary properties for status bar ──
@@ -65,6 +103,15 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     public int RunningUploads => Packages.Sum(p =>
         p.Count(pf => pf.Status?.Status == JobStatus.Running));
+
+    public int FinishedLinks => Packages.Sum(p =>
+        p.Count(pf => pf.Status?.Status == JobStatus.Success));
+
+    public int SkippedLinks => Packages.Sum(p =>
+        p.Count(pf => pf.Status?.Status == JobStatus.Cancelled));
+
+    public int FailedLinks => Packages.Sum(p =>
+        p.Count(pf => pf.Status?.Status == JobStatus.Failed));
 
     public string Eta
     {
@@ -173,6 +220,9 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(UploadSpeed));
         OnPropertyChanged(nameof(RunningUploads));
         OnPropertyChanged(nameof(Eta));
+        OnPropertyChanged(nameof(FinishedLinks));
+        OnPropertyChanged(nameof(SkippedLinks));
+        OnPropertyChanged(nameof(FailedLinks));
     }
 
     public void Dispose()

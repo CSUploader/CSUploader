@@ -354,64 +354,104 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Stats grid with fixed column alignment like JD2 -->
+                <!-- Stats area with right-click context menu for toggling fields -->
                 <Border Grid.Row="1" Background="#F8F8F8" Padding="6,3,6,4"
                         BorderBrush="#D0D0D0" BorderThickness="0,1,0,0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="2" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="50" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="60" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="60" />
-                            <ColumnDefinition Width="24" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="24" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
 
-                        <!-- Row 1: Package(s):  0    Total Bytes:  0 B    Bytes loaded:  0 B    ETA:  ~    Open Connections:  0 -->
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Package(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                    <!-- JD2-style right-click menu to toggle stat fields -->
+                    <Border.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Package(s)" IsCheckable="True" IsChecked="{Binding ShowPackages}" />
+                            <MenuItem Header="Link(s)" IsCheckable="True" IsChecked="{Binding ShowLinks}" />
+                            <Separator />
+                            <MenuItem Header="Total Bytes" IsCheckable="True" IsChecked="{Binding ShowTotalBytes}" />
+                            <MenuItem Header="Uploadspeed" IsCheckable="True" IsChecked="{Binding ShowUploadspeed}" />
+                            <MenuItem Header="Bytes loaded" IsCheckable="True" IsChecked="{Binding ShowBytesLoaded}" />
+                            <MenuItem Header="Remaining Bytes" IsCheckable="True" IsChecked="{Binding ShowRemainingBytes}" />
+                            <MenuItem Header="ETA" IsCheckable="True" IsChecked="{Binding ShowEta}" />
+                            <MenuItem Header="Running Uploads" IsCheckable="True" IsChecked="{Binding ShowRunningUploads}" />
+                            <MenuItem Header="Open Connections" IsCheckable="True" IsChecked="{Binding ShowOpenConnections}" />
+                            <Separator />
+                            <MenuItem Header="Finished Link(s)" IsCheckable="True" IsChecked="{Binding ShowFinishedLinks}" />
+                            <MenuItem Header="Skipped Link(s)" IsCheckable="True" IsChecked="{Binding ShowSkippedLinks}" />
+                            <MenuItem Header="Failed Link(s)" IsCheckable="True" IsChecked="{Binding ShowFailedLinks}" />
+                        </ContextMenu>
+                    </Border.ContextMenu>
 
-                        <TextBlock Grid.Row="0" Grid.Column="3" Text="Total Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="0" Grid.Column="4" Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                    <WrapPanel Orientation="Horizontal">
+                        <!-- Each stat is a label+value pair that collapses when toggled off -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowPackages, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Package(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="0" Grid.Column="6" Text="Bytes loaded:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="0" Grid.Column="7" Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowTotalBytes, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Total Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="0" Grid.Column="9" Text="ETA:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="0" Grid.Column="10" Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowBytesLoaded, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Bytes loaded:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="0" Grid.Column="12" Text="Open Connections:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="0" Grid.Column="13" Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowEta, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="ETA:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <!-- Row 2: Link(s):  0    Uploadspeed:  0 Byte/s    Remaining Bytes:  0 B    Running Uploads:  0 -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowOpenConnections, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Open Connections:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="2" Grid.Column="3" Text="Uploadspeed:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowLinks, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="2" Grid.Column="6" Text="Remaining Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Grid.Column="7" Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowUploadspeed, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Uploadspeed:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="2" Grid.Column="9" Text="" FontSize="11" />
-                        <TextBlock Grid.Row="2" Grid.Column="10" Text="" FontSize="11" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowRemainingBytes, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Remaining Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Grid.Row="2" Grid.Column="12" Text="Running Uploads:" FontSize="11" Foreground="#555" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Grid.Column="13" Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" Margin="4,0,0,0" />
-                    </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowRunningUploads, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Running Uploads:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowFinishedLinks, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Finished Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FinishedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowSkippedLinks, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Skipped Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding SkippedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
+                                    Visibility="{Binding ShowFailedLinks, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Failed Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FailedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </WrapPanel>
                 </Border>
             </Grid>
         </Border>
