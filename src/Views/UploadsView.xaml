@@ -16,6 +16,7 @@
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
         <conv:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
         <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
         <!-- Toolbar button style - large icons like JD2 -->
         <Style x:Key="ToolbarButton" TargetType="Button">
@@ -319,7 +320,8 @@
         </DataGrid>
 
         <!-- ═══ Bottom Panel (JD2 "Download Overview" exact match) ═══ -->
-        <Border Grid.Row="2" BorderBrush="#B0B0B0" BorderThickness="0,1,0,0">
+        <Border Grid.Row="2" BorderBrush="#B0B0B0" BorderThickness="0,1,0,0"
+                Visibility="{Binding ShowUploadOverview, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -340,7 +342,8 @@
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 FontSize="10" Content="&#x2715;" Foreground="#808080"
                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                ToolTip="Close overview" Padding="0" />
+                                ToolTip="Close overview" Padding="0"
+                                Click="OverviewCloseButton_Click" />
 
                         <!-- Green arrow + title -->
                         <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"

@@ -32,6 +32,9 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _refreshTimer.Start();
     }
 
+    [ObservableProperty]
+    private bool showUploadOverview = true;
+
     public ObservableCollection<Package> Packages { get; } = [];
 
     // ── Summary properties for status bar ──

@@ -80,6 +80,10 @@
                 <MenuItem Header="_File">
                     <MenuItem Header="_Exit" InputGestureText="Alt+F4" Click="MenuExit_Click" />
                 </MenuItem>
+                <MenuItem Header="_View">
+                    <MenuItem Header="Upload _Overview" IsCheckable="True"
+                              IsChecked="{Binding UploadsViewModel.ShowUploadOverview}" />
+                </MenuItem>
                 <MenuItem Header="_Settings">
                     <MenuItem Header="_Preferences" Click="MenuPreferences_Click" />
                 </MenuItem>
