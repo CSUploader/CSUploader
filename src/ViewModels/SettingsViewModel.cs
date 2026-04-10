@@ -6,6 +6,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
+using CSUploader.Services;
 using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
@@ -14,6 +15,7 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingRepository _settingRepository;
     private readonly AppSettings _settings;
+    private readonly IDialogService _dialogService;
 
     [ObservableProperty]
     private int maxConcurrentCPUJobs = AppSettings.DefaultMaxConcurrentCPUJobs;
@@ -30,10 +32,24 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
 
-    public SettingsViewModel(SettingRepository settingRepository, AppSettings settings)
+    [ObservableProperty]
+    private string selectedCategory = "General";
+
+    public SettingsViewModel(SettingRepository settingRepository, AppSettings settings, IDialogService dialogService)
     {
         _settingRepository = settingRepository;
         _settings = settings;
+        _dialogService = dialogService;
+    }
+
+    [RelayCommand]
+    private void BrowseTempDirectory()
+    {
+        string? folder = _dialogService.BrowseFolder(TempArchiveDirectory, "Select Temp Archive Directory");
+        if (folder is not null)
+        {
+            TempArchiveDirectory = folder;
+        }
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)

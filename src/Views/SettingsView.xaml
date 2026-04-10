@@ -9,56 +9,179 @@
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
-             d:DesignWidth="1600" d:DesignHeight="1100">
+             d:DesignWidth="1600" d:DesignHeight="900">
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <UserControl.Resources>
+        <!-- Sidebar item style -->
+        <Style x:Key="SidebarItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="8,10" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E0EEF9" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#CBE1F5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Section header style (icon + bold title + separator) -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <Style x:Key="SectionDescription" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
+        <Style x:Key="SettingInput" TargetType="TextBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Width" Value="200" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="210" />
-            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="150" />
+            <ColumnDefinition Width="1" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Temp Archive Directory -->
-        <TextBlock Grid.Row="0" Grid.Column="0" Text="Temp Archive Directory:" VerticalAlignment="Center"
-                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
-        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,0,12" />
+        <!-- ═══ Left Sidebar ═══ -->
+        <ListBox Grid.Column="0" Background="{DynamicResource SurfaceBrush}"
+                 BorderThickness="0"
+                 SelectedItem="{Binding SelectedCategory}"
+                 ItemContainerStyle="{StaticResource SidebarItem}"
+                 SelectionMode="Single">
+            <ListBoxItem IsSelected="True">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="&#x2699;" FontSize="28" HorizontalAlignment="Center" Foreground="#E74C3C" />
+                    <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+            <ListBoxItem>
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="&#x2191;" FontSize="28" HorizontalAlignment="Center" Foreground="#3498DB" />
+                    <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+            <ListBoxItem>
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="&#x1F464;" FontSize="28" HorizontalAlignment="Center" Foreground="#2ECC71" />
+                    <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+            <ListBoxItem>
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="&#x2139;" FontSize="28" HorizontalAlignment="Center" Foreground="#9B59B6" />
+                    <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+        </ListBox>
 
-        <!-- Max Concurrent CPU Jobs -->
-        <TextBlock Grid.Row="1" Grid.Column="0" Text="Max Concurrent CPU Jobs:" VerticalAlignment="Center"
-                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
-        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource CompactTextBoxStyle}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" />
+        <!-- Divider -->
+        <Border Grid.Column="1" Background="{DynamicResource BorderBrush}" />
 
-        <!-- Max Concurrent Upload Jobs -->
-        <TextBlock Grid.Row="2" Grid.Column="0" Text="Max Concurrent Upload Jobs:" VerticalAlignment="Center"
-                   Style="{StaticResource FormLabelStyle}" Margin="0,0,12,12" />
-        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}"
-                 Style="{StaticResource CompactTextBoxStyle}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,12" />
+        <!-- ═══ Right Content Area ═══ -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Padding="24,16">
+            <StackPanel MaxWidth="900">
 
-        <!-- Speed Limit -->
-        <CheckBox Grid.Row="3" Grid.Column="0" Content="Enable Speed Limit" VerticalAlignment="Center"
-                  IsChecked="{Binding SpeedLimitEnabled}" Margin="0,0,12,12" />
-        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBox Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}"
-                     Style="{StaticResource CompactTextBoxStyle}" Width="80"
-                     IsEnabled="{Binding SpeedLimitEnabled}" />
-            <TextBlock Text="KB/s" VerticalAlignment="Center" Margin="8,0,0,0"
-                       Foreground="{DynamicResource TextSecondaryBrush}" />
-        </StackPanel>
+                <!-- ────── Temp Archive Directory ────── -->
+                <StackPanel Margin="0,0,0,24">
+                    <TextBlock Text="Temp Archive Directory" Style="{StaticResource SectionTitle}" />
+                    <Separator Margin="0,2,0,6" />
+                    <TextBlock Style="{StaticResource SectionDescription}"
+                               Text="Set the temporary archive directory. Compressed archives are created here before uploading." />
 
-        <!-- Save Button -->
-        <Button Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
-                Content="Save" Command="{Binding SaveCommand}"
-                Style="{StaticResource PrimaryButtonStyle}"
-                HorizontalAlignment="Left" Width="120" Height="34" Margin="0,8,0,0" />
+                    <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12" Padding="6,4" VerticalContentAlignment="Center" />
+                        <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0"
+                                Command="{Binding BrowseTempDirectoryCommand}" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- ────── Upload Management ────── -->
+                <StackPanel Margin="0,0,0,24">
+                    <TextBlock Text="Upload Management" Style="{StaticResource SectionTitle}" />
+                    <Separator Margin="0,2,0,6" />
+                    <TextBlock Style="{StaticResource SectionDescription}"
+                               Text="Connection limits, upload order, priorities... set up the upload controller details." />
+
+                    <!-- Max simultaneous uploads -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Max. simultaneous Uploads" Style="{StaticResource SettingLabel}" />
+                        <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SettingInput}" />
+                    </Grid>
+
+                    <!-- Max simultaneous CPU jobs -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Max. simultaneous CPU Jobs (compression/hashing)" Style="{StaticResource SettingLabel}" />
+                        <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SettingInput}" />
+                    </Grid>
+
+                    <!-- Speed limit -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="200" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Speed Limit (KB/s)" Style="{StaticResource SettingLabel}" />
+                        <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}"
+                                  VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox Grid.Column="2" Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SettingInput}" IsEnabled="{Binding SpeedLimitEnabled}" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- ────── Save ────── -->
+                <Button Content="Save" Command="{Binding SaveCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Width="120" Height="34" HorizontalAlignment="Left" />
+
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>
