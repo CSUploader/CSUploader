@@ -20,7 +20,7 @@ public class ByteUnitConverterTests
         object result = _converter.Convert(1024L, typeof(string), null!, CultureInfo.InvariantCulture);
 
         Assert.IsType<string>(result);
-        Assert.Contains("KiB", (string)result);
+        Assert.Contains("KiB", (string)result, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class ByteUnitConverterTests
         object result = _converter.Convert(0L, typeof(string), null!, CultureInfo.InvariantCulture);
 
         Assert.IsType<string>(result);
-        Assert.Contains("B", (string)result);
+        Assert.Contains("B", (string)result, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -41,8 +41,8 @@ public class ByteUnitConverterTests
 
         Assert.IsType<string>(result);
         string text = (string)result;
-        Assert.Contains("MiB", text);
-        Assert.StartsWith("5", text);
+        Assert.Contains("MiB", text, StringComparison.Ordinal);
+        Assert.StartsWith("5", text, StringComparison.Ordinal);
     }
 
     [Fact]
