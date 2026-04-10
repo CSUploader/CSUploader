@@ -21,14 +21,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Title bar with theme toggle -->
-        <DockPanel Grid.Row="0" Margin="8,6,8,2">
+        <!-- ═══ Menu Bar + Theme Toggle ═══ -->
+        <DockPanel Grid.Row="0">
+            <!-- Theme toggle on the right -->
             <ToggleButton DockPanel.Dock="Right"
                           IsChecked="{Binding IsDarkMode}"
                           Command="{Binding ToggleThemeCommand}"
                           Width="60" Height="24"
                           ToolTip="Toggle dark mode"
-                          Cursor="Hand">
+                          Cursor="Hand"
+                          Margin="0,4,8,0"
+                          VerticalAlignment="Top">
                 <ToggleButton.Style>
                     <Style TargetType="ToggleButton">
                         <Setter Property="Template">
@@ -71,7 +74,22 @@
                     </Style>
                 </ToggleButton.Style>
             </ToggleButton>
-            <TextBlock Text="" />
+
+            <!-- Menu bar -->
+            <Menu DockPanel.Dock="Left" Background="{DynamicResource SurfaceBrush}" FontSize="12">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_Exit" InputGestureText="Alt+F4" Click="MenuExit_Click" />
+                </MenuItem>
+                <MenuItem Header="_Settings">
+                    <MenuItem Header="_Preferences" Click="MenuPreferences_Click" />
+                </MenuItem>
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="_Clear Upload History" Click="MenuClearHistory_Click" />
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About CSUploader" Click="MenuAbout_Click" />
+                </MenuItem>
+            </Menu>
         </DockPanel>
 
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
