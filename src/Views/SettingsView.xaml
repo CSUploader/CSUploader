@@ -13,7 +13,6 @@
              Background="White">
 
     <UserControl.Resources>
-        <!-- Sidebar item style matching JD2 -->
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -21,8 +20,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
-                                BorderBrush="Transparent" BorderThickness="0,0,0,0">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -38,7 +36,6 @@
             </Setter>
         </Style>
 
-        <!-- JD2 section: icon left of bold blue underlined title -->
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -49,19 +46,18 @@
 
         <Style x:Key="SectionDesc" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="#777777" />
+            <Setter Property="Foreground" Value="#777" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="40,2,0,10" />
         </Style>
 
-        <!-- Setting row: label + input -->
         <Style x:Key="SettingRow" TargetType="Grid">
             <Setter Property="Margin" Value="40,0,0,8" />
         </Style>
 
         <Style x:Key="SettingLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#333333" />
+            <Setter Property="Foreground" Value="#333" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -79,135 +75,319 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ═══ Left Sidebar (JD2 style: icon above label, light bg) ═══ -->
+        <!-- ═══ Sidebar ═══ -->
         <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#D8D8D8" BorderThickness="0,0,1,0">
             <ListBox Background="Transparent" BorderThickness="0"
+                     SelectedIndex="{Binding SelectedCategoryIndex}"
                      ItemContainerStyle="{StaticResource SidebarItem}"
                      SelectionMode="Single" Padding="0" Margin="0">
                 <ListBoxItem IsSelected="True">
                     <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource StatusOkImage}" Width="32" Height="32" HorizontalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"
-                                   Foreground="#333" />
+                        <Image Source="{StaticResource StatusOkImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource StatusUploadingImage}" Width="32" Height="32" HorizontalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"
-                                   Foreground="#333" />
+                        <Image Source="{StaticResource StatusUploadingImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="32" Height="32" HorizontalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"
-                                   Foreground="#333" />
+                        <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="32" Height="32" HorizontalAlignment="Center"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0"
-                                   Foreground="#333" />
+                        <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
         </Border>
 
-        <!-- Divider already handled by sidebar border -->
         <Border Grid.Column="1" Background="#D8D8D8" />
 
-        <!-- ═══ Right Content (JD2 style: sections with icon+title, setting rows) ═══ -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
-                      Background="White" Padding="0">
-            <StackPanel Margin="20,16,20,20">
+        <!-- ═══ Content panels (switched by SelectedCategoryIndex) ═══ -->
 
-                <!-- ═══ Section: Temp Archive Directory ═══ -->
-                <StackPanel Margin="0,0,0,20">
-                    <!-- Section header: icon + underlined blue title -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                        <Image Source="{StaticResource PackageOpenImage}" Width="24" Height="24"
-                               VerticalAlignment="Center" Margin="0,0,8,0"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Temp Archive Directory" Style="{StaticResource SectionTitle}" />
-                    </StackPanel>
-                    <Separator Margin="0,0,0,4" />
-                    <TextBlock Style="{StaticResource SectionDesc}"
-                               Text="Set the temporary archive directory. Compressed archives are stored here before uploading. Changing this only affects new uploads." />
-
-                    <Grid Margin="40,0,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SettingInput}" />
-                        <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0"
-                                Command="{Binding BrowseTempDirectoryCommand}" />
-                    </Grid>
+        <!-- 0: General -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
+            <StackPanel Margin="20,16,20,20" MaxWidth="900">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource PackageOpenImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Temp Archive Directory" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Set the temporary archive directory. Compressed archives are stored here before uploading." />
+                <Grid Margin="40,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
+                    <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseTempDirectoryCommand}" />
+                </Grid>
 
-                <!-- ═══ Section: Upload Management ═══ -->
-                <StackPanel Margin="0,0,0,20">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                        <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24"
-                               VerticalAlignment="Center" Margin="0,0,8,0"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Upload Management" Style="{StaticResource SectionTitle}" />
-                    </StackPanel>
-                    <Separator Margin="0,0,0,4" />
-                    <TextBlock Style="{StaticResource SectionDesc}"
-                               Text="Connection limits, priorities, ...set up the Upload controller details." />
-
-                    <!-- Max simultaneous Uploads -->
-                    <Grid Style="{StaticResource SettingRow}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Max. simultaneous Uploads" Style="{StaticResource SettingLabel}" />
-                        <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
-                    </Grid>
-
-                    <!-- Max simultaneous CPU jobs -->
-                    <Grid Style="{StaticResource SettingRow}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Max. simultaneous CPU Jobs" Style="{StaticResource SettingLabel}" />
-                        <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
-                    </Grid>
-
-                    <!-- Speed limit -->
-                    <Grid Style="{StaticResource SettingRow}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="252" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Speed Limit (KB/s)" Style="{StaticResource SettingLabel}" />
-                        <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}"
-                                  VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBox Grid.Column="2" Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SettingInput}" IsEnabled="{Binding SpeedLimitEnabled}"
-                                 HorizontalContentAlignment="Right" />
-                    </Grid>
-                </StackPanel>
-
-                <!-- ═══ Save button ═══ -->
-                <Separator Margin="0,4,0,12" />
-                <Button Content="Save Settings" Command="{Binding SaveCommand}"
-                        Style="{StaticResource PrimaryButtonStyle}"
+                <Separator Margin="0,20,0,12" />
+                <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
                         Width="130" Height="32" HorizontalAlignment="Left" Margin="40,0,0,0" />
+            </StackPanel>
+        </ScrollViewer>
 
+        <!-- 1: Upload -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="1">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
+            <StackPanel Margin="20,16,20,20" MaxWidth="900">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Upload Management" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Connection limits, priorities, ...set up the Upload controller details." />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Max. simultaneous Uploads" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Max. simultaneous CPU Jobs" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="252" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Speed Limit (KB/s)" Style="{StaticResource SettingLabel}" />
+                    <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Grid.Column="2" Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" IsEnabled="{Binding SpeedLimitEnabled}" HorizontalContentAlignment="Right" />
+                </Grid>
+
+                <Separator Margin="0,16,0,12" />
+                <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                        Width="130" Height="32" HorizontalAlignment="Left" Margin="40,0,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 2: Accounts -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="2">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
+            <StackPanel Margin="20,16,20,20" MaxWidth="900">
+                <!-- Account Manager header -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Account Manager" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Manage your file hoster accounts. Add credentials for each hosting service you want to upload to." />
+
+                <!-- Account list -->
+                <DataGrid Margin="40,0,0,0" Height="250"
+                          ItemsSource="{Binding Accounts}"
+                          SelectedItem="{Binding SelectedAccount}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          RowHeaderWidth="0"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#E0E0E0"
+                          BorderBrush="#CCC"
+                          BorderThickness="1"
+                          Background="White"
+                          AlternatingRowBackground="#FAFAFA">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background" Value="#F0F0F0" />
+                            <Setter Property="Padding" Value="6,4" />
+                            <Setter Property="FontSize" Value="11" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="BorderBrush" Value="#DDD" />
+                            <Setter Property="BorderThickness" Value="0,0,1,1" />
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Status" Width="70"
+                                               Binding="{Binding Disabled}"
+                                               IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Disabled}" Value="False">
+                                            <Setter Property="Text" Value="Active" />
+                                            <Setter Property="Foreground" Value="Green" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Disabled}" Value="True">
+                                            <Setter Property="Text" Value="Disabled" />
+                                            <Setter Property="Foreground" Value="Red" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="File Hoster" Binding="{Binding FileHosterName}" Width="150" />
+                        <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
+                        <DataGridTextColumn Header="Account Type" Binding="{Binding AccountType}" Width="100" />
+                        <DataGridTextColumn Header="Password" Binding="{Binding Password}" Width="*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="********" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Remove button -->
+                <StackPanel Orientation="Horizontal" Margin="40,8,0,0">
+                    <Button Content="Remove Selected" Command="{Binding RemoveAccountCommand}" Width="130" Height="28" />
+                </StackPanel>
+
+                <!-- Add new account section -->
+                <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
+                    <Image Source="{StaticResource StatusSuccessImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Add Account" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Add a new file hoster account. Select the hoster, enter your credentials, and click Add." />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="File Hoster:" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableHosters}" SelectedItem="{Binding NewAccountHoster}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Username:" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding NewAccountUsername, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Password:" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding NewAccountPassword, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Account Type:" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding NewAccountType}"
+                              FontSize="12" Padding="4,3" Width="150" HorizontalAlignment="Left" />
+                </Grid>
+
+                <Button Content="Add Account" Command="{Binding AddAccountCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                        Width="130" Height="32" HorizontalAlignment="Left" Margin="40,12,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 3: About -->
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+            <ScrollViewer.Style>
+                <Style TargetType="ScrollViewer">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="3">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ScrollViewer.Style>
+            <StackPanel Margin="20,16,20,20" MaxWidth="900" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="About CSUploader" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,12" />
+
+                <StackPanel Margin="40,0,0,0">
+                    <Image Source="{StaticResource Logo128Image}" Width="96" Height="96" HorizontalAlignment="Left" Margin="0,0,0,16"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+
+                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#1B5E91" Text="CSUploader" Margin="0,0,0,4" />
+                    <TextBlock FontSize="12" Foreground="#555" Margin="0,0,0,12">
+                        <Run Text="Version 1.0.0" />
+                    </TextBlock>
+
+                    <TextBlock FontSize="12" Foreground="#444" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20">
+                        A powerful file upload manager for multiple hosting services.
+                        Features include file compression, hashing, queue management,
+                        and real-time progress tracking.
+                    </TextBlock>
+
+                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="#555" Text="Framework: " />
+                        <Run Text=".NET 10.0 (WPF)" />
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="#555" Text="Database: " />
+                        <Run Text="SQLite via EF Core 10" />
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="#555" Text="License: " />
+                        <Run Text="MIT" />
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,16">
+                        <Run FontWeight="SemiBold" Foreground="#555" Text="Source: " />
+                        <Run Text="github.com/NeWbY100/CSUploader" />
+                    </TextBlock>
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -14,8 +16,16 @@ namespace CSUploader.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingRepository _settingRepository;
+    private readonly FileHosterLoginRepository _accountRepository;
     private readonly AppSettings _settings;
     private readonly IDialogService _dialogService;
+
+    // ── General settings ──
+
+    [ObservableProperty]
+    private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
+
+    // ── Upload settings ──
 
     [ObservableProperty]
     private int maxConcurrentCPUJobs = AppSettings.DefaultMaxConcurrentCPUJobs;
@@ -29,31 +39,53 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int speedLimitValue;
 
-    [ObservableProperty]
-    private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
+    // ── Navigation ──
 
     [ObservableProperty]
-    private string selectedCategory = "General";
+    private int selectedCategoryIndex;
 
-    public SettingsViewModel(SettingRepository settingRepository, AppSettings settings, IDialogService dialogService)
+    // ── Account management ──
+
+    [ObservableProperty]
+    private FileHosterLoginDto? selectedAccount;
+
+    [ObservableProperty]
+    private string newAccountHoster = string.Empty;
+
+    [ObservableProperty]
+    private string newAccountUsername = string.Empty;
+
+    [ObservableProperty]
+    private string newAccountPassword = string.Empty;
+
+    [ObservableProperty]
+    private AccountType newAccountType = AccountType.Free;
+
+    public SettingsViewModel(
+        SettingRepository settingRepository,
+        FileHosterLoginRepository accountRepository,
+        AppSettings settings,
+        IDialogService dialogService)
     {
         _settingRepository = settingRepository;
+        _accountRepository = accountRepository;
         _settings = settings;
         _dialogService = dialogService;
     }
 
-    [RelayCommand]
-    private void BrowseTempDirectory()
-    {
-        string? folder = _dialogService.BrowseFolder(TempArchiveDirectory, "Select Temp Archive Directory");
-        if (folder is not null)
-        {
-            TempArchiveDirectory = folder;
-        }
-    }
+    public ObservableCollection<FileHosterLoginDto> Accounts { get; } = [];
+
+    public string[] AvailableHosters => FileHosterClient.FileHosters.Keys.ToArray();
+
+#pragma warning disable CA1822
+    public AccountType[] AccountTypes => [AccountType.Free, AccountType.Premium];
+#pragma warning restore CA1822
+
+    // ── Load ──
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
+        // Load settings
         SettingDto[] settings = await _settingRepository.GetAllAsync(cancellationToken);
 
         foreach (SettingDto setting in settings)
@@ -95,7 +127,45 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
 
-        // Apply loaded settings to runtime AppSettings
+        _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
+        _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
+        _settings.TempArchiveDirectory = TempArchiveDirectory;
+
+        // Load accounts
+        await LoadAccountsAsync(cancellationToken);
+    }
+
+    private async Task LoadAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        Accounts.Clear();
+        FileHosterLoginDto[] accounts = await _accountRepository.GetAllAsync(cancellationToken);
+        foreach (FileHosterLoginDto account in accounts)
+        {
+            Accounts.Add(account);
+        }
+    }
+
+    // ── Commands ──
+
+    [RelayCommand]
+    private void BrowseTempDirectory()
+    {
+        string? folder = _dialogService.BrowseFolder(TempArchiveDirectory, "Select Temp Archive Directory");
+        if (folder is not null)
+        {
+            TempArchiveDirectory = folder;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAsync(CancellationToken cancellationToken = default)
+    {
+        await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0", cancellationToken);
+        await SaveSettingAsync(SettingKey.TempArchiveDirectory, TempArchiveDirectory, cancellationToken);
+
         _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
         _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
@@ -103,18 +173,45 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SaveAsync(CancellationToken cancellationToken = default)
+    private async Task AddAccountAsync(CancellationToken cancellationToken = default)
     {
-        await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(System.Globalization.CultureInfo.InvariantCulture) : "0", cancellationToken);
-        await SaveSettingAsync(SettingKey.TempArchiveDirectory, TempArchiveDirectory, cancellationToken);
+        if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
+        {
+            _dialogService.ShowError("Please fill in the file hoster and username.");
+            return;
+        }
 
-        // Apply to the running AppSettings instance
-        _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
-        _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
-        _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        _settings.TempArchiveDirectory = TempArchiveDirectory;
+        FileHosterLoginDto dto = new()
+        {
+            FileHosterName = NewAccountHoster,
+            Username = NewAccountUsername,
+            Password = NewAccountPassword,
+            AccountType = NewAccountType,
+        };
+
+        await _accountRepository.InsertAsync(dto, cancellationToken);
+
+        NewAccountUsername = string.Empty;
+        NewAccountPassword = string.Empty;
+
+        await LoadAccountsAsync(cancellationToken);
+    }
+
+    [RelayCommand]
+    private async Task RemoveAccountAsync(CancellationToken cancellationToken = default)
+    {
+        if (SelectedAccount is null)
+        {
+            return;
+        }
+
+        if (!_dialogService.ShowConfirmation($"Remove account '{SelectedAccount.Username}' for {SelectedAccount.FileHosterName}?", "Remove Account"))
+        {
+            return;
+        }
+
+        await _accountRepository.DeleteAsync(SelectedAccount.Id, cancellationToken);
+        await LoadAccountsAsync(cancellationToken);
     }
 
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
