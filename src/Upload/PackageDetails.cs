@@ -1,4 +1,4 @@
-﻿// <copyright file="PackageDetails.cs" company="CSUploader">
+// <copyright file="PackageDetails.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -161,7 +161,7 @@ public abstract class PackageDetails
 
                 await StartAsync(job, _jobController.PauseToken, _jobController.CancellationToken);
             }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
+            catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
             {
                 ChangeStatus(job, JobStatus.Cancelled);
             }

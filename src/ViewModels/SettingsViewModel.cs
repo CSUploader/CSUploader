@@ -89,9 +89,9 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync(CancellationToken cancellationToken = default)
     {
-        await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(), cancellationToken);
-        await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(), cancellationToken);
-        await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString() : "0", cancellationToken);
+        await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(System.Globalization.CultureInfo.InvariantCulture) : "0", cancellationToken);
         await SaveSettingAsync(SettingKey.TempArchiveDirectory, TempArchiveDirectory, cancellationToken);
 
         // Apply to the running AppSettings instance

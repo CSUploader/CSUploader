@@ -1,4 +1,4 @@
-﻿// <copyright file="ByteUnit.cs" company="CSUploader">
+// <copyright file="ByteUnit.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -202,7 +202,7 @@ public class ByteUnit
         ByteUnitSymbolTable.Select(b =>
         {
             string? symbol = Enum.GetName(typeof(ByteUnitSymbol), b.Key);
-            Regex regex = new($@"([\d\.,]+)\s*{symbol}{(b.Key != ByteUnitSymbol.B && b.Key != ByteUnitSymbol.Byte ? "?" : string.Empty)}", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+            Regex regex = new($@"([\d\.,]+)\s*{symbol}{(b.Key is not ByteUnitSymbol.B and not ByteUnitSymbol.Byte ? "?" : string.Empty)}", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
             return new KeyValuePair<ByteUnitSymbol, Regex>(b.Key, regex);
         }).ToDictionary(key => key.Key, value => value.Value);
 

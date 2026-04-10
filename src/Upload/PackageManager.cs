@@ -228,7 +228,7 @@ public class PackageManager
             StartPackage(currentJob);
         }
 
-        if (currentStatus == JobStatus.Idle || currentStatus == JobStatus.Success)
+        if (currentStatus is JobStatus.Idle or JobStatus.Success)
         {
             // Get next job for this package, and queue it if needed
             PackageJob? packageJob = packageDetails.GetNextJob();
@@ -249,7 +249,7 @@ public class PackageManager
         // Get the maximum concurrent job count and find related jobs
         int? maxConcurrentJobs = null;
         List<PackageJob> relatedJobs = [job];
-        if (job == PackageJob.Compression || job == PackageJob.Hashing)
+        if (job is PackageJob.Compression or PackageJob.Hashing)
         {
             maxConcurrentJobs = _settings.MaxConcurrentCPUJobs;
             relatedJobs.Add(job == PackageJob.Compression ? PackageJob.Hashing : PackageJob.Compression);

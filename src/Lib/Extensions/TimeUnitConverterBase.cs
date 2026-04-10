@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -17,7 +18,7 @@ public abstract class TimeUnitConverterBase : JsonConverter<TimeSpan>
         if (reader.TokenType == JsonTokenType.String)
         {
             string? value = reader.GetString();
-            if (value != null && double.TryParse(value, out double parsed))
+            if (value != null && double.TryParse(value, CultureInfo.InvariantCulture, out double parsed))
             {
                 return FromValue(parsed);
             }
@@ -34,6 +35,6 @@ public abstract class TimeUnitConverterBase : JsonConverter<TimeSpan>
 
     public override void Write(Utf8JsonWriter writer, TimeSpan value, JsonSerializerOptions options)
     {
-        writer.WriteStringValue(value.ToString());
+        writer.WriteStringValue(value.ToString("c", CultureInfo.InvariantCulture));
     }
 }

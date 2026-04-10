@@ -18,7 +18,7 @@ public class SettingRepository(IDbContextFactory<CSUploaderDbContext> dbFactory)
 
     public async Task<SettingDto?> FindByKeyAsync(string key, CancellationToken cancellationToken = default)
     {
-        SettingDbm? entity = await FindFirstOrDefaultAsync(s => s.Key != null && s.Key.ToLower() == key.ToLower(), cancellationToken);
+        SettingDbm? entity = await FindFirstOrDefaultAsync(s => s.Key != null && EF.Functions.Collate(s.Key, "NOCASE") == key, cancellationToken);
         return entity is not null ? MapToDto(entity) : null;
     }
 
