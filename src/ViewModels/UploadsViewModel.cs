@@ -4,9 +4,11 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CSUploader.Lib;
 using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
@@ -31,6 +33,57 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     public ObservableCollection<Package> Packages { get; } = [];
+
+    // ── Summary properties for status bar ──
+
+    public int PackageCount => Packages.Count;
+
+    public int FileCount => Packages.Sum(p => p.Count());
+
+    public string TotalBytes => ByteUnit.FromBytes(
+        Packages.Sum(p => p.Size ?? 0), ByteBase.Binary).ToFriendlyString();
+
+    public string BytesLoaded => ByteUnit.FromBytes(
+        Packages.Sum(p => p.BytesLoaded ?? 0), ByteBase.Binary).ToFriendlyString();
+
+    public string RemainingBytes => ByteUnit.FromBytes(
+        Packages.Sum(p => p.BytesRemaining ?? 0), ByteBase.Binary).ToFriendlyString();
+
+    public string UploadSpeed
+    {
+        get
+        {
+            long speed = Packages.Sum(p => p.Speed ?? 0);
+            return speed > 0
+                ? ByteUnit.FromBytes(speed, ByteBase.Binary).ToFriendlyString() + "/s"
+                : "0 B/s";
+        }
+    }
+
+    public int RunningUploads => Packages.Sum(p =>
+        p.Count(pf => pf.Status?.Status == JobStatus.Running));
+
+    public string Eta
+    {
+        get
+        {
+            long remaining = Packages.Sum(p => p.BytesRemaining ?? 0);
+            long speed = Packages.Sum(p => p.Speed ?? 0);
+            if (speed <= 0 || remaining <= 0)
+            {
+                return "~";
+            }
+
+            TimeSpan eta = TimeSpan.FromSeconds(remaining / (double)speed);
+            return eta.Hours > 0
+                ? eta.ToString(@"h\h\:mm\m\:ss\s", CultureInfo.InvariantCulture)
+                : eta.Minutes > 0
+                    ? eta.ToString(@"mm\m\:ss\s", CultureInfo.InvariantCulture)
+                    : eta.ToString(@"ss\s", CultureInfo.InvariantCulture);
+        }
+    }
+
+    // ── Commands ──
 
     [RelayCommand]
     private void Start()
@@ -105,10 +158,18 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
-        // Force the UI to refresh bound package properties.
-        // Packages expose plain properties (Speed, Progress, etc.) that don't raise
-        // PropertyChanged, so we nudge the collection to trigger re-evaluation.
+        // Force UI to re-read all properties (Package/PackageFile don't raise PropertyChanged)
         OnPropertyChanged(nameof(Packages));
+
+        // Refresh summary stats
+        OnPropertyChanged(nameof(PackageCount));
+        OnPropertyChanged(nameof(FileCount));
+        OnPropertyChanged(nameof(TotalBytes));
+        OnPropertyChanged(nameof(BytesLoaded));
+        OnPropertyChanged(nameof(RemainingBytes));
+        OnPropertyChanged(nameof(UploadSpeed));
+        OnPropertyChanged(nameof(RunningUploads));
+        OnPropertyChanged(nameof(Eta));
     }
 
     public void Dispose()
