@@ -18,19 +18,35 @@
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
 
         <!-- Shared DataGrid style for log tabs -->
-        <Style x:Key="LogDataGridStyle" TargetType="DataGrid">
+        <Style x:Key="LogDataGridStyle" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DataGridGridLineBrush}" />
             <Setter Property="RowHeaderWidth" Value="0" />
             <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
+            <Setter Property="RowBackground" Value="{DynamicResource LogBackgroundBrush}" />
             <Setter Property="AlternatingRowBackground" Value="{DynamicResource LogAltRowBrush}" />
             <Setter Property="AlternationCount" Value="2" />
             <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                        <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        <Setter Property="Padding" Value="6,4" />
+                        <Setter Property="FontSize" Value="12" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
+                        <Setter Property="BorderThickness" Value="0,0,1,1" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
