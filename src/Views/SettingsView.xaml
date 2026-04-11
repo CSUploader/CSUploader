@@ -321,6 +321,9 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="#B8D4EE" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding Disabled}" Value="True">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
