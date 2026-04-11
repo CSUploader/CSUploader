@@ -31,7 +31,7 @@ public partial class HttpDetailsWindow : Window
         // Request
         RequestHeadersBox.Text = tx.RequestHeadersText;
         RequestBodyRawBox.Text = tx.RequestBody ?? "(no body)";
-        RequestBodyJsonBox.Text = tx.PrettyPrintJson(tx.RequestBody);
+        RequestBodyJsonBox.Text = HttpTransaction.PrettyPrintJson(tx.RequestBody);
         RequestHexBox.Text = tx.RequestBodyBytes is not null
             ? HttpTransaction.ToHexDump(tx.RequestBodyBytes)
             : HttpTransaction.ToHexDump(tx.RequestBody is not null ? Encoding.UTF8.GetBytes(tx.RequestBody) : null);
@@ -39,7 +39,7 @@ public partial class HttpDetailsWindow : Window
         // Response
         ResponseHeadersBox.Text = tx.ResponseHeadersText;
         ResponseBodyRawBox.Text = tx.ResponseBody ?? "(no body)";
-        ResponseBodyJsonBox.Text = tx.PrettyPrintJson(tx.ResponseBody);
+        ResponseBodyJsonBox.Text = HttpTransaction.PrettyPrintJson(tx.ResponseBody);
         ResponseHexBox.Text = HttpTransaction.ToHexDump(tx.ResponseBodyBytes);
 
         // Full dump
@@ -50,7 +50,7 @@ public partial class HttpDetailsWindow : Window
         if (!string.IsNullOrEmpty(tx.RequestBody))
         {
             dump.AppendLine();
-            dump.AppendLine(tx.PrettyPrintJson(tx.RequestBody));
+            dump.AppendLine(HttpTransaction.PrettyPrintJson(tx.RequestBody));
         }
 
         dump.AppendLine();
@@ -60,7 +60,7 @@ public partial class HttpDetailsWindow : Window
         if (!string.IsNullOrEmpty(tx.ResponseBody))
         {
             dump.AppendLine();
-            dump.AppendLine(tx.PrettyPrintJson(tx.ResponseBody));
+            dump.AppendLine(HttpTransaction.PrettyPrintJson(tx.ResponseBody));
         }
 
         FullDumpBox.Text = dump.ToString();

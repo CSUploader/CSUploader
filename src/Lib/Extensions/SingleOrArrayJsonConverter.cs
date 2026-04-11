@@ -19,7 +19,7 @@ public class SingleOrArrayJsonConverter<T> : JsonConverter<T[]>
             {
                 if (reader.TokenType == JsonTokenType.EndArray)
                 {
-                    return items.ToArray();
+                    return [.. items];
                 }
 
                 T? item = JsonSerializer.Deserialize<T>(ref reader, options);
@@ -29,7 +29,7 @@ public class SingleOrArrayJsonConverter<T> : JsonConverter<T[]>
                 }
             }
 
-            return items.ToArray();
+            return [.. items];
         }
 
         T? singleItem = JsonSerializer.Deserialize<T>(ref reader, options);

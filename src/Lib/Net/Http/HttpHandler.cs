@@ -133,14 +133,14 @@ public class HttpHandler
     {
         foreach (var header in HttpClient.DefaultRequestHeaders)
         {
-            transaction.RequestHeaders[header.Key] = header.Value.ToArray();
+            transaction.RequestHeaders[header.Key] = [.. header.Value];
         }
 
         if (content?.Headers is not null)
         {
             foreach (var header in content.Headers)
             {
-                transaction.RequestHeaders[header.Key] = header.Value.ToArray();
+                transaction.RequestHeaders[header.Key] = [.. header.Value];
             }
         }
     }
@@ -149,14 +149,14 @@ public class HttpHandler
     {
         foreach (var header in response.Headers)
         {
-            transaction.ResponseHeaders[header.Key] = header.Value.ToArray();
+            transaction.ResponseHeaders[header.Key] = [.. header.Value];
         }
 
         if (response.Content.Headers is not null)
         {
             foreach (var header in response.Content.Headers)
             {
-                transaction.ResponseHeaders[header.Key] = header.Value.ToArray();
+                transaction.ResponseHeaders[header.Key] = [.. header.Value];
             }
         }
     }

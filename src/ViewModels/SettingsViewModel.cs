@@ -86,7 +86,7 @@ public partial class SettingsViewModel : ObservableObject
 
     public ObservableCollection<FileHosterLoginDto> Accounts { get; } = [];
 
-    public string[] AvailableHosters => FileHosterClient.FileHosters.Keys.ToArray();
+    public static string[] AvailableHosters => [.. FileHosterClient.FileHosters.Keys];
 
 #pragma warning disable CA1822
     public AccountType[] AccountTypes => [AccountType.Free, AccountType.Premium];

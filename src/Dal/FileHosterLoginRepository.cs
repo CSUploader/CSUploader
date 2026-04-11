@@ -19,7 +19,7 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
     public async Task<FileHosterLoginDto[]> FindAsync(string name, CancellationToken cancellationToken = default)
     {
         FileHosterLoginDbm[] entities = await FindAsync(fh => fh.FileHosterName == name, cancellationToken);
-        return entities.Select(MapToDto).ToArray();
+        return [.. entities.Select(MapToDto)];
     }
 
     public async Task<FileHosterLoginDto?> FindAsync(string name, string username, CancellationToken cancellationToken = default)

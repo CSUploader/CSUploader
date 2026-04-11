@@ -19,7 +19,7 @@ public abstract class Repository<TEntity, TDto>(IDbContextFactory<CSUploaderDbCo
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
         IQueryable<TEntity> qry = GetQuery(db);
         TEntity[] entities = await qry.ToArrayAsync(cancellationToken);
-        return entities.Select(MapToDto).ToArray();
+        return [.. entities.Select(MapToDto)];
     }
 
     public virtual async Task<int> InsertAsync(TDto dto, CancellationToken cancellationToken = default)
@@ -34,8 +34,8 @@ public abstract class Repository<TEntity, TDto>(IDbContextFactory<CSUploaderDbCo
 
     public virtual async Task<int> InsertAsync(IEnumerable<TDto> dtos, CancellationToken cancellationToken = default)
     {
-        TDto[] dtoArray = dtos.ToArray();
-        TEntity[] entities = dtoArray.Select(MapToDbm).ToArray();
+        TDto[] dtoArray = [.. dtos];
+        TEntity[] entities = [.. dtoArray.Select(MapToDbm)];
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
         db.Set<TEntity>().AddRange(entities);
         int ret = await db.SaveChangesAsync(cancellationToken);
@@ -67,7 +67,7 @@ public abstract class Repository<TEntity, TDto>(IDbContextFactory<CSUploaderDbCo
 
     public virtual async Task<int> DeleteAsync(IEnumerable<TDto> dtos, CancellationToken cancellationToken = default)
     {
-        TEntity[] entities = dtos.Select(MapToDbm).ToArray();
+        TEntity[] entities = [.. dtos.Select(MapToDbm)];
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
         db.Set<TEntity>().RemoveRange(entities);
         return await db.SaveChangesAsync(cancellationToken);

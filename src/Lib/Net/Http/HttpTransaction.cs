@@ -127,7 +127,7 @@ public class HttpTransaction
         return sb.ToString();
     }
 
-    public string PrettyPrintJson(string? json)
+    public static string PrettyPrintJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {

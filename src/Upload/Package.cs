@@ -1,4 +1,4 @@
-﻿// <copyright file="Package.cs" company="CSUploader">
+// <copyright file="Package.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -48,7 +48,7 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
     /// <summary>
     /// Gets the file hosters used the package is uploading to.
     /// </summary>
-    public override FileHosterClient[] FileHosters => FileHosterLogins.Select(fh => fh.Key).ToArray();
+    public override FileHosterClient[] FileHosters => [.. FileHosterLogins.Select(fh => fh.Key)];
 
     /// <summary>
     /// Gets the bytes left of package to upload.
@@ -209,7 +209,7 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
         }
         else
         {
-            PackageFile[] packageFiles = PackageFiles.ToArray();
+            PackageFile[] packageFiles = [.. PackageFiles];
             PackageFiles.Clear();
 
             foreach (PackageFile packageFile in packageFiles)
@@ -237,7 +237,7 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
             }
         }
 
-        AddPackageFiles(packageFiles.ToArray());
+        AddPackageFiles([.. packageFiles]);
     }
 
     public void AddPackageFiles(PackageFile[] packageFiles)

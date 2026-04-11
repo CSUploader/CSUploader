@@ -403,7 +403,7 @@ public class ByteUnit
 
     public static ByteUnitSymbol[] GetByteUnitSymbols(ByteBase byteBase)
     {
-        return ByteUnitSymbolTable.Where(b => b.Value.Base.HasFlag(byteBase)).Select(b => b.Key).ToArray();
+        return [.. ByteUnitSymbolTable.Where(b => b.Value.Base.HasFlag(byteBase)).Select(b => b.Key)];
     }
 
     public static ByteUnit GetByteUnit(ByteUnitSymbol symbol)

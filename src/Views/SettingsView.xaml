@@ -201,10 +201,10 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 2: Accounts -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
-            <ScrollViewer.Style>
-                <Style TargetType="ScrollViewer">
+        <!-- 2: Accounts (Grid layout so DataGrid fills height) -->
+        <Grid Grid.Column="2" Background="White">
+            <Grid.Style>
+                <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="2">
@@ -212,113 +212,164 @@
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
-            </ScrollViewer.Style>
-            <StackPanel Margin="20,16,20,20" MaxWidth="900">
-                <!-- Account Manager header -->
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="20,16,20,0">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                     <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="Account Manager" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Manage your file hoster accounts. Add credentials for each hosting service you want to upload to." />
-
-                <!-- Account list (fills available space) -->
-                <DataGrid Margin="0,0,0,0"
-                          ItemsSource="{Binding Accounts}"
-                          SelectedItem="{Binding SelectedAccount}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          SelectionMode="Single"
-                          SelectionUnit="FullRow"
-                          RowHeaderWidth="0"
-                          GridLinesVisibility="Horizontal"
-                          HorizontalGridLinesBrush="#E0E0E0"
-                          BorderBrush="#CCC"
-                          BorderThickness="1"
-                          Background="White"
-                          AlternatingRowBackground="#FAFAFA"
-                          MinHeight="200">
-                    <DataGrid.ColumnHeaderStyle>
-                        <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="Background" Value="#F0F0F0" />
-                            <Setter Property="Padding" Value="6,4" />
-                            <Setter Property="FontSize" Value="11" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                            <Setter Property="BorderBrush" Value="#DDD" />
-                            <Setter Property="BorderThickness" Value="0,0,1,1" />
-                        </Style>
-                    </DataGrid.ColumnHeaderStyle>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Status" Width="70"
-                                               Binding="{Binding Disabled}"
-                                               IsReadOnly="True">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Disabled}" Value="False">
-                                            <Setter Property="Text" Value="Active" />
-                                            <Setter Property="Foreground" Value="Green" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding Disabled}" Value="True">
-                                            <Setter Property="Text" Value="Disabled" />
-                                            <Setter Property="Foreground" Value="Red" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
-                        <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="150" />
-                        <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
-                        <DataGridTextColumn Header="Type" Binding="{Binding AccountType}" Width="80" />
-                        <DataGridTextColumn Header="Password" Binding="{Binding Password}" Width="100">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="******" />
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
-                    </DataGrid.Columns>
-
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Edit Account..." Command="{Binding EditAccountCommand}" />
-                            <MenuItem Header="Check / Refresh" Command="{Binding RefreshAccountCommand}" />
-                            <Separator />
-                            <MenuItem Header="Enable" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
-                            <MenuItem Header="Disable" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
-                            <Separator />
-                            <MenuItem Header="Delete" Command="{Binding RemoveAccountCommand}" />
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                </DataGrid>
-
-                <!-- JD2-style bottom button bar -->
-                <Border Margin="0,0,0,0" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="1,0,1,1" Padding="6,4">
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="＋ Add" Command="{Binding AddAccountDialogCommand}" Width="90" Height="26" Margin="0,0,6,0" />
-                        <Button Content="－ Remove" Command="{Binding RemoveAccountCommand}" Width="90" Height="26" Margin="0,0,6,0" />
-                        <Button Content="🔄 Refresh" Command="{Binding RefreshAllAccountsCommand}" Width="90" Height="26" />
-                    </StackPanel>
-                </Border>
-
-                <!-- Status message -->
-                <TextBlock Text="{Binding CheckAccountStatus}" FontSize="11" Margin="0,6,0,0"
-                           TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="#555" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsCheckingAccount}" Value="True">
-                                    <Setter Property="Foreground" Value="#3498DB" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                <TextBlock FontSize="11.5" Foreground="#777" Margin="0,0,0,8"
+                           Text="Enter and manage all your Premium/Gold/Platinum accounts." />
             </StackPanel>
-        </ScrollViewer>
+
+            <!-- DataGrid fills all remaining space -->
+            <DataGrid Grid.Row="1" Margin="20,0,20,0"
+                      ItemsSource="{Binding Accounts}"
+                      SelectedItem="{Binding SelectedAccount}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      SelectionMode="Single"
+                      SelectionUnit="FullRow"
+                      RowHeaderWidth="0"
+                      GridLinesVisibility="All"
+                      HorizontalGridLinesBrush="#D4D4D4"
+                      VerticalGridLinesBrush="#D4D4D4"
+                      BorderBrush="#B0B0B0"
+                      BorderThickness="1"
+                      Background="#EAF3FB"
+                      AlternatingRowBackground="#E2EDF7"
+                      RowBackground="#EAF3FB">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#E8E8E8" />
+                        <Setter Property="Foreground" Value="#333" />
+                        <Setter Property="Padding" Value="6,4" />
+                        <Setter Property="FontSize" Value="11" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="BorderBrush" Value="#B0B0B0" />
+                        <Setter Property="BorderThickness" Value="0,0,1,1" />
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="MinHeight" Value="22" />
+                        <Setter Property="FontSize" Value="12" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#B8D4EE" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Padding" Value="4,2" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                        <ContentPresenter VerticalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#B8D4EE" />
+                                <Setter Property="Foreground" Value="#222" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="✓" Width="30" Binding="{Binding Disabled, Converter={x:Null}}" IsReadOnly="True">
+                        <DataGridCheckBoxColumn.ElementStyle>
+                            <Style TargetType="CheckBox">
+                                <Setter Property="IsChecked" Value="True" />
+                                <Setter Property="HorizontalAlignment" Value="Center" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Disabled}" Value="True">
+                                        <Setter Property="IsChecked" Value="False" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridCheckBoxColumn.ElementStyle>
+                    </DataGridCheckBoxColumn>
+                    <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="180" />
+                    <DataGridTextColumn Header="Status" Width="90">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Disabled}" Value="False">
+                                        <Setter Property="Text" Value="Active" />
+                                        <Setter Property="Foreground" Value="Green" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Disabled}" Value="True">
+                                        <Setter Property="Text" Value="Disabled" />
+                                        <Setter Property="Foreground" Value="#C0392B" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
+                    <DataGridTextColumn Header="Password" Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock"><Setter Property="Text" Value="******" /></Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Type" Binding="{Binding AccountType}" Width="*" />
+                </DataGrid.Columns>
+
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Edit Account..." Command="{Binding EditAccountCommand}" />
+                        <MenuItem Header="Check / Refresh" Command="{Binding RefreshAccountCommand}" />
+                        <Separator />
+                        <MenuItem Header="Enable" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
+                        <MenuItem Header="Disable" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
+                        <Separator />
+                        <MenuItem Header="Delete" Command="{Binding RemoveAccountCommand}" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
+            </DataGrid>
+
+            <!-- JD2-style bottom button bar pinned to bottom -->
+            <Border Grid.Row="2" Margin="20,0,20,0" Background="#E8E8E8" BorderBrush="#B0B0B0" BorderThickness="1,0,1,1" Padding="6,5">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="＋ Add" Command="{Binding AddAccountDialogCommand}" Width="100" Height="26" Margin="0,0,6,0" />
+                    <Button Content="－ Remove" Command="{Binding RemoveAccountCommand}" Width="100" Height="26" Margin="0,0,6,0" />
+                    <Button Content="🔄 Refresh" Command="{Binding RefreshAllAccountsCommand}" Width="100" Height="26" />
+                </StackPanel>
+            </Border>
+
+            <!-- Status message -->
+            <TextBlock Grid.Row="3" Text="{Binding CheckAccountStatus}" FontSize="11" Margin="20,6,20,8"
+                       TextWrapping="Wrap" HorizontalAlignment="Left">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="#555" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCheckingAccount}" Value="True">
+                                <Setter Property="Foreground" Value="#3498DB" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
 
         <!-- 3: About -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
