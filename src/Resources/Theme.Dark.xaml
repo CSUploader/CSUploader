@@ -12,9 +12,9 @@
     <SolidColorBrush x:Key="BorderSubtleBrush" Color="#353645" />
 
     <!-- ═══ Text ═══ -->
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#D4D5DE" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9496A8" />
-    <SolidColorBrush x:Key="TextDisabledBrush" Color="#5C5D6E" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8E9F0" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A8AAC0" />
+    <SolidColorBrush x:Key="TextDisabledBrush" Color="#686A80" />
 
     <!-- ═══ Accent ═══ -->
     <SolidColorBrush x:Key="AccentBrush" Color="#5B9DF6" />
@@ -22,18 +22,18 @@
     <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
 
     <!-- ═══ DataGrid ═══ -->
-    <SolidColorBrush x:Key="DataGridHeaderBrush" Color="#282938" />
-    <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#232430" />
-    <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#353645" />
+    <SolidColorBrush x:Key="DataGridHeaderBrush" Color="#343650" />
+    <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#262838" />
+    <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#3E4058" />
 
     <!-- ═══ Selection ═══ -->
-    <SolidColorBrush x:Key="SelectionBrush" Color="#2A4068" />
-    <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#E0E1EA" />
+    <SolidColorBrush x:Key="SelectionBrush" Color="#334878" />
+    <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#F0F1F8" />
 
-    <!-- ═══ Content Areas ═══ -->
-    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#1E1F26" />
-    <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#232430" />
-    <SolidColorBrush x:Key="RowDetailBackgroundBrush" Color="#212230" />
+    <!-- ═══ Content Areas (lighter for readability) ═══ -->
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#2B2D3A" />
+    <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#303244" />
+    <SolidColorBrush x:Key="RowDetailBackgroundBrush" Color="#282A38" />
 
     <!-- ═══ Progress Bar ═══ -->
     <SolidColorBrush x:Key="ProgressBarTrackBrush" Color="#353645" />
@@ -113,12 +113,12 @@
 
     <!-- ═══ Misc ═══ -->
     <SolidColorBrush x:Key="SuccessBrush" Color="#4ADE80" />
-    <SolidColorBrush x:Key="OverviewCloseBrush" Color="#9496A8" />
+    <SolidColorBrush x:Key="OverviewCloseBrush" Color="#A8AAC0" />
     <SolidColorBrush x:Key="OverviewArrowBrush" Color="#4ADE80" />
-    <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#3C3D4E" />
-    <SolidColorBrush x:Key="LogBackgroundBrush" Color="#1E1F26" />
-    <SolidColorBrush x:Key="LogAltRowBrush" Color="#232430" />
-    <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#1A1B24" />
+    <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#484A60" />
+    <SolidColorBrush x:Key="LogBackgroundBrush" Color="#2B2D3A" />
+    <SolidColorBrush x:Key="LogAltRowBrush" Color="#303244" />
+    <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#1E2030" />
     <SolidColorBrush x:Key="InfoAccentBrush" Color="#6BA5F0" />
 
 </ResourceDictionary>
