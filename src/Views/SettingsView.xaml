@@ -66,6 +66,58 @@
             <Setter Property="Padding" Value="4,3" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+
+        <!-- JD2-style raised button with icon + text -->
+        <Style x:Key="JD2Button" TargetType="Button">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="90" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="1" Padding="{TemplateBinding Padding}"
+                                BorderThickness="1" BorderBrush="#A0A0A0">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#FCFCFC" Offset="0" />
+                                    <GradientStop Color="#E8E8E8" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6A9CC6" />
+                                <Setter TargetName="Bd" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#EAF4FC" Offset="0" />
+                                            <GradientStop Color="#D0E4F4" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4A7CA6" />
+                                <Setter TargetName="Bd" Property="Background">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#D0E0F0" Offset="0" />
+                                            <GradientStop Color="#B8D0E8" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -346,12 +398,34 @@
                 </DataGrid.ContextMenu>
             </DataGrid>
 
-            <!-- JD2-style bottom button bar pinned to bottom -->
-            <Border Grid.Row="2" Margin="20,0,20,0" Background="#E8E8E8" BorderBrush="#B0B0B0" BorderThickness="1,0,1,1" Padding="6,5">
+            <!-- JD2-style bottom button bar -->
+            <Border Grid.Row="2" Margin="20,0,20,0" Padding="6,6"
+                    BorderBrush="#B0B0B0" BorderThickness="1,0,1,1">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#F4F4F4" Offset="0" />
+                        <GradientStop Color="#E0E0E0" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="＋ Add" Command="{Binding AddAccountDialogCommand}" Width="100" Height="26" Margin="0,0,6,0" />
-                    <Button Content="－ Remove" Command="{Binding RemoveAccountCommand}" Width="100" Height="26" Margin="0,0,6,0" />
-                    <Button Content="🔄 Refresh" Command="{Binding RefreshAllAccountsCommand}" Width="100" Height="26" />
+                    <Button Style="{StaticResource JD2Button}" Command="{Binding AddAccountDialogCommand}" Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="＋" FontWeight="Bold" Foreground="#2E7D32" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="Add" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource JD2Button}" Command="{Binding RemoveAccountCommand}" Margin="0,0,4,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="－" FontWeight="Bold" Foreground="#999" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="Remove" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource JD2Button}" Command="{Binding RefreshAllAccountsCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="{StaticResource ActionRetryImage}" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="Refresh" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 
