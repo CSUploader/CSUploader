@@ -8,11 +8,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
-using CSUploader.Lib.Compression.ZevenZip;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
-using SevenZip;
 
 namespace CSUploader.ViewModels;
 
@@ -32,47 +30,6 @@ public partial class UploadViewModel : ObservableObject
     [ObservableProperty]
     private string inputDirectory = string.Empty;
 
-    // ── Compression fields ──
-
-    [ObservableProperty]
-    private bool enableCompression;
-
-    [ObservableProperty]
-    private bool is7zSelected = true;
-
-    [ObservableProperty]
-    private bool isRarSelected;
-
-    [ObservableProperty]
-    private string outputDirectory = string.Empty;
-
-    [ObservableProperty]
-    private string archivePassword = string.Empty;
-
-    [ObservableProperty]
-    private string archivePasswordConfirm = string.Empty;
-
-    [ObservableProperty]
-    private KeyValuePair<CompressionLevel, string> selectedCompressionLevel;
-
-    [ObservableProperty]
-    private KeyValuePair<CompressionMethod, string> selectedCompressionMethod;
-
-    [ObservableProperty]
-    private KeyValuePair<int, string> selectedDictionarySize;
-
-    [ObservableProperty]
-    private KeyValuePair<int, string> selectedWordSize;
-
-    [ObservableProperty]
-    private KeyValuePair<long, string> selectedSolidBlockSize;
-
-    [ObservableProperty]
-    private KeyValuePair<long, string> selectedSplitVolume;
-
-    [ObservableProperty]
-    private int cpuThreads = 1;
-
     public UploadViewModel(
         PackageManager packageManager,
         FileHosterLoginRepository fileHosterLoginRepository,
@@ -85,28 +42,7 @@ public partial class UploadViewModel : ObservableObject
         _dialogService = dialogService;
         _logger = logger;
         _settings = settings;
-
-        // Set defaults
-        SelectedCompressionLevel = ZevenZip.CompressionLevels.FirstOrDefault(x => x.Key == CompressionLevel.None);
-        SelectedCompressionMethod = ZevenZip.CompressionMethods.FirstOrDefault(x => x.Key == CompressionMethod.Lzma2);
-        SelectedDictionarySize = ZevenZip.DictionarySizes.First();
-        SelectedWordSize = ZevenZip.WordSizes.First();
-        SelectedSolidBlockSize = ZevenZip.SolidBlockSizes.First();
-        SelectedSplitVolume = ZevenZip.SplitVolumeBytes.First();
     }
-
-    // ── Compression option sources for ComboBoxes ──
-    // These must be instance properties for WPF data binding (cannot be static).
-
-#pragma warning disable CA1822
-    public Dictionary<CompressionLevel, string> CompressionLevels => ZevenZip.CompressionLevels;
-    public Dictionary<CompressionMethod, string> CompressionMethods => ZevenZip.CompressionMethods;
-    public Dictionary<int, string> DictionarySizes => ZevenZip.DictionarySizes;
-    public Dictionary<int, string> WordSizes => ZevenZip.WordSizes;
-    public Dictionary<long, string> SolidBlockSizes => ZevenZip.SolidBlockSizes;
-    public Dictionary<long, string> SplitVolumes => ZevenZip.SplitVolumeBytes;
-    public int MaxCpuThreads => Environment.ProcessorCount;
-#pragma warning restore CA1822
 
     // ── File hosters ──
 
@@ -135,19 +71,6 @@ public partial class UploadViewModel : ObservableObject
         if (folder is not null)
         {
             InputDirectory = folder;
-        }
-    }
-
-    [RelayCommand]
-    private void BrowseOutputDirectory()
-    {
-        string? folder = _dialogService.BrowseFolder(
-            string.IsNullOrEmpty(OutputDirectory) ? _settings.TempArchiveDirectory : OutputDirectory,
-            "Select Output Directory");
-
-        if (folder is not null)
-        {
-            OutputDirectory = folder;
         }
     }
 
@@ -202,44 +125,6 @@ public partial class UploadViewModel : ObservableObject
             DirectoryPath = directory,
             Logger = _logger
         };
-
-        if (EnableCompression && Is7zSelected)
-        {
-            if (string.IsNullOrWhiteSpace(OutputDirectory))
-            {
-                _dialogService.ShowError("Output directory is empty.");
-                return null;
-            }
-
-            // Validate passwords match
-            if ((!string.IsNullOrEmpty(ArchivePassword) || !string.IsNullOrEmpty(ArchivePasswordConfirm))
-                && !string.Equals(ArchivePassword, ArchivePasswordConfirm, StringComparison.Ordinal))
-            {
-                _dialogService.ShowError("Passwords do not match.");
-                return null;
-            }
-
-            options.CompressionOptions = new PackageCompressionOptions
-            {
-                Compressor = new ZevenZipCompressor(_logger)
-                {
-                    Options = new ZevenZip.CompressionOptions
-                    {
-                        CompressionLevel = SelectedCompressionLevel.Key,
-                        CompressionMethod = SelectedCompressionMethod.Key,
-                        DictionarySize = SelectedDictionarySize.Key,
-                        WordSize = SelectedWordSize.Key,
-                        SolidBlockSize = SelectedSolidBlockSize.Key,
-                        SplitVolumeBytes = (int)SelectedSplitVolume.Key,
-                        Password = ArchivePassword,
-                        NumberCPUThreads = CpuThreads,
-                    }
-                },
-                OutputDirectoryPath = OutputDirectory,
-                TemporaryDirectory = _settings.TempArchiveDirectory,
-                ArchivePassword = ArchivePassword,
-            };
-        }
 
         // Gather selected file hosters
         foreach (FileHosterSelectionViewModel hoster in FileHosters)

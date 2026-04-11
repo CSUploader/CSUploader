@@ -6,7 +6,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadViewModel}"
@@ -14,8 +13,6 @@
              Background="White">
 
     <UserControl.Resources>
-        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
-
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -49,11 +46,6 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="SettingPasswordBox" TargetType="PasswordBox">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="4,3" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -82,142 +74,7 @@
                     <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseInputDirectoryCommand}" />
                 </Grid>
 
-                <!-- ═══════════════════ Section 2: Compression ═══════════════════ -->
-                <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
-                    <Image Source="{StaticResource PackageCompressingImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Compression" Style="{StaticResource SectionTitle}" />
-                </StackPanel>
-                <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Configure compression settings for your uploads." />
-
-                <CheckBox Content="Enable compression" IsChecked="{Binding EnableCompression}" FontSize="12" Margin="40,0,0,8" />
-
-                <!-- Collapsible compression options -->
-                <StackPanel Visibility="{Binding EnableCompression, Converter={StaticResource BoolToVisibility}}" Margin="40,0,0,0">
-
-                    <!-- Archive type -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <RadioButton Content="7z" IsChecked="{Binding Is7zSelected}" Margin="0,0,16,0" GroupName="ArchiveType" FontSize="12" />
-                        <RadioButton Content="RAR" IsChecked="{Binding IsRarSelected}" GroupName="ArchiveType" FontSize="12" />
-                    </StackPanel>
-
-                    <!-- Level -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Level" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding CompressionLevels}" SelectedItem="{Binding SelectedCompressionLevel}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Method -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Method" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding CompressionMethods}" SelectedItem="{Binding SelectedCompressionMethod}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Dictionary -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Dictionary" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding DictionarySizes}" SelectedItem="{Binding SelectedDictionarySize}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Word Size -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Word Size" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding WordSizes}" SelectedItem="{Binding SelectedWordSize}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Solid Block -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Solid Block" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding SolidBlockSizes}" SelectedItem="{Binding SelectedSolidBlockSize}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Split Volume -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Split Vol" Style="{StaticResource SettingLabel}" />
-                        <ComboBox Grid.Column="1" ItemsSource="{Binding SplitVolumes}" SelectedItem="{Binding SelectedSplitVolume}"
-                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
-                    </Grid>
-
-                    <!-- Threads -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Threads" Style="{StaticResource SettingLabel}" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <TextBox Text="{Binding CpuThreads, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" Width="60" />
-                            <TextBlock VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12" Foreground="#777">
-                                <Run Text="/ " /><Run Text="{Binding MaxCpuThreads, Mode=OneTime}" />
-                            </TextBlock>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Password -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Password" Style="{StaticResource SettingLabel}" />
-                        <PasswordBox Grid.Column="1" Style="{StaticResource SettingPasswordBox}"
-                                     x:Name="PasswordBox" PasswordChanged="PasswordBox_PasswordChanged" />
-                    </Grid>
-
-                    <!-- Confirm Password -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="280" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Confirm" Style="{StaticResource SettingLabel}" />
-                        <PasswordBox Grid.Column="1" Style="{StaticResource SettingPasswordBox}"
-                                     x:Name="ConfirmPasswordBox" PasswordChanged="ConfirmPasswordBox_PasswordChanged" />
-                    </Grid>
-
-                    <!-- Output Directory -->
-                    <Grid Margin="0,0,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Output Dir" Style="{StaticResource SettingLabel}" />
-                        <TextBox Grid.Column="1" Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
-                        <Button Grid.Column="2" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseOutputDirectoryCommand}" />
-                    </Grid>
-                </StackPanel>
-
-                <!-- ═══════════════════ Section 3: File Hosters ═══════════════════ -->
+                <!-- ═══════════════════ Section 2: File Hosters ═══════════════════ -->
                 <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
                     <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="File Hosters" Style="{StaticResource SectionTitle}" />
