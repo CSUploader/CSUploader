@@ -193,7 +193,7 @@ public partial class SettingsViewModel : ObservableObject
             AccountType = AccountType.Free,
         };
 
-        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters, AccountTypes)
+        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters)
         {
             Title = "Add Account",
             Owner = System.Windows.Application.Current.MainWindow,
@@ -428,7 +428,7 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         // Open edit dialog
-        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters, AccountTypes);
+        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters);
         dialog.Owner = System.Windows.Application.Current.MainWindow;
 
         if (dialog.ShowDialog() == true)

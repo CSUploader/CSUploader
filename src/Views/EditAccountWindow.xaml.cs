@@ -13,7 +13,7 @@ public partial class EditAccountWindow : Window
 {
     private readonly FileHosterLoginDto _original;
 
-    public EditAccountWindow(FileHosterLoginDto account, string[] hosters, AccountType[] accountTypes)
+    public EditAccountWindow(FileHosterLoginDto account, string[] hosters)
     {
         InitializeComponent();
 
@@ -24,9 +24,6 @@ public partial class EditAccountWindow : Window
 
         UsernameBox.Text = account.Username;
         PasswordBox.Text = account.Password;
-
-        AccountTypeCombo.ItemsSource = accountTypes;
-        AccountTypeCombo.SelectedItem = account.AccountType;
 
         EnabledCheck.IsChecked = !account.Disabled;
     }
@@ -41,7 +38,7 @@ public partial class EditAccountWindow : Window
             FileHosterName = HosterCombo.SelectedItem as string ?? _original.FileHosterName,
             Username = UsernameBox.Text,
             Password = PasswordBox.Text,
-            AccountType = AccountTypeCombo.SelectedItem is AccountType at ? at : _original.AccountType,
+            AccountType = _original.AccountType, // Preserved; auto-detected on check/refresh
             Disabled = EnabledCheck.IsChecked != true,
         };
 
