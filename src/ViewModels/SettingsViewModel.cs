@@ -309,6 +309,100 @@ public partial class SettingsViewModel : ObservableObject
         await LoadAccountsAsync(cancellationToken);
     }
 
+    [RelayCommand]
+    private void EditAccount()
+    {
+        if (SelectedAccount is null)
+        {
+            return;
+        }
+
+        // Open edit dialog
+        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters, AccountTypes);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            // Save changes
+            _ = SaveEditedAccountAsync(dialog.Result);
+        }
+    }
+
+    private async Task SaveEditedAccountAsync(FileHosterLoginDto updated)
+    {
+        await _accountRepository.UpdateAsync(updated);
+        await LoadAccountsAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshAccountAsync(CancellationToken cancellationToken = default)
+    {
+        if (SelectedAccount is null)
+        {
+            return;
+        }
+
+        FileHosterClient? client = FileHosterClient.FindByHost(SelectedAccount.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        if (client is null)
+        {
+            CheckAccountStatus = $"No implementation for {SelectedAccount.FileHosterName}. Cannot check.";
+            return;
+        }
+
+        IsCheckingAccount = true;
+        CheckAccountStatus = $"Checking {SelectedAccount.Username}@{SelectedAccount.FileHosterName}...";
+
+        try
+        {
+            AccountCheckResult result = await client.CheckAccountAsync(
+                SelectedAccount.Username ?? string.Empty,
+                SelectedAccount.Password ?? string.Empty,
+                cancellationToken);
+
+            if (result.IsValid)
+            {
+                // Update account type if changed
+                if (SelectedAccount.AccountType != result.AccountType)
+                {
+                    SelectedAccount.AccountType = result.AccountType;
+                    await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+                    await LoadAccountsAsync(cancellationToken);
+                }
+
+                CheckAccountStatus = $"Valid: {result.Message}";
+            }
+            else
+            {
+                CheckAccountStatus = $"Failed: {result.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            CheckAccountStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingAccount = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleAccountAsync(string? parameter, CancellationToken cancellationToken = default)
+    {
+        if (SelectedAccount is null)
+        {
+            return;
+        }
+
+        bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
+        SelectedAccount.Disabled = disable;
+        await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+        await LoadAccountsAsync(cancellationToken);
+        CheckAccountStatus = disable
+            ? $"Account '{SelectedAccount.Username}' disabled."
+            : $"Account '{SelectedAccount.Username}' enabled.";
+    }
+
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
     {
         SettingDto? existing = await _settingRepository.FindByKeyAsync(key, cancellationToken);

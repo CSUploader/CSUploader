@@ -279,6 +279,18 @@
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
                     </DataGrid.Columns>
+
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Edit Account..." Command="{Binding EditAccountCommand}" />
+                            <MenuItem Header="Check / Refresh" Command="{Binding RefreshAccountCommand}" />
+                            <Separator />
+                            <MenuItem Header="Enable" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
+                            <MenuItem Header="Disable" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
+                            <Separator />
+                            <MenuItem Header="Delete" Command="{Binding RemoveAccountCommand}" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
                 </DataGrid>
 
                 <!-- Remove button -->
