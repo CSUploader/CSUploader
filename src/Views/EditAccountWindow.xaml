@@ -18,16 +18,15 @@
             <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
 
-        <Style x:Key="FieldInput" TargetType="TextBox">
+        <Style x:Key="FieldInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="8,5" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         </Style>
 
-        <Style x:Key="FieldCombo" TargetType="ComboBox">
+        <Style x:Key="FieldCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="6,5" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
