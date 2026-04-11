@@ -242,9 +242,26 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
 
+        // Preserve existing statuses
+        Dictionary<int, string> statusMap = Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+        string newStatus = dto.StatusMessage;
+
         await _accountRepository.InsertAsync(dto);
         CheckAccountStatus = $"Account added for {dto.FileHosterName}!";
         await LoadAccountsAsync();
+
+        // Restore statuses after reload
+        foreach (var a in Accounts)
+        {
+            if (statusMap.TryGetValue(a.Id, out string? msg))
+            {
+                a.StatusMessage = msg;
+            }
+            else if (a.FileHosterName == dto.FileHosterName && a.Username == dto.Username)
+            {
+                a.StatusMessage = newStatus;
+            }
+        }
     }
 
     [RelayCommand]
@@ -299,8 +316,21 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
 
+        // Build status map before reload
+        Dictionary<int, string> statusMap = Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+
         IsCheckingAccount = false;
         await LoadAccountsAsync(cancellationToken);
+
+        // Restore status messages after reload
+        foreach (var a in Accounts)
+        {
+            if (statusMap.TryGetValue(a.Id, out string? msg))
+            {
+                a.StatusMessage = msg;
+            }
+        }
+
         CheckAccountStatus = $"Refreshed {checked_} accounts. {updated} updated.";
     }
 
@@ -480,20 +510,31 @@ public partial class SettingsViewModel : ObservableObject
                 SelectedAccount.Password ?? string.Empty,
                 cancellationToken);
 
+            string statusMsg;
             if (result.IsValid)
             {
                 SelectedAccount.AccountType = result.AccountType;
-                SelectedAccount.StatusMessage = result.Message ?? "OK";
+                statusMsg = result.Message ?? "OK";
                 CheckAccountStatus = $"Valid: {result.Message}";
             }
             else
             {
-                SelectedAccount.StatusMessage = result.Message ?? "Failed";
+                statusMsg = result.Message ?? "Failed";
                 CheckAccountStatus = $"Failed: {result.Message}";
             }
 
             await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+
+            // Reload and preserve status messages
+            int selectedId = SelectedAccount.Id;
             await LoadAccountsAsync(cancellationToken);
+            foreach (var a in Accounts)
+            {
+                if (a.Id == selectedId)
+                {
+                    a.StatusMessage = statusMsg;
+                }
+            }
         }
         catch (Exception ex)
         {
