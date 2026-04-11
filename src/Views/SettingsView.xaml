@@ -15,6 +15,7 @@
 
     <UserControl.Resources>
         <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
+        <conv:StatusToColorConverter x:Key="StatusToColorConverter" />
 
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
@@ -362,15 +363,16 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="180" />
-                    <DataGridTextColumn Header="Status" Binding="{Binding StatusMessage}" Width="180">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                <Setter Property="Foreground" Value="#666" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="Status" Width="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding StatusMessage}"
+                                           Foreground="{Binding StatusMessage, Converter={StaticResource StatusToColorConverter}}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
                     <DataGridTextColumn Header="Password" Width="100">
                         <DataGridTextColumn.ElementStyle>
