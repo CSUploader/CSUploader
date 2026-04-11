@@ -89,6 +89,7 @@
                           ItemsSource="{Binding FileHosters}"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
+                          PreviewMouseWheel="FileHostersGrid_PreviewMouseWheel"
                           CanUserDeleteRows="False"
                           CanUserResizeRows="False"
                           CanUserReorderColumns="False"
