@@ -505,12 +505,13 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
+        string username = SelectedAccount.Username ?? "unknown";
         SelectedAccount.Disabled = disable;
         await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
         await LoadAccountsAsync(cancellationToken);
         CheckAccountStatus = disable
-            ? $"Account '{SelectedAccount.Username}' disabled."
-            : $"Account '{SelectedAccount.Username}' enabled.";
+            ? $"Account '{username}' disabled."
+            : $"Account '{username}' enabled.";
     }
 
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
