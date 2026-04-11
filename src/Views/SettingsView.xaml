@@ -25,10 +25,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E8F0F8" />
+                                <Setter TargetName="Bd" Property="Background" Value="#D6E6F5" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#D6E6F5" />
+                                <Setter TargetName="Bd" Property="Background" Value="#B8D4EE" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -76,7 +76,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- ═══ Sidebar ═══ -->
-        <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#D8D8D8" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="#EAF3FB" BorderBrush="#B0B0B0" BorderThickness="0,0,1,0">
             <ListBox Background="Transparent" BorderThickness="0"
                      SelectedIndex="{Binding SelectedCategoryIndex}"
                      ItemContainerStyle="{StaticResource SidebarItem}"
