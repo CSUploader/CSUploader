@@ -222,8 +222,8 @@
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}" Text="Manage your file hoster accounts. Add credentials for each hosting service you want to upload to." />
 
-                <!-- Account list -->
-                <DataGrid Margin="40,0,0,0" Height="250"
+                <!-- Account list (fills available space) -->
+                <DataGrid Margin="0,0,0,0"
                           ItemsSource="{Binding Accounts}"
                           SelectedItem="{Binding SelectedAccount}"
                           AutoGenerateColumns="False"
@@ -238,7 +238,8 @@
                           BorderBrush="#CCC"
                           BorderThickness="1"
                           Background="White"
-                          AlternatingRowBackground="#FAFAFA">
+                          AlternatingRowBackground="#FAFAFA"
+                          MinHeight="200">
                     <DataGrid.ColumnHeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
                             <Setter Property="Background" Value="#F0F0F0" />
@@ -268,13 +269,13 @@
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="File Hoster" Binding="{Binding FileHosterName}" Width="150" />
+                        <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="150" />
                         <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
-                        <DataGridTextColumn Header="Account Type" Binding="{Binding AccountType}" Width="100" />
-                        <DataGridTextColumn Header="Password" Binding="{Binding Password}" Width="*">
+                        <DataGridTextColumn Header="Type" Binding="{Binding AccountType}" Width="80" />
+                        <DataGridTextColumn Header="Password" Binding="{Binding Password}" Width="100">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="********" />
+                                    <Setter Property="Text" Value="******" />
                                 </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
@@ -293,72 +294,18 @@
                     </DataGrid.ContextMenu>
                 </DataGrid>
 
-                <!-- Remove button -->
-                <StackPanel Orientation="Horizontal" Margin="40,8,0,0">
-                    <Button Content="Remove Selected" Command="{Binding RemoveAccountCommand}" Width="130" Height="28" />
-                </StackPanel>
-
-                <!-- Add new account section -->
-                <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
-                    <Image Source="{StaticResource StatusSuccessImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Add Account" Style="{StaticResource SectionTitle}" />
-                </StackPanel>
-                <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Add a new file hoster account. Select the hoster, enter your credentials, and click Add." />
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="File Hoster:" Style="{StaticResource SettingLabel}" />
-                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableHosters}" SelectedItem="{Binding NewAccountHoster}"
-                              FontSize="12" Padding="4,3" />
-                </Grid>
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Username:" Style="{StaticResource SettingLabel}" />
-                    <TextBox Grid.Column="1" Text="{Binding NewAccountUsername, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
-                </Grid>
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Password:" Style="{StaticResource SettingLabel}" />
-                    <TextBox Grid.Column="1" Text="{Binding NewAccountPassword, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
-                </Grid>
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Account Type:" Style="{StaticResource SettingLabel}" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <ComboBox ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding NewAccountType}"
-                                  FontSize="12" Padding="4,3" Width="150" />
-                        <TextBlock Text="(auto-detected on check)" FontSize="10.5" Foreground="#999"
-                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                <!-- JD2-style bottom button bar -->
+                <Border Margin="0,0,0,0" Background="#F0F0F0" BorderBrush="#CCC" BorderThickness="1,0,1,1" Padding="6,4">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="＋ Add" Command="{Binding AddAccountDialogCommand}" Width="90" Height="26" Margin="0,0,6,0" />
+                        <Button Content="－ Remove" Command="{Binding RemoveAccountCommand}" Width="90" Height="26" Margin="0,0,6,0" />
+                        <Button Content="🔄 Refresh" Command="{Binding RefreshAllAccountsCommand}" Width="90" Height="26" />
                     </StackPanel>
-                </Grid>
-
-                <!-- Buttons -->
-                <StackPanel Orientation="Horizontal" Margin="40,12,0,0">
-                    <Button Content="Check Account" Command="{Binding CheckAccountCommand}"
-                            Width="130" Height="32" Margin="0,0,8,0" />
-                    <Button Content="Add Account" Command="{Binding AddAccountCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                            Width="130" Height="32" />
-                </StackPanel>
+                </Border>
 
                 <!-- Status message -->
-                <TextBlock Text="{Binding CheckAccountStatus}" FontSize="11.5" Margin="40,8,0,0"
-                           TextWrapping="Wrap" MaxWidth="600" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding CheckAccountStatus}" FontSize="11" Margin="0,6,0,0"
+                           TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="#555" />

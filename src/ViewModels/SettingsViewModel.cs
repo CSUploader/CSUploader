@@ -184,6 +184,116 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void AddAccountDialog()
+    {
+        // Open EditAccountWindow in "add" mode with empty fields
+        FileHosterLoginDto newAccount = new()
+        {
+            FileHosterName = AvailableHosters.FirstOrDefault() ?? string.Empty,
+            AccountType = AccountType.Free,
+        };
+
+        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters, AccountTypes)
+        {
+            Title = "Add Account",
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            _ = AddAccountFromDialogAsync(dialog.Result);
+        }
+    }
+
+    private async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
+    {
+        // Auto-check if implementation exists
+        FileHosterClient? client = FileHosterClient.FindByHost(dto.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        if (client is not null)
+        {
+            IsCheckingAccount = true;
+            CheckAccountStatus = "Verifying credentials...";
+
+            try
+            {
+                AccountCheckResult result = await client.CheckAccountAsync(
+                    dto.Username ?? string.Empty,
+                    dto.Password ?? string.Empty);
+
+                if (result.IsValid)
+                {
+                    dto.AccountType = result.AccountType;
+                    CheckAccountStatus = $"Verified: {result.Message}";
+                }
+                else
+                {
+                    CheckAccountStatus = $"Warning: {result.Message}";
+                }
+            }
+            catch (Exception ex)
+            {
+                CheckAccountStatus = $"Check error: {ex.Message}";
+            }
+            finally
+            {
+                IsCheckingAccount = false;
+            }
+        }
+
+        await _accountRepository.InsertAsync(dto);
+        CheckAccountStatus = $"Account added for {dto.FileHosterName}!";
+        await LoadAccountsAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshAllAccountsAsync(CancellationToken cancellationToken = default)
+    {
+        if (Accounts.Count == 0)
+        {
+            CheckAccountStatus = "No accounts to refresh.";
+            return;
+        }
+
+        IsCheckingAccount = true;
+        int checked_ = 0;
+        int updated = 0;
+
+        foreach (FileHosterLoginDto account in Accounts.ToArray())
+        {
+            CheckAccountStatus = $"Checking {account.Username}@{account.FileHosterName}... ({++checked_}/{Accounts.Count})";
+
+            FileHosterClient? client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+            if (client is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                AccountCheckResult result = await client.CheckAccountAsync(
+                    account.Username ?? string.Empty,
+                    account.Password ?? string.Empty,
+                    cancellationToken);
+
+                if (result.IsValid && account.AccountType != result.AccountType)
+                {
+                    account.AccountType = result.AccountType;
+                    await _accountRepository.UpdateAsync(account, cancellationToken);
+                    updated++;
+                }
+            }
+            catch
+            {
+                // Skip failed checks during bulk refresh
+            }
+        }
+
+        IsCheckingAccount = false;
+        await LoadAccountsAsync(cancellationToken);
+        CheckAccountStatus = $"Refreshed {checked_} accounts. {updated} updated.";
+    }
+
+    [RelayCommand]
     private async Task CheckAccountAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
