@@ -7,12 +7,15 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
              d:DesignWidth="1024" d:DesignHeight="800"
              Background="White">
 
     <UserControl.Resources>
+        <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
+
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -349,19 +352,15 @@
                     </Style>
                 </DataGrid.CellStyle>
                 <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="✓" Width="30" Binding="{Binding Disabled, Converter={x:Null}}" IsReadOnly="True">
-                        <DataGridCheckBoxColumn.ElementStyle>
-                            <Style TargetType="CheckBox">
-                                <Setter Property="IsChecked" Value="True" />
-                                <Setter Property="HorizontalAlignment" Value="Center" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Disabled}" Value="True">
-                                        <Setter Property="IsChecked" Value="False" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGridCheckBoxColumn.ElementStyle>
-                    </DataGridCheckBoxColumn>
+                    <DataGridTemplateColumn Header="✓" Width="30">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsChecked="{Binding Disabled, Converter={StaticResource InvertBoolConverter}, UpdateSourceTrigger=PropertyChanged}"
+                                          Click="AccountEnabledCheckBox_Click" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="180" />
                     <DataGridTextColumn Header="Status" Binding="{Binding StatusMessage}" Width="180">
                         <DataGridTextColumn.ElementStyle>
