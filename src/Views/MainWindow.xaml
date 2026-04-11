@@ -31,8 +31,7 @@
                               IsChecked="{Binding UploadsViewModel.ShowUploadOverview}" />
                     <Separator />
                     <MenuItem Header="_Dark Mode" IsCheckable="True"
-                              IsChecked="{Binding IsDarkMode}"
-                              Command="{Binding ToggleThemeCommand}" />
+                              IsChecked="{Binding IsDarkMode}" />
                 </MenuItem>
                 <MenuItem Header="_Settings">
                     <MenuItem Header="_Preferences" Click="MenuPreferences_Click" />

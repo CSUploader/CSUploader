@@ -57,11 +57,9 @@ public partial class MainViewModel : ObservableObject
         await UploadedViewModel.LoadAsync();
     }
 
-    [RelayCommand]
-    private void ToggleTheme()
+    partial void OnIsDarkModeChanged(bool value)
     {
-        IsDarkMode = !IsDarkMode;
-        ApplyTheme(IsDarkMode);
+        ApplyTheme(value);
     }
 
     private static void ApplyTheme(bool dark)
