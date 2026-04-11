@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -32,15 +31,6 @@ public partial class UploadViewModel : ObservableObject
 
     [ObservableProperty]
     private string inputDirectory = string.Empty;
-
-    [ObservableProperty]
-    private string directoryPattern = string.Empty;
-
-    [ObservableProperty]
-    private string packageNamingExpression = string.Empty;
-
-    [ObservableProperty]
-    private string packageNamingResult = string.Empty;
 
     // ── Compression fields ──
 
@@ -133,41 +123,6 @@ public partial class UploadViewModel : ObservableObject
         }
     }
 
-    // ── Regex preview (triggered when input properties change) ──
-
-    partial void OnInputDirectoryChanged(string value) => UpdateNamingPreview();
-    partial void OnDirectoryPatternChanged(string value) => UpdateNamingPreview();
-    partial void OnPackageNamingExpressionChanged(string value) => UpdateNamingPreview();
-
-    private void UpdateNamingPreview()
-    {
-        string input = Path.GetFileName(InputDirectory);
-        if (string.IsNullOrEmpty(DirectoryPattern) || string.IsNullOrEmpty(input))
-        {
-            PackageNamingResult = string.Empty;
-            return;
-        }
-
-        try
-        {
-            Regex regex = new(DirectoryPattern, RegexOptions.Singleline | RegexOptions.Compiled);
-            Match match = regex.Match(input);
-
-            string result = PackageNamingExpression;
-            for (int i = 0; i < match.Groups.Count; i++)
-            {
-                Group g = match.Groups[i];
-                result = result.Replace("{" + i + "}", g.Value, StringComparison.Ordinal);
-            }
-
-            PackageNamingResult = result;
-        }
-        catch
-        {
-            PackageNamingResult = "Invalid regular expression";
-        }
-    }
-
     // ── Commands ──
 
     [RelayCommand]
@@ -206,25 +161,7 @@ public partial class UploadViewModel : ObservableObject
             return;
         }
 
-        // Find directories matching pattern
-        List<string> directories = [];
-        if (!string.IsNullOrEmpty(DirectoryPattern))
-        {
-            try
-            {
-                Regex regex = new(DirectoryPattern, RegexOptions.Singleline | RegexOptions.Compiled);
-                FindDirectories(InputDirectory, regex, directories);
-            }
-            catch
-            {
-                _dialogService.ShowError("Invalid regular expression.");
-                return;
-            }
-        }
-        else
-        {
-            directories.Add(InputDirectory);
-        }
+        List<string> directories = [InputDirectory];
 
         // Verify files exist
         if (!directories.Any(d => Directory.EnumerateFiles(d, "*", SearchOption.AllDirectories).Any()))
@@ -328,18 +265,4 @@ public partial class UploadViewModel : ObservableObject
         return options;
     }
 
-    private static void FindDirectories(string directoryPath, Regex expression, List<string> directories)
-    {
-        if (expression.IsMatch(directoryPath))
-        {
-            directories.Add(directoryPath);
-        }
-        else
-        {
-            foreach (string dir in Directory.EnumerateDirectories(directoryPath, "*", SearchOption.TopDirectoryOnly))
-            {
-                FindDirectories(dir, expression, directories);
-            }
-        }
-    }
 }

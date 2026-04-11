@@ -10,235 +10,326 @@
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadViewModel}"
-             d:DesignWidth="1600" d:DesignHeight="1100">
+             d:DesignWidth="1600" d:DesignHeight="1100"
+             Background="White">
 
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
-        <!-- Compact DataGrid row style -->
-        <Style x:Key="CompactDataGridRowStyle" TargetType="DataGridRow">
-            <Setter Property="Height" Value="{StaticResource DataGridRowHeight}" />
-            <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
-            <Style.Triggers>
-                <Trigger Property="AlternationIndex" Value="1">
-                    <Setter Property="Background" Value="{DynamicResource DataGridAltRowBrush}" />
-                </Trigger>
-            </Style.Triggers>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#1B5E91" />
+            <Setter Property="TextDecorations" Value="Underline" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- Compact DataGrid cell style -->
-        <Style x:Key="CompactDataGridCellStyle" TargetType="DataGridCell">
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridCell">
-                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
-                            <ContentPresenter VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <Style x:Key="SectionDesc" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="#777" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="40,2,0,10" />
         </Style>
 
-        <!-- Compact column header style -->
-        <Style x:Key="CompactColumnHeaderStyle" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#333" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SettingInput" TargetType="TextBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SettingComboBox" TargetType="ComboBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="SettingPasswordBox" TargetType="PasswordBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="10,8,10,10">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ═══════════════════ Input Section ═══════════════════ -->
-        <GroupBox Grid.Row="0" Header="Input" Margin="{StaticResource SectionSpacing}">
-            <Grid Margin="{StaticResource GroupBoxPadding}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="{StaticResource LabelWidth}" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0">
+            <StackPanel Margin="20,16,20,20" MaxWidth="900">
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Directory:" Style="{StaticResource FormLabelStyle}" />
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding InputDirectory, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,6,4" />
-                <Button Grid.Row="0" Grid.Column="2" Content="Browse..." Command="{Binding BrowseInputDirectoryCommand}"
-                        Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,0,4" />
+                <!-- ═══════════════════ Section 1: Upload Directory ═══════════════════ -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource PackageOpenImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Upload Directory" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Select the directory containing files to upload." />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Regex Pattern:" Style="{StaticResource FormLabelStyle}" />
-                <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding DirectoryPattern, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,0,4" />
-
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Naming Expression:" Style="{StaticResource FormLabelStyle}" />
-                <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding PackageNamingExpression, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,0,4" />
-
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Result Preview:" Style="{StaticResource FormLabelStyle}" />
-                <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding PackageNamingResult, Mode=OneWay}"
-                         Style="{StaticResource CompactTextBoxStyle}" IsReadOnly="True" Background="{DynamicResource SurfaceMutedBrush}" />
-            </Grid>
-        </GroupBox>
-
-        <!-- ═══════════════════ Compression Section ═══════════════════ -->
-        <GroupBox Grid.Row="1" Header="Compression" Margin="{StaticResource SectionSpacing}">
-            <StackPanel Margin="{StaticResource GroupBoxPadding}">
-                <CheckBox Content="Enable compression" IsChecked="{Binding EnableCompression}" FontSize="{StaticResource FontSizeMd}" />
-
-                <!-- Collapsible compression details -->
-                <Grid Visibility="{Binding EnableCompression, Converter={StaticResource BoolToVisibility}}" Margin="0,8,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                <Grid Margin="40,0,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
-                    <!-- Row 0: Archive type -->
-                    <StackPanel Grid.Row="0" Grid.ColumnSpan="8" Orientation="Horizontal" Margin="0,0,0,8">
-                        <RadioButton Content="7z" IsChecked="{Binding Is7zSelected}" Margin="0,0,16,0" GroupName="ArchiveType" />
-                        <RadioButton Content="RAR" IsChecked="{Binding IsRarSelected}" GroupName="ArchiveType" />
-                    </StackPanel>
-
-                    <!-- Row 1: Level, Method, Dictionary, Word Size -->
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Level:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CompressionLevels}" SelectedItem="{Binding SelectedCompressionLevel}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,12,6" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Method:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="1" Grid.Column="3" ItemsSource="{Binding CompressionMethods}" SelectedItem="{Binding SelectedCompressionMethod}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,12,6" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="4" Text="Dictionary:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="1" Grid.Column="5" ItemsSource="{Binding DictionarySizes}" SelectedItem="{Binding SelectedDictionarySize}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,12,6" />
-
-                    <TextBlock Grid.Row="1" Grid.Column="6" Text="Word Size:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="1" Grid.Column="7" ItemsSource="{Binding WordSizes}" SelectedItem="{Binding SelectedWordSize}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,0,6" />
-
-                    <!-- Row 2: Solid Block, Split Volume, CPU Threads, Password -->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Solid Block:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding SolidBlockSizes}" SelectedItem="{Binding SelectedSolidBlockSize}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,12,6" />
-
-                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Split Vol:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <ComboBox Grid.Row="2" Grid.Column="3" ItemsSource="{Binding SplitVolumes}" SelectedItem="{Binding SelectedSplitVolume}"
-                              DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource CompactComboBoxStyle}" Margin="0,0,12,6" />
-
-                    <TextBlock Grid.Row="2" Grid.Column="4" Text="Threads:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <StackPanel Grid.Row="2" Grid.Column="5" Orientation="Horizontal" Margin="0,0,12,6">
-                        <TextBox Text="{Binding CpuThreads, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource CompactTextBoxStyle}" Width="45" />
-                        <TextBlock VerticalAlignment="Center" Margin="4,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}">
-                            <Run Text="/ " /><Run Text="{Binding MaxCpuThreads, Mode=OneTime}" />
-                        </TextBlock>
-                    </StackPanel>
-
-                    <TextBlock Grid.Row="2" Grid.Column="6" Text="Password:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,6" />
-                    <PasswordBox Grid.Row="2" Grid.Column="7" Style="{StaticResource CompactPasswordBoxStyle}" Margin="0,0,0,6"
-                                 x:Name="PasswordBox" PasswordChanged="PasswordBox_PasswordChanged" />
-
-                    <!-- Row 3: Confirm password, Output directory -->
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Confirm:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,0" />
-                    <PasswordBox Grid.Row="3" Grid.Column="1" Style="{StaticResource CompactPasswordBoxStyle}" Margin="0,0,12,0"
-                                 x:Name="ConfirmPasswordBox" PasswordChanged="ConfirmPasswordBox_PasswordChanged" />
-
-                    <TextBlock Grid.Row="3" Grid.Column="2" Text="Output Dir:" Style="{StaticResource FormLabelStyle}" Margin="0,0,6,0" />
-                    <TextBox Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="4" Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource CompactTextBoxStyle}" Margin="0,0,6,0" />
-                    <Button Grid.Row="3" Grid.Column="7" Content="Browse..." Command="{Binding BrowseOutputDirectoryCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Right" />
+                    <TextBox Grid.Column="0" Text="{Binding InputDirectory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
+                    <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseInputDirectoryCommand}" />
                 </Grid>
-            </StackPanel>
-        </GroupBox>
 
-        <!-- ═══════════════════ File Hosters Section ═══════════════════ -->
-        <GroupBox Grid.Row="2" Header="File Hosters" Margin="{StaticResource SectionSpacing}">
-            <DataGrid Margin="6"
-                      ItemsSource="{Binding FileHosters}"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      CanUserResizeRows="False"
-                      CanUserReorderColumns="False"
-                      HeadersVisibility="Column"
-                      GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                      SelectionMode="Single"
-                      SelectionUnit="FullRow"
-                      RowHeaderWidth="0"
-                      BorderThickness="1"
-                      BorderBrush="{DynamicResource BorderBrush}"
-                      Background="{DynamicResource SurfaceBrush}"
-                      AlternationCount="2"
-                      RowStyle="{StaticResource CompactDataGridRowStyle}"
-                      CellStyle="{StaticResource CompactDataGridCellStyle}"
-                      ColumnHeaderStyle="{StaticResource CompactColumnHeaderStyle}">
-                <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="Use" Binding="{Binding Use, UpdateSourceTrigger=PropertyChanged}" Width="42">
-                        <DataGridCheckBoxColumn.ElementStyle>
-                            <Style TargetType="CheckBox">
-                                <Setter Property="HorizontalAlignment" Value="Center" />
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                            </Style>
-                        </DataGridCheckBoxColumn.ElementStyle>
-                    </DataGridCheckBoxColumn>
-                    <DataGridTextColumn Header="File Hoster" Binding="{Binding FileHosterName, Mode=OneWay}" Width="160" IsReadOnly="True">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="Padding" Value="4,0" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-                    <DataGridTemplateColumn Header="Account" Width="*">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <ComboBox ItemsSource="{Binding Accounts}"
-                                          SelectedItem="{Binding SelectedAccount, UpdateSourceTrigger=PropertyChanged}"
-                                          DisplayMemberPath="Username"
-                                          VerticalAlignment="Center"
-                                          Padding="4,2"
-                                          FontSize="{StaticResource FontSizeSm}"
-                                          BorderThickness="0"
-                                          Background="Transparent" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
+                <!-- ═══════════════════ Section 2: Compression ═══════════════════ -->
+                <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
+                    <Image Source="{StaticResource PackageCompressingImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Compression" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Configure compression settings for your uploads." />
+
+                <CheckBox Content="Enable compression" IsChecked="{Binding EnableCompression}" FontSize="12" Margin="40,0,0,8" />
+
+                <!-- Collapsible compression options -->
+                <StackPanel Visibility="{Binding EnableCompression, Converter={StaticResource BoolToVisibility}}" Margin="40,0,0,0">
+
+                    <!-- Archive type -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <RadioButton Content="7z" IsChecked="{Binding Is7zSelected}" Margin="0,0,16,0" GroupName="ArchiveType" FontSize="12" />
+                        <RadioButton Content="RAR" IsChecked="{Binding IsRarSelected}" GroupName="ArchiveType" FontSize="12" />
+                    </StackPanel>
+
+                    <!-- Level -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Level" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding CompressionLevels}" SelectedItem="{Binding SelectedCompressionLevel}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Method -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Method" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding CompressionMethods}" SelectedItem="{Binding SelectedCompressionMethod}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Dictionary -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Dictionary" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding DictionarySizes}" SelectedItem="{Binding SelectedDictionarySize}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Word Size -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Word Size" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding WordSizes}" SelectedItem="{Binding SelectedWordSize}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Solid Block -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Solid Block" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding SolidBlockSizes}" SelectedItem="{Binding SelectedSolidBlockSize}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Split Volume -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Split Vol" Style="{StaticResource SettingLabel}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding SplitVolumes}" SelectedItem="{Binding SelectedSplitVolume}"
+                                  DisplayMemberPath="Value" SelectedValuePath="Key" Style="{StaticResource SettingComboBox}" />
+                    </Grid>
+
+                    <!-- Threads -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Threads" Style="{StaticResource SettingLabel}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <TextBox Text="{Binding CpuThreads, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" Width="60" />
+                            <TextBlock VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12" Foreground="#777">
+                                <Run Text="/ " /><Run Text="{Binding MaxCpuThreads, Mode=OneTime}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Password -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Password" Style="{StaticResource SettingLabel}" />
+                        <PasswordBox Grid.Column="1" Style="{StaticResource SettingPasswordBox}"
+                                     x:Name="PasswordBox" PasswordChanged="PasswordBox_PasswordChanged" />
+                    </Grid>
+
+                    <!-- Confirm Password -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="280" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Confirm" Style="{StaticResource SettingLabel}" />
+                        <PasswordBox Grid.Column="1" Style="{StaticResource SettingPasswordBox}"
+                                     x:Name="ConfirmPasswordBox" PasswordChanged="ConfirmPasswordBox_PasswordChanged" />
+                    </Grid>
+
+                    <!-- Output Directory -->
+                    <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Output Dir" Style="{StaticResource SettingLabel}" />
+                        <TextBox Grid.Column="1" Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
+                        <Button Grid.Column="2" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseOutputDirectoryCommand}" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- ═══════════════════ Section 3: File Hosters ═══════════════════ -->
+                <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
+                    <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="File Hosters" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Select which file hosters to upload to and choose accounts." />
+
+                <DataGrid Margin="40,0,0,0" MinHeight="120"
+                          ItemsSource="{Binding FileHosters}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserResizeRows="False"
+                          CanUserReorderColumns="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="All"
+                          HorizontalGridLinesBrush="#D4D4D4"
+                          VerticalGridLinesBrush="#D4D4D4"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          RowHeaderWidth="0"
+                          BorderThickness="1"
+                          BorderBrush="#B0B0B0"
+                          Background="#EAF3FB"
+                          AlternatingRowBackground="#E2EDF7"
+                          RowBackground="#EAF3FB"
+                          AlternationCount="2">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background" Value="#E8E8E8" />
+                            <Setter Property="Foreground" Value="#333" />
+                            <Setter Property="Padding" Value="6,4" />
+                            <Setter Property="FontSize" Value="11" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="BorderBrush" Value="#B0B0B0" />
+                            <Setter Property="BorderThickness" Value="0,0,1,1" />
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="MinHeight" Value="22" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#B8D4EE" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="4,2" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                            <ContentPresenter VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#B8D4EE" />
+                                    <Setter Property="Foreground" Value="#222" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.CellStyle>
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="Use" Binding="{Binding Use, UpdateSourceTrigger=PropertyChanged}" Width="42">
+                            <DataGridCheckBoxColumn.ElementStyle>
+                                <Style TargetType="CheckBox">
+                                    <Setter Property="HorizontalAlignment" Value="Center" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                </Style>
+                            </DataGridCheckBoxColumn.ElementStyle>
+                        </DataGridCheckBoxColumn>
+                        <DataGridTextColumn Header="File Hoster" Binding="{Binding FileHosterName, Mode=OneWay}" Width="160" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="Padding" Value="4,0" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTemplateColumn Header="Account" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding Accounts}"
+                                              SelectedItem="{Binding SelectedAccount, UpdateSourceTrigger=PropertyChanged}"
+                                              DisplayMemberPath="Username"
+                                              VerticalAlignment="Center"
+                                              Padding="4,2"
+                                              FontSize="12"
+                                              BorderThickness="0"
+                                              Background="Transparent" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- ═══════════════════ Upload Button ═══════════════════ -->
-        <Button Grid.Row="3" Content="Upload" Command="{Binding UploadCommand}"
-                Style="{StaticResource PrimaryButtonStyle}"
-                HorizontalAlignment="Right" Width="120" Height="34" Margin="0,8,0,0" />
+        <Border Grid.Row="1" Padding="20,8,20,12">
+            <Button Content="Upload" Command="{Binding UploadCommand}"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    HorizontalAlignment="Right" Width="120" Height="34" />
+        </Border>
     </Grid>
 </UserControl>
