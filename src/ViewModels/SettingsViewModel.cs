@@ -208,7 +208,7 @@ public partial class SettingsViewModel : ObservableObject
     private async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
     {
         // Auto-check if implementation exists
-        FileHosterClient? client = FileHosterClient.FindByHost(dto.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        var client = FileHosterClient.FindByHost(dto.FileHosterName ?? string.Empty, Protocol.Http, _logger);
         if (client is not null)
         {
             IsCheckingAccount = true;
@@ -251,7 +251,7 @@ public partial class SettingsViewModel : ObservableObject
         ApplyStatusMap(statuses);
 
         // Set status on the newly added account
-        foreach (var a in Accounts)
+        foreach (FileHosterLoginDto a in Accounts)
         {
             if (a.FileHosterName == dto.FileHosterName && a.Username == dto.Username && !statuses.ContainsKey(a.Id))
             {
@@ -281,7 +281,7 @@ public partial class SettingsViewModel : ObservableObject
             CheckAccountStatus = $"Checking {account.Username}@{account.FileHosterName}... ({++checked_}/{Accounts.Count})";
             UpdateAccountStatus(account.Id, "Checking...");
 
-            FileHosterClient? client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+            var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
             {
                 statuses[account.Id] = "No implementation";
@@ -341,7 +341,7 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
-            FileHosterClient? client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
+            var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
             if (client is null)
             {
                 CheckAccountStatus = $"No implementation for {NewAccountHoster}. Account will be saved without verification.";
@@ -380,7 +380,7 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         // Auto-check if a client implementation exists
-        FileHosterClient? client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
+        var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
         if (client is not null)
         {
             IsCheckingAccount = true;
@@ -462,8 +462,10 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         // Open edit dialog
-        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters);
-        dialog.Owner = System.Windows.Application.Current.MainWindow;
+        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
 
         if (dialog.ShowDialog() == true)
         {
@@ -486,30 +488,33 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        FileHosterClient? client = FileHosterClient.FindByHost(SelectedAccount.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        var client = FileHosterClient.FindByHost(SelectedAccount.FileHosterName ?? string.Empty, Protocol.Http, _logger);
         if (client is null)
         {
             CheckAccountStatus = $"No implementation for {SelectedAccount.FileHosterName}. Cannot check.";
             return;
         }
 
+        // Capture before UI updates can reset SelectedAccount
+        FileHosterLoginDto account = SelectedAccount;
+        int accountId = account.Id;
+        string username = account.Username ?? string.Empty;
+        string password = account.Password ?? string.Empty;
+
         IsCheckingAccount = true;
-        CheckAccountStatus = $"Checking {SelectedAccount.Username}@{SelectedAccount.FileHosterName}...";
+        CheckAccountStatus = $"Checking {username}@{account.FileHosterName}...";
 
         // Show "Checking..." in the DataGrid immediately
-        UpdateAccountStatus(SelectedAccount.Id, "Checking...");
+        UpdateAccountStatus(accountId, "Checking...");
 
         try
         {
-            AccountCheckResult result = await client.CheckAccountAsync(
-                SelectedAccount.Username ?? string.Empty,
-                SelectedAccount.Password ?? string.Empty,
-                cancellationToken);
+            AccountCheckResult result = await client.CheckAccountAsync(username, password, cancellationToken);
 
             string statusMsg;
             if (result.IsValid)
             {
-                SelectedAccount.AccountType = result.AccountType;
+                account.AccountType = result.AccountType;
                 statusMsg = result.Message ?? "OK";
                 CheckAccountStatus = $"Valid: {result.Message}";
             }
@@ -519,11 +524,11 @@ public partial class SettingsViewModel : ObservableObject
                 CheckAccountStatus = $"Failed: {result.Message}";
             }
 
-            await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+            await _accountRepository.UpdateAsync(account, cancellationToken);
 
             // Reload and preserve status messages
             Dictionary<int, string> statuses = BuildStatusMap();
-            statuses[SelectedAccount.Id] = statusMsg;
+            statuses[accountId] = statusMsg;
             await LoadAccountsAsync(cancellationToken);
             ApplyStatusMap(statuses);
         }
@@ -547,7 +552,6 @@ public partial class SettingsViewModel : ObservableObject
 
         bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
         string username = SelectedAccount.Username ?? "unknown";
-        int accountId = SelectedAccount.Id;
         SelectedAccount.Disabled = disable;
         await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
 
@@ -567,7 +571,7 @@ public partial class SettingsViewModel : ObservableObject
 
     private void ApplyStatusMap(Dictionary<int, string> statuses)
     {
-        foreach (var a in Accounts)
+        foreach (FileHosterLoginDto a in Accounts)
         {
             if (statuses.TryGetValue(a.Id, out string? msg))
             {

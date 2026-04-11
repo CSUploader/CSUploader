@@ -131,14 +131,14 @@ public class HttpHandler
 
     private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content)
     {
-        foreach (var header in HttpClient.DefaultRequestHeaders)
+        foreach (KeyValuePair<string, IEnumerable<string>> header in HttpClient.DefaultRequestHeaders)
         {
             transaction.RequestHeaders[header.Key] = [.. header.Value];
         }
 
         if (content?.Headers is not null)
         {
-            foreach (var header in content.Headers)
+            foreach (KeyValuePair<string, IEnumerable<string>> header in content.Headers)
             {
                 transaction.RequestHeaders[header.Key] = [.. header.Value];
             }
@@ -147,14 +147,14 @@ public class HttpHandler
 
     private static void CaptureResponseHeaders(HttpTransaction transaction, HttpResponseMessage response)
     {
-        foreach (var header in response.Headers)
+        foreach (KeyValuePair<string, IEnumerable<string>> header in response.Headers)
         {
             transaction.ResponseHeaders[header.Key] = [.. header.Value];
         }
 
         if (response.Content.Headers is not null)
         {
-            foreach (var header in response.Content.Headers)
+            foreach (KeyValuePair<string, IEnumerable<string>> header in response.Content.Headers)
             {
                 transaction.ResponseHeaders[header.Key] = [.. header.Value];
             }

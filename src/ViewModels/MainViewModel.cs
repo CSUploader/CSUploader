@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -65,17 +66,17 @@ public partial class MainViewModel : ObservableObject
 
     private static void ApplyTheme(bool dark)
     {
-        var app = Application.Current;
+        Application app = Application.Current;
         if (app == null)
         {
             return;
         }
 
-        var mergedDicts = app.Resources.MergedDictionaries;
+        Collection<ResourceDictionary> mergedDicts = app.Resources.MergedDictionaries;
 
         // Find and remove the current theme dictionary.
         ResourceDictionary? existingTheme = null;
-        foreach (var dict in mergedDicts)
+        foreach (ResourceDictionary? dict in mergedDicts)
         {
             if (dict.Source != null &&
                 (dict.Source.OriginalString.Contains("Theme.Light", StringComparison.Ordinal) ||

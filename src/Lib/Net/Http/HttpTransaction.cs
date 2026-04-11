@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Text.Json;
+
 namespace CSUploader.Lib.Net.Http;
 
 /// <summary>
@@ -50,7 +52,7 @@ public class HttpTransaction
         {
             var sb = new System.Text.StringBuilder();
             sb.AppendLine($"{Method} {Url} HTTP/1.1");
-            foreach (var (key, values) in RequestHeaders)
+            foreach ((string? key, string[]? values) in RequestHeaders)
             {
                 foreach (string value in values)
                 {
@@ -68,7 +70,7 @@ public class HttpTransaction
         {
             var sb = new System.Text.StringBuilder();
             sb.AppendLine($"HTTP/1.1 {StatusCode} {StatusReason}");
-            foreach (var (key, values) in ResponseHeaders)
+            foreach ((string? key, string[]? values) in ResponseHeaders)
             {
                 foreach (string value in values)
                 {
@@ -136,7 +138,7 @@ public class HttpTransaction
 
         try
         {
-            var element = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+            JsonElement element = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
             return System.Text.Json.JsonSerializer.Serialize(element, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
         }
         catch

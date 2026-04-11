@@ -95,7 +95,7 @@ public class JobControllerTests
         Task pauseTask = controller.PauseAsync();
 
         // Simulate a worker calling PauseIfRequestedAsync (confirms the pause and waits for resume)
-        Task workerTask = Task.Run(async () =>
+        var workerTask = Task.Run(async () =>
         {
             await controller.PauseIfRequestedAsync();
         });
@@ -130,7 +130,7 @@ public class JobControllerTests
 
         // First pause + confirm
         Task pauseTask = controller.PauseAsync();
-        Task workerTask = Task.Run(async () => await controller.PauseIfRequestedAsync());
+        var workerTask = Task.Run(async () => await controller.PauseIfRequestedAsync());
         await pauseTask;
 
         // Second PauseAsync while already paused should return immediately

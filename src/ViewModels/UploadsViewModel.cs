@@ -124,7 +124,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
                 return "~";
             }
 
-            TimeSpan eta = TimeSpan.FromSeconds(remaining / (double)speed);
+            var eta = TimeSpan.FromSeconds(remaining / (double)speed);
             return eta.Hours > 0
                 ? eta.ToString(@"h\h\:mm\m\:ss\s", CultureInfo.InvariantCulture)
                 : eta.Minutes > 0

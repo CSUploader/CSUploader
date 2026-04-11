@@ -20,13 +20,13 @@ public class FileHosterLoginRepositoryTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
-        var options = new DbContextOptionsBuilder<CSUploaderDbContext>()
+        DbContextOptions<CSUploaderDbContext> options = new DbContextOptionsBuilder<CSUploaderDbContext>()
             .UseSqlite(_connection)
             .Options;
 
         _factory = new TestDbContextFactory(options);
 
-        using var db = _factory.CreateDbContext();
+        using CSUploaderDbContext db = _factory.CreateDbContext();
         db.Database.EnsureCreated();
     }
 

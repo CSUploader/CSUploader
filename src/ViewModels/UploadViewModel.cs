@@ -312,7 +312,7 @@ public partial class UploadViewModel : ObservableObject
                 continue;
             }
 
-            FileHosterClient? client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, _logger);
+            var client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, _logger);
             if (client is not null)
             {
                 options.FileHosters[client] = hoster.SelectedAccount;

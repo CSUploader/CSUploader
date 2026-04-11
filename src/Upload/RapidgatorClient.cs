@@ -1,4 +1,4 @@
-﻿// <copyright file="RapidgatorClient.cs" company="CSUploader">
+// <copyright file="RapidgatorClient.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -110,7 +110,7 @@ public class RapidgatorClient : FileHosterClient
     public override async Task HashAsync(string filePath, PauseToken pauseToken = default, CancellationToken cancellationToken = default)
     {
         // Calculate MD5
-        using MD5 md5 = MD5.Create();
+        using var md5 = MD5.Create();
         using FileStream fs = File.OpenRead(filePath);
         byte[] hash = await Hashing.ComputeHashAsync(md5, fs, pauseToken, cancellationToken);
 
