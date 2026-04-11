@@ -30,4 +30,10 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     public string FileHosterName { get; }
 
     public FileHosterLoginDto[] Accounts { get; }
+
+    public bool HasAccounts => Accounts.Length > 0;
+
+    public string AccountDisplayText => HasAccounts
+        ? (SelectedAccount?.Username ?? "(select account)")
+        : "(anonymous)";
 }

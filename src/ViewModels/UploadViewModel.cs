@@ -129,7 +129,7 @@ public partial class UploadViewModel : ObservableObject
         // Gather selected file hosters
         foreach (FileHosterSelectionViewModel hoster in FileHosters)
         {
-            if (!hoster.Use || hoster.SelectedAccount is null)
+            if (!hoster.Use)
             {
                 continue;
             }
@@ -137,13 +137,18 @@ public partial class UploadViewModel : ObservableObject
             var client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, _logger);
             if (client is not null)
             {
-                options.FileHosters[client] = hoster.SelectedAccount;
+                // Use selected account, or empty DTO for anonymous uploads
+                FileHosterLoginDto account = hoster.SelectedAccount ?? new FileHosterLoginDto
+                {
+                    FileHosterName = hoster.FileHosterName,
+                };
+                options.FileHosters[client] = account;
             }
         }
 
         if (options.FileHosters.Count == 0)
         {
-            _dialogService.ShowError("Please select at least one file hoster with an account.");
+            _dialogService.ShowError("Please select at least one file hoster.");
             return null;
         }
 
