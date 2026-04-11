@@ -21,6 +21,7 @@ public partial class EditAccountWindow : Window
 
         HosterCombo.ItemsSource = hosters;
         HosterCombo.SelectedItem = account.FileHosterName;
+        HosterCombo.IsEnabled = account.Id == 0; // Lock hoster for existing accounts
 
         UsernameBox.Text = account.Username;
         PasswordBox.Text = account.Password;
