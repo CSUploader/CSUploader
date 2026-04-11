@@ -21,7 +21,19 @@ public partial class LogsView : UserControl
     {
         if (sender is DataGrid dg && dg.SelectedItem is LogEntryViewModel entry)
         {
-            var window = new LogDetailsWindow(entry);
+            Window window;
+
+            // Open HttpDetailsWindow for HTTP entries with transaction data,
+            // LogDetailsWindow for everything else
+            if (entry.HasHttpTransaction)
+            {
+                window = new HttpDetailsWindow(entry);
+            }
+            else
+            {
+                window = new LogDetailsWindow(entry);
+            }
+
             window.Owner = Window.GetWindow(this);
             window.ShowDialog();
         }

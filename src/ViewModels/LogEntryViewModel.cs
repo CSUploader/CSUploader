@@ -4,6 +4,7 @@
 // </copyright>
 
 using CSUploader.Lib;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.ViewModels;
 
@@ -17,6 +18,7 @@ public class LogEntryViewModel
         LineNumber = logEvent.LineNumber;
         Message = logEvent.Message;
         ThreadId = logEvent.ThreadId;
+        HttpTransaction = logEvent.HttpTransaction;
     }
 
     public DateTime DateTime { get; }
@@ -30,6 +32,10 @@ public class LogEntryViewModel
     public string? Message { get; }
 
     public int ThreadId { get; }
+
+    public HttpTransaction? HttpTransaction { get; }
+
+    public bool HasHttpTransaction => HttpTransaction is not null;
 
     public string FullMessage => $"[{DateTime:HH:mm:ss.fff}] [{ThreadId}] {Filename}:{LineNumber} {Function} - {Message}";
 }

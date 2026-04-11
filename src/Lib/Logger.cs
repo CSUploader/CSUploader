@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Runtime.CompilerServices;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Lib;
 
@@ -23,6 +24,7 @@ public class Logger : IAppLogger
         object? sender,
         LogType logType,
         string text,
+        HttpTransaction? httpTransaction = null,
         [CallerFilePath] string filePath = "",
         [CallerMemberName] string function = "",
         [CallerLineNumber] int lineNumber = 0)
@@ -36,7 +38,8 @@ public class Logger : IAppLogger
             Function = function,
             LineNumber = lineNumber,
             ThreadId = Environment.CurrentManagedThreadId,
-            Message = text
+            Message = text,
+            HttpTransaction = httpTransaction,
         };
 
         OnLogOutput?.Invoke(sender, logEvent);

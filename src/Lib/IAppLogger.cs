@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Runtime.CompilerServices;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Lib;
 
@@ -15,6 +16,7 @@ public interface IAppLogger
         object? sender,
         LogType logType,
         string text,
+        HttpTransaction? httpTransaction = null,
         [CallerFilePath] string filePath = "",
         [CallerMemberName] string function = "",
         [CallerLineNumber] int lineNumber = 0);

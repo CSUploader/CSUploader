@@ -1,4 +1,4 @@
-﻿// <copyright file="HttpHandler.cs" company="CSUploader">
+// <copyright file="HttpHandler.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -30,19 +30,39 @@ public class HttpHandler
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        _logger.Log(null, LogType.Http, $"GET {url} HTTP/1.1");
+        HttpTransaction transaction = new()
+        {
+            Method = "GET",
+            Url = url,
+            StartTime = DateTime.Now,
+        };
 
         try
         {
-            using HttpResponseMessage responseMessage = await HttpClient.GetAsync(url, cancellationToken);
-            string result = await responseMessage.Content.ReadAsStringAsync(cancellationToken);
-            _logger.Log(null, LogType.Http, result);
+            // Capture request headers
+            CaptureRequestHeaders(transaction, null);
 
+            using HttpResponseMessage response = await HttpClient.GetAsync(url, cancellationToken);
+            string result = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            // Capture response
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = result;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(result);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.Log(null, LogType.Error, $"Failed to send GET request to `{url}`: {ex.Message}{Environment.NewLine}{ex}");
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
             throw;
         }
     }
@@ -50,6 +70,14 @@ public class HttpHandler
     public async Task UploadFileAsync(string filePath, string endpoint, CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = endpoint,
+            StartTime = dateTimeStarted,
+            RequestBody = $"[Multipart file upload: {Path.GetFileName(filePath)}]",
+        };
 
         try
         {
@@ -63,23 +91,73 @@ public class HttpHandler
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             multipartContent.Add(progressContent, "file", Path.GetFileName(filePath));
 
+            CaptureRequestHeaders(transaction, multipartContent);
+
             using HttpResponseMessage response = await HttpClient.PostAsync(endpoint, multipartContent, cancellationToken);
             response.EnsureSuccessStatusCode();
             string result = await response.Content.ReadAsStringAsync(cancellationToken);
 
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = result;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(result);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(true, result, dateTimeStarted));
         }
         catch (OperationCanceledException)
         {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, string.Empty, dateTimeStarted));
-        }
-        catch (HttpRequestException ex)
-        {
-            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
         }
         catch (Exception ex)
         {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.Message;
+            LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+        }
+    }
+
+    private void LogTransaction(HttpTransaction transaction)
+    {
+        _logger.Log(null, LogType.Http, transaction.Summary, httpTransaction: transaction);
+    }
+
+    private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content)
+    {
+        foreach (var header in HttpClient.DefaultRequestHeaders)
+        {
+            transaction.RequestHeaders[header.Key] = header.Value.ToArray();
+        }
+
+        if (content?.Headers is not null)
+        {
+            foreach (var header in content.Headers)
+            {
+                transaction.RequestHeaders[header.Key] = header.Value.ToArray();
+            }
+        }
+    }
+
+    private static void CaptureResponseHeaders(HttpTransaction transaction, HttpResponseMessage response)
+    {
+        foreach (var header in response.Headers)
+        {
+            transaction.ResponseHeaders[header.Key] = header.Value.ToArray();
+        }
+
+        if (response.Content.Headers is not null)
+        {
+            foreach (var header in response.Content.Headers)
+            {
+                transaction.ResponseHeaders[header.Key] = header.Value.ToArray();
+            }
         }
     }
 }
