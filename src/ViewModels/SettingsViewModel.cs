@@ -8,6 +8,8 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
 
@@ -19,6 +21,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly FileHosterLoginRepository _accountRepository;
     private readonly AppSettings _settings;
     private readonly IDialogService _dialogService;
+    private readonly IAppLogger _logger;
 
     // ── General settings ──
 
@@ -61,16 +64,24 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private AccountType newAccountType = AccountType.Free;
 
+    [ObservableProperty]
+    private string checkAccountStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool isCheckingAccount;
+
     public SettingsViewModel(
         SettingRepository settingRepository,
         FileHosterLoginRepository accountRepository,
         AppSettings settings,
-        IDialogService dialogService)
+        IDialogService dialogService,
+        IAppLogger logger)
     {
         _settingRepository = settingRepository;
         _accountRepository = accountRepository;
         _settings = settings;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public ObservableCollection<FileHosterLoginDto> Accounts { get; } = [];
@@ -173,12 +184,95 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task CheckAccountAsync(CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
+        {
+            _dialogService.ShowError("Please fill in the file hoster and username.");
+            return;
+        }
+
+        IsCheckingAccount = true;
+        CheckAccountStatus = "Checking account...";
+
+        try
+        {
+            FileHosterClient? client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
+            if (client is null)
+            {
+                CheckAccountStatus = $"No implementation for {NewAccountHoster}. Account will be saved without verification.";
+                return;
+            }
+
+            AccountCheckResult result = await client.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+
+            if (result.IsValid)
+            {
+                NewAccountType = result.AccountType;
+                CheckAccountStatus = $"Valid! {result.Message}";
+            }
+            else
+            {
+                CheckAccountStatus = $"Failed: {result.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            CheckAccountStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingAccount = false;
+        }
+    }
+
+    [RelayCommand]
     private async Task AddAccountAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
         {
             _dialogService.ShowError("Please fill in the file hoster and username.");
             return;
+        }
+
+        // Auto-check if a client implementation exists
+        FileHosterClient? client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
+        if (client is not null)
+        {
+            IsCheckingAccount = true;
+            CheckAccountStatus = "Verifying credentials...";
+
+            try
+            {
+                AccountCheckResult result = await client.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+                if (result.IsValid)
+                {
+                    NewAccountType = result.AccountType;
+                    CheckAccountStatus = $"Verified: {result.Message}";
+                }
+                else
+                {
+                    CheckAccountStatus = $"Warning: {result.Message}";
+                    if (!_dialogService.ShowConfirmation($"Account check failed: {result.Message}\n\nAdd anyway?", "Account Check"))
+                    {
+                        IsCheckingAccount = false;
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CheckAccountStatus = $"Check error: {ex.Message}";
+                if (!_dialogService.ShowConfirmation($"Could not verify account: {ex.Message}\n\nAdd anyway?", "Account Check"))
+                {
+                    IsCheckingAccount = false;
+                    return;
+                }
+            }
+            finally
+            {
+                IsCheckingAccount = false;
+            }
         }
 
         FileHosterLoginDto dto = new()
@@ -191,6 +285,7 @@ public partial class SettingsViewModel : ObservableObject
 
         await _accountRepository.InsertAsync(dto, cancellationToken);
 
+        CheckAccountStatus = $"Account added for {NewAccountHoster}!";
         NewAccountUsername = string.Empty;
         NewAccountPassword = string.Empty;
 

@@ -118,6 +118,30 @@ public class RapidgatorClient : FileHosterClient
     }
 
     /// <inheritdoc/>
+    public override async Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            UserInfoResponse? response = await HttpLoginAsync(username, password, cancellationToken);
+            if (response?.User is null)
+            {
+                return new AccountCheckResult(false, AccountType.Free, "Login failed. Invalid credentials.");
+            }
+
+            AccountType accountType = response.User.IsPremium ? AccountType.Premium : AccountType.Free;
+            string message = response.User.IsPremium
+                ? $"Premium account (expires {response.User.PremiumEndTime:yyyy-MM-dd})"
+                : "Free account";
+
+            return new AccountCheckResult(true, accountType, message, response.User.PremiumEndTime);
+        }
+        catch (Exception ex)
+        {
+            return new AccountCheckResult(false, AccountType.Free, $"Connection error: {ex.Message}");
+        }
+    }
+
+    /// <inheritdoc/>
     public override Task UploadAsync(string filePath, CancellationToken cancellationToken = default)
     {
         throw new NotSupportedException();

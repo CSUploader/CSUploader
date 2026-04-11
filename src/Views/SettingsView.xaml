@@ -328,12 +328,36 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Account Type:" Style="{StaticResource SettingLabel}" />
-                    <ComboBox Grid.Column="1" ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding NewAccountType}"
-                              FontSize="12" Padding="4,3" Width="150" HorizontalAlignment="Left" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <ComboBox ItemsSource="{Binding AccountTypes}" SelectedItem="{Binding NewAccountType}"
+                                  FontSize="12" Padding="4,3" Width="150" />
+                        <TextBlock Text="(auto-detected on check)" FontSize="10.5" Foreground="#999"
+                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </StackPanel>
                 </Grid>
 
-                <Button Content="Add Account" Command="{Binding AddAccountCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                        Width="130" Height="32" HorizontalAlignment="Left" Margin="40,12,0,0" />
+                <!-- Buttons -->
+                <StackPanel Orientation="Horizontal" Margin="40,12,0,0">
+                    <Button Content="Check Account" Command="{Binding CheckAccountCommand}"
+                            Width="130" Height="32" Margin="0,0,8,0" />
+                    <Button Content="Add Account" Command="{Binding AddAccountCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                            Width="130" Height="32" />
+                </StackPanel>
+
+                <!-- Status message -->
+                <TextBlock Text="{Binding CheckAccountStatus}" FontSize="11.5" Margin="40,8,0,0"
+                           TextWrapping="Wrap" MaxWidth="600" HorizontalAlignment="Left">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#555" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCheckingAccount}" Value="True">
+                                    <Setter Property="Foreground" Value="#3498DB" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </StackPanel>
         </ScrollViewer>
 

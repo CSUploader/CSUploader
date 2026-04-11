@@ -146,6 +146,18 @@ public abstract class FileHosterClient
     }
 
     /// <summary>
+    /// Checks the account credentials and returns the account type.
+    /// </summary>
+    /// <param name="username">The username.</param>
+    /// <param name="password">The password.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The result of the account check.</returns>
+    public virtual Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
+    }
+
+    /// <summary>
     /// Upload a file asynchronously.
     /// </summary>
     /// <param name="filePath">The path to the file.</param>
