@@ -223,10 +223,12 @@ public partial class SettingsViewModel : ObservableObject
                 if (result.IsValid)
                 {
                     dto.AccountType = result.AccountType;
+                    dto.StatusMessage = result.Message ?? "OK";
                     CheckAccountStatus = $"Verified: {result.Message}";
                 }
                 else
                 {
+                    dto.StatusMessage = result.Message ?? "Failed";
                     CheckAccountStatus = $"Warning: {result.Message}";
                 }
             }
@@ -275,16 +277,25 @@ public partial class SettingsViewModel : ObservableObject
                     account.Password ?? string.Empty,
                     cancellationToken);
 
-                if (result.IsValid && account.AccountType != result.AccountType)
+                if (result.IsValid)
                 {
-                    account.AccountType = result.AccountType;
-                    await _accountRepository.UpdateAsync(account, cancellationToken);
-                    updated++;
+                    account.StatusMessage = result.Message ?? "OK";
+                    if (account.AccountType != result.AccountType)
+                    {
+                        account.AccountType = result.AccountType;
+                        updated++;
+                    }
                 }
+                else
+                {
+                    account.StatusMessage = result.Message ?? "Failed";
+                }
+
+                await _accountRepository.UpdateAsync(account, cancellationToken);
             }
-            catch
+            catch (Exception ex)
             {
-                // Skip failed checks during bulk refresh
+                account.StatusMessage = $"Error: {ex.Message}";
             }
         }
 
@@ -471,20 +482,18 @@ public partial class SettingsViewModel : ObservableObject
 
             if (result.IsValid)
             {
-                // Update account type if changed
-                if (SelectedAccount.AccountType != result.AccountType)
-                {
-                    SelectedAccount.AccountType = result.AccountType;
-                    await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
-                    await LoadAccountsAsync(cancellationToken);
-                }
-
+                SelectedAccount.AccountType = result.AccountType;
+                SelectedAccount.StatusMessage = result.Message ?? "OK";
                 CheckAccountStatus = $"Valid: {result.Message}";
             }
             else
             {
+                SelectedAccount.StatusMessage = result.Message ?? "Failed";
                 CheckAccountStatus = $"Failed: {result.Message}";
             }
+
+            await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+            await LoadAccountsAsync(cancellationToken);
         }
         catch (Exception ex)
         {

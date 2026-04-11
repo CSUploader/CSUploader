@@ -360,19 +360,12 @@
                         </DataGridCheckBoxColumn.ElementStyle>
                     </DataGridCheckBoxColumn>
                     <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="180" />
-                    <DataGridTextColumn Header="Status" Width="90">
+                    <DataGridTextColumn Header="Status" Binding="{Binding StatusMessage}" Width="180">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Disabled}" Value="False">
-                                        <Setter Property="Text" Value="Active" />
-                                        <Setter Property="Foreground" Value="Green" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Disabled}" Value="True">
-                                        <Setter Property="Text" Value="Disabled" />
-                                        <Setter Property="Foreground" Value="#C0392B" />
-                                    </DataTrigger>
-                                </Style.Triggers>
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="Foreground" Value="#666" />
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>

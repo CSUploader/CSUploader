@@ -20,4 +20,9 @@ public class FileHosterLoginDto
     public bool Disabled { get; set; }
 
     public AccountType AccountType { get; set; }
+
+    /// <summary>
+    /// Non-persisted display field showing the last check result (e.g. "OK", "Invalid credentials").
+    /// </summary>
+    public string StatusMessage { get; set; } = "Not checked";
 }
