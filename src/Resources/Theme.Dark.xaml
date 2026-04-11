@@ -26,4 +26,99 @@
     <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#222235" />
     <SolidColorBrush x:Key="DataGridGridLineBrush" Color="#33334A" />
 
+    <!-- Colors - Selection / Highlight -->
+    <SolidColorBrush x:Key="SelectionBrush" Color="#2E4A6E" />
+    <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#E0E0E8" />
+
+    <!-- Colors - Content Areas -->
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#1E1E2E" />
+    <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#252535" />
+    <SolidColorBrush x:Key="RowDetailBackgroundBrush" Color="#222238" />
+
+    <!-- Colors - Progress Bar -->
+    <SolidColorBrush x:Key="ProgressBarTrackBrush" Color="#33334A" />
+    <SolidColorBrush x:Key="ProgressBarFillBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="ProgressBarAltFillBrush" Color="#5B9AE8" />
+    <SolidColorBrush x:Key="ProgressBarAltTrackBrush" Color="#2A2A40" />
+
+    <!-- Colors - Toolbar / Overview Gradients -->
+    <LinearGradientBrush x:Key="OverviewTitleGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2A2A3C" Offset="0" />
+        <GradientStop Color="#222235" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ButtonBarGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2A2A3C" Offset="0" />
+        <GradientStop Color="#222235" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Colors - JD2 Button Gradients -->
+    <LinearGradientBrush x:Key="JD2ButtonBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2E2E42" Offset="0" />
+        <GradientStop Color="#252538" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="JD2ButtonBorderBrush" Color="#3E3E52" />
+    <LinearGradientBrush x:Key="JD2ButtonHoverBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2E3E58" Offset="0" />
+        <GradientStop Color="#253050" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="JD2ButtonHoverBorderBrush" Color="#4A7CAA" />
+    <LinearGradientBrush x:Key="JD2ButtonPressedBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#253050" Offset="0" />
+        <GradientStop Color="#1E2848" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="JD2ButtonPressedBorderBrush" Color="#3B6A96" />
+
+    <!-- Colors - Toolbar Button Hover/Pressed -->
+    <SolidColorBrush x:Key="ToolbarButtonHoverBrush" Color="#2E3E58" />
+    <SolidColorBrush x:Key="ToolbarButtonHoverBorderBrush" Color="#4A7CAA" />
+    <SolidColorBrush x:Key="ToolbarButtonPressedBrush" Color="#253050" />
+    <SolidColorBrush x:Key="ToolbarButtonPressedBorderBrush" Color="#3B6A96" />
+
+    <!-- Colors - Sidebar -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#1A1A2A" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#2A2A40" />
+    <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#2E4A6E" />
+    <SolidColorBrush x:Key="SidebarSeparatorBrush" Color="#33334A" />
+
+    <!-- Colors - Dialog Button Gradients -->
+    <LinearGradientBrush x:Key="DialogButtonBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2E2E42" Offset="0" />
+        <GradientStop Color="#252538" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="DialogButtonBorderBrush" Color="#3E3E52" />
+    <LinearGradientBrush x:Key="DialogButtonHoverBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#2E3E58" Offset="0" />
+        <GradientStop Color="#253050" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="DialogButtonHoverBorderBrush" Color="#4A7CAA" />
+    <LinearGradientBrush x:Key="DialogButtonPressedBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#253050" Offset="0" />
+        <GradientStop Color="#1E2848" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Colors - Save/Primary Button Gradients -->
+    <LinearGradientBrush x:Key="SaveButtonBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#3B82F6" Offset="0" />
+        <GradientStop Color="#2563EB" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="SaveButtonBorderBrush" Color="#1D4ED8" />
+    <LinearGradientBrush x:Key="SaveButtonHoverBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#4A9AE0" Offset="0" />
+        <GradientStop Color="#1D4ED8" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="SaveButtonPressedBgBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#1D4ED8" Offset="0" />
+        <GradientStop Color="#1E40AF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Colors - Misc -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#4ADE80" />
+    <SolidColorBrush x:Key="OverviewCloseBrush" Color="#A0A0B8" />
+    <SolidColorBrush x:Key="OverviewArrowBrush" Color="#4ADE80" />
+    <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#3E3E52" />
+    <SolidColorBrush x:Key="LogBackgroundBrush" Color="#1E1E2E" />
+    <SolidColorBrush x:Key="LogAltRowBrush" Color="#222235" />
+    <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#1A1A2A" />
+    <SolidColorBrush x:Key="InfoAccentBrush" Color="#5BB8F6" />
+
 </ResourceDictionary>

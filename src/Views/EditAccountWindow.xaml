@@ -8,12 +8,12 @@
         Width="420" Height="280"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#F0F4F8">
+        Background="{DynamicResource SurfaceMutedBrush}">
 
     <Window.Resources>
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#444" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
@@ -22,15 +22,15 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="8,5" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="BorderBrush" Value="#C0C8D0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         </Style>
 
         <Style x:Key="FieldCombo" TargetType="ComboBox">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="6,5" />
-            <Setter Property="BorderBrush" Value="#C0C8D0" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
@@ -43,36 +43,17 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="3" Padding="12,0"
-                                BorderThickness="1" BorderBrush="#A0A8B0">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#FDFDFD" Offset="0" />
-                                    <GradientStop Color="#E8EAEC" Offset="1" />
-                                </LinearGradientBrush>
-                            </Border.Background>
+                                BorderThickness="1" BorderBrush="{DynamicResource DialogButtonBorderBrush}"
+                                Background="{DynamicResource DialogButtonBgBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#7AAAD4" />
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#E8F2FC" Offset="0" />
-                                            <GradientStop Color="#D0E2F2" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource DialogButtonHoverBorderBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DialogButtonHoverBgBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#D0DCE8" Offset="0" />
-                                            <GradientStop Color="#B8C8D8" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DialogButtonPressedBgBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -91,35 +72,16 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="3" Padding="12,0"
-                                BorderThickness="1" BorderBrush="#1A5C99">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#3B8ED6" Offset="0" />
-                                    <GradientStop Color="#2563EB" Offset="1" />
-                                </LinearGradientBrush>
-                            </Border.Background>
+                                BorderThickness="1" BorderBrush="{DynamicResource SaveButtonBorderBrush}"
+                                Background="{DynamicResource SaveButtonBgBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#4A9AE0" Offset="0" />
-                                            <GradientStop Color="#1D4ED8" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SaveButtonHoverBgBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#1D4ED8" Offset="0" />
-                                            <GradientStop Color="#1E40AF" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SaveButtonPressedBgBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -128,8 +90,8 @@
         </Style>
     </Window.Resources>
 
-    <Border Margin="12" Background="White" CornerRadius="4"
-            BorderBrush="#D0D8E0" BorderThickness="1"
+    <Border Margin="12" Background="{DynamicResource SurfaceBrush}" CornerRadius="4"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
             Padding="20,16">
         <Grid>
             <Grid.RowDefinitions>
@@ -155,7 +117,7 @@
             <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
             <CheckBox Grid.Row="3" Grid.Column="1" x:Name="EnabledCheck" Content="Account enabled"
-                       FontSize="12" Foreground="#444" Margin="0,0,0,4" />
+                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
 
             <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">

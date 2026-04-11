@@ -11,7 +11,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadedViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
-             Background="#f4fcfe">
+             Background="{DynamicResource LogBackgroundBrush}">
 
     <UserControl.Resources>
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
@@ -20,7 +20,7 @@
 
     <Grid>
         <TreeView ItemsSource="{Binding Packages}" Margin="4"
-                  BorderBrush="#ccc" BorderThickness="1">
+                  BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="1">
 
             <!-- UploadPackageDto (Parent) Template -->
             <TreeView.ItemTemplate>
@@ -47,7 +47,7 @@
                     <!-- UploadPackageFileDto (Child) Template -->
                     <HierarchicalDataTemplate.ItemTemplate>
                         <DataTemplate>
-                            <Grid Height="24" Background="#eff6f8">
+                            <Grid Height="24" Background="{DynamicResource LogAltRowBrush}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="250" />
                                     <ColumnDefinition Width="100" />

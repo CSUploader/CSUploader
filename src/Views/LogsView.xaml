@@ -12,7 +12,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:LogsViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
-             Background="#f4fcfe">
+             Background="{DynamicResource LogBackgroundBrush}">
 
     <UserControl.Resources>
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
@@ -26,10 +26,10 @@
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="RowHeaderWidth" Value="0" />
-            <Setter Property="Background" Value="#f4fcfe" />
-            <Setter Property="AlternatingRowBackground" Value="#eff6f8" />
+            <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
+            <Setter Property="AlternatingRowBackground" Value="{DynamicResource LogAltRowBrush}" />
             <Setter Property="AlternationCount" Value="2" />
-            <Setter Property="BorderBrush" Value="#ccc" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
     </UserControl.Resources>

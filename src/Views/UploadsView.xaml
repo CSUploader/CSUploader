@@ -39,12 +39,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E0EEF9" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#90B8D8" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ToolbarButtonHoverBorderBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#C4DCF0" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6A9CC6" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ToolbarButtonPressedBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ToolbarButtonPressedBorderBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4" />
@@ -78,7 +78,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ═══ Toolbar (JD2-style: large icons, hover borders) ═══ -->
+        <!-- Toolbar (JD2-style: large icons, hover borders) -->
         <Border Grid.Row="0" Background="{DynamicResource DataGridHeaderBrush}"
                 BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
                 Padding="4,2">
@@ -98,7 +98,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ═══ Main DataGrid ═══ -->
+        <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   ItemsSource="{Binding Packages}"
                   AutoGenerateColumns="False"
@@ -114,8 +114,8 @@
                   GridLinesVisibility="All"
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                  Background="#EAF3FB"
-                  AlternatingRowBackground="#E2EDF7"
+                  Background="{DynamicResource ContentBackgroundBrush}"
+                  AlternatingRowBackground="{DynamicResource ContentAltBackgroundBrush}"
                   RowHeaderWidth="0"
                   BorderThickness="0"
                   RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -176,7 +176,7 @@
                     </Setter>
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#B8D4EE" />
+                            <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         </Trigger>
                     </Style.Triggers>
@@ -205,8 +205,8 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Grid x:Name="PGrid" Margin="2,3">
-                                <Border Background="#D0D8E0" CornerRadius="1" Height="14" />
-                                <Border Background="#6BA5D7" CornerRadius="1" HorizontalAlignment="Left" Height="14">
+                                <Border Background="{DynamicResource ProgressBarTrackBrush}" CornerRadius="1" Height="14" />
+                                <Border Background="{DynamicResource ProgressBarFillBrush}" CornerRadius="1" HorizontalAlignment="Left" Height="14">
                                     <Border.Width>
                                         <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
                                             <Binding Path="Progress" />
@@ -248,7 +248,7 @@
                               CanUserAddRows="False" HeadersVisibility="None"
                               GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                              Background="#DDE9F4" BorderThickness="0" RowHeaderWidth="0"
+                              Background="{DynamicResource RowDetailBackgroundBrush}" BorderThickness="0" RowHeaderWidth="0"
                               Margin="20,0,0,0">
                         <DataGrid.RowStyle>
                             <Style TargetType="DataGridRow">
@@ -288,8 +288,8 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Grid x:Name="FPGrid" Margin="2,2">
-                                            <Border Background="#C8D4DE" CornerRadius="1" Height="12" />
-                                            <Border Background="#82B8DE" CornerRadius="1" HorizontalAlignment="Left" Height="12">
+                                            <Border Background="{DynamicResource ProgressBarAltTrackBrush}" CornerRadius="1" Height="12" />
+                                            <Border Background="{DynamicResource ProgressBarAltFillBrush}" CornerRadius="1" HorizontalAlignment="Left" Height="12">
                                                 <Border.Width>
                                                     <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
                                                         <Binding Path="Progress" />
@@ -319,8 +319,8 @@
             </DataGrid.RowDetailsTemplate>
         </DataGrid>
 
-        <!-- ═══ Bottom Panel (JD2 "Download Overview" exact match) ═══ -->
-        <Border Grid.Row="2" BorderBrush="#B0B0B0" BorderThickness="0,1,0,0"
+        <!-- Bottom Panel (JD2 "Download Overview" exact match) -->
+        <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                 Visibility="{Binding ShowUploadOverview, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -329,34 +329,29 @@
                 </Grid.RowDefinitions>
 
                 <!-- Title bar: green icon + title + close button -->
-                <Border Grid.Row="0" Padding="4,2">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#F0F0F0" Offset="0" />
-                            <GradientStop Color="#D8D8D8" Offset="1" />
-                        </LinearGradientBrush>
-                    </Border.Background>
+                <Border Grid.Row="0" Padding="4,2"
+                        Background="{DynamicResource OverviewTitleGradientBrush}">
                     <DockPanel>
                         <!-- Close button on right -->
                         <Button DockPanel.Dock="Right" Width="16" Height="16" Margin="4,0,2,0"
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                FontSize="10" Content="&#x2715;" Foreground="#808080"
+                                FontSize="10" Content="&#x2715;" Foreground="{DynamicResource OverviewCloseBrush}"
                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
                                 ToolTip="Close overview" Padding="0"
                                 Click="OverviewCloseButton_Click" />
 
                         <!-- Green arrow + title -->
                         <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="#333333">
-                            <Run Text="&#x25BC;" Foreground="#4CAF50" FontSize="10" /> <!-- Green down arrow -->
+                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                            <Run Text="&#x25BC;" Foreground="{DynamicResource OverviewArrowBrush}" FontSize="10" /> <!-- Green down arrow -->
                             <Run Text=" Upload Overview" />
                         </TextBlock>
                     </DockPanel>
                 </Border>
 
                 <!-- Stats area with right-click context menu for toggling fields -->
-                <Border Grid.Row="1" Background="#F8F8F8" Padding="6,3,6,4"
-                        BorderBrush="#D0D0D0" BorderThickness="0,1,0,0">
+                <Border Grid.Row="1" Background="{DynamicResource SurfaceAltBrush}" Padding="6,3,6,4"
+                        BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0">
 
                     <!-- JD2-style right-click menu to toggle stat fields -->
                     <Border.ContextMenu>
@@ -382,74 +377,74 @@
                         <!-- Each stat is a label+value pair that collapses when toggled off -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowPackages, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Package(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Package(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowTotalBytes, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Total Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Total Bytes:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowBytesLoaded, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Bytes loaded:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Bytes loaded:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowEta, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="ETA:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="ETA:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowOpenConnections, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Open Connections:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Open Connections:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowUploadspeed, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Uploadspeed:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Uploadspeed:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowRemainingBytes, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Remaining Bytes:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Remaining Bytes:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowRunningUploads, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Running Uploads:" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Running Uploads:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowFinishedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Finished Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding FinishedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Finished Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FinishedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowSkippedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Skipped Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding SkippedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Skipped Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding SkippedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowFailedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Failed Link(s):" FontSize="11" Foreground="#555" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="{Binding FailedLinks}" FontSize="11" FontWeight="Bold" Foreground="#222" VerticalAlignment="Center" />
+                            <TextBlock Text="Failed Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding FailedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
                     </WrapPanel>
                 </Border>

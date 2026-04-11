@@ -8,7 +8,7 @@
         Width="950" Height="650"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
-        Background="White">
+        Background="{DynamicResource SurfaceBrush}">
 
     <Grid Margin="0">
         <Grid.RowDefinitions>
@@ -17,12 +17,12 @@
         </Grid.RowDefinitions>
 
         <!-- Summary header -->
-        <Border Grid.Row="0" Background="#F0F4F8" Padding="12,8" BorderBrush="#D0D8E0" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceMutedBrush}" Padding="12,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
             <StackPanel>
-                <TextBlock x:Name="SummaryText" FontSize="13" FontWeight="SemiBold" Foreground="#1B5E91"
+                <TextBlock x:Name="SummaryText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"
                            TextTrimming="CharacterEllipsis" />
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <TextBlock x:Name="TimingText" FontSize="11" Foreground="#666" />
+                    <TextBlock x:Name="TimingText" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -30,7 +30,7 @@
         <!-- Main tab control -->
         <TabControl Grid.Row="1" BorderThickness="0" Padding="0">
 
-            <!-- ═══ Request Tab ═══ -->
+            <!-- Request Tab -->
             <TabItem Header="Request">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -44,33 +44,33 @@
                             <TextBox x:Name="RequestHeadersBox" IsReadOnly="True" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Body (Raw)">
                             <TextBox x:Name="RequestBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Body (JSON)">
                             <TextBox x:Name="RequestBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Hex">
                             <TextBox x:Name="RequestHexBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="11" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                     </TabControl>
                 </Grid>
             </TabItem>
 
-            <!-- ═══ Response Tab ═══ -->
+            <!-- Response Tab -->
             <TabItem Header="Response">
                 <Grid>
                     <TabControl Margin="8">
@@ -78,39 +78,39 @@
                             <TextBox x:Name="ResponseHeadersBox" IsReadOnly="True" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Body (Raw)">
                             <TextBox x:Name="ResponseBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Body (JSON)">
                             <TextBox x:Name="ResponseBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                         <TabItem Header="Hex">
                             <TextBox x:Name="ResponseHexBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="11" BorderThickness="0"
-                                     Background="#FAFAFA" />
+                                     Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
                     </TabControl>
                 </Grid>
             </TabItem>
 
-            <!-- ═══ Full Dump Tab ═══ -->
+            <!-- Full Dump Tab -->
             <TabItem Header="Full Dump">
                 <TextBox x:Name="FullDumpBox" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto" Margin="8"
                          FontFamily="Consolas" FontSize="12" BorderThickness="0"
-                         Background="#FAFAFA" />
+                         Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
             </TabItem>
         </TabControl>
     </Grid>

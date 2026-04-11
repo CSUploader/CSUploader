@@ -11,7 +11,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
              d:DesignWidth="1024" d:DesignHeight="800"
-             Background="White">
+             Background="{DynamicResource SurfaceBrush}">
 
     <UserControl.Resources>
         <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
@@ -29,10 +29,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#D6E6F5" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#B8D4EE" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarSelectedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -43,14 +43,14 @@
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="#1B5E91" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
             <Setter Property="TextDecorations" Value="Underline" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="SectionDesc" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="#777" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="40,2,0,10" />
         </Style>
@@ -61,7 +61,7 @@
 
         <Style x:Key="SettingLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#333" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -82,37 +82,18 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="1" Padding="{TemplateBinding Padding}"
-                                BorderThickness="1" BorderBrush="#A0A0A0">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#FCFCFC" Offset="0" />
-                                    <GradientStop Color="#E8E8E8" Offset="1" />
-                                </LinearGradientBrush>
-                            </Border.Background>
+                                BorderThickness="1" BorderBrush="{DynamicResource JD2ButtonBorderBrush}"
+                                Background="{DynamicResource JD2ButtonBgBrush}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6A9CC6" />
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#EAF4FC" Offset="0" />
-                                            <GradientStop Color="#D0E4F4" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource JD2ButtonHoverBorderBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource JD2ButtonHoverBgBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4A7CA6" />
-                                <Setter TargetName="Bd" Property="Background">
-                                    <Setter.Value>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#D0E0F0" Offset="0" />
-                                            <GradientStop Color="#B8D0E8" Offset="1" />
-                                        </LinearGradientBrush>
-                                    </Setter.Value>
-                                </Setter>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource JD2ButtonPressedBgBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.5" />
@@ -131,8 +112,8 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ═══ Sidebar ═══ -->
-        <Border Grid.Column="0" Background="#EAF3FB" BorderBrush="#B0B0B0" BorderThickness="0,0,1,0">
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
             <ListBox Background="Transparent" BorderThickness="0"
                      SelectedIndex="{Binding SelectedCategoryIndex}"
                      ItemContainerStyle="{StaticResource SidebarItem}"
@@ -140,36 +121,36 @@
                 <ListBoxItem IsSelected="True">
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource StatusOkImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
+                        <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource StatusUploadingImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
+                        <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
+                        <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="#333" />
+                        <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
         </Border>
 
-        <Border Grid.Column="1" Background="#D8D8D8" />
+        <Border Grid.Column="1" Background="{DynamicResource SidebarSeparatorBrush}" />
 
-        <!-- ═══ Content panels (switched by SelectedCategoryIndex) ═══ -->
+        <!-- Content panels (switched by SelectedCategoryIndex) -->
 
         <!-- 0: General -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SurfaceBrush}" Padding="0">
             <ScrollViewer.Style>
                 <Style TargetType="ScrollViewer">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -203,7 +184,7 @@
         </ScrollViewer>
 
         <!-- 1: Upload -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SurfaceBrush}" Padding="0">
             <ScrollViewer.Style>
                 <Style TargetType="ScrollViewer">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -258,7 +239,7 @@
         </ScrollViewer>
 
         <!-- 2: Accounts (Grid layout so DataGrid fills height) -->
-        <Grid Grid.Column="2" Background="White">
+        <Grid Grid.Column="2" Background="{DynamicResource SurfaceBrush}">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -283,7 +264,7 @@
                     <TextBlock Text="Account Manager" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
-                <TextBlock FontSize="11.5" Foreground="#777" Margin="0,0,0,8"
+                <TextBlock FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
                            Text="Enter and manage all your Premium/Gold/Platinum accounts." />
             </StackPanel>
 
@@ -299,21 +280,21 @@
                       SelectionUnit="FullRow"
                       RowHeaderWidth="0"
                       GridLinesVisibility="All"
-                      HorizontalGridLinesBrush="#D4D4D4"
-                      VerticalGridLinesBrush="#D4D4D4"
-                      BorderBrush="#B0B0B0"
+                      HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                      VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                      BorderBrush="{DynamicResource BorderBrush}"
                       BorderThickness="1"
-                      Background="#EAF3FB"
-                      AlternatingRowBackground="#E2EDF7"
-                      RowBackground="#EAF3FB">
+                      Background="{DynamicResource ContentBackgroundBrush}"
+                      AlternatingRowBackground="{DynamicResource ContentAltBackgroundBrush}"
+                      RowBackground="{DynamicResource ContentBackgroundBrush}">
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="#E8E8E8" />
-                        <Setter Property="Foreground" Value="#333" />
+                        <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         <Setter Property="Padding" Value="6,4" />
                         <Setter Property="FontSize" Value="11" />
                         <Setter Property="FontWeight" Value="SemiBold" />
-                        <Setter Property="BorderBrush" Value="#B0B0B0" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                         <Setter Property="BorderThickness" Value="0,0,1,1" />
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
@@ -323,7 +304,7 @@
                         <Setter Property="FontSize" Value="12" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#B8D4EE" />
+                                <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
                             </Trigger>
                             <DataTrigger Binding="{Binding Disabled}" Value="True">
                                 <Setter Property="Opacity" Value="0.45" />
@@ -346,14 +327,14 @@
                         </Setter>
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#B8D4EE" />
-                                <Setter Property="Foreground" Value="#222" />
+                                <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
                 </DataGrid.CellStyle>
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="✓" Width="30">
+                    <DataGridTemplateColumn Header="&#x2713;" Width="30">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -397,23 +378,18 @@
 
             <!-- JD2-style bottom button bar -->
             <Border Grid.Row="2" Margin="20,0,20,0" Padding="6,6"
-                    BorderBrush="#B0B0B0" BorderThickness="1,0,1,1">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#F4F4F4" Offset="0" />
-                        <GradientStop Color="#E0E0E0" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,1,1"
+                    Background="{DynamicResource ButtonBarGradientBrush}">
                 <StackPanel Orientation="Horizontal">
                     <Button Style="{StaticResource JD2Button}" Command="{Binding AddAccountDialogCommand}" Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="＋" FontWeight="Bold" Foreground="#2E7D32" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="Add" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource JD2Button}" Command="{Binding RemoveAccountCommand}" Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="－" FontWeight="Bold" Foreground="#999" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="-" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="Remove" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -431,10 +407,10 @@
                        TextWrapping="Wrap" HorizontalAlignment="Left">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="#555" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsCheckingAccount}" Value="True">
-                                <Setter Property="Foreground" Value="#3498DB" />
+                                <Setter Property="Foreground" Value="{DynamicResource InfoAccentBrush}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -443,7 +419,7 @@
         </Grid>
 
         <!-- 3: About -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="White" Padding="0">
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SurfaceBrush}" Padding="0">
             <ScrollViewer.Style>
                 <Style TargetType="ScrollViewer">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -465,31 +441,31 @@
                     <Image Source="{StaticResource Logo128Image}" Width="96" Height="96" HorizontalAlignment="Left" Margin="0,0,0,16"
                            RenderOptions.BitmapScalingMode="HighQuality" />
 
-                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#1B5E91" Text="CSUploader" Margin="0,0,0,4" />
-                    <TextBlock FontSize="12" Foreground="#555" Margin="0,0,0,12">
+                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Text="CSUploader" Margin="0,0,0,4" />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12">
                         <Run Text="Version 1.0.0" />
                     </TextBlock>
 
-                    <TextBlock FontSize="12" Foreground="#444" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20">
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20">
                         A powerful file upload manager for multiple hosting services.
                         Features include file compression, hashing, queue management,
                         and real-time progress tracking.
                     </TextBlock>
 
-                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="#555" Text="Framework: " />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Framework: " />
                         <Run Text=".NET 10.0 (WPF)" />
                     </TextBlock>
-                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="#555" Text="Database: " />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Database: " />
                         <Run Text="SQLite via EF Core 10" />
                     </TextBlock>
-                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="#555" Text="License: " />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="License: " />
                         <Run Text="MIT" />
                     </TextBlock>
-                    <TextBlock FontSize="12" Foreground="#777" Margin="0,0,0,16">
-                        <Run FontWeight="SemiBold" Foreground="#555" Text="Source: " />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16">
+                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Source: " />
                         <Run Text="github.com/NeWbY100/CSUploader" />
                     </TextBlock>
                 </StackPanel>

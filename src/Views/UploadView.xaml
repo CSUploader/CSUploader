@@ -11,7 +11,7 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
-             Background="White">
+             Background="{DynamicResource SurfaceBrush}">
 
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
@@ -19,21 +19,21 @@
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="#1B5E91" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
             <Setter Property="TextDecorations" Value="Underline" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="SectionDesc" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="#777" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="40,2,0,10" />
         </Style>
 
         <Style x:Key="SettingLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#333" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -60,7 +60,7 @@
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0">
             <StackPanel Margin="20,16,20,20" MaxWidth="900">
 
-                <!-- ═══════════════════ Section 1: Upload Directory ═══════════════════ -->
+                <!-- Section 1: Upload Directory -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                     <Image Source="{StaticResource PackageOpenImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="Upload Directory" Style="{StaticResource SectionTitle}" />
@@ -77,7 +77,7 @@
                     <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseInputDirectoryCommand}" />
                 </Grid>
 
-                <!-- ═══════════════════ Section 2: File Hosters ═══════════════════ -->
+                <!-- Section 2: File Hosters -->
                 <StackPanel Orientation="Horizontal" Margin="0,24,0,2">
                     <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="File Hosters" Style="{StaticResource SectionTitle}" />
@@ -95,25 +95,25 @@
                           CanUserReorderColumns="False"
                           HeadersVisibility="Column"
                           GridLinesVisibility="All"
-                          HorizontalGridLinesBrush="#D4D4D4"
-                          VerticalGridLinesBrush="#D4D4D4"
+                          HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                          VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                           SelectionMode="Single"
                           SelectionUnit="FullRow"
                           RowHeaderWidth="0"
                           BorderThickness="1"
-                          BorderBrush="#B0B0B0"
-                          Background="#EAF3FB"
-                          AlternatingRowBackground="#E2EDF7"
-                          RowBackground="#EAF3FB"
+                          BorderBrush="{DynamicResource BorderBrush}"
+                          Background="{DynamicResource ContentBackgroundBrush}"
+                          AlternatingRowBackground="{DynamicResource ContentAltBackgroundBrush}"
+                          RowBackground="{DynamicResource ContentBackgroundBrush}"
                           AlternationCount="2">
                     <DataGrid.ColumnHeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="Background" Value="#E8E8E8" />
-                            <Setter Property="Foreground" Value="#333" />
+                            <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                             <Setter Property="Padding" Value="6,4" />
                             <Setter Property="FontSize" Value="11" />
                             <Setter Property="FontWeight" Value="SemiBold" />
-                            <Setter Property="BorderBrush" Value="#B0B0B0" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
                             <Setter Property="BorderThickness" Value="0,0,1,1" />
                         </Style>
                     </DataGrid.ColumnHeaderStyle>
@@ -123,7 +123,7 @@
                             <Setter Property="FontSize" Value="12" />
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#B8D4EE" />
+                                    <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -143,8 +143,8 @@
                             </Setter>
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#B8D4EE" />
-                                    <Setter Property="Foreground" Value="#222" />
+                                    <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -180,7 +180,7 @@
                                                   Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}" />
                                         <!-- "(anonymous)" when no accounts -->
                                         <TextBlock Text="(anonymous)" VerticalAlignment="Center"
-                                                   FontSize="12" FontStyle="Italic" Foreground="#999" Padding="6,2">
+                                                   FontSize="12" FontStyle="Italic" Foreground="{DynamicResource TextDisabledBrush}" Padding="6,2">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Visible" />
@@ -202,7 +202,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ═══════════════════ Upload Button ═══════════════════ -->
+        <!-- Upload Button -->
         <Border Grid.Row="1" Padding="20,8,20,12">
             <Button Content="Upload" Command="{Binding UploadCommand}"
                     Style="{StaticResource PrimaryButtonStyle}"
