@@ -280,6 +280,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             CheckAccountStatus = $"Checking {account.Username}@{account.FileHosterName}... ({++checked_}/{Accounts.Count})";
             UpdateAccountStatus(account.Id, "Checking...");
+            await Task.Yield();
 
             var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
@@ -504,8 +505,9 @@ public partial class SettingsViewModel : ObservableObject
         IsCheckingAccount = true;
         CheckAccountStatus = $"Checking {username}@{account.FileHosterName}...";
 
-        // Show "Checking..." in the DataGrid immediately
+        // Show "Checking..." in the DataGrid immediately and yield to let UI render
         UpdateAccountStatus(accountId, "Checking...");
+        await Task.Yield();
 
         try
         {
@@ -591,11 +593,19 @@ public partial class SettingsViewModel : ObservableObject
         {
             if (Accounts[i].Id == accountId)
             {
-                Accounts[i].StatusMessage = status;
-
-                // Replace item in-place to trigger collection change → UI refresh
-                FileHosterLoginDto item = Accounts[i];
-                Accounts[i] = item;
+                // Create a shallow copy so ObservableCollection sees a different reference
+                // and fires CollectionChanged (same-reference assignment is optimized away)
+                FileHosterLoginDto copy = new()
+                {
+                    Id = Accounts[i].Id,
+                    FileHosterName = Accounts[i].FileHosterName,
+                    Username = Accounts[i].Username,
+                    Password = Accounts[i].Password,
+                    AccountType = Accounts[i].AccountType,
+                    Disabled = Accounts[i].Disabled,
+                    StatusMessage = status,
+                };
+                Accounts[i] = copy;
                 return;
             }
         }
