@@ -13,10 +13,25 @@
         Width="800" Height="450"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         d:DataContext="{d:DesignInstance Type=vm:LogEntryViewModel}">
 
     <Window.Resources>
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="FieldValue" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+        </Style>
     </Window.Resources>
 
     <Grid Margin="12">
@@ -42,46 +57,43 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Row 0 -->
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="DateTime:" VerticalAlignment="Center" Margin="0,0,8,6" />
-            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="DateTime:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="0" Grid.Column="3" Text="Thread ID:" VerticalAlignment="Center" Margin="0,0,8,6" />
-            <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding ThreadId, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="Thread ID:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding ThreadId, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <!-- Row 1 -->
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Filename:" VerticalAlignment="Center" Margin="0,0,8,6" />
-            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Filename, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Filename:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Filename, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <!-- Row 2 -->
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Function:" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Function, Mode=OneWay}" IsReadOnly="True" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Function:" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Function, Mode=OneWay}" Style="{StaticResource FieldValue}" />
 
-            <TextBlock Grid.Row="2" Grid.Column="3" Text="Line:" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding LineNumber, Mode=OneWay}" IsReadOnly="True" />
+            <TextBlock Grid.Row="2" Grid.Column="3" Text="Line:" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+            <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding LineNumber, Mode=OneWay}" Style="{StaticResource FieldValue}" />
         </Grid>
 
         <!-- Message Content -->
         <TabControl Grid.Row="1">
             <TabItem Header="Text">
                 <TextBox Text="{Binding Message, Mode=OneWay}"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         FontFamily="Consolas"
-                         FontSize="12" />
+                         IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="12"
+                         Background="{DynamicResource CodeBackgroundBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         CaretBrush="{DynamicResource TextPrimaryBrush}"
+                         BorderThickness="0" />
             </TabItem>
             <TabItem Header="HTML">
                 <TextBox Text="{Binding Message, Mode=OneWay}"
-                         IsReadOnly="True"
-                         AcceptsReturn="True"
-                         TextWrapping="NoWrap"
-                         VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
-                         FontFamily="Consolas"
-                         FontSize="12" />
+                         IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="12"
+                         Background="{DynamicResource CodeBackgroundBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         CaretBrush="{DynamicResource TextPrimaryBrush}"
+                         BorderThickness="0" />
             </TabItem>
         </TabControl>
 
