@@ -242,24 +242,21 @@ public partial class SettingsViewModel : ObservableObject
             }
         }
 
-        // Preserve existing statuses
-        Dictionary<int, string> statusMap = Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+        Dictionary<int, string> statuses = BuildStatusMap();
         string newStatus = dto.StatusMessage;
 
         await _accountRepository.InsertAsync(dto);
         CheckAccountStatus = $"Account added for {dto.FileHosterName}!";
         await LoadAccountsAsync();
+        ApplyStatusMap(statuses);
 
-        // Restore statuses after reload
+        // Set status on the newly added account
         foreach (var a in Accounts)
         {
-            if (statusMap.TryGetValue(a.Id, out string? msg))
-            {
-                a.StatusMessage = msg;
-            }
-            else if (a.FileHosterName == dto.FileHosterName && a.Username == dto.Username)
+            if (a.FileHosterName == dto.FileHosterName && a.Username == dto.Username && !statuses.ContainsKey(a.Id))
             {
                 a.StatusMessage = newStatus;
+                UpdateAccountStatus(a.Id, newStatus);
             }
         }
     }
@@ -277,13 +274,18 @@ public partial class SettingsViewModel : ObservableObject
         int checked_ = 0;
         int updated = 0;
 
+        Dictionary<int, string> statuses = BuildStatusMap();
+
         foreach (FileHosterLoginDto account in Accounts.ToArray())
         {
             CheckAccountStatus = $"Checking {account.Username}@{account.FileHosterName}... ({++checked_}/{Accounts.Count})";
+            UpdateAccountStatus(account.Id, "Checking...");
 
             FileHosterClient? client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
             {
+                statuses[account.Id] = "No implementation";
+                UpdateAccountStatus(account.Id, "No implementation");
                 continue;
             }
 
@@ -296,7 +298,7 @@ public partial class SettingsViewModel : ObservableObject
 
                 if (result.IsValid)
                 {
-                    account.StatusMessage = result.Message ?? "OK";
+                    statuses[account.Id] = result.Message ?? "OK";
                     if (account.AccountType != result.AccountType)
                     {
                         account.AccountType = result.AccountType;
@@ -305,31 +307,22 @@ public partial class SettingsViewModel : ObservableObject
                 }
                 else
                 {
-                    account.StatusMessage = result.Message ?? "Failed";
+                    statuses[account.Id] = result.Message ?? "Failed";
                 }
 
                 await _accountRepository.UpdateAsync(account, cancellationToken);
             }
             catch (Exception ex)
             {
-                account.StatusMessage = $"Error: {ex.Message}";
+                statuses[account.Id] = $"Error: {ex.Message}";
             }
-        }
 
-        // Build status map before reload
-        Dictionary<int, string> statusMap = Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+            UpdateAccountStatus(account.Id, statuses[account.Id]);
+        }
 
         IsCheckingAccount = false;
         await LoadAccountsAsync(cancellationToken);
-
-        // Restore status messages after reload
-        foreach (var a in Accounts)
-        {
-            if (statusMap.TryGetValue(a.Id, out string? msg))
-            {
-                a.StatusMessage = msg;
-            }
-        }
+        ApplyStatusMap(statuses);
 
         CheckAccountStatus = $"Refreshed {checked_} accounts. {updated} updated.";
     }
@@ -503,6 +496,9 @@ public partial class SettingsViewModel : ObservableObject
         IsCheckingAccount = true;
         CheckAccountStatus = $"Checking {SelectedAccount.Username}@{SelectedAccount.FileHosterName}...";
 
+        // Show "Checking..." in the DataGrid immediately
+        UpdateAccountStatus(SelectedAccount.Id, "Checking...");
+
         try
         {
             AccountCheckResult result = await client.CheckAccountAsync(
@@ -526,15 +522,10 @@ public partial class SettingsViewModel : ObservableObject
             await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
 
             // Reload and preserve status messages
-            int selectedId = SelectedAccount.Id;
+            Dictionary<int, string> statuses = BuildStatusMap();
+            statuses[SelectedAccount.Id] = statusMsg;
             await LoadAccountsAsync(cancellationToken);
-            foreach (var a in Accounts)
-            {
-                if (a.Id == selectedId)
-                {
-                    a.StatusMessage = statusMsg;
-                }
-            }
+            ApplyStatusMap(statuses);
         }
         catch (Exception ex)
         {
@@ -556,12 +547,54 @@ public partial class SettingsViewModel : ObservableObject
 
         bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
         string username = SelectedAccount.Username ?? "unknown";
+        int accountId = SelectedAccount.Id;
         SelectedAccount.Disabled = disable;
         await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+
+        Dictionary<int, string> statuses = BuildStatusMap();
         await LoadAccountsAsync(cancellationToken);
+        ApplyStatusMap(statuses);
+
         CheckAccountStatus = disable
             ? $"Account '{username}' disabled."
             : $"Account '{username}' enabled.";
+    }
+
+    // ── Helpers for preserving StatusMessage across reloads ──
+
+    private Dictionary<int, string> BuildStatusMap()
+        => Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+
+    private void ApplyStatusMap(Dictionary<int, string> statuses)
+    {
+        foreach (var a in Accounts)
+        {
+            if (statuses.TryGetValue(a.Id, out string? msg))
+            {
+                a.StatusMessage = msg;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates the StatusMessage on an account in the collection and replaces
+    /// the item to trigger the ObservableCollection change notification
+    /// (since FileHosterLoginDto doesn't implement INotifyPropertyChanged).
+    /// </summary>
+    private void UpdateAccountStatus(int accountId, string status)
+    {
+        for (int i = 0; i < Accounts.Count; i++)
+        {
+            if (Accounts[i].Id == accountId)
+            {
+                Accounts[i].StatusMessage = status;
+
+                // Replace item in-place to trigger collection change → UI refresh
+                FileHosterLoginDto item = Accounts[i];
+                Accounts[i] = item;
+                return;
+            }
+        }
     }
 
     private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
