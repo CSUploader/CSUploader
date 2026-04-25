@@ -1,0 +1,76 @@
+name: Release
+
+# Triggered by pushing a tag like v1.2.3.
+# Builds a Velopack package and uploads it to a GitHub Release with the same tag,
+# which UpdateService.cs then sees on its next periodic poll.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derive version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw "Tag must look like v1.2.3 (got $tag)"
+          }
+          $version = $matches[1]
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Building version $version"
+
+      - name: Restore + test
+        run: |
+          dotnet restore
+          dotnet test --configuration Release --no-restore
+
+      - name: Publish self-contained win-x64
+        run: |
+          dotnet publish src/CSUploader.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:Version=${{ steps.version.outputs.version }} `
+            -o publish
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Velopack pack
+        run: |
+          vpk pack `
+            --packId CSUploader `
+            --packVersion ${{ steps.version.outputs.version }} `
+            --packDir publish `
+            --mainExe CSUploader.exe `
+            --outputDir releases
+
+      - name: Create GitHub Release + upload assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $assets = Get-ChildItem releases | ForEach-Object { $_.FullName }
+          gh release create "${{ github.ref_name }}" $assets `
+            --repo "${{ github.repository }}" `
+            --title "CSUploader ${{ steps.version.outputs.version }}" `
+            --generate-notes

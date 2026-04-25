@@ -15,6 +15,21 @@ dotnet test
 
 The solution file is `CSUploader.sln`. Source lives at `src/CSUploader.csproj`, tests at `tests/CSUploader.Tests.csproj`. The project targets `net10.0-windows10.0.17763.0`.
 
+## Releasing
+
+Auto-update is wired via Velopack against GitHub Releases on `CSUploader/CSUploader`.
+
+To cut a new release:
+
+1. Bump `<Version>` in `src/CSUploader.csproj` and commit.
+2. Tag and push: `git tag v1.2.3 && git push origin v1.2.3`.
+3. The `.github/workflows/release.yml` workflow runs `dotnet test`, builds a self-contained
+   `win-x64` publish, runs `vpk pack`, and creates a GitHub Release with the artifacts.
+4. Running clients pick it up on their next 6-hour update poll (or via Help → Check for Updates).
+
+For ad-hoc local builds, run `./publish.ps1` (add `-Push` to also create the release via `gh`).
+The first release on a clean repo must be a full bundle; later releases get delta patches automatically.
+
 ## Testing
 
 - New repository methods, view-models, and services must include xUnit tests in `tests/`.
