@@ -27,8 +27,7 @@ To cut a new release:
    `win-x64` publish, runs `vpk pack`, and creates a GitHub Release with the artifacts.
 4. Running clients pick it up on their next 6-hour update poll (or via Help → Check for Updates).
 
-For ad-hoc local builds, run `./publish.ps1` (add `-Push` to also create the release via `gh`).
-The first release on a clean repo must be a full bundle; later releases get delta patches automatically.
+The first release on a clean repo is a full bundle; later releases get delta patches automatically.
 
 ## Testing
 
