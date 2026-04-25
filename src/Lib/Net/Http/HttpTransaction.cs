@@ -138,8 +138,8 @@ public class HttpTransaction
 
         try
         {
-            JsonElement element = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
-            return System.Text.Json.JsonSerializer.Serialize(element, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            JsonElement element = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(json);
+            return System.Text.Json.JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
         }
         catch
         {

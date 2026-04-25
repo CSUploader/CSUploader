@@ -15,6 +15,7 @@
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource SurfaceBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
         d:DataContext="{d:DesignInstance Type=vm:LogEntryViewModel}">
 
     <Window.Resources>

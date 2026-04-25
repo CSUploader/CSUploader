@@ -23,12 +23,15 @@ public class PackageOptions
     public string? DirectoryPath { get; set; }
 
     /// <summary>
-    /// Gets or sets the compression options.
+    /// Gets or sets a custom title for the package. When null, the directory name is used.
     /// </summary>
-    /// <value>
-    /// The compression options.
-    /// </value>
-    public PackageCompressionOptions CompressionOptions { get; set; } = new();
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Gets or sets the selected files to include in the package.
+    /// When null, all files in the directory are included.
+    /// </summary>
+    public List<string>? SelectedFiles { get; set; }
 
     /// <summary>
     /// Gets or sets the file hosters.

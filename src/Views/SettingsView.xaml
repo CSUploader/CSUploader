@@ -83,7 +83,8 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="1" Padding="{TemplateBinding Padding}"
                                 BorderThickness="1" BorderBrush="{DynamicResource JD2ButtonBorderBrush}"
-                                Background="{DynamicResource JD2ButtonBgBrush}">
+                                Background="{DynamicResource JD2ButtonBgBrush}"
+                                TextElement.Foreground="{TemplateBinding Foreground}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -163,23 +164,43 @@
             </ScrollViewer.Style>
             <StackPanel Margin="20,16,20,20" MaxWidth="900">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                    <Image Source="{StaticResource PackageOpenImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Temp Archive Directory" Style="{StaticResource SectionTitle}" />
+                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Developer" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Set the temporary archive directory. Compressed archives are stored here before uploading." />
-                <Grid Margin="40,0,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0" Text="{Binding TempArchiveDirectory, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" />
-                    <Button Grid.Column="1" Content="Browse" Width="75" Margin="8,0,0,0" Command="{Binding BrowseTempDirectoryCommand}" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="Options for local development and testing." />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <CheckBox Content="Use mock server (redirect all file hoster requests to localhost:8080/&lt;hoster&gt;)"
+                              IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
                 </Grid>
 
+                <!-- Confirmation prompts -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Confirmation Prompts" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="Tick a prompt to have it ask again before the action. Untick to suppress the confirmation for that action." />
+
+                <ItemsControl ItemsSource="{Binding ConfirmationPrompts}" Margin="40,4,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding AskAgain}"
+                                      Content="{Binding Label}"
+                                      Margin="0,2,0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 <Separator Margin="0,20,0,12" />
-                <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                        Width="130" Height="32" HorizontalAlignment="Left" Margin="40,0,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="40,0,0,0">
+                    <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                            Width="130" Height="32" />
+                    <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 
@@ -215,6 +236,65 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="252" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Max. simultaneous uploads per file hoster" Style="{StaticResource SettingLabel}" />
+                    <CheckBox Grid.Column="1" IsChecked="{Binding MaxUploadsPerHostEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Grid.Column="2" Text="{Binding MaxUploadsPerHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" IsEnabled="{Binding MaxUploadsPerHostEnabled}" HorizontalContentAlignment="Right" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Remove finished uploads" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding RemoveFinishedUploadsOptions}"
+                              SelectedValuePath="Value"
+                              DisplayMemberPath="Label"
+                              SelectedValue="{Binding RemoveFinishedUploads}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Auto-remove completed files" Style="{StaticResource SettingLabel}"
+                               ToolTip="Remove individual files from the Uploads tab as soon as they finish uploading successfully. History on the Uploaded tab is preserved." />
+                    <CheckBox Grid.Column="1" IsChecked="{Binding AutoRemoveCompletedFiles}" VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Auto-remove completed packages" Style="{StaticResource SettingLabel}"
+                               ToolTip="Remove the whole package from the Uploads tab once every file in it has finished successfully. History on the Uploaded tab is preserved." />
+                    <CheckBox Grid.Column="1" IsChecked="{Binding AutoRemoveCompletedPackages}" VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="If the file already exists" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding IfFileExistsOptions}"
+                              SelectedValuePath="Value"
+                              DisplayMemberPath="Label"
+                              SelectedValue="{Binding IfFileExists}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Max. simultaneous CPU Jobs" Style="{StaticResource SettingLabel}" />
@@ -233,8 +313,12 @@
                 </Grid>
 
                 <Separator Margin="0,16,0,12" />
-                <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                        Width="130" Height="32" HorizontalAlignment="Left" Margin="40,0,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="40,0,0,0">
+                    <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
+                            Width="130" Height="32" />
+                    <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 
@@ -448,7 +532,7 @@
 
                     <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20">
                         A powerful file upload manager for multiple hosting services.
-                        Features include file compression, hashing, queue management,
+                        Features include hashing, queue management,
                         and real-time progress tracking.
                     </TextBlock>
 

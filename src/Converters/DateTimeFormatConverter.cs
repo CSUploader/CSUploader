@@ -14,14 +14,17 @@ public class DateTimeFormatConverter : IValueConverter
     {
         if (value is DateTime dateTime)
         {
+            // Treat MinValue / very early dates as "unset" — render empty rather than "0001/01/01 00:00:00"
+            if (dateTime.Year <= 1)
+            {
+                return string.Empty;
+            }
+
             return dateTime.ToString("yyyy/MM/dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         return string.Empty;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotSupportedException();
-    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }

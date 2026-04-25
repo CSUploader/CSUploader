@@ -32,8 +32,5 @@ public class SecondsEpochConverter : JsonConverter<DateTime>
         return default;
     }
 
-    public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
-    {
-        writer.WriteNumberValue((value - Epoch).TotalSeconds);
-    }
+    public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options) => writer.WriteNumberValue((value - Epoch).TotalSeconds);
 }

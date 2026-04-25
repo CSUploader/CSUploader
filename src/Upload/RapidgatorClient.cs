@@ -50,7 +50,9 @@ public class RapidgatorClient : FileHosterClient
             };
             HttpClient httpClient = new(httpClientHandler)
             {
-                Timeout = TimeSpan.FromSeconds(30)
+                // Uploads can legitimately run for hours when throttled; rely on the per-request
+                // CancellationToken (and server-side timeouts) instead of a fixed total-request timeout.
+                Timeout = Timeout.InfiniteTimeSpan,
             };
 
             // Always en-US; no language differences
@@ -100,6 +102,8 @@ public class RapidgatorClient : FileHosterClient
 
     private string? FileHash { get; set; }
 
+    private string? _currentUploadId;
+
     /// <summary>
     /// Hash a file asynchronously.
     /// </summary>
@@ -142,10 +146,7 @@ public class RapidgatorClient : FileHosterClient
     }
 
     /// <inheritdoc/>
-    public override Task UploadAsync(string filePath, CancellationToken cancellationToken = default)
-    {
-        throw new NotSupportedException();
-    }
+    public override Task UploadAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     /// <inheritdoc/>
     public override async Task UploadAsync(string filePath, string username, string password, CancellationToken cancellationToken = default)
@@ -154,7 +155,10 @@ public class RapidgatorClient : FileHosterClient
         {
             if (UserInfoResponse?.User == null || !string.Equals(UserInfoResponse.User.Email, username, StringComparison.OrdinalIgnoreCase))
             {
-                UserInfoResponse = await HttpLoginAsync(username, password, cancellationToken);
+                UserInfoResponse = await SharedSessionCache.GetOrCreateAsync(
+                    "UserInfoResponse",
+                    () => HttpLoginAsync(username, password, cancellationToken));
+
                 if (UserInfoResponse == null)
                 {
                     UploadFinishedCallback("Failed to login");
@@ -181,13 +185,13 @@ public class RapidgatorClient : FileHosterClient
 
     private Task<UserInfoResponse?> HttpLoginAsync(string username, string password, CancellationToken cancellationToken = default)
     {
-        string link = $"http://{Hostname}/api/v2/user/login?login={username}&password={password}";
+        string link = $"https://{Hostname}/api/v2/user/login?login={username}&password={password}";
         return HttpSendReceiveAsync<UserInfoResponse>(link, "login", cancellationToken);
     }
 
     private Task<FolderCreateResponse?> HttpCreateFolderAsync(string folderName, UserInfoResponse userInfoResponse, CancellationToken cancellationToken = default)
     {
-        string link = $"http://{Hostname}/api/v2/folder/create?name={folderName}&token={userInfoResponse.Token}";
+        string link = $"https://{Hostname}/api/v2/folder/create?name={folderName}&token={userInfoResponse.Token}";
         return HttpSendReceiveAsync<FolderCreateResponse>(link, "create folder", cancellationToken);
     }
 
@@ -199,7 +203,7 @@ public class RapidgatorClient : FileHosterClient
             UploadFinishedCallback("Failed to get file upload request");
             return;
         }
-        
+
         if (fileUploadRequestResponse.Upload == null || string.IsNullOrEmpty(fileUploadRequestResponse.Upload.Url))
         {
             UploadFinishedCallback("Failed to get file upload link");
@@ -207,8 +211,9 @@ public class RapidgatorClient : FileHosterClient
         }
 
         string link = fileUploadRequestResponse.Upload.Url;
+        _currentUploadId = fileUploadRequestResponse.Upload.UploadId;
 
-        await HttpHandler.UploadFileAsync(filePath, link, cancellationToken);
+        await HttpHandler.UploadFileAsync(filePath, link, SpeedLimitProvider, cancellationToken);
     }
 
     private async Task<FileUploadResponse?> HttpUploadFileRequestAsync(UserInfoResponse userInfoResponse, FolderCreateResponse folderCreateResponse, string filePath, CancellationToken cancellationToken = default)
@@ -225,7 +230,7 @@ public class RapidgatorClient : FileHosterClient
         }
 
         string fileName = Path.GetFileName(filePath);
-        string link = $"http://{Hostname}/api/v2/file/upload?folder_id={folderCreateResponse.Folder.Id}&name={fileName}&hash={FileHash}&size={fileInfo.Length}&token={userInfoResponse.Token}";
+        string link = $"https://{Hostname}/api/v2/file/upload?folder_id={folderCreateResponse.Folder.Id}&name={fileName}&hash={FileHash}&size={fileInfo.Length}&token={userInfoResponse.Token}";
 
         return await HttpSendReceiveAsync<FileUploadResponse>(link, "upload file", cancellationToken);
     }
@@ -280,61 +285,138 @@ public class RapidgatorClient : FileHosterClient
         FireUploadProgress(this, eventArgs);
     }
 
-    private void HttpHandler_UploadFinished(object? sender, ProtocolUploadFinishedEventArgs e)
+    private async void HttpHandler_UploadFinished(object? sender, ProtocolUploadFinishedEventArgs e)
     {
-        FileHosterUploadFinishedEventArgs eventArgs = new(e.Success, e.Result ?? string.Empty, e.DateTimeFinished);
         DateTime startDateTime = e.DateTimeFinished - e.TimeElapsed;
+        string? uploadId = _currentUploadId;
+        _currentUploadId = null;
 
         if (string.IsNullOrEmpty(e.Result))
         {
+            UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(e.Success, string.Empty, e.DateTimeFinished));
             return;
         }
 
-        if (JsonHelpers.TryDeserializeObject(e.Result, out Response<FileUploadResponse>? fileUploadResponse) && !string.IsNullOrEmpty(fileUploadResponse.Details))
+        // Try to parse the POST response. If it contains the file info, use it directly.
+        if (JsonHelpers.TryDeserializeObject(e.Result, out Response<FileUploadResponse>? fileUploadResponse) && fileUploadResponse is not null)
         {
             if (fileUploadResponse.Status != 200)
             {
                 _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {fileUploadResponse.Status} {fileUploadResponse.Details}");
-                eventArgs = new FileHosterUploadFinishedEventArgs(false, fileUploadResponse.Details, startDateTime);
+                UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(false, fileUploadResponse.Details ?? string.Empty, startDateTime));
+                return;
             }
-            else if (fileUploadResponse.Model?.Upload?.File is { Length: > 0 })
-            {
-                FileFile file = fileUploadResponse.Model.Upload.File[0];
-                FileHosterFileStatus fileStatus = file.Mode == 0
-                    ? FileHosterFileStatus.Free
-                    : file.Mode == 1
-                        ? FileHosterFileStatus.PremiumOnly
-                        : file.Mode == 2
-                            ? FileHosterFileStatus.Private
-                            : FileHosterFileStatus.Hotlink;
-                FileHosterFileInfo fileInfo = new()
-                {
-                    Id = file.FileId,
-                    FileStatus = fileStatus,
-                    FileName = file.Name,
-                    Checksum = file.Hash,
-                    Url = file.Url
-                };
 
-                eventArgs = new FileHosterUploadFinishedEventArgs(true, fileUploadResponse.Details, startDateTime, fileInfo);
+            FileHosterFileInfo? fileInfo = ExtractFileInfo(fileUploadResponse.Model);
+            if (fileInfo is not null)
+            {
+                UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(true, fileUploadResponse.Details ?? string.Empty, startDateTime, fileInfo));
+                return;
             }
+
+            // No URL in immediate response — poll the upload_info endpoint
+            if (!string.IsNullOrEmpty(uploadId) && !string.IsNullOrEmpty(UserInfoResponse?.Token))
+            {
+                FileHosterFileInfo? polled = await PollUploadInfoAsync(uploadId, UserInfoResponse.Token);
+                if (polled is not null)
+                {
+                    UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(true, "Uploaded", startDateTime, polled));
+                    return;
+                }
+
+                _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Upload finished but URL could not be resolved via polling. upload_id={uploadId}. Raw response: {e.Result}");
+            }
+            else
+            {
+                _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Upload finished but no upload_id available to poll. Raw response: {e.Result}");
+            }
+
+            UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(true, "Uploaded (URL unavailable)", startDateTime));
+            return;
         }
-        else if (JsonHelpers.TryDeserializeObject(e.Result, out Response? response) && !string.IsNullOrEmpty(response.Details))
+
+        if (JsonHelpers.TryDeserializeObject(e.Result, out Response? response) && !string.IsNullOrEmpty(response.Details))
         {
             _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Failed to upload file: {response.Status} {response.Details}");
-            eventArgs = new FileHosterUploadFinishedEventArgs(false, response.Details, startDateTime);
+            UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(false, response.Details, startDateTime));
+            return;
         }
 
-        UploadFinishedCallback(eventArgs);
+        _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Unrecognized upload response: {e.Result}");
+        UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(e.Success, e.Result, startDateTime));
     }
 
-    private void UploadFinishedCallback(string errorMessage)
+    private static FileHosterFileInfo? ExtractFileInfo(FileUploadResponse? response)
     {
-        UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(false, errorMessage, DateTime.Now));
+        if (response?.Upload?.File is not { Length: > 0 } files)
+        {
+            return null;
+        }
+
+        FileFile file = files[0];
+        if (string.IsNullOrEmpty(file.Url))
+        {
+            return null;
+        }
+
+        FileHosterFileStatus status = file.Mode switch
+        {
+            0 => FileHosterFileStatus.Free,
+            1 => FileHosterFileStatus.PremiumOnly,
+            2 => FileHosterFileStatus.Private,
+            _ => FileHosterFileStatus.Hotlink,
+        };
+
+        return new FileHosterFileInfo
+        {
+            Id = file.FileId,
+            FileStatus = status,
+            FileName = file.Name,
+            Checksum = file.Hash,
+            Url = file.Url,
+        };
     }
 
-    private void UploadFinishedCallback(FileHosterUploadFinishedEventArgs e)
+    private async Task<FileHosterFileInfo?> PollUploadInfoAsync(string uploadId, string token)
     {
-        FireUploadFinished(this, e);
+        string url = $"https://{Hostname}/api/v2/file/upload_info?sid={uploadId}&token={token}";
+
+        for (int attempt = 0; attempt < 60; attempt++)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                FileUploadResponse? info = await HttpSendReceiveAsync<FileUploadResponse>(url, "poll upload info");
+                if (info is null)
+                {
+                    return null;
+                }
+
+                FileHosterFileInfo? extracted = ExtractFileInfo(info);
+                if (extracted is not null)
+                {
+                    return extracted;
+                }
+
+                // Rapidgator upload states: 0=Uploading, 1=Processing, 2=Done, 3+=Error
+                if (info.Upload?.State >= 3)
+                {
+                    _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Upload polling reports error state={info.Upload.State} label={info.Upload.StateLabel}");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Poll attempt {attempt} failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        _logger.Log(this, LogType.Error, $"[{nameof(RapidgatorClient)}] Upload polling timed out after 60 attempts for upload_id={uploadId}");
+        return null;
     }
+
+    private void UploadFinishedCallback(string errorMessage) => UploadFinishedCallback(new FileHosterUploadFinishedEventArgs(false, errorMessage, DateTime.Now));
+
+    private void UploadFinishedCallback(FileHosterUploadFinishedEventArgs e) => FireUploadFinished(this, e);
 }

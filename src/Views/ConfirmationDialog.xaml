@@ -1,0 +1,40 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<Window x:Class="CSUploader.Views.ConfirmationDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Confirm"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
+        Width="440"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   x:Name="MessageText"
+                   TextWrapping="Wrap"
+                   FontSize="13"
+                   Margin="0,0,0,16" />
+
+        <CheckBox Grid.Row="1"
+                  x:Name="DontAskAgainCheck"
+                  Content="Don't ask me again for this action"
+                  Margin="0,0,0,16"
+                  Foreground="{DynamicResource TextSecondaryBrush}" />
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Yes" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Yes_Click" />
+            <Button Content="No" Width="80" IsCancel="True" Click="No_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

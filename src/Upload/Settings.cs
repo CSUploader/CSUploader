@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using CSUploader.Lib.Extensions;
 using System.Text.RegularExpressions;
 
 namespace CSUploader.Upload;
@@ -16,26 +15,30 @@ public class AppSettings
     /// </summary>
     public static AppSettings Current { get; set; } = new();
 
-    public static string DefaultTempArchiveDirectory { get; } = PathExtensions.GetTemporaryDirectory();
-
     public static int DefaultUploadsTabPageRefreshTimer { get; } = 1;
 
     public static int DefaultMaxConcurrentCPUJobs { get; } = 1;
 
     public static int DefaultMaxConcurrentUploadJobs { get; } = 5;
 
+    public static int DefaultMaxUploadsPerHost { get; } = 1;
+
+    public static RemoveFinishedUploadsMode DefaultRemoveFinishedUploads { get; } = RemoveFinishedUploadsMode.Never;
+
+    public static IfFileExistsBehavior DefaultIfFileExists { get; } = IfFileExistsBehavior.Ask;
+
+#if DEBUG
+    public static bool DefaultUseMockServer { get; } = true;
+#else
+    public static bool DefaultUseMockServer { get; } = false;
+#endif
+
     public static Regex UrlRegex { get; } = new Regex("(?:https?[:]\\/\\/)?(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&//=]*)", RegexOptions.Compiled);
 
-    private string? tempArchiveDirectory;
     private int? uploadsTabPageRefreshTimer;
     private int? maxConcurrentCPUJobs;
     private int? maxConcurrentUploadJobs;
-
-    public string TempArchiveDirectory
-    {
-        get => tempArchiveDirectory ?? DefaultTempArchiveDirectory;
-        set => tempArchiveDirectory = value;
-    }
+    private int? maxUploadsPerHost;
 
     public int UploadsTabPageRefreshTimer
     {
@@ -55,5 +58,43 @@ public class AppSettings
         set => maxConcurrentUploadJobs = value;
     }
 
+    public bool MaxUploadsPerHostEnabled { get; set; }
+
+    public int MaxUploadsPerHost
+    {
+        get => maxUploadsPerHost ?? DefaultMaxUploadsPerHost;
+        set => maxUploadsPerHost = value;
+    }
+
+    public RemoveFinishedUploadsMode RemoveFinishedUploads { get; set; } = DefaultRemoveFinishedUploads;
+
+    /// <summary>
+    /// When true, a successful file is removed from the Uploads tab as soon as it completes.
+    /// History on the Uploaded tab is preserved.
+    /// </summary>
+    public bool AutoRemoveCompletedFiles { get; set; }
+
+    /// <summary>
+    /// When true, a package is removed from the Uploads tab as soon as every file in it
+    /// has completed successfully. History on the Uploaded tab is preserved.
+    /// </summary>
+    public bool AutoRemoveCompletedPackages { get; set; }
+
+    public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
+
     public int? SpeedLimit { get; set; }
+
+    /// <summary>
+    /// When true, all outbound file-hoster HTTP requests are rewritten to <see cref="MockServerBaseUrl"/>/&lt;hoster&gt;/...
+    /// for testing against a local mock server. Defaults to true in DEBUG builds, false in RELEASE.
+    /// </summary>
+    public bool UseMockServer { get; set; } = DefaultUseMockServer;
+
+    public string MockServerBaseUrl { get; set; } = "http://localhost:80";
+
+    /// <summary>
+    /// Confirmation-dialog keys for which the user has ticked "Don't ask me again".
+    /// Stored as a comma-separated setting; kept as a HashSet at runtime for O(1) lookup.
+    /// </summary>
+    public HashSet<string> SuppressedConfirmations { get; } = new(StringComparer.Ordinal);
 }

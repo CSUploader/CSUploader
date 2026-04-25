@@ -88,7 +88,7 @@ public partial class ProgressWindow : Window
     /// <param name="func">The async operation to execute.</param>
     public static async Task ExecuteAsync(Window owner, string labelText, bool allowCancel, Func<CancellationToken, Task> func)
     {
-        await ExecuteAsync<bool>(owner, labelText, allowCancel, async ct =>
+        await ExecuteAsync(owner, labelText, allowCancel, async ct =>
         {
             await func(ct);
             return true;

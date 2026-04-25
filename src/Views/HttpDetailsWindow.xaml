@@ -8,7 +8,8 @@
         Width="950" Height="650"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
-        Background="{DynamicResource SurfaceBrush}">
+        Background="{DynamicResource SurfaceBrush}"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico">
 
     <Grid Margin="0">
         <Grid.RowDefinitions>

@@ -16,6 +16,15 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A8AAC0" />
     <SolidColorBrush x:Key="TextDisabledBrush" Color="#8888A0" />
 
+    <!-- Override system disabled-text brush so disabled controls (e.g., locked ComboBox) stay readable -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#A8AAC0" />
+
+    <!-- Override system menu brushes so top-menu dropdown popups match dark theme -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#1E1F26" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#1E1F26" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#E8E9F0" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#334878" />
+
     <!-- ═══ Accent ═══ -->
     <SolidColorBrush x:Key="AccentBrush" Color="#5B9DF6" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#4A8CE8" />

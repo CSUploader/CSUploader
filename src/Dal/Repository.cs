@@ -73,10 +73,7 @@ public abstract class Repository<TEntity, TDto>(IDbContextFactory<CSUploaderDbCo
         return await db.SaveChangesAsync(cancellationToken);
     }
 
-    protected virtual IQueryable<TEntity> GetQuery(CSUploaderDbContext db)
-    {
-        return db.Set<TEntity>();
-    }
+    protected virtual IQueryable<TEntity> GetQuery(CSUploaderDbContext db) => db.Set<TEntity>();
 
     protected async Task<TEntity[]> FindAsync(Expression<Func<TEntity, bool>> predicate, CancellationToken cancellationToken = default)
     {

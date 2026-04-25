@@ -48,10 +48,7 @@ public class CSUploaderDbContext : DbContext
                 .HasConversion<int>();
         });
 
-        modelBuilder.Entity<SettingDbm>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-        });
+        modelBuilder.Entity<SettingDbm>(entity => entity.HasKey(e => e.Id));
 
         modelBuilder.Entity<UploadPackageDbm>(entity =>
         {
@@ -59,6 +56,7 @@ public class CSUploaderDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.HasMany(e => e.Files)
                 .WithOne(f => f.Package)
+                .HasForeignKey(f => f.PackageId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

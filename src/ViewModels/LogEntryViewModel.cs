@@ -8,32 +8,21 @@ using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.ViewModels;
 
-public class LogEntryViewModel
+public class LogEntryViewModel(LogEvent logEvent)
 {
-    public LogEntryViewModel(LogEvent logEvent)
-    {
-        DateTime = logEvent.DateTime;
-        Filename = logEvent.Filename;
-        Function = logEvent.Function;
-        LineNumber = logEvent.LineNumber;
-        Message = logEvent.Message;
-        ThreadId = logEvent.ThreadId;
-        HttpTransaction = logEvent.HttpTransaction;
-    }
+    public DateTime DateTime { get; } = logEvent.DateTime;
 
-    public DateTime DateTime { get; }
+    public string? Filename { get; } = logEvent.Filename;
 
-    public string? Filename { get; }
+    public string? Function { get; } = logEvent.Function;
 
-    public string? Function { get; }
+    public int LineNumber { get; } = logEvent.LineNumber;
 
-    public int LineNumber { get; }
+    public string? Message { get; } = logEvent.Message;
 
-    public string? Message { get; }
+    public int ThreadId { get; } = logEvent.ThreadId;
 
-    public int ThreadId { get; }
-
-    public HttpTransaction? HttpTransaction { get; }
+    public HttpTransaction? HttpTransaction { get; } = logEvent.HttpTransaction;
 
     public bool HasHttpTransaction => HttpTransaction is not null;
 

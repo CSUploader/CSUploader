@@ -31,13 +31,30 @@ public class UploadPackageFileDbm
     public DateTime FinishedDateTime { get; set; }
 
     [Required]
-    public string CompressionPassword { get; set; } = string.Empty;
-
-    [Required]
     public string FileUrl { get; set; } = string.Empty;
 
     [Required]
     public string FileHosterName { get; set; } = string.Empty;
+
+    public int State { get; set; }
+
+    public string? Error { get; set; }
+
+    public bool IsHashingComplete { get; set; }
+
+    public int FileHosterLoginId { get; set; }
+
+    public int Priority { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public int PackageId { get; set; }
+
+    /// <summary>
+    /// Soft-delete flag for the Uploaded tab. Hidden rows are kept in the DB so the history
+    /// is preserved, but are filtered out of the Uploaded tab's query.
+    /// </summary>
+    public bool IsHidden { get; set; }
 
     public UploadPackageDbm? Package { get; set; }
 }

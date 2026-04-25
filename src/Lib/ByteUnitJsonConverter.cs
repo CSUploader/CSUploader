@@ -30,8 +30,5 @@ public class ByteUnitJsonConverter : JsonConverter<ByteUnit>
         return null;
     }
 
-    public override void Write(Utf8JsonWriter writer, ByteUnit value, JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.ToFriendlyString());
-    }
+    public override void Write(Utf8JsonWriter writer, ByteUnit value, JsonSerializerOptions options) => writer.WriteStringValue(value.ToFriendlyString());
 }

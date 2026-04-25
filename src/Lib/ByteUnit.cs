@@ -311,110 +311,47 @@ public class ByteUnit
         return false;
     }
 
-    public static ByteUnit FromBytes(double bytes)
-    {
-        return new ByteUnit(bytes);
-    }
+    public static ByteUnit FromBytes(double bytes) => new ByteUnit(bytes);
 
-    public static ByteUnit FromKiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.KiB);
-    }
+    public static ByteUnit FromKiB(double count) => new ByteUnit(count, ByteUnitSymbol.KiB);
 
-    public static ByteUnit FromMiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.MiB);
-    }
+    public static ByteUnit FromMiB(double count) => new ByteUnit(count, ByteUnitSymbol.MiB);
 
-    public static ByteUnit FromGiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.GiB);
-    }
+    public static ByteUnit FromGiB(double count) => new ByteUnit(count, ByteUnitSymbol.GiB);
 
-    public static ByteUnit FromTiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.TiB);
-    }
+    public static ByteUnit FromTiB(double count) => new ByteUnit(count, ByteUnitSymbol.TiB);
 
-    public static ByteUnit FromPiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.PiB);
-    }
+    public static ByteUnit FromPiB(double count) => new ByteUnit(count, ByteUnitSymbol.PiB);
 
-    public static ByteUnit FromEiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.EiB);
-    }
+    public static ByteUnit FromEiB(double count) => new ByteUnit(count, ByteUnitSymbol.EiB);
 
-    public static ByteUnit FromZiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.ZiB);
-    }
+    public static ByteUnit FromZiB(double count) => new ByteUnit(count, ByteUnitSymbol.ZiB);
 
-    public static ByteUnit FromYiB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.YiB);
-    }
+    public static ByteUnit FromYiB(double count) => new ByteUnit(count, ByteUnitSymbol.YiB);
 
-    public static ByteUnit FromKB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.kB);
-    }
+    public static ByteUnit FromKB(double count) => new ByteUnit(count, ByteUnitSymbol.kB);
 
-    public static ByteUnit FromMB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.MB);
-    }
+    public static ByteUnit FromMB(double count) => new ByteUnit(count, ByteUnitSymbol.MB);
 
-    public static ByteUnit FromGB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.GB);
-    }
+    public static ByteUnit FromGB(double count) => new ByteUnit(count, ByteUnitSymbol.GB);
 
-    public static ByteUnit FromTB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.TB);
-    }
+    public static ByteUnit FromTB(double count) => new ByteUnit(count, ByteUnitSymbol.TB);
 
-    public static ByteUnit FromPB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.PB);
-    }
+    public static ByteUnit FromPB(double count) => new ByteUnit(count, ByteUnitSymbol.PB);
 
-    public static ByteUnit FromEB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.EB);
-    }
+    public static ByteUnit FromEB(double count) => new ByteUnit(count, ByteUnitSymbol.EB);
 
-    public static ByteUnit FromZB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.ZB);
-    }
+    public static ByteUnit FromZB(double count) => new ByteUnit(count, ByteUnitSymbol.ZB);
 
-    public static ByteUnit FromYB(double count)
-    {
-        return new ByteUnit(count, ByteUnitSymbol.YB);
-    }
+    public static ByteUnit FromYB(double count) => new ByteUnit(count, ByteUnitSymbol.YB);
 
-    public static ByteUnit FromBytes(double bytes, ByteBase byteBase)
-    {
-        return new ByteUnit(bytes, byteBase);
-    }
+    public static ByteUnit FromBytes(double bytes, ByteBase byteBase) => new ByteUnit(bytes, byteBase);
 
-    public static ByteUnitSymbol[] GetByteUnitSymbols(ByteBase byteBase)
-    {
-        return [.. ByteUnitSymbolTable.Where(b => b.Value.Base.HasFlag(byteBase)).Select(b => b.Key)];
-    }
+    public static ByteUnitSymbol[] GetByteUnitSymbols(ByteBase byteBase) => [.. ByteUnitSymbolTable.Where(b => b.Value.Base.HasFlag(byteBase)).Select(b => b.Key)];
 
-    public static ByteUnit GetByteUnit(ByteUnitSymbol symbol)
-    {
-        return ByteUnitSymbolTable[symbol];
-    }
+    public static ByteUnit GetByteUnit(ByteUnitSymbol symbol) => ByteUnitSymbolTable[symbol];
 
-    public double GetBytes(double count)
-    {
-        return Bytes * count;
-    }
+    public double GetBytes(double count) => Bytes * count;
 
     public string ToFriendlyString()
     {

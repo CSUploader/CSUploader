@@ -8,7 +8,8 @@
         Width="420" Height="280"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{DynamicResource SurfaceMutedBrush}">
+        Background="{DynamicResource SurfaceMutedBrush}"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico">
 
     <Window.Resources>
         <Style x:Key="FieldLabel" TargetType="TextBlock">
@@ -43,7 +44,8 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="3" Padding="12,0"
                                 BorderThickness="1" BorderBrush="{DynamicResource DialogButtonBorderBrush}"
-                                Background="{DynamicResource DialogButtonBgBrush}">
+                                Background="{DynamicResource DialogButtonBgBrush}"
+                                TextElement.Foreground="{TemplateBinding Foreground}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -72,7 +74,8 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="3" Padding="12,0"
                                 BorderThickness="1" BorderBrush="{DynamicResource SaveButtonBorderBrush}"
-                                Background="{DynamicResource SaveButtonBgBrush}">
+                                Background="{DynamicResource SaveButtonBgBrush}"
+                                TextElement.Foreground="{TemplateBinding Foreground}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -108,6 +111,17 @@
 
             <TextBlock Grid.Row="0" Grid.Column="0" Text="File Hoster:" Style="{StaticResource FieldLabel}" />
             <ComboBox Grid.Row="0" Grid.Column="1" x:Name="HosterCombo" Style="{StaticResource FieldCombo}" Margin="0,0,0,10" />
+            <Border Grid.Row="0" Grid.Column="1" x:Name="HosterLocked"
+                    Margin="0,0,0,10" Padding="8,5"
+                    Background="{DynamicResource SurfaceMutedBrush}"
+                    BorderBrush="{DynamicResource InputFieldBorderBrush}"
+                    BorderThickness="1"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="HosterLockedText"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Border>
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="Username:" Style="{StaticResource FieldLabel}" />
             <TextBox Grid.Row="1" Grid.Column="1" x:Name="UsernameBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />

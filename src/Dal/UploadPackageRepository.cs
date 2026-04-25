@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Upload;
 using Microsoft.EntityFrameworkCore;
 
 namespace CSUploader.Dal;
@@ -10,10 +11,7 @@ namespace CSUploader.Dal;
 public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFactory)
     : Repository<UploadPackageDbm, UploadPackageDto>(dbFactory)
 {
-    protected override IQueryable<UploadPackageDbm> GetQuery(CSUploaderDbContext db)
-    {
-        return db.Set<UploadPackageDbm>().Include(p => p.Files);
-    }
+    protected override IQueryable<UploadPackageDbm> GetQuery(CSUploaderDbContext db) => db.Set<UploadPackageDbm>().Include(p => p.Files);
 
     public async Task<UploadPackageDto?> FindAsync(int id, CancellationToken cancellationToken = default)
     {
@@ -27,10 +25,38 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
     public Task<int> DeleteAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
         => DeleteByPredicateAsync(fu => ids.Contains(fu.Id), cancellationToken);
 
+    public async Task<UploadPackageDto[]> GetIncompleteAsync(CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        UploadPackageDbm[] entities = await GetQuery(db).Where(p => !p.IsCompleted).ToArrayAsync(ct);
+        return [.. entities.Select(MapToDto)];
+    }
+
+    public async Task<UploadPackageDto[]> GetCompletedAsync(CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        UploadPackageDbm[] entities = await GetQuery(db).Where(p => p.IsCompleted).ToArrayAsync(ct);
+        return [.. entities.Select(MapToDto)];
+    }
+
+    public async Task UpdateCompletedFlagAsync(int packageId, bool isCompleted, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageDbm>()
+            .Where(p => p.Id == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCompleted, isCompleted), ct);
+    }
+
     protected override UploadPackageDto MapToDto(UploadPackageDbm entity) => new()
     {
         Id = entity.Id,
         Name = entity.Name,
+        CreatedDateTime = entity.CreatedDateTime,
+        ScheduledStartTime = entity.ScheduledStartTime,
+        IsCompleted = entity.IsCompleted,
+        DirectoryPath = entity.DirectoryPath,
+        SpeedLimitKBps = entity.SpeedLimitKBps,
+        StartMode = (UploadStartMode)entity.StartMode,
         Files = entity.Files.Select(f => new UploadPackageFileDto
         {
             Id = f.Id,
@@ -40,9 +66,15 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             FileHoster = f.FileHoster,
             StartDateTime = f.StartDateTime,
             FinishedDateTime = f.FinishedDateTime,
-            CompressionPassword = f.CompressionPassword,
             FileUrl = f.FileUrl,
             FileHosterName = f.FileHosterName,
+            State = (FileState)f.State,
+            Error = f.Error,
+            IsHashingComplete = f.IsHashingComplete,
+            FileHosterLoginId = f.FileHosterLoginId,
+            Priority = f.Priority,
+            SortOrder = f.SortOrder,
+            PackageId = f.PackageId,
         }).ToArray(),
     };
 
@@ -50,11 +82,23 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
     {
         dto.Id = entity.Id;
         dto.Name = entity.Name;
+        dto.CreatedDateTime = entity.CreatedDateTime;
+        dto.ScheduledStartTime = entity.ScheduledStartTime;
+        dto.IsCompleted = entity.IsCompleted;
+        dto.DirectoryPath = entity.DirectoryPath;
+        dto.SpeedLimitKBps = entity.SpeedLimitKBps;
+        dto.StartMode = (UploadStartMode)entity.StartMode;
     }
 
     protected override UploadPackageDbm MapToDbm(UploadPackageDto dto) => new()
     {
         Id = dto.Id,
         Name = dto.Name ?? string.Empty,
+        CreatedDateTime = dto.CreatedDateTime,
+        ScheduledStartTime = dto.ScheduledStartTime,
+        IsCompleted = dto.IsCompleted,
+        DirectoryPath = dto.DirectoryPath ?? string.Empty,
+        SpeedLimitKBps = dto.SpeedLimitKBps,
+        StartMode = (int)dto.StartMode,
     };
 }

@@ -4,11 +4,13 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Lib;
+using CSUploader.Services;
 using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
@@ -16,17 +18,23 @@ namespace CSUploader.ViewModels;
 public partial class UploadsViewModel : ObservableObject, IDisposable
 {
     private readonly PackageManager _packageManager;
+    private readonly AppSettings _settings;
+    private readonly IDialogService _dialogService;
     private readonly DispatcherTimer _refreshTimer;
     private bool _disposed;
 
-    public UploadsViewModel(PackageManager packageManager)
+    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService)
     {
         _packageManager = packageManager;
+        _settings = settings;
+        _dialogService = dialogService;
         _packageManager.PackageAdded += PackageManager_PackageAdded;
+        _packageManager.FileCompleted += PackageManager_FileCompleted;
+        _packageManager.PackageCompleted += PackageManager_PackageCompleted;
 
         _refreshTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(AppSettings.DefaultUploadsTabPageRefreshTimer),
+            Interval = TimeSpan.FromMilliseconds(200),
         };
         _refreshTimer.Tick += RefreshTimer_Tick;
         _refreshTimer.Start();
@@ -35,7 +43,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool showUploadOverview = true;
 
-    // ── Overview field visibility toggles ──
+    // -- Overview field visibility toggles --
 
     [ObservableProperty]
     private bool showPackages = true;
@@ -75,7 +83,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<Package> Packages { get; } = [];
 
-    // ── Summary properties for status bar ──
+    /// <summary>
+    /// Flat list of rows for the DataGrid: packages interleaved with their files
+    /// (when the package is expanded). Single shared column widths across all rows.
+    /// </summary>
+    public ObservableCollection<object> VisibleRows { get; } = [];
+
+    // -- Summary properties for status bar --
 
     public int PackageCount => Packages.Count;
 
@@ -102,16 +116,16 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     public int RunningUploads => Packages.Sum(p =>
-        p.Count(pf => pf.Status?.Status == JobStatus.Running));
+        p.Count(pf => pf.State is FileState.Uploading));
 
     public int FinishedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.Status?.Status == JobStatus.Success));
+        p.Count(pf => pf.State == FileState.Completed));
 
     public int SkippedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.Status?.Status == JobStatus.Cancelled));
+        p.Count(pf => pf.State == FileState.Cancelled));
 
     public int FailedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.Status?.Status == JobStatus.Failed));
+        p.Count(pf => pf.State == FileState.Failed));
 
     public string Eta
     {
@@ -133,83 +147,326 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
-    // ── Commands ──
+    // -- Commands --
 
     [RelayCommand]
-    private void Start()
-    {
-        _packageManager.StartPackages();
-    }
+    private void Start() => _packageManager.StartPackages();
 
     [RelayCommand]
-    private void Pause()
-    {
-        _packageManager.PausePackages(resume: _packageManager.IsPaused);
-    }
+    private void Pause() => _packageManager.PausePackages(resume: _packageManager.IsPaused);
 
     [RelayCommand]
-    private void Stop()
-    {
-        _packageManager.StopPackages();
-    }
+    private void Stop() => _packageManager.StopPackages();
 
     [RelayCommand]
-    private void Retry(PackageDetails? packageDetails)
+    private void Retry(object? item)
     {
-        if (packageDetails is not null)
+        if (item is not null)
         {
-            _packageManager.StartPackage(packageDetails);
+            _packageManager.StartPackage(item);
         }
     }
 
     [RelayCommand]
 #pragma warning disable CA1822 // Must be instance method for RelayCommand
-    private void StopSelected(PackageDetails? packageDetails)
+    private void StopSelected(object? item)
 #pragma warning restore CA1822
     {
-        if (packageDetails is not null)
+        if (item is not null)
         {
-            PackageManager.StopPackage(packageDetails);
+            PackageManager.StopPackage(item);
         }
     }
 
     [RelayCommand]
-    private void Remove(PackageDetails? packageDetails)
+#pragma warning disable CA1822
+    private void SetSpeedLimit(object? item)
+#pragma warning restore CA1822
     {
-        if (packageDetails is not null)
+        int? currentLimit;
+        int? inheritedLimit;
+        switch (item)
         {
-            _packageManager.RemovePackage(packageDetails);
+            case Package package:
+                currentLimit = package.SpeedLimitKBps;
+                inheritedLimit = _settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null;
+                break;
+            case PackageFile file:
+                currentLimit = file.SpeedLimitKBps;
+                inheritedLimit = file.Package.SpeedLimitKBps
+                    ?? (_settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null);
+                break;
+            default:
+                return;
+        }
 
-            if (packageDetails is Package package)
+        int? displayLimit = currentLimit ?? inheritedLimit;
+
+        var dialog = new Views.SpeedLimitDialog(displayLimit)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            if (item is Package pkg)
             {
-                Packages.Remove(package);
+                pkg.SpeedLimitKBps = dialog.Result;
+            }
+            else if (item is PackageFile pf)
+            {
+                pf.SpeedLimitKBps = dialog.Result;
             }
         }
     }
 
-    private void PackageManager_PackageAdded(object? sender, PackageAddedEventArgs e)
+    [RelayCommand]
+    private static void OpenSourceDirectory(object? item)
     {
-        if (e.ChildPackages is null)
+        string? dir = item switch
+        {
+            Package pkg => pkg.SaveFrom,
+            PackageFile file => file.SaveFrom,
+            _ => null,
+        };
+
+        if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+        {
+            System.Diagnostics.Process.Start("explorer.exe", dir);
+        }
+    }
+
+    [RelayCommand]
+    private static void SkipUpload(object? item)
+    {
+        if (item is not null)
+        {
+            PackageManager.StopPackage(item);
+        }
+    }
+
+    [RelayCommand]
+    private void ResetFile(object? item)
+    {
+        if (item is not null)
+        {
+            _packageManager.ResetPackage(item);
+        }
+    }
+
+    [RelayCommand]
+    private void Remove(object? item)
+    {
+        if (item is null)
         {
             return;
         }
 
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        string msg = item switch
         {
-            foreach (PackageDetails packageDetails in e.ChildPackages)
+            Package p => $"Remove package '{p.Name}' and its {p.Count()} file(s)?",
+            PackageFile f => $"Remove '{f.Name}' from the upload list?",
+            _ => "Remove this item?",
+        };
+        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, "Remove"))
+        {
+            return;
+        }
+
+        if (item is Package package)
+        {
+            // Snapshot the files *before* telling the manager to remove the package,
+            // because PackageManager.RemovePackage clears the package's internal list
+            // and we'd otherwise leave orphan rows in VisibleRows.
+            PackageFile[] files = [.. package];
+            _packageManager.RemovePackage(item);
+            RemovePackageFromView(package, files);
+        }
+        else
+        {
+            _packageManager.RemovePackage(item);
+            if (item is PackageFile file)
             {
-                if (packageDetails is Package package && !Packages.Contains(package))
+                VisibleRows.Remove(file);
+            }
+        }
+    }
+
+    private void RemovePackageFromView(Package package, IEnumerable<PackageFile> files)
+    {
+        package.PropertyChanged -= Package_PropertyChanged;
+        package.PackageFilesAdded -= Package_FilesAdded;
+        foreach (PackageFile file in files)
+        {
+            VisibleRows.Remove(file);
+        }
+
+        VisibleRows.Remove(package);
+        Packages.Remove(package);
+    }
+
+    private void RemovePackageFromView(Package package)
+    {
+        RemovePackageFromView(package, package);
+    }
+
+    private void PackageManager_FileCompleted(object? sender, PackageFile file)
+    {
+        if (!_settings.AutoRemoveCompletedFiles || file.State != FileState.Completed)
+        {
+            return;
+        }
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            // Drop this row; PackageCompleted below handles whole-package removal.
+            Package package = file.Package;
+            _packageManager.RemovePackage(file);
+            VisibleRows.Remove(file);
+
+            // If the package just became empty, clean it up too.
+            if (package.Count() == 0)
+            {
+                _packageManager.RemovePackage(package);
+                RemovePackageFromView(package, []);
+            }
+        });
+    }
+
+    private void PackageManager_PackageCompleted(object? sender, Package package)
+    {
+        if (!_settings.AutoRemoveCompletedPackages)
+        {
+            return;
+        }
+
+        // Only auto-remove if every file was successful — leave packages with failures visible.
+        foreach (PackageFile f in package)
+        {
+            if (f.State != FileState.Completed)
+            {
+                return;
+            }
+        }
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            PackageFile[] files = [.. package];
+            _packageManager.RemovePackage(package);
+            RemovePackageFromView(package, files);
+        });
+    }
+
+    private void PackageManager_PackageAdded(object? sender, PackageAddedEventArgs e)
+    {
+        if (e.Packages is null)
+        {
+            return;
+        }
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            foreach (Package package in e.Packages)
+            {
+                if (!Packages.Contains(package))
                 {
                     Packages.Add(package);
+                    package.PropertyChanged += Package_PropertyChanged;
+                    package.PackageFilesAdded += Package_FilesAdded;
+                    AddPackageToVisibleRows(package);
                 }
             }
         });
     }
 
+    private void Package_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(Package.IsExpanded) && sender is Package package)
+        {
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                if (package.IsExpanded)
+                {
+                    InsertPackageFiles(package);
+                }
+                else
+                {
+                    RemovePackageFiles(package);
+                }
+            });
+        }
+    }
+
+    private void Package_FilesAdded(object? sender, PackageAddedEventArgs e)
+    {
+        if (sender is not Package package)
+        {
+            return;
+        }
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (package.IsExpanded)
+            {
+                // Remove and re-add files to reflect any changes
+                RemovePackageFiles(package);
+                InsertPackageFiles(package);
+            }
+        });
+    }
+
+    private void AddPackageToVisibleRows(Package package)
+    {
+        VisibleRows.Add(package);
+        if (package.IsExpanded)
+        {
+            InsertPackageFiles(package);
+        }
+    }
+
+    private void InsertPackageFiles(Package package)
+    {
+        int insertIndex = VisibleRows.IndexOf(package) + 1;
+        if (insertIndex <= 0)
+        {
+            return;
+        }
+
+        // Insert after any existing file rows for this package (idempotent)
+        foreach (PackageFile file in package)
+        {
+            if (!VisibleRows.Contains(file))
+            {
+                VisibleRows.Insert(insertIndex++, file);
+            }
+        }
+    }
+
+    private void RemovePackageFiles(Package package)
+    {
+        foreach (PackageFile file in package)
+        {
+            VisibleRows.Remove(file);
+        }
+    }
+
     private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
-        // Force UI to re-read all properties (Package/PackageFile don't raise PropertyChanged)
-        OnPropertyChanged(nameof(Packages));
+        AutoRemoveFinishedPackages();
+
+        // Have each Package (and its files) raise PropertyChanged for display props.
+        // This updates cells in place without affecting row state.
+        foreach (object row in VisibleRows)
+        {
+            if (row is Package pkg)
+            {
+                pkg.NotifyDisplayPropertiesChanged();
+            }
+            else if (row is PackageFile file)
+            {
+                file.NotifyDisplayPropertiesChanged();
+            }
+        }
 
         // Refresh summary stats
         OnPropertyChanged(nameof(PackageCount));
@@ -223,6 +480,65 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(FinishedLinks));
         OnPropertyChanged(nameof(SkippedLinks));
         OnPropertyChanged(nameof(FailedLinks));
+    }
+
+    private void AutoRemoveFinishedPackages()
+    {
+        RemoveFinishedUploadsMode mode = _settings.RemoveFinishedUploads;
+        if (mode == RemoveFinishedUploadsMode.Never)
+        {
+            return;
+        }
+
+        TimeSpan? threshold = mode switch
+        {
+            RemoveFinishedUploadsMode.Immediately => TimeSpan.Zero,
+            RemoveFinishedUploadsMode.AfterOneHour => TimeSpan.FromHours(1),
+            RemoveFinishedUploadsMode.AfterOneDay => TimeSpan.FromDays(1),
+            _ => null,
+        };
+
+        if (threshold is null)
+        {
+            return;
+        }
+
+        DateTime now = DateTime.Now;
+        Package[] toRemove = [.. Packages.Where(p => IsPackageFinished(p) && PackageFinishedAge(p, now) >= threshold.Value)];
+        foreach (Package package in toRemove)
+        {
+            _packageManager.RemovePackage(package);
+            RemovePackageFromView(package);
+        }
+    }
+
+    private static bool IsPackageFinished(Package package)
+    {
+        bool anyFile = false;
+        foreach (PackageFile file in package)
+        {
+            anyFile = true;
+            if (file.State != FileState.Completed)
+            {
+                return false;
+            }
+        }
+
+        return anyFile;
+    }
+
+    private static TimeSpan PackageFinishedAge(Package package, DateTime now)
+    {
+        DateTime? latest = null;
+        foreach (PackageFile file in package)
+        {
+            if (file.FinishedDate is { } finished && (latest is null || finished > latest))
+            {
+                latest = finished;
+            }
+        }
+
+        return latest is null ? TimeSpan.Zero : now - latest.Value;
     }
 
     public void Dispose()
@@ -242,6 +558,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         {
             _refreshTimer.Stop();
             _packageManager.PackageAdded -= PackageManager_PackageAdded;
+            _packageManager.FileCompleted -= PackageManager_FileCompleted;
+            _packageManager.PackageCompleted -= PackageManager_PackageCompleted;
         }
 
         _disposed = true;

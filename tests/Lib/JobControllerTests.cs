@@ -95,10 +95,7 @@ public class JobControllerTests
         Task pauseTask = controller.PauseAsync();
 
         // Simulate a worker calling PauseIfRequestedAsync (confirms the pause and waits for resume)
-        var workerTask = Task.Run(async () =>
-        {
-            await controller.PauseIfRequestedAsync();
-        });
+        var workerTask = Task.Run(async () => await controller.PauseIfRequestedAsync());
 
         // Wait for the pause to be confirmed
         bool pauseCompleted = await Task.WhenAny(pauseTask, Task.Delay(2000)) == pauseTask;

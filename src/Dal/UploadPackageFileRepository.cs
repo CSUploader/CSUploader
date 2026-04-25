@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Upload;
 using Microsoft.EntityFrameworkCore;
 
 namespace CSUploader.Dal;
@@ -22,6 +23,80 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
     public Task<int> DeleteAsync(IEnumerable<int> fileIds, CancellationToken cancellationToken = default)
         => DeleteByPredicateAsync(fu => fileIds.Contains(fu.Id), cancellationToken);
 
+    /// <summary>
+    /// Soft-deletes files by flipping <see cref="UploadPackageFileDbm.IsHidden"/> to true.
+    /// The rows remain in the database so history is preserved.
+    /// </summary>
+    public async Task<int> HideAsync(IEnumerable<int> fileIds, CancellationToken cancellationToken = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        return await db.Set<UploadPackageFileDbm>()
+            .Where(f => fileIds.Contains(f.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsHidden, true), cancellationToken);
+    }
+
+    /// <summary>
+/// Returns every file that has reached a terminal state (Completed/Failed/Cancelled)
+/// together with its owning package name, regardless of whether the package itself
+/// has been marked <c>IsCompleted</c>. Used by the Uploaded tab so files appear as
+/// soon as they finish, not only when the whole package finishes.
+/// </summary>
+    public async Task<(UploadPackageFileDto File, string PackageName)[]> GetDoneFilesWithPackageNameAsync(CancellationToken ct = default)
+    {
+        int[] terminalStates =
+        [
+            (int)FileState.Completed,
+            (int)FileState.Failed,
+            (int)FileState.Cancelled,
+        ];
+
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        var rows = await db.Set<UploadPackageFileDbm>()
+            .Where(f => terminalStates.Contains(f.State) && !f.IsHidden)
+            .Join(
+                db.Set<UploadPackageDbm>(),
+                f => f.PackageId,
+                p => p.Id,
+                (f, p) => new { File = f, PackageName = p.Name })
+            .ToArrayAsync(ct);
+
+        return [.. rows.Select(r => (MapToDto(r.File), r.PackageName ?? string.Empty))];
+    }
+
+    public async Task UpdateStateAsync(int fileId, int state, string? error, string? fileUrl, DateTime? finishedDateTime = null, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        if (finishedDateTime is { } finished)
+        {
+            await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == fileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.State, state)
+                    .SetProperty(f => f.Error, error ?? string.Empty)
+                    .SetProperty(f => f.FileUrl, fileUrl ?? string.Empty)
+                    .SetProperty(f => f.FinishedDateTime, finished), ct);
+        }
+        else
+        {
+            await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == fileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.State, state)
+                    .SetProperty(f => f.Error, error ?? string.Empty)
+                    .SetProperty(f => f.FileUrl, fileUrl ?? string.Empty), ct);
+        }
+    }
+
+    public async Task UpdateFinishedAsync(int fileId, DateTime finishedDateTime, string? fileUrl, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageFileDbm>()
+            .Where(f => f.Id == fileId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(f => f.FinishedDateTime, finishedDateTime)
+                .SetProperty(f => f.FileUrl, fileUrl ?? string.Empty), ct);
+    }
+
     protected override UploadPackageFileDto MapToDto(UploadPackageFileDbm entity) => new()
     {
         Id = entity.Id,
@@ -31,9 +106,16 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FileHoster = entity.FileHoster,
         StartDateTime = entity.StartDateTime,
         FinishedDateTime = entity.FinishedDateTime,
-        CompressionPassword = entity.CompressionPassword,
         FileUrl = entity.FileUrl,
         FileHosterName = entity.FileHosterName,
+        State = (FileState)entity.State,
+        Error = entity.Error,
+        IsHashingComplete = entity.IsHashingComplete,
+        FileHosterLoginId = entity.FileHosterLoginId,
+        Priority = entity.Priority,
+        SortOrder = entity.SortOrder,
+        PackageId = entity.PackageId,
+        IsHidden = entity.IsHidden,
     };
 
     protected override void MapToDto(UploadPackageFileDbm entity, UploadPackageFileDto dto)
@@ -45,9 +127,16 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.FileHoster = entity.FileHoster;
         dto.StartDateTime = entity.StartDateTime;
         dto.FinishedDateTime = entity.FinishedDateTime;
-        dto.CompressionPassword = entity.CompressionPassword;
         dto.FileUrl = entity.FileUrl;
         dto.FileHosterName = entity.FileHosterName;
+        dto.State = (FileState)entity.State;
+        dto.Error = entity.Error;
+        dto.IsHashingComplete = entity.IsHashingComplete;
+        dto.FileHosterLoginId = entity.FileHosterLoginId;
+        dto.Priority = entity.Priority;
+        dto.SortOrder = entity.SortOrder;
+        dto.PackageId = entity.PackageId;
+        dto.IsHidden = entity.IsHidden;
     }
 
     protected override UploadPackageFileDbm MapToDbm(UploadPackageFileDto dto) => new()
@@ -59,8 +148,15 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FileHoster = dto.FileHoster ?? string.Empty,
         StartDateTime = dto.StartDateTime,
         FinishedDateTime = dto.FinishedDateTime,
-        CompressionPassword = dto.CompressionPassword ?? string.Empty,
         FileUrl = dto.FileUrl ?? string.Empty,
         FileHosterName = dto.FileHosterName ?? string.Empty,
+        State = (int)dto.State,
+        Error = dto.Error,
+        IsHashingComplete = dto.IsHashingComplete,
+        FileHosterLoginId = dto.FileHosterLoginId,
+        Priority = dto.Priority,
+        SortOrder = dto.SortOrder,
+        PackageId = dto.PackageId,
+        IsHidden = dto.IsHidden,
     };
 }

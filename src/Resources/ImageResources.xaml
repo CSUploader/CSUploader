@@ -7,27 +7,25 @@
     <!-- Action Images -->
     <BitmapImage x:Key="ActionCancelImage" UriSource="pack://application:,,,/Properties/Images/action_cancel.png" />
     <BitmapImage x:Key="ActionRetryImage" UriSource="pack://application:,,,/Properties/Images/action_retry.png" />
+    <BitmapImage x:Key="ActionSkipImage" UriSource="pack://application:,,,/Properties/Images/action_skip.png" />
+    <BitmapImage x:Key="ActionResetImage" UriSource="pack://application:,,,/Properties/Images/action_reset.png" />
+    <BitmapImage x:Key="ActionFolderImage" UriSource="pack://application:,,,/Properties/Images/action_folder.png" />
+    <BitmapImage x:Key="ActionSpeedImage" UriSource="pack://application:,,,/Properties/Images/action_speed.png" />
 
     <!-- Button Images -->
     <BitmapImage x:Key="ButtonPauseImage" UriSource="pack://application:,,,/Properties/Images/button_pause.png" />
     <BitmapImage x:Key="ButtonStartImage" UriSource="pack://application:,,,/Properties/Images/button_start.png" />
     <BitmapImage x:Key="ButtonStopImage" UriSource="pack://application:,,,/Properties/Images/button_stop.png" />
 
-    <!-- File Type Images -->
-    <BitmapImage x:Key="FileType7zImage" UriSource="pack://application:,,,/Properties/Images/filetype_7z.png" />
-    <BitmapImage x:Key="FileTypeRarImage" UriSource="pack://application:,,,/Properties/Images/filetype_rar.png" />
-
     <!-- Misc Images -->
     <BitmapImage x:Key="GoDownImage" UriSource="pack://application:,,,/Properties/Images/go_down.png" />
 
     <!-- Package Images -->
     <BitmapImage x:Key="PackageClosedImage" UriSource="pack://application:,,,/Properties/Images/package_closed.png" />
-    <BitmapImage x:Key="PackageCompressingImage" UriSource="pack://application:,,,/Properties/Images/package_compressing.png" />
     <BitmapImage x:Key="PackageOpenImage" UriSource="pack://application:,,,/Properties/Images/package_open.png" />
 
     <!-- Status Images -->
     <BitmapImage x:Key="StatusCancelledImage" UriSource="pack://application:,,,/Properties/Images/status_cancelled.png" />
-    <BitmapImage x:Key="StatusCompressingImage" UriSource="pack://application:,,,/Properties/Images/status_compressing.png" />
     <BitmapImage x:Key="StatusFailedImage" UriSource="pack://application:,,,/Properties/Images/status_failed.png" />
     <BitmapImage x:Key="StatusHashingImage" UriSource="pack://application:,,,/Properties/Images/status_hashing.png" />
     <BitmapImage x:Key="StatusOkImage" UriSource="pack://application:,,,/Properties/Images/status_ok.png" />

@@ -3,135 +3,477 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Net;
 
 namespace CSUploader.Upload;
 
+/// <summary>
+/// Thin wrapper around <see cref="UploadScheduler"/> that maintains the public API
+/// consumed by ViewModels, with database persistence for packages and file states.
+/// </summary>
 public class PackageManager
 {
-    private readonly PackageQueue packageQueue = new();
-    private readonly object _lock = new();
-    private readonly AppSettings _settings;
+    private readonly UploadScheduler _scheduler;
+    private readonly UploadPackageRepository _packageRepo;
+    private readonly UploadPackageFileRepository _fileRepo;
+    private readonly FileHosterLoginRepository _loginRepo;
+    private readonly IAppLogger _logger;
+    private readonly Lock _lock = new();
 
-    public PackageManager(AppSettings settings)
+    // Serializes state-change persistence so that when PackageCompleted fires for the last file,
+    // every prior file's UpdateStateAsync (and its URL) has already been committed to SQLite.
+    private readonly SemaphoreSlim _persistLock = new(1, 1);
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PackageManager"/> class.
+    /// </summary>
+    /// <param name="settings">The application settings.</param>
+    /// <param name="scheduler">The upload scheduler.</param>
+    /// <param name="packageRepo">The upload package repository.</param>
+    /// <param name="fileRepo">The upload package file repository.</param>
+    /// <param name="loginRepo">The file hoster login repository.</param>
+    /// <param name="logger">The application logger.</param>
+    public PackageManager(
+        AppSettings settings,
+        UploadScheduler scheduler,
+        UploadPackageRepository packageRepo,
+        UploadPackageFileRepository fileRepo,
+        FileHosterLoginRepository loginRepo,
+        IAppLogger logger)
     {
-        _settings = settings;
+        _scheduler = scheduler;
+        _packageRepo = packageRepo;
+        _fileRepo = fileRepo;
+        _loginRepo = loginRepo;
+        _logger = logger;
+
+        _scheduler.PackageAdded += (_, package) => PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
+        _scheduler.FileStateChanged += OnFileStateChanged;
+        _scheduler.Start();
     }
 
+    /// <summary>
+    /// Raised when a package is added.
+    /// </summary>
     public event EventHandler<PackageAddedEventArgs>? PackageAdded;
 
-    public event EventHandler<PackageStatusChangedEventArgs>? PackageStatusChanged;
+    /// <summary>
+    /// Raised after all files in a package have completed and the DB flag has been updated.
+    /// </summary>
+    public event EventHandler<Package>? PackageCompleted;
 
+    /// <summary>
+    /// Raised after an individual file reaches a terminal state (Completed/Failed/Cancelled)
+    /// and its state has been persisted. Lets the Uploaded tab refresh per-file, without
+    /// waiting for the whole package to finish.
+    /// </summary>
+    public event EventHandler<PackageFile>? FileCompleted;
+
+    /// <summary>
+    /// Gets the list of packages.
+    /// </summary>
     public List<Package> Packages { get; } = [];
 
-    public bool IsPaused { get; private set; }
+    /// <summary>
+    /// Gets a value indicating whether the scheduler is paused.
+    /// </summary>
+    public bool IsPaused => _scheduler.IsPaused;
 
-    public void AddAndStartPackage(PackageOptions options)
+    /// <summary>
+    /// Creates a package from the given options, adds it, and starts scheduling.
+    /// </summary>
+    /// <param name="options">The package options.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public async Task AddAndStartPackageAsync(PackageOptions options)
+    {
+        Package package = await CreatePackageAsync(options);
+        _scheduler.AddPackage(package);
+    }
+
+    /// <summary>
+    /// Creates and registers a package without scheduling it for upload.
+    /// Files are added and the UI is notified, but no hashing/uploading starts.
+    /// Call <see cref="SchedulePackage"/> later to start it.
+    /// </summary>
+    /// <returns>The created package.</returns>
+    public async Task<Package> AddPackageOnlyAsync(PackageOptions options)
+    {
+        Package package = await CreatePackageAsync(options);
+        PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
+        return package;
+    }
+
+    /// <summary>
+    /// Schedules a previously-added package for upload.
+    /// </summary>
+    public void SchedulePackage(Package package)
+    {
+        _scheduler.AddPackage(package);
+    }
+
+    /// <summary>
+    /// Schedules a delayed start for a package at the specified time.
+    /// </summary>
+    /// <param name="package">The package to schedule.</param>
+    /// <param name="scheduledAt">The date/time to start the package.</param>
+    public void ScheduleDelayedStart(Package package, DateTime scheduledAt)
+    {
+        package.ScheduledStartTime = scheduledAt;
+        TimeSpan delay = scheduledAt - DateTime.Now;
+        if (delay <= TimeSpan.Zero)
+        {
+            _scheduler.AddPackage(package);
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(delay);
+            _scheduler.AddPackage(package);
+        });
+    }
+
+    /// <summary>
+    /// Loads incomplete packages from the database and resumes them.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public async Task LoadPersistedPackagesAsync()
+    {
+        try
+        {
+            UploadPackageDto[] incomplete = await _packageRepo.GetIncompleteAsync();
+
+            foreach (UploadPackageDto pkgDto in incomplete)
+            {
+                if (pkgDto.Files is null || pkgDto.Files.Count == 0)
+                {
+                    continue;
+                }
+
+                // Build FileHosterLogins dictionary
+                Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
+                Dictionary<string, SharedSession> sessions = new(StringComparer.Ordinal);
+
+                foreach (UploadPackageFileDto fileDto in pkgDto.Files)
+                {
+                    string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
+                    if (string.IsNullOrEmpty(hosterName) || fileHosterLogins.Keys.Any(k => string.Equals(k.Name, hosterName, StringComparison.Ordinal)))
+                    {
+                        continue;
+                    }
+
+                    var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
+                    if (client is null)
+                    {
+                        continue;
+                    }
+
+                    FileHosterLoginDto? login = fileDto.FileHosterLoginId > 0
+                        ? await _loginRepo.FindAsync(fileDto.FileHosterLoginId)
+                        : null;
+                    login ??= new FileHosterLoginDto { FileHosterName = hosterName };
+
+                    fileHosterLogins[client] = login;
+                    sessions[hosterName] = new SharedSession();
+                }
+
+                if (fileHosterLogins.Count == 0)
+                {
+                    continue;
+                }
+
+                // Reconstruct Package
+                PackageOptions options = new()
+                {
+                    DirectoryPath = pkgDto.DirectoryPath,
+                    Logger = _logger,
+                    FileHosters = fileHosterLogins,
+                };
+                Package package = new(options)
+                {
+                    DbId = pkgDto.Id,
+                    ScheduledStartTime = pkgDto.ScheduledStartTime,
+                    SpeedLimitKBps = pkgDto.SpeedLimitKBps,
+                };
+
+                // Override Name since it was persisted
+                package.Name = pkgDto.Name ?? package.Name;
+
+                // Reconstruct PackageFiles
+                List<PackageFile> files = [];
+                foreach (UploadPackageFileDto fileDto in pkgDto.Files)
+                {
+                    string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
+                    var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
+                    if (client is null)
+                    {
+                        continue;
+                    }
+
+                    FileHosterLoginDto? login = fileDto.FileHosterLoginId > 0
+                        ? await _loginRepo.FindAsync(fileDto.FileHosterLoginId)
+                        : null;
+                    login ??= new FileHosterLoginDto { FileHosterName = hosterName };
+
+                    if (sessions.TryGetValue(hosterName, out SharedSession? session))
+                    {
+                        client.SharedSessionCache = session;
+                    }
+
+                    string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
+
+                    // Only add if file still exists on disk
+                    if (!File.Exists(filePath))
+                    {
+                        _logger.Log(this, LogType.Error, $"File no longer exists: {filePath}");
+                        continue;
+                    }
+
+                    PackageFile pf = new(package, filePath, client, login)
+                    {
+                        DbId = fileDto.Id,
+                        Priority = fileDto.Priority,
+                        IsHashingComplete = fileDto.IsHashingComplete
+                    };
+                    client.SpeedLimitProvider = pf.GetEffectiveSpeedLimitBytesPerSecond;
+
+                    // Remap state: interrupted Hashing/Uploading -> re-queue
+                    FileState restoredState = fileDto.State switch
+                    {
+                        FileState.Hashing => FileState.HashQueued,
+                        FileState.Uploading => FileState.UploadQueued,
+                        FileState.Idle when pf.RequiresHashingBeforeUpload && !pf.IsHashingComplete => FileState.HashQueued,
+                        FileState.Idle => FileState.UploadQueued,
+                        _ => fileDto.State,
+                    };
+                    pf.State = restoredState;
+                    pf.Error = fileDto.Error;
+                    pf.FileUrl = fileDto.FileUrl;
+
+                    files.Add(pf);
+                }
+
+                if (files.Count == 0)
+                {
+                    continue;
+                }
+
+                // If every file is already in a terminal state, mark the package complete in DB
+                // and skip adding it to the active list. This backfills packages that were left
+                // with IsCompleted=false under stricter earlier logic.
+                if (files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled))
+                {
+                    await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
+                    continue;
+                }
+
+                package.AddPackageFiles([.. files]);
+
+                lock (_lock)
+                { Packages.Add(package); }
+                PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
+
+                // Resume scheduling for packages that should auto-start
+                bool hasQueuedFiles = files.Any(f => f.State is FileState.HashQueued or FileState.UploadQueued);
+                if (hasQueuedFiles)
+                {
+                    if (pkgDto.ScheduledStartTime is not null && pkgDto.ScheduledStartTime > DateTime.Now)
+                    {
+                        ScheduleDelayedStart(package, pkgDto.ScheduledStartTime.Value);
+                    }
+                    else
+                    {
+                        _scheduler.AddPackage(package);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to load persisted packages: {ex.Message}");
+        }
+    }
+
+    private async Task<Package> CreatePackageAsync(PackageOptions options)
     {
         Package package = new(options);
 
-        AddPackage(package);
+        if (!string.IsNullOrEmpty(package.SaveFrom))
+        {
+            package.AddPackageFiles(package.SaveFrom);
+        }
 
-        StartPackage(package);
-    }
-
-    public void StartPackages()
-    {
-        Package[] snapshot;
         lock (_lock)
         {
-            snapshot = [.. Packages];
+            Packages.Add(package);
         }
 
-        foreach (PackageDetails packageDetails in snapshot)
+        await PersistNewPackageAsync(package);
+
+        return package;
+    }
+
+    private async Task PersistNewPackageAsync(Package package)
+    {
+        try
         {
-            StartPackage(packageDetails);
+            UploadPackageDto pkgDto = new()
+            {
+                Name = package.Name,
+                CreatedDateTime = DateTime.Now,
+                ScheduledStartTime = package.ScheduledStartTime,
+                IsCompleted = false,
+                DirectoryPath = package.SaveFrom ?? string.Empty,
+                SpeedLimitKBps = package.SpeedLimitKBps,
+                StartMode = UploadStartMode.Immediately,
+            };
+            await _packageRepo.InsertAsync(pkgDto);
+            package.DbId = pkgDto.Id;
+
+            int sortOrder = 0;
+            foreach (PackageFile file in package)
+            {
+                UploadPackageFileDto fileDto = new()
+                {
+                    FileName = file.Name,
+                    FileDirectory = file.SaveFrom ?? string.Empty,
+                    FileSize = file.Size ?? 0,
+                    FileHoster = file.FileHoster.Name,
+                    FileHosterName = file.FileHoster.Name,
+                    StartDateTime = DateTime.Now,
+                    State = file.State,
+                    IsHashingComplete = file.IsHashingComplete,
+                    FileHosterLoginId = file.FileHosterLogin?.Id ?? 0,
+                    Priority = file.Priority,
+                    SortOrder = sortOrder++,
+                    PackageId = package.DbId.Value,
+                };
+                await _fileRepo.InsertAsync(fileDto);
+                file.DbId = fileDto.Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            string detail = ex.Message;
+            Exception? inner = ex.InnerException;
+            while (inner is not null)
+            {
+                detail += " | inner: " + inner.Message;
+                inner = inner.InnerException;
+            }
+
+            _logger.Log(this, LogType.Error, $"Failed to persist package: {detail}");
         }
     }
 
-    public void StartPackage(PackageDetails packageDetails)
+    private void OnFileStateChanged(object? sender, FileStateChangedEventArgs e)
     {
-        if (IsPaused)
+        if (e.File.DbId is null)
         {
             return;
         }
 
-        if (packageDetails is Package package)
-        {
-            StartPackageDetails(package, true);
+        int fileId = e.File.DbId.Value;
+        FileState state = e.NewState;
+        string? error = e.File.Error;
+        string? fileUrl = e.File.FileUrl;
+        DateTime? finishedDateTime = state is FileState.Completed or FileState.Failed or FileState.Cancelled
+            ? (e.File.FinishedDate ?? DateTime.Now)
+            : null;
 
-            foreach (PackageFile packageFile in package)
-            {
-                StartPackageDetails(packageFile, true);
-            }
-        }
-        else if (packageDetails is PackageFile packageFile)
+        _ = Task.Run(async () =>
         {
-            StartPackageDetails(packageFile, true);
-        }
+            await _persistLock.WaitAsync();
+            try
+            {
+                await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime);
+
+                bool isTerminal = state is FileState.Completed or FileState.Failed or FileState.Cancelled;
+                if (isTerminal)
+                {
+                    FileCompleted?.Invoke(this, e.File);
+
+                    if (e.File.Package.DbId is not null)
+                    {
+                        bool allDone = true;
+                        foreach (PackageFile f in e.File.Package)
+                        {
+                            if (f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+                            {
+                                allDone = false;
+                                break;
+                            }
+                        }
+
+                        if (allDone)
+                        {
+                            await _packageRepo.UpdateCompletedFlagAsync(e.File.Package.DbId.Value, true);
+                            PackageCompleted?.Invoke(this, e.File.Package);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(this, LogType.Error, $"Failed to persist state: {ex.Message}");
+            }
+            finally
+            {
+                _persistLock.Release();
+            }
+        });
     }
 
+    /// <summary>
+    /// Resumes all packages. Ensures every known package is registered with the scheduler
+    /// first, so packages loaded in an Idle state (e.g. "Start Later") get picked up.
+    /// </summary>
+    public void StartPackages()
+    {
+        Package[] snapshot;
+        lock (_lock)
+        { snapshot = [.. Packages]; }
+        foreach (Package package in snapshot)
+        {
+            _scheduler.AddPackage(package);
+        }
+
+        _scheduler.StartAll();
+    }
+
+    /// <summary>
+    /// Pauses or resumes all packages.
+    /// </summary>
+    /// <param name="resume">True to resume, false to pause.</param>
     public void PausePackages(bool resume)
     {
-        IsPaused = !resume;
-
-        Package[] snapshot;
-        lock (_lock)
+        if (resume)
         {
-            snapshot = [.. Packages];
+            _scheduler.StartAll();
         }
-
-        foreach (PackageDetails packageDetails in snapshot)
+        else
         {
-            PausePackage(packageDetails, resume);
+            _scheduler.PauseAll();
         }
     }
 
-    private static void PausePackage(PackageDetails packageDetails, bool resume)
+    /// <summary>
+    /// Stops all packages.
+    /// </summary>
+    public void StopPackages() => _scheduler.StopAll();
+
+    /// <summary>
+    /// Removes a package or package file.
+    /// </summary>
+    /// <param name="item">The package or package file to remove.</param>
+    public void RemovePackage(object item)
     {
-        if (packageDetails is Package package)
+        if (item is Package package)
         {
-            package.PauseAsync(resume);
-        }
-        else if (packageDetails is PackageFile packageFile)
-        {
-            packageFile.PauseAsync(resume);
-        }
-    }
+            _scheduler.RemovePackage(package);
 
-    public void StopPackages()
-    {
-        Package[] snapshot;
-        lock (_lock)
-        {
-            snapshot = [.. Packages];
-        }
-
-        foreach (PackageDetails packageDetails in snapshot)
-        {
-            StopPackage(packageDetails);
-        }
-    }
-
-    public static void StopPackage(PackageDetails packageDetails)
-    {
-        packageDetails.Stop();
-
-        if (packageDetails is Package package)
-        {
-            foreach (PackageFile packageFile in package)
-            {
-                packageFile.Stop();
-            }
-        }
-    }
-
-    public void RemovePackage(PackageDetails packageDetails)
-    {
-        packageQueue.Remove(packageDetails);
-
-        if (packageDetails is Package package)
-        {
             lock (_lock)
             {
                 Packages.Remove(package);
@@ -139,171 +481,129 @@ public class PackageManager
 
             package.Remove();
         }
-        else if (packageDetails is PackageFile packageFile)
+        else if (item is PackageFile packageFile)
         {
+            packageFile.Cts?.Cancel();
+            packageFile.Cts?.Dispose();
+            packageFile.Cts = null;
             packageFile.Package.Remove(packageFile);
         }
     }
 
-    public void RemovePackageFile(PackageFile packageFile)
+    /// <summary>
+    /// Removes a single package file.
+    /// </summary>
+    /// <param name="packageFile">The package file to remove.</param>
+    public static void RemovePackageFile(PackageFile packageFile)
     {
-        packageQueue.Remove(packageFile);
-
+        packageFile.Cts?.Cancel();
+        packageFile.Cts?.Dispose();
+        packageFile.Cts = null;
         packageFile.Package.Remove(packageFile);
     }
 
-    private void AddPackage(Package package)
+    /// <summary>
+    /// Starts (retries) a specific package or package file.
+    /// </summary>
+    /// <param name="item">The package or file to retry.</param>
+    public void StartPackage(object item)
     {
-        lock (_lock)
-        {
-            if (Packages.Contains(package))
-            {
-                return;
-            }
-
-            // Add event handlers
-            package.PackageFilesAdded += Package_PackageFilesAdded;
-            package.StatusChanged += Package_StatusChanged;
-
-            // Add to the list
-            Packages.Add(package);
-        }
-
-        if (!package.RequiresCompression && !string.IsNullOrEmpty(package.SaveFrom))
-        {
-            // Package does not need to be compressed; look for files and add them
-            package.AddPackageFiles(package.SaveFrom);
-        }
-
-        // Fire package added event
-        PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
-    }
-
-    private void Package_PackageFilesAdded(object? sender, PackageAddedEventArgs e)
-    {
-        if (e.ChildPackages != null)
-        {
-            foreach (PackageDetails packageDetails in e.ChildPackages)
-            {
-                StartPackage(packageDetails);
-            }
-        }
-
-        PackageAdded?.Invoke(this, e);
-    }
-
-    private void Package_StatusChanged(object? sender, PackageStatusChangedEventArgs e)
-    {
-        PackageStatusChanged?.Invoke(this, e);
-
-        StartPackageDetails(e.Package, false);
-
-        // If the status of a package has changed and the job is compression
-        if (sender is Package package && e.PackageJob == PackageJob.Compression)
-        {
-            // If it succeeded
-            if (e.NewStatus == JobStatus.Success && !string.IsNullOrEmpty(package.Options.CompressionOptions.OutputDirectoryPath))
-            {
-                // Add the compressed output files as package files to the package
-                package.AddPackageFiles(package.Options.CompressionOptions.OutputDirectoryPath);
-            }
-        }
-    }
-
-    private void StartPackageDetails(PackageDetails packageDetails, bool retry)
-    {
-        // Capture status once to avoid race conditions
-        PackageStatus status = packageDetails.Status;
-        if (status is null)
+        if (IsPaused)
         {
             return;
         }
 
-        JobStatus currentStatus = status.Status;
-        PackageJob currentJob = status.Job;
-
-        if (currentStatus != JobStatus.Running)
+        if (item is Package package)
         {
-            // Start packages with the same job
-            StartPackage(currentJob);
-        }
-
-        if (currentStatus is JobStatus.Idle or JobStatus.Success)
-        {
-            // Get next job for this package, and queue it if needed
-            PackageJob? packageJob = packageDetails.GetNextJob();
-            if (packageJob.HasValue)
+            // Re-queue failed/cancelled files
+            foreach (PackageFile file in package)
             {
-                Enqueue(packageJob.Value, packageDetails);
+                RetryFileIfNeeded(file);
             }
+
+            _scheduler.StartAll();
         }
-        else if (retry && currentStatus != JobStatus.Running && currentStatus != JobStatus.Queued && currentStatus != JobStatus.Success)
+        else if (item is PackageFile packageFile)
         {
-            // Retry failed ones
-            Enqueue(currentJob, packageDetails);
+            RetryFileIfNeeded(packageFile);
+            _scheduler.StartAll();
         }
     }
 
-    private bool StartPackage(PackageJob job)
+    /// <summary>
+    /// Stops a specific package or package file.
+    /// </summary>
+    /// <param name="item">The package or file to stop.</param>
+    public static void StopPackage(object item)
     {
-        // Get the maximum concurrent job count and find related jobs
-        int? maxConcurrentJobs = null;
-        List<PackageJob> relatedJobs = [job];
-        if (job is PackageJob.Compression or PackageJob.Hashing)
+        if (item is Package package)
         {
-            maxConcurrentJobs = _settings.MaxConcurrentCPUJobs;
-            relatedJobs.Add(job == PackageJob.Compression ? PackageJob.Hashing : PackageJob.Compression);
-        }
-        else if (job == PackageJob.Upload)
-        {
-            maxConcurrentJobs = _settings.MaxConcurrentUploadJobs;
-        }
-
-        // If the job has a maximum concurrent job limit, see if we've reached it
-        if (maxConcurrentJobs.HasValue)
-        {
-            Package[] snapshot;
-            lock (_lock)
+            foreach (PackageFile file in package)
             {
-                snapshot = [.. Packages];
-            }
-
-            // Get all packages count which have a related job and are running
-            int packageStatusCount = snapshot.Where(p => p.Status is not null).Count(p => relatedJobs.Contains(p.Status.Job) && p.Status.Status == JobStatus.Running);
-
-            // Get all package files count in each package, which have a related job and are running
-            int packageFileStatusCount = snapshot.Sum(p => p.Where(pf => pf?.Status is not null).Count(pf => relatedJobs.Contains(pf.Status.Job) && pf.Status.Status == JobStatus.Running));
-            if (packageStatusCount + packageFileStatusCount >= maxConcurrentJobs.Value)
-            {
-                return false;
+                StopFile(file);
             }
         }
-
-        // For each related job, find the first related job that is waiting to start
-        foreach (PackageJob relatedJob in relatedJobs)
+        else if (item is PackageFile packageFile)
         {
-            if (!packageQueue.TryDequeue(relatedJob, out PackageDetails? package))
-            {
-                continue;
-            }
-
-            // Start job
-            package.StartAsync(relatedJob);
-
-            // Only start 1 job at a time
-            break;
+            StopFile(packageFile);
         }
-
-        return true;
     }
 
-    private void Enqueue(PackageJob job, PackageDetails packageDetails)
+    private static void RetryFileIfNeeded(PackageFile file)
     {
-        if (packageDetails.Status?.Status != JobStatus.Queued)
+        if (file.State is FileState.Failed or FileState.Cancelled)
         {
-            packageQueue.Enqueue(job, packageDetails);
+            if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
+            {
+                file.State = FileState.HashQueued;
+            }
+            else
+            {
+                file.State = FileState.UploadQueued;
+            }
+        }
+    }
 
-            packageDetails.ChangeStatus(job, JobStatus.Queued);
+    /// <summary>
+    /// Resets a package or file back to the start (re-hash + re-upload from scratch).
+    /// </summary>
+    public void ResetPackage(object item)
+    {
+        if (item is Package package)
+        {
+            foreach (PackageFile file in package)
+            {
+                ResetFile(file);
+            }
+
+            _scheduler.AddPackage(package);
+        }
+        else if (item is PackageFile packageFile)
+        {
+            ResetFile(packageFile);
+            _scheduler.AddPackage(packageFile.Package);
+        }
+    }
+
+    private static void ResetFile(PackageFile file)
+    {
+        StopFile(file);
+        file.IsHashingComplete = false;
+        file.Error = null;
+        file.FileUrl = null;
+        file.IsUploadFinished = false;
+        file.State = file.RequiresHashingBeforeUpload ? FileState.HashQueued : FileState.UploadQueued;
+    }
+
+    private static void StopFile(PackageFile file)
+    {
+        file.Cts?.Cancel();
+        file.Cts?.Dispose();
+        file.Cts = null;
+
+        if (file.State is not FileState.Completed and not FileState.Idle)
+        {
+            file.State = FileState.Cancelled;
         }
     }
 }

@@ -8,7 +8,7 @@ namespace CSUploader.Lib;
 /// <summary>
 /// Manages cancellation and pause tokens for a job.
 /// </summary>
-public class JobController
+public class JobController : IDisposable
 {
     private CancellationTokenSource _cts = new();
     private PauseTokenSource _pts = new();
@@ -33,6 +33,8 @@ public class JobController
     /// </summary>
     public void Reset()
     {
+        _cts.Dispose();
+        _pts.Dispose();
         _cts = new CancellationTokenSource();
         _pts = new PauseTokenSource();
     }
@@ -59,4 +61,14 @@ public class JobController
     /// </summary>
     /// <returns>The task.</returns>
     public Task PauseIfRequestedAsync() => _pts.PauseIfRequestedAsync();
+
+    /// <summary>
+    /// Disposes the cancellation token source and pause token source.
+    /// </summary>
+    public void Dispose()
+    {
+        _cts.Dispose();
+        _pts.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

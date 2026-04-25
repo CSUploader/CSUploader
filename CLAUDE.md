@@ -8,10 +8,21 @@ dotnet build
 
 # Run
 dotnet run --project src/CSUploader.csproj
+
+# Test
+dotnet test
 ```
 
-The solution file is `CSUploader.sln` with a single project at `src/CSUploader.csproj`.
-There are no tests yet. The project targets `net10.0-windows10.0.17763.0`.
+The solution file is `CSUploader.sln`. Source lives at `src/CSUploader.csproj`, tests at `tests/CSUploader.Tests.csproj`. The project targets `net10.0-windows10.0.17763.0`.
+
+## Testing
+
+- New repository methods, view-models, and services must include xUnit tests in `tests/`.
+- Test layout mirrors source: `src/Dal/Foo.cs` → `tests/Dal/FooTests.cs`.
+- Use the in-memory SQLite pattern in `tests/Dal/FileHosterLoginRepositoryTests.cs` for repository tests.
+- Use Moq for `IDialogService`, `IAppLogger`, and other interfaces — concrete classes (`PackageManager`, `UploadScheduler`) are constructed with real in-memory dependencies.
+- Run `dotnet test` and confirm all tests pass before reporting work as done.
+- See `tests/CLAUDE.md` for naming, structure, and fixture conventions.
 
 ## Code Style
 

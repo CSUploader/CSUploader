@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Upload;
+
 namespace CSUploader.Dal;
 
 public class UploadPackageFileDto
@@ -21,11 +23,25 @@ public class UploadPackageFileDto
 
     public DateTime FinishedDateTime { get; set; }
 
-    public string? CompressionPassword { get; set; }
-
     public string? FileUrl { get; set; }
 
     public string? FileHosterName { get; set; }
+
+    public FileState State { get; set; }
+
+    public string? Error { get; set; }
+
+    public bool IsHashingComplete { get; set; }
+
+    public int FileHosterLoginId { get; set; }
+
+    public int Priority { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public int PackageId { get; set; }
+
+    public bool IsHidden { get; set; }
 
     public UploadPackageDto? Package { get; set; }
 }

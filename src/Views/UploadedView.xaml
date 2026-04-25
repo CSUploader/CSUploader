@@ -11,82 +11,248 @@
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadedViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
-             Background="{DynamicResource LogBackgroundBrush}">
+             Background="{DynamicResource SurfaceBrush}">
 
     <UserControl.Resources>
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+
+        <!-- Group rows by PackageName — enables collapsible package headers -->
+        <CollectionViewSource x:Key="FilesView" Source="{Binding Files}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="PackageName" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
+        <Style x:Key="FirstCellStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="12,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style x:Key="UrlLinkStyle" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}" />
+                    <Setter Property="TextDecorations" Value="Underline" />
+                </Trigger>
+                <DataTrigger Binding="{Binding FileUrl}" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FileUrl}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
-        <TreeView ItemsSource="{Binding Packages}" Margin="4"
-                  BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="1">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <!-- UploadPackageDto (Parent) Template -->
-            <TreeView.ItemTemplate>
-                <HierarchicalDataTemplate ItemsSource="{Binding Files}">
-                    <Grid Height="28">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="300" />
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+        <!-- Toolbar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceMutedBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="12,6">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Export to JSON…"
+                        Command="{Binding ExportJsonCommand}"
+                        Padding="10,4"
+                        ToolTip="Export all completed uploads (with every field) to a JSON file" />
+            </StackPanel>
+        </Border>
 
-                        <!-- Package Name -->
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis" Margin="4,0" FontWeight="SemiBold" />
+    <DataGrid Grid.Row="1"
+              x:Name="FilesGrid"
+              Loaded="FilesGrid_Loaded"
+              PreviewMouseRightButtonDown="FilesGrid_PreviewMouseRightButtonDown"
+              ItemsSource="{Binding Source={StaticResource FilesView}}"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              CanUserResizeColumns="True"
+              CanUserReorderColumns="True"
+              CanUserSortColumns="True"
+              IsReadOnly="True"
+              SelectionUnit="FullRow"
+              ClipboardCopyMode="IncludeHeader"
+              HeadersVisibility="Column"
+              GridLinesVisibility="All"
+              RowHeaderWidth="0"
+              BorderThickness="0"
+              Background="{DynamicResource SurfaceBrush}"
+              RowBackground="{DynamicResource SurfaceBrush}"
+              AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
+              HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+              ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <DataGrid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Copy"
+                          InputGestureText="Ctrl+C"
+                          Command="ApplicationCommands.Copy"
+                          CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                <MenuItem Header="Copy URL"
+                          Command="{Binding PlacementTarget.DataContext.CopyUrlsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                <Separator />
+                <MenuItem Header="Remove"
+                          InputGestureText="Del"
+                          Command="{Binding PlacementTarget.DataContext.RemoveSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                <Separator />
+                <MenuItem Header="Export to JSON…"
+                          Command="{Binding PlacementTarget.DataContext.ExportJsonCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+            </ContextMenu>
+        </DataGrid.ContextMenu>
+        <DataGrid.InputBindings>
+            <KeyBinding Key="Delete"
+                        Command="{Binding RemoveSelectedCommand}"
+                        CommandParameter="{Binding SelectedItems, ElementName=FilesGrid}" />
+        </DataGrid.InputBindings>
 
-                        <!-- File Count -->
-                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="4,0">
-                            <TextBlock.Text>
-                                <Binding Path="Files.Count" StringFormat="{}{0} file(s)" />
-                            </TextBlock.Text>
-                        </TextBlock>
-                    </Grid>
+        <!-- Collapsible package group header. A flat ToggleButton + ItemsPresenter keeps the
+             file rows flush with the column headers (an Expander's default chrome indents them). -->
+        <DataGrid.GroupStyle>
+            <GroupStyle>
+                <GroupStyle.ContainerStyle>
+                    <Style TargetType="GroupItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="GroupItem">
+                                    <StackPanel>
+                                        <ToggleButton x:Name="GroupToggle" IsChecked="True" Focusable="False">
+                                            <ToggleButton.Template>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border Background="{DynamicResource SurfaceMutedBrush}"
+                                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                            BorderThickness="0,0,0,1"
+                                                            Height="30"
+                                                            Padding="12,0">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock x:Name="Chevron"
+                                                                       Text="▾"
+                                                                       FontSize="11"
+                                                                       Width="14"
+                                                                       Margin="0,0,6,0"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                       VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       VerticalAlignment="Center" />
+                                                            <TextBlock Margin="10,0,0,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                       Text="{Binding ItemCount, StringFormat='({0} file(s))', Mode=OneWay}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="False">
+                                                            <Setter TargetName="Chevron" Property="Text" Value="▸" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </ToggleButton.Template>
+                                        </ToggleButton>
+                                        <ItemsPresenter x:Name="GroupItems" />
+                                    </StackPanel>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger SourceName="GroupToggle" Property="IsChecked" Value="False">
+                                            <Setter TargetName="GroupItems" Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </GroupStyle.ContainerStyle>
+            </GroupStyle>
+        </DataGrid.GroupStyle>
 
-                    <!-- UploadPackageFileDto (Child) Template -->
-                    <HierarchicalDataTemplate.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Height="24" Background="{DynamicResource LogAltRowBrush}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="250" />
-                                    <ColumnDefinition Width="100" />
-                                    <ColumnDefinition Width="120" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+        <DataGrid.Columns>
+            <DataGridTextColumn Header="Name"
+                                Binding="{Binding FileName}"
+                                ClipboardContentBinding="{Binding FileName}"
+                                Width="400"
+                                MinWidth="120"
+                                ElementStyle="{StaticResource FirstCellStyle}" />
 
-                                <!-- File Name -->
-                                <TextBlock Grid.Column="0" Text="{Binding FileName}" VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis" Margin="4,0" />
+            <DataGridTextColumn Header="Path"
+                                Binding="{Binding FileDirectory}"
+                                ClipboardContentBinding="{Binding FileDirectory}"
+                                Width="300"
+                                MinWidth="100">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        <Setter Property="ToolTip" Value="{Binding FileDirectory}" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
 
-                                <!-- File Size -->
-                                <TextBlock Grid.Column="1" Text="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
-                                           VerticalAlignment="Center" Margin="4,0" />
+            <DataGridTextColumn Header="Size"
+                                Binding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
+                                ClipboardContentBinding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
+                                Width="100"
+                                MinWidth="60">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Right" />
+                        <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+                        <Setter Property="Margin" Value="0,0,8,0" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
 
-                                <!-- File Hoster -->
-                                <TextBlock Grid.Column="2" Text="{Binding FileHosterName}" VerticalAlignment="Center" Margin="4,0" />
+            <DataGridTextColumn Header="Hoster"
+                                Binding="{Binding FileHosterName}"
+                                ClipboardContentBinding="{Binding FileHosterName}"
+                                Width="120"
+                                MinWidth="70">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
 
-                                <!-- Start Date -->
-                                <TextBlock Grid.Column="3" Text="{Binding StartDateTime, Converter={StaticResource DateTimeFormatConverter}}"
-                                           VerticalAlignment="Center" Margin="4,0" />
+            <DataGridTextColumn Header="Finished"
+                                Binding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                                ClipboardContentBinding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                                Width="160"
+                                MinWidth="100">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
 
-                                <!-- Finished Date -->
-                                <TextBlock Grid.Column="4" Text="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
-                                           VerticalAlignment="Center" Margin="4,0" />
-
-                                <!-- File URL -->
-                                <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="4,0">
-                                    <Hyperlink NavigateUri="{Binding FileUrl}">
-                                        <TextBlock Text="{Binding FileUrl}" TextTrimming="CharacterEllipsis" />
-                                    </Hyperlink>
-                                </TextBlock>
-                            </Grid>
-                        </DataTemplate>
-                    </HierarchicalDataTemplate.ItemTemplate>
-                </HierarchicalDataTemplate>
-            </TreeView.ItemTemplate>
-        </TreeView>
+            <DataGridTemplateColumn Header="URL" Width="500" MinWidth="200"
+                                    ClipboardContentBinding="{Binding FileUrl}">
+                <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding FileUrl}"
+                                   ToolTip="{Binding FileUrl}"
+                                   Style="{StaticResource UrlLinkStyle}"
+                                   MouseLeftButtonUp="UrlText_MouseLeftButtonUp" />
+                    </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+        </DataGrid.Columns>
+    </DataGrid>
     </Grid>
 </UserControl>

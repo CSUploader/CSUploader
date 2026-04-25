@@ -10,8 +10,10 @@ namespace CSUploader.Upload.Rapidgator;
 public class UserTraffic
 {
     [JsonPropertyName("total")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public long? Total { get; set; }
 
     [JsonPropertyName("left")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public long? Left { get; set; }
 }

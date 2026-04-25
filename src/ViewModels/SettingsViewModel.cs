@@ -15,18 +15,18 @@ using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel(
+    SettingRepository settingRepository,
+    FileHosterLoginRepository accountRepository,
+    AppSettings settings,
+    IDialogService dialogService,
+    IAppLogger logger) : ObservableObject
 {
-    private readonly SettingRepository _settingRepository;
-    private readonly FileHosterLoginRepository _accountRepository;
-    private readonly AppSettings _settings;
-    private readonly IDialogService _dialogService;
-    private readonly IAppLogger _logger;
-
-    // ── General settings ──
-
-    [ObservableProperty]
-    private string tempArchiveDirectory = AppSettings.DefaultTempArchiveDirectory;
+    private readonly SettingRepository _settingRepository = settingRepository;
+    private readonly FileHosterLoginRepository _accountRepository = accountRepository;
+    private readonly AppSettings _settings = settings;
+    private readonly IDialogService _dialogService = dialogService;
+    private readonly IAppLogger _logger = logger;
 
     // ── Upload settings ──
 
@@ -37,10 +37,58 @@ public partial class SettingsViewModel : ObservableObject
     private int maxConcurrentUploadJobs = AppSettings.DefaultMaxConcurrentUploadJobs;
 
     [ObservableProperty]
+    private bool maxUploadsPerHostEnabled;
+
+    [ObservableProperty]
+    private int maxUploadsPerHost = AppSettings.DefaultMaxUploadsPerHost;
+
+    [ObservableProperty]
+    private RemoveFinishedUploadsMode removeFinishedUploads = AppSettings.DefaultRemoveFinishedUploads;
+
+    [ObservableProperty]
+    private bool autoRemoveCompletedFiles;
+
+    [ObservableProperty]
+    private bool autoRemoveCompletedPackages;
+
+    [ObservableProperty]
+    private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
+
+    [ObservableProperty]
     private bool speedLimitEnabled;
 
     [ObservableProperty]
     private int speedLimitValue;
+
+    // ── Developer settings ──
+
+    [ObservableProperty]
+    private bool useMockServer = AppSettings.DefaultUseMockServer;
+
+    // ── Save feedback ──
+
+    [ObservableProperty]
+    private string saveStatus = string.Empty;
+
+    public sealed record EnumOption<T>(T Value, string Label);
+
+#pragma warning disable CA1822
+    public EnumOption<RemoveFinishedUploadsMode>[] RemoveFinishedUploadsOptions { get; } =
+    [
+        new(RemoveFinishedUploadsMode.Never, "Never"),
+        new(RemoveFinishedUploadsMode.AfterOneHour, "After 1 hour"),
+        new(RemoveFinishedUploadsMode.AfterOneDay, "After 1 day"),
+        new(RemoveFinishedUploadsMode.Immediately, "Immediately"),
+    ];
+
+    public EnumOption<IfFileExistsBehavior>[] IfFileExistsOptions { get; } =
+    [
+        new(IfFileExistsBehavior.Ask, "Ask for each file"),
+        new(IfFileExistsBehavior.Skip, "Skip"),
+        new(IfFileExistsBehavior.Overwrite, "Overwrite"),
+        new(IfFileExistsBehavior.Rename, "Rename"),
+    ];
+#pragma warning restore CA1822
 
     // ── Navigation ──
 
@@ -70,21 +118,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool isCheckingAccount;
 
-    public SettingsViewModel(
-        SettingRepository settingRepository,
-        FileHosterLoginRepository accountRepository,
-        AppSettings settings,
-        IDialogService dialogService,
-        IAppLogger logger)
-    {
-        _settingRepository = settingRepository;
-        _accountRepository = accountRepository;
-        _settings = settings;
-        _dialogService = dialogService;
-        _logger = logger;
-    }
-
     public ObservableCollection<FileHosterLoginDto> Accounts { get; } = [];
+
+    public ObservableCollection<SuppressedConfirmationItem> ConfirmationPrompts { get; } = [];
 
     public static string[] AvailableHosters => [.. FileHosterClient.FileHosters.Keys];
 
@@ -119,6 +155,42 @@ public partial class SettingsViewModel : ObservableObject
 
                     break;
 
+                case var k when k == SettingKey.MaxUploadsPerHostEnabled:
+                    MaxUploadsPerHostEnabled = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.MaxUploadsPerHost:
+                    if (int.TryParse(setting.Value, out int perHost))
+                    {
+                        MaxUploadsPerHost = perHost;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.RemoveFinishedUploads:
+                    if (Enum.TryParse(setting.Value, out RemoveFinishedUploadsMode removeMode))
+                    {
+                        RemoveFinishedUploads = removeMode;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.AutoRemoveCompletedFiles:
+                    AutoRemoveCompletedFiles = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.AutoRemoveCompletedPackages:
+                    AutoRemoveCompletedPackages = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.IfFileExists:
+                    if (Enum.TryParse(setting.Value, out IfFileExistsBehavior existsBehavior))
+                    {
+                        IfFileExists = existsBehavior;
+                    }
+
+                    break;
+
                 case var k when k == SettingKey.SpeedLimit:
                     if (int.TryParse(setting.Value, out int speedLimit))
                     {
@@ -128,10 +200,18 @@ public partial class SettingsViewModel : ObservableObject
 
                     break;
 
-                case var k when k == SettingKey.TempArchiveDirectory:
+                case var k when k == SettingKey.UseMockServer:
+                    UseMockServer = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.SuppressedConfirmations:
+                    _settings.SuppressedConfirmations.Clear();
                     if (!string.IsNullOrWhiteSpace(setting.Value))
                     {
-                        TempArchiveDirectory = setting.Value;
+                        foreach (string part in setting.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            _settings.SuppressedConfirmations.Add(part);
+                        }
                     }
 
                     break;
@@ -140,11 +220,62 @@ public partial class SettingsViewModel : ObservableObject
 
         _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
         _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        _settings.MaxUploadsPerHostEnabled = MaxUploadsPerHostEnabled;
+        _settings.MaxUploadsPerHost = MaxUploadsPerHost;
+        _settings.RemoveFinishedUploads = RemoveFinishedUploads;
+        _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
+        _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
+        _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        _settings.TempArchiveDirectory = TempArchiveDirectory;
+        _settings.UseMockServer = UseMockServer;
 
         // Load accounts
         await LoadAccountsAsync(cancellationToken);
+
+        RefreshConfirmationPrompts();
+    }
+
+    private void RefreshConfirmationPrompts()
+    {
+        foreach (SuppressedConfirmationItem item in ConfirmationPrompts)
+        {
+            item.PropertyChanged -= ConfirmationItem_PropertyChanged;
+        }
+
+        ConfirmationPrompts.Clear();
+        foreach ((string key, string label) in ConfirmationKeys.All)
+        {
+            bool suppressed = _settings.SuppressedConfirmations.Contains(key);
+            SuppressedConfirmationItem item = new(key, label, askAgain: !suppressed);
+            item.PropertyChanged += ConfirmationItem_PropertyChanged;
+            ConfirmationPrompts.Add(item);
+        }
+    }
+
+    private async void ConfirmationItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SuppressedConfirmationItem.AskAgain) || sender is not SuppressedConfirmationItem item)
+        {
+            return;
+        }
+
+        if (item.AskAgain)
+        {
+            _settings.SuppressedConfirmations.Remove(item.Key);
+        }
+        else
+        {
+            _settings.SuppressedConfirmations.Add(item.Key);
+        }
+
+        try
+        {
+            await SaveSettingAsync(SettingKey.SuppressedConfirmations, string.Join(",", _settings.SuppressedConfirmations), default);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to save suppressed-confirmations setting: {ex.Message}");
+        }
     }
 
     private async Task LoadAccountsAsync(CancellationToken cancellationToken = default)
@@ -160,27 +291,41 @@ public partial class SettingsViewModel : ObservableObject
     // ── Commands ──
 
     [RelayCommand]
-    private void BrowseTempDirectory()
-    {
-        string? folder = _dialogService.BrowseFolder(TempArchiveDirectory, "Select Temp Archive Directory");
-        if (folder is not null)
-        {
-            TempArchiveDirectory = folder;
-        }
-    }
-
-    [RelayCommand]
     private async Task SaveAsync(CancellationToken cancellationToken = default)
     {
         await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
         await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.MaxUploadsPerHostEnabled, MaxUploadsPerHostEnabled ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.MaxUploadsPerHost, MaxUploadsPerHost.ToString(CultureInfo.InvariantCulture), cancellationToken);
+        await SaveSettingAsync(SettingKey.RemoveFinishedUploads, RemoveFinishedUploads.ToString(), cancellationToken);
+        await SaveSettingAsync(SettingKey.AutoRemoveCompletedFiles, AutoRemoveCompletedFiles ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.AutoRemoveCompletedPackages, AutoRemoveCompletedPackages ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.IfFileExists, IfFileExists.ToString(), cancellationToken);
         await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0", cancellationToken);
-        await SaveSettingAsync(SettingKey.TempArchiveDirectory, TempArchiveDirectory, cancellationToken);
+        await SaveSettingAsync(SettingKey.UseMockServer, UseMockServer ? "true" : "false", cancellationToken);
 
         _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
         _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
+        _settings.MaxUploadsPerHostEnabled = MaxUploadsPerHostEnabled;
+        _settings.MaxUploadsPerHost = MaxUploadsPerHost;
+        _settings.RemoveFinishedUploads = RemoveFinishedUploads;
+        _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
+        _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
+        _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        _settings.TempArchiveDirectory = TempArchiveDirectory;
+        _settings.UseMockServer = UseMockServer;
+
+        SaveStatus = "Saved";
+        try
+        {
+            await Task.Delay(1500, cancellationToken);
+        }
+        catch (TaskCanceledException)
+        {
+            // ignored: cancellation just means we drop the auto-clear
+        }
+
+        SaveStatus = string.Empty;
     }
 
     [RelayCommand]
@@ -445,7 +590,7 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!_dialogService.ShowConfirmation($"Remove account '{SelectedAccount.Username}' for {SelectedAccount.FileHosterName}?", "Remove Account"))
+        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveFileHosterAccount, $"Remove account '{SelectedAccount.Username}' for {SelectedAccount.FileHosterName}?", "Remove Account"))
         {
             return;
         }

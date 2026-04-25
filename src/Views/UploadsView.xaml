@@ -15,8 +15,12 @@
     <UserControl.Resources>
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
         <conv:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
+        <conv:DateTimeFormatConverter x:Key="DateTimeConverter" />
+        <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
+        <conv:FileStateDisplayConverter x:Key="FileStateConverter" />
         <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:ItemStateToVisibilityConverter x:Key="ItemStateToVisibility" />
 
         <!-- Toolbar button style - large icons like JD2 -->
         <Style x:Key="ToolbarButton" TargetType="Button">
@@ -34,7 +38,8 @@
                         <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                CornerRadius="3" Padding="{TemplateBinding Padding}"
+                                TextElement.Foreground="{TemplateBinding Foreground}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -83,6 +88,15 @@
                 BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
                 Padding="4,2">
             <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource ToolbarButton}" Click="AddUploadButton_Click" ToolTip="Add new upload">
+                    <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Margin="0,-4,0,0" />
+                </Button>
+
+                <!-- Separator -->
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
                 <Button Style="{StaticResource ToolbarButton}" Command="{Binding StartCommand}" ToolTip="Start all uploads">
                     <Image Source="{StaticResource ButtonStartImage}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
@@ -100,7 +114,8 @@
 
         <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
-                  ItemsSource="{Binding Packages}"
+                  Loaded="UploadsGrid_Loaded"
+                  ItemsSource="{Binding VisibleRows}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   CanUserAddRows="False"
@@ -111,14 +126,15 @@
                   SelectionMode="Extended"
                   SelectionUnit="FullRow"
                   HeadersVisibility="Column"
-                  GridLinesVisibility="All"
+                  ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   Background="{DynamicResource ContentBackgroundBrush}"
                   AlternatingRowBackground="{DynamicResource ContentAltBackgroundBrush}"
                   RowHeaderWidth="0"
                   BorderThickness="0"
-                  RowDetailsVisibilityMode="VisibleWhenSelected"
                   Tag="{Binding}">
 
             <DataGrid.InputBindings>
@@ -128,13 +144,32 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                    <MenuItem Header="Retry" Command="{Binding RetryCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                        <MenuItem.Icon><Image Source="{StaticResource ActionRetryImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    <MenuItem Header="Start" Command="{Binding RetryCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
+                        <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="Stop" Command="{Binding StopSelectedCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Stoppable}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Skip Upload" Command="{Binding SkipUploadCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon><Image Source="{StaticResource ActionSkipImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Reset" Command="{Binding ResetFileCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon><Image Source="{StaticResource ActionResetImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Open Source Directory" Command="{Binding OpenSourceDirectoryCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon><Image Source="{StaticResource ActionFolderImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Set Speed Limit..." Command="{Binding SetSpeedLimitCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="Remove" Command="{Binding RemoveCommand}"
@@ -184,19 +219,57 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="VerticalAlignment" Value="Center" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Name" Width="248" CanUserReorder="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <!-- Expand button: only for packages -->
+                                <ToggleButton Grid.Column="0"
+                                              FontSize="14" FontWeight="Bold"
+                                              Foreground="{DynamicResource TextSecondaryBrush}"
+                                              Cursor="Hand"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, FallbackValue=False}"
+                                              Click="ExpandToggle_Click"
+                                              Visibility="{Binding IsPackageRow, Converter={StaticResource BoolToVisibility}}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" Width="20" Height="20">
+                                                <TextBlock x:Name="Glyph" Text="+" FontSize="14" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Glyph" Property="Text" Value="−" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="4,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPackageRow}" Value="True">
+                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="90" />
-                <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosters[0].Name, FallbackValue=''}" Width="110" />
-                <DataGridTextColumn Header="Connection" Binding="{Binding Connection[0], FallbackValue=''}" Width="100" />
-                <DataGridTextColumn Header="Status" Binding="{Binding Status.Status, FallbackValue=''}" Width="130" />
+                <DataGridTextColumn Header="Hoster" Binding="{Binding HosterDisplay, FallbackValue=''}" Width="110" />
+                <DataGridTextColumn Header="Status" Binding="{Binding State, Converter={StaticResource FileStateConverter}, FallbackValue=''}" Width="130" />
                 <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
                 <DataGridTextColumn Header="ETA" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
                 <DataGridTextColumn Header="Bytes Loaded" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
@@ -230,7 +303,32 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="*">
+                <DataGridTextColumn Header="Added"
+                                    Binding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}}"
+                                    Width="130" Visibility="Collapsed" />
+                <DataGridTextColumn Header="Finished"
+                                    Binding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}}"
+                                    Width="130" Visibility="Collapsed" />
+                <DataGridTextColumn Header="Duration"
+                                    Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
+                                    Width="80" Visibility="Collapsed" />
+                <DataGridTextColumn Header="Priority"
+                                    Binding="{Binding Priority, TargetNullValue=''}"
+                                    Width="70" Visibility="Collapsed" />
+                <DataGridTextColumn Header="Speed Limit"
+                                    Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
+                                    Width="90" Visibility="Collapsed" />
+                <DataGridTextColumn Header="URL"
+                                    Binding="{Binding FileUrl}"
+                                    Width="200" Visibility="Collapsed">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="220" MinWidth="60">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="Red" />
@@ -240,83 +338,6 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
             </DataGrid.Columns>
-
-            <!-- Child files (RowDetails) -->
-            <DataGrid.RowDetailsTemplate>
-                <DataTemplate>
-                    <DataGrid ItemsSource="{Binding}" AutoGenerateColumns="False" IsReadOnly="True"
-                              CanUserAddRows="False" HeadersVisibility="None"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                              Background="{DynamicResource RowDetailBackgroundBrush}" BorderThickness="0" RowHeaderWidth="0"
-                              Margin="20,0,0,0">
-                        <DataGrid.RowStyle>
-                            <Style TargetType="DataGridRow">
-                                <Setter Property="FontSize" Value="11" />
-                                <Setter Property="MinHeight" Value="20" />
-                            </Style>
-                        </DataGrid.RowStyle>
-                        <DataGrid.CellStyle>
-                            <Style TargetType="DataGridCell">
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Padding" Value="4,1" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="DataGridCell">
-                                            <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
-                                                <ContentPresenter VerticalAlignment="Center" />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </DataGrid.CellStyle>
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Binding="{Binding Name}" Width="200">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                            <DataGridTextColumn Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="90" />
-                            <DataGridTextColumn Binding="{Binding FileHosters[0].Name, FallbackValue=''}" Width="110" />
-                            <DataGridTextColumn Binding="{Binding Path=., FallbackValue=''}" Width="100" /> <!-- Connection placeholder -->
-                            <DataGridTextColumn Binding="{Binding Status.Status, FallbackValue=''}" Width="130" />
-                            <DataGridTextColumn Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
-                            <DataGridTextColumn Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
-                            <DataGridTextColumn Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
-                            <DataGridTemplateColumn Width="140">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Grid x:Name="FPGrid" Margin="2,2">
-                                            <Border Background="{DynamicResource ProgressBarAltTrackBrush}" CornerRadius="1" Height="12" />
-                                            <Border Background="{DynamicResource ProgressBarAltFillBrush}" CornerRadius="1" HorizontalAlignment="Left" Height="12">
-                                                <Border.Width>
-                                                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
-                                                        <Binding Path="Progress" />
-                                                        <Binding Path="ActualWidth" ElementName="FPGrid" />
-                                                    </MultiBinding>
-                                                </Border.Width>
-                                            </Border>
-                                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}" FontSize="9" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Binding="{Binding SaveFrom}" Width="180">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                            <DataGridTextColumn Binding="{Binding Error}" Width="*">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock"><Setter Property="Foreground" Value="Red" /></Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </DataTemplate>
-            </DataGrid.RowDetailsTemplate>
         </DataGrid>
 
         <!-- Bottom Panel (JD2 "Download Overview" exact match) -->

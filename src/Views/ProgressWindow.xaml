@@ -13,6 +13,7 @@
         Topmost="True"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
         WindowStyle="ToolWindow">
 
     <Grid Margin="24,16" MinWidth="350">

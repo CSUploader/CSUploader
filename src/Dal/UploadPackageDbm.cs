@@ -18,5 +18,18 @@ public class UploadPackageDbm
     [Required]
     public string Name { get; set; } = string.Empty;
 
+    public DateTime CreatedDateTime { get; set; } = DateTime.Now;
+
+    public DateTime? ScheduledStartTime { get; set; }
+
+    public bool IsCompleted { get; set; }
+
+    [Required]
+    public string DirectoryPath { get; set; } = string.Empty;
+
+    public int? SpeedLimitKBps { get; set; }
+
+    public int StartMode { get; set; }
+
     public ICollection<UploadPackageFileDbm> Files { get; set; } = [];
 }

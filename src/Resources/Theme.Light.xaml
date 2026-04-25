@@ -16,6 +16,15 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7280" />
     <SolidColorBrush x:Key="TextDisabledBrush" Color="#9CA3AF" />
 
+    <!-- Override system disabled-text brush for theme consistency -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#9CA3AF" />
+
+    <!-- Override system menu brushes for theme consistency -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#1F2937" />
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="#B8D4EE" />
+
     <!-- Colors - Accent -->
     <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#1D4ED8" />

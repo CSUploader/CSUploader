@@ -1,4 +1,4 @@
-﻿// <copyright file="FileHosterClient.cs" company="CSUploader">
+// <copyright file="FileHosterClient.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -125,10 +125,19 @@ public abstract class FileHosterClient
     /// <summary>
     /// Gets the hashing.
     /// </summary>
-    /// <value>
-    /// The hashing.
-    /// </value>
     protected Hashing Hashing { get; }
+
+    /// <summary>
+    /// Gets or sets a shared session cache scoped per-package per-hoster.
+    /// All client instances for the same hoster within a package share this instance.
+    /// </summary>
+    internal SharedSession SharedSessionCache { get; set; } = new();
+
+    /// <summary>
+    /// Provider returning the current effective upload speed limit in bytes/second.
+    /// Returning null or a non-positive value means no throttling.
+    /// </summary>
+    public Func<long?>? SpeedLimitProvider { get; set; }
 
     /// <summary>
     /// Returns an instance of a file hoster client for the specified name and protocol.
@@ -152,10 +161,7 @@ public abstract class FileHosterClient
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result of the account check.</returns>
-    public virtual Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
-    }
+    public virtual Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default) => Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
 
     /// <summary>
     /// Upload a file asynchronously.
@@ -182,58 +188,37 @@ public abstract class FileHosterClient
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="pauseToken">The pause token.</param>
     /// <returns>The <see cref="Task"/> representing the asynchronous operation.</returns>
-    public virtual Task HashAsync(string filePath, PauseToken pauseToken = default, CancellationToken cancellationToken = default)
-    {
-        return Task.CompletedTask;
-    }
+    public virtual Task HashAsync(string filePath, PauseToken pauseToken = default, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     /// <summary>
     /// Fires the upload progress event.
     /// </summary>
     /// <param name="sender">The sender.</param>
     /// <param name="e">The <see cref="OperationProgressEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireUploadProgress(object sender, OperationProgressEventArgs e)
-    {
-        UploadProgress?.Invoke(sender, e);
-    }
+    protected virtual void FireUploadProgress(object sender, OperationProgressEventArgs e) => UploadProgress?.Invoke(sender, e);
 
     /// <summary>
     /// Fires the upload finished event.
     /// </summary>
     /// <param name="sender">The sender.</param>
     /// <param name="e">The <see cref="FileHosterUploadFinishedEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireUploadFinished(object sender, FileHosterUploadFinishedEventArgs e)
-    {
-        UploadFinished?.Invoke(sender, e);
-    }
+    protected virtual void FireUploadFinished(object sender, FileHosterUploadFinishedEventArgs e) => UploadFinished?.Invoke(sender, e);
 
     /// <summary>
     /// Fires the hashing progress event.
     /// </summary>
     /// <param name="sender">The sender.</param>
     /// <param name="e">The <see cref="OperationProgressEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireHashingProgress(object sender, OperationProgressEventArgs e)
-    {
-        HashingProgress?.Invoke(sender, e);
-    }
+    protected virtual void FireHashingProgress(object sender, OperationProgressEventArgs e) => HashingProgress?.Invoke(sender, e);
 
     /// <summary>
     /// Fires the hashing finished event.
     /// </summary>
     /// <param name="sender">The sender.</param>
     /// <param name="e">The <see cref="HashingFinishedEventArgs"/> instance containing the event data.</param>
-    protected virtual void FireHashingFinished(object sender, HashingFinishedEventArgs e)
-    {
-        HashingFinished?.Invoke(sender, e);
-    }
+    protected virtual void FireHashingFinished(object sender, HashingFinishedEventArgs e) => HashingFinished?.Invoke(sender, e);
 
-    private void Hashing_HashingProgress(object? sender, OperationProgressEventArgs e)
-    {
-        FireHashingProgress(this, e);
-    }
+    private void Hashing_HashingProgress(object? sender, OperationProgressEventArgs e) => FireHashingProgress(this, e);
 
-    private void Hashing_HashingFinished(object? sender, HashingFinishedEventArgs e)
-    {
-        FireHashingFinished(this, e);
-    }
+    private void Hashing_HashingFinished(object? sender, HashingFinishedEventArgs e) => FireHashingFinished(this, e);
 }

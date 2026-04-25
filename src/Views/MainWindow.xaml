@@ -9,7 +9,7 @@
         xmlns:views="clr-namespace:CSUploader.Views"
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
         mc:Ignorable="d"
-        Title="CSUploader"
+        Title="{Binding WindowTitle}"
         Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/Properties/Images/Logo/icon.ico"
@@ -30,24 +30,19 @@
                     <MenuItem Header="Upload _Overview" IsCheckable="True"
                               IsChecked="{Binding UploadsViewModel.ShowUploadOverview}" />
                     <Separator />
-                    <MenuItem Header="_Dark Mode" IsCheckable="True"
-                              IsChecked="{Binding IsDarkMode}" />
-                </MenuItem>
-                <MenuItem Header="_Settings">
-                    <MenuItem Header="_Preferences" Click="MenuPreferences_Click" />
-                </MenuItem>
-                <MenuItem Header="_Tools">
-                    <MenuItem Header="_Clear Upload History" Click="MenuClearHistory_Click" />
+                    <MenuItem Header="{Binding ThemeMenuLabel}" Command="{Binding ToggleThemeCommand}" />
                 </MenuItem>
                 <MenuItem Header="_Help">
+                    <MenuItem Header="_Check for Updates…" Click="MenuCheckForUpdates_Click" />
+                    <MenuItem Header="_Install Update"
+                              Command="{Binding InstallUpdateCommand}"
+                              IsEnabled="{Binding IsUpdateAvailable}" />
+                    <Separator />
                     <MenuItem Header="_About CSUploader" Click="MenuAbout_Click" />
                 </MenuItem>
         </Menu>
 
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
-            <TabItem Header="Upload">
-                <views:UploadView DataContext="{Binding UploadViewModel}" />
-            </TabItem>
             <TabItem Header="Uploads">
                 <views:UploadsView DataContext="{Binding UploadsViewModel}" />
             </TabItem>

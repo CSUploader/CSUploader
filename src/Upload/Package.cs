@@ -4,234 +4,516 @@
 // </copyright>
 
 using System.Collections;
+using System.ComponentModel;
 using CSUploader.Dal;
-using CSUploader.Lib;
-using CSUploader.Lib.Compression;
 
 namespace CSUploader.Upload;
 
 /// <summary>
-/// A Package.
+/// A Package. Container for <see cref="PackageFile"/> instances with aggregated display properties.
 /// </summary>
-/// <seealso cref="CSUploader.Models.PackageDetails" />
-/// <seealso cref="IEnumerable{CSUploader.Models.PackageFile}" />
-public class Package : PackageDetails, IEnumerable<PackageFile>
+/// <remarks>
+/// Initializes a new instance of the <see cref="Package"/> class.
+/// </remarks>
+/// <param name="options">The options.</param>
+public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotifyPropertyChanged
 {
+    private readonly Lock _filesLock = new();
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     /// <summary>
-    /// Initializes a new instance of the <see cref="Package"/> class.
+    /// Raises PropertyChanged for all display-bound aggregated properties.
+    /// Also cascades to child package files so their display properties refresh.
     /// </summary>
-    /// <param name="options">The options.</param>
-    public Package(PackageOptions options)
+    public void NotifyDisplayPropertiesChanged()
     {
-        Options = options;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Size)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Speed)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Progress)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesLoaded)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesRemaining)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Duration)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimeRemaining)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Error)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AddedDate)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishedDate)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
 
-        Name = Path.GetFileNameWithoutExtension(options.DirectoryPath) ?? throw new ArgumentException(nameof(options.DirectoryPath));
-        SaveFrom = options.DirectoryPath;
-        FileHosterLogins = options.FileHosters;
-
-        if (Compressor != null)
+        PackageFile[] snapshot;
+        lock (_filesLock)
+        { snapshot = [.. PackageFiles]; }
+        foreach (PackageFile file in snapshot)
         {
-            Compressor.StatusChanged += Compressor_StatusChanged;
+            file.NotifyDisplayPropertiesChanged();
         }
     }
 
     /// <summary>
-    /// Event triggered when a package files are added to the package.
+    /// Event triggered when package files are added to the package.
     /// </summary>
     public event EventHandler<PackageAddedEventArgs>? PackageFilesAdded;
 
     /// <summary>
-    /// Gets the total size of the archive package.
+    /// Gets or sets the database primary key, or null if not yet persisted.
     /// </summary>
-    public override long? Size => Compressor != null && IsCompressing ? Compressor.Size : (PackageFiles.Any(s => s.Size.HasValue) ? PackageFiles.Sum(u => u.Size) : null);
+    public int? DbId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the scheduled start time for the package upload.
+    /// </summary>
+    public DateTime? ScheduledStartTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the package.
+    /// </summary>
+    public string Name { get; set; } = !string.IsNullOrWhiteSpace(options.Title)
+            ? options.Title
+            : Path.GetFileNameWithoutExtension(options.DirectoryPath) ?? throw new ArgumentException(nameof(options.DirectoryPath));
+
+    /// <summary>
+    /// Gets the total size of the package.
+    /// </summary>
+    public long? Size
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Any(s => s.Size.HasValue) ? files.Sum(u => u.Size) : null;
+        }
+    }
 
     /// <summary>
     /// Gets the file hosters used the package is uploading to.
     /// </summary>
-    public override FileHosterClient[] FileHosters => [.. FileHosterLogins.Select(fh => fh.Key)];
+    public FileHosterClient[] FileHosters => [.. FileHosterLogins.Select(fh => fh.Key)];
 
     /// <summary>
     /// Gets the bytes left of package to upload.
     /// </summary>
-    public override long? BytesRemaining => Compressor != null && IsCompressing ? Compressor.BytesRemaining : (PackageFiles.Any(pf => pf.BytesRemaining.HasValue) ? PackageFiles.Sum(pf => pf.BytesRemaining) : null);
+    public long? BytesRemaining
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Any(pf => pf.BytesRemaining.HasValue) ? files.Sum(pf => pf.BytesRemaining) : null;
+        }
+    }
 
     /// <summary>
     /// Gets the duration the file is uploading (when uploading; pause/stopped/etc. time is not included).
     /// </summary>
-    public override TimeSpan? Duration => IsCompressing ? DateTime.Now - AddedDate : PackageFiles.Select(pf => pf.Duration).DefaultIfEmpty().Aggregate((result, ts) => result.HasValue && ts.HasValue ? result.Value.Add(ts.Value) : ts ?? result);
+    public TimeSpan? Duration
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Select(pf => pf.Duration).DefaultIfEmpty().Aggregate((result, ts) => result.HasValue && ts.HasValue ? result.Value.Add(ts.Value) : ts ?? result);
+        }
+    }
 
     /// <summary>
-    /// Gets the upload, compression or hashing speed.
+    /// Gets the upload or hashing speed.
     /// </summary>
-    public override long? Speed => Compressor != null && IsCompressing ? Compressor.Speed : PackageFiles.Any(pf => pf.Status?.Status == JobStatus.Running && pf.Speed.HasValue) ? PackageFiles.Sum(p => p.Speed) : null;
+    public long? Speed
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Any(pf => pf.State is FileState.Hashing or FileState.Uploading && pf.Speed.HasValue) ? files.Sum(p => p.Speed) : null;
+        }
+    }
 
     /// <summary>
     /// Gets the ETA until the job is complete.
     /// </summary>
-    public override TimeSpan? TimeRemaining
+    public TimeSpan? TimeRemaining
     {
         get
         {
-            if (Compressor != null && IsCompressing)
-            {
-                return Compressor.TimeRemaining;
-            }
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
 
-            bool haveTime = false;
-            double timeRemaining = 0.0;
-            foreach (IGrouping<PackageJob, PackageFile> files in PackageFiles.Where(pf => pf.Status != null).GroupBy(pf => pf.Status.Job))
+            long totalBytesRemaining = 0;
+            long totalBytesLoaded = 0;
+            double totalTimeElapsed = 0.0;
+            bool haveRunning = false;
+
+            foreach (PackageFile pf in files)
             {
-                if (!files.Any(pf => pf.Status?.Status == JobStatus.Running))
+                if (pf.State is not (FileState.Hashing or FileState.Uploading))
                 {
                     continue;
                 }
 
-                long jobTotalBytesRemaining = 0;
-                long jobTotalBytesLoaded = 0;
-                double jobTotalTimeElapsed = 0.0;
-                foreach (PackageFile packageFile in files)
+                haveRunning = true;
+
+                if (pf.BytesRemaining.HasValue)
                 {
-                    if (packageFile.BytesRemaining.HasValue)
-                    {
-                        jobTotalBytesRemaining += packageFile.BytesRemaining.Value;
-                    }
-
-                    if (packageFile.BytesLoaded.HasValue)
-                    {
-                        jobTotalBytesLoaded += packageFile.BytesLoaded.Value;
-                    }
-
-                    if (packageFile.Duration.HasValue)
-                    {
-                        jobTotalTimeElapsed += packageFile.Duration.Value.TotalSeconds;
-                    }
+                    totalBytesRemaining += pf.BytesRemaining.Value;
                 }
 
-                if (jobTotalBytesLoaded > 0 && jobTotalBytesRemaining > 0)
+                if (pf.BytesLoaded.HasValue)
                 {
-                    haveTime = true;
-                    timeRemaining += TimeSpan.FromSeconds(jobTotalTimeElapsed / jobTotalBytesLoaded * jobTotalBytesRemaining).TotalSeconds;
+                    totalBytesLoaded += pf.BytesLoaded.Value;
+                }
+
+                if (pf.Duration.HasValue)
+                {
+                    totalTimeElapsed += pf.Duration.Value.TotalSeconds;
                 }
             }
 
-            return haveTime ? TimeSpan.FromSeconds(timeRemaining) : (TimeSpan?)null;
+            if (haveRunning && totalBytesLoaded > 0 && totalBytesRemaining > 0)
+            {
+                return TimeSpan.FromSeconds(totalTimeElapsed / totalBytesLoaded * totalBytesRemaining);
+            }
+
+            return null;
         }
     }
 
     /// <summary>
-    /// Gets the bytes uploaded or compressed.
+    /// Gets the bytes uploaded.
     /// </summary>
-    public override long? BytesLoaded => Compressor != null && IsCompressing ? Compressor.BytesCompressed : (PackageFiles.Any(pf => pf.BytesLoaded.HasValue) ? PackageFiles.Sum(pf => pf.BytesLoaded) : null);
+    public long? BytesLoaded
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Any(pf => pf.BytesLoaded.HasValue) ? files.Sum(pf => pf.BytesLoaded) : null;
+        }
+    }
 
     /// <summary>
-    /// Gets the progress left (in %).
+    /// Gets the progress (in %).
     /// </summary>
-    public override double? Progress => Compressor != null && IsCompressing ? Compressor.Progress : PackageFiles.DefaultIfEmpty().Average(u => u?.Progress);
-
-    /// <summary>
-    /// Gets the password of the package.
-    /// </summary>
-    public override string? Password => Options?.CompressionOptions?.ArchivePassword;
+    public double? Progress
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.DefaultIfEmpty().Average(u => u?.Progress);
+        }
+    }
 
     /// <summary>
     /// Gets the file count of the package.
     /// </summary>
-    public int? FileCount => IsCompressing ? null : (PackageFiles.Any() ? PackageFiles.Count : null);
+    public int? FileCount
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Length > 0 ? files.Length : null;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the file hoster logins.
     /// </summary>
-    /// <value>
-    /// The file hoster logins.
-    /// </value>
-    public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosterLogins { get; set; }
+    public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosterLogins { get; set; } = options.FileHosters;
 
     /// <summary>
-    /// Gets a value indicating whether the package requires compression.
+    /// Per-package speed limit override in KB/s. Null means use the global AppSettings.SpeedLimit.
     /// </summary>
-    /// <value>
-    ///   <c>true</c> if the package requires compression; otherwise, <c>false</c>.
-    /// </value>
-    public bool RequiresCompression => Compressor != null && Compressor.Status != JobStatus.Success;
+    public int? SpeedLimitKBps { get; set; }
 
     /// <summary>
-    /// Gets a value indicating whether this instance is compressing.
+    /// Whether the package's child rows are visible in the UI.
     /// </summary>
-    /// <value>
-    ///   <c>true</c> if this instance is compressing; otherwise, <c>false</c>.
-    /// </value>
-    public bool IsCompressing => Compressor?.Status == JobStatus.Running;
+    public bool IsExpanded
+    {
+        get;
+        set
+        {
+            if (field == value)
+            {
+                return;
+            }
 
-    public PackageOptions Options { get; private set; }
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded)));
+        }
+    } = true;
 
     /// <summary>
-    /// Gets the compressor used for this package, if set.
+    /// Alias of <see cref="Status"/> so XAML bindings can use the same path as PackageFile.State.
     /// </summary>
-    private Compressor? Compressor => Options.CompressionOptions.Compressor;
+    public FileState State => Status;
+
+    /// <summary>
+    /// Display name of the hoster(s). Uses the first hoster; empty when none.
+    /// </summary>
+    public string HosterDisplay => FileHosters.Length > 0 ? FileHosters[0].Name : string.Empty;
+
+    /// <summary>
+    /// True — marks this row as a package row for XAML template selection.
+    /// </summary>
+#pragma warning disable CA1822
+    public bool IsPackageRow => true;
+#pragma warning restore CA1822
+
+    /// <summary>
+    /// Returns the effective upload speed limit in bytes/second, preferring the per-package
+    /// override over the global AppSettings value. Returns null for unlimited.
+    /// </summary>
+    public long? GetEffectiveSpeedLimitBytesPerSecond()
+    {
+        int? kbps = EffectiveSpeedLimitKBps;
+        return kbps is > 0 ? (long)kbps.Value * 1024 : null;
+    }
+
+    /// <summary>
+    /// Gets the effective speed limit in KB/s (override or global fallback), or null for unlimited.
+    /// </summary>
+    public int? EffectiveSpeedLimitKBps
+    {
+        get
+        {
+            if (SpeedLimitKBps is > 0)
+            {
+                return SpeedLimitKBps;
+            }
+
+            int? global = AppSettings.Current.SpeedLimit;
+            return global is > 0 ? global : null;
+        }
+    }
+
+    /// <summary>
+    /// Gets the aggregate status derived from child package files' <see cref="FileState"/> values.
+    /// </summary>
+    public FileState Status
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+
+            if (files.Length == 0)
+            {
+                return FileState.Idle;
+            }
+
+            FileState[] states = [.. files.Select(f => f.State)];
+
+            // Terminal: all files completed
+            if (states.All(s => s == FileState.Completed))
+            {
+                return FileState.Completed;
+            }
+
+            // Terminal: any file failed
+            if (states.Any(s => s == FileState.Failed))
+            {
+                return FileState.Failed;
+            }
+
+            // In progress: any file actively running
+            if (states.Any(s => s == FileState.Uploading))
+            {
+                return FileState.Uploading;
+            }
+
+            if (states.Any(s => s == FileState.Hashing))
+            {
+                return FileState.Hashing;
+            }
+
+            // Queued: any file waiting
+            if (states.Any(s => s is FileState.HashQueued or FileState.UploadQueued))
+            {
+                return FileState.UploadQueued;
+            }
+
+            // Paused
+            if (states.Any(s => s == FileState.Paused))
+            {
+                return FileState.Paused;
+            }
+
+            // Cancelled
+            if (states.Any(s => s == FileState.Cancelled))
+            {
+                return FileState.Cancelled;
+            }
+
+            return FileState.Idle;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the error string.
+    /// </summary>
+    public string? Error { get; set; }
+
+    /// <summary>
+    /// Gets the earliest AddedDate across child files, or null if none.
+    /// </summary>
+    public DateTime? AddedDate
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Length == 0 ? null : files.Min(f => f.AddedDate);
+        }
+    }
+
+    /// <summary>
+    /// Gets the latest FinishedDate across child files, or null if any file hasn't finished.
+    /// </summary>
+    public DateTime? FinishedDate
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            if (files.Length == 0 || files.Any(f => f.FinishedDate is null))
+            {
+                return null;
+            }
+
+            return files.Max(f => f.FinishedDate);
+        }
+    }
+
+    /// <summary>
+    /// Gets the highest priority across child files, or null if the package has no files.
+    /// </summary>
+    public int? Priority
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return files.Length == 0 ? null : files.Max(f => f.Priority);
+        }
+    }
+
+    /// <summary>
+    /// Gets the newline-joined URLs of child files that have finished uploading, or empty if none.
+    /// </summary>
+    public string FileUrl
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            return string.Join(Environment.NewLine, files
+                .Select(f => f.FileUrl)
+                .Where(u => !string.IsNullOrEmpty(u)));
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the file path of the file on disk.
+    /// </summary>
+    public string? SaveFrom { get; set; } = options.DirectoryPath;
+
+    /// <summary>
+    /// Gets the options used to create this package.
+    /// </summary>
+    public PackageOptions Options { get; private set; } = options;
 
     private List<PackageFile> PackageFiles { get; set; } = [];
 
-    public override PackageJob? GetNextJob()
-    {
-        if (RequiresCompression)
-        {
-            if (Status == null)
-            {
-                return PackageJob.Compression;
-            }
-
-            switch (Status?.Status)
-            {
-                case JobStatus.Cancelled:
-                case JobStatus.Failed:
-                case JobStatus.Paused:
-                    return Status.Job;
-            }
-        }
-
-        return null;
-    }
-
+    /// <summary>
+    /// Removes a specific package file from this package.
+    /// </summary>
+    /// <param name="packageFile">The file to remove.</param>
     public void Remove(PackageFile packageFile)
     {
-        // Remove it from the list first thing
-        PackageFiles.Remove(packageFile);
-
-        // Stop package file
-        packageFile.Stop();
+        lock (_filesLock)
+        { PackageFiles.Remove(packageFile); }
+        packageFile.Cleanup();
+        packageFile.Cts?.Cancel();
+        packageFile.Cts?.Dispose();
+        packageFile.Cts = null;
     }
 
+    /// <summary>
+    /// Removes all package files from this package.
+    /// </summary>
     public void Remove()
     {
-        if (Status?.Status == JobStatus.Running)
+        PackageFile[] snapshot;
+        lock (_filesLock)
         {
-            Stop();
-        }
-        else
-        {
-            PackageFile[] packageFiles = [.. PackageFiles];
+            snapshot = [.. PackageFiles];
             PackageFiles.Clear();
+        }
 
-            foreach (PackageFile packageFile in packageFiles)
-            {
-                packageFile.Stop();
-            }
+        foreach (PackageFile packageFile in snapshot)
+        {
+            packageFile.Cleanup();
+            packageFile.Cts?.Cancel();
+            packageFile.Cts?.Dispose();
+            packageFile.Cts = null;
         }
     }
 
+    /// <summary>
+    /// Adds package files from the given directory.
+    /// </summary>
+    /// <param name="directory">The directory to scan for files.</param>
     public void AddPackageFiles(string directory)
     {
         List<PackageFile> packageFiles = [];
+        HashSet<string>? selectedFiles = Options.SelectedFiles is { Count: > 0 }
+            ? new HashSet<string>(Options.SelectedFiles, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        // One shared session per hoster so all files for the same hoster share one login
+        Dictionary<string, SharedSession> perHosterSessions = new(StringComparer.Ordinal);
 
         foreach (string filePath in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
         {
-            // Upload it to each given file hoster
+            if (selectedFiles is not null && !selectedFiles.Contains(filePath))
+            {
+                continue;
+            }
+
             foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
             {
                 FileHosterClient? fileHoster = FileHosterClient.FileHosters.Where(fh => fh.Key == kvp.Key.Name).Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!)).FirstOrDefault();
                 if (fileHoster != null)
                 {
+                    if (!perHosterSessions.TryGetValue(kvp.Key.Name, out SharedSession? session))
+                    {
+                        session = new SharedSession();
+                        perHosterSessions[kvp.Key.Name] = session;
+                    }
+
+                    fileHoster.SharedSessionCache = session;
                     PackageFile packageFile = new(this, filePath, fileHoster, kvp.Value);
+                    fileHoster.SpeedLimitProvider = packageFile.GetEffectiveSpeedLimitBytesPerSecond;
                     packageFiles.Add(packageFile);
                 }
             }
@@ -240,70 +522,30 @@ public class Package : PackageDetails, IEnumerable<PackageFile>
         AddPackageFiles([.. packageFiles]);
     }
 
+    /// <summary>
+    /// Adds the given package files to this package.
+    /// </summary>
+    /// <param name="packageFiles">The files to add.</param>
     public void AddPackageFiles(PackageFile[] packageFiles)
     {
-        // Add event handlers
         foreach (PackageFile packageFile in packageFiles)
         {
-            packageFile.StatusChanged += PackageFile_StatusChanged;
-
-            PackageFiles.Add(packageFile);
+            lock (_filesLock)
+            { PackageFiles.Add(packageFile); }
         }
 
         PackageFilesAdded?.Invoke(this, new PackageAddedEventArgs(this, packageFiles));
     }
 
-    /// <summary>
-    /// Returns an enumerator that iterates through the collection.
-    /// </summary>
-    /// <returns>
-    /// An enumerator that can be used to iterate through the collection.
-    /// </returns>
+    /// <inheritdoc/>
     public IEnumerator<PackageFile> GetEnumerator()
     {
-        return PackageFiles.GetEnumerator();
+        PackageFile[] snapshot;
+        lock (_filesLock)
+        { snapshot = [.. PackageFiles]; }
+        return ((IEnumerable<PackageFile>)snapshot).GetEnumerator();
     }
 
-    /// <summary>
-    /// Returns an enumerator that iterates through a collection.
-    /// </summary>
-    /// <returns>
-    /// An <see cref="T:System.Collections.IEnumerator" /> object that can be used to iterate through the collection.
-    /// </returns>
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return PackageFiles.GetEnumerator();
-    }
-
-    /// <summary>
-    /// Starts the asynchronous.
-    /// </summary>
-    /// <param name="packageJob">The package job.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <param name="pauseToken">The pause token.</param>
-    /// <returns>The <see cref="Task" /> representing the asynchronous operation.</returns>
-    protected override Task StartAsync(PackageJob packageJob, PauseToken pauseToken = default, CancellationToken cancellationToken = default)
-    {
-        if (packageJob != PackageJob.Compression || Compressor == null || string.IsNullOrEmpty(Options.DirectoryPath) || string.IsNullOrEmpty(Options.CompressionOptions.OutputDirectoryPath))
-        {
-            return Task.CompletedTask;
-        }
-
-        if (Options.CompressionOptions == null || Compressor.Status == JobStatus.Running || Compressor.Status == JobStatus.Success)
-        {
-            return Task.CompletedTask;
-        }
-
-        return Compressor.CompressAsync(Options.DirectoryPath, Options.CompressionOptions.OutputDirectoryPath, pauseToken, cancellationToken);
-    }
-
-    private void PackageFile_StatusChanged(object? sender, PackageStatusChangedEventArgs e)
-    {
-        FireStatusChanged(sender, e);
-    }
-
-    private void Compressor_StatusChanged(object? sender, JobStatusChangedEventArgs e)
-    {
-        ChangeStatus(PackageJob.Compression, e.NewStatus);
-    }
+    /// <inheritdoc/>
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

@@ -1,16 +1,48 @@
-﻿// <copyright file="PackageFile.cs" company="CSUploader">
+// <copyright file="PackageFile.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Crypto;
 
 namespace CSUploader.Upload;
 
-public class PackageFile : PackageDetails
+/// <summary>
+/// Represents a single file within a <see cref="Package"/>.
+/// </summary>
+public class PackageFile : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// Raises PropertyChanged for all display-bound properties. Called by the UI refresh timer.
+    /// </summary>
+    public void NotifyDisplayPropertiesChanged()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Speed)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Progress)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesLoaded)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesRemaining)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Duration)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimeRemaining)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Error)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PackageFile"/> class.
+    /// </summary>
+    /// <param name="package">The owning package.</param>
+    /// <param name="filePath">The file path on disk.</param>
+    /// <param name="fileHoster">The file hoster client.</param>
+    /// <param name="fileHosterLoginDto">The file hoster login credentials.</param>
     public PackageFile(Package package, string filePath, FileHosterClient fileHoster, FileHosterLoginDto fileHosterLoginDto)
     {
         Package = package;
@@ -30,14 +62,24 @@ public class PackageFile : PackageDetails
     }
 
     /// <summary>
-    /// Gets the total size of the archive package.
+    /// Gets or sets the database primary key, or null if not yet persisted.
     /// </summary>
-    public override long? Size => FileInfo?.Length;
+    public int? DbId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the name of the file.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the total size of the file.
+    /// </summary>
+    public long? Size => FileInfo?.Length;
 
     /// <summary>
     /// Gets the file hosters used the package is uploading to.
     /// </summary>
-    public override FileHosterClient[] FileHosters => [FileHoster];
+    public FileHosterClient[] FileHosters => [FileHoster];
 
     /// <summary>
     /// Gets or sets the file hoster login information.
@@ -77,64 +119,183 @@ public class PackageFile : PackageDetails
     /// <summary>
     /// Gets a value indicating whether upload has finished.
     /// </summary>
-    public bool IsUploadFinished { get; private set; }
+    public bool IsUploadFinished { get; internal set; }
+
+    /// <summary>
+    /// Gets the file hoster client.
+    /// </summary>
+    public FileHosterClient FileHoster { get; }
+
+    /// <summary>
+    /// Display name of the hoster, mirroring Package.HosterDisplay for unified XAML bindings.
+    /// </summary>
+    public string HosterDisplay => FileHoster.Name;
+
+    /// <summary>
+    /// False — marks this row as a file row (not a package) for XAML template selection.
+    /// </summary>
+#pragma warning disable CA1822
+    public bool IsPackageRow => false;
+
+    /// <summary>
+    /// Stub so the shared Name-column template can bind IsExpanded on both package and file rows
+    /// without emitting binding path warnings. Files are never expandable — the toggle is hidden.
+    /// </summary>
+    public bool IsExpanded { get => false; set { } }
+#pragma warning restore CA1822
+
+    /// <summary>
+    /// Gets or sets the flat file state used by the <see cref="UploadScheduler"/>.
+    /// </summary>
+    public FileState State { get; set; } = FileState.Idle;
+
+    /// <summary>
+    /// Gets or sets the cancellation token source owned by the scheduler.
+    /// </summary>
+    public CancellationTokenSource? Cts { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether hashing has been completed for this file.
+    /// </summary>
+    public bool IsHashingComplete { get; internal set; }
+
+    /// <summary>
+    /// Gets or sets the error string.
+    /// </summary>
+    public string? Error { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bytes remaining of the file to upload.
+    /// </summary>
+    public long? BytesRemaining { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date the file started (uploading, hashing, etc.).
+    /// </summary>
+    public DateTime? StartedDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the date the file finished uploading.
+    /// </summary>
+    public DateTime? FinishedDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the duration the file is uploading (when uploading; pause/stopped/etc. time is not included).
+    /// </summary>
+    public TimeSpan? Duration { get; set; }
+
+    /// <summary>
+    /// Gets or sets the job speed.
+    /// </summary>
+    public long? Speed { get; set; }
+
+    /// <summary>
+    /// Gets or sets the time remaining until the job is complete.
+    /// </summary>
+    public TimeSpan? TimeRemaining { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bytes uploaded.
+    /// </summary>
+    public long? BytesLoaded { get; set; }
+
+    /// <summary>
+    /// Gets or sets the progress (in %).
+    /// </summary>
+    public double? Progress { get; set; }
+
+    /// <summary>
+    /// Gets or sets the file path of the file on disk.
+    /// </summary>
+    public string? SaveFrom { get; set; }
+
+    /// <summary>
+    /// Per-file speed limit override in KB/s. Null means fall back to the package's limit.
+    /// </summary>
+    public int? SpeedLimitKBps { get; set; }
+
+    /// <summary>
+    /// Returns the effective upload speed limit in bytes/second, preferring the per-file
+    /// override, then the owning package, then the global setting. Null means unlimited.
+    /// </summary>
+    public long? GetEffectiveSpeedLimitBytesPerSecond()
+    {
+        if (SpeedLimitKBps is > 0)
+        {
+            return (long)SpeedLimitKBps.Value * 1024;
+        }
+
+        return Package.GetEffectiveSpeedLimitBytesPerSecond();
+    }
+
+    /// <summary>
+    /// Gets the effective speed limit in KB/s, cascading file → package → global. Null = unlimited.
+    /// </summary>
+    public int? EffectiveSpeedLimitKBps
+    {
+        get
+        {
+            if (SpeedLimitKBps is > 0)
+            {
+                return SpeedLimitKBps;
+            }
+
+            return Package.EffectiveSpeedLimitKBps;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the date the file was added.
+    /// </summary>
+    public DateTime AddedDate { get; set; } = DateTime.Now;
+
+    /// <summary>
+    /// Gets or sets the priority.
+    /// </summary>
+    public int Priority { get; set; }
 
     private FileInfo FileInfo { get; set; }
 
-    private FileHosterClient FileHoster { get; set; }
-
-    public override PackageJob? GetNextJob()
+    /// <summary>
+    /// Cleans up event handlers from the file hoster client.
+    /// </summary>
+    public void Cleanup()
     {
-        if (Status == null)
-        {
-            return RequiresHashingBeforeUpload ? PackageJob.Hashing : PackageJob.Upload;
-        }
-
-        switch (Status?.Status)
-        {
-            case JobStatus.Cancelled:
-            case JobStatus.Failed:
-            case JobStatus.Paused:
-                return Status.Job;
-
-            case JobStatus.Running:
-            case JobStatus.Queued:
-                return null;
-        }
-
-        if (Status?.Job == PackageJob.Hashing && !IsUploadFinished)
-        {
-            return PackageJob.Upload;
-        }
-        else if (Status?.Job == PackageJob.Upload && RequiresHashingAfterUpload)
-        {
-            return PackageJob.Hashing;
-        }
-
-        return null;
+        FileHoster.UploadProgress -= FileHoster_UploadProgress;
+        FileHoster.UploadFinished -= FileHoster_UploadFinished;
+        FileHoster.HashingProgress -= FileHoster_HashingProgress;
+        FileHoster.HashingFinished -= FileHoster_HashingFinished;
     }
 
-    protected override Task StartAsync(PackageJob packageJob, PauseToken pauseToken = default, CancellationToken cancellationToken = default)
-    {
-        switch (packageJob)
-        {
-            case PackageJob.Hashing:
-                return StartHashingAsync(pauseToken, cancellationToken);
-
-            case PackageJob.Upload:
-                return StartUploadAsync(pauseToken, cancellationToken);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private Task StartUploadAsync(PauseToken pauseToken = default, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Starts hashing for this file. Called by the <see cref="UploadScheduler"/>.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task StartHashingAsync(CancellationToken cancellationToken)
     {
         if (!FileInfo.Exists)
         {
-            ChangeStatus(PackageJob.Upload, $"File '{FileInfo.FullName}' not found");
+            Error = $"File '{FileInfo.FullName}' not found";
+            throw new FileNotFoundException(Error, FileInfo.FullName);
+        }
 
-            return Task.CompletedTask;
+        ResetProgressValues();
+
+        return FileHoster.HashAsync(FileInfo.FullName, default, cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts uploading this file. Called by the <see cref="UploadScheduler"/>.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    public Task StartUploadAsync(CancellationToken cancellationToken)
+    {
+        if (!FileInfo.Exists)
+        {
+            Error = $"File '{FileInfo.FullName}' not found";
+            throw new FileNotFoundException(Error, FileInfo.FullName);
         }
 
         ResetProgressValues();
@@ -144,20 +305,6 @@ public class PackageFile : PackageDetails
         return !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password)
             ? FileHoster.UploadAsync(FileInfo.FullName, username, password, cancellationToken)
             : FileHoster.UploadAsync(FileInfo.FullName, cancellationToken);
-    }
-
-    private Task StartHashingAsync(PauseToken pauseToken = default, CancellationToken cancellation = default)
-    {
-        if (!FileInfo.Exists)
-        {
-            ChangeStatus(PackageJob.Hashing, $"File '{FileInfo.FullName}' not found");
-
-            return Task.CompletedTask;
-        }
-
-        ResetProgressValues();
-
-        return FileHoster.HashAsync(FileInfo.FullName, pauseToken, cancellation);
     }
 
     private void ResetProgressValues()
@@ -195,7 +342,6 @@ public class PackageFile : PackageDetails
         try
         {
             IsUploadFinished = true;
-
             Duration = e.TimeElapsed;
             if (e.Success)
             {
@@ -211,8 +357,6 @@ public class PackageFile : PackageDetails
             Speed = null;
             TimeRemaining = null;
             FinishedDate = e.DateTimeFinished;
-
-            ChangeStatus(PackageJob.Upload, e.Success ? JobStatus.Success : JobStatus.Failed);
         }
         catch (Exception)
         {
@@ -245,6 +389,7 @@ public class PackageFile : PackageDetails
 
             if (e.Success)
             {
+                IsHashingComplete = true;
                 Progress = 100.0;
                 BytesRemaining = IsUploadFinished ? null : Size;
             }
@@ -255,8 +400,6 @@ public class PackageFile : PackageDetails
 
             Speed = null;
             TimeRemaining = null;
-
-            ChangeStatus(PackageJob.Hashing, e.Success ? JobStatus.Success : JobStatus.Failed);
         }
         catch (Exception)
         {

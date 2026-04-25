@@ -5,7 +5,6 @@
 
 using System.Windows;
 using CSUploader.Dal;
-using CSUploader.Upload;
 
 namespace CSUploader.Views;
 
@@ -19,9 +18,18 @@ public partial class EditAccountWindow : Window
 
         _original = account;
 
-        HosterCombo.ItemsSource = hosters;
-        HosterCombo.SelectedItem = account.FileHosterName;
-        HosterCombo.IsEnabled = account.Id == 0; // Lock hoster for existing accounts
+        if (account.Id == 0)
+        {
+            HosterCombo.ItemsSource = hosters;
+            HosterCombo.SelectedItem = account.FileHosterName;
+        }
+        else
+        {
+            // Lock hoster for existing accounts: show as read-only text
+            HosterCombo.Visibility = Visibility.Collapsed;
+            HosterLocked.Visibility = Visibility.Visible;
+            HosterLockedText.Text = account.FileHosterName;
+        }
 
         UsernameBox.Text = account.Username;
         PasswordBox.Text = account.Password;

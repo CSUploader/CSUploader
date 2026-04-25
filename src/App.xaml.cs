@@ -6,12 +6,14 @@
 using System.Windows;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Update;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
 using CSUploader.Views;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Velopack;
 
 namespace CSUploader;
 
@@ -19,8 +21,14 @@ public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
 
+    public IServiceProvider Services => _serviceProvider ?? throw new InvalidOperationException("Services not initialized.");
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Velopack first-frame hook: handles --veloapp-install / --veloapp-uninstall
+        // command-line flags that the installer fires. Must run before anything else.
+        VelopackApp.Build().Run();
+
         base.OnStartup(e);
 
         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -64,14 +72,16 @@ public partial class App : Application
         services.AddSingleton<UploadPackageFileRepository>();
 
         // Upload
+        services.AddSingleton<UploadScheduler>();
         services.AddSingleton<PackageManager>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IUpdateService, UpdateService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
-        services.AddSingleton<UploadViewModel>();
+
         services.AddSingleton<UploadsViewModel>();
         services.AddSingleton<UploadedViewModel>();
         services.AddSingleton<SettingsViewModel>();

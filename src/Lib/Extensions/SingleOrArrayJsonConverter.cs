@@ -44,7 +44,7 @@ public class SingleOrArrayJsonConverter<T> : JsonConverter<T[]>
         }
         else
         {
-            JsonSerializer.Serialize<T[]>(writer, value, options);
+            JsonSerializer.Serialize(writer, value, options);
         }
     }
 }

@@ -7,11 +7,25 @@ namespace CSUploader.Upload;
 
 public static class SettingKey
 {
-    public static string TempArchiveDirectory { get; } = "tempArchiveDirectory";
-
     public static string MaxConcurrentCPUJobs { get; } = "maxConcurrentCPUJobs";
 
     public static string MaxConcurrentUploadJobs { get; } = "maxConcurrentUploadJobs";
 
+    public static string MaxUploadsPerHostEnabled { get; } = "maxUploadsPerHostEnabled";
+
+    public static string MaxUploadsPerHost { get; } = "maxUploadsPerHost";
+
+    public static string RemoveFinishedUploads { get; } = "removeFinishedUploads";
+
+    public static string AutoRemoveCompletedFiles { get; } = "autoRemoveCompletedFiles";
+
+    public static string AutoRemoveCompletedPackages { get; } = "autoRemoveCompletedPackages";
+
+    public static string IfFileExists { get; } = "ifFileExists";
+
     public static string SpeedLimit { get; } = "speedLimit";
+
+    public static string UseMockServer { get; } = "useMockServer";
+
+    public static string SuppressedConfirmations { get; } = "suppressedConfirmations";
 }

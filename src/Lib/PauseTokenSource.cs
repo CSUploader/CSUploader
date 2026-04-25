@@ -1,14 +1,15 @@
-﻿// <copyright file="PauseTokenSource.cs" company="CSUploader">
+// <copyright file="PauseTokenSource.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
 namespace CSUploader.Lib;
 
-public class PauseTokenSource
+public class PauseTokenSource : IDisposable
 {
     private readonly SemaphoreSlim stateAsyncLock = new(1);
     private readonly SemaphoreSlim pauseRequestAsyncLock = new(1);
+    private bool _disposed;
 
     private bool paused = false;
     private bool pauseRequested = false;
@@ -131,7 +132,7 @@ public class PauseTokenSource
 
     private async Task WaitForResumeRequestAsync(CancellationToken token)
     {
-        if (resumeRequestTcs== null)
+        if (resumeRequestTcs == null)
         {
             return;
         }
@@ -153,5 +154,18 @@ public class PauseTokenSource
         {
             await pauseConfirmationTcs.Task;
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        stateAsyncLock.Dispose();
+        pauseRequestAsyncLock.Dispose();
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
