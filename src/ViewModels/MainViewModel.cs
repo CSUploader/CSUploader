@@ -59,6 +59,7 @@ public partial class MainViewModel : ObservableObject
         UploadsViewModel = services.GetRequiredService<UploadsViewModel>();
         UploadedViewModel = services.GetRequiredService<UploadedViewModel>();
         SettingsViewModel = services.GetRequiredService<SettingsViewModel>();
+        ConnectionManagerViewModel = services.GetRequiredService<ConnectionManagerViewModel>();
         LogsViewModel = services.GetRequiredService<LogsViewModel>();
 
         _logger.OnLogOutput += Logger_OnLogOutput;
@@ -154,6 +155,8 @@ public partial class MainViewModel : ObservableObject
 
     public SettingsViewModel SettingsViewModel { get; }
 
+    public ConnectionManagerViewModel ConnectionManagerViewModel { get; }
+
     public LogsViewModel LogsViewModel { get; }
 
     public async Task InitializeAsync()
@@ -161,6 +164,10 @@ public partial class MainViewModel : ObservableObject
         FirstRun.InitializeDatabase(_services, _logger);
 
         await SettingsViewModel.LoadAsync();
+        // Load proxies before persisted packages so any auto-resumed uploads pick from
+        // the user's configured proxy list.
+        await _services.GetRequiredService<Lib.Net.ProxyManager>().ReloadAsync();
+        await ConnectionManagerViewModel.LoadAsync();
         await _services.GetRequiredService<PackageManager>().LoadPersistedPackagesAsync();
         await UploadedViewModel.LoadAsync();
 

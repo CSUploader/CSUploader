@@ -34,9 +34,39 @@
     <BitmapImage x:Key="StatusSuccessImage" UriSource="pack://application:,,,/Properties/Images/status_success.png" />
     <BitmapImage x:Key="StatusUploadingImage" UriSource="pack://application:,,,/Properties/Images/status_uploading.png" />
     <BitmapImage x:Key="StatusWarningImage" UriSource="pack://application:,,,/Properties/Images/status_warning.png" />
+    <BitmapImage x:Key="AccountImage" UriSource="pack://application:,,,/Properties/Images/account.png" />
 
     <!-- File Hoster Images -->
+    <BitmapImage x:Key="FileHosterAlfafileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_alfafile.png" />
+    <BitmapImage x:Key="FileHosterAndroidfilehostImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_androidfilehost.png" />
+    <BitmapImage x:Key="FileHosterBruploadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_brupload.png" />
+    <BitmapImage x:Key="FileHosterExloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_exload.png" />
+    <BitmapImage x:Key="FileHosterExtmatrixImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_extmatrix.png" />
+    <BitmapImage x:Key="FileHosterFileboomImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_fileboom.png" />
+    <BitmapImage x:Key="FileHosterFilecloudImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_filecloud.png" />
+    <BitmapImage x:Key="FileHosterFilesmonsterImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_filesmonster.png" />
+    <BitmapImage x:Key="FileHosterFlashbitImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_flashbit.png" />
+    <BitmapImage x:Key="FileHosterGigapetaImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_gigapeta.png" />
+    <BitmapImage x:Key="FileHosterHitfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hitfile.png" />
+    <BitmapImage x:Key="FileHosterIcerboxImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_icerbox.png" />
+    <BitmapImage x:Key="FileHosterIsracloudImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_isracloud.png" />
+    <BitmapImage x:Key="FileHosterKatfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_katfile.png" />
+    <BitmapImage x:Key="FileHosterKeep2shareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_keep2share.png" />
+    <BitmapImage x:Key="FileHosterNitroflareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_nitroflare.png" />
+    <BitmapImage x:Key="FileHosterNovafileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_novafile.png" />
+    <BitmapImage x:Key="FileHosterOpenloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_openload.png" />
     <BitmapImage x:Key="FileHosterRapidgatorImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidgator.png" />
+    <BitmapImage x:Key="FileHosterRapiduImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidu.png" />
+    <BitmapImage x:Key="FileHosterRarefileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rarefile.png" />
+    <BitmapImage x:Key="FileHosterShareonlineImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_shareonline.png" />
+    <BitmapImage x:Key="FileHosterTakefileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_takefile.png" />
+    <BitmapImage x:Key="FileHosterTezfilesImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_tezfiles.png" />
+    <BitmapImage x:Key="FileHosterUbiqfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_ubiqfile.png" />
+    <BitmapImage x:Key="FileHosterUploadedImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_uploaded.png" />
+    <BitmapImage x:Key="FileHosterUploadgigImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_uploadgig.png" />
+    <BitmapImage x:Key="FileHosterUnibytesImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_unibytes.png" />
+    <BitmapImage x:Key="FileHosterUpstoreImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_upstore.png" />
+    <BitmapImage x:Key="FileHosterWushareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_wushare.png" />
 
     <!-- Logo Images -->
     <BitmapImage x:Key="LogoCsLogo128Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_128_128.png" />

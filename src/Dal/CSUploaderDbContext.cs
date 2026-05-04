@@ -30,6 +30,8 @@ public class CSUploaderDbContext : DbContext
 
     public DbSet<UploadPackageFileDbm> UploadPackageFiles => Set<UploadPackageFileDbm>();
 
+    public DbSet<ProxySettingDbm> ProxySettings => Set<ProxySettingDbm>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
@@ -61,6 +63,12 @@ public class CSUploaderDbContext : DbContext
         });
 
         modelBuilder.Entity<UploadPackageFileDbm>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<ProxySettingDbm>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();

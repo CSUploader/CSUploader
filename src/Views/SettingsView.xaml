@@ -133,7 +133,13 @@
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <Image Source="{StaticResource ActionSpeedImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="Connection" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem>
+                    <StackPanel HorizontalAlignment="Center" Width="120">
+                        <Image Source="{StaticResource AccountImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                         <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
@@ -173,6 +179,39 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <CheckBox Content="Use mock server (redirect all file hoster requests to localhost:8080/&lt;hoster&gt;)"
                               IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Grid appearance (font for Uploads / Uploaded tabs) -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Grid Appearance" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="Font used for the Uploads and Uploaded tabs. Changes apply immediately." />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Grid font" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding GridFontFamilyOptions}"
+                              SelectedItem="{Binding GridFontFamily}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Grid font size" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1"
+                             Text="{Binding GridFontSize, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}"
+                             Style="{StaticResource SettingInput}"
+                             HorizontalContentAlignment="Right" />
                 </Grid>
 
                 <!-- Confirmation prompts -->
@@ -322,13 +361,133 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- 2: Accounts (Grid layout so DataGrid fills height) -->
+        <!-- 2: Connection Manager. Looks up its VM via the parent Window's MainViewModel
+             since the SettingsView's DataContext is SettingsViewModel. -->
+        <Grid Grid.Column="2" Background="{DynamicResource SurfaceBrush}"
+              DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DataContext.SelectedCategoryIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="2">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="20,16,20,0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Connection Manager" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection." />
+            </StackPanel>
+
+            <DataGrid x:Name="proxyGrid" Grid.Row="1" Margin="20,8,20,8"
+                      ItemsSource="{Binding Proxies}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      SelectionMode="Extended"
+                      SelectionUnit="FullRow"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="All"
+                      RowHeaderWidth="0"
+                      Background="{DynamicResource SurfaceBrush}"
+                      RowBackground="{DynamicResource SurfaceBrush}"
+                      AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
+                      HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                      VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}">
+                <DataGrid.InputBindings>
+                    <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}"
+                                CommandParameter="{Binding SelectedItems, ElementName=proxyGrid}" />
+                </DataGrid.InputBindings>
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                        <DataGridCheckBoxColumn.ElementStyle>
+                            <Style TargetType="CheckBox">
+                                <Setter Property="HorizontalAlignment" Value="Center" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                            </Style>
+                        </DataGridCheckBoxColumn.ElementStyle>
+                    </DataGridCheckBoxColumn>
+                    <DataGridTemplateColumn Header="Priority" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Button Content="&#x25B2;" FontSize="10" Width="22" Height="22" Margin="0,0,2,0"
+                                            Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Move up" />
+                                    <Button Content="&#x25BC;" FontSize="10" Width="22" Height="22"
+                                            Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Move down" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Type" Width="100" SortMemberPath="Type">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{x:Static vm:ConnectionManagerViewModel.ProxyTypeOptions}"
+                                          SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}"
+                                          BorderThickness="0"
+                                          Background="Transparent" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Host / IP" Binding="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
+                    <DataGridTextColumn Header="Port" Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                    <DataGridTextColumn Header="User" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    <DataGridTextColumn Header="Password" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    <DataGridTextColumn Header="Problems" Binding="{Binding ProblemsCount}" Width="80" IsReadOnly="True" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <DockPanel Grid.Row="2" Margin="20,0,20,16">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="Import…" Command="{Binding ImportCommand}" Style="{StaticResource JD2Button}" Margin="0,0,8,0" />
+                    <Button Content="Export…" Command="{Binding ExportCommand}" Style="{StaticResource JD2Button}" Margin="0,0,8,0" />
+                    <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" Width="100" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Style="{StaticResource JD2Button}" Command="{Binding AddCommand}" Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,4,0" />
+                            <TextBlock Text="Add" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource JD2Button}"
+                            Command="{Binding RemoveSelectedCommand}"
+                            CommandParameter="{Binding SelectedItems, ElementName=proxyGrid}"
+                            Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="−" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,4,0" />
+                            <TextBlock Text="Remove" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
+                               Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+            </DockPanel>
+        </Grid>
+
+        <!-- 3: Accounts (Grid layout so DataGrid fills height) -->
         <Grid Grid.Column="2" Background="{DynamicResource SurfaceBrush}">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="2">
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="3">
                             <Setter Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -344,7 +503,7 @@
             <!-- Header -->
             <StackPanel Grid.Row="0" Margin="20,16,20,0">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                    <Image Source="{StaticResource FileHosterRapidgatorImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <Image Source="{StaticResource AccountImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="Account Manager" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
@@ -508,7 +667,7 @@
                 <Style TargetType="ScrollViewer">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="3">
+                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="4">
                             <Setter Property="Visibility" Value="Visible" />
                         </DataTrigger>
                     </Style.Triggers>

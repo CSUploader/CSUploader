@@ -52,6 +52,14 @@ public partial class SettingsViewModel(
     private bool autoRemoveCompletedPackages;
 
     [ObservableProperty]
+    private string gridFontFamily = AppSettings.DefaultGridFontFamily;
+
+    [ObservableProperty]
+    private double gridFontSize = AppSettings.DefaultGridFontSize;
+
+    public static string[] GridFontFamilyOptions { get; } = ["Tahoma", "Segoe UI", "Arial", "Verdana", "Calibri", "Consolas"];
+
+    [ObservableProperty]
     private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
 
     [ObservableProperty]
@@ -183,6 +191,22 @@ public partial class SettingsViewModel(
                     AutoRemoveCompletedPackages = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.GridFontFamily:
+                    if (!string.IsNullOrWhiteSpace(setting.Value))
+                    {
+                        GridFontFamily = setting.Value;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.GridFontSize:
+                    if (double.TryParse(setting.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double size) && size > 0)
+                    {
+                        GridFontSize = size;
+                    }
+
+                    break;
+
                 case var k when k == SettingKey.IfFileExists:
                     if (Enum.TryParse(setting.Value, out IfFileExistsBehavior existsBehavior))
                     {
@@ -225,9 +249,13 @@ public partial class SettingsViewModel(
         _settings.RemoveFinishedUploads = RemoveFinishedUploads;
         _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
         _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
+        _settings.GridFontFamily = GridFontFamily;
+        _settings.GridFontSize = GridFontSize;
         _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
         _settings.UseMockServer = UseMockServer;
+
+        ApplyGridFontResources();
 
         // Load accounts
         await LoadAccountsAsync(cancellationToken);
@@ -251,6 +279,33 @@ public partial class SettingsViewModel(
             ConfirmationPrompts.Add(item);
         }
     }
+
+    /// <summary>
+    /// Pushes the current grid font settings into <see cref="System.Windows.Application.Resources"/>
+    /// so that <c>DynamicResource</c> bindings on the DataGrids pick up the change live.
+    /// </summary>
+    private void ApplyGridFontResources()
+    {
+        System.Windows.Application app = System.Windows.Application.Current;
+        if (app is null)
+        {
+            return;
+        }
+
+        try
+        {
+            app.Resources["GridFontFamily"] = new System.Windows.Media.FontFamily(GridFontFamily);
+            app.Resources["GridFontSize"] = GridFontSize;
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to apply grid font: {ex.Message}");
+        }
+    }
+
+    partial void OnGridFontFamilyChanged(string value) => ApplyGridFontResources();
+
+    partial void OnGridFontSizeChanged(double value) => ApplyGridFontResources();
 
     private async void ConfirmationItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -300,6 +355,8 @@ public partial class SettingsViewModel(
         await SaveSettingAsync(SettingKey.RemoveFinishedUploads, RemoveFinishedUploads.ToString(), cancellationToken);
         await SaveSettingAsync(SettingKey.AutoRemoveCompletedFiles, AutoRemoveCompletedFiles ? "true" : "false", cancellationToken);
         await SaveSettingAsync(SettingKey.AutoRemoveCompletedPackages, AutoRemoveCompletedPackages ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.GridFontFamily, GridFontFamily, cancellationToken);
+        await SaveSettingAsync(SettingKey.GridFontSize, GridFontSize.ToString(CultureInfo.InvariantCulture), cancellationToken);
         await SaveSettingAsync(SettingKey.IfFileExists, IfFileExists.ToString(), cancellationToken);
         await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0", cancellationToken);
         await SaveSettingAsync(SettingKey.UseMockServer, UseMockServer ? "true" : "false", cancellationToken);
@@ -311,9 +368,13 @@ public partial class SettingsViewModel(
         _settings.RemoveFinishedUploads = RemoveFinishedUploads;
         _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
         _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
+        _settings.GridFontFamily = GridFontFamily;
+        _settings.GridFontSize = GridFontSize;
         _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
         _settings.UseMockServer = UseMockServer;
+
+        ApplyGridFontResources();
 
         SaveStatus = "Saved";
         try

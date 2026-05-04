@@ -25,6 +25,10 @@ public class AppSettings
 
     public static RemoveFinishedUploadsMode DefaultRemoveFinishedUploads { get; } = RemoveFinishedUploadsMode.Never;
 
+    public static string DefaultGridFontFamily { get; } = "Tahoma";
+
+    public static double DefaultGridFontSize { get; } = 12;
+
     public static IfFileExistsBehavior DefaultIfFileExists { get; } = IfFileExistsBehavior.Ask;
 
 #if DEBUG
@@ -80,6 +84,18 @@ public class AppSettings
     /// </summary>
     public bool AutoRemoveCompletedPackages { get; set; }
 
+    /// <summary>
+    /// Font family applied to the Uploads / Uploaded DataGrids. Bound via the GridFontFamily
+    /// dynamic resource so updates propagate live.
+    /// </summary>
+    public string GridFontFamily { get; set; } = DefaultGridFontFamily;
+
+    /// <summary>
+    /// Font size for the Uploads / Uploaded DataGrids. Bound via the GridFontSize
+    /// dynamic resource so updates propagate live.
+    /// </summary>
+    public double GridFontSize { get; set; } = DefaultGridFontSize;
+
     public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
 
     public int? SpeedLimit { get; set; }
@@ -90,7 +106,7 @@ public class AppSettings
     /// </summary>
     public bool UseMockServer { get; set; } = DefaultUseMockServer;
 
-    public string MockServerBaseUrl { get; set; } = "http://localhost:80";
+    public string MockServerBaseUrl { get; set; } = "http://localhost:8080";
 
     /// <summary>
     /// Confirmation-dialog keys for which the user has ticked "Don't ask me again".

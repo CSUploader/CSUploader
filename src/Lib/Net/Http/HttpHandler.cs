@@ -12,11 +12,12 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger)
 {
     private readonly IAppLogger _logger = logger;
 
-    private static string MaybeRewriteToMockServer(string url)
+    private string MaybeRewriteToMockServer(string url)
     {
         AppSettings settings = AppSettings.Current;
         if (!settings.UseMockServer || string.IsNullOrEmpty(settings.MockServerBaseUrl))
         {
+            _logger.Log(this, LogType.Status, $"Mock server disabled — sending to live URL: {url}");
             return url;
         }
 
@@ -49,7 +50,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger)
         string slug = (firstDot > 0 ? host[..firstDot] : host).ToLowerInvariant();
 
         string mockBase = settings.MockServerBaseUrl.TrimEnd('/');
-        return $"{mockBase}/{slug}{originalUri.PathAndQuery}";
+        string rewritten = $"{mockBase}/{slug}{originalUri.PathAndQuery}";
+        _logger.Log(this, LogType.Status, $"Mock rewrite: {url} -> {rewritten}");
+        return rewritten;
     }
 
     public event EventHandler<OperationProgressEventArgs>? UploadProgress;

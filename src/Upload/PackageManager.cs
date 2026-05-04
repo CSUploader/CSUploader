@@ -15,6 +15,7 @@ namespace CSUploader.Upload;
 /// </summary>
 public class PackageManager
 {
+    private readonly AppSettings _settings;
     private readonly UploadScheduler _scheduler;
     private readonly UploadPackageRepository _packageRepo;
     private readonly UploadPackageFileRepository _fileRepo;
@@ -43,6 +44,7 @@ public class PackageManager
         FileHosterLoginRepository loginRepo,
         IAppLogger logger)
     {
+        _settings = settings;
         _scheduler = scheduler;
         _packageRepo = packageRepo;
         _fileRepo = fileRepo;
@@ -136,24 +138,32 @@ public class PackageManager
     }
 
     /// <summary>
-    /// Loads incomplete packages from the database and resumes them.
+    /// Loads all persisted packages, including completed ones, so the Uploads tab keeps
+    /// showing finished work after a restart. Resumes scheduling for any non-terminal
+    /// packages. Honours <see cref="AppSettings.AutoRemoveCompletedFiles"/> /
+    /// <see cref="AppSettings.AutoRemoveCompletedPackages"/> at load time so the
+    /// auto-remove behaviour is consistent across restarts.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async Task LoadPersistedPackagesAsync()
     {
         try
         {
-            UploadPackageDto[] incomplete = await _packageRepo.GetIncompleteAsync();
+            UploadPackageDto[] all = await _packageRepo.GetAllAsync();
 
-            foreach (UploadPackageDto pkgDto in incomplete)
+            foreach (UploadPackageDto pkgDto in all)
             {
                 if (pkgDto.Files is null || pkgDto.Files.Count == 0)
                 {
                     continue;
                 }
 
-                // Build FileHosterLogins dictionary
+                // Build FileHosterLogins dictionary (one resolved login per hoster name).
+                // resolvedLogins is also reused by the file-reconstruction loop below so
+                // every PackageFile for the same hoster shares the same login instance —
+                // and we only hit the DB once per hoster instead of once per file.
                 Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
+                Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
                 Dictionary<string, SharedSession> sessions = new(StringComparer.Ordinal);
 
                 foreach (UploadPackageFileDto fileDto in pkgDto.Files)
@@ -170,12 +180,24 @@ public class PackageManager
                         continue;
                     }
 
-                    FileHosterLoginDto? login = fileDto.FileHosterLoginId > 0
-                        ? await _loginRepo.FindAsync(fileDto.FileHosterLoginId)
-                        : null;
+                    FileHosterLoginDto? login = null;
+                    if (fileDto.FileHosterLoginId > 0)
+                    {
+                        login = await _loginRepo.FindAsync(fileDto.FileHosterLoginId);
+                        if (login is null)
+                        {
+                            _logger.Log(this, LogType.Error, $"Persisted FileHosterLoginId={fileDto.FileHosterLoginId} for {hosterName} could not be found in the accounts table; using anonymous login (uploads will likely fail).");
+                        }
+                    }
+                    else
+                    {
+                        _logger.Log(this, LogType.Error, $"Persisted file for {hosterName} has FileHosterLoginId=0; the package was saved without a login bound. Edit the package's hoster account and retry.");
+                    }
+
                     login ??= new FileHosterLoginDto { FileHosterName = hosterName };
 
                     fileHosterLogins[client] = login;
+                    resolvedLogins[hosterName] = login;
                     sessions[hosterName] = new SharedSession();
                 }
 
@@ -212,10 +234,12 @@ public class PackageManager
                         continue;
                     }
 
-                    FileHosterLoginDto? login = fileDto.FileHosterLoginId > 0
-                        ? await _loginRepo.FindAsync(fileDto.FileHosterLoginId)
-                        : null;
-                    login ??= new FileHosterLoginDto { FileHosterName = hosterName };
+                    // Reuse the login already resolved (with logging) by the first loop —
+                    // ensures every file for this hoster ends up with the same credentials.
+                    if (!resolvedLogins.TryGetValue(hosterName, out FileHosterLoginDto? login))
+                    {
+                        login = new FileHosterLoginDto { FileHosterName = hosterName };
+                    }
 
                     if (sessions.TryGetValue(hosterName, out SharedSession? session))
                     {
@@ -224,8 +248,11 @@ public class PackageManager
 
                     string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
 
-                    // Only add if file still exists on disk
-                    if (!File.Exists(filePath))
+                    // Terminal-state files only need their metadata (URL, size, status) for
+                    // display — the source file may be long gone. Only require disk presence
+                    // when we'd actually need to read the file again (re-hash or re-upload).
+                    bool isTerminal = fileDto.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
+                    if (!isTerminal && !File.Exists(filePath))
                     {
                         _logger.Log(this, LogType.Error, $"File no longer exists: {filePath}");
                         continue;
@@ -260,13 +287,24 @@ public class PackageManager
                     continue;
                 }
 
-                // If every file is already in a terminal state, mark the package complete in DB
-                // and skip adding it to the active list. This backfills packages that were left
-                // with IsCompleted=false under stricter earlier logic.
-                if (files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled))
+                bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);
+                bool allSuccessful = files.Count > 0 && files.TrueForAll(f => f.State == FileState.Completed);
+
+                // Honour the auto-remove settings on restart so behaviour matches in-session.
+                if (allSuccessful && _settings.AutoRemoveCompletedPackages)
                 {
                     await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
                     continue;
+                }
+
+                if (_settings.AutoRemoveCompletedFiles)
+                {
+                    files = [.. files.Where(f => f.State != FileState.Completed)];
+                    if (files.Count == 0)
+                    {
+                        await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
+                        continue;
+                    }
                 }
 
                 package.AddPackageFiles([.. files]);
@@ -274,6 +312,15 @@ public class PackageManager
                 lock (_lock)
                 { Packages.Add(package); }
                 PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
+
+                if (allTerminal)
+                {
+                    // All files reached a terminal state already. Keep the package on the
+                    // Uploads tab (so the user can see / Remove it manually) but don't try
+                    // to schedule it for further work; just keep the DB flag in sync.
+                    await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
+                    continue;
+                }
 
                 // Resume scheduling for packages that should auto-start
                 bool hasQueuedFiles = files.Any(f => f.State is FileState.HashQueued or FileState.UploadQueued);
@@ -382,6 +429,13 @@ public class PackageManager
         DateTime? finishedDateTime = state is FileState.Completed or FileState.Failed or FileState.Cancelled
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
+
+        // Attribute upload failures to the proxy that was used so the Connection Manager
+        // grid can flag bad proxies. Only counts genuine failures, not user-triggered cancels.
+        if (state == FileState.Failed && e.File.FileHoster.ActiveProxyId > 0)
+        {
+            Lib.Net.ProxyManager.Current?.RecordFailure(e.File.FileHoster.ActiveProxyId);
+        }
 
         _ = Task.Run(async () =>
         {
@@ -553,6 +607,9 @@ public class PackageManager
     {
         if (file.State is FileState.Failed or FileState.Cancelled)
         {
+            // Pick a fresh proxy so a bad/dead proxy doesn't poison every retry.
+            file.FileHoster.RefreshConnection();
+
             if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
             {
                 file.State = FileState.HashQueued;
@@ -588,6 +645,7 @@ public class PackageManager
     private static void ResetFile(PackageFile file)
     {
         StopFile(file);
+        file.FileHoster.RefreshConnection();
         file.IsHashingComplete = false;
         file.Error = null;
         file.FileUrl = null;

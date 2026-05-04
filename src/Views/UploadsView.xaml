@@ -7,6 +7,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadsViewModel}"
@@ -18,6 +19,26 @@
         <conv:DateTimeFormatConverter x:Key="DateTimeConverter" />
         <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
         <conv:FileStateDisplayConverter x:Key="FileStateConverter" />
+        <conv:FileStateIconConverter x:Key="FileStateIconConverter" />
+        <conv:HosterIconConverter x:Key="HosterIconConverter" />
+        <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+
+        <!-- Invisible thumb on each side of the column header for click-and-drag resizing.
+             We have to include this explicitly because our custom DataGridColumnHeader
+             template (with the lock toggle) replaces the default visual tree, which
+             ordinarily ships these grippers. -->
+        <Style x:Key="ColumnHeaderGripperStyle" TargetType="Thumb">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="SizeWE" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:ItemStateToVisibilityConverter x:Key="ItemStateToVisibility" />
@@ -81,6 +102,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Toolbar (JD2-style: large icons, hover borders) -->
@@ -109,13 +132,40 @@
 
                 <!-- Separator -->
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
+                <Button Style="{StaticResource ToolbarButton}"
+                        Command="{Binding MoveUpCommand}"
+                        CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
+                        ToolTip="Move package up">
+                    <TextBlock Text="&#x25B2;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}"
+                        Command="{Binding MoveDownCommand}"
+                        CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
+                        ToolTip="Move package down">
+                    <TextBlock Text="&#x25BC;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+
+                <!-- Separator -->
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
+                <Button Style="{StaticResource ToolbarButton}"
+                        Command="{Binding RemoveSelectedCommand}"
+                        CommandParameter="{Binding SelectedItems, ElementName=uploadsGrid}"
+                        ToolTip="Remove selected">
+                    <TextBlock Text="&#x2715;" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource ErrorBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
             </StackPanel>
         </Border>
 
         <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   Loaded="UploadsGrid_Loaded"
-                  ItemsSource="{Binding VisibleRows}"
+                  ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   CanUserAddRows="False"
@@ -129,17 +179,18 @@
                   ScrollViewer.HorizontalScrollBarVisibility="Visible"
                   ScrollViewer.VerticalScrollBarVisibility="Auto"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                  VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
-                  Background="{DynamicResource ContentBackgroundBrush}"
-                  AlternatingRowBackground="{DynamicResource ContentAltBackgroundBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                  VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                  Background="{DynamicResource SurfaceBrush}"
+                  RowBackground="{DynamicResource SurfaceBrush}"
+                  AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
                   RowHeaderWidth="0"
                   BorderThickness="0"
                   Tag="{Binding}">
 
             <DataGrid.InputBindings>
-                <KeyBinding Key="Delete" Command="{Binding RemoveCommand}"
-                            CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}" />
+                <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}"
+                            CommandParameter="{Binding SelectedItems, ElementName=uploadsGrid}" />
             </DataGrid.InputBindings>
 
             <DataGrid.ContextMenu>
@@ -181,23 +232,77 @@
                 <Style TargetType="DataGridColumnHeader">
                     <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
                     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+                    <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
                     <Setter Property="Padding" Value="6,5" />
                     <Setter Property="BorderBrush" Value="{DynamicResource DataGridGridLineBrush}" />
                     <Setter Property="BorderThickness" Value="0,0,1,1" />
                     <Setter Property="HorizontalContentAlignment" Value="Left" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridColumnHeader">
+                                <Grid>
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <DockPanel>
+                                        <!-- JD2-style lock indicator on the right of every header -->
+                                        <ToggleButton DockPanel.Dock="Right" Cursor="Hand"
+                                                      Width="14" Height="14" Margin="4,0,0,0"
+                                                      Click="ColumnLock_Click"
+                                                      Background="Transparent" BorderThickness="0"
+                                                      ToolTip="Lock column width">
+                                            <ToggleButton.Template>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border Background="Transparent">
+                                                        <TextBlock x:Name="Glyph" Text="&#xE785;"
+                                                                   FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"
+                                                                   Opacity="0.45" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="Glyph" Property="Text" Value="&#xE72E;" />
+                                                            <Setter TargetName="Glyph" Property="Opacity" Value="1.0" />
+                                                            <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Glyph" Property="Opacity" Value="1.0" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </ToggleButton.Template>
+                                        </ToggleButton>
+                                        <ContentPresenter VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </Border>
+                                    <Thumb x:Name="PART_LeftHeaderGripper"
+                                           HorizontalAlignment="Left"
+                                           Style="{StaticResource ColumnHeaderGripperStyle}" />
+                                    <Thumb x:Name="PART_RightHeaderGripper"
+                                           HorizontalAlignment="Right"
+                                           Style="{StaticResource ColumnHeaderGripperStyle}" />
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
                 </Style>
             </DataGrid.ColumnHeaderStyle>
 
             <DataGrid.RowStyle>
-                <Style TargetType="DataGridRow">
-                    <Setter Property="FontSize" Value="12" />
-                    <Setter Property="MinHeight" Value="22" />
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                    <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+                    <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+                    <Setter Property="MinHeight" Value="20" />
                 </Style>
             </DataGrid.RowStyle>
 
             <DataGrid.CellStyle>
-                <Style TargetType="DataGridCell">
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
                     <Setter Property="BorderThickness" Value="0" />
                     <Setter Property="Padding" Value="4,2" />
                     <Setter Property="Template">
@@ -222,20 +327,28 @@
                 <DataGridTemplateColumn Header="Name" Width="248" CanUserReorder="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="28" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <!-- Expand button: only for packages -->
-                                <ToggleButton Grid.Column="0"
-                                              FontSize="14" FontWeight="Bold"
+                            <!-- Horizontal stack: collapsed elements take zero width, so the package
+                                 row's name slides flush against its chevron, while file rows keep
+                                 their indent via the always-rendered chevron-spacer + file icon. -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Chevron toggle: shown for packages, hidden (space reserved) for files -->
+                                <ToggleButton FontSize="14" FontWeight="Bold"
                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                               Cursor="Hand"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"
                                               IsChecked="{Binding IsExpanded, Mode=TwoWay, FallbackValue=False}"
-                                              Click="ExpandToggle_Click"
-                                              Visibility="{Binding IsPackageRow, Converter={StaticResource BoolToVisibility}}">
+                                              Click="ExpandToggle_Click">
+                                    <ToggleButton.Style>
+                                        <Style TargetType="ToggleButton">
+                                            <Style.Triggers>
+                                                <!-- Hidden (not Collapsed) on file rows: keeps the 28px
+                                                     indent the chevron occupies on the package row. -->
+                                                <DataTrigger Binding="{Binding IsPackageRow}" Value="False">
+                                                    <Setter Property="Visibility" Value="Hidden" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ToggleButton.Style>
                                     <ToggleButton.Template>
                                         <ControlTemplate TargetType="ToggleButton">
                                             <Border Background="Transparent" Width="20" Height="20">
@@ -251,7 +364,14 @@
                                         </ControlTemplate>
                                     </ToggleButton.Template>
                                 </ToggleButton>
-                                <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                <!-- File-type icon: shown for files, fully collapsed for packages
+                                     so the package name flows tight against the chevron. -->
+                                <svgc:SvgViewbox Source="{Binding Name, Converter={StaticResource FileTypeIconConverter}}"
+                                                 Width="16" Height="16"
+                                                 Margin="2,0,6,0"
+                                                 VerticalAlignment="Center"
+                                                 Visibility="{Binding IsPackageRow, Converter={StaticResource BoolToVisibility}, ConverterParameter=Invert, FallbackValue=Visible}" />
+                                <TextBlock Text="{Binding Name}"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="4,0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -263,13 +383,52 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
-                            </Grid>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="90" />
-                <DataGridTextColumn Header="Hoster" Binding="{Binding HosterDisplay, FallbackValue=''}" Width="110" />
-                <DataGridTextColumn Header="Status" Binding="{Binding State, Converter={StaticResource FileStateConverter}, FallbackValue=''}" Width="130" />
+                <DataGridTemplateColumn Header="Size" Width="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Package rows show [N] file count first, like JD2 -->
+                                <TextBlock Text="{Binding FileCount, StringFormat='[{0}]'}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,0,6,0"
+                                           Visibility="{Binding IsPackageRow, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}" />
+                                <TextBlock Text="{Binding Size, Converter={StaticResource ByteUnitConverter}, FallbackValue=''}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Hoster" Width="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="{Binding HosterDisplay, Converter={StaticResource HosterIconConverter}}"
+                                       Width="18" Height="18" Margin="0,0,6,0"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <TextBlock Text="{Binding HosterDisplay, FallbackValue=''}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Status" Width="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="{Binding State, Converter={StaticResource FileStateIconConverter}}"
+                                       Width="14" Height="14" Margin="0,0,4,0"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <TextBlock Text="{Binding State, Converter={StaticResource FileStateConverter}, FallbackValue=''}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
                 <DataGridTextColumn Header="ETA" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
                 <DataGridTextColumn Header="Bytes Loaded" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
@@ -325,6 +484,12 @@
                         <Style TargetType="TextBlock">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                             <Setter Property="VerticalAlignment" Value="Center" />
+                            <Style.Triggers>
+                                <!-- Suppress the aggregated package URL — the per-file rows already show them -->
+                                <DataTrigger Binding="{Binding IsPackageRow}" Value="True">
+                                    <Setter Property="Text" Value="" />
+                                </DataTrigger>
+                            </Style.Triggers>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -470,6 +635,38 @@
                     </WrapPanel>
                 </Border>
             </Grid>
+        </Border>
+
+        <!-- JD2-style filter bar -->
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                Padding="6,4">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left"
+                           Text="File Name"
+                           Width="110"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Margin="6,0,4,0" />
+                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         FontSize="11"
+                         VerticalContentAlignment="Center"
+                         ToolTip="Filter by file or package name" />
+            </DockPanel>
+        </Border>
+
+        <!-- Premium account footer link -->
+        <Border Grid.Row="4" Background="{DynamicResource SurfaceMutedBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                Padding="8,3">
+            <TextBlock x:Name="PremiumAccountLink"
+                       Cursor="Hand"
+                       MouseLeftButtonUp="PremiumAccountLink_Click"
+                       FontSize="11"
+                       Foreground="{DynamicResource AccentBrush}">
+                <Run Text="&#x2795;" FontFamily="Segoe UI Symbol" /> Add a Premium Account…
+            </TextBlock>
         </Border>
     </Grid>
 </UserControl>

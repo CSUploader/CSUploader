@@ -20,7 +20,6 @@ public abstract class FileHosterClient
         { "Alfafile", "www.alfafile.net" },
         { "AndroidFileHost", "www.androidfilehost.com" },
         { "BRupload", "www.brupload.net" },
-        { "Datafile", "www.datafile.com" },
         { "ExLoad", "www.ex-load.com" },
         { "ExtMatrix", "www.extmatrix.com" },
         { "FileBoom", "www.fileboom.me" },
@@ -47,7 +46,6 @@ public abstract class FileHosterClient
         { "UploadGIG", "www.uploadgig.com" },
         { "UniBytes", "www.unibytes.com" },
         { "Upstore", "upstore.net" },
-        { "Uptobox", "www.uptobox.com" },
         { "WuShare", "www.wushare.com" },
     });
 
@@ -138,6 +136,22 @@ public abstract class FileHosterClient
     /// Returning null or a non-positive value means no throttling.
     /// </summary>
     public Func<long?>? SpeedLimitProvider { get; set; }
+
+    /// <summary>
+    /// Id of the proxy this client is currently routed through (0 = direct connection).
+    /// Used by failure tracking to increment <see cref="Dal.ProxySettingDbm.ProblemsCount"/>.
+    /// </summary>
+    public int ActiveProxyId { get; set; }
+
+    /// <summary>
+    /// Rebuilds the underlying HTTP transport so the next request picks a fresh proxy
+    /// from <see cref="Lib.Net.ProxyManager.NextProxy"/>. Called when a failed file is
+    /// retried so a bad proxy doesn't poison every retry. Default implementation is a
+    /// no-op for hosters that don't use a long-lived HttpClient.
+    /// </summary>
+    public virtual void RefreshConnection()
+    {
+    }
 
     /// <summary>
     /// Returns an instance of a file hoster client for the specified name and protocol.

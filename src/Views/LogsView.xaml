@@ -17,6 +17,18 @@
     <UserControl.Resources>
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
 
+        <!-- Single-line message rendering: collapse newlines, ellipsis on overflow,
+             full text available via tooltip + double-click for the details dialog. -->
+        <Style x:Key="LogMessageStyle" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTip" Value="{Binding Message}" />
+        </Style>
+        <Style x:Key="LogRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Setter Property="MaxHeight" Value="22" />
+        </Style>
+
         <!-- Shared DataGrid style for log tabs -->
         <Style x:Key="LogDataGridStyle" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
             <Setter Property="AutoGenerateColumns" Value="False" />
@@ -66,13 +78,15 @@
             <TabItem Header="Status">
                 <DataGrid ItemsSource="{Binding StatusLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
-                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
+                          RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
                         <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
                         <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                                            ElementStyle="{StaticResource LogMessageStyle}" />
                         <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
@@ -82,13 +96,15 @@
             <TabItem Header="HTTP">
                 <DataGrid ItemsSource="{Binding HttpLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
-                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
+                          RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
                         <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
                         <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                                            ElementStyle="{StaticResource LogMessageStyle}" />
                         <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
@@ -98,13 +114,15 @@
             <TabItem Header="Errors">
                 <DataGrid ItemsSource="{Binding ErrorLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
-                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
+                          RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
                         <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
                         <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                                            ElementStyle="{StaticResource LogMessageStyle}" />
                         <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
@@ -114,13 +132,15 @@
             <TabItem Header="UI">
                 <DataGrid ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
-                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+                          behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
+                          RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                         <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
                         <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
                         <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                                            ElementStyle="{StaticResource LogMessageStyle}" />
                         <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>

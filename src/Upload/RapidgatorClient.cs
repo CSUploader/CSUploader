@@ -6,6 +6,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using CSUploader.Dal;
 using CSUploader.Upload.Rapidgator;
 using CSUploader.Lib;
 using CSUploader.Lib.Crypto;
@@ -39,33 +40,7 @@ public class RapidgatorClient : FileHosterClient
         _logger = logger;
         if (protocol == Protocol.Http)
         {
-            HttpClientHandler httpClientHandler = new()
-            {
-                AllowAutoRedirect = true,
-                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
-                CookieContainer = new CookieContainer(),
-                UseCookies = true,
-                //httpClientHandler.Proxy = new WebProxy("127.0.0.1:8888");
-                UseProxy = true
-            };
-            HttpClient httpClient = new(httpClientHandler)
-            {
-                // Uploads can legitimately run for hours when throttled; rely on the per-request
-                // CancellationToken (and server-side timeouts) instead of a fixed total-request timeout.
-                Timeout = Timeout.InfiniteTimeSpan,
-            };
-
-            // Always en-US; no language differences
-            httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("en-US"));
-
-            // Set user agent; some sites (Subyshare) don't like the default one
-            httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0) Gecko/20100101 Firefox/62.0");
-
-            Cookie languageCookie = new("lang", "en", "/", "www.rapidgator.com");
-            httpClientHandler.CookieContainer.Add(languageCookie);
-
-            HttpHandler = new HttpHandler(httpClient, _logger);
+            HttpHandler = BuildHttpHandler();
         }
         else if (protocol == Protocol.Ftp)
         {
@@ -78,6 +53,71 @@ public class RapidgatorClient : FileHosterClient
 
         HttpHandler.UploadProgress += HttpHandler_UploadProgress;
         HttpHandler.UploadFinished += HttpHandler_UploadFinished;
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="HttpHandler"/> with a fresh proxy from the rotation. Called
+    /// from <see cref="RefreshConnection"/> so a retried upload doesn't keep using a
+    /// proxy that just failed.
+    /// </summary>
+    public override void RefreshConnection()
+    {
+        if (Protocol != Protocol.Http)
+        {
+            return;
+        }
+
+        // Detach old event handlers before swapping the HttpHandler so we don't keep
+        // dispatching from the dead instance.
+        HttpHandler.UploadProgress -= HttpHandler_UploadProgress;
+        HttpHandler.UploadFinished -= HttpHandler_UploadFinished;
+
+        // Forget the cached login response — credentials need to flow back through the
+        // new proxy on first use.
+        UserInfoResponse = null;
+
+        HttpHandler = BuildHttpHandler();
+        HttpHandler.UploadProgress += HttpHandler_UploadProgress;
+        HttpHandler.UploadFinished += HttpHandler_UploadFinished;
+    }
+
+    private HttpHandler BuildHttpHandler()
+    {
+        // Pull a proxy from the rotation (null = direct connection). Resolved once
+        // per client instance; new uploads pick a fresh proxy.
+        ProxySettingDto? proxySetting = Lib.Net.ProxyManager.Current?.NextProxy();
+        System.Net.IWebProxy? proxy = proxySetting is not null
+            ? Lib.Net.ProxyManager.BuildWebProxy(proxySetting)
+            : null;
+        ActiveProxyId = proxy is not null ? proxySetting?.Id ?? 0 : 0;
+
+        HttpClientHandler httpClientHandler = new()
+        {
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip,
+            CookieContainer = new CookieContainer(),
+            UseCookies = true,
+            Proxy = proxy,
+            UseProxy = proxy is not null,
+        };
+        HttpClient httpClient = new(httpClientHandler)
+        {
+            // Uploads can legitimately run for hours when throttled; rely on the per-request
+            // CancellationToken (and server-side timeouts) instead of a fixed total-request timeout.
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+
+        // Always en-US; no language differences
+        httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("en-US"));
+
+        // Set user agent; some sites (Subyshare) don't like the default one
+        httpClient.DefaultRequestHeaders.UserAgent.Clear();
+        httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:62.0) Gecko/20100101 Firefox/62.0");
+
+        Cookie languageCookie = new("lang", "en", "/", "www.rapidgator.com");
+        httpClientHandler.CookieContainer.Add(languageCookie);
+
+        return new HttpHandler(httpClient, _logger);
     }
 
     /// <summary>

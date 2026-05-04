@@ -21,6 +21,10 @@ public static class SettingKey
 
     public static string AutoRemoveCompletedPackages { get; } = "autoRemoveCompletedPackages";
 
+    public static string GridFontFamily { get; } = "gridFontFamily";
+
+    public static string GridFontSize { get; } = "gridFontSize";
+
     public static string IfFileExists { get; } = "ifFileExists";
 
     public static string SpeedLimit { get; } = "speedLimit";

@@ -6,6 +6,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
 
@@ -110,6 +112,42 @@ public partial class UploadsView : UserControl
         if (DataContext is UploadsViewModel vm)
         {
             vm.ShowUploadOverview = false;
+        }
+    }
+
+    /// <summary>
+    /// Toggles the column-width lock for the column whose header was clicked.
+    /// Walks up the visual tree from the ToggleButton to find the owning column.
+    /// </summary>
+    private void ColumnLock_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton toggle)
+        {
+            return;
+        }
+
+        DependencyObject? cursor = toggle;
+        while (cursor is not null and not DataGridColumnHeader)
+        {
+            cursor = VisualTreeHelper.GetParent(cursor);
+        }
+
+        if (cursor is DataGridColumnHeader header && header.Column is { } column)
+        {
+            column.CanUserResize = toggle.IsChecked != true;
+        }
+    }
+
+    /// <summary>
+    /// Switches to the Settings tab and selects the Accounts category.
+    /// </summary>
+    private void PremiumAccountLink_Click(object sender, MouseButtonEventArgs e)
+    {
+        Window? window = Window.GetWindow(this);
+        if (window?.DataContext is MainViewModel main)
+        {
+            main.SelectedTabIndex = 2; // Settings tab
+            main.SettingsViewModel.SelectedCategoryIndex = 3; // Accounts category (after Connection at 2)
         }
     }
 }

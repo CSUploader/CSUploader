@@ -38,6 +38,10 @@ public partial class App : Application
         ConfigureServices(services, baseDirectory);
         _serviceProvider = services.BuildServiceProvider();
 
+        // Static accessor pattern, mirrors AppSettings.Current. Lets the file-hoster
+        // factories pick a proxy at construction without taking a DI dependency.
+        Lib.Net.ProxyManager.Current = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
+
         MainWindow mainWindow = new(_serviceProvider);
         mainWindow.Show();
     }
@@ -70,10 +74,14 @@ public partial class App : Application
         services.AddSingleton<FileHosterLoginRepository>();
         services.AddSingleton<UploadPackageRepository>();
         services.AddSingleton<UploadPackageFileRepository>();
+        services.AddSingleton<ProxySettingRepository>();
 
         // Upload
         services.AddSingleton<UploadScheduler>();
         services.AddSingleton<PackageManager>();
+
+        // Networking
+        services.AddSingleton<Lib.Net.ProxyManager>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
@@ -85,6 +93,7 @@ public partial class App : Application
         services.AddSingleton<UploadsViewModel>();
         services.AddSingleton<UploadedViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<ConnectionManagerViewModel>();
         services.AddSingleton<LogsViewModel>();
     }
 }

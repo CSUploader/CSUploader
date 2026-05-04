@@ -35,12 +35,15 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<FileHosterLoginRepository>();
         sc.AddSingleton<UploadPackageRepository>();
         sc.AddSingleton<UploadPackageFileRepository>();
+        sc.AddSingleton<ProxySettingRepository>();
         sc.AddSingleton<UploadScheduler>();
         sc.AddSingleton<PackageManager>();
+        sc.AddSingleton<CSUploader.Lib.Net.ProxyManager>();
         sc.AddSingleton<IDialogService>(Mock.Of<IDialogService>());
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
         sc.AddSingleton<SettingsViewModel>();
+        sc.AddSingleton<ConnectionManagerViewModel>();
         sc.AddSingleton<LogsViewModel>();
 
         _services = sc.BuildServiceProvider();
@@ -143,12 +146,15 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<FileHosterLoginRepository>());
         sc.AddSingleton(_services.GetRequiredService<UploadPackageRepository>());
         sc.AddSingleton(_services.GetRequiredService<UploadPackageFileRepository>());
+        sc.AddSingleton(_services.GetRequiredService<ProxySettingRepository>());
         sc.AddSingleton(_services.GetRequiredService<UploadScheduler>());
         sc.AddSingleton(_services.GetRequiredService<PackageManager>());
+        sc.AddSingleton(_services.GetRequiredService<CSUploader.Lib.Net.ProxyManager>());
         sc.AddSingleton(_services.GetRequiredService<IDialogService>());
         sc.AddSingleton(_services.GetRequiredService<UploadsViewModel>());
         sc.AddSingleton(_services.GetRequiredService<UploadedViewModel>());
         sc.AddSingleton(_services.GetRequiredService<SettingsViewModel>());
+        sc.AddSingleton(_services.GetRequiredService<ConnectionManagerViewModel>());
         sc.AddSingleton(_services.GetRequiredService<LogsViewModel>());
         sc.AddSingleton(updater);
         return sc.BuildServiceProvider();

@@ -39,10 +39,10 @@
     <SolidColorBrush x:Key="SelectionBrush" Color="#B8D4EE" />
     <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#222222" />
 
-    <!-- Colors - Content Areas -->
-    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#EAF3FB" />
-    <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#E2EDF7" />
-    <SolidColorBrush x:Key="RowDetailBackgroundBrush" Color="#DDE9F4" />
+    <!-- Colors - Content Areas (JD2-style: near-white with subtle alternation) -->
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#F5F7FA" />
+    <SolidColorBrush x:Key="RowDetailBackgroundBrush" Color="#EEF1F5" />
 
     <!-- Colors - Progress Bar -->
     <SolidColorBrush x:Key="ProgressBarTrackBrush" Color="#D0D8E0" />
@@ -122,6 +122,7 @@
 
     <!-- Colors - Misc -->
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#C62828" />
     <SolidColorBrush x:Key="OverviewCloseBrush" Color="#808080" />
     <SolidColorBrush x:Key="OverviewArrowBrush" Color="#4CAF50" />
     <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#C0C8D0" />

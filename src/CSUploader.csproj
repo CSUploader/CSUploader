@@ -19,11 +19,25 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
     <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
+    <PackageReference Include="SharpVectors.Reloaded" Version="1.8.5" />
     <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Properties\Images\**\*" />
+  </ItemGroup>
+
+  <!-- Test project sees internal members (e.g. ConnectionManagerViewModel.TryParseProxyLine) -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CSUploader.Tests" />
+  </ItemGroup>
+
+  <!-- vscode-icons file-type SVGs, sourced from the git submodule at external/vscode-icons.
+       Embedded as WPF resources so SharpVectors can render them by pack URI. -->
+  <ItemGroup>
+    <Resource Include="..\external\vscode-icons\icons\*.svg">
+      <Link>FileTypes\%(Filename)%(Extension)</Link>
+    </Resource>
   </ItemGroup>
 
 </Project>

@@ -122,6 +122,7 @@
 
     <!-- ═══ Misc ═══ -->
     <SolidColorBrush x:Key="SuccessBrush" Color="#4ADE80" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#F87171" />
     <SolidColorBrush x:Key="OverviewCloseBrush" Color="#A8AAC0" />
     <SolidColorBrush x:Key="OverviewArrowBrush" Color="#4ADE80" />
     <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#484A60" />
