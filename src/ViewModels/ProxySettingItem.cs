@@ -102,4 +102,18 @@ public partial class ProxySettingItem : ObservableObject
     }
 
     public int ProblemsCount => Dto.ProblemsCount;
+
+    /// <summary>
+    /// Human-readable status from the most recent connectivity test, e.g.
+    /// "OK 320ms (1.2.3.4)" or "Failed: timeout". Empty when never tested.
+    /// </summary>
+    [ObservableProperty]
+    private string testStatus = string.Empty;
+
+    /// <summary>
+    /// True while a test is in flight, used to show "Testing…" in the grid and to
+    /// disable the Test command on this row.
+    /// </summary>
+    [ObservableProperty]
+    private bool isTesting;
 }

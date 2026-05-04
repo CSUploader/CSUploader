@@ -24,6 +24,15 @@ namespace CSUploader.ViewModels;
 /// </summary>
 public partial class ConnectionManagerViewModel : ObservableObject
 {
+    /// <summary>
+    /// Caps concurrent proxy connectivity tests. Without this, "Test All" on a long
+    /// list fires 30+ DNS lookups + TLS handshakes simultaneously and stalls the UI
+    /// while the dispatcher gets flooded with completion callbacks.
+    /// </summary>
+    private const int MaxConcurrentTests = 5;
+
+    private readonly SemaphoreSlim _testSemaphore = new(MaxConcurrentTests, MaxConcurrentTests);
+
     private readonly ProxySettingRepository _repo;
     private readonly ProxyManager _proxyManager;
     private readonly IDialogService _dialogService;
@@ -138,6 +147,53 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
 
         Proxies.Move(index, index + 1);
+    }
+
+    [RelayCommand]
+    private async Task TestAsync(ProxySettingItem? item)
+    {
+        if (item is null || item.IsTesting)
+        {
+            return;
+        }
+
+        await RunTestAsync(item);
+    }
+
+    [RelayCommand]
+    private async Task TestAllAsync()
+    {
+        // Run tests in parallel — each test is independent and capped by its own
+        // timeout. Skips rows already mid-test so a stuck test doesn't block this run.
+        ProxySettingItem[] candidates = [.. Proxies.Where(p => !p.IsTesting)];
+        await Task.WhenAll(candidates.Select(RunTestAsync));
+    }
+
+    private async Task RunTestAsync(ProxySettingItem item)
+    {
+        item.IsTesting = true;
+        item.TestStatus = "Queued…";
+
+        await _testSemaphore.WaitAsync().ConfigureAwait(true);
+        try
+        {
+            item.TestStatus = "Testing…";
+            ProxyTestResult result = await ProxyManager.TestProxyAsync(item.Dto).ConfigureAwait(true);
+            item.TestStatus = result.Success
+                ? string.IsNullOrEmpty(result.DetectedIp)
+                    ? $"OK {result.LatencyMs}ms"
+                    : $"OK {result.LatencyMs}ms ({result.DetectedIp})"
+                : $"Failed: {result.Message}";
+        }
+        catch (Exception ex)
+        {
+            item.TestStatus = $"Failed: {ex.Message}";
+        }
+        finally
+        {
+            _testSemaphore.Release();
+            item.IsTesting = false;
+        }
     }
 
     [RelayCommand]

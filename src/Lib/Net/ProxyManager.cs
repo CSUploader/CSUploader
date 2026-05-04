@@ -3,7 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using CSUploader.Dal;
 
 namespace CSUploader.Lib.Net;
@@ -102,6 +104,71 @@ public class ProxyManager
         }
 
         return webProxy;
+    }
+
+    /// <summary>
+    /// Test endpoint used by <see cref="TestProxyAsync"/>. Returns the caller's IP as
+    /// plain text — small, fast, and lets us confirm the proxy actually masked the IP.
+    /// </summary>
+    public static string TestEndpoint { get; set; } = "https://api.ipify.org";
+
+    /// <summary>
+    /// Performs a single HTTP GET through the given proxy with a short timeout. Used
+    /// by the Connection Manager's "Test" / "Test All" actions to surface dead or
+    /// unauthenticated proxies before they break uploads.
+    /// </summary>
+    public static async Task<ProxyTestResult> TestProxyAsync(ProxySettingDto proxy, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        if (proxy.Type == ProxyType.None)
+        {
+            return ProxyTestResult.Failed("Proxy type is None — direct connection, nothing to test.");
+        }
+
+        if (string.IsNullOrWhiteSpace(proxy.Host) || proxy.Port <= 0)
+        {
+            return ProxyTestResult.Failed("Host or port is invalid.");
+        }
+
+        IWebProxy? webProxy = BuildWebProxy(proxy);
+        if (webProxy is null)
+        {
+            return ProxyTestResult.Failed("Could not construct proxy from settings.");
+        }
+
+        HttpClientHandler handler = new()
+        {
+            Proxy = webProxy,
+            UseProxy = true,
+            AllowAutoRedirect = false,
+        };
+        using HttpClient client = new(handler, disposeHandler: true)
+        {
+            Timeout = timeout ?? TimeSpan.FromSeconds(10),
+        };
+
+        Stopwatch sw = Stopwatch.StartNew();
+        try
+        {
+            string body = await client.GetStringAsync(TestEndpoint, cancellationToken).ConfigureAwait(false);
+            sw.Stop();
+            return ProxyTestResult.Ok(sw.ElapsedMilliseconds, body.Trim());
+        }
+        catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return ProxyTestResult.Failed("Cancelled.");
+        }
+        catch (TaskCanceledException)
+        {
+            return ProxyTestResult.Failed($"Timed out after {(timeout ?? TimeSpan.FromSeconds(10)).TotalSeconds:0}s.");
+        }
+        catch (HttpRequestException ex)
+        {
+            return ProxyTestResult.Failed(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return ProxyTestResult.Failed(ex.GetType().Name + ": " + ex.Message);
+        }
     }
 
     /// <summary>

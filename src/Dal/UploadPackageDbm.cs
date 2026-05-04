@@ -31,5 +31,13 @@ public class UploadPackageDbm
 
     public int StartMode { get; set; }
 
+    /// <summary>
+    /// Soft-delete flag for the Uploads tab. Set when the user removes a package from
+    /// Uploads — the package's per-file rows are still consulted by the Uploaded tab
+    /// (each file has its own <see cref="UploadPackageFileDbm.IsHidden"/> flag for that),
+    /// so removing from Uploads doesn't strip the upload from history.
+    /// </summary>
+    public bool IsRemovedFromUploads { get; set; }
+
     public ICollection<UploadPackageFileDbm> Files { get; set; } = [];
 }

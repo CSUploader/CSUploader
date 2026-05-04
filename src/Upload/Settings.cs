@@ -29,6 +29,8 @@ public class AppSettings
 
     public static double DefaultGridFontSize { get; } = 12;
 
+    public static bool DefaultIsDarkMode { get; } = false;
+
     public static IfFileExistsBehavior DefaultIfFileExists { get; } = IfFileExistsBehavior.Ask;
 
 #if DEBUG
@@ -95,6 +97,12 @@ public class AppSettings
     /// dynamic resource so updates propagate live.
     /// </summary>
     public double GridFontSize { get; set; } = DefaultGridFontSize;
+
+    /// <summary>
+    /// User's preferred theme. Loaded at startup so the UI starts in the right mode
+    /// instead of flashing light then switching.
+    /// </summary>
+    public bool IsDarkMode { get; set; } = DefaultIsDarkMode;
 
     public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
 

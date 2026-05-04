@@ -78,6 +78,9 @@
             <Setter Property="Padding" Value="10,0" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Cursor" Value="Hand" />
+            <!-- Bind to the theme brush so dark mode gets light text instead of falling
+                 through to SystemColors.ControlTextBrush (which is dark on every theme). -->
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -401,15 +404,43 @@
                       HeadersVisibility="Column"
                       GridLinesVisibility="All"
                       RowHeaderWidth="0"
+                      Tag="{Binding}"
                       Background="{DynamicResource SurfaceBrush}"
                       RowBackground="{DynamicResource SurfaceBrush}"
                       AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
                       HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
                       VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}">
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Padding" Value="4,2" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="DataGridCell">
+                                    <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                        <ContentPresenter VerticalAlignment="Center" />
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </DataGrid.CellStyle>
                 <DataGrid.InputBindings>
                     <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}"
                                 CommandParameter="{Binding SelectedItems, ElementName=proxyGrid}" />
                 </DataGrid.InputBindings>
+                <DataGrid.ContextMenu>
+                    <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="Test"
+                                  Command="{Binding TestCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <Separator />
+                        <MenuItem Header="Remove"
+                                  InputGestureText="Del"
+                                  Command="{Binding RemoveSelectedCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="40">
                         <DataGridCheckBoxColumn.ElementStyle>
@@ -450,6 +481,14 @@
                     <DataGridTextColumn Header="User" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
                     <DataGridTextColumn Header="Password" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
                     <DataGridTextColumn Header="Problems" Binding="{Binding ProblemsCount}" Width="80" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Status" Binding="{Binding TestStatus}" Width="220" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="ToolTip" Value="{Binding TestStatus}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -474,6 +513,12 @@
                             <TextBlock Text="−" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,4,0" />
                             <TextBlock Text="Remove" />
                         </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource JD2Button}"
+                            Command="{Binding TestAllCommand}"
+                            ToolTip="Test connectivity for every proxy in the list"
+                            Margin="0,0,6,0">
+                        <TextBlock Text="Test All" />
                     </Button>
                     <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
                                Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />

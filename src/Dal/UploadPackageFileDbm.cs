@@ -56,5 +56,13 @@ public class UploadPackageFileDbm
     /// </summary>
     public bool IsHidden { get; set; }
 
+    /// <summary>
+    /// Soft-delete flag for the Uploads tab. Independent of <see cref="IsHidden"/>:
+    /// removing a file from Uploads doesn't affect its visibility in the Uploaded
+    /// history and vice-versa. A row with both flags set is invisible to both tabs
+    /// but still kept in the DB.
+    /// </summary>
+    public bool IsRemovedFromUploads { get; set; }
+
     public UploadPackageDbm? Package { get; set; }
 }

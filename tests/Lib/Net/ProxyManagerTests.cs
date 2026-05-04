@@ -198,6 +198,41 @@ public class ProxyManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task TestProxyAsync_NoneType_FailsWithoutNetworkCall()
+    {
+        ProxySettingDto dto = new() { Type = ProxyType.None, Host = "1.2.3.4", Port = 80 };
+
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto);
+
+        Assert.False(result.Success);
+        Assert.Contains("None", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TestProxyAsync_EmptyHost_Fails()
+    {
+        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = string.Empty, Port = 80 };
+
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto);
+
+        Assert.False(result.Success);
+        Assert.Contains("invalid", result.Message!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task TestProxyAsync_DeadProxy_FailsWithinTimeout()
+    {
+        // 127.0.0.1:1 — port 1 is reserved and almost certainly closed locally,
+        // so the connection refused error path is exercised quickly.
+        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
+
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto, TimeSpan.FromSeconds(3));
+
+        Assert.False(result.Success);
+        Assert.False(string.IsNullOrEmpty(result.Message));
+    }
+
+    [Fact]
     public async Task ReloadAsync_PicksUpNewProxiesAddedAfterFirstLoad()
     {
         await _manager.ReloadAsync();

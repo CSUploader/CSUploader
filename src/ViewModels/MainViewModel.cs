@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Update;
 using CSUploader.Upload;
@@ -24,6 +25,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IUpdateService _updateService;
     private readonly DispatcherTimer? _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
+    private bool _suppressDarkModePersist;
 
     [ObservableProperty]
     private int selectedTabIndex;
@@ -163,6 +165,24 @@ public partial class MainViewModel : ObservableObject
     {
         FirstRun.InitializeDatabase(_services, _logger);
 
+        // Restore the persisted theme before the user sees the UI to avoid a light->dark
+        // flash. Suppress the change handler's auto-save while we apply the loaded value.
+        SettingRepository settingRepo = _services.GetRequiredService<SettingRepository>();
+        SettingDto? darkSetting = await settingRepo.FindByKeyAsync(SettingKey.IsDarkMode);
+        if (darkSetting is not null)
+        {
+            bool savedDark = string.Equals(darkSetting.Value, "true", StringComparison.OrdinalIgnoreCase);
+            _suppressDarkModePersist = true;
+            try
+            {
+                IsDarkMode = savedDark;
+            }
+            finally
+            {
+                _suppressDarkModePersist = false;
+            }
+        }
+
         await SettingsViewModel.LoadAsync();
         // Load proxies before persisted packages so any auto-resumed uploads pick from
         // the user's configured proxy list.
@@ -179,6 +199,36 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsDarkModeChanged(bool value)
     {
         ApplyTheme(value);
+
+        if (_suppressDarkModePersist)
+        {
+            return;
+        }
+
+        // Fire-and-forget persist. The setting key is small and a failed save just
+        // means we'll fall back to the default on next startup.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                SettingRepository repo = _services.GetRequiredService<SettingRepository>();
+                SettingDto? existing = await repo.FindByKeyAsync(SettingKey.IsDarkMode);
+                string newValue = value ? "true" : "false";
+                if (existing is not null)
+                {
+                    existing.Value = newValue;
+                    await repo.UpdateAsync(existing);
+                }
+                else
+                {
+                    await repo.InsertAsync(new SettingDto { Key = SettingKey.IsDarkMode, Value = newValue });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(this, LogType.Error, $"Failed to persist dark mode preference: {ex.Message}");
+            }
+        });
     }
 
     private static void ApplyTheme(bool dark)

@@ -188,6 +188,53 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task TestCommand_UpdatesStatusToFailedForObviouslyDeadProxy()
+    {
+        ConnectionManagerViewModel vm = CreateVm();
+        vm.AddCommand.Execute(null);
+        ProxySettingItem item = vm.Proxies[0];
+        item.Type = ProxyType.Http;
+        item.Host = "127.0.0.1";
+        item.Port = 1; // closed
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        await vm.TestCommand.ExecuteAsync(item);
+
+        Assert.False(item.IsTesting);
+        Assert.StartsWith("Failed", item.TestStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TestCommand_NullParameter_DoesNothing()
+    {
+        ConnectionManagerViewModel vm = CreateVm();
+
+        await vm.TestCommand.ExecuteAsync(null);
+
+        // No items, no exceptions, nothing to assert beyond "didn't throw"
+        Assert.Empty(vm.Proxies);
+    }
+
+    [Fact]
+    public async Task TestAllCommand_RunsAgainstEveryRow()
+    {
+        ConnectionManagerViewModel vm = CreateVm();
+        vm.AddCommand.Execute(null);
+        vm.AddCommand.Execute(null);
+        foreach (ProxySettingItem item in vm.Proxies)
+        {
+            item.Type = ProxyType.Http;
+            item.Host = "127.0.0.1";
+            item.Port = 1; // closed -> guaranteed failure for both
+        }
+
+        await vm.TestAllCommand.ExecuteAsync(null);
+
+        Assert.All(vm.Proxies, p => Assert.StartsWith("Failed", p.TestStatus, StringComparison.Ordinal));
+        Assert.All(vm.Proxies, p => Assert.False(p.IsTesting));
+    }
+
+    [Fact]
     public void FormatProxyLine_RoundTripsThroughTryParse()
     {
         ProxySettingItem item = new(new ProxySettingDto

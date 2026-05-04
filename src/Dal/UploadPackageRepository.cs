@@ -57,6 +57,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         DirectoryPath = entity.DirectoryPath,
         SpeedLimitKBps = entity.SpeedLimitKBps,
         StartMode = (UploadStartMode)entity.StartMode,
+        IsRemovedFromUploads = entity.IsRemovedFromUploads,
         Files = entity.Files.Select(f => new UploadPackageFileDto
         {
             Id = f.Id,
@@ -75,6 +76,8 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             Priority = f.Priority,
             SortOrder = f.SortOrder,
             PackageId = f.PackageId,
+            IsHidden = f.IsHidden,
+            IsRemovedFromUploads = f.IsRemovedFromUploads,
         }).ToArray(),
     };
 
@@ -88,6 +91,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         dto.DirectoryPath = entity.DirectoryPath;
         dto.SpeedLimitKBps = entity.SpeedLimitKBps;
         dto.StartMode = (UploadStartMode)entity.StartMode;
+        dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
     }
 
     protected override UploadPackageDbm MapToDbm(UploadPackageDto dto) => new()
@@ -100,5 +104,22 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         DirectoryPath = dto.DirectoryPath ?? string.Empty,
         SpeedLimitKBps = dto.SpeedLimitKBps,
         StartMode = (int)dto.StartMode,
+        IsRemovedFromUploads = dto.IsRemovedFromUploads,
     };
+
+    /// <summary>
+    /// Soft-removes a package from the Uploads tab. Its file rows stay in the DB so
+    /// the Uploaded tab keeps showing them — until the user removes them there too,
+    /// which sets each file's <see cref="UploadPackageFileDbm.IsHidden"/>.
+    /// </summary>
+    public async Task SoftRemoveFromUploadsAsync(int packageId, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageDbm>()
+            .Where(p => p.Id == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsRemovedFromUploads, true), ct);
+        await db.Set<UploadPackageFileDbm>()
+            .Where(f => f.PackageId == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsRemovedFromUploads, true), ct);
+    }
 }

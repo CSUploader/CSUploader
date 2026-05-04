@@ -116,6 +116,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         SortOrder = entity.SortOrder,
         PackageId = entity.PackageId,
         IsHidden = entity.IsHidden,
+        IsRemovedFromUploads = entity.IsRemovedFromUploads,
     };
 
     protected override void MapToDto(UploadPackageFileDbm entity, UploadPackageFileDto dto)
@@ -137,6 +138,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.SortOrder = entity.SortOrder;
         dto.PackageId = entity.PackageId;
         dto.IsHidden = entity.IsHidden;
+        dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
     }
 
     protected override UploadPackageFileDbm MapToDbm(UploadPackageFileDto dto) => new()
@@ -158,5 +160,19 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         SortOrder = dto.SortOrder,
         PackageId = dto.PackageId,
         IsHidden = dto.IsHidden,
+        IsRemovedFromUploads = dto.IsRemovedFromUploads,
     };
+
+    /// <summary>
+    /// Soft-removes one or more files from the Uploads tab. The Uploaded tab keeps
+    /// showing them (it filters by <see cref="UploadPackageFileDbm.IsHidden"/>, not
+    /// <see cref="UploadPackageFileDbm.IsRemovedFromUploads"/>).
+    /// </summary>
+    public async Task<int> SoftRemoveFromUploadsAsync(IEnumerable<int> fileIds, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        return await db.Set<UploadPackageFileDbm>()
+            .Where(f => fileIds.Contains(f.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsRemovedFromUploads, true), ct);
+    }
 }

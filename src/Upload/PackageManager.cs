@@ -153,7 +153,22 @@ public class PackageManager
 
             foreach (UploadPackageDto pkgDto in all)
             {
+                // Skip packages that the user has soft-removed from the Uploads tab.
+                // Their per-file rows may still be visible on the Uploaded tab.
+                if (pkgDto.IsRemovedFromUploads)
+                {
+                    continue;
+                }
+
                 if (pkgDto.Files is null || pkgDto.Files.Count == 0)
+                {
+                    continue;
+                }
+
+                // Drop individual file rows the user removed from Uploads (the package
+                // itself was kept). They stay queryable for the Uploaded tab via IsHidden.
+                pkgDto.Files = [.. pkgDto.Files.Where(f => !f.IsRemovedFromUploads)];
+                if (pkgDto.Files.Count == 0)
                 {
                     continue;
                 }
@@ -533,6 +548,30 @@ public class PackageManager
                 Packages.Remove(package);
             }
 
+            // Soft-remove from Uploads only — keep the row so the Uploaded tab still
+            // shows it. Removal from Uploaded is a separate per-file action that sets
+            // each file's IsHidden flag.
+            int? packageDbId = package.DbId;
+            if (packageDbId is int pid)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await _persistLock.WaitAsync();
+                    try
+                    {
+                        await _packageRepo.SoftRemoveFromUploadsAsync(pid);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log(this, LogType.Error, $"Failed to soft-remove package from Uploads: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _persistLock.Release();
+                    }
+                });
+            }
+
             package.Remove();
         }
         else if (item is PackageFile packageFile)
@@ -540,6 +579,28 @@ public class PackageManager
             packageFile.Cts?.Cancel();
             packageFile.Cts?.Dispose();
             packageFile.Cts = null;
+
+            int? fileDbId = packageFile.DbId;
+            if (fileDbId is int fid)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await _persistLock.WaitAsync();
+                    try
+                    {
+                        await _fileRepo.SoftRemoveFromUploadsAsync(new[] { fid });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log(this, LogType.Error, $"Failed to soft-remove file from Uploads: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _persistLock.Release();
+                    }
+                });
+            }
+
             packageFile.Package.Remove(packageFile);
         }
     }

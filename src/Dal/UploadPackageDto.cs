@@ -25,5 +25,7 @@ public class UploadPackageDto
 
     public UploadStartMode StartMode { get; set; }
 
+    public bool IsRemovedFromUploads { get; set; }
+
     public ICollection<UploadPackageFileDto> Files { get; set; } = Array.Empty<UploadPackageFileDto>();
 }

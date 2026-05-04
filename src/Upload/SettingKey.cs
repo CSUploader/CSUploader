@@ -25,6 +25,8 @@ public static class SettingKey
 
     public static string GridFontSize { get; } = "gridFontSize";
 
+    public static string IsDarkMode { get; } = "isDarkMode";
+
     public static string IfFileExists { get; } = "ifFileExists";
 
     public static string SpeedLimit { get; } = "speedLimit";

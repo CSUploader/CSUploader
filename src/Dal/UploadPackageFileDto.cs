@@ -43,5 +43,7 @@ public class UploadPackageFileDto
 
     public bool IsHidden { get; set; }
 
+    public bool IsRemovedFromUploads { get; set; }
+
     public UploadPackageDto? Package { get; set; }
 }
