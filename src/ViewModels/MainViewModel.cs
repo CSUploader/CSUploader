@@ -20,12 +20,17 @@ public partial class MainViewModel : ObservableObject
 {
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
 
+    // Index of the Settings tab in MainWindow.xaml's TabControl. If tabs are reordered
+    // there, update this constant — the unsaved-changes prompt keys off it.
+    private const int SettingsTabIndex = 2;
+
     private readonly IServiceProvider _services;
     private readonly IAppLogger _logger;
     private readonly IUpdateService _updateService;
     private readonly DispatcherTimer? _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
+    private bool _suppressTabRevert;
 
     [ObservableProperty]
     private int selectedTabIndex;
@@ -51,6 +56,42 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleTheme() => IsDarkMode = !IsDarkMode;
+
+    /// <summary>
+    /// Intercepts tab navigation away from Settings to warn about unsaved changes. The
+    /// MVVM-Toolkit source generator emits this partial as a post-change hook, so the
+    /// switch has already happened — if the user declines we flip the tab back. The
+    /// revert is dispatched at Background priority because WPF's binding system drops
+    /// re-entrant value changes that happen synchronously during a TabControl's own
+    /// SelectionChanged handling. The guard prevents the deferred revert from
+    /// re-triggering this same handler.
+    /// </summary>
+    partial void OnSelectedTabIndexChanged(int oldValue, int newValue)
+    {
+        if (_suppressTabRevert)
+        {
+            return;
+        }
+
+        if (oldValue == SettingsTabIndex && newValue != SettingsTabIndex
+            && !SettingsViewModel.TryConfirmDiscardChanges())
+        {
+            Application.Current?.Dispatcher.BeginInvoke(
+                () =>
+                {
+                    _suppressTabRevert = true;
+                    try
+                    {
+                        SelectedTabIndex = oldValue;
+                    }
+                    finally
+                    {
+                        _suppressTabRevert = false;
+                    }
+                },
+                DispatcherPriority.Background);
+        }
+    }
 
     public MainViewModel(IServiceProvider services)
     {
@@ -199,6 +240,10 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsDarkModeChanged(bool value)
     {
         ApplyTheme(value);
+
+        // Re-apply the immersive dark title bar to every currently open window.
+        // Newly opened windows pick this up via the global Window.Loaded handler.
+        Lib.UI.ImmersiveDarkMode.SetIsDark(value);
 
         if (_suppressDarkModePersist)
         {

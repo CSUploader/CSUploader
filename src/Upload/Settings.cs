@@ -33,6 +33,12 @@ public class AppSettings
 
     public static IfFileExistsBehavior DefaultIfFileExists { get; } = IfFileExistsBehavior.Ask;
 
+    public static bool DefaultMinimizeToTray { get; } = false;
+
+    public static CloseAction DefaultCloseAction { get; } = CloseAction.Ask;
+
+    public static bool DefaultAutoDisableFailingProxies { get; } = true;
+
 #if DEBUG
     public static bool DefaultUseMockServer { get; } = true;
 #else
@@ -105,6 +111,25 @@ public class AppSettings
     public bool IsDarkMode { get; set; } = DefaultIsDarkMode;
 
     public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
+
+    /// <summary>
+    /// When true, minimising the main window hides it into the system tray instead of
+    /// the taskbar. The tray icon restores the window on click.
+    /// </summary>
+    public bool MinimizeToTray { get; set; } = DefaultMinimizeToTray;
+
+    /// <summary>
+    /// What the main window's X (close) button does. Defaults to <see cref="CloseAction.Ask"/>
+    /// so the first close prompts the user to choose minimise-to-tray or full exit.
+    /// </summary>
+    public CloseAction CloseAction { get; set; } = DefaultCloseAction;
+
+    /// <summary>
+    /// When true, a proxy that fails a connectivity test or an upload is automatically
+    /// unticked (Enabled = false) so the rotation skips it. The status icon updates either
+    /// way; this flag only controls the auto-uncheck behaviour.
+    /// </summary>
+    public bool AutoDisableFailingProxies { get; set; } = DefaultAutoDisableFailingProxies;
 
     public int? SpeedLimit { get; set; }
 

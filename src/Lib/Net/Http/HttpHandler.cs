@@ -8,12 +8,22 @@ using CSUploader.Upload;
 
 namespace CSUploader.Lib.Net.Http;
 
-public class HttpHandler(HttpClient httpclient, IAppLogger logger)
+public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription = null, bool bypassMockServer = false)
 {
     private readonly IAppLogger _logger = logger;
+    private readonly string _proxyDescription = string.IsNullOrEmpty(proxyDescription) ? "(direct)" : proxyDescription;
+    private readonly bool _bypassMockServer = bypassMockServer;
 
     private string MaybeRewriteToMockServer(string url)
     {
+        if (_bypassMockServer)
+        {
+            // Caller (e.g. proxy connectivity test) explicitly opted out of the dev
+            // redirect. Don't even log the "mock disabled" line — that's only useful
+            // for upload traffic.
+            return url;
+        }
+
         AppSettings settings = AppSettings.Current;
         if (!settings.UseMockServer || string.IsNullOrEmpty(settings.MockServerBaseUrl))
         {
@@ -71,6 +81,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger)
         {
             Method = "GET",
             Url = url,
+            Proxy = _proxyDescription,
             StartTime = DateTime.Now,
         };
 
@@ -114,6 +125,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger)
         {
             Method = "POST",
             Url = endpoint,
+            Proxy = _proxyDescription,
             StartTime = dateTimeStarted,
             RequestBody = $"[Multipart file upload: {Path.GetFileName(filePath)}]",
         };

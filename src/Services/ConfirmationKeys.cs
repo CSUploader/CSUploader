@@ -18,6 +18,7 @@ public static class ConfirmationKeys
     public const string RemoveUploadedEntry = "remove-uploaded-entry";
     public const string RemoveFileHosterAccount = "remove-file-hoster-account";
     public const string RemoveProxy = "remove-proxy";
+    public const string DiscardSettingsChanges = "discard-settings-changes";
 
     /// <summary>
     /// Ordered list of all known confirmation keys with a short human label, used by the
@@ -29,5 +30,6 @@ public static class ConfirmationKeys
         (RemoveUploadedEntry, "Remove entries from Uploaded history"),
         (RemoveFileHosterAccount, "Remove a file hoster account"),
         (RemoveProxy, "Remove a proxy from Connection Manager"),
+        (DiscardSettingsChanges, "Discard unsaved Settings changes when leaving the tab"),
     }.AsReadOnly();
 }

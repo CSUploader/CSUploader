@@ -34,4 +34,10 @@ public static class SettingKey
     public static string UseMockServer { get; } = "useMockServer";
 
     public static string SuppressedConfirmations { get; } = "suppressedConfirmations";
+
+    public static string MinimizeToTray { get; } = "minimizeToTray";
+
+    public static string CloseAction { get; } = "closeAction";
+
+    public static string AutoDisableFailingProxies { get; } = "autoDisableFailingProxies";
 }

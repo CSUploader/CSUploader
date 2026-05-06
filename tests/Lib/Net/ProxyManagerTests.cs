@@ -7,6 +7,8 @@ using System.Net;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -146,63 +148,11 @@ public class ProxyManagerTests : IDisposable
     }
 
     [Fact]
-    public async Task IncrementProblemsAsync_BumpsProblemsCountInDb()
-    {
-        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "1.2.3.4", Port = 8080, Enabled = true };
-        await _repo.InsertAsync(dto);
-
-        await _repo.IncrementProblemsAsync(dto.Id);
-        await _repo.IncrementProblemsAsync(dto.Id);
-
-        ProxySettingDto[] all = await _repo.GetAllAsync();
-        Assert.Equal(2, all.Single().ProblemsCount);
-    }
-
-    [Fact]
-    public async Task IncrementProblemsAsync_OnlyBumpsTheTargetedProxy()
-    {
-        ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true };
-        ProxySettingDto b = new() { Type = ProxyType.Http, Host = "b", Port = 2, Enabled = true };
-        await _repo.InsertAsync(a);
-        await _repo.InsertAsync(b);
-
-        await _repo.IncrementProblemsAsync(a.Id);
-
-        ProxySettingDto[] all = await _repo.GetAllAsync();
-        Assert.Equal(1, all.First(p => p.Host == "a").ProblemsCount);
-        Assert.Equal(0, all.First(p => p.Host == "b").ProblemsCount);
-    }
-
-    [Fact]
-    public async Task RecordFailure_EventuallyIncrementsProblemsCount()
-    {
-        // RecordFailure is fire-and-forget; poll until the increment lands so the test
-        // doesn't depend on a fixed delay.
-        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "1.2.3.4", Port = 8080, Enabled = true };
-        await _repo.InsertAsync(dto);
-
-        _manager.RecordFailure(dto.Id);
-
-        for (int i = 0; i < 50; i++)
-        {
-            ProxySettingDto[] all = await _repo.GetAllAsync();
-            if (all.Single().ProblemsCount == 1)
-            {
-                return;
-            }
-
-            await Task.Delay(50);
-        }
-
-        Assert.Fail("ProblemsCount did not increment within 2.5s");
-    }
-
-    [Fact]
     public async Task TestProxyAsync_NoneType_FailsWithoutNetworkCall()
     {
         ProxySettingDto dto = new() { Type = ProxyType.None, Host = "1.2.3.4", Port = 80 };
 
-        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto);
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto, Mock.Of<IAppLogger>());
 
         Assert.False(result.Success);
         Assert.Contains("None", result.Message, StringComparison.Ordinal);
@@ -213,7 +163,7 @@ public class ProxyManagerTests : IDisposable
     {
         ProxySettingDto dto = new() { Type = ProxyType.Http, Host = string.Empty, Port = 80 };
 
-        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto);
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto, Mock.Of<IAppLogger>());
 
         Assert.False(result.Success);
         Assert.Contains("invalid", result.Message!, StringComparison.OrdinalIgnoreCase);
@@ -226,10 +176,134 @@ public class ProxyManagerTests : IDisposable
         // so the connection refused error path is exercised quickly.
         ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
 
-        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto, TimeSpan.FromSeconds(3));
+        ProxyTestResult result = await ProxyManager.TestProxyAsync(dto, Mock.Of<IAppLogger>(), TimeSpan.FromSeconds(3));
 
         Assert.False(result.Success);
         Assert.False(string.IsNullOrEmpty(result.Message));
+    }
+
+    [Fact]
+    public async Task TestProxyAsync_LogsTransactionViaSuppliedLogger()
+    {
+        // Failed-proxy case still routes through HttpHandler, so the IAppLogger should
+        // see at least one LogType.Http entry — that's how proxy tests show up in the
+        // Logs tab alongside upload traffic.
+        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
+        Mock<IAppLogger> logger = new();
+
+        await ProxyManager.TestProxyAsync(dto, logger.Object, TimeSpan.FromSeconds(3));
+
+        logger.Verify(
+            l => l.Log(
+                It.IsAny<object?>(),
+                LogType.Http,
+                It.IsAny<string>(),
+                It.IsAny<HttpTransaction?>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public static void Ok_BodyIsRealIp_PopulatesDetectedIp()
+    {
+        ProxyTestResult result = ProxyTestResult.Ok(123, "1.2.3.4");
+
+        Assert.True(result.Success);
+        Assert.Equal("1.2.3.4", result.DetectedIp);
+        Assert.Equal("1.2.3.4", result.Body);
+    }
+
+    [Fact]
+    public static void Ok_BodyIsHtml_LeavesDetectedIpNullButKeepsFullBody()
+    {
+        // Squid-style proxies intercept the request and return a full HTML error page.
+        // We treat the test as Success (the connection went through) but only set
+        // DetectedIp when the body is a parseable IP; everything else is Body-only.
+        const string html = "<html><head><title>ERROR</title></head><body>blocked</body></html>";
+
+        ProxyTestResult result = ProxyTestResult.Ok(123, html);
+
+        Assert.True(result.Success);
+        Assert.Null(result.DetectedIp);
+        Assert.Equal(html, result.Body);
+    }
+
+    [Fact]
+    public static void Failed_StoresMessageInBothMessageAndBody()
+    {
+        ProxyTestResult result = ProxyTestResult.Failed("Connection refused.");
+
+        Assert.False(result.Success);
+        Assert.Equal("Connection refused.", result.Message);
+        Assert.Equal("Connection refused.", result.Body);
+    }
+
+    [Fact]
+    public async Task TestProxyAsync_BypassesMockServerRewriting()
+    {
+        // Regression: the dev "mock server" toggle was rewriting api.ipify.org to
+        // localhost:8080/api, which made every proxy test go to the dev sandbox
+        // instead of the real upstream. The connectivity test must hit the configured
+        // TestEndpoint regardless of mock-server settings.
+        AppSettings previous = AppSettings.Current;
+        AppSettings.Current = new AppSettings
+        {
+            UseMockServer = true,
+            MockServerBaseUrl = "http://localhost:8080",
+        };
+        try
+        {
+            ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
+            HttpTransaction? captured = null;
+            Mock<IAppLogger> logger = new();
+            logger.Setup(l => l.Log(
+                    It.IsAny<object?>(),
+                    It.IsAny<LogType>(),
+                    It.IsAny<string>(),
+                    It.IsAny<HttpTransaction?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>()))
+                .Callback<object?, LogType, string, HttpTransaction?, string, string, int>(
+                    (_, _, _, tx, _, _, _) => captured ??= tx);
+
+            await ProxyManager.TestProxyAsync(dto, logger.Object, TimeSpan.FromSeconds(3));
+
+            Assert.NotNull(captured);
+            Assert.Equal(ProxyManager.TestEndpoint, captured!.Url);
+        }
+        finally
+        {
+            AppSettings.Current = previous;
+        }
+    }
+
+    [Fact]
+    public async Task TestProxyAsync_LoggedTransaction_CarriesProxyDescription()
+    {
+        // The whole point of plumbing the proxy into HttpTransaction: a glance at the
+        // Logs tab should tell you which proxy a request went through. Verify the
+        // captured transaction's Proxy field reflects the configured proxy.
+        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
+        HttpTransaction? captured = null;
+        Mock<IAppLogger> logger = new();
+        logger.Setup(l => l.Log(
+                It.IsAny<object?>(),
+                LogType.Http,
+                It.IsAny<string>(),
+                It.IsAny<HttpTransaction?>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int>()))
+            .Callback<object?, LogType, string, HttpTransaction?, string, string, int>(
+                (_, _, _, tx, _, _, _) => captured ??= tx);
+
+        await ProxyManager.TestProxyAsync(dto, logger.Object, TimeSpan.FromSeconds(3));
+
+        Assert.NotNull(captured);
+        Assert.Equal("http://127.0.0.1:1", captured!.Proxy);
     }
 
     [Fact]

@@ -30,6 +30,17 @@
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#4A8CE8" />
     <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
 
+    <!-- Default-button hover/pressed shades. Slightly lighter/darker than SurfaceMutedBrush
+         so hover is obvious without flooding the button with the OS accent colour. -->
+    <SolidColorBrush x:Key="ButtonHoverBrush" Color="#3A3C4D" />
+    <SolidColorBrush x:Key="ButtonPressedBrush" Color="#23242F" />
+
+    <!-- Scrollbar -->
+    <SolidColorBrush x:Key="ScrollBarTrackBrush" Color="#1E1F26" />
+    <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#3C3D4E" />
+    <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#535470" />
+    <SolidColorBrush x:Key="ScrollBarThumbPressedBrush" Color="#6B6D8A" />
+
     <!-- ═══ DataGrid ═══ -->
     <SolidColorBrush x:Key="DataGridHeaderBrush" Color="#343650" />
     <SolidColorBrush x:Key="DataGridAltRowBrush" Color="#262838" />

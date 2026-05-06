@@ -117,7 +117,12 @@ public class RapidgatorClient : FileHosterClient
         Cookie languageCookie = new("lang", "en", "/", "www.rapidgator.com");
         httpClientHandler.CookieContainer.Add(languageCookie);
 
-        return new HttpHandler(httpClient, _logger);
+        // Mirror the proxy choice into the handler so HTTP transactions log which proxy
+        // (if any) was used. Format: "scheme://host:port" — credentials redacted.
+        string? proxyDescription = proxySetting is null
+            ? null
+            : $"{proxySetting.Type.ToString().ToLowerInvariant()}://{proxySetting.Host}:{proxySetting.Port}";
+        return new HttpHandler(httpClient, _logger, proxyDescription);
     }
 
     /// <summary>

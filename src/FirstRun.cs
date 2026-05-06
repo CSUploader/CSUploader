@@ -120,6 +120,9 @@ public static class FirstRun
             try
             {
 #pragma warning disable EF1002
+                // ProblemsCount column was retired with the green-check / red-X test
+                // indicator; new databases skip it and existing rows simply ignore the
+                // legacy column (EF reads only the mapped properties).
                 ctx.Database.ExecuteSqlRaw(@"
                     CREATE TABLE ProxySetting (
                         Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -129,8 +132,7 @@ public static class FirstRun
                         Username TEXT,
                         Password TEXT,
                         Enabled INTEGER NOT NULL DEFAULT 1,
-                        Priority INTEGER NOT NULL DEFAULT 0,
-                        ProblemsCount INTEGER NOT NULL DEFAULT 0
+                        Priority INTEGER NOT NULL DEFAULT 0
                     )");
 #pragma warning restore EF1002
                 logger.Log(null, LogType.Status, "Schema migration: created table ProxySetting");

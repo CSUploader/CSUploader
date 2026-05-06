@@ -17,14 +17,6 @@ public class ProxySettingRepository(IDbContextFactory<CSUploaderDbContext> dbFac
     public Task<int> DeleteAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
         => DeleteByPredicateAsync(p => ids.Contains(p.Id), cancellationToken);
 
-    public async Task IncrementProblemsAsync(int id, CancellationToken cancellationToken = default)
-    {
-        using CSUploaderDbContext db = DbFactory.CreateDbContext();
-        await db.Set<ProxySettingDbm>()
-            .Where(p => p.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ProblemsCount, p => p.ProblemsCount + 1), cancellationToken);
-    }
-
     protected override ProxySettingDto MapToDto(ProxySettingDbm entity) => new()
     {
         Id = entity.Id,
@@ -35,7 +27,6 @@ public class ProxySettingRepository(IDbContextFactory<CSUploaderDbContext> dbFac
         Password = entity.Password,
         Enabled = entity.Enabled,
         Priority = entity.Priority,
-        ProblemsCount = entity.ProblemsCount,
     };
 
     protected override void MapToDto(ProxySettingDbm entity, ProxySettingDto dto)
@@ -48,7 +39,6 @@ public class ProxySettingRepository(IDbContextFactory<CSUploaderDbContext> dbFac
         dto.Password = entity.Password;
         dto.Enabled = entity.Enabled;
         dto.Priority = entity.Priority;
-        dto.ProblemsCount = entity.ProblemsCount;
     }
 
     protected override ProxySettingDbm MapToDbm(ProxySettingDto dto) => new()
@@ -61,6 +51,5 @@ public class ProxySettingRepository(IDbContextFactory<CSUploaderDbContext> dbFac
         Password = dto.Password,
         Enabled = dto.Enabled,
         Priority = dto.Priority,
-        ProblemsCount = dto.ProblemsCount,
     };
 }

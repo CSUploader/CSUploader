@@ -122,12 +122,24 @@
                   Background="{DynamicResource ContentBackgroundBrush}"
                   BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
           <DataGrid.RowStyle>
-            <Style TargetType="DataGridRow">
+            <!-- BasedOn the global implicit style so we keep its Foreground/selection setters
+                 (otherwise inline triggers replace them and rows render in the system colour).
+                 Foreground/Background/Opacity are repeated here as belt-and-suspenders in case
+                 the BasedOn lookup fails (implicit-style key resolution can be flaky in some
+                 Window scopes). -->
+            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="Opacity" Value="1" />
               <Setter Property="Visibility" Value="Visible" />
               <Style.Triggers>
                 <DataTrigger Binding="{Binding IsVisible}" Value="False">
                   <Setter Property="Visibility" Value="Collapsed" />
                 </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                  <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+                  <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+                </Trigger>
               </Style.Triggers>
             </Style>
           </DataGrid.RowStyle>
@@ -150,12 +162,20 @@
                                      Width="16" Height="16" Margin="2,0,6,0" />
                     <TextBlock Text="{Binding RelativePath}"
                                VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
                   </StackPanel>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="100" IsReadOnly="True" />
+            <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="100" IsReadOnly="True">
+              <DataGridTextColumn.ElementStyle>
+                <Style TargetType="TextBlock">
+                  <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                  <Setter Property="VerticalAlignment" Value="Center" />
+                </Style>
+              </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
           </DataGrid.Columns>
         </DataGrid>
 
@@ -187,7 +207,28 @@
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   Background="{DynamicResource ContentBackgroundBrush}"
+                  Foreground="{DynamicResource TextPrimaryBrush}"
                   BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+          <DataGrid.RowStyle>
+            <!-- Same fix as the Files grid above: explicit Foreground/Opacity so rows render
+                 in the theme colour instead of the system fallback. -->
+            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="Opacity" Value="1" />
+              <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                  <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+                  <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </DataGrid.RowStyle>
+          <DataGrid.CellStyle>
+            <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Style>
+          </DataGrid.CellStyle>
           <DataGrid.Columns>
             <DataGridCheckBoxColumn Header="Use" Binding="{Binding Use, UpdateSourceTrigger=PropertyChanged}" Width="42">
               <DataGridCheckBoxColumn.ElementStyle>
@@ -206,7 +247,8 @@
                     <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
                            Width="18" Height="18" Margin="0,0,6,0"
                            RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="{Binding FileHosterName}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding FileHosterName}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
                   </StackPanel>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>

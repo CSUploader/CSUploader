@@ -136,6 +136,65 @@ public class UploadPackageFileRepositoryTests : IDisposable
         Assert.Equal("done.iso", rows[0].File.FileName);
     }
 
+    [Fact]
+    public async Task GetDoneFilesWithPackageNameAsync_DoesNotFilterByIsRemovedFromUploads()
+    {
+        // The Uploaded tab uses IsHidden as its own soft-delete flag; IsRemovedFromUploads
+        // belongs to the Uploads tab and must not strip rows from the upload history.
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "done.iso", FileState.Completed);
+        await _fileRepo.SoftRemoveFromUploadsAsync(new[] { fileId });
+
+        (UploadPackageFileDto File, string PackageName)[] rows =
+            await _fileRepo.GetDoneFilesWithPackageNameAsync();
+
+        Assert.Single(rows);
+        Assert.Equal("done.iso", rows[0].File.FileName);
+    }
+
+    [Fact]
+    public async Task SoftRemoveFromUploadsAsync_FlipsFlagWithoutDeleting()
+    {
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        int affected = await _fileRepo.SoftRemoveFromUploadsAsync(new[] { fileId });
+
+        Assert.Equal(1, affected);
+        UploadPackageFileDto? reloaded = await _fileRepo.FindAsync(fileId);
+        Assert.NotNull(reloaded);
+        Assert.True(reloaded!.IsRemovedFromUploads);
+    }
+
+    [Fact]
+    public async Task SoftRemoveFromUploadsAsync_OnlyTouchesSpecifiedIds()
+    {
+        int packageId = await InsertPackageAsync("pkg");
+        int target = await InsertFileAsync(packageId, "target.iso", FileState.Completed);
+        int other = await InsertFileAsync(packageId, "other.iso", FileState.Completed);
+
+        await _fileRepo.SoftRemoveFromUploadsAsync(new[] { target });
+
+        UploadPackageFileDto? targetDto = await _fileRepo.FindAsync(target);
+        UploadPackageFileDto? otherDto = await _fileRepo.FindAsync(other);
+        Assert.True(targetDto!.IsRemovedFromUploads);
+        Assert.False(otherDto!.IsRemovedFromUploads);
+    }
+
+    [Fact]
+    public async Task SoftRemoveFromUploadsAsync_LeavesIsHiddenAlone()
+    {
+        // IsHidden (Uploaded tab) and IsRemovedFromUploads (Uploads tab) are independent
+        // — flipping one must not flip the other.
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        await _fileRepo.SoftRemoveFromUploadsAsync(new[] { fileId });
+
+        UploadPackageFileDto? reloaded = await _fileRepo.FindAsync(fileId);
+        Assert.False(reloaded!.IsHidden);
+    }
+
     private async Task<int> InsertPackageAsync(string name, bool isCompleted = false)
     {
         UploadPackageDto pkg = new()

@@ -42,7 +42,8 @@
                 </MenuItem>
         </Menu>
 
-        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}"
+                    PreviewMouseLeftButtonDown="TabControl_PreviewMouseLeftButtonDown">
             <TabItem Header="Uploads">
                 <views:UploadsView DataContext="{Binding UploadsViewModel}" />
             </TabItem>

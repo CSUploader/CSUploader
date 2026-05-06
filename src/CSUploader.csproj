@@ -5,6 +5,9 @@
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <!-- Enables System.Windows.Forms.NotifyIcon for tray-icon support. The app stays a WPF
+         app; this only adds the WinForms framework reference for the NotifyIcon plumbing. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>preview</LangVersion>
@@ -25,6 +28,15 @@
 
   <ItemGroup>
     <Resource Include="Properties\Images\**\*" />
+  </ItemGroup>
+
+  <!-- WinForms is enabled only for System.Windows.Forms.NotifyIcon. Drop its implicit
+       global usings so they don't collide with WPF (Application, UserControl, Brush,
+       DataGrid, ContextMenu all live in both namespaces). TrayIconManager.cs imports
+       System.Windows.Forms explicitly. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
   </ItemGroup>
 
   <!-- Test project sees internal members (e.g. ConnectionManagerViewModel.TryParseProxyLine) -->

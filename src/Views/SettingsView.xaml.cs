@@ -17,6 +17,26 @@ public partial class SettingsView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// Pops the Remove dropdown anchored under the button. Lets the single button slot
+    /// host both "remove selected" and "remove failed" without crowding the toolbar.
+    /// </summary>
+    private void RemoveProxiesButton_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
+
+    private void ImportProxiesButton_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
+
+    private void ExportProxiesButton_Click(object sender, RoutedEventArgs e) => OpenButtonContextMenu(sender);
+
+    private static void OpenButtonContextMenu(object sender)
+    {
+        if (sender is Button button && button.ContextMenu is ContextMenu menu)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
+
     private async void AccountEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox

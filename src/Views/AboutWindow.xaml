@@ -5,47 +5,74 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About CSUploader"
-        Width="400" Height="280"
+        Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         Icon="pack://application:,,,/Properties/Images/Logo/icon.ico">
 
   <Grid Margin="24,20,24,16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- Logo + Title -->
+    <!-- Logo + Title + Version -->
     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-      <Image Source="{StaticResource Logo128Image}" Width="64" Height="64"
+      <Image Source="{StaticResource Logo128Image}" Width="80" Height="80"
              RenderOptions.BitmapScalingMode="HighQuality" Margin="0,0,16,0" />
       <StackPanel VerticalAlignment="Center">
         <TextBlock FontSize="20" FontWeight="Bold"
                    Foreground="{DynamicResource AccentBrush}"
-                   Text="{Binding Title}" />
+                   Text="CSUploader" />
         <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="{Binding Version}" Margin="0,2,0,0" />
+                   x:Name="VersionText" Margin="0,2,0,0" />
       </StackPanel>
     </StackPanel>
 
     <!-- Description -->
-    <StackPanel Grid.Row="1" Margin="0,0,0,12">
-      <TextBlock FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"
-                 TextWrapping="Wrap" LineHeight="20"
-                 Text="A file upload manager for multiple hosting services." Margin="0,0,0,10" />
-      <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}">
-        <Run Text="Built with .NET 10 and WPF." />
+    <TextBlock Grid.Row="1" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"
+               TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,16">
+      A powerful file upload manager for multiple hosting services.
+      Features include hashing, queue management, and real-time progress tracking.
+    </TextBlock>
+
+    <!-- Framework / Database / License / Source -->
+    <StackPanel Grid.Row="2" Margin="0,0,0,16">
+      <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+        <Run FontWeight="SemiBold" Text="Framework: " />
+        <Run Text=".NET 10.0 (WPF)" />
       </TextBlock>
-      <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0">
-        <Run Text="License: MIT" />
+      <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+        <Run FontWeight="SemiBold" Text="Database: " />
+        <Run Text="SQLite via EF Core 10" />
       </TextBlock>
+      <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
+        <Run FontWeight="SemiBold" Text="License: " />
+        <Run Text="MIT" />
+      </TextBlock>
+      <!-- Plain TextBlocks instead of an inline Hyperlink: the Hyperlink path raises
+           RequestNavigate from a Run inline, which makes WPF's navigation pipeline walk
+           up the visual tree from that Run on Win11 and throw "Run is not a Visual or
+           Visual3D". A TextBlock click hit-tests to a real Visual. -->
+      <StackPanel Orientation="Horizontal">
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontWeight="SemiBold" Text="Source: " />
+        <TextBlock FontSize="12"
+                   Text="github.com/CSUploader/CSUploader"
+                   Foreground="{DynamicResource AccentBrush}"
+                   Cursor="Hand"
+                   TextDecorations="Underline"
+                   Tag="https://github.com/CSUploader/CSUploader"
+                   MouseLeftButtonUp="GithubLink_MouseLeftButtonUp" />
+      </StackPanel>
     </StackPanel>
 
     <!-- OK Button -->
-    <Button Grid.Row="2" Content="OK" Width="80" Height="28"
+    <Button Grid.Row="3" Content="OK" Width="80" Height="28"
             HorizontalAlignment="Right" IsCancel="True" IsDefault="True" />
   </Grid>
 </Window>

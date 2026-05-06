@@ -35,10 +35,4 @@ public class ProxySettingDbm
     /// Lower numbers = higher priority. Used to order the rotation.
     /// </summary>
     public int Priority { get; set; }
-
-    /// <summary>
-    /// Running count of upload failures attributed to this proxy. Surfaced in the
-    /// Connection Manager grid so users can spot bad proxies.
-    /// </summary>
-    public int ProblemsCount { get; set; }
 }

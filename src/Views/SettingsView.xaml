@@ -16,6 +16,8 @@
     <UserControl.Resources>
         <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
         <conv:StatusToColorConverter x:Key="StatusToColorConverter" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
 
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
@@ -146,12 +148,6 @@
                         <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
-                <ListBoxItem>
-                    <StackPanel HorizontalAlignment="Center" Width="120">
-                        <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="About" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
-                </ListBoxItem>
             </ListBox>
         </Border>
 
@@ -202,7 +198,27 @@
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding GridFontFamilyOptions}"
                               SelectedItem="{Binding GridFontFamily}"
-                              FontSize="12" Padding="4,3" />
+                              FontSize="12" Padding="4,3">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <!-- Two-column row: the font's name in the default UI font (so
+                                     CJK/Arabic-only fonts don't render their English name as
+                                     boxes) plus a small "AaBb 123" sample in the actual font as
+                                     a preview. -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding}" />
+                                    <TextBlock Grid.Column="1" Text="AaBb 123"
+                                               FontFamily="{Binding}"
+                                               Margin="12,0,0,0"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </Grid>
 
                 <Grid Style="{StaticResource SettingRow}">
@@ -215,6 +231,34 @@
                              Text="{Binding GridFontSize, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}"
                              Style="{StaticResource SettingInput}"
                              HorizontalContentAlignment="Right" />
+                </Grid>
+
+                <!-- Window behaviour (minimize / close → tray) -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="Window Behaviour" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="Choose what happens when the main window is minimized or closed." />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <CheckBox Content="Minimize the main window to the system tray instead of the taskbar"
+                              IsChecked="{Binding MinimizeToTray}" VerticalAlignment="Center" />
+                </Grid>
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Close button action" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding CloseActionOptions}"
+                              SelectedValue="{Binding CloseAction}"
+                              SelectedValuePath="Value"
+                              DisplayMemberPath="Label"
+                              FontSize="12" Padding="4,3" />
                 </Grid>
 
                 <!-- Confirmation prompts -->
@@ -392,6 +436,10 @@
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}"
                            Text="If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection." />
+                <CheckBox Content="Automatically uncheck failing proxies"
+                          IsChecked="{Binding AutoDisableFailingProxies}"
+                          ToolTip="When on, a proxy that fails a manual test or an upload is unchecked so the rotation skips it. The status icon updates either way."
+                          Margin="0,8,0,0" />
             </StackPanel>
 
             <DataGrid x:Name="proxyGrid" Grid.Row="1" Margin="20,8,20,8"
@@ -433,7 +481,7 @@
                     <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
                         <MenuItem Header="Test"
                                   Command="{Binding TestCommand}"
-                                  CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <Separator />
                         <MenuItem Header="Remove"
                                   InputGestureText="Del"
@@ -450,18 +498,32 @@
                             </Style>
                         </DataGridCheckBoxColumn.ElementStyle>
                     </DataGridCheckBoxColumn>
-                    <DataGridTemplateColumn Header="Priority" Width="80">
+                    <DataGridTemplateColumn Header="Priority" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
+                                <!-- Inline style strips the global Button padding (10,4) — at this
+                                     size the up/down glyphs would otherwise be clipped, leaving the
+                                     buttons looking like empty pills. -->
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Button Content="&#x25B2;" FontSize="10" Width="22" Height="22" Margin="0,0,2,0"
+                                    <StackPanel.Resources>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Width" Value="28" />
+                                            <Setter Property="Height" Value="22" />
+                                            <Setter Property="FontSize" Value="12" />
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        </Style>
+                                    </StackPanel.Resources>
+                                    <Button Content="&#x25B2;" Margin="0,0,2,0"
                                             Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            ToolTip="Move up" />
-                                    <Button Content="&#x25BC;" FontSize="10" Width="22" Height="22"
+                                            ToolTip="Move up (higher priority)" />
+                                    <Button Content="&#x25BC;"
                                             Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            ToolTip="Move down" />
+                                            ToolTip="Move down (lower priority)" />
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -480,22 +542,81 @@
                     <DataGridTextColumn Header="Port" Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                     <DataGridTextColumn Header="User" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
                     <DataGridTextColumn Header="Password" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                    <DataGridTextColumn Header="Problems" Binding="{Binding ProblemsCount}" Width="80" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Status" Binding="{Binding TestStatus}" Width="220" IsReadOnly="True">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                <Setter Property="ToolTip" Value="{Binding TestStatus}" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="Test" Width="60" SortMemberPath="TestOutcome" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Image Source="{Binding TestOutcome, Converter={StaticResource ProxyTestOutcomeIcon}}"
+                                       Width="16" Height="16"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       ToolTip="{Binding TestStatus}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Status" Width="280" SortMemberPath="TestStatus" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding TestStatus}"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{Binding TestStatus}" />
+                                    <Button Grid.Column="1"
+                                            Content="Details"
+                                            FontSize="11"
+                                            Padding="6,1"
+                                            Margin="6,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding HasTestDetails, Converter={StaticResource BoolToVisibility}}"
+                                            Command="{Binding DataContext.ShowTestDetailsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
             <DockPanel Grid.Row="2" Margin="20,0,20,16">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                    <Button Content="Import…" Command="{Binding ImportCommand}" Style="{StaticResource JD2Button}" Margin="0,0,8,0" />
-                    <Button Content="Export…" Command="{Binding ExportCommand}" Style="{StaticResource JD2Button}" Margin="0,0,8,0" />
+                    <Button x:Name="ImportProxiesButton"
+                            Style="{StaticResource JD2Button}"
+                            Click="ImportProxiesButton_Click"
+                            Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Import" />
+                            <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Import from text…" Command="{Binding ImportFromTextCommand}" />
+                                <MenuItem Header="Import from file…" Command="{Binding ImportFromFileCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                    <Button x:Name="ExportProxiesButton"
+                            Style="{StaticResource JD2Button}"
+                            Click="ExportProxiesButton_Click"
+                            Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Export" />
+                            <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Export all proxies to text…" Command="{Binding ExportAllToTextCommand}" />
+                                <MenuItem Header="Export all proxies to file…" Command="{Binding ExportAllToFileCommand}" />
+                                <Separator />
+                                <MenuItem Header="Export tested-OK proxies to text…" Command="{Binding ExportOkToTextCommand}" />
+                                <MenuItem Header="Export tested-OK proxies to file…" Command="{Binding ExportOkToFileCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                     <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" Width="100" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
@@ -505,14 +626,31 @@
                             <TextBlock Text="Add" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource JD2Button}"
-                            Command="{Binding RemoveSelectedCommand}"
-                            CommandParameter="{Binding SelectedItems, ElementName=proxyGrid}"
+                    <!-- Click opens the ContextMenu (handled in code-behind) so the user
+                         picks Selected or Failed; matches the JD2 UX of one button slot
+                         with two related actions. -->
+                    <!-- Tag holds the live SelectedItems so the ContextMenu (which lives
+                         in its own visual tree and can't resolve ElementName=proxyGrid)
+                         can route the selection through PlacementTarget.Tag. -->
+                    <Button x:Name="RemoveProxiesButton"
+                            Style="{StaticResource JD2Button}"
+                            Click="RemoveProxiesButton_Click"
+                            Tag="{Binding SelectedItems, ElementName=proxyGrid}"
                             Margin="0,0,6,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="−" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,4,0" />
                             <TextBlock Text="Remove" />
+                            <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Remove selected"
+                                          Command="{Binding RemoveSelectedCommand}"
+                                          CommandParameter="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <MenuItem Header="Remove failed"
+                                          Command="{Binding RemoveFailedCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
                     </Button>
                     <Button Style="{StaticResource JD2Button}"
                             Command="{Binding TestAllCommand}"
@@ -587,7 +725,7 @@
                     </Style>
                 </DataGrid.ColumnHeaderStyle>
                 <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <Setter Property="MinHeight" Value="22" />
                         <Setter Property="FontSize" Value="12" />
                         <Style.Triggers>
@@ -706,58 +844,5 @@
             </TextBlock>
         </Grid>
 
-        <!-- 3: About -->
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SurfaceBrush}" Padding="0">
-            <ScrollViewer.Style>
-                <Style TargetType="ScrollViewer">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding SelectedCategoryIndex}" Value="4">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ScrollViewer.Style>
-            <StackPanel Margin="20,16,20,20" MaxWidth="900" HorizontalAlignment="Left">
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                    <Image Source="{StaticResource LogoCsLogo54TransImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="About CSUploader" Style="{StaticResource SectionTitle}" />
-                </StackPanel>
-                <Separator Margin="0,0,0,12" />
-
-                <StackPanel Margin="40,0,0,0">
-                    <Image Source="{StaticResource Logo128Image}" Width="96" Height="96" HorizontalAlignment="Left" Margin="0,0,0,16"
-                           RenderOptions.BitmapScalingMode="HighQuality" />
-
-                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Text="CSUploader" Margin="0,0,0,4" />
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12">
-                        <Run Text="Version 1.0.0" />
-                    </TextBlock>
-
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20">
-                        A powerful file upload manager for multiple hosting services.
-                        Features include hashing, queue management,
-                        and real-time progress tracking.
-                    </TextBlock>
-
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Framework: " />
-                        <Run Text=".NET 10.0 (WPF)" />
-                    </TextBlock>
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Database: " />
-                        <Run Text="SQLite via EF Core 10" />
-                    </TextBlock>
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4">
-                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="License: " />
-                        <Run Text="MIT" />
-                    </TextBlock>
-                    <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16">
-                        <Run FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Text="Source: " />
-                        <Run Text="github.com/NeWbY100/CSUploader" />
-                    </TextBlock>
-                </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
     </Grid>
 </UserControl>

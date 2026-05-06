@@ -15,6 +15,8 @@ Conventions for writing tests in this project. Inherits everything from the root
 - Test method name describes the scenario and expected outcome:
   `MethodName_StateUnderTest_ExpectedBehavior`
   e.g. `HideAsync_FlipsIsHiddenFlagWithoutDeleting`.
+- For commands that take heterogeneous parameters (e.g. `IList` of selected items vs. a single
+  item), cover both parameter shapes — see `ConnectionManagerViewModelTests.TestCommand_*`.
 - Group related setup in private helper methods (`InsertPackageAsync`, `InsertFileAsync`) at the bottom of the class — keep individual tests focused on the one behavior they cover.
 
 ## Structure

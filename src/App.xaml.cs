@@ -42,6 +42,11 @@ public partial class App : Application
         // factories pick a proxy at construction without taking a DI dependency.
         Lib.Net.ProxyManager.Current = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
 
+        // Register the global Window.Loaded handler so every window picks up the
+        // dark title bar automatically. MainViewModel.InitializeAsync sets the
+        // initial value once the persisted setting is read.
+        Lib.UI.ImmersiveDarkMode.RegisterGlobalHandler();
+
         MainWindow mainWindow = new(_serviceProvider);
         mainWindow.Show();
     }
@@ -86,6 +91,7 @@ public partial class App : Application
         // Services
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IUpdateService, UpdateService>();
+        services.AddSingleton<TrayIconManager>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

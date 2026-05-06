@@ -13,19 +13,29 @@ namespace CSUploader.Views;
 public partial class HttpDetailsWindow : Window
 {
     public HttpDetailsWindow(LogEntryViewModel entry)
+        : this(entry.HttpTransaction, entry.Message)
+    {
+    }
+
+    public HttpDetailsWindow(HttpTransaction transaction)
+        : this(transaction, fallbackMessage: null)
+    {
+    }
+
+    private HttpDetailsWindow(HttpTransaction? tx, string? fallbackMessage)
     {
         InitializeComponent();
 
-        HttpTransaction? tx = entry.HttpTransaction;
         if (tx is null)
         {
-            SummaryText.Text = entry.Message ?? "(no data)";
+            SummaryText.Text = fallbackMessage ?? "(no data)";
             return;
         }
 
         // Summary header
         SummaryText.Text = tx.Summary;
         TimingText.Text = $"Started: {tx.StartTime:HH:mm:ss.fff}  |  Duration: {tx.Duration.TotalMilliseconds:F0}ms  |  Size: {tx.ResponseBodyBytes?.Length ?? 0} bytes";
+        ProxyText.Text = $"Proxy: {tx.Proxy}";
 
         // Request
         RequestHeadersBox.Text = tx.RequestHeadersText;

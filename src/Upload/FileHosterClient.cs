@@ -139,7 +139,8 @@ public abstract class FileHosterClient
 
     /// <summary>
     /// Id of the proxy this client is currently routed through (0 = direct connection).
-    /// Used by failure tracking to increment <see cref="Dal.ProxySettingDbm.ProblemsCount"/>.
+    /// Test-observable: lets the proxy-rotation tests assert which proxy a freshly-built
+    /// client picked.
     /// </summary>
     public int ActiveProxyId { get; set; }
 

@@ -6,6 +6,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.ViewModels;
 
@@ -101,14 +102,57 @@ public partial class ProxySettingItem : ObservableObject
         }
     }
 
-    public int ProblemsCount => Dto.ProblemsCount;
-
     /// <summary>
     /// Human-readable status from the most recent connectivity test, e.g.
     /// "OK 320ms (1.2.3.4)" or "Failed: timeout". Empty when never tested.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTestDetails))]
+    [NotifyPropertyChangedFor(nameof(TestOutcome))]
     private string testStatus = string.Empty;
+
+    /// <summary>
+    /// Coarse pass/fail/untested classification derived from <see cref="TestStatus"/>,
+    /// drives the status-icon column in the Connection Manager grid.
+    /// </summary>
+    public ProxyTestOutcome TestOutcome
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(TestStatus))
+            {
+                return ProxyTestOutcome.Untested;
+            }
+
+            if (TestStatus.StartsWith("OK", StringComparison.Ordinal))
+            {
+                return ProxyTestOutcome.Ok;
+            }
+
+            if (TestStatus.StartsWith("Failed", StringComparison.Ordinal))
+            {
+                return ProxyTestOutcome.Failed;
+            }
+
+            // "Queued…" / "Testing…" — treat as in-progress, no icon yet.
+            return ProxyTestOutcome.Untested;
+        }
+    }
+
+    /// <summary>
+    /// Full HTTP transaction (request + response, with headers) from the most recent
+    /// test. Surfaced via the Connection Manager's Details button so the user gets
+    /// the same diagnostic view as the Logs tab. Null when never tested.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTestDetails))]
+    private HttpTransaction? testTransaction;
+
+    /// <summary>
+    /// True when there's a captured transaction to show in the details modal — drives
+    /// the visibility of the row's Details button.
+    /// </summary>
+    public bool HasTestDetails => TestTransaction is not null;
 
     /// <summary>
     /// True while a test is in flight, used to show "Testing…" in the grid and to

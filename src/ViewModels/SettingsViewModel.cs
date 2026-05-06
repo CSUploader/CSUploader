@@ -5,6 +5,7 @@
 
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -20,13 +21,109 @@ public partial class SettingsViewModel(
     FileHosterLoginRepository accountRepository,
     AppSettings settings,
     IDialogService dialogService,
-    IAppLogger logger) : ObservableObject
+    IAppLogger logger,
+    TrayIconManager? trayIconManager = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
     private readonly AppSettings _settings = settings;
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
+    private readonly TrayIconManager? _trayIconManager = trayIconManager;
+
+    // Snapshot of the saved-on-disk values, taken on Load and after Save. Compared against
+    // the live properties to detect unsaved changes for the tab-switch warning. Account
+    // editing and confirmation-prompt toggles are NOT tracked here — those persist on their
+    // own commands and don't depend on the Save Settings button.
+    private SettingsSnapshot _savedSnapshot = SettingsSnapshot.Empty;
+
+    private record SettingsSnapshot(
+        int MaxConcurrentCPUJobs,
+        int MaxConcurrentUploadJobs,
+        bool MaxUploadsPerHostEnabled,
+        int MaxUploadsPerHost,
+        RemoveFinishedUploadsMode RemoveFinishedUploads,
+        bool AutoRemoveCompletedFiles,
+        bool AutoRemoveCompletedPackages,
+        string GridFontFamily,
+        double GridFontSize,
+        IfFileExistsBehavior IfFileExists,
+        bool SpeedLimitEnabled,
+        int SpeedLimitValue,
+        bool UseMockServer,
+        bool MinimizeToTray,
+        CloseAction CloseAction)
+    {
+        public static SettingsSnapshot Empty { get; } = new(
+            0, 0, false, 0, RemoveFinishedUploadsMode.Never, false, false, string.Empty, 0,
+            IfFileExistsBehavior.Ask, false, 0, false, false, CloseAction.Ask);
+    }
+
+    private SettingsSnapshot CaptureSnapshot() => new(
+        MaxConcurrentCPUJobs,
+        MaxConcurrentUploadJobs,
+        MaxUploadsPerHostEnabled,
+        MaxUploadsPerHost,
+        RemoveFinishedUploads,
+        AutoRemoveCompletedFiles,
+        AutoRemoveCompletedPackages,
+        GridFontFamily,
+        GridFontSize,
+        IfFileExists,
+        SpeedLimitEnabled,
+        SpeedLimitValue,
+        UseMockServer,
+        MinimizeToTray,
+        CloseAction);
+
+    private void RestoreSnapshot(SettingsSnapshot s)
+    {
+        MaxConcurrentCPUJobs = s.MaxConcurrentCPUJobs;
+        MaxConcurrentUploadJobs = s.MaxConcurrentUploadJobs;
+        MaxUploadsPerHostEnabled = s.MaxUploadsPerHostEnabled;
+        MaxUploadsPerHost = s.MaxUploadsPerHost;
+        RemoveFinishedUploads = s.RemoveFinishedUploads;
+        AutoRemoveCompletedFiles = s.AutoRemoveCompletedFiles;
+        AutoRemoveCompletedPackages = s.AutoRemoveCompletedPackages;
+        GridFontFamily = s.GridFontFamily;
+        GridFontSize = s.GridFontSize;
+        IfFileExists = s.IfFileExists;
+        SpeedLimitEnabled = s.SpeedLimitEnabled;
+        SpeedLimitValue = s.SpeedLimitValue;
+        UseMockServer = s.UseMockServer;
+        MinimizeToTray = s.MinimizeToTray;
+        CloseAction = s.CloseAction;
+    }
+
+    public bool HasUnsavedChanges => !CaptureSnapshot().Equals(_savedSnapshot);
+
+    /// <summary>
+    /// Called before the user navigates away from the Settings tab. If there are unsaved
+    /// edits, prompts (with opt-out) for permission to discard. Returns <c>true</c> when
+    /// it's safe to navigate (no edits, or user confirmed discard). Reverts the live
+    /// properties to the saved snapshot when discarding so re-entry to the tab shows the
+    /// real persisted state.
+    /// </summary>
+    public bool TryConfirmDiscardChanges()
+    {
+        if (!HasUnsavedChanges)
+        {
+            return true;
+        }
+
+        bool confirmed = _dialogService.ShowOptOutConfirmation(
+            ConfirmationKeys.DiscardSettingsChanges,
+            "You have unsaved changes on the Settings tab. They will be discarded if you leave. Continue?",
+            "Unsaved settings");
+
+        if (!confirmed)
+        {
+            return false;
+        }
+
+        RestoreSnapshot(_savedSnapshot);
+        return true;
+    }
 
     // ── Upload settings ──
 
@@ -57,10 +154,25 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     private double gridFontSize = AppSettings.DefaultGridFontSize;
 
-    public static string[] GridFontFamilyOptions { get; } = ["Tahoma", "Segoe UI", "Arial", "Verdana", "Calibri", "Consolas"];
+    /// <summary>
+    /// All font families installed on the system, sorted by display name. Resolved
+    /// via <see cref="Fonts.SystemFontFamilies"/> so the dropdown reflects whatever
+    /// the user currently has installed instead of a curated subset.
+    /// </summary>
+    public static string[] GridFontFamilyOptions { get; } = [.. Fonts.SystemFontFamilies
+        .Select(f => f.Source)
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)];
 
     [ObservableProperty]
     private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
+
+    [ObservableProperty]
+    private bool minimizeToTray = AppSettings.DefaultMinimizeToTray;
+
+    [ObservableProperty]
+    private CloseAction closeAction = AppSettings.DefaultCloseAction;
 
     [ObservableProperty]
     private bool speedLimitEnabled;
@@ -95,6 +207,13 @@ public partial class SettingsViewModel(
         new(IfFileExistsBehavior.Skip, "Skip"),
         new(IfFileExistsBehavior.Overwrite, "Overwrite"),
         new(IfFileExistsBehavior.Rename, "Rename"),
+    ];
+
+    public EnumOption<CloseAction>[] CloseActionOptions { get; } =
+    [
+        new(CloseAction.Ask, "Ask each time"),
+        new(CloseAction.MinimizeToTray, "Minimize to tray"),
+        new(CloseAction.Exit, "Exit the application"),
     ];
 #pragma warning restore CA1822
 
@@ -228,6 +347,25 @@ public partial class SettingsViewModel(
                     UseMockServer = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.MinimizeToTray:
+                    MinimizeToTray = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.CloseAction:
+                    if (Enum.TryParse(setting.Value, out CloseAction parsedCloseAction))
+                    {
+                        CloseAction = parsedCloseAction;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.AutoDisableFailingProxies:
+                    // No corresponding ObservableProperty here — this lives on the Connection
+                    // page, but we still hydrate AppSettings so background code paths see the
+                    // user's choice from first call.
+                    _settings.AutoDisableFailingProxies = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
                 case var k when k == SettingKey.SuppressedConfirmations:
                     _settings.SuppressedConfirmations.Clear();
                     if (!string.IsNullOrWhiteSpace(setting.Value))
@@ -254,8 +392,12 @@ public partial class SettingsViewModel(
         _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
         _settings.UseMockServer = UseMockServer;
+        _settings.MinimizeToTray = MinimizeToTray;
+        _settings.CloseAction = CloseAction;
 
         ApplyGridFontResources();
+
+        _savedSnapshot = CaptureSnapshot();
 
         // Load accounts
         await LoadAccountsAsync(cancellationToken);
@@ -303,9 +445,9 @@ public partial class SettingsViewModel(
         }
     }
 
-    partial void OnGridFontFamilyChanged(string value) => ApplyGridFontResources();
-
-    partial void OnGridFontSizeChanged(double value) => ApplyGridFontResources();
+    // Grid-font changes used to apply live as the user edited them. They now wait until
+    // the user clicks Save Settings — see SaveAsync. TryConfirmDiscardChanges handles the
+    // tab-switch case where edits would otherwise leak.
 
     private async void ConfirmationItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -360,6 +502,8 @@ public partial class SettingsViewModel(
         await SaveSettingAsync(SettingKey.IfFileExists, IfFileExists.ToString(), cancellationToken);
         await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0", cancellationToken);
         await SaveSettingAsync(SettingKey.UseMockServer, UseMockServer ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.MinimizeToTray, MinimizeToTray ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.CloseAction, CloseAction.ToString(), cancellationToken);
 
         _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
         _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
@@ -373,8 +517,16 @@ public partial class SettingsViewModel(
         _settings.IfFileExists = IfFileExists;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
         _settings.UseMockServer = UseMockServer;
+        _settings.MinimizeToTray = MinimizeToTray;
+        _settings.CloseAction = CloseAction;
 
         ApplyGridFontResources();
+
+        // The tray icon's visibility depends on MinimizeToTray and CloseAction; resync
+        // it now that the live AppSettings reflect the saved values.
+        _trayIconManager?.UpdateVisibility();
+
+        _savedSnapshot = CaptureSnapshot();
 
         SaveStatus = "Saved";
         try

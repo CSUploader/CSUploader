@@ -24,6 +24,4 @@ public class ProxySettingDto
     public bool Enabled { get; set; } = true;
 
     public int Priority { get; set; }
-
-    public int ProblemsCount { get; set; }
 }

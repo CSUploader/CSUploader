@@ -18,6 +18,13 @@ public class HttpTransaction
 
     public string Url { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Human-readable description of the proxy used for this request, e.g. "http://1.2.3.4:8080"
+    /// or "(direct)" when no proxy was configured. Surfaced in the Logs tab so users can tell
+    /// at a glance which proxy a failure went through.
+    /// </summary>
+    public string Proxy { get; set; } = "(direct)";
+
     public Dictionary<string, string[]> RequestHeaders { get; set; } = [];
 
     public string? RequestBody { get; set; }
@@ -82,7 +89,7 @@ public class HttpTransaction
         }
     }
 
-    public string Summary => $"{Method} {Url} → {StatusCode} {StatusReason} ({Duration.TotalMilliseconds:F0}ms)";
+    public string Summary => $"{Method} {Url} → {StatusCode} {StatusReason} ({Duration.TotalMilliseconds:F0}ms) [proxy: {Proxy}]";
 
     public static string ToHexDump(byte[]? data)
     {

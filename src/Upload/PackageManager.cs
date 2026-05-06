@@ -445,11 +445,16 @@ public class PackageManager
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
 
-        // Attribute upload failures to the proxy that was used so the Connection Manager
-        // grid can flag bad proxies. Only counts genuine failures, not user-triggered cancels.
-        if (state == FileState.Failed && e.File.FileHoster.ActiveProxyId > 0)
+        // Live proxy-status feedback: when a file finishes (success or failure) and the
+        // hoster routed through a proxy, ping the ProxyManager so the Connection Manager
+        // grid can update the row's icon. User-cancelled isn't proxy-attributable.
+        int activeProxyId = e.File.FileHoster.ActiveProxyId;
+        if (activeProxyId > 0 && state is FileState.Completed or FileState.Failed)
         {
-            Lib.Net.ProxyManager.Current?.RecordFailure(e.File.FileHoster.ActiveProxyId);
+            Lib.Net.ProxyManager.Current?.ReportResult(
+                activeProxyId,
+                success: state == FileState.Completed,
+                message: state == FileState.Failed ? error : null);
         }
 
         _ = Task.Run(async () =>

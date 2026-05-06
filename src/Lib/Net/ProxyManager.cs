@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using CSUploader.Dal;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Lib.Net;
 
@@ -26,15 +27,17 @@ public class ProxyManager
     public static ProxyManager? Current { get; set; }
 
     private readonly ProxySettingRepository _repo;
-    private readonly IAppLogger _logger;
     private readonly Lock _lock = new();
     private List<ProxySettingDto> _proxies = [];
     private int _rotationIndex;
 
+    // Constructor keeps the IAppLogger parameter for DI signature stability even though
+    // ProxyManager itself no longer logs — the per-test logging happens via the wrapping
+    // logger inside TestProxyAsync.
     public ProxyManager(ProxySettingRepository repo, IAppLogger logger)
     {
         _repo = repo;
-        _logger = logger;
+        _ = logger;
     }
 
     /// <summary>
@@ -53,6 +56,27 @@ public class ProxyManager
                 _rotationIndex = 0;
             }
         }
+    }
+
+    /// <summary>
+    /// Raised whenever a proxy's connectivity is observed — either by a manual test or
+    /// during an upload. Subscribers can react to update UI status icons without polling.
+    /// </summary>
+    public event EventHandler<ProxyResultEventArgs>? ProxyResultObserved;
+
+    /// <summary>
+    /// Notify subscribers (currently the Connection Manager grid) that a proxy was just
+    /// exercised, with the outcome. Safe to call from background threads — handlers must
+    /// marshal back to the dispatcher themselves if they touch UI state.
+    /// </summary>
+    public void ReportResult(int proxyId, bool success, string? message = null)
+    {
+        if (proxyId <= 0)
+        {
+            return;
+        }
+
+        ProxyResultObserved?.Invoke(this, new ProxyResultEventArgs(proxyId, success, message));
     }
 
     /// <summary>
@@ -115,9 +139,11 @@ public class ProxyManager
     /// <summary>
     /// Performs a single HTTP GET through the given proxy with a short timeout. Used
     /// by the Connection Manager's "Test" / "Test All" actions to surface dead or
-    /// unauthenticated proxies before they break uploads.
+    /// unauthenticated proxies before they break uploads. Routed through
+    /// <see cref="HttpHandler"/> so the request lands in the Logs tab alongside upload
+    /// traffic.
     /// </summary>
-    public static async Task<ProxyTestResult> TestProxyAsync(ProxySettingDto proxy, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public static async Task<ProxyTestResult> TestProxyAsync(ProxySettingDto proxy, IAppLogger logger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         if (proxy.Type == ProxyType.None)
         {
@@ -146,52 +172,88 @@ public class ProxyManager
             Timeout = timeout ?? TimeSpan.FromSeconds(10),
         };
 
+        string proxyDescription = $"{proxy.Type.ToString().ToLowerInvariant()}://{proxy.Host}:{proxy.Port}";
+        // Capture the transaction HttpHandler builds so the Details button can show the
+        // full request+response. Wraps the user's logger so the existing log-to-Logs-tab
+        // behaviour is preserved.
+        HttpTransaction? captured = null;
+        TransactionCapturingLogger capturingLogger = new(logger, tx => captured ??= tx);
+        // bypassMockServer: a connectivity test against api.ipify.org would otherwise be
+        // rewritten to localhost:8080/api in DEBUG builds, which defeats the whole point.
+        HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, bypassMockServer: true);
+
         Stopwatch sw = Stopwatch.StartNew();
         try
         {
-            string body = await client.GetStringAsync(TestEndpoint, cancellationToken).ConfigureAwait(false);
+            string body = await httpHandler.GetStringAsync(TestEndpoint, cancellationToken).ConfigureAwait(false);
             sw.Stop();
-            return ProxyTestResult.Ok(sw.ElapsedMilliseconds, body.Trim());
+
+            // HttpClient.GetAsync only throws on transport errors, not on 4xx/5xx.
+            // A misbehaving proxy that responds with e.g. 503 + an HTML error page
+            // would otherwise read as Success — surface the status code as a failure.
+            int status = captured?.StatusCode ?? 0;
+            if (status is < 200 or >= 300)
+            {
+                string reason = string.IsNullOrEmpty(captured?.StatusReason)
+                    ? "non-success status"
+                    : captured!.StatusReason;
+                return ProxyTestResult.Failed($"HTTP {status} {reason}") with
+                {
+                    LatencyMs = sw.ElapsedMilliseconds,
+                    Body = body.Trim(),
+                    Transaction = captured,
+                };
+            }
+
+            return ProxyTestResult.Ok(sw.ElapsedMilliseconds, body.Trim()) with { Transaction = captured };
         }
         catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return ProxyTestResult.Failed("Cancelled.");
+            return ProxyTestResult.Failed("Cancelled.") with { Transaction = captured };
         }
         catch (TaskCanceledException)
         {
-            return ProxyTestResult.Failed($"Timed out after {(timeout ?? TimeSpan.FromSeconds(10)).TotalSeconds:0}s.");
+            return ProxyTestResult.Failed($"Timed out after {(timeout ?? TimeSpan.FromSeconds(10)).TotalSeconds:0}s.") with { Transaction = captured };
         }
         catch (HttpRequestException ex)
         {
-            return ProxyTestResult.Failed(ex.Message);
+            return ProxyTestResult.Failed(ex.Message) with { Transaction = captured };
         }
         catch (Exception ex)
         {
-            return ProxyTestResult.Failed(ex.GetType().Name + ": " + ex.Message);
+            return ProxyTestResult.Failed(ex.GetType().Name + ": " + ex.Message) with { Transaction = captured };
         }
     }
 
     /// <summary>
-    /// Records a failure against a specific proxy (fire-and-forget DB increment).
-    /// Surfaced in the Connection Manager grid via <see cref="ProxySettingDto.ProblemsCount"/>.
+    /// Lightweight IAppLogger decorator that forwards every log call to an inner logger
+    /// (so the Logs tab still gets the entry) while snapping the first HttpTransaction
+    /// it sees, used by <see cref="TestProxyAsync"/> to surface request/response details.
     /// </summary>
-    public void RecordFailure(int proxyId)
+    private sealed class TransactionCapturingLogger(IAppLogger inner, Action<HttpTransaction> capture) : IAppLogger
     {
-        if (proxyId <= 0)
+        public event LogEventHandler? OnLogOutput
         {
-            return;
+            add => inner.OnLogOutput += value;
+            remove => inner.OnLogOutput -= value;
         }
 
-        _ = Task.Run(async () =>
+        public void Log(
+            object? sender,
+            LogType logType,
+            string text,
+            HttpTransaction? httpTransaction = null,
+            string filePath = "",
+            string function = "",
+            int lineNumber = 0)
         {
-            try
+            if (httpTransaction is not null)
             {
-                await _repo.IncrementProblemsAsync(proxyId);
+                capture(httpTransaction);
             }
-            catch (Exception ex)
-            {
-                _logger.Log(this, LogType.Error, $"Failed to increment proxy problem count: {ex.Message}");
-            }
-        });
+
+            inner.Log(sender, logType, text, httpTransaction, filePath, function, lineNumber);
+        }
     }
+
 }
