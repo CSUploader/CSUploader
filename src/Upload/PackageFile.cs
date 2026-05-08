@@ -273,6 +273,7 @@ public class PackageFile : INotifyPropertyChanged
         switch (ev)
         {
             case Pipeline.TransferStarted ts:
+                ResetProgressValues();
                 BytesRemaining = ts.TotalBytes;
                 BytesLoaded = 0;
                 Progress = 0.0;
