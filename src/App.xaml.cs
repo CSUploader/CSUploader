@@ -88,6 +88,12 @@ public partial class App : Application
         // Networking
         services.AddSingleton<Lib.Net.ProxyManager>();
 
+        // Pipeline infrastructure (Phase 1 wiring; not yet on the upload hot path)
+        services.AddSingleton<Lib.Net.IProxySource>(sp => sp.GetRequiredService<Lib.Net.ProxyManager>());
+        services.AddSingleton<Lib.Net.Http.IHttpHandlerFactory>(sp => new Lib.Net.Http.DefaultHttpHandlerFactory(sp.GetRequiredService<AppSettings>()));
+        services.AddSingleton<Upload.Pipeline.IFileHosterRegistry>(sp => new Upload.Pipeline.DefaultFileHosterRegistry(sp.GetServices<Upload.Pipeline.IFileHosterPipeline>()));
+        services.AddSingleton<Upload.Pipeline.AttemptRunner>();
+
         // Services
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IUpdateService, UpdateService>();
