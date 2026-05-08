@@ -472,18 +472,6 @@ public class PackageManager
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
 
-        // Live proxy-status feedback: when a file finishes (success or failure) and the
-        // hoster routed through a proxy, ping the ProxyManager so the Connection Manager
-        // grid can update the row's icon. User-cancelled isn't proxy-attributable.
-        int activeProxyId = e.File.FileHoster.ActiveProxyId;
-        if (activeProxyId > 0 && state is FileState.Completed or FileState.Failed)
-        {
-            ProxyManager.Current?.ReportResult(
-                activeProxyId,
-                success: state == FileState.Completed,
-                message: state == FileState.Failed ? error : null);
-        }
-
         _ = Task.Run(async () =>
         {
             await _persistLock.WaitAsync();

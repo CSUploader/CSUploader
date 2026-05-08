@@ -42,6 +42,17 @@ public partial class App : Application
         // factories pick a proxy at construction without taking a DI dependency.
         Lib.Net.ProxyManager.Current = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
 
+        // Pipeline → ProxyManager bridge: AttemptCompleted feeds ProxyResultObserved.
+        Lib.Net.ProxyManager proxyManager = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
+        Upload.Pipeline.AttemptRunner runner = _serviceProvider.GetRequiredService<Upload.Pipeline.AttemptRunner>();
+        runner.AttemptCompleted += (_, completed) =>
+        {
+            if (completed.ProxyId > 0)
+            {
+                proxyManager.ReportResult(completed.ProxyId, completed.Success);
+            }
+        };
+
         // Register the global Window.Loaded handler so every window picks up the
         // dark title bar automatically. MainViewModel.InitializeAsync sets the
         // initial value once the persisted setting is read.
