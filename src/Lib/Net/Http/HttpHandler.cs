@@ -7,12 +7,13 @@ using System.Net.Http.Headers;
 
 namespace CSUploader.Lib.Net.Http;
 
-public class HttpHandler
+public class HttpHandler : IDisposable
 {
     private readonly IAppLogger _logger;
     private readonly string _proxyDescription;
     private readonly bool _bypassMockServer;
     private readonly MockServerConfig _mockServer;
+    private bool _disposed;
 
     public HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription, MockServerConfig mockServer, bool bypassMockServer = false)
     {
@@ -81,6 +82,19 @@ public class HttpHandler
     public event EventHandler<ProtocolUploadFinishedEventArgs>? UploadFinished;
 
     protected HttpClient HttpClient { get; }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        HttpClient.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     public async Task<string> GetStringAsync(string url, CancellationToken cancellationToken = default)
     {

@@ -344,10 +344,18 @@ public class UploadScheduler : IDisposable
         _ = Task.Run(async () =>
         {
             bool success = false;
+            bool cancelled = false;
+            bool crashed = false;
+            Lib.Net.Http.HttpHandler? attemptHandler = null;
             try
             {
                 await foreach (Pipeline.UploadEvent ev in _attemptRunner.RunAsync(file.BuildAttemptInputs(_logger), cts.Token))
                 {
+                    if (ev is Pipeline.HandlerBuilt hb)
+                    {
+                        attemptHandler = hb.Handler;
+                    }
+
                     file.ApplyEvent(ev);
                     if (ev is Pipeline.AttemptCompleted ac)
                     {
@@ -357,13 +365,27 @@ public class UploadScheduler : IDisposable
             }
             catch (OperationCanceledException)
             {
-                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
-                return;
+                cancelled = true;
             }
             catch (Exception ex)
             {
                 file.Error = ex.Message;
                 _logger.Log(this, LogType.Error, $"Upload pipeline crashed: {ex}");
+                crashed = true;
+            }
+            finally
+            {
+                attemptHandler?.Dispose();
+            }
+
+            if (cancelled)
+            {
+                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
+                return;
+            }
+
+            if (crashed)
+            {
                 Post(() => OnUploadCompleted(file, success: false));
                 return;
             }
@@ -432,6 +454,7 @@ public class UploadScheduler : IDisposable
             {
                 file.Cts?.Cancel();
                 file.Cts?.Dispose();
+                file.Cts = null;
 
                 // State will transition to Paused in the completion callback
             }
