@@ -91,7 +91,7 @@ public class RapidgatorPipelineAuthTests
         HosterName = "Rapidgator",
         Credentials = new FileHosterLoginDto { Id = 9, FileHosterName = "Rapidgator", Username = "u", Password = "p" },
         Proxy = ProxyChoice.Direct,
-        Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>()),
+        Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
         SpeedLimitProvider = () => null,
         Cancellation = default,

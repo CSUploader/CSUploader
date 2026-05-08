@@ -19,7 +19,7 @@ public class AttemptContextTests
     public void With_PreservesUntouchedFields()
     {
         FileHosterLoginDto creds = new() { Id = 5, FileHosterName = "X", Username = "u", Password = "p" };
-        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>());
+        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
         AttemptContext ctx = new()
         {
             AttemptId = Guid.NewGuid(),

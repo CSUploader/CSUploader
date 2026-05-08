@@ -15,7 +15,6 @@ using Moq;
 
 namespace CSUploader.Tests.Lib.Net;
 
-[Collection(nameof(AppSettingsCollection))]
 public class ProxyManagerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -38,7 +37,7 @@ public class ProxyManagerTests : IDisposable
         }
 
         _repo = new ProxySettingRepository(_factory);
-        _manager = new ProxyManager(_repo, Mock.Of<IAppLogger>());
+        _manager = new ProxyManager(_repo, Mock.Of<IAppLogger>(), new AppSettings { ProxiesEnabled = true });
     }
 
     public void Dispose()
@@ -111,19 +110,13 @@ public class ProxyManagerTests : IDisposable
         // The master switch must trump per-row Enabled state — uploads should connect
         // directly when the user has flipped "Use proxies for uploads" off, regardless
         // of how many configured proxies are in the rotation.
-        AppSettings previous = AppSettings.Current;
-        AppSettings.Current = new AppSettings { ProxiesEnabled = false };
-        try
-        {
-            await _repo.InsertAsync(new ProxySettingDto { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true });
-            await _manager.ReloadAsync();
+        AppSettings settings = new() { ProxiesEnabled = false };
+        ProxyManager manager = new(_repo, Mock.Of<IAppLogger>(), settings);
 
-            Assert.Null(_manager.NextProxy());
-        }
-        finally
-        {
-            AppSettings.Current = previous;
-        }
+        await _repo.InsertAsync(new ProxySettingDto { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true });
+        await manager.ReloadAsync();
+
+        Assert.Null(manager.NextProxy());
     }
 
     [Fact]
@@ -268,38 +261,26 @@ public class ProxyManagerTests : IDisposable
         // Regression: the dev "mock server" toggle was rewriting api.ipify.org to
         // localhost:8080/api, which made every proxy test go to the dev sandbox
         // instead of the real upstream. The connectivity test must hit the configured
-        // TestEndpoint regardless of mock-server settings.
-        AppSettings previous = AppSettings.Current;
-        AppSettings.Current = new AppSettings
-        {
-            UseMockServer = true,
-            MockServerBaseUrl = "http://localhost:8080",
-        };
-        try
-        {
-            ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
-            HttpTransaction? captured = null;
-            Mock<IAppLogger> logger = new();
-            logger.Setup(l => l.Log(
-                    It.IsAny<object?>(),
-                    It.IsAny<LogType>(),
-                    It.IsAny<string>(),
-                    It.IsAny<HttpTransaction?>(),
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int>()))
-                .Callback<object?, LogType, string, HttpTransaction?, string, string, int>(
-                    (_, _, _, tx, _, _, _) => captured ??= tx);
+        // TestEndpoint regardless of mock-server settings — TestProxyAsync always
+        // passes MockServerConfig.Disabled so this is now enforced structurally.
+        ProxySettingDto dto = new() { Type = ProxyType.Http, Host = "127.0.0.1", Port = 1 };
+        HttpTransaction? captured = null;
+        Mock<IAppLogger> logger = new();
+        logger.Setup(l => l.Log(
+                It.IsAny<object?>(),
+                It.IsAny<LogType>(),
+                It.IsAny<string>(),
+                It.IsAny<HttpTransaction?>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int>()))
+            .Callback<object?, LogType, string, HttpTransaction?, string, string, int>(
+                (_, _, _, tx, _, _, _) => captured ??= tx);
 
-            await ProxyManager.TestProxyAsync(dto, logger.Object, TimeSpan.FromSeconds(3));
+        await ProxyManager.TestProxyAsync(dto, logger.Object, TimeSpan.FromSeconds(3));
 
-            Assert.NotNull(captured);
-            Assert.Equal(ProxyManager.TestEndpoint, captured!.Url);
-        }
-        finally
-        {
-            AppSettings.Current = previous;
-        }
+        Assert.NotNull(captured);
+        Assert.Equal(ProxyManager.TestEndpoint, captured!.Url);
     }
 
     [Fact]

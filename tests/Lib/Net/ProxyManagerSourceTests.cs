@@ -13,7 +13,6 @@ using Moq;
 
 namespace CSUploader.Tests.Lib.Net;
 
-[Collection(nameof(AppSettingsCollection))]
 public class ProxyManagerSourceTests : IDisposable
 {
     private readonly SqliteConnection _conn;
@@ -34,8 +33,8 @@ public class ProxyManagerSourceTests : IDisposable
     [Fact]
     public void Next_WithNoProxiesEnabled_ReturnsDirect()
     {
-        AppSettings.Current = new AppSettings { ProxiesEnabled = true };
-        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>());
+        AppSettings settings = new() { ProxiesEnabled = true };
+        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
 
         ProxyChoice choice = ((IProxySource)manager).Next();
 

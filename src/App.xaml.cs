@@ -73,7 +73,6 @@ public partial class App : Application
 
         // App Settings
         AppSettings appSettings = new();
-        AppSettings.Current = appSettings;
         services.AddSingleton(appSettings);
 
         // EF Core

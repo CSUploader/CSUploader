@@ -230,6 +230,7 @@ public class PackageManager
                     DirectoryPath = pkgDto.DirectoryPath,
                     Logger = _logger,
                     FileHosters = fileHosterLogins,
+                    Settings = _settings,
                 };
                 Package package = new(options)
                 {

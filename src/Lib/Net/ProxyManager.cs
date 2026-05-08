@@ -24,13 +24,16 @@ public class ProxyManager : IProxySource
     private List<ProxySettingDto> _proxies = [];
     private int _rotationIndex;
 
+    private readonly Upload.AppSettings _settings;
+
     // Constructor keeps the IAppLogger parameter for DI signature stability even though
     // ProxyManager itself no longer logs — the per-test logging happens via the wrapping
     // logger inside TestProxyAsync.
-    public ProxyManager(ProxySettingRepository repo, IAppLogger logger)
+    public ProxyManager(ProxySettingRepository repo, IAppLogger logger, Upload.AppSettings settings)
     {
         _repo = repo;
         _ = logger;
+        _settings = settings;
     }
 
     /// <summary>
@@ -82,7 +85,7 @@ public class ProxyManager : IProxySource
     /// </summary>
     public ProxySettingDto? NextProxy()
     {
-        if (Upload.AppSettings.Current?.ProxiesEnabled == false)
+        if (!_settings.ProxiesEnabled)
         {
             return null;
         }
@@ -182,7 +185,7 @@ public class ProxyManager : IProxySource
         TransactionCapturingLogger capturingLogger = new(logger, tx => captured ??= tx);
         // bypassMockServer: a connectivity test against api.ipify.org would otherwise be
         // rewritten to localhost:8080/api in DEBUG builds, which defeats the whole point.
-        HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, bypassMockServer: true);
+        HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, MockServerConfig.Disabled, bypassMockServer: true);
 
         Stopwatch sw = Stopwatch.StartNew();
         try

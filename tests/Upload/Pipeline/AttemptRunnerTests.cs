@@ -62,7 +62,7 @@ public class AttemptRunnerTests
         proxySource.Setup(s => s.Next()).Returns(ProxyChoice.Direct);
         Mock<IHttpHandlerFactory> handlerFactory = new();
         handlerFactory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
-            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>()));
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
         return new AttemptRunner(registry, proxySource.Object, handlerFactory.Object);
     }
 

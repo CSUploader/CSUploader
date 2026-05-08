@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.Net.Http.Headers;
-using CSUploader.Upload;
 
 namespace CSUploader.Lib.Net.Http;
 
@@ -14,16 +13,6 @@ public class HttpHandler
     private readonly string _proxyDescription;
     private readonly bool _bypassMockServer;
     private readonly MockServerConfig _mockServer;
-
-    /// <summary>
-    /// Legacy ctor — reads <see cref="AppSettings.Current"/> for the mock snapshot.
-    /// New code should pass an explicit <see cref="MockServerConfig"/> instead. Kept
-    /// during the pipeline migration; deleted in Phase 4.
-    /// </summary>
-    public HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription = null, bool bypassMockServer = false)
-        : this(httpclient, logger, proxyDescription, MockServerConfig.FromAppSettings(AppSettings.Current), bypassMockServer)
-    {
-    }
 
     public HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription, MockServerConfig mockServer, bool bypassMockServer = false)
     {

@@ -17,7 +17,6 @@ using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
-[Collection(nameof(AppSettingsCollection))]
 public class ConnectionManagerViewModelTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -47,7 +46,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         }
 
         _repo = new ProxySettingRepository(_factory);
-        _manager = new ProxyManager(_repo, Mock.Of<IAppLogger>());
+        _manager = new ProxyManager(_repo, Mock.Of<IAppLogger>(), new AppSettings { ProxiesEnabled = true });
     }
 
     public void Dispose()

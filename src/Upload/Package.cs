@@ -296,7 +296,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 return SpeedLimitKBps;
             }
 
-            int? global = AppSettings.Current.SpeedLimit;
+            int? global = Options.Settings?.SpeedLimit;
             return global is > 0 ? global : null;
         }
     }

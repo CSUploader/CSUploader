@@ -373,7 +373,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         proxy.Setup(p => p.Next()).Returns(ProxyChoice.Direct);
         Mock<IHttpHandlerFactory> hf = new();
         hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
-            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>()));
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
         return new AttemptRunner(registry, proxy.Object, hf.Object);
     }
 

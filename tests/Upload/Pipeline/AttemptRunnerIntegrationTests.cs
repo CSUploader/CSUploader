@@ -25,7 +25,7 @@ public class AttemptRunnerIntegrationTests
         proxy.Setup(p => p.Next()).Returns(new ProxyChoice(42, null, "http://x:1"));
         Mock<IHttpHandlerFactory> hf = new();
         hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
-            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>()));
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
         AttemptRunner runner = new(registry, proxy.Object, hf.Object);
 
         AttemptCompleted? captured = null;
