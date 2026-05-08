@@ -27,7 +27,12 @@ public class RapidgatorPipelineAuthTests
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
         AttemptContext ctx = MakeContext();
-        List<UploadEvent> events = await CollectAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+            if (ev is AuthSucceeded) break; // stop at auth stage; folder+transfer tested separately
+        }
 
         Assert.Contains(events, e => e is AuthStarted);
         Assert.Contains(events, e => e is AuthSucceeded);
@@ -38,13 +43,28 @@ public class RapidgatorPipelineAuthTests
     {
         Queue<string> responses = new(new[]
         {
+            // First call: login
             """{"response":{"token":"TOK1","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // First call: folder create
+            """{"response":{"folder":{"folder_id":"8676913","mode":0,"mode_label":"Public","parent_folder_id":"5973665","name":"nope","url":"https://r/folder/8676913","nb_folders":0,"nb_files":0,"size_files":0,"created":1778221286,"folders":[]}},"status":200,"details":null}""",
+            // Second call: no login needed (cached) — only folder create
+            """{"response":{"folder":{"folder_id":"8676913","mode":0,"mode_label":"Public","parent_folder_id":"5973665","name":"nope","url":"https://r/folder/8676913","nb_folders":0,"nb_files":0,"size_files":0,"created":1778221286,"folders":[]}},"status":200,"details":null}""",
         });
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
         AttemptContext ctx = MakeContext();
-        await CollectAsync(pipeline.RunAsync(ctx, CancellationToken.None));
-        List<UploadEvent> second = await CollectAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+        // First call: consume through TransferStarted so folder response is used
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            if (ev is TransferStarted) break;
+        }
+
+        List<UploadEvent> second = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            second.Add(ev);
+            if (ev is TransferStarted) break; // cached auth — no login call
+        }
 
         Assert.DoesNotContain(second, e => e is AuthStarted);
     }

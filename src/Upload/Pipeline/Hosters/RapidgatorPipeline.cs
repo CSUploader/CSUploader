@@ -52,8 +52,18 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             yield return new AuthSucceeded();
         }
 
-        // Folder + upload come in Tasks 2.3 and 2.4. For now, terminate the attempt cleanly
-        // so this task's tests pass without requiring later-task code.
+        // === Folder ===
+        string folderName = ResolveFolderName(ctx.FilePath);
+        (int? folderId, string? folderError) = await CreateFolderAsync(ctx, auth!, folderName);
+        if (folderId is null)
+        {
+            yield return new AttemptFailed(folderError ?? "folder/create failed", null);
+            yield break;
+        }
+
+        yield return new TransferStarted(ctx.FileSize);
+
+        // Transfer comes in Task 2.4. Bridge to a stub success for now so this task's test passes.
         yield return new TransferCompleted("about:blank");
     }
 
@@ -70,6 +80,28 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         }
 
         return (new RapidgatorAuthState(env.Response.Token, env.Response.User?.FolderId ?? 0), null);
+    }
+
+    private static string ResolveFolderName(string filePath)
+    {
+        string? dir = Path.GetDirectoryName(filePath);
+        return string.IsNullOrEmpty(dir) ? "uploads" : new DirectoryInfo(dir).Name;
+    }
+
+    private async Task<(int? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, RapidgatorAuthState auth, string folderName)
+    {
+        string url = $"https://www.rapidgator.net/api/v2/folder/create"
+            + $"?name={Uri.EscapeDataString(folderName)}"
+            + $"&parent_folder_id={auth.PrimaryFolderId}"
+            + $"&token={auth.Token}";
+        string body = await GetAsync(ctx, url);
+
+        if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
+        {
+            return (null, env?.Details ?? "folder/create failed");
+        }
+
+        return (env.Response.Folder.Id, null);
     }
 
     private Task<string> GetAsync(AttemptContext ctx, string url)
@@ -94,5 +126,24 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     private sealed class LoginUser
     {
         [JsonPropertyName("folder_id")] public int FolderId { get; set; }
+    }
+
+    private sealed class FolderEnvelope
+    {
+        [JsonPropertyName("response")] public FolderResponseBody? Response { get; set; }
+
+        [JsonPropertyName("status")] public int Status { get; set; }
+
+        [JsonPropertyName("details")] public string? Details { get; set; }
+    }
+
+    private sealed class FolderResponseBody
+    {
+        [JsonPropertyName("folder")] public FolderDetail? Folder { get; set; }
+    }
+
+    private sealed class FolderDetail
+    {
+        [JsonPropertyName("folder_id")] public int Id { get; set; }
     }
 }
