@@ -278,6 +278,52 @@ public class PackageFile : INotifyPropertyChanged
     /// </summary>
     public int Priority { get; set; }
 
+    /// <summary>
+    /// Consumes a single <see cref="Pipeline.UploadEvent"/> emitted by <see cref="Pipeline.AttemptRunner"/>.
+    /// Replaces the four-event subscription pattern (UploadProgress / UploadFinished /
+    /// HashingProgress / HashingFinished) — those events stay during the migration window
+    /// for hashing, but the upload portion now flows through here.
+    /// </summary>
+    public void ApplyEvent(Pipeline.UploadEvent ev)
+    {
+        switch (ev)
+        {
+            case Pipeline.TransferStarted ts:
+                BytesRemaining = ts.TotalBytes;
+                BytesLoaded = 0;
+                Progress = 0.0;
+                StartedDate = DateTime.Now;
+                break;
+
+            case Pipeline.TransferProgress tp:
+                BytesLoaded = tp.BytesUploaded;
+                BytesRemaining = tp.TotalBytes - tp.BytesUploaded;
+                Progress = tp.PercentComplete;
+                Speed = (long)tp.SpeedBytesPerSec;
+                break;
+
+            case Pipeline.TransferCompleted tc:
+                IsUploadFinished = true;
+                FileUrl = tc.FileUrl;
+                Progress = 100.0;
+                BytesRemaining = null;
+                Speed = null;
+                FinishedDate = DateTime.Now;
+                break;
+
+            case Pipeline.AttemptFailed af:
+                Error = af.Reason;
+                Speed = null;
+                FinishedDate = DateTime.Now;
+                break;
+
+            case Pipeline.AttemptCancelled:
+                FinishedDate = DateTime.Now;
+                Speed = null;
+                break;
+        }
+    }
+
     private FileInfo FileInfo { get; set; }
 
     /// <summary>
