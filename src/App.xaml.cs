@@ -38,10 +38,6 @@ public partial class App : Application
         ConfigureServices(services, baseDirectory);
         _serviceProvider = services.BuildServiceProvider();
 
-        // Static accessor pattern, mirrors AppSettings.Current. Lets the file-hoster
-        // factories pick a proxy at construction without taking a DI dependency.
-        Lib.Net.ProxyManager.Current = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
-
         // Pipeline → ProxyManager bridge: AttemptCompleted feeds ProxyResultObserved.
         Lib.Net.ProxyManager proxyManager = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
         Upload.Pipeline.AttemptRunner runner = _serviceProvider.GetRequiredService<Upload.Pipeline.AttemptRunner>();

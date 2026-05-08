@@ -19,13 +19,6 @@ namespace CSUploader.Lib.Net;
 /// </summary>
 public class ProxyManager : IProxySource
 {
-    /// <summary>
-    /// Static accessor for code paths that aren't on the DI graph yet
-    /// (e.g. <see cref="Upload.FileHosterClient.FindByHost"/>'s factories).
-    /// Mirrors the <see cref="Upload.AppSettings.Current"/> pattern.
-    /// </summary>
-    public static ProxyManager? Current { get; set; }
-
     private readonly ProxySettingRepository _repo;
     private readonly Lock _lock = new();
     private List<ProxySettingDto> _proxies = [];
