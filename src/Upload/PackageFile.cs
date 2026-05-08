@@ -338,6 +338,22 @@ public class PackageFile : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Builds the immutable inputs for one upload attempt. Called by <see cref="UploadScheduler"/>
+    /// just before invoking <see cref="Pipeline.AttemptRunner.RunAsync"/>.
+    /// </summary>
+    public Pipeline.AttemptInputs BuildAttemptInputs(IAppLogger logger) => new()
+    {
+        FilePath = FileInfo.FullName,
+        FileName = Name,
+        FileSize = FileInfo.Length,
+        FileHash = FileHash,
+        HosterName = FileHoster.Name,
+        Credentials = FileHosterLogin,
+        Logger = logger,
+        SpeedLimitProvider = GetEffectiveSpeedLimitBytesPerSecond,
+    };
+
+    /// <summary>
     /// Starts hashing for this file. Called by the <see cref="UploadScheduler"/>.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

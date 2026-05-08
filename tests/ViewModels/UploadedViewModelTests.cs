@@ -3,10 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -44,7 +48,7 @@ public class UploadedViewModelTests : IDisposable
         AppSettings settings = new();
         IAppLogger logger = Mock.Of<IAppLogger>();
         FileHosterLoginRepository loginRepo = new(_factory);
-        _scheduler = new UploadScheduler(settings);
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>());
         _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, loginRepo, logger);
     }
 
@@ -158,6 +162,17 @@ public class UploadedViewModelTests : IDisposable
         };
         await _fileRepo.InsertAsync(file);
         return file.Id;
+    }
+
+    private static AttemptRunner BuildAttemptRunner()
+    {
+        DefaultFileHosterRegistry registry = new([]);
+        Mock<IProxySource> proxy = new();
+        proxy.Setup(p => p.Next()).Returns(ProxyChoice.Direct);
+        Mock<IHttpHandlerFactory> hf = new();
+        hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>()));
+        return new AttemptRunner(registry, proxy.Object, hf.Object);
     }
 
     private class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)

@@ -6,9 +6,12 @@
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
 using CSUploader.Lib.Update;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +39,10 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<UploadPackageRepository>();
         sc.AddSingleton<UploadPackageFileRepository>();
         sc.AddSingleton<ProxySettingRepository>();
+        sc.AddSingleton<IProxySource>(sp => sp.GetRequiredService<CSUploader.Lib.Net.ProxyManager>());
+        sc.AddSingleton<IHttpHandlerFactory>(sp => new DefaultHttpHandlerFactory(sp.GetRequiredService<AppSettings>()));
+        sc.AddSingleton<IFileHosterRegistry>(new DefaultFileHosterRegistry([]));
+        sc.AddSingleton<AttemptRunner>();
         sc.AddSingleton<UploadScheduler>();
         sc.AddSingleton<PackageManager>();
         sc.AddSingleton<CSUploader.Lib.Net.ProxyManager>();

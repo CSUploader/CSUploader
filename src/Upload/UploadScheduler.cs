@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Threading.Channels;
+using CSUploader.Lib;
 
 namespace CSUploader.Upload;
 
@@ -15,6 +16,8 @@ public class UploadScheduler : IDisposable
 {
     private readonly Channel<Action> _channel;
     private readonly AppSettings _settings;
+    private readonly Pipeline.AttemptRunner _attemptRunner;
+    private readonly IAppLogger _logger;
     private readonly List<Package> _packages = [];
     private readonly Lock _packagesLock = new();
     private Task? _loopTask;
@@ -25,9 +28,13 @@ public class UploadScheduler : IDisposable
     /// Initializes a new instance of the <see cref="UploadScheduler"/> class.
     /// </summary>
     /// <param name="settings">The application settings.</param>
-    public UploadScheduler(AppSettings settings)
+    /// <param name="attemptRunner">The pipeline runner that executes one upload attempt.</param>
+    /// <param name="logger">The application logger.</param>
+    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger)
     {
         _settings = settings;
+        _attemptRunner = attemptRunner;
+        _logger = logger;
         _channel = Channel.CreateUnbounded<Action>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -313,22 +320,35 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
+            bool success = false;
             try
             {
-                await file.StartUploadAsync(cts.Token);
-                Post(() => OnUploadCompleted(file, success: string.IsNullOrEmpty(file.Error)));
+                await foreach (Pipeline.UploadEvent ev in _attemptRunner.RunAsync(file.BuildAttemptInputs(_logger), cts.Token))
+                {
+                    file.ApplyEvent(ev);
+                    if (ev is Pipeline.AttemptCompleted ac)
+                    {
+                        success = ac.Success;
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
-                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
+                Post(() => SetFileState(file, FileState.Cancelled));
+                return;
             }
             catch (Exception ex)
             {
-                string error = ex.Message;
-                Post(() => { file.Error = error; OnUploadCompleted(file, success: false); });
+                file.Error = ex.Message;
+                _logger.Log(this, LogType.Error, $"Upload pipeline crashed: {ex}");
+                Post(() => SetFileState(file, FileState.Failed));
+                return;
             }
+
+            Post(() => SetFileState(file, success ? FileState.Completed : FileState.Failed));
+            Post(FillSlots);
         });
     }
 
