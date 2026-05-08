@@ -49,6 +49,26 @@ public class PackageFilePipelineEventsTests
         Assert.Equal("network down", file.Error);
     }
 
+    [Fact]
+    public void ApplyEvent_TransferStarted_ClearsStaleStateFromPriorAttempt()
+    {
+        PackageFile file = MakeFile(out _);
+
+        // Simulate stale state from a prior attempt that failed mid-upload.
+        file.Error = "prior error";
+        file.Speed = 12345L;
+        file.Progress = 75.0;
+        file.FinishedDate = DateTime.Now.AddMinutes(-5);
+
+        file.ApplyEvent(new TransferStarted(TotalBytes: 1000));
+
+        Assert.Null(file.Error);
+        Assert.Null(file.Speed);
+        Assert.Equal(0.0, file.Progress);
+        Assert.Null(file.FinishedDate);
+        Assert.Equal(1000, file.BytesRemaining);
+    }
+
     private static PackageFile MakeFile(out FileHosterClient client)
     {
         // Use any tempfile path that exists for the FileInfo construction
