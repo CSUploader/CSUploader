@@ -14,6 +14,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 {
     private readonly ConcurrentDictionary<int, RapidgatorAuthState> _authByCredentialsId = new();
     private readonly Func<string, Task<string>>? _httpOverride;
+    private readonly Func<string, string, Func<long?>?, Task>? _uploadOverride;
 
     /// <summary>Production ctor — uses the <see cref="AttemptContext.Handler"/> for HTTP.</summary>
     public RapidgatorPipeline()
@@ -24,6 +25,13 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     internal RapidgatorPipeline(Func<string, string> httpOverride)
     {
         _httpOverride = url => Task.FromResult(httpOverride(url));
+    }
+
+    /// <summary>Test ctor — substitutes both GET and multipart upload behaviour.</summary>
+    internal RapidgatorPipeline(Func<string, string> getOverride, Func<string, string, Func<long?>?, Task> uploadOverride)
+    {
+        _httpOverride = url => Task.FromResult(getOverride(url));
+        _uploadOverride = uploadOverride;
     }
 
     public string Name => "Rapidgator";
@@ -63,8 +71,50 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         yield return new TransferStarted(ctx.FileSize);
 
-        // Transfer comes in Task 2.4. Bridge to a stub success for now so this task's test passes.
-        yield return new TransferCompleted("about:blank");
+        // === File upload request → upload_url + upload_id ===
+        (string? uploadUrl, string? uploadId, string? upError) = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
+        if (uploadUrl is null || uploadId is null)
+        {
+            yield return new AttemptFailed(upError ?? "file/upload failed", null);
+            yield break;
+        }
+
+        // === Multipart upload bytes ===
+        Exception? uploadException = null;
+        try
+        {
+            await UploadBytesAsync(ctx, uploadUrl);
+        }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            uploadException = null; // handled below via flag
+        }
+        catch (Exception ex)
+        {
+            uploadException = ex;
+        }
+
+        if (ctx.Cancellation.IsCancellationRequested && uploadException is null)
+        {
+            yield return new AttemptCancelled();
+            yield break;
+        }
+
+        if (uploadException is not null)
+        {
+            yield return new AttemptFailed(uploadException.Message, uploadException);
+            yield break;
+        }
+
+        // === Upload info → public URL ===
+        (string? fileUrl, string? infoError) = await GetUploadInfoAsync(ctx, auth!, uploadId);
+        if (fileUrl is null)
+        {
+            yield return new AttemptFailed(infoError ?? "file/upload_info failed", null);
+            yield break;
+        }
+
+        yield return new TransferCompleted(fileUrl);
     }
 
     private async Task<(RapidgatorAuthState?, string?)> LoginAsync(AttemptContext ctx)
@@ -102,6 +152,42 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         }
 
         return (env.Response.Folder.Id, null);
+    }
+
+    private async Task<(string?, string?, string?)> GetUploadUrlAsync(AttemptContext ctx, RapidgatorAuthState auth, int folderId)
+    {
+        string url = $"https://www.rapidgator.net/api/v2/file/upload"
+            + $"?folder_id={folderId}"
+            + $"&name={Uri.EscapeDataString(ctx.FileName)}"
+            + $"&hash={ctx.FileHash}"
+            + $"&size={ctx.FileSize}"
+            + $"&token={auth.Token}";
+        string body = await GetAsync(ctx, url);
+
+        if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
+        {
+            return (null, null, env?.Details ?? "file/upload failed");
+        }
+
+        return (env.Response.Upload.Url, env.Response.Upload.UploadId, null);
+    }
+
+    private Task UploadBytesAsync(AttemptContext ctx, string uploadUrl)
+        => _uploadOverride is not null
+            ? _uploadOverride(ctx.FilePath, uploadUrl, ctx.SpeedLimitProvider)
+            : ctx.Handler.UploadFileAsync(ctx.FilePath, uploadUrl, ctx.SpeedLimitProvider, ctx.Cancellation);
+
+    private async Task<(string?, string?)> GetUploadInfoAsync(AttemptContext ctx, RapidgatorAuthState auth, string uploadId)
+    {
+        string url = $"https://www.rapidgator.net/api/v2/file/upload_info?upload_id={uploadId}&token={auth.Token}";
+        string body = await GetAsync(ctx, url);
+
+        if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env) || env?.Status != 200 || env.Response?.Upload?.File?.Url is null)
+        {
+            return (null, env?.Details ?? "file/upload_info failed");
+        }
+
+        return (env.Response.Upload.File.Url, null);
     }
 
     private Task<string> GetAsync(AttemptContext ctx, string url)
@@ -145,5 +231,50 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     private sealed class FolderDetail
     {
         [JsonPropertyName("folder_id")] public int Id { get; set; }
+    }
+
+    private sealed class UploadUrlEnvelope
+    {
+        [JsonPropertyName("response")] public UploadUrlResponse? Response { get; set; }
+
+        [JsonPropertyName("status")] public int Status { get; set; }
+
+        [JsonPropertyName("details")] public string? Details { get; set; }
+    }
+
+    private sealed class UploadUrlResponse
+    {
+        [JsonPropertyName("upload")] public UploadUrl? Upload { get; set; }
+    }
+
+    private sealed class UploadUrl
+    {
+        [JsonPropertyName("upload_id")] public string UploadId { get; set; } = string.Empty;
+
+        [JsonPropertyName("url")] public string Url { get; set; } = string.Empty;
+    }
+
+    private sealed class UploadInfoEnvelope
+    {
+        [JsonPropertyName("response")] public UploadInfoResponse? Response { get; set; }
+
+        [JsonPropertyName("status")] public int Status { get; set; }
+
+        [JsonPropertyName("details")] public string? Details { get; set; }
+    }
+
+    private sealed class UploadInfoResponse
+    {
+        [JsonPropertyName("upload")] public UploadInfoUpload? Upload { get; set; }
+    }
+
+    private sealed class UploadInfoUpload
+    {
+        [JsonPropertyName("file")] public UploadInfoFile? File { get; set; }
+    }
+
+    private sealed class UploadInfoFile
+    {
+        [JsonPropertyName("url")] public string? Url { get; set; }
     }
 }
