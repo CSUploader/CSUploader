@@ -80,7 +80,7 @@ public sealed class FileHosterClient
     /// <param name="password">The password.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result of the account check.</returns>
-    public Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
+    public static Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
         => Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
 
     /// <summary>
