@@ -25,15 +25,17 @@ namespace CSUploader.Upload.Pipeline;
 /// </para>
 /// </remarks>
 /// <example>
-/// A token-based hoster (Rapidgator-style):
-/// <code>
-/// var auth = await GetOrLoginAsync(ctx);
-/// var folder = await CreateFolderAsync(ctx, auth);
-/// await UploadAsync(ctx, auth, folder);
-/// yield return new TransferCompleted(url);
-/// </code>
-/// A cookie-based hoster: stash a <c>CookieContainer</c> in the auth state; reuse on
-/// subsequent attempts. The runner doesn't care.
+/// <para><b>Token-based</b> (Rapidgator-style): cache <c>(token, expiry)</c> per credentials id;
+/// invalidate on 401; pass token via query param or bearer header.</para>
+/// <para><b>Cookie-based</b>: cache a <see cref="System.Net.CookieContainer"/> per credentials id;
+/// the runner-supplied <c>HttpHandler</c> is constructed without `UseCookies`, so the
+/// pipeline must attach cookies to outbound requests itself or use a hoster-internal
+/// HttpClient adorned with the cached jar.</para>
+/// <para><b>API-key</b>: no auth state needed beyond <see cref="AttemptContext.Credentials"/>;
+/// every request includes the key in a header. <see cref="AuthStarted"/>/<see cref="AuthSucceeded"/>
+/// can be skipped entirely.</para>
+/// <para><b>OAuth2 with refresh</b>: cache <c>(access_token, refresh_token, expiry)</c>; on
+/// expiry try refresh first, then full re-login.</para>
 /// </example>
 public interface IFileHosterPipeline
 {
