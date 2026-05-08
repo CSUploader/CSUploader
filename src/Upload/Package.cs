@@ -497,9 +497,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             ? new HashSet<string>(Options.SelectedFiles, StringComparer.OrdinalIgnoreCase)
             : null;
 
-        // One shared session per hoster so all files for the same hoster share one login
-        Dictionary<string, SharedSession> perHosterSessions = new(StringComparer.Ordinal);
-
         foreach (string filePath in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
         {
             if (selectedFiles is not null && !selectedFiles.Contains(filePath))
@@ -512,16 +509,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 FileHosterClient? fileHoster = FileHosterClient.FileHosters.Where(fh => fh.Key == kvp.Key.Name).Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!)).FirstOrDefault();
                 if (fileHoster != null)
                 {
-                    if (!perHosterSessions.TryGetValue(kvp.Key.Name, out SharedSession? session))
-                    {
-                        session = new SharedSession();
-                        perHosterSessions[kvp.Key.Name] = session;
-                    }
-
-                    fileHoster.SharedSessionCache = session;
-                    PackageFile packageFile = new(this, filePath, fileHoster, kvp.Value);
-                    fileHoster.SpeedLimitProvider = packageFile.GetEffectiveSpeedLimitBytesPerSecond;
-                    packageFiles.Add(packageFile);
+                    packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
                 }
             }
         }

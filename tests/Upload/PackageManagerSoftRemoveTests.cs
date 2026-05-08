@@ -52,7 +52,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         _loginRepo = new FileHosterLoginRepository(_factory);
 
         AppSettings settings = new();
-        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
         _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
     }
 
@@ -126,7 +126,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int doneId = await InsertPackageAsync("done");
@@ -161,7 +161,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int packageId = await InsertPackageAsync("queued");
@@ -186,7 +186,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int packageId = await InsertPackageAsync("queued");
@@ -211,7 +211,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int packageId = await InsertPackageAsync("running");
@@ -238,7 +238,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int packageId = await InsertPackageAsync("paused");
@@ -262,7 +262,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         try
         {
             AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.Never };
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
             PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
 
             int doneId = await InsertPackageAsync("done");

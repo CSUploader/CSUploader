@@ -42,7 +42,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         _loginRepo = new FileHosterLoginRepository(_factory);
         AppSettings settings = new();
-        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService());
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
         _packageManager = new PackageManager(
             settings,
             _scheduler,

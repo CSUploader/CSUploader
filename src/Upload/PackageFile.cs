@@ -6,7 +6,6 @@
 using System.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib;
-using CSUploader.Lib.Crypto;
 
 namespace CSUploader.Upload;
 
@@ -101,16 +100,6 @@ public class PackageFile : INotifyPropertyChanged
     /// Gets the Package this instance belongs to.
     /// </summary>
     public Package Package { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether hashing is required before uploading a file.
-    /// </summary>
-    public bool RequiresHashingBeforeUpload => FileHoster.RequiresHashingBeforeUpload;
-
-    /// <summary>
-    /// Gets a value indicating whether hashing is required after uploading a file has finished.
-    /// </summary>
-    public bool RequiresHashingAfterUpload => FileHoster.RequiresHashingAfterUpload;
 
     /// <summary>
     /// Gets a value indicating whether upload has finished.
@@ -336,46 +325,6 @@ public class PackageFile : INotifyPropertyChanged
         Logger = logger,
         SpeedLimitProvider = GetEffectiveSpeedLimitBytesPerSecond,
     };
-
-    /// <summary>
-    /// Starts hashing for this file. Called by the <see cref="UploadScheduler"/>.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public Task StartHashingAsync(CancellationToken cancellationToken)
-    {
-        if (!FileInfo.Exists)
-        {
-            Error = $"File '{FileInfo.FullName}' not found";
-            throw new FileNotFoundException(Error, FileInfo.FullName);
-        }
-
-        ResetProgressValues();
-
-        return FileHoster.HashAsync(FileInfo.FullName, default, cancellationToken);
-    }
-
-    /// <summary>
-    /// Starts uploading this file. Called by the <see cref="UploadScheduler"/>.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public Task StartUploadAsync(CancellationToken cancellationToken)
-    {
-        if (!FileInfo.Exists)
-        {
-            Error = $"File '{FileInfo.FullName}' not found";
-            throw new FileNotFoundException(Error, FileInfo.FullName);
-        }
-
-        ResetProgressValues();
-
-        string? username = FileHosterLogin?.Username;
-        string? password = FileHosterLogin?.Password;
-        return !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password)
-            ? FileHoster.UploadAsync(FileInfo.FullName, username, password, cancellationToken)
-            : FileHoster.UploadAsync(FileInfo.FullName, cancellationToken);
-    }
 
     private void ResetProgressValues()
     {

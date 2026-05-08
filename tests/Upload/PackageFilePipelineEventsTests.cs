@@ -7,7 +7,6 @@ using System.IO;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
-using CSUploader.Lib.Net.Http;
 using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using Moq;
@@ -56,15 +55,8 @@ public class PackageFilePipelineEventsTests
         string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         File.WriteAllText(path, "x");
         Package pkg = new(new PackageOptions { DirectoryPath = Path.GetDirectoryName(path)!, Logger = Mock.Of<IAppLogger>() });
-        client = new StubClient();
+        client = new FileHosterClient("Stub", Protocol.Http);
         PackageFile file = new(pkg, path, client, new FileHosterLoginDto());
         return file;
-    }
-
-    private sealed class StubClient : FileHosterClient
-    {
-        public override string Name => "Stub";
-        public override Task UploadAsync(string filePath, CancellationToken ct = default) => Task.CompletedTask;
-        public override Task UploadAsync(string filePath, string u, string p, CancellationToken ct = default) => Task.CompletedTask;
     }
 }

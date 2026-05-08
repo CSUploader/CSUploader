@@ -184,7 +184,6 @@ public class PackageManager
                 // and we only hit the DB once per hoster instead of once per file.
                 Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
                 Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
-                Dictionary<string, SharedSession> sessions = new(StringComparer.Ordinal);
 
                 foreach (UploadPackageFileDto fileDto in pkgDto.Files)
                 {
@@ -218,7 +217,6 @@ public class PackageManager
 
                     fileHosterLogins[client] = login;
                     resolvedLogins[hosterName] = login;
-                    sessions[hosterName] = new SharedSession();
                 }
 
                 if (fileHosterLogins.Count == 0)
@@ -272,11 +270,6 @@ public class PackageManager
                         login = new FileHosterLoginDto { FileHosterName = hosterName };
                     }
 
-                    if (sessions.TryGetValue(hosterName, out SharedSession? session))
-                    {
-                        client.SharedSessionCache = session;
-                    }
-
                     string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
 
                     // Terminal-state files only need their metadata (URL, size, status) for
@@ -296,14 +289,12 @@ public class PackageManager
                         IsHashingComplete = fileDto.IsHashingComplete,
                         FileHash = fileDto.FileHash,
                     };
-                    client.SpeedLimitProvider = pf.GetEffectiveSpeedLimitBytesPerSecond;
 
                     // Remap state: interrupted Hashing/Uploading -> re-queue
                     FileState restoredState = fileDto.State switch
                     {
                         FileState.Hashing => FileState.HashQueued,
                         FileState.Uploading => FileState.UploadQueued,
-                        FileState.Idle when pf.RequiresHashingBeforeUpload && !pf.IsHashingComplete => FileState.HashQueued,
                         FileState.Idle => FileState.UploadQueued,
                         _ => fileDto.State,
                     };
@@ -693,16 +684,9 @@ public class PackageManager
     {
         if (file.State is FileState.Failed or FileState.Cancelled)
         {
-            // No explicit RefreshConnection needed — UploadAsync rebuilds the
+            // No explicit RefreshConnection needed — AttemptRunner rebuilds the
             // HttpHandler at entry, so the retry naturally picks the next proxy.
-            if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
-            {
-                file.State = FileState.HashQueued;
-            }
-            else
-            {
-                file.State = FileState.UploadQueued;
-            }
+            file.State = FileState.UploadQueued;
         }
     }
 
@@ -730,13 +714,13 @@ public class PackageManager
     private static void ResetFile(PackageFile file)
     {
         StopFile(file);
-        // No explicit RefreshConnection — UploadAsync rebuilds the HttpHandler against
+        // No explicit RefreshConnection — AttemptRunner rebuilds the HttpHandler against
         // the current rotation when the scheduler picks the file up again.
         file.IsHashingComplete = false;
         file.Error = null;
         file.FileUrl = null;
         file.IsUploadFinished = false;
-        file.State = file.RequiresHashingBeforeUpload ? FileState.HashQueued : FileState.UploadQueued;
+        file.State = FileState.UploadQueued;
     }
 
     private static void StopFile(PackageFile file)

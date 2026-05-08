@@ -19,6 +19,7 @@ public class UploadScheduler : IDisposable
     private readonly Pipeline.AttemptRunner _attemptRunner;
     private readonly IAppLogger _logger;
     private readonly Lib.Crypto.IHashingService _hashingService;
+    private readonly Pipeline.IFileHosterRegistry _registry;
     private readonly List<Package> _packages = [];
     private readonly Lock _packagesLock = new();
     private Task? _loopTask;
@@ -32,12 +33,14 @@ public class UploadScheduler : IDisposable
     /// <param name="attemptRunner">The pipeline runner that executes one upload attempt.</param>
     /// <param name="logger">The application logger.</param>
     /// <param name="hashingService">The hashing service used to compute file checksums.</param>
-    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger, Lib.Crypto.IHashingService hashingService)
+    /// <param name="registry">The hoster registry used to look up per-hoster capabilities.</param>
+    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger, Lib.Crypto.IHashingService hashingService, Pipeline.IFileHosterRegistry registry)
     {
         _settings = settings;
         _attemptRunner = attemptRunner;
         _logger = logger;
         _hashingService = hashingService;
+        _registry = registry;
         _channel = Channel.CreateUnbounded<Action>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -224,9 +227,8 @@ public class UploadScheduler : IDisposable
         {
             if (file.State == FileState.Idle)
             {
-                SetFileState(file, file.RequiresHashingBeforeUpload
-                    ? FileState.HashQueued
-                    : FileState.UploadQueued);
+                bool needsHash = _registry.Find(file.FileHoster.Name)?.RequiresHashingBeforeUpload ?? false;
+                SetFileState(file, needsHash ? FileState.HashQueued : FileState.UploadQueued);
             }
         }
 
@@ -459,7 +461,8 @@ public class UploadScheduler : IDisposable
                 }
 
                 // Determine which queue the file should go into
-                if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
+                bool needsHash = _registry.Find(file.FileHoster.Name)?.RequiresHashingBeforeUpload ?? false;
+                if (needsHash && !file.IsHashingComplete)
                 {
                     SetFileState(file, FileState.HashQueued);
                 }
