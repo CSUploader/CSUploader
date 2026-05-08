@@ -24,7 +24,7 @@ public class HttpHandlerTests
     {
         TransactionCapture capture = new();
         HttpClient client = StubClient(HttpStatusCode.OK, "ok");
-        HttpHandler handler = new(client, capture.Logger, proxyDescription: null);
+        HttpHandler handler = new(client, capture.Logger, proxyDescription: null, MockServerConfig.Disabled);
 
         await handler.GetStringAsync("https://example.test/x");
 
@@ -38,7 +38,7 @@ public class HttpHandlerTests
         // Defensive: callers that pass "" (rather than null) should also fall back to "(direct)".
         TransactionCapture capture = new();
         HttpClient client = StubClient(HttpStatusCode.OK, "ok");
-        HttpHandler handler = new(client, capture.Logger, proxyDescription: string.Empty);
+        HttpHandler handler = new(client, capture.Logger, proxyDescription: string.Empty, MockServerConfig.Disabled);
 
         await handler.GetStringAsync("https://example.test/x");
 
@@ -50,7 +50,7 @@ public class HttpHandlerTests
     {
         TransactionCapture capture = new();
         HttpClient client = StubClient(HttpStatusCode.OK, "ok");
-        HttpHandler handler = new(client, capture.Logger, "socks5://10.0.0.1:1080");
+        HttpHandler handler = new(client, capture.Logger, "socks5://10.0.0.1:1080", MockServerConfig.Disabled);
 
         await handler.GetStringAsync("https://example.test/x");
 
@@ -65,7 +65,7 @@ public class HttpHandlerTests
         // must carry the description as well.
         TransactionCapture capture = new();
         HttpClient client = ThrowingClient(new HttpRequestException("boom"));
-        HttpHandler handler = new(client, capture.Logger, "http://1.2.3.4:8080");
+        HttpHandler handler = new(client, capture.Logger, "http://1.2.3.4:8080", MockServerConfig.Disabled);
 
         await Assert.ThrowsAsync<HttpRequestException>(
             () => handler.GetStringAsync("https://example.test/x"));

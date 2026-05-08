@@ -17,27 +17,23 @@ namespace CSUploader.Lib.Net;
 /// (and retries — each retry constructs a fresh client) pick a proxy at construction;
 /// in-flight HttpClients are unaffected by changes here.
 /// </summary>
-public class ProxyManager
+public class ProxyManager : IProxySource
 {
-    /// <summary>
-    /// Static accessor for code paths that aren't on the DI graph yet
-    /// (e.g. <see cref="Upload.FileHosterClient.FindByHost"/>'s factories).
-    /// Mirrors the <see cref="Upload.AppSettings.Current"/> pattern.
-    /// </summary>
-    public static ProxyManager? Current { get; set; }
-
     private readonly ProxySettingRepository _repo;
     private readonly Lock _lock = new();
     private List<ProxySettingDto> _proxies = [];
     private int _rotationIndex;
 
+    private readonly Upload.AppSettings _settings;
+
     // Constructor keeps the IAppLogger parameter for DI signature stability even though
     // ProxyManager itself no longer logs — the per-test logging happens via the wrapping
     // logger inside TestProxyAsync.
-    public ProxyManager(ProxySettingRepository repo, IAppLogger logger)
+    public ProxyManager(ProxySettingRepository repo, IAppLogger logger, Upload.AppSettings settings)
     {
         _repo = repo;
         _ = logger;
+        _settings = settings;
     }
 
     /// <summary>
@@ -89,7 +85,7 @@ public class ProxyManager
     /// </summary>
     public ProxySettingDto? NextProxy()
     {
-        if (Upload.AppSettings.Current?.ProxiesEnabled == false)
+        if (!_settings.ProxiesEnabled)
         {
             return null;
         }
@@ -189,7 +185,7 @@ public class ProxyManager
         TransactionCapturingLogger capturingLogger = new(logger, tx => captured ??= tx);
         // bypassMockServer: a connectivity test against api.ipify.org would otherwise be
         // rewritten to localhost:8080/api in DEBUG builds, which defeats the whole point.
-        HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, bypassMockServer: true);
+        HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, MockServerConfig.Disabled, bypassMockServer: true);
 
         Stopwatch sw = Stopwatch.StartNew();
         try
@@ -232,6 +228,23 @@ public class ProxyManager
         {
             return ProxyTestResult.Failed(ex.GetType().Name + ": " + ex.Message) with { Transaction = captured };
         }
+    }
+
+    /// <summary>
+    /// <see cref="IProxySource"/> implementation. Adapts the existing nullable rotation
+    /// to the non-null <see cref="ProxyChoice"/> world: null becomes <see cref="ProxyChoice.Direct"/>.
+    /// </summary>
+    ProxyChoice IProxySource.Next()
+    {
+        ProxySettingDto? next = NextProxy();
+        if (next is null)
+        {
+            return ProxyChoice.Direct;
+        }
+
+        IWebProxy? webProxy = BuildWebProxy(next);
+        string description = $"{next.Type.ToString().ToLowerInvariant()}://{next.Host}:{next.Port}";
+        return new ProxyChoice(next.Id, webProxy, description);
     }
 
     /// <summary>

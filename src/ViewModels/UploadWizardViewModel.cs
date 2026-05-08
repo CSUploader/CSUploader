@@ -19,7 +19,8 @@ public partial class UploadWizardViewModel(
     PackageManager packageManager,
     FileHosterLoginRepository fileHosterLoginRepository,
     IDialogService dialogService,
-    IAppLogger logger) : ObservableObject
+    IAppLogger logger,
+    AppSettings settings) : ObservableObject
 {
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
 
@@ -27,6 +28,7 @@ public partial class UploadWizardViewModel(
     private readonly FileHosterLoginRepository _fileHosterLoginRepository = fileHosterLoginRepository;
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
+    private readonly AppSettings _settings = settings;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]
@@ -271,6 +273,7 @@ public partial class UploadWizardViewModel(
             DirectoryPath = DirectoryPath,
             Title = string.IsNullOrWhiteSpace(PackageTitle) ? null : PackageTitle.Trim(),
             Logger = _logger,
+            Settings = _settings,
             SelectedFiles = [.. Files.Where(f => f.IsSelected).Select(f => f.FullPath)],
         };
 

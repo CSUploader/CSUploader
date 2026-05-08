@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Threading.Channels;
+using CSUploader.Lib;
 
 namespace CSUploader.Upload;
 
@@ -15,6 +16,10 @@ public class UploadScheduler : IDisposable
 {
     private readonly Channel<Action> _channel;
     private readonly AppSettings _settings;
+    private readonly Pipeline.AttemptRunner _attemptRunner;
+    private readonly IAppLogger _logger;
+    private readonly Lib.Crypto.IHashingService _hashingService;
+    private readonly Pipeline.IFileHosterRegistry _registry;
     private readonly List<Package> _packages = [];
     private readonly Lock _packagesLock = new();
     private Task? _loopTask;
@@ -25,9 +30,17 @@ public class UploadScheduler : IDisposable
     /// Initializes a new instance of the <see cref="UploadScheduler"/> class.
     /// </summary>
     /// <param name="settings">The application settings.</param>
-    public UploadScheduler(AppSettings settings)
+    /// <param name="attemptRunner">The pipeline runner that executes one upload attempt.</param>
+    /// <param name="logger">The application logger.</param>
+    /// <param name="hashingService">The hashing service used to compute file checksums.</param>
+    /// <param name="registry">The hoster registry used to look up per-hoster capabilities.</param>
+    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger, Lib.Crypto.IHashingService hashingService, Pipeline.IFileHosterRegistry registry)
     {
         _settings = settings;
+        _attemptRunner = attemptRunner;
+        _logger = logger;
+        _hashingService = hashingService;
+        _registry = registry;
         _channel = Channel.CreateUnbounded<Action>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -214,9 +227,8 @@ public class UploadScheduler : IDisposable
         {
             if (file.State == FileState.Idle)
             {
-                SetFileState(file, file.RequiresHashingBeforeUpload
-                    ? FileState.HashQueued
-                    : FileState.UploadQueued);
+                bool needsHash = _registry.Find(file.FileHoster.Name)?.RequiresHashingBeforeUpload ?? false;
+                SetFileState(file, needsHash ? FileState.HashQueued : FileState.UploadQueued);
             }
         }
 
@@ -288,22 +300,38 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
-                await file.StartHashingAsync(cts.Token);
-                Post(() => OnHashCompleted(file, success: string.IsNullOrEmpty(file.Error) && file.IsHashingComplete));
+                string filePath = Path.Combine(file.SaveFrom!, file.Name);
+                await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, cts.Token))
+                {
+                    if (ev is Lib.Crypto.HashCompleted hc)
+                    {
+                        file.FileHash = hc.HexHash;
+                        file.IsHashingComplete = true;
+                    }
+                    else if (ev is Lib.Crypto.HashFailed hf)
+                    {
+                        file.Error = hf.Reason;
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
                 Post(() => OnHashCompleted(file, success: false, cancelled: true));
+                return;
             }
             catch (Exception ex)
             {
-                string error = ex.Message;
-                Post(() => { file.Error = error; OnHashCompleted(file, success: false); });
+                file.Error = ex.Message;
+                _logger.Log(this, LogType.Error, $"Hashing pipeline crashed: {ex}");
+                Post(() => OnHashCompleted(file, success: false));
+                return;
             }
+
+            Post(() => OnHashCompleted(file, success: file.IsHashingComplete));
         });
     }
 
@@ -313,22 +341,56 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
+            bool success = false;
+            bool cancelled = false;
+            bool crashed = false;
+            Lib.Net.Http.HttpHandler? attemptHandler = null;
             try
             {
-                await file.StartUploadAsync(cts.Token);
-                Post(() => OnUploadCompleted(file, success: string.IsNullOrEmpty(file.Error)));
+                await foreach (Pipeline.UploadEvent ev in _attemptRunner.RunAsync(file.BuildAttemptInputs(_logger), cts.Token))
+                {
+                    if (ev is Pipeline.HandlerBuilt hb)
+                    {
+                        attemptHandler = hb.Handler;
+                    }
+
+                    file.ApplyEvent(ev);
+                    if (ev is Pipeline.AttemptCompleted ac)
+                    {
+                        success = ac.Success;
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
-                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
+                cancelled = true;
             }
             catch (Exception ex)
             {
-                string error = ex.Message;
-                Post(() => { file.Error = error; OnUploadCompleted(file, success: false); });
+                file.Error = ex.Message;
+                _logger.Log(this, LogType.Error, $"Upload pipeline crashed: {ex}");
+                crashed = true;
             }
+            finally
+            {
+                attemptHandler?.Dispose();
+            }
+
+            if (cancelled)
+            {
+                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
+                return;
+            }
+
+            if (crashed)
+            {
+                Post(() => OnUploadCompleted(file, success: false));
+                return;
+            }
+
+            Post(() => OnUploadCompleted(file, success: success));
         });
     }
 
@@ -392,6 +454,7 @@ public class UploadScheduler : IDisposable
             {
                 file.Cts?.Cancel();
                 file.Cts?.Dispose();
+                file.Cts = null;
 
                 // State will transition to Paused in the completion callback
             }
@@ -421,7 +484,8 @@ public class UploadScheduler : IDisposable
                 }
 
                 // Determine which queue the file should go into
-                if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
+                bool needsHash = _registry.Find(file.FileHoster.Name)?.RequiresHashingBeforeUpload ?? false;
+                if (needsHash && !file.IsHashingComplete)
                 {
                     SetFileState(file, FileState.HashQueued);
                 }

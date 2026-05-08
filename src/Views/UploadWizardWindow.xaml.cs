@@ -27,7 +27,8 @@ public partial class UploadWizardWindow : Window
             sp.GetRequiredService<PackageManager>(),
             sp.GetRequiredService<FileHosterLoginRepository>(),
             sp.GetRequiredService<IDialogService>(),
-            sp.GetRequiredService<IAppLogger>());
+            sp.GetRequiredService<IAppLogger>(),
+            sp.GetRequiredService<AppSettings>());
 
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;

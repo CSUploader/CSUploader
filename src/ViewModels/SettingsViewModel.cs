@@ -665,7 +665,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await client.CheckAccountAsync(
+                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(
                     dto.Username ?? string.Empty,
                     dto.Password ?? string.Empty);
 
@@ -741,7 +741,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await client.CheckAccountAsync(
+                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(
                     account.Username ?? string.Empty,
                     account.Password ?? string.Empty,
                     cancellationToken);
@@ -798,7 +798,7 @@ public partial class SettingsViewModel(
                 return;
             }
 
-            AccountCheckResult result = await client.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+            AccountCheckResult result = await FileHosterClient.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
 
             if (result.IsValid)
             {
@@ -840,7 +840,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await client.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
                 if (result.IsValid)
                 {
                     NewAccountType = result.AccountType;
@@ -970,7 +970,7 @@ public partial class SettingsViewModel(
 
         try
         {
-            AccountCheckResult result = await client.CheckAccountAsync(username, password, cancellationToken);
+            AccountCheckResult result = await FileHosterClient.CheckAccountAsync(username, password, cancellationToken);
 
             string statusMsg;
             if (result.IsValid)

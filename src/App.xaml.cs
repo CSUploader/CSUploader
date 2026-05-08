@@ -38,9 +38,16 @@ public partial class App : Application
         ConfigureServices(services, baseDirectory);
         _serviceProvider = services.BuildServiceProvider();
 
-        // Static accessor pattern, mirrors AppSettings.Current. Lets the file-hoster
-        // factories pick a proxy at construction without taking a DI dependency.
-        Lib.Net.ProxyManager.Current = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
+        // Pipeline → ProxyManager bridge: AttemptCompleted feeds ProxyResultObserved.
+        Lib.Net.ProxyManager proxyManager = _serviceProvider.GetRequiredService<Lib.Net.ProxyManager>();
+        Upload.Pipeline.AttemptRunner runner = _serviceProvider.GetRequiredService<Upload.Pipeline.AttemptRunner>();
+        runner.AttemptCompleted += (_, completed) =>
+        {
+            if (completed.ProxyId > 0)
+            {
+                proxyManager.ReportResult(completed.ProxyId, completed.Success);
+            }
+        };
 
         // Register the global Window.Loaded handler so every window picks up the
         // dark title bar automatically. MainViewModel.InitializeAsync sets the
@@ -66,7 +73,6 @@ public partial class App : Application
 
         // App Settings
         AppSettings appSettings = new();
-        AppSettings.Current = appSettings;
         services.AddSingleton(appSettings);
 
         // EF Core
@@ -82,11 +88,19 @@ public partial class App : Application
         services.AddSingleton<ProxySettingRepository>();
 
         // Upload
+        services.AddSingleton<Lib.Crypto.IHashingService, Lib.Crypto.HashingService>();
         services.AddSingleton<UploadScheduler>();
         services.AddSingleton<PackageManager>();
 
         // Networking
         services.AddSingleton<Lib.Net.ProxyManager>();
+
+        // Pipeline (upload hot path wiring)
+        services.AddSingleton<Lib.Net.IProxySource>(sp => sp.GetRequiredService<Lib.Net.ProxyManager>());
+        services.AddSingleton<Lib.Net.Http.IHttpHandlerFactory>(sp => new Lib.Net.Http.DefaultHttpHandlerFactory(sp.GetRequiredService<AppSettings>()));
+        services.AddSingleton<Upload.Pipeline.IFileHosterRegistry>(sp => new Upload.Pipeline.DefaultFileHosterRegistry(sp.GetServices<Upload.Pipeline.IFileHosterPipeline>()));
+        services.AddSingleton<Upload.Pipeline.AttemptRunner>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.RapidgatorPipeline>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();

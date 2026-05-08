@@ -6,7 +6,6 @@
 using System.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib;
-using CSUploader.Lib.Crypto;
 
 namespace CSUploader.Upload;
 
@@ -51,11 +50,6 @@ public class PackageFile : INotifyPropertyChanged
         FileInfo = new FileInfo(filePath);
 
         FileHoster = fileHoster;
-        FileHoster.UploadProgress += FileHoster_UploadProgress;
-        FileHoster.UploadFinished += FileHoster_UploadFinished;
-        FileHoster.HashingProgress += FileHoster_HashingProgress;
-        FileHoster.HashingFinished += FileHoster_HashingFinished;
-
         FileHosterLogin = fileHosterLoginDto;
         SaveFrom = Path.GetDirectoryName(filePath);
         FileType = FileInfo.Extension[1..];
@@ -106,16 +100,6 @@ public class PackageFile : INotifyPropertyChanged
     /// Gets the Package this instance belongs to.
     /// </summary>
     public Package Package { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether hashing is required before uploading a file.
-    /// </summary>
-    public bool RequiresHashingBeforeUpload => FileHoster.RequiresHashingBeforeUpload;
-
-    /// <summary>
-    /// Gets a value indicating whether hashing is required after uploading a file has finished.
-    /// </summary>
-    public bool RequiresHashingAfterUpload => FileHoster.RequiresHashingAfterUpload;
 
     /// <summary>
     /// Gets a value indicating whether upload has finished.
@@ -278,58 +262,70 @@ public class PackageFile : INotifyPropertyChanged
     /// </summary>
     public int Priority { get; set; }
 
+    /// <summary>
+    /// Consumes a single <see cref="Pipeline.UploadEvent"/> emitted by <see cref="Pipeline.AttemptRunner"/>.
+    /// Replaces the four-event subscription pattern (UploadProgress / UploadFinished /
+    /// HashingProgress / HashingFinished) — those events stay during the migration window
+    /// for hashing, but the upload portion now flows through here.
+    /// </summary>
+    public void ApplyEvent(Pipeline.UploadEvent ev)
+    {
+        switch (ev)
+        {
+            case Pipeline.TransferStarted ts:
+                ResetProgressValues();
+                BytesRemaining = ts.TotalBytes;
+                BytesLoaded = 0;
+                Progress = 0.0;
+                StartedDate = DateTime.Now;
+                break;
+
+            case Pipeline.TransferProgress tp:
+                BytesLoaded = tp.BytesUploaded;
+                BytesRemaining = tp.TotalBytes - tp.BytesUploaded;
+                Progress = tp.PercentComplete;
+                Speed = (long)tp.SpeedBytesPerSec;
+                break;
+
+            case Pipeline.TransferCompleted tc:
+                IsUploadFinished = true;
+                FileUrl = tc.FileUrl;
+                Progress = 100.0;
+                BytesRemaining = null;
+                Speed = null;
+                FinishedDate = DateTime.Now;
+                break;
+
+            case Pipeline.AttemptFailed af:
+                Error = af.Reason;
+                Speed = null;
+                FinishedDate = DateTime.Now;
+                break;
+
+            case Pipeline.AttemptCancelled:
+                FinishedDate = DateTime.Now;
+                Speed = null;
+                break;
+        }
+    }
+
     private FileInfo FileInfo { get; set; }
 
     /// <summary>
-    /// Cleans up event handlers from the file hoster client.
+    /// Builds the immutable inputs for one upload attempt. Called by <see cref="UploadScheduler"/>
+    /// just before invoking <see cref="Pipeline.AttemptRunner.RunAsync"/>.
     /// </summary>
-    public void Cleanup()
+    public Pipeline.AttemptInputs BuildAttemptInputs(IAppLogger logger) => new()
     {
-        FileHoster.UploadProgress -= FileHoster_UploadProgress;
-        FileHoster.UploadFinished -= FileHoster_UploadFinished;
-        FileHoster.HashingProgress -= FileHoster_HashingProgress;
-        FileHoster.HashingFinished -= FileHoster_HashingFinished;
-    }
-
-    /// <summary>
-    /// Starts hashing for this file. Called by the <see cref="UploadScheduler"/>.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public Task StartHashingAsync(CancellationToken cancellationToken)
-    {
-        if (!FileInfo.Exists)
-        {
-            Error = $"File '{FileInfo.FullName}' not found";
-            throw new FileNotFoundException(Error, FileInfo.FullName);
-        }
-
-        ResetProgressValues();
-
-        return FileHoster.HashAsync(FileInfo.FullName, default, cancellationToken);
-    }
-
-    /// <summary>
-    /// Starts uploading this file. Called by the <see cref="UploadScheduler"/>.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public Task StartUploadAsync(CancellationToken cancellationToken)
-    {
-        if (!FileInfo.Exists)
-        {
-            Error = $"File '{FileInfo.FullName}' not found";
-            throw new FileNotFoundException(Error, FileInfo.FullName);
-        }
-
-        ResetProgressValues();
-
-        string? username = FileHosterLogin?.Username;
-        string? password = FileHosterLogin?.Password;
-        return !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password)
-            ? FileHoster.UploadAsync(FileInfo.FullName, username, password, cancellationToken)
-            : FileHoster.UploadAsync(FileInfo.FullName, cancellationToken);
-    }
+        FilePath = FileInfo.FullName,
+        FileName = Name,
+        FileSize = FileInfo.Length,
+        FileHash = FileHash,
+        HosterName = FileHoster.Name,
+        Credentials = FileHosterLogin,
+        Logger = logger,
+        SpeedLimitProvider = GetEffectiveSpeedLimitBytesPerSecond,
+    };
 
     private void ResetProgressValues()
     {
@@ -342,97 +338,5 @@ public class PackageFile : INotifyPropertyChanged
         TimeRemaining = null;
         BytesLoaded = null;
         Progress = null;
-    }
-
-    private void FileHoster_UploadProgress(object? sender, OperationProgressEventArgs e)
-    {
-        try
-        {
-            BytesRemaining = e.BytesRemaining;
-            BytesLoaded = e.BytesProcessed;
-            Progress = e.Progress;
-            Speed = e.Speed;
-            Duration = e.TimeElapsed;
-            TimeRemaining = e.TimeRemaining;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw - progress update is non-critical
-        }
-    }
-
-    private void FileHoster_UploadFinished(object? sender, FileHosterUploadFinishedEventArgs e)
-    {
-        try
-        {
-            IsUploadFinished = true;
-            Duration = e.TimeElapsed;
-            if (e.Success)
-            {
-                BytesRemaining = null;
-                FileUrl = e.FileInfo?.Url;
-                Progress = 100.0;
-            }
-            else
-            {
-                Error = e.Result;
-            }
-
-            Speed = null;
-            TimeRemaining = null;
-            FinishedDate = e.DateTimeFinished;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw
-        }
-    }
-
-    private void FileHoster_HashingProgress(object? sender, OperationProgressEventArgs e)
-    {
-        try
-        {
-            BytesRemaining = e.BytesRemaining;
-            BytesLoaded = e.BytesProcessed;
-            Progress = e.Progress;
-            Speed = e.Speed;
-            Duration = e.TimeElapsed;
-            TimeRemaining = e.TimeRemaining;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw - progress update is non-critical
-        }
-    }
-
-    private void FileHoster_HashingFinished(object? sender, HashingFinishedEventArgs e)
-    {
-        try
-        {
-            Duration = e.TimeElapsed;
-
-            if (e.Success)
-            {
-                IsHashingComplete = true;
-                if (e.Hash is { Length: > 0 })
-                {
-                    FileHash = Convert.ToHexString(e.Hash).ToLowerInvariant();
-                }
-
-                Progress = 100.0;
-                BytesRemaining = IsUploadFinished ? null : Size;
-            }
-            else
-            {
-                Error = e.Error;
-            }
-
-            Speed = null;
-            TimeRemaining = null;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw
-        }
     }
 }

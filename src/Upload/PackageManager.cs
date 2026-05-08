@@ -21,6 +21,7 @@ public class PackageManager
     private readonly UploadPackageFileRepository _fileRepo;
     private readonly FileHosterLoginRepository _loginRepo;
     private readonly IAppLogger _logger;
+    private readonly Pipeline.IFileHosterRegistry _registry;
     private readonly Lock _lock = new();
 
     // Serializes state-change persistence so that when PackageCompleted fires for the last file,
@@ -36,13 +37,15 @@ public class PackageManager
     /// <param name="fileRepo">The upload package file repository.</param>
     /// <param name="loginRepo">The file hoster login repository.</param>
     /// <param name="logger">The application logger.</param>
+    /// <param name="registry">The file hoster registry used to look up per-hoster capabilities.</param>
     public PackageManager(
         AppSettings settings,
         UploadScheduler scheduler,
         UploadPackageRepository packageRepo,
         UploadPackageFileRepository fileRepo,
         FileHosterLoginRepository loginRepo,
-        IAppLogger logger)
+        IAppLogger logger,
+        Pipeline.IFileHosterRegistry registry)
     {
         _settings = settings;
         _scheduler = scheduler;
@@ -50,6 +53,7 @@ public class PackageManager
         _fileRepo = fileRepo;
         _loginRepo = loginRepo;
         _logger = logger;
+        _registry = registry;
 
         _scheduler.PackageAdded += (_, package) => PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
         _scheduler.FileStateChanged += OnFileStateChanged;
@@ -184,7 +188,6 @@ public class PackageManager
                 // and we only hit the DB once per hoster instead of once per file.
                 Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
                 Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
-                Dictionary<string, SharedSession> sessions = new(StringComparer.Ordinal);
 
                 foreach (UploadPackageFileDto fileDto in pkgDto.Files)
                 {
@@ -218,7 +221,6 @@ public class PackageManager
 
                     fileHosterLogins[client] = login;
                     resolvedLogins[hosterName] = login;
-                    sessions[hosterName] = new SharedSession();
                 }
 
                 if (fileHosterLogins.Count == 0)
@@ -232,6 +234,7 @@ public class PackageManager
                     DirectoryPath = pkgDto.DirectoryPath,
                     Logger = _logger,
                     FileHosters = fileHosterLogins,
+                    Settings = _settings,
                 };
                 Package package = new(options)
                 {
@@ -272,11 +275,6 @@ public class PackageManager
                         login = new FileHosterLoginDto { FileHosterName = hosterName };
                     }
 
-                    if (sessions.TryGetValue(hosterName, out SharedSession? session))
-                    {
-                        client.SharedSessionCache = session;
-                    }
-
                     string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
 
                     // Terminal-state files only need their metadata (URL, size, status) for
@@ -296,15 +294,20 @@ public class PackageManager
                         IsHashingComplete = fileDto.IsHashingComplete,
                         FileHash = fileDto.FileHash,
                     };
-                    client.SpeedLimitProvider = pf.GetEffectiveSpeedLimitBytesPerSecond;
 
-                    // Remap state: interrupted Hashing/Uploading -> re-queue
+                    // Remap state: interrupted Hashing/Uploading -> re-queue.
+                    // Idle and Uploading map to HashQueued when hashing is required and
+                    // not yet complete, so the file always has a valid hash before upload.
+                    bool needsHash = _registry.Find(hosterName)?.RequiresHashingBeforeUpload ?? false;
                     FileState restoredState = fileDto.State switch
                     {
                         FileState.Hashing => FileState.HashQueued,
-                        FileState.Uploading => FileState.UploadQueued,
-                        FileState.Idle when pf.RequiresHashingBeforeUpload && !pf.IsHashingComplete => FileState.HashQueued,
-                        FileState.Idle => FileState.UploadQueued,
+                        FileState.Uploading => needsHash && !pf.IsHashingComplete
+                            ? FileState.HashQueued
+                            : FileState.UploadQueued,
+                        FileState.Idle => needsHash && !pf.IsHashingComplete
+                            ? FileState.HashQueued
+                            : FileState.UploadQueued,
                         _ => fileDto.State,
                     };
                     pf.State = restoredState;
@@ -471,18 +474,6 @@ public class PackageManager
         DateTime? finishedDateTime = state is FileState.Completed or FileState.Failed or FileState.Cancelled
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
-
-        // Live proxy-status feedback: when a file finishes (success or failure) and the
-        // hoster routed through a proxy, ping the ProxyManager so the Connection Manager
-        // grid can update the row's icon. User-cancelled isn't proxy-attributable.
-        int activeProxyId = e.File.FileHoster.ActiveProxyId;
-        if (activeProxyId > 0 && state is FileState.Completed or FileState.Failed)
-        {
-            ProxyManager.Current?.ReportResult(
-                activeProxyId,
-                success: state == FileState.Completed,
-                message: state == FileState.Failed ? error : null);
-        }
 
         _ = Task.Run(async () =>
         {
@@ -705,9 +696,9 @@ public class PackageManager
     {
         if (file.State is FileState.Failed or FileState.Cancelled)
         {
-            // No explicit RefreshConnection needed — UploadAsync rebuilds the
+            // No explicit RefreshConnection needed — AttemptRunner rebuilds the
             // HttpHandler at entry, so the retry naturally picks the next proxy.
-            if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
+            if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
             {
                 file.State = FileState.HashQueued;
             }
@@ -742,13 +733,14 @@ public class PackageManager
     private static void ResetFile(PackageFile file)
     {
         StopFile(file);
-        // No explicit RefreshConnection — UploadAsync rebuilds the HttpHandler against
+        // No explicit RefreshConnection — AttemptRunner rebuilds the HttpHandler against
         // the current rotation when the scheduler picks the file up again.
         file.IsHashingComplete = false;
+        file.FileHash = null;         // clear stored hash so it is re-computed
         file.Error = null;
         file.FileUrl = null;
         file.IsUploadFinished = false;
-        file.State = file.RequiresHashingBeforeUpload ? FileState.HashQueued : FileState.UploadQueued;
+        file.State = FileState.HashQueued;   // always restart from hash
     }
 
     private static void StopFile(PackageFile file)

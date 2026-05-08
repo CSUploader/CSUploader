@@ -14,6 +14,13 @@ public class PackageOptions
     /// Gets or sets the application logger.
     /// </summary>
     public IAppLogger? Logger { get; set; }
+
+    /// <summary>
+    /// Gets or sets the application settings. Nullable — some code paths construct
+    /// <see cref="PackageOptions"/> without DI (e.g. tests). Used by
+    /// <see cref="Package.EffectiveSpeedLimitKBps"/> as the global speed-limit fallback.
+    /// </summary>
+    public AppSettings? Settings { get; init; }
     /// <summary>
     /// Gets or sets the directory path to the files.
     /// </summary>

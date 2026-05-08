@@ -3,10 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -38,14 +42,16 @@ public class UploadWizardViewModelTests : IDisposable
 
         _loginRepo = new FileHosterLoginRepository(_factory);
         AppSettings settings = new();
-        _scheduler = new UploadScheduler(settings);
+        DefaultFileHosterRegistry registry = new([]);
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
         _packageManager = new PackageManager(
             settings,
             _scheduler,
             new UploadPackageRepository(_factory),
             new UploadPackageFileRepository(_factory),
             _loginRepo,
-            Mock.Of<IAppLogger>());
+            Mock.Of<IAppLogger>(),
+            registry);
     }
 
     public void Dispose()
@@ -120,7 +126,18 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     private UploadWizardViewModel CreateVm(IDialogService dialog) =>
-        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>());
+        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
+
+    private static AttemptRunner BuildAttemptRunner()
+    {
+        DefaultFileHosterRegistry registry = new([]);
+        Mock<IProxySource> proxy = new();
+        proxy.Setup(p => p.Next()).Returns(ProxyChoice.Direct);
+        Mock<IHttpHandlerFactory> hf = new();
+        hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+        return new AttemptRunner(registry, proxy.Object, hf.Object);
+    }
 
     private class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)
         : IDbContextFactory<CSUploaderDbContext>

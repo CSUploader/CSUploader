@@ -1,0 +1,58 @@
+// <copyright file="IFileHosterPipeline.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+namespace CSUploader.Upload.Pipeline;
+
+/// <summary>
+/// Per-hoster strategy. Implementations own their auth shape (token, cookie, OAuth, API
+/// key, anything) — <see cref="AttemptRunner"/> never inspects credentials beyond passing
+/// them in via <see cref="AttemptContext.Credentials"/>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Cross-cutting concerns the runner has already handled before <see cref="RunAsync"/>:
+/// proxy selection, <see cref="Lib.Net.Http.HttpHandler"/> construction, logging hookup,
+/// cancellation propagation. Implementations must use <c>ctx.Handler</c> for all HTTP —
+/// it is non-null by type and pre-configured with the chosen proxy.
+/// </para>
+/// <para>
+/// Implementations are typically singletons holding per-credentials caches (e.g. a
+/// <c>ConcurrentDictionary&lt;int, AuthState&gt;</c> keyed by <c>Credentials.Id</c>) so
+/// the same login is reused across files. Cache invalidation on auth failure is the
+/// pipeline's responsibility.
+/// </para>
+/// </remarks>
+/// <example>
+/// <para><b>Token-based</b> (Rapidgator-style): cache <c>(token, expiry)</c> per credentials id;
+/// invalidate on 401; pass token via query param or bearer header.</para>
+/// <para><b>Cookie-based</b>: cache a <see cref="System.Net.CookieContainer"/> per credentials id;
+/// the runner-supplied <c>HttpHandler</c> is constructed without `UseCookies`, so the
+/// pipeline must attach cookies to outbound requests itself or use a hoster-internal
+/// HttpClient adorned with the cached jar.</para>
+/// <para><b>API-key</b>: no auth state needed beyond <see cref="AttemptContext.Credentials"/>;
+/// every request includes the key in a header. <see cref="AuthStarted"/>/<see cref="AuthSucceeded"/>
+/// can be skipped entirely.</para>
+/// <para><b>OAuth2 with refresh</b>: cache <c>(access_token, refresh_token, expiry)</c>; on
+/// expiry try refresh first, then full re-login.</para>
+/// </example>
+public interface IFileHosterPipeline
+{
+    /// <summary>Hoster name, must match the key used by <see cref="IFileHosterRegistry"/>.</summary>
+    string Name { get; }
+
+    /// <summary>True when the hoster needs the file's content hash before upload (e.g. Rapidgator MD5).</summary>
+    bool RequiresHashingBeforeUpload { get; }
+
+    /// <summary>True when the hoster computes a hash post-upload (rare, usually false).</summary>
+    bool RequiresHashingAfterUpload { get; }
+
+    /// <summary>
+    /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
+    /// and outcomes. Must terminate with no more than one of <see cref="TransferCompleted"/>,
+    /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the
+    /// <see cref="AttemptCompleted"/> envelope itself.
+    /// </summary>
+    IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, CancellationToken ct);
+}

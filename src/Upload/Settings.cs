@@ -52,15 +52,6 @@ public class AppSettings
 
     public static Regex UrlRegex { get; } = new Regex("(?:https?[:]\\/\\/)?(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&//=]*)", RegexOptions.Compiled);
 
-    /// <summary>
-    /// Static accessor for code that hasn't been migrated to DI yet. Declared after all
-    /// Default* fields because the instance initializer (`= DefaultX`) reads them; if
-    /// `Current = new()` ran before those statics, every Default-referencing property
-    /// would silently get the type's zero default instead.
-    /// Prefer constructor injection of AppSettings where possible.
-    /// </summary>
-    public static AppSettings Current { get; set; } = new();
-
     private int? uploadsTabPageRefreshTimer;
     private int? maxConcurrentCPUJobs;
     private int? maxConcurrentUploadJobs;

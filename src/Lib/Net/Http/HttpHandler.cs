@@ -4,15 +4,28 @@
 // </copyright>
 
 using System.Net.Http.Headers;
-using CSUploader.Upload;
 
 namespace CSUploader.Lib.Net.Http;
 
-public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription = null, bool bypassMockServer = false)
+public class HttpHandler : IDisposable
 {
-    private readonly IAppLogger _logger = logger;
-    private readonly string _proxyDescription = string.IsNullOrEmpty(proxyDescription) ? "(direct)" : proxyDescription;
-    private readonly bool _bypassMockServer = bypassMockServer;
+    private readonly IAppLogger _logger;
+    private readonly string _proxyDescription;
+    private readonly bool _bypassMockServer;
+    private readonly MockServerConfig _mockServer;
+    private bool _disposed;
+
+    public HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxyDescription, MockServerConfig mockServer, bool bypassMockServer = false)
+    {
+        HttpClient = httpclient;
+        _logger = logger;
+        _proxyDescription = string.IsNullOrEmpty(proxyDescription) ? "(direct)" : proxyDescription;
+        _bypassMockServer = bypassMockServer;
+        _mockServer = mockServer;
+    }
+
+    /// <summary>Test-observable snapshot of the mock config locked in at construction.</summary>
+    internal MockServerConfig MockServerSnapshot => _mockServer;
 
     private string MaybeRewriteToMockServer(string url)
     {
@@ -24,8 +37,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             return url;
         }
 
-        AppSettings settings = AppSettings.Current;
-        if (!settings.UseMockServer || string.IsNullOrEmpty(settings.MockServerBaseUrl))
+        if (!_mockServer.Enabled || string.IsNullOrEmpty(_mockServer.BaseUrl))
         {
             _logger.Log(this, LogType.Status, $"Mock server disabled — sending to live URL: {url}");
             return url;
@@ -36,7 +48,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             return url;
         }
 
-        if (!Uri.TryCreate(settings.MockServerBaseUrl, UriKind.Absolute, out Uri? mockUri))
+        if (!Uri.TryCreate(_mockServer.BaseUrl, UriKind.Absolute, out Uri? mockUri))
         {
             return url;
         }
@@ -59,7 +71,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         int firstDot = host.IndexOf('.', StringComparison.Ordinal);
         string slug = (firstDot > 0 ? host[..firstDot] : host).ToLowerInvariant();
 
-        string mockBase = settings.MockServerBaseUrl.TrimEnd('/');
+        string mockBase = _mockServer.BaseUrl.TrimEnd('/');
         string rewritten = $"{mockBase}/{slug}{originalUri.PathAndQuery}";
         _logger.Log(this, LogType.Status, $"Mock rewrite: {url} -> {rewritten}");
         return rewritten;
@@ -69,7 +81,20 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
     public event EventHandler<ProtocolUploadFinishedEventArgs>? UploadFinished;
 
-    protected HttpClient HttpClient { get; set; } = httpclient;
+    protected HttpClient HttpClient { get; }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        HttpClient.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     public async Task<string> GetStringAsync(string url, CancellationToken cancellationToken = default)
     {
