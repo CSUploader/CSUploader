@@ -17,7 +17,7 @@ namespace CSUploader.Lib.Net;
 /// (and retries — each retry constructs a fresh client) pick a proxy at construction;
 /// in-flight HttpClients are unaffected by changes here.
 /// </summary>
-public class ProxyManager
+public class ProxyManager : IProxySource
 {
     /// <summary>
     /// Static accessor for code paths that aren't on the DI graph yet
@@ -232,6 +232,23 @@ public class ProxyManager
         {
             return ProxyTestResult.Failed(ex.GetType().Name + ": " + ex.Message) with { Transaction = captured };
         }
+    }
+
+    /// <summary>
+    /// <see cref="IProxySource"/> implementation. Adapts the existing nullable rotation
+    /// to the non-null <see cref="ProxyChoice"/> world: null becomes <see cref="ProxyChoice.Direct"/>.
+    /// </summary>
+    ProxyChoice IProxySource.Next()
+    {
+        ProxySettingDto? next = NextProxy();
+        if (next is null)
+        {
+            return ProxyChoice.Direct;
+        }
+
+        IWebProxy? webProxy = BuildWebProxy(next);
+        string description = $"{next.Type.ToString().ToLowerInvariant()}://{next.Host}:{next.Port}";
+        return new ProxyChoice(next.Id, webProxy, description);
     }
 
     /// <summary>
