@@ -6,6 +6,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using CSUploader.Lib.Extensions;
 
 namespace CSUploader.Upload.Pipeline.Hosters;
@@ -118,10 +119,37 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
                 break;
             }
 
-            // === Multipart upload bytes ===
+            // === Multipart upload bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
+            // UploadBytesAsync runs concurrently; progress callbacks write into an unbounded
+            // channel that this iterator drains. The upload task's completion (including its
+            // exceptions) is surfaced after the channel is fully drained.
+            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
+
+            Task uploadTask = UploadBytesAsync(ctx, uploadUrl);
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            // Do not pass the cancellation token here: when the token fires, UploadBytesAsync
+            // will throw, the ContinueWith will complete the writer, and ReadAllAsync will
+            // drain naturally. Passing the token would cause ReadAllAsync itself to throw
+            // OperationCanceledException before the channel is fully drained.
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+            {
+                yield return progressEv;
+            }
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            // Surface the upload task's outcome after the channel is fully drained.
             try
             {
-                await UploadBytesAsync(ctx, uploadUrl);
+                await uploadTask;
             }
             catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
