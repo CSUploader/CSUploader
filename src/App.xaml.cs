@@ -93,6 +93,7 @@ public partial class App : Application
         services.AddSingleton<ProxySettingRepository>();
 
         // Upload
+        services.AddSingleton<Lib.Crypto.IHashingService, Lib.Crypto.HashingService>();
         services.AddSingleton<UploadScheduler>();
         services.AddSingleton<PackageManager>();
 

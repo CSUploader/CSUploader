@@ -43,6 +43,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<IHttpHandlerFactory>(sp => new DefaultHttpHandlerFactory(sp.GetRequiredService<AppSettings>()));
         sc.AddSingleton<IFileHosterRegistry>(new DefaultFileHosterRegistry([]));
         sc.AddSingleton<AttemptRunner>();
+        sc.AddSingleton<CSUploader.Lib.Crypto.IHashingService, CSUploader.Lib.Crypto.HashingService>();
         sc.AddSingleton<UploadScheduler>();
         sc.AddSingleton<PackageManager>();
         sc.AddSingleton<CSUploader.Lib.Net.ProxyManager>();

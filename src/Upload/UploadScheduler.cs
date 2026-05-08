@@ -18,6 +18,7 @@ public class UploadScheduler : IDisposable
     private readonly AppSettings _settings;
     private readonly Pipeline.AttemptRunner _attemptRunner;
     private readonly IAppLogger _logger;
+    private readonly Lib.Crypto.IHashingService _hashingService;
     private readonly List<Package> _packages = [];
     private readonly Lock _packagesLock = new();
     private Task? _loopTask;
@@ -30,11 +31,13 @@ public class UploadScheduler : IDisposable
     /// <param name="settings">The application settings.</param>
     /// <param name="attemptRunner">The pipeline runner that executes one upload attempt.</param>
     /// <param name="logger">The application logger.</param>
-    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger)
+    /// <param name="hashingService">The hashing service used to compute file checksums.</param>
+    public UploadScheduler(AppSettings settings, Pipeline.AttemptRunner attemptRunner, IAppLogger logger, Lib.Crypto.IHashingService hashingService)
     {
         _settings = settings;
         _attemptRunner = attemptRunner;
         _logger = logger;
+        _hashingService = hashingService;
         _channel = Channel.CreateUnbounded<Action>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -295,22 +298,38 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
-                await file.StartHashingAsync(cts.Token);
-                Post(() => OnHashCompleted(file, success: string.IsNullOrEmpty(file.Error) && file.IsHashingComplete));
+                string filePath = Path.Combine(file.SaveFrom!, file.Name);
+                await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, cts.Token))
+                {
+                    if (ev is Lib.Crypto.HashCompleted hc)
+                    {
+                        file.FileHash = hc.HexHash;
+                        file.IsHashingComplete = true;
+                    }
+                    else if (ev is Lib.Crypto.HashFailed hf)
+                    {
+                        file.Error = hf.Reason;
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
                 Post(() => OnHashCompleted(file, success: false, cancelled: true));
+                return;
             }
             catch (Exception ex)
             {
-                string error = ex.Message;
-                Post(() => { file.Error = error; OnHashCompleted(file, success: false); });
+                file.Error = ex.Message;
+                _logger.Log(this, LogType.Error, $"Hashing pipeline crashed: {ex}");
+                Post(() => OnHashCompleted(file, success: false));
+                return;
             }
+
+            Post(() => OnHashCompleted(file, success: file.IsHashingComplete));
         });
     }
 
