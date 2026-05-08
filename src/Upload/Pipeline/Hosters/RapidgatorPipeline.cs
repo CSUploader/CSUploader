@@ -34,6 +34,9 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         _uploadOverride = uploadOverride;
     }
 
+    /// <summary>Thrown internally when a post-auth API call returns HTTP 401 (token expired).</summary>
+    private sealed class AuthExpiredException : Exception { }
+
     public string Name => "Rapidgator";
 
     public bool RequiresHashingBeforeUpload => true;
@@ -60,61 +63,131 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             yield return new AuthSucceeded();
         }
 
-        // === Folder ===
-        string folderName = ResolveFolderName(ctx.FilePath);
-        (int? folderId, string? folderError) = await CreateFolderAsync(ctx, auth!, folderName);
-        if (folderId is null)
+        // === Post-auth flow (folder → transfer → upload_info) ===
+        // yield return is illegal in catch, so we collect outcome flags and yield after the try blocks.
+        bool authExpired = false;
+        string? attemptFailure = null;
+        bool attemptCancelled = false;
+        Exception? attemptException = null;
+        string? finalUrl = null;
+
+        // do/while(false) lets us `break` out of a linear flow on early failure without goto.
+        do
         {
-            yield return new AttemptFailed(folderError ?? "folder/create failed", null);
+            // === Folder ===
+            string folderName = ResolveFolderName(ctx.FilePath);
+            int? folderId;
+            string? folderError;
+            try
+            {
+                (folderId, folderError) = await CreateFolderAsync(ctx, auth!, folderName);
+            }
+            catch (AuthExpiredException)
+            {
+                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
+                authExpired = true;
+                break;
+            }
+
+            if (folderId is null)
+            {
+                attemptFailure = folderError ?? "folder/create failed";
+                break;
+            }
+
+            yield return new TransferStarted(ctx.FileSize);
+
+            // === File upload request → upload_url + upload_id ===
+            string? uploadUrl;
+            string? uploadId;
+            string? upError;
+            try
+            {
+                (uploadUrl, uploadId, upError) = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
+            }
+            catch (AuthExpiredException)
+            {
+                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
+                authExpired = true;
+                break;
+            }
+
+            if (uploadUrl is null || uploadId is null)
+            {
+                attemptFailure = upError ?? "file/upload failed";
+                break;
+            }
+
+            // === Multipart upload bytes ===
+            try
+            {
+                await UploadBytesAsync(ctx, uploadUrl);
+            }
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+            {
+                attemptCancelled = true;
+                break;
+            }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+                break;
+            }
+
+            // === Upload info → public URL ===
+            string? fileUrl;
+            string? infoError;
+            try
+            {
+                (fileUrl, infoError) = await GetUploadInfoAsync(ctx, auth!, uploadId);
+            }
+            catch (AuthExpiredException)
+            {
+                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
+                authExpired = true;
+                break;
+            }
+
+            if (fileUrl is null)
+            {
+                attemptFailure = infoError ?? "file/upload_info failed";
+                break;
+            }
+
+            finalUrl = fileUrl;
+        }
+        while (false);
+
+        // Yield terminal events based on outcome flags (yield illegal in catch).
+        if (authExpired)
+        {
+            yield return new AuthFailed("token expired");
+            yield return new AttemptFailed("token expired — retry will re-authenticate", null);
             yield break;
         }
 
-        yield return new TransferStarted(ctx.FileSize);
-
-        // === File upload request → upload_url + upload_id ===
-        (string? uploadUrl, string? uploadId, string? upError) = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
-        if (uploadUrl is null || uploadId is null)
-        {
-            yield return new AttemptFailed(upError ?? "file/upload failed", null);
-            yield break;
-        }
-
-        // === Multipart upload bytes ===
-        Exception? uploadException = null;
-        try
-        {
-            await UploadBytesAsync(ctx, uploadUrl);
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            uploadException = null; // handled below via flag
-        }
-        catch (Exception ex)
-        {
-            uploadException = ex;
-        }
-
-        if (ctx.Cancellation.IsCancellationRequested && uploadException is null)
+        if (attemptCancelled)
         {
             yield return new AttemptCancelled();
             yield break;
         }
 
-        if (uploadException is not null)
+        if (attemptException is not null)
         {
-            yield return new AttemptFailed(uploadException.Message, uploadException);
+            yield return new AttemptFailed(attemptException.Message, attemptException);
             yield break;
         }
 
-        // === Upload info → public URL ===
-        (string? fileUrl, string? infoError) = await GetUploadInfoAsync(ctx, auth!, uploadId);
-        if (fileUrl is null)
+        if (attemptFailure is not null)
         {
-            yield return new AttemptFailed(infoError ?? "file/upload_info failed", null);
+            yield return new AttemptFailed(attemptFailure, null);
             yield break;
         }
 
-        yield return new TransferCompleted(fileUrl);
+        if (finalUrl is not null)
+        {
+            yield return new TransferCompleted(finalUrl);
+        }
     }
 
     private async Task<(RapidgatorAuthState?, string?)> LoginAsync(AttemptContext ctx)
@@ -148,6 +221,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
         {
+            if (env?.Status == 401) throw new AuthExpiredException();
             return (null, env?.Details ?? "folder/create failed");
         }
 
@@ -166,6 +240,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
         {
+            if (env?.Status == 401) throw new AuthExpiredException();
             return (null, null, env?.Details ?? "file/upload failed");
         }
 
@@ -184,6 +259,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env) || env?.Status != 200 || env.Response?.Upload?.File?.Url is null)
         {
+            if (env?.Status == 401) throw new AuthExpiredException();
             return (null, env?.Details ?? "file/upload_info failed");
         }
 
