@@ -21,6 +21,7 @@ public class PackageManager
     private readonly UploadPackageFileRepository _fileRepo;
     private readonly FileHosterLoginRepository _loginRepo;
     private readonly IAppLogger _logger;
+    private readonly Pipeline.IFileHosterRegistry _registry;
     private readonly Lock _lock = new();
 
     // Serializes state-change persistence so that when PackageCompleted fires for the last file,
@@ -36,13 +37,15 @@ public class PackageManager
     /// <param name="fileRepo">The upload package file repository.</param>
     /// <param name="loginRepo">The file hoster login repository.</param>
     /// <param name="logger">The application logger.</param>
+    /// <param name="registry">The file hoster registry used to look up per-hoster capabilities.</param>
     public PackageManager(
         AppSettings settings,
         UploadScheduler scheduler,
         UploadPackageRepository packageRepo,
         UploadPackageFileRepository fileRepo,
         FileHosterLoginRepository loginRepo,
-        IAppLogger logger)
+        IAppLogger logger,
+        Pipeline.IFileHosterRegistry registry)
     {
         _settings = settings;
         _scheduler = scheduler;
@@ -50,6 +53,7 @@ public class PackageManager
         _fileRepo = fileRepo;
         _loginRepo = loginRepo;
         _logger = logger;
+        _registry = registry;
 
         _scheduler.PackageAdded += (_, package) => PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
         _scheduler.FileStateChanged += OnFileStateChanged;
@@ -291,12 +295,19 @@ public class PackageManager
                         FileHash = fileDto.FileHash,
                     };
 
-                    // Remap state: interrupted Hashing/Uploading -> re-queue
+                    // Remap state: interrupted Hashing/Uploading -> re-queue.
+                    // Idle and Uploading map to HashQueued when hashing is required and
+                    // not yet complete, so the file always has a valid hash before upload.
+                    bool needsHash = _registry.Find(hosterName)?.RequiresHashingBeforeUpload ?? false;
                     FileState restoredState = fileDto.State switch
                     {
                         FileState.Hashing => FileState.HashQueued,
-                        FileState.Uploading => FileState.UploadQueued,
-                        FileState.Idle => FileState.UploadQueued,
+                        FileState.Uploading => needsHash && !pf.IsHashingComplete
+                            ? FileState.HashQueued
+                            : FileState.UploadQueued,
+                        FileState.Idle => needsHash && !pf.IsHashingComplete
+                            ? FileState.HashQueued
+                            : FileState.UploadQueued,
                         _ => fileDto.State,
                     };
                     pf.State = restoredState;
@@ -687,7 +698,14 @@ public class PackageManager
         {
             // No explicit RefreshConnection needed — AttemptRunner rebuilds the
             // HttpHandler at entry, so the retry naturally picks the next proxy.
-            file.State = FileState.UploadQueued;
+            if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
+            {
+                file.State = FileState.HashQueued;
+            }
+            else
+            {
+                file.State = FileState.UploadQueued;
+            }
         }
     }
 
@@ -718,10 +736,11 @@ public class PackageManager
         // No explicit RefreshConnection — AttemptRunner rebuilds the HttpHandler against
         // the current rotation when the scheduler picks the file up again.
         file.IsHashingComplete = false;
+        file.FileHash = null;         // clear stored hash so it is re-computed
         file.Error = null;
         file.FileUrl = null;
         file.IsUploadFinished = false;
-        file.State = FileState.UploadQueued;
+        file.State = FileState.HashQueued;   // always restart from hash
     }
 
     private static void StopFile(PackageFile file)

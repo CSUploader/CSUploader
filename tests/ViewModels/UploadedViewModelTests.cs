@@ -48,8 +48,9 @@ public class UploadedViewModelTests : IDisposable
         AppSettings settings = new();
         IAppLogger logger = Mock.Of<IAppLogger>();
         FileHosterLoginRepository loginRepo = new(_factory);
-        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
-        _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, loginRepo, logger);
+        DefaultFileHosterRegistry registry = new([]);
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
+        _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, loginRepo, logger, registry);
     }
 
     public void Dispose()

@@ -42,14 +42,16 @@ public class UploadWizardViewModelTests : IDisposable
 
         _loginRepo = new FileHosterLoginRepository(_factory);
         AppSettings settings = new();
-        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new CSUploader.Upload.Pipeline.DefaultFileHosterRegistry([]));
+        DefaultFileHosterRegistry registry = new([]);
+        _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
         _packageManager = new PackageManager(
             settings,
             _scheduler,
             new UploadPackageRepository(_factory),
             new UploadPackageFileRepository(_factory),
             _loginRepo,
-            Mock.Of<IAppLogger>());
+            Mock.Of<IAppLogger>(),
+            registry);
     }
 
     public void Dispose()
