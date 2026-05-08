@@ -5,6 +5,7 @@
 
 using System.Windows;
 using CSUploader.Dal;
+using CSUploader.Lib.Localization;
 
 namespace CSUploader.Views;
 
@@ -41,12 +42,28 @@ public partial class EditAccountWindow : Window
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
+        string username = UsernameBox.Text?.Trim() ?? string.Empty;
+        string password = PasswordBox.Text ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            MessageBox.Show(
+                this,
+                Localizer.Instance["EditAccount_Validation_RequireUsernameAndPassword"],
+                Localizer.Instance["Common_Error"],
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            (string.IsNullOrWhiteSpace(username) ? UsernameBox : PasswordBox).Focus();
+            return;
+        }
+
         Result = new FileHosterLoginDto
         {
             Id = _original.Id,
             FileHosterName = HosterCombo.SelectedItem as string ?? _original.FileHosterName,
-            Username = UsernameBox.Text,
-            Password = PasswordBox.Text,
+            Username = username,
+            Password = password,
             AccountType = _original.AccountType, // Preserved; auto-detected on check/refresh
             Disabled = EnabledCheck.IsChecked != true,
         };

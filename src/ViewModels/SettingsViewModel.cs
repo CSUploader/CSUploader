@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -22,7 +23,8 @@ public partial class SettingsViewModel(
     AppSettings settings,
     IDialogService dialogService,
     IAppLogger logger,
-    TrayIconManager? trayIconManager = null) : ObservableObject
+    TrayIconManager? trayIconManager = null,
+    UploadPackageRepository? uploadPackageRepository = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -30,100 +32,18 @@ public partial class SettingsViewModel(
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
     private readonly TrayIconManager? _trayIconManager = trayIconManager;
+    // Optional so existing tests that don't exercise the Database section don't have to
+    // construct an upload-package repo. Wired by DI in the real app.
+    private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
 
-    // Snapshot of the saved-on-disk values, taken on Load and after Save. Compared against
-    // the live properties to detect unsaved changes for the tab-switch warning. Account
-    // editing and confirmation-prompt toggles are NOT tracked here — those persist on their
-    // own commands and don't depend on the Save Settings button.
-    private SettingsSnapshot _savedSnapshot = SettingsSnapshot.Empty;
+    // Suppresses auto-save while LoadAsync is hydrating ObservableProperty values from the
+    // DB — otherwise every "real" load would round-trip back through SaveSettingAsync.
+    private bool _suppressAutoSave;
 
-    private record SettingsSnapshot(
-        int MaxConcurrentCPUJobs,
-        int MaxConcurrentUploadJobs,
-        bool MaxUploadsPerHostEnabled,
-        int MaxUploadsPerHost,
-        RemoveFinishedUploadsMode RemoveFinishedUploads,
-        bool AutoRemoveCompletedFiles,
-        bool AutoRemoveCompletedPackages,
-        string GridFontFamily,
-        double GridFontSize,
-        IfFileExistsBehavior IfFileExists,
-        bool SpeedLimitEnabled,
-        int SpeedLimitValue,
-        bool UseMockServer,
-        bool MinimizeToTray,
-        CloseAction CloseAction)
-    {
-        public static SettingsSnapshot Empty { get; } = new(
-            0, 0, false, 0, RemoveFinishedUploadsMode.Never, false, false, string.Empty, 0,
-            IfFileExistsBehavior.Ask, false, 0, false, false, CloseAction.Ask);
-    }
+    private static string Loc(string key) => Localizer.Instance[key];
 
-    private SettingsSnapshot CaptureSnapshot() => new(
-        MaxConcurrentCPUJobs,
-        MaxConcurrentUploadJobs,
-        MaxUploadsPerHostEnabled,
-        MaxUploadsPerHost,
-        RemoveFinishedUploads,
-        AutoRemoveCompletedFiles,
-        AutoRemoveCompletedPackages,
-        GridFontFamily,
-        GridFontSize,
-        IfFileExists,
-        SpeedLimitEnabled,
-        SpeedLimitValue,
-        UseMockServer,
-        MinimizeToTray,
-        CloseAction);
-
-    private void RestoreSnapshot(SettingsSnapshot s)
-    {
-        MaxConcurrentCPUJobs = s.MaxConcurrentCPUJobs;
-        MaxConcurrentUploadJobs = s.MaxConcurrentUploadJobs;
-        MaxUploadsPerHostEnabled = s.MaxUploadsPerHostEnabled;
-        MaxUploadsPerHost = s.MaxUploadsPerHost;
-        RemoveFinishedUploads = s.RemoveFinishedUploads;
-        AutoRemoveCompletedFiles = s.AutoRemoveCompletedFiles;
-        AutoRemoveCompletedPackages = s.AutoRemoveCompletedPackages;
-        GridFontFamily = s.GridFontFamily;
-        GridFontSize = s.GridFontSize;
-        IfFileExists = s.IfFileExists;
-        SpeedLimitEnabled = s.SpeedLimitEnabled;
-        SpeedLimitValue = s.SpeedLimitValue;
-        UseMockServer = s.UseMockServer;
-        MinimizeToTray = s.MinimizeToTray;
-        CloseAction = s.CloseAction;
-    }
-
-    public bool HasUnsavedChanges => !CaptureSnapshot().Equals(_savedSnapshot);
-
-    /// <summary>
-    /// Called before the user navigates away from the Settings tab. If there are unsaved
-    /// edits, prompts (with opt-out) for permission to discard. Returns <c>true</c> when
-    /// it's safe to navigate (no edits, or user confirmed discard). Reverts the live
-    /// properties to the saved snapshot when discarding so re-entry to the tab shows the
-    /// real persisted state.
-    /// </summary>
-    public bool TryConfirmDiscardChanges()
-    {
-        if (!HasUnsavedChanges)
-        {
-            return true;
-        }
-
-        bool confirmed = _dialogService.ShowOptOutConfirmation(
-            ConfirmationKeys.DiscardSettingsChanges,
-            "You have unsaved changes on the Settings tab. They will be discarded if you leave. Continue?",
-            "Unsaved settings");
-
-        if (!confirmed)
-        {
-            return false;
-        }
-
-        RestoreSnapshot(_savedSnapshot);
-        return true;
-    }
+    private static string LocF(string key, params object?[] args) =>
+        string.Format(CultureInfo.CurrentCulture, Localizer.Instance[key], args);
 
     // ── Upload settings ──
 
@@ -141,12 +61,6 @@ public partial class SettingsViewModel(
 
     [ObservableProperty]
     private RemoveFinishedUploadsMode removeFinishedUploads = AppSettings.DefaultRemoveFinishedUploads;
-
-    [ObservableProperty]
-    private bool autoRemoveCompletedFiles;
-
-    [ObservableProperty]
-    private bool autoRemoveCompletedPackages;
 
     [ObservableProperty]
     private string gridFontFamily = AppSettings.DefaultGridFontFamily;
@@ -169,6 +83,16 @@ public partial class SettingsViewModel(
     private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
 
     [ObservableProperty]
+    private AutostartUploadsMode autostartUploads = AppSettings.DefaultAutostartUploads;
+
+    /// <summary>
+    /// BCP-47 tag for the active UI language. Bound to the language dropdown on the
+    /// General page. Empty means "auto-detect" — only persisted that way pre-first-pick.
+    /// </summary>
+    [ObservableProperty]
+    private string language = "en";
+
+    [ObservableProperty]
     private bool minimizeToTray = AppSettings.DefaultMinimizeToTray;
 
     [ObservableProperty]
@@ -185,35 +109,52 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     private bool useMockServer = AppSettings.DefaultUseMockServer;
 
-    // ── Save feedback ──
-
-    [ObservableProperty]
-    private string saveStatus = string.Empty;
-
-    public sealed record EnumOption<T>(T Value, string Label);
-
 #pragma warning disable CA1822
-    public EnumOption<RemoveFinishedUploadsMode>[] RemoveFinishedUploadsOptions { get; } =
+    public LocalizedOption<RemoveFinishedUploadsMode>[] RemoveFinishedUploadsOptions { get; } =
     [
-        new(RemoveFinishedUploadsMode.Never, "Never"),
-        new(RemoveFinishedUploadsMode.AfterOneHour, "After 1 hour"),
-        new(RemoveFinishedUploadsMode.AfterOneDay, "After 1 day"),
-        new(RemoveFinishedUploadsMode.Immediately, "Immediately"),
+        new(RemoveFinishedUploadsMode.Never, "Settings_Upload_RemoveFinished_Never"),
+        new(RemoveFinishedUploadsMode.Immediately, "Settings_Upload_RemoveFinished_Immediately"),
+        new(RemoveFinishedUploadsMode.AtStartup, "Settings_Upload_RemoveFinished_AtStartup"),
+        new(RemoveFinishedUploadsMode.WhenPackageIsReady, "Settings_Upload_RemoveFinished_WhenPackageReady"),
     ];
 
-    public EnumOption<IfFileExistsBehavior>[] IfFileExistsOptions { get; } =
+    public LocalizedOption<IfFileExistsBehavior>[] IfFileExistsOptions { get; } =
     [
-        new(IfFileExistsBehavior.Ask, "Ask for each file"),
-        new(IfFileExistsBehavior.Skip, "Skip"),
-        new(IfFileExistsBehavior.Overwrite, "Overwrite"),
-        new(IfFileExistsBehavior.Rename, "Rename"),
+        new(IfFileExistsBehavior.Ask, "Settings_Upload_IfExists_Ask"),
+        new(IfFileExistsBehavior.Skip, "Settings_Upload_IfExists_Skip"),
+        new(IfFileExistsBehavior.Overwrite, "Settings_Upload_IfExists_Overwrite"),
+        new(IfFileExistsBehavior.Rename, "Settings_Upload_IfExists_Rename"),
     ];
 
-    public EnumOption<CloseAction>[] CloseActionOptions { get; } =
+    public LocalizedOption<AutostartUploadsMode>[] AutostartUploadsOptions { get; } =
     [
-        new(CloseAction.Ask, "Ask each time"),
-        new(CloseAction.MinimizeToTray, "Minimize to tray"),
-        new(CloseAction.Exit, "Exit the application"),
+        new(AutostartUploadsMode.Always, "Settings_Upload_Autostart_Always"),
+        new(AutostartUploadsMode.OnlyIfRunningAtLastSession, "Settings_Upload_Autostart_OnlyIfRunning"),
+        new(AutostartUploadsMode.Never, "Settings_Upload_Autostart_Never"),
+    ];
+
+    /// <summary>
+    /// Language picker options. Display names are in the language's own script so the
+    /// user can recognise their language before the rest of the UI is translated —
+    /// these stay literal (not pulled from the active resx) on purpose.
+    /// </summary>
+    public sealed record LanguageEntry(string Value, string Label);
+
+    public LanguageEntry[] LanguageOptions { get; } =
+    [
+        new("en", "English"),
+        new("zh-Hans", "中文 (简体)"),
+        new("ko", "한국어"),
+        new("ja", "日本語"),
+        new("vi", "Tiếng Việt"),
+        new("fil", "Filipino"),
+    ];
+
+    public LocalizedOption<CloseAction>[] CloseActionOptions { get; } =
+    [
+        new(CloseAction.Ask, "Settings_General_CloseAction_Ask"),
+        new(CloseAction.MinimizeToTray, "Settings_General_CloseAction_MinToTray"),
+        new(CloseAction.Exit, "Settings_General_CloseAction_Exit"),
     ];
 #pragma warning restore CA1822
 
@@ -259,6 +200,19 @@ public partial class SettingsViewModel(
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
+        _suppressAutoSave = true;
+        try
+        {
+            await LoadCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _suppressAutoSave = false;
+        }
+    }
+
+    private async Task LoadCoreAsync(CancellationToken cancellationToken)
+    {
         // Load settings
         SettingDto[] settings = await _settingRepository.GetAllAsync(cancellationToken);
 
@@ -302,14 +256,6 @@ public partial class SettingsViewModel(
 
                     break;
 
-                case var k when k == SettingKey.AutoRemoveCompletedFiles:
-                    AutoRemoveCompletedFiles = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-
-                case var k when k == SettingKey.AutoRemoveCompletedPackages:
-                    AutoRemoveCompletedPackages = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
-                    break;
-
                 case var k when k == SettingKey.GridFontFamily:
                     if (!string.IsNullOrWhiteSpace(setting.Value))
                     {
@@ -332,6 +278,18 @@ public partial class SettingsViewModel(
                         IfFileExists = existsBehavior;
                     }
 
+                    break;
+
+                case var k when k == SettingKey.AutostartUploads:
+                    if (Enum.TryParse(setting.Value, out AutostartUploadsMode autostartMode))
+                    {
+                        AutostartUploads = autostartMode;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.Language:
+                    Language = setting.Value ?? string.Empty;
                     break;
 
                 case var k when k == SettingKey.SpeedLimit:
@@ -366,6 +324,13 @@ public partial class SettingsViewModel(
                     _settings.AutoDisableFailingProxies = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.ProxiesEnabled:
+                    // Master switch for the proxy rotation; lives on the Connection page.
+                    // Hydrate AppSettings so ProxyManager.NextProxy sees the user's choice
+                    // even before the Connection Manager VM has loaded its UI state.
+                    _settings.ProxiesEnabled = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
                 case var k when k == SettingKey.SuppressedConfirmations:
                     _settings.SuppressedConfirmations.Clear();
                     if (!string.IsNullOrWhiteSpace(setting.Value))
@@ -385,19 +350,23 @@ public partial class SettingsViewModel(
         _settings.MaxUploadsPerHostEnabled = MaxUploadsPerHostEnabled;
         _settings.MaxUploadsPerHost = MaxUploadsPerHost;
         _settings.RemoveFinishedUploads = RemoveFinishedUploads;
-        _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
-        _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
         _settings.GridFontFamily = GridFontFamily;
         _settings.GridFontSize = GridFontSize;
         _settings.IfFileExists = IfFileExists;
+        _settings.AutostartUploads = AutostartUploads;
         _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
         _settings.UseMockServer = UseMockServer;
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
 
-        ApplyGridFontResources();
+        // Resolve the active UI language: saved value → fallback to OS detection if blank.
+        // Display the resolved tag on the dropdown so it always reflects what's in effect.
+        string resolved = Localizer.PickSupportedLanguage(Language);
+        Language = resolved;
+        _settings.Language = resolved;
+        Localizer.Instance.Culture = new CultureInfo(resolved);
 
-        _savedSnapshot = CaptureSnapshot();
+        ApplyGridFontResources();
 
         // Load accounts
         await LoadAccountsAsync(cancellationToken);
@@ -413,10 +382,10 @@ public partial class SettingsViewModel(
         }
 
         ConfirmationPrompts.Clear();
-        foreach ((string key, string label) in ConfirmationKeys.All)
+        foreach ((string key, string labelResourceKey) in ConfirmationKeys.All)
         {
             bool suppressed = _settings.SuppressedConfirmations.Contains(key);
-            SuppressedConfirmationItem item = new(key, label, askAgain: !suppressed);
+            SuppressedConfirmationItem item = new(key, labelResourceKey, askAgain: !suppressed);
             item.PropertyChanged += ConfirmationItem_PropertyChanged;
             ConfirmationPrompts.Add(item);
         }
@@ -436,7 +405,7 @@ public partial class SettingsViewModel(
 
         try
         {
-            app.Resources["GridFontFamily"] = new System.Windows.Media.FontFamily(GridFontFamily);
+            app.Resources["GridFontFamily"] = new FontFamily(GridFontFamily);
             app.Resources["GridFontSize"] = GridFontSize;
         }
         catch (Exception ex)
@@ -445,9 +414,147 @@ public partial class SettingsViewModel(
         }
     }
 
-    // Grid-font changes used to apply live as the user edited them. They now wait until
-    // the user clicks Save Settings — see SaveAsync. TryConfirmDiscardChanges handles the
-    // tab-switch case where edits would otherwise leak.
+    // ── Auto-save partial-method hooks ──
+    // Every editable property persists immediately on change (no Save button). The
+    // _suppressAutoSave guard short-circuits writes during LoadAsync so hydrating the
+    // VM doesn't round-trip through the DB.
+
+    partial void OnMaxConcurrentCPUJobsChanged(int value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.MaxConcurrentCPUJobs = value;
+        _ = AutoSaveAsync(SettingKey.MaxConcurrentCPUJobs, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnMaxConcurrentUploadJobsChanged(int value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.MaxConcurrentUploadJobs = value;
+        _ = AutoSaveAsync(SettingKey.MaxConcurrentUploadJobs, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnMaxUploadsPerHostEnabledChanged(bool value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.MaxUploadsPerHostEnabled = value;
+        _ = AutoSaveAsync(SettingKey.MaxUploadsPerHostEnabled, value ? "true" : "false");
+    }
+
+    partial void OnMaxUploadsPerHostChanged(int value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.MaxUploadsPerHost = value;
+        _ = AutoSaveAsync(SettingKey.MaxUploadsPerHost, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnRemoveFinishedUploadsChanged(RemoveFinishedUploadsMode value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.RemoveFinishedUploads = value;
+        _ = AutoSaveAsync(SettingKey.RemoveFinishedUploads, value.ToString());
+    }
+
+    partial void OnGridFontFamilyChanged(string value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.GridFontFamily = value;
+        ApplyGridFontResources();
+        _ = AutoSaveAsync(SettingKey.GridFontFamily, value);
+    }
+
+    partial void OnGridFontSizeChanged(double value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.GridFontSize = value;
+        ApplyGridFontResources();
+        _ = AutoSaveAsync(SettingKey.GridFontSize, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    partial void OnIfFileExistsChanged(IfFileExistsBehavior value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.IfFileExists = value;
+        _ = AutoSaveAsync(SettingKey.IfFileExists, value.ToString());
+    }
+
+    partial void OnAutostartUploadsChanged(AutostartUploadsMode value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.AutostartUploads = value;
+        _ = AutoSaveAsync(SettingKey.AutostartUploads, value.ToString());
+    }
+
+    partial void OnSpeedLimitEnabledChanged(bool value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.SpeedLimit = value ? SpeedLimitValue : null;
+        _ = AutoSaveAsync(SettingKey.SpeedLimit, value ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0");
+    }
+
+    partial void OnSpeedLimitValueChanged(int value)
+    {
+        if (_suppressAutoSave) return;
+        if (SpeedLimitEnabled)
+        {
+            _settings.SpeedLimit = value;
+        }
+
+        _ = AutoSaveAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? value.ToString(CultureInfo.InvariantCulture) : "0");
+    }
+
+    partial void OnUseMockServerChanged(bool value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.UseMockServer = value;
+        _ = AutoSaveAsync(SettingKey.UseMockServer, value ? "true" : "false");
+    }
+
+    partial void OnMinimizeToTrayChanged(bool value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.MinimizeToTray = value;
+        _trayIconManager?.UpdateVisibility();
+        _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
+    }
+
+    partial void OnCloseActionChanged(CloseAction value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.CloseAction = value;
+        _trayIconManager?.UpdateVisibility();
+        _ = AutoSaveAsync(SettingKey.CloseAction, value.ToString());
+    }
+
+    partial void OnLanguageChanged(string value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.Language = value;
+        // Apply immediately so the open Settings page (and every other tab) re-renders
+        // in the new language without a restart. Open dialogs keep whatever language
+        // they captured at construction.
+        try
+        {
+            Localizer.Instance.Culture = new CultureInfo(value);
+        }
+        catch (CultureNotFoundException ex)
+        {
+            _logger.Log(this, LogType.Error, $"Unknown language '{value}': {ex.Message}");
+        }
+
+        _ = AutoSaveAsync(SettingKey.Language, value);
+    }
+
+    private async Task AutoSaveAsync(string key, string value)
+    {
+        try
+        {
+            await SaveSettingAsync(key, value, default);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to auto-save '{key}': {ex.Message}");
+        }
+    }
 
     private async void ConfirmationItem_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -486,59 +593,43 @@ public partial class SettingsViewModel(
     }
 
     // ── Commands ──
+    // The "Save Settings" button is gone — every edit on the General/Upload pages
+    // auto-persists via the Onx­Changed partials above. The Connection page still has
+    // its own Save (handled by ConnectionManagerViewModel).
 
     [RelayCommand]
-    private async Task SaveAsync(CancellationToken cancellationToken = default)
+    private async Task ClearDatabaseAsync(CancellationToken cancellationToken = default)
     {
-        await SaveSettingAsync(SettingKey.MaxConcurrentCPUJobs, MaxConcurrentCPUJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.MaxConcurrentUploadJobs, MaxConcurrentUploadJobs.ToString(CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.MaxUploadsPerHostEnabled, MaxUploadsPerHostEnabled ? "true" : "false", cancellationToken);
-        await SaveSettingAsync(SettingKey.MaxUploadsPerHost, MaxUploadsPerHost.ToString(CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.RemoveFinishedUploads, RemoveFinishedUploads.ToString(), cancellationToken);
-        await SaveSettingAsync(SettingKey.AutoRemoveCompletedFiles, AutoRemoveCompletedFiles ? "true" : "false", cancellationToken);
-        await SaveSettingAsync(SettingKey.AutoRemoveCompletedPackages, AutoRemoveCompletedPackages ? "true" : "false", cancellationToken);
-        await SaveSettingAsync(SettingKey.GridFontFamily, GridFontFamily, cancellationToken);
-        await SaveSettingAsync(SettingKey.GridFontSize, GridFontSize.ToString(CultureInfo.InvariantCulture), cancellationToken);
-        await SaveSettingAsync(SettingKey.IfFileExists, IfFileExists.ToString(), cancellationToken);
-        await SaveSettingAsync(SettingKey.SpeedLimit, SpeedLimitEnabled ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0", cancellationToken);
-        await SaveSettingAsync(SettingKey.UseMockServer, UseMockServer ? "true" : "false", cancellationToken);
-        await SaveSettingAsync(SettingKey.MinimizeToTray, MinimizeToTray ? "true" : "false", cancellationToken);
-        await SaveSettingAsync(SettingKey.CloseAction, CloseAction.ToString(), cancellationToken);
+        if (_uploadPackageRepository is null)
+        {
+            return;
+        }
 
-        _settings.MaxConcurrentCPUJobs = MaxConcurrentCPUJobs;
-        _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
-        _settings.MaxUploadsPerHostEnabled = MaxUploadsPerHostEnabled;
-        _settings.MaxUploadsPerHost = MaxUploadsPerHost;
-        _settings.RemoveFinishedUploads = RemoveFinishedUploads;
-        _settings.AutoRemoveCompletedFiles = AutoRemoveCompletedFiles;
-        _settings.AutoRemoveCompletedPackages = AutoRemoveCompletedPackages;
-        _settings.GridFontFamily = GridFontFamily;
-        _settings.GridFontSize = GridFontSize;
-        _settings.IfFileExists = IfFileExists;
-        _settings.SpeedLimit = SpeedLimitEnabled ? SpeedLimitValue : null;
-        _settings.UseMockServer = UseMockServer;
-        _settings.MinimizeToTray = MinimizeToTray;
-        _settings.CloseAction = CloseAction;
+        if (!_dialogService.ShowConfirmation(
+                Loc("Settings_General_Database_ConfirmMessage"),
+                Loc("Settings_General_Database_ConfirmTitle")))
+        {
+            return;
+        }
 
-        ApplyGridFontResources();
-
-        // The tray icon's visibility depends on MinimizeToTray and CloseAction; resync
-        // it now that the live AppSettings reflect the saved values.
-        _trayIconManager?.UpdateVisibility();
-
-        _savedSnapshot = CaptureSnapshot();
-
-        SaveStatus = "Saved";
         try
         {
-            await Task.Delay(1500, cancellationToken);
-        }
-        catch (TaskCanceledException)
-        {
-            // ignored: cancellation just means we drop the auto-clear
-        }
+            (int filesDeleted, int packagesDeleted) =
+                await _uploadPackageRepository.DeleteHiddenHistoryAsync(cancellationToken);
 
-        SaveStatus = string.Empty;
+            if (filesDeleted == 0 && packagesDeleted == 0)
+            {
+                _logger.Log(this, LogType.Status, Loc("Settings_General_Database_Status_NothingToClear"));
+            }
+            else
+            {
+                _logger.Log(this, LogType.Status, LocF("Settings_General_Database_Status_Cleared_Format", filesDeleted, packagesDeleted));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Clear database failed: {ex.Message}");
+        }
     }
 
     [RelayCommand]
@@ -553,7 +644,7 @@ public partial class SettingsViewModel(
 
         var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters)
         {
-            Title = "Add Account",
+            Title = Loc("EditAccount_AddTitle"),
             Owner = System.Windows.Application.Current.MainWindow,
         };
 
@@ -570,7 +661,7 @@ public partial class SettingsViewModel(
         if (client is not null)
         {
             IsCheckingAccount = true;
-            CheckAccountStatus = "Verifying credentials...";
+            CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
 
             try
             {
@@ -581,18 +672,18 @@ public partial class SettingsViewModel(
                 if (result.IsValid)
                 {
                     dto.AccountType = result.AccountType;
-                    dto.StatusMessage = result.Message ?? "OK";
-                    CheckAccountStatus = $"Verified: {result.Message}";
+                    dto.StatusMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+                    CheckAccountStatus = LocF("Settings_Accounts_Status_Verified_Format", result.Message);
                 }
                 else
                 {
-                    dto.StatusMessage = result.Message ?? "Failed";
-                    CheckAccountStatus = $"Warning: {result.Message}";
+                    dto.StatusMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
+                    CheckAccountStatus = LocF("Settings_Accounts_Status_Warning_Format", result.Message);
                 }
             }
             catch (Exception ex)
             {
-                CheckAccountStatus = $"Check error: {ex.Message}";
+                CheckAccountStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
             }
             finally
             {
@@ -604,7 +695,7 @@ public partial class SettingsViewModel(
         string newStatus = dto.StatusMessage;
 
         await _accountRepository.InsertAsync(dto);
-        CheckAccountStatus = $"Account added for {dto.FileHosterName}!";
+        CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", dto.FileHosterName);
         await LoadAccountsAsync();
         ApplyStatusMap(statuses);
 
@@ -619,12 +710,12 @@ public partial class SettingsViewModel(
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task RefreshAllAccountsAsync(CancellationToken cancellationToken = default)
     {
         if (Accounts.Count == 0)
         {
-            CheckAccountStatus = "No accounts to refresh.";
+            CheckAccountStatus = Loc("Settings_Accounts_Status_NoAccountsToRefresh");
             return;
         }
 
@@ -636,15 +727,15 @@ public partial class SettingsViewModel(
 
         foreach (FileHosterLoginDto account in Accounts.ToArray())
         {
-            CheckAccountStatus = $"Checking {account.Username}@{account.FileHosterName}... ({++checked_}/{Accounts.Count})";
-            UpdateAccountStatus(account.Id, "Checking...");
+            CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", account.Username, account.FileHosterName, ++checked_, Accounts.Count);
+            UpdateAccountStatus(account.Id, Loc("Settings_Accounts_Status_CheckingShort"));
             await Task.Yield();
 
             var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
             {
-                statuses[account.Id] = "No implementation";
-                UpdateAccountStatus(account.Id, "No implementation");
+                statuses[account.Id] = Loc("Settings_Accounts_Status_NoImpl");
+                UpdateAccountStatus(account.Id, Loc("Settings_Accounts_Status_NoImpl"));
                 continue;
             }
 
@@ -657,7 +748,7 @@ public partial class SettingsViewModel(
 
                 if (result.IsValid)
                 {
-                    statuses[account.Id] = result.Message ?? "OK";
+                    statuses[account.Id] = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
                     if (account.AccountType != result.AccountType)
                     {
                         account.AccountType = result.AccountType;
@@ -666,14 +757,14 @@ public partial class SettingsViewModel(
                 }
                 else
                 {
-                    statuses[account.Id] = result.Message ?? "Failed";
+                    statuses[account.Id] = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
                 }
 
                 await _accountRepository.UpdateAsync(account, cancellationToken);
             }
             catch (Exception ex)
             {
-                statuses[account.Id] = $"Error: {ex.Message}";
+                statuses[account.Id] = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
             }
 
             UpdateAccountStatus(account.Id, statuses[account.Id]);
@@ -683,27 +774,27 @@ public partial class SettingsViewModel(
         await LoadAccountsAsync(cancellationToken);
         ApplyStatusMap(statuses);
 
-        CheckAccountStatus = $"Refreshed {checked_} accounts. {updated} updated.";
+        CheckAccountStatus = LocF("Settings_Accounts_Status_RefreshSummary_Format", checked_, updated);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task CheckAccountAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
         {
-            _dialogService.ShowError("Please fill in the file hoster and username.");
+            _dialogService.ShowError(Loc("Settings_Accounts_Validation_FillHosterUser"));
             return;
         }
 
         IsCheckingAccount = true;
-        CheckAccountStatus = "Checking account...";
+        CheckAccountStatus = Loc("Settings_Accounts_Status_Checking");
 
         try
         {
             var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
             if (client is null)
             {
-                CheckAccountStatus = $"No implementation for {NewAccountHoster}. Account will be saved without verification.";
+                CheckAccountStatus = LocF("Settings_Accounts_Status_NoImplWillSave_Format", NewAccountHoster);
                 return;
             }
 
@@ -712,16 +803,16 @@ public partial class SettingsViewModel(
             if (result.IsValid)
             {
                 NewAccountType = result.AccountType;
-                CheckAccountStatus = $"Valid! {result.Message}";
+                CheckAccountStatus = LocF("Settings_Accounts_Status_ValidExclaim_Format", result.Message);
             }
             else
             {
-                CheckAccountStatus = $"Failed: {result.Message}";
+                CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
             }
         }
         catch (Exception ex)
         {
-            CheckAccountStatus = $"Error: {ex.Message}";
+            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
         }
         finally
         {
@@ -732,9 +823,11 @@ public partial class SettingsViewModel(
     [RelayCommand]
     private async Task AddAccountAsync(CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
+        if (string.IsNullOrWhiteSpace(NewAccountHoster)
+            || string.IsNullOrWhiteSpace(NewAccountUsername)
+            || string.IsNullOrWhiteSpace(NewAccountPassword))
         {
-            _dialogService.ShowError("Please fill in the file hoster and username.");
+            _dialogService.ShowError(Loc("Settings_Accounts_Validation_FillHosterUser"));
             return;
         }
 
@@ -743,7 +836,7 @@ public partial class SettingsViewModel(
         if (client is not null)
         {
             IsCheckingAccount = true;
-            CheckAccountStatus = "Verifying credentials...";
+            CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
 
             try
             {
@@ -751,12 +844,12 @@ public partial class SettingsViewModel(
                 if (result.IsValid)
                 {
                     NewAccountType = result.AccountType;
-                    CheckAccountStatus = $"Verified: {result.Message}";
+                    CheckAccountStatus = LocF("Settings_Accounts_Status_Verified_Format", result.Message);
                 }
                 else
                 {
-                    CheckAccountStatus = $"Warning: {result.Message}";
-                    if (!_dialogService.ShowConfirmation($"Account check failed: {result.Message}\n\nAdd anyway?", "Account Check"))
+                    CheckAccountStatus = LocF("Settings_Accounts_Status_Warning_Format", result.Message);
+                    if (!_dialogService.ShowConfirmation(LocF("Settings_Accounts_Check_FailedAddAnyway_Format", result.Message), Loc("Settings_Accounts_Check_DialogTitle")))
                     {
                         IsCheckingAccount = false;
                         return;
@@ -765,8 +858,8 @@ public partial class SettingsViewModel(
             }
             catch (Exception ex)
             {
-                CheckAccountStatus = $"Check error: {ex.Message}";
-                if (!_dialogService.ShowConfirmation($"Could not verify account: {ex.Message}\n\nAdd anyway?", "Account Check"))
+                CheckAccountStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
+                if (!_dialogService.ShowConfirmation(LocF("Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format", ex.Message), Loc("Settings_Accounts_Check_DialogTitle")))
                 {
                     IsCheckingAccount = false;
                     return;
@@ -788,14 +881,14 @@ public partial class SettingsViewModel(
 
         await _accountRepository.InsertAsync(dto, cancellationToken);
 
-        CheckAccountStatus = $"Account added for {NewAccountHoster}!";
+        CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", NewAccountHoster);
         NewAccountUsername = string.Empty;
         NewAccountPassword = string.Empty;
 
         await LoadAccountsAsync(cancellationToken);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task RemoveAccountAsync(CancellationToken cancellationToken = default)
     {
         if (SelectedAccount is null)
@@ -803,7 +896,10 @@ public partial class SettingsViewModel(
             return;
         }
 
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveFileHosterAccount, $"Remove account '{SelectedAccount.Username}' for {SelectedAccount.FileHosterName}?", "Remove Account"))
+        if (!_dialogService.ShowOptOutConfirmation(
+                ConfirmationKeys.RemoveFileHosterAccount,
+                LocF("Settings_Accounts_Remove_Message_Format", SelectedAccount.Username, SelectedAccount.FileHosterName),
+                Loc("Settings_Accounts_Remove_Title")))
         {
             return;
         }
@@ -839,7 +935,12 @@ public partial class SettingsViewModel(
         await LoadAccountsAsync();
     }
 
-    [RelayCommand]
+    // AllowConcurrentExecutions on every async-but-context-menu command on this VM —
+    // CommunityToolkit's default AsyncRelayCommand makes CanExecute=!IsRunning, so a
+    // single hung Rapidgator API call would leave the context-menu entries permanently
+    // greyed out for the rest of the session. Save/Add stay non-concurrent because
+    // they'd otherwise double-insert.
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task RefreshAccountAsync(CancellationToken cancellationToken = default)
     {
         if (SelectedAccount is null)
@@ -850,7 +951,7 @@ public partial class SettingsViewModel(
         var client = FileHosterClient.FindByHost(SelectedAccount.FileHosterName ?? string.Empty, Protocol.Http, _logger);
         if (client is null)
         {
-            CheckAccountStatus = $"No implementation for {SelectedAccount.FileHosterName}. Cannot check.";
+            CheckAccountStatus = LocF("Settings_Accounts_Status_NoImpl_Format", SelectedAccount.FileHosterName);
             return;
         }
 
@@ -861,10 +962,10 @@ public partial class SettingsViewModel(
         string password = account.Password ?? string.Empty;
 
         IsCheckingAccount = true;
-        CheckAccountStatus = $"Checking {username}@{account.FileHosterName}...";
+        CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", username, account.FileHosterName, 1, 1);
 
         // Show "Checking..." in the DataGrid immediately and yield to let UI render
-        UpdateAccountStatus(accountId, "Checking...");
+        UpdateAccountStatus(accountId, Loc("Settings_Accounts_Status_CheckingShort"));
         await Task.Yield();
 
         try
@@ -875,13 +976,13 @@ public partial class SettingsViewModel(
             if (result.IsValid)
             {
                 account.AccountType = result.AccountType;
-                statusMsg = result.Message ?? "OK";
-                CheckAccountStatus = $"Valid: {result.Message}";
+                statusMsg = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+                CheckAccountStatus = LocF("Settings_Accounts_Status_Valid_Format", result.Message);
             }
             else
             {
-                statusMsg = result.Message ?? "Failed";
-                CheckAccountStatus = $"Failed: {result.Message}";
+                statusMsg = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
+                CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
             }
 
             await _accountRepository.UpdateAsync(account, cancellationToken);
@@ -894,7 +995,7 @@ public partial class SettingsViewModel(
         }
         catch (Exception ex)
         {
-            CheckAccountStatus = $"Error: {ex.Message}";
+            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
         }
         finally
         {
@@ -902,7 +1003,7 @@ public partial class SettingsViewModel(
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task ToggleAccountAsync(string? parameter, CancellationToken cancellationToken = default)
     {
         if (SelectedAccount is null)
@@ -911,7 +1012,7 @@ public partial class SettingsViewModel(
         }
 
         bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
-        string username = SelectedAccount.Username ?? "unknown";
+        string username = SelectedAccount.Username ?? Loc("Common_Unknown");
         SelectedAccount.Disabled = disable;
         await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
 
@@ -920,8 +1021,8 @@ public partial class SettingsViewModel(
         ApplyStatusMap(statuses);
 
         CheckAccountStatus = disable
-            ? $"Account '{username}' disabled."
-            : $"Account '{username}' enabled.";
+            ? LocF("Settings_Accounts_Status_AccountDisabled_Format", username)
+            : LocF("Settings_Accounts_Status_AccountEnabled_Format", username);
     }
 
     // ── Helpers for preserving StatusMessage across reloads ──

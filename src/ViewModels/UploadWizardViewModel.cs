@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -65,7 +66,9 @@ public partial class UploadWizardViewModel(
 
     public bool IsLastStep => CurrentStep == 3;
 
-    public string NextButtonText => IsLastStep ? "Add" : "Next";
+    public string NextButtonText => IsLastStep
+        ? Localizer.Instance["Wizard_Btn_Add"]
+        : Localizer.Instance["Wizard_Btn_Next"];
 
     [ObservableProperty]
     private bool completed;
@@ -80,7 +83,7 @@ public partial class UploadWizardViewModel(
     {
         string? folder = _dialogService.BrowseFolder(
             string.IsNullOrEmpty(DirectoryPath) ? null : DirectoryPath,
-            "Select Upload Directory");
+            Localizer.Instance["Wizard_Step0_BrowseDialogTitle"]);
 
         if (folder is not null)
         {
@@ -95,7 +98,7 @@ public partial class UploadWizardViewModel(
         {
             if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
             {
-                _dialogService.ShowError("Please select a valid directory.");
+                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
                 return;
             }
 
@@ -106,7 +109,7 @@ public partial class UploadWizardViewModel(
         {
             if (!Files.Any(f => f.IsSelected))
             {
-                _dialogService.ShowError("Please select at least one file.");
+                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickFile"]);
                 return;
             }
 
@@ -133,6 +136,45 @@ public partial class UploadWizardViewModel(
         {
             CurrentStep--;
         }
+    }
+
+    [RelayCommand]
+    private async Task AddAccountForHosterAsync(FileHosterSelectionViewModel? hoster)
+    {
+        if (hoster is null)
+        {
+            return;
+        }
+
+        string[] availableHosters = [hoster.FileHosterName];
+        FileHosterLoginDto? result = _dialogService.ShowAddAccountDialog(
+            hoster.FileHosterName,
+            availableHosters,
+            Localizer.Instance["EditAccount_AddTitle"]);
+
+        if (result is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _fileHosterLoginRepository.InsertAsync(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to save new {hoster.FileHosterName} account: {ex}");
+            _dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            return;
+        }
+
+        FileHosterLoginDto[] accounts = await _fileHosterLoginRepository.FindAsync(hoster.FileHosterName);
+        hoster.SetAccounts(accounts);
+
+        // Auto-tick "Use" now that an account exists — saves the user a click and
+        // matches the flow they were already in (they clicked "Add account…" because
+        // they wanted to upload to this hoster).
+        hoster.Use = true;
     }
 
     [RelayCommand]
@@ -252,7 +294,7 @@ public partial class UploadWizardViewModel(
 
         if (options.FileHosters.Count == 0)
         {
-            _dialogService.ShowError("Please select at least one file hoster.");
+            _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickHoster"]);
             return false;
         }
 
@@ -288,7 +330,7 @@ public partial class UploadWizardViewModel(
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Failed to add upload job: {ex}");
-            _dialogService.ShowError($"Error: {ex.Message}");
+            _dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return false;
         }
     }

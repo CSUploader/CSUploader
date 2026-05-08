@@ -21,8 +21,8 @@ public class ProxyManager
 {
     /// <summary>
     /// Static accessor for code paths that aren't on the DI graph yet
-    /// (e.g. <see cref="CSUploader.Upload.FileHosterClient.FindByHost"/>'s factories).
-    /// Mirrors the <see cref="CSUploader.Upload.AppSettings.Current"/> pattern.
+    /// (e.g. <see cref="Upload.FileHosterClient.FindByHost"/>'s factories).
+    /// Mirrors the <see cref="Upload.AppSettings.Current"/> pattern.
     /// </summary>
     public static ProxyManager? Current { get; set; }
 
@@ -42,7 +42,9 @@ public class ProxyManager
 
     /// <summary>
     /// Reloads the proxy list from the database. Called at startup and after the
-    /// Connection Manager UI saves changes.
+    /// Connection Manager UI saves changes. FileHosterClients pick up the new state
+    /// on their next upload attempt (they build a fresh HttpHandler each time), so no
+    /// extra "rotation reloaded" plumbing is needed.
     /// </summary>
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
@@ -80,11 +82,18 @@ public class ProxyManager
     }
 
     /// <summary>
-    /// Returns the next proxy in the rotation, or <c>null</c> if no proxies are enabled
-    /// or the next entry is a sentinel "No Proxy" / direct connection.
+    /// Returns the next proxy in the rotation, or <c>null</c> if no proxies are enabled,
+    /// the next entry is a sentinel "No Proxy" / direct connection, or the master
+    /// <see cref="Upload.AppSettings.ProxiesEnabled"/> switch is off (the user
+    /// configured proxies but doesn't want them used yet).
     /// </summary>
     public ProxySettingDto? NextProxy()
     {
+        if (Upload.AppSettings.Current?.ProxiesEnabled == false)
+        {
+            return null;
+        }
+
         lock (_lock)
         {
             if (_proxies.Count == 0)

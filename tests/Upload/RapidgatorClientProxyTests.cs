@@ -14,11 +14,12 @@ using Moq;
 namespace CSUploader.Tests.Upload;
 
 /// <summary>
-/// Verifies that <see cref="RapidgatorClient"/> participates in the proxy rotation:
-/// new clients pick the next proxy from <see cref="ProxyManager.Current"/>, and a call
-/// to <see cref="RapidgatorClient.RefreshConnection"/> advances to the proxy after that
-/// — the path retried-after-failure uploads take.
+/// Verifies that <see cref="RapidgatorClient"/> participates in the proxy rotation.
+/// HttpHandler is built lazily — each <c>PrepareHttpHandler</c> call (which is what the
+/// public CheckAccountAsync / UploadAsync entry points invoke internally) advances to
+/// the next proxy from <see cref="ProxyManager.Current"/>.
 /// </summary>
+[Collection(nameof(AppSettingsCollection))]
 public class RapidgatorClientProxyTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -56,8 +57,13 @@ public class RapidgatorClientProxyTests : IDisposable
     }
 
     [Fact]
-    public async Task Construction_WithNoProxies_LeavesActiveProxyIdZero()
+    public async Task Construction_DoesNotPickProxyUntilRefreshOrUpload()
     {
+        // Lazy-build semantics: HttpHandler isn't built until the client actually starts
+        // an upload (or a manual PrepareHttpHandler). This is what lets a queued file
+        // pick up "Use proxies for uploads" toggling off without any explicit refresh.
+        ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
+        await _repo.InsertAsync(a);
         await _manager.ReloadAsync();
 
         RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
@@ -66,19 +72,20 @@ public class RapidgatorClientProxyTests : IDisposable
     }
 
     [Fact]
-    public async Task Construction_PicksFirstProxyFromRotation()
+    public async Task PrepareHttpHandler_AfterConstruction_PicksFirstProxyFromRotation()
     {
         ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
         await _repo.InsertAsync(a);
         await _manager.ReloadAsync();
 
         RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
+        client.PrepareHttpHandler();
 
         Assert.Equal(a.Id, client.ActiveProxyId);
     }
 
     [Fact]
-    public async Task TwoSequentialClients_RoundRobinAcrossProxies()
+    public async Task ThreeSequentialRefreshes_RoundRobinAcrossProxies()
     {
         ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
         ProxySettingDto b = new() { Type = ProxyType.Http, Host = "b", Port = 2, Enabled = true, Priority = 1 };
@@ -89,6 +96,9 @@ public class RapidgatorClientProxyTests : IDisposable
         RapidgatorClient client1 = new(Protocol.Http, Mock.Of<IAppLogger>());
         RapidgatorClient client2 = new(Protocol.Http, Mock.Of<IAppLogger>());
         RapidgatorClient client3 = new(Protocol.Http, Mock.Of<IAppLogger>());
+        client1.PrepareHttpHandler();
+        client2.PrepareHttpHandler();
+        client3.PrepareHttpHandler();
 
         Assert.Equal(a.Id, client1.ActiveProxyId);
         Assert.Equal(b.Id, client2.ActiveProxyId);
@@ -97,10 +107,41 @@ public class RapidgatorClientProxyTests : IDisposable
     }
 
     [Fact]
-    public async Task RefreshConnection_AdvancesToNextProxy()
+    public async Task PrepareHttpHandler_AfterProxiesEnabledTurnsOff_DropsActiveProxy()
     {
-        // The exact scenario from the user's report: a failed upload's retry should
-        // pick a different proxy so a dead proxy doesn't poison every retry.
+        // Regression: queued files should pick up the master "Use proxies for uploads"
+        // toggle flipping off. With the lazy-build refactor this is automatic — the
+        // first PrepareHttpHandler (or the next upload attempt) builds against the
+        // current ProxyManager state.
+        AppSettings previous = AppSettings.Current;
+        AppSettings.Current = new AppSettings { ProxiesEnabled = true };
+        try
+        {
+            ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
+            await _repo.InsertAsync(a);
+            await _manager.ReloadAsync();
+
+            RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
+            client.PrepareHttpHandler();
+            Assert.Equal(a.Id, client.ActiveProxyId);
+
+            // User flips the master switch off and saves.
+            AppSettings.Current.ProxiesEnabled = false;
+            client.PrepareHttpHandler();
+
+            Assert.Equal(0, client.ActiveProxyId);
+        }
+        finally
+        {
+            AppSettings.Current = previous;
+        }
+    }
+
+    [Fact]
+    public async Task PrepareHttpHandler_AdvancesToNextProxy()
+    {
+        // Failed-upload retry path: each PrepareHttpHandler picks the next proxy in
+        // rotation, so a bad proxy doesn't poison every retry.
         ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
         ProxySettingDto b = new() { Type = ProxyType.Http, Host = "b", Port = 2, Enabled = true, Priority = 1 };
         await _repo.InsertAsync(a);
@@ -108,15 +149,16 @@ public class RapidgatorClientProxyTests : IDisposable
         await _manager.ReloadAsync();
 
         RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
+        client.PrepareHttpHandler();
         Assert.Equal(a.Id, client.ActiveProxyId);
 
-        client.RefreshConnection();
+        client.PrepareHttpHandler();
 
         Assert.Equal(b.Id, client.ActiveProxyId);
     }
 
     [Fact]
-    public async Task RefreshConnection_WrapsAroundAfterAllProxiesUsed()
+    public async Task PrepareHttpHandler_WrapsAroundAfterAllProxiesUsed()
     {
         ProxySettingDto a = new() { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true, Priority = 0 };
         ProxySettingDto b = new() { Type = ProxyType.Http, Host = "b", Port = 2, Enabled = true, Priority = 1 };
@@ -125,19 +167,20 @@ public class RapidgatorClientProxyTests : IDisposable
         await _manager.ReloadAsync();
 
         RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
-        client.RefreshConnection();   // -> b
-        client.RefreshConnection();   // wraps -> a
+        client.PrepareHttpHandler();   // -> a
+        client.PrepareHttpHandler();   // -> b
+        client.PrepareHttpHandler();   // wraps -> a
 
         Assert.Equal(a.Id, client.ActiveProxyId);
     }
 
     [Fact]
-    public async Task RefreshConnection_WhenNoProxiesConfigured_LeavesActiveProxyIdZero()
+    public async Task PrepareHttpHandler_WhenNoProxiesConfigured_LeavesActiveProxyIdZero()
     {
         await _manager.ReloadAsync();
 
         RapidgatorClient client = new(Protocol.Http, Mock.Of<IAppLogger>());
-        client.RefreshConnection();
+        client.PrepareHttpHandler();
 
         Assert.Equal(0, client.ActiveProxyId);
     }

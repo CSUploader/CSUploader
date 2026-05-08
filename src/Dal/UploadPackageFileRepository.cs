@@ -36,23 +36,20 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
     }
 
     /// <summary>
-/// Returns every file that has reached a terminal state (Completed/Failed/Cancelled)
-/// together with its owning package name, regardless of whether the package itself
-/// has been marked <c>IsCompleted</c>. Used by the Uploaded tab so files appear as
-/// soon as they finish, not only when the whole package finishes.
-/// </summary>
+    /// Returns every file that has successfully uploaded together with its owning package
+    /// name, regardless of whether the package itself has been marked <c>IsCompleted</c>.
+    /// Used by the Uploaded tab so files appear as soon as they finish, not only when the
+    /// whole package finishes. Failed/Cancelled rows are intentionally excluded — those have
+    /// no URL and the user re-tries them from the Uploads tab; the Uploaded tab is the
+    /// "successful uploads with URLs" history.
+    /// </summary>
     public async Task<(UploadPackageFileDto File, string PackageName)[]> GetDoneFilesWithPackageNameAsync(CancellationToken ct = default)
     {
-        int[] terminalStates =
-        [
-            (int)FileState.Completed,
-            (int)FileState.Failed,
-            (int)FileState.Cancelled,
-        ];
+        int completed = (int)FileState.Completed;
 
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
         var rows = await db.Set<UploadPackageFileDbm>()
-            .Where(f => terminalStates.Contains(f.State) && !f.IsHidden)
+            .Where(f => f.State == completed && !f.IsHidden)
             .Join(
                 db.Set<UploadPackageDbm>(),
                 f => f.PackageId,
@@ -87,6 +84,21 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         }
     }
 
+    /// <summary>
+    /// Persists the hex-encoded hash + the IsHashingComplete flag once a hoster's pre-upload
+    /// hashing pass finishes successfully. Separate from <see cref="UpdateStateAsync"/> so we
+    /// don't widen its signature for a column only some hosters touch.
+    /// </summary>
+    public async Task UpdateHashAsync(int fileId, string fileHash, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageFileDbm>()
+            .Where(f => f.Id == fileId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(f => f.FileHash, fileHash)
+                .SetProperty(f => f.IsHashingComplete, true), ct);
+    }
+
     public async Task UpdateFinishedAsync(int fileId, DateTime finishedDateTime, string? fileUrl, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
@@ -111,6 +123,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         State = (FileState)entity.State,
         Error = entity.Error,
         IsHashingComplete = entity.IsHashingComplete,
+        FileHash = entity.FileHash,
         FileHosterLoginId = entity.FileHosterLoginId,
         Priority = entity.Priority,
         SortOrder = entity.SortOrder,
@@ -133,6 +146,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.State = (FileState)entity.State;
         dto.Error = entity.Error;
         dto.IsHashingComplete = entity.IsHashingComplete;
+        dto.FileHash = entity.FileHash;
         dto.FileHosterLoginId = entity.FileHosterLoginId;
         dto.Priority = entity.Priority;
         dto.SortOrder = entity.SortOrder;
@@ -155,6 +169,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         State = (int)dto.State,
         Error = dto.Error,
         IsHashingComplete = dto.IsHashingComplete,
+        FileHash = dto.FileHash,
         FileHosterLoginId = dto.FileHosterLoginId,
         Priority = dto.Priority,
         SortOrder = dto.SortOrder,

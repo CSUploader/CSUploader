@@ -396,3 +396,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Claude Code runtime state (per-session lock)
+.claude/scheduled_tasks.lock

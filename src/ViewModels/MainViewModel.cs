@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Update;
 using CSUploader.Upload;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,17 +21,12 @@ public partial class MainViewModel : ObservableObject
 {
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
 
-    // Index of the Settings tab in MainWindow.xaml's TabControl. If tabs are reordered
-    // there, update this constant — the unsaved-changes prompt keys off it.
-    private const int SettingsTabIndex = 2;
-
     private readonly IServiceProvider _services;
     private readonly IAppLogger _logger;
     private readonly IUpdateService _updateService;
     private readonly DispatcherTimer? _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
-    private bool _suppressTabRevert;
 
     [ObservableProperty]
     private int selectedTabIndex;
@@ -48,50 +44,16 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private string? availableVersion;
 
-    public string ThemeMenuLabel => IsDarkMode ? "_Light Mode" : "_Dark Mode";
+    public string ThemeMenuLabel => IsDarkMode
+        ? Localizer.Instance["Main_Menu_View_LightMode"]
+        : Localizer.Instance["Main_Menu_View_DarkMode"];
 
     public string WindowTitle => IsUpdateAvailable
-        ? $"CSUploader — Update available (v{AvailableVersion}) — click Help → Install Update"
-        : "CSUploader";
+        ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_Title_UpdateAvailable_Format"], AvailableVersion)
+        : Localizer.Instance["Main_Title"];
 
     [RelayCommand]
     private void ToggleTheme() => IsDarkMode = !IsDarkMode;
-
-    /// <summary>
-    /// Intercepts tab navigation away from Settings to warn about unsaved changes. The
-    /// MVVM-Toolkit source generator emits this partial as a post-change hook, so the
-    /// switch has already happened — if the user declines we flip the tab back. The
-    /// revert is dispatched at Background priority because WPF's binding system drops
-    /// re-entrant value changes that happen synchronously during a TabControl's own
-    /// SelectionChanged handling. The guard prevents the deferred revert from
-    /// re-triggering this same handler.
-    /// </summary>
-    partial void OnSelectedTabIndexChanged(int oldValue, int newValue)
-    {
-        if (_suppressTabRevert)
-        {
-            return;
-        }
-
-        if (oldValue == SettingsTabIndex && newValue != SettingsTabIndex
-            && !SettingsViewModel.TryConfirmDiscardChanges())
-        {
-            Application.Current?.Dispatcher.BeginInvoke(
-                () =>
-                {
-                    _suppressTabRevert = true;
-                    try
-                    {
-                        SelectedTabIndex = oldValue;
-                    }
-                    finally
-                    {
-                        _suppressTabRevert = false;
-                    }
-                },
-                DispatcherPriority.Background);
-        }
-    }
 
     public MainViewModel(IServiceProvider services)
     {
@@ -106,6 +68,14 @@ public partial class MainViewModel : ObservableObject
         LogsViewModel = services.GetRequiredService<LogsViewModel>();
 
         _logger.OnLogOutput += Logger_OnLogOutput;
+
+        // ThemeMenuLabel and WindowTitle read from Localizer; refresh them when culture
+        // flips so the menu/title text updates live alongside the {loc:Loc} bindings.
+        Localizer.Instance.PropertyChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ThemeMenuLabel));
+            OnPropertyChanged(nameof(WindowTitle));
+        };
 
         // DispatcherTimer is null when the WPF dispatcher isn't running (e.g. unit tests).
         if (Application.Current?.Dispatcher is { } dispatcher)
@@ -179,16 +149,16 @@ public partial class MainViewModel : ObservableObject
         Progress<int> progress = new(p => window.SetProgress(p));
         try
         {
-            window.SetStatus($"Downloading update v{_availableUpdate.NewVersion}…");
+            window.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));
             await _updateService.DownloadAsync(_availableUpdate, progress).ConfigureAwait(true);
 
-            window.SetStatus("Restarting…");
+            window.SetStatus(Localizer.Instance["UpdateProgress_StatusRestarting"]);
             _updateService.ApplyAndRestart(_availableUpdate);
         }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Update install failed: {ex.Message}");
-            window.SetStatus($"Update failed: {ex.Message}");
+            window.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusFailed_Format"], ex.Message));
         }
     }
 

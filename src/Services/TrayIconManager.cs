@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Upload;
 using Application = System.Windows.Application;
 
@@ -74,8 +75,8 @@ public sealed class TrayIconManager : IDisposable
         {
             _notifyIcon.ShowBalloonTip(
                 3000,
-                "CSUploader",
-                "Still running in the tray. Click the icon to restore the window, or right-click for Exit.",
+                Localizer.Instance["Tray_Balloon_Title"],
+                Localizer.Instance["Tray_Balloon_Body"],
                 ToolTipIcon.Info);
         }
         catch (Exception ex)
@@ -132,7 +133,7 @@ public sealed class TrayIconManager : IDisposable
             _notifyIcon = new NotifyIcon
             {
                 Icon = LoadAppIcon(),
-                Text = "CSUploader",
+                Text = Localizer.Instance["Tray_Tooltip"],
                 Visible = true,
             };
 
@@ -140,11 +141,11 @@ public sealed class TrayIconManager : IDisposable
             _notifyIcon.DoubleClick += (_, _) => ShowMainWindow();
 
             ContextMenuStrip menu = new();
-            ToolStripMenuItem showItem = new("Show CSUploader");
+            ToolStripMenuItem showItem = new(Localizer.Instance["Tray_Menu_Show"]);
             showItem.Click += (_, _) => ShowMainWindow();
             menu.Items.Add(showItem);
             menu.Items.Add(new ToolStripSeparator());
-            ToolStripMenuItem exitItem = new("Exit");
+            ToolStripMenuItem exitItem = new(Localizer.Instance["Tray_Menu_Exit"]);
             exitItem.Click += (_, _) => ExitApplication();
             menu.Items.Add(exitItem);
             _notifyIcon.ContextMenuStrip = menu;

@@ -433,6 +433,15 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
+    /// Aggregated <see cref="PackageFile.FileHash"/> for unified DataGrid bindings; empty
+    /// for package rows because the per-file rows already show the individual hashes (the
+    /// XAML trigger collapses this on package rows the same way it does for the URL column).
+    /// </summary>
+#pragma warning disable CA1822 // Must be instance for {Binding FileHash} to resolve via the row's DataContext.
+    public string FileHash => string.Empty;
+#pragma warning restore CA1822
+
+    /// <summary>
     /// Gets or sets the file path of the file on disk.
     /// </summary>
     public string? SaveFrom { get; set; } = options.DirectoryPath;

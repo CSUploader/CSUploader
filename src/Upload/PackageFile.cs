@@ -31,6 +31,7 @@ public class PackageFile : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimeRemaining)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Error)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileHash)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
@@ -158,6 +159,29 @@ public class PackageFile : INotifyPropertyChanged
     /// Gets a value indicating whether hashing has been completed for this file.
     /// </summary>
     public bool IsHashingComplete { get; internal set; }
+
+    /// <summary>
+    /// Hex-encoded hash bytes computed by the file hoster (Rapidgator → MD5). Set when
+    /// the <see cref="HashingFinished"/> event reports success; persisted on the DB row
+    /// so it survives restarts and shows in the Hash column. Fires PropertyChanged on
+    /// assignment so the DataGrid cell refreshes without waiting for the periodic timer.
+    /// </summary>
+    public string? FileHash
+    {
+        get => _fileHash;
+        internal set
+        {
+            if (_fileHash == value)
+            {
+                return;
+            }
+
+            _fileHash = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileHash)));
+        }
+    }
+
+    private string? _fileHash;
 
     /// <summary>
     /// Gets or sets the error string.
@@ -390,6 +414,11 @@ public class PackageFile : INotifyPropertyChanged
             if (e.Success)
             {
                 IsHashingComplete = true;
+                if (e.Hash is { Length: > 0 })
+                {
+                    FileHash = Convert.ToHexString(e.Hash).ToLowerInvariant();
+                }
+
                 Progress = 100.0;
                 BytesRemaining = IsUploadFinished ? null : Size;
             }

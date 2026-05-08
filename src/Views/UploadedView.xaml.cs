@@ -10,6 +10,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using CSUploader.Lib.Localization;
+using CSUploader.Upload;
+using CSUploader.ViewModels;
 
 namespace CSUploader.Views;
 
@@ -17,23 +20,47 @@ public partial class UploadedView : UserControl
 {
     private ContextMenu? _headerContextMenu;
 
+    // Snapshot of the XAML-default column state, captured at first Loaded before any
+    // persisted overrides are applied. Used by the "Reset columns" menu entry.
+    private Dictionary<string, Lib.UI.DataGridColumnVisibilityPersistence.ColumnState>? _defaultColumnState;
+
     public UploadedView()
     {
         InitializeComponent();
     }
 
-    private void FilesGrid_Loaded(object sender, RoutedEventArgs e)
+    private async void FilesGrid_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not DataGrid grid || _headerContextMenu is not null)
         {
             return;
         }
 
+        // Capture XAML defaults *before* applying persisted overrides so "Reset columns"
+        // can restore them later.
+        _defaultColumnState = Lib.UI.DataGridColumnVisibilityPersistence.CaptureCurrentState(grid);
+
+        // Apply persisted column visibility + display order before building the menu so
+        // its IsChecked states line up with the grid.
+        if (DataContext is UploadedViewModel vm && vm.SettingRepo is { } repo)
+        {
+            await Lib.UI.DataGridColumnVisibilityPersistence.ApplyAsync(grid, repo, SettingKey.UploadedTabHiddenColumns);
+        }
+
+        // Persist column reorders the user does after the initial Apply.
+        grid.ColumnDisplayIndexChanged += async (_, _) =>
+        {
+            if (DataContext is UploadedViewModel innerVm && innerVm.SettingRepo is { } innerRepo)
+            {
+                await Lib.UI.DataGridColumnVisibilityPersistence.PersistAsync(grid, innerRepo, SettingKey.UploadedTabHiddenColumns);
+            }
+        };
+
         _headerContextMenu = BuildColumnToggleMenu(grid);
 
         // Update the grid-level header style so future headers inherit the menu.
         Style gridHeaderStyle = new(typeof(DataGridColumnHeader), grid.ColumnHeaderStyle);
-        gridHeaderStyle.Setters.Add(new Setter(FrameworkElement.ContextMenuProperty, _headerContextMenu));
+        gridHeaderStyle.Setters.Add(new Setter(ContextMenuProperty, _headerContextMenu));
         grid.ColumnHeaderStyle = gridHeaderStyle;
 
         // Per-column HeaderStyle (e.g. FirstHeaderStyle on Name) overrides the grid-level one,
@@ -48,18 +75,18 @@ public partial class UploadedView : UserControl
             }
 
             Style columnHeaderStyle = new(typeof(DataGridColumnHeader), column.HeaderStyle);
-            columnHeaderStyle.Setters.Add(new Setter(FrameworkElement.ContextMenuProperty, _headerContextMenu));
+            columnHeaderStyle.Setters.Add(new Setter(ContextMenuProperty, _headerContextMenu));
             column.HeaderStyle = columnHeaderStyle;
         }
     }
 
-    private static ContextMenu BuildColumnToggleMenu(DataGrid grid)
+    private ContextMenu BuildColumnToggleMenu(DataGrid grid)
     {
         ContextMenu menu = new();
 
         foreach (DataGridColumn column in grid.Columns)
         {
-            string header = column.Header?.ToString() ?? "Column";
+            string header = column.Header?.ToString() ?? Localizer.Instance["Uploads_ColumnMenu_DefaultLabel"];
             MenuItem item = new()
             {
                 Header = header,
@@ -77,16 +104,49 @@ public partial class UploadedView : UserControl
             {
                 DataGridColumn capturedColumn = column;
                 MenuItem capturedItem = item;
-                item.Click += (_, _) =>
+                item.Click += async (_, _) =>
                 {
                     capturedColumn.Visibility = capturedItem.IsChecked
                         ? Visibility.Visible
                         : Visibility.Collapsed;
+
+                    // Persist immediately so the user doesn't need a separate save action.
+                    if (DataContext is UploadedViewModel vm && vm.SettingRepo is { } repo)
+                    {
+                        await Lib.UI.DataGridColumnVisibilityPersistence.PersistAsync(grid, repo, SettingKey.UploadedTabHiddenColumns);
+                    }
                 };
             }
 
             menu.Items.Add(item);
         }
+
+        // Reset entry — restores columns to their XAML-default visibility + order and
+        // clears the persisted overrides so the next launch starts clean. Confirmed via
+        // the standard opt-out prompt.
+        menu.Items.Add(new Separator());
+        MenuItem resetItem = new() { Header = Localizer.Instance["Uploads_ColumnMenu_Reset"] };
+        resetItem.Click += async (_, _) =>
+        {
+            if (_defaultColumnState is null
+                || DataContext is not UploadedViewModel vm
+                || vm.SettingRepo is not { } repo)
+            {
+                return;
+            }
+
+            if (!vm.DialogServiceForView.ShowOptOutConfirmation(
+                    Services.ConfirmationKeys.ResetColumns,
+                    Localizer.Instance["Uploaded_ResetColumns_Message"],
+                    Localizer.Instance["Uploaded_ResetColumns_Title"]))
+            {
+                return;
+            }
+
+            await Lib.UI.DataGridColumnVisibilityPersistence.ResetAsync(
+                grid, _defaultColumnState, repo, SettingKey.UploadedTabHiddenColumns);
+        };
+        menu.Items.Add(resetItem);
 
         // Refresh checkmarks each time the menu opens in case visibility changed elsewhere.
         menu.Opened += (_, _) =>

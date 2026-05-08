@@ -10,8 +10,10 @@ using System.Text.Json;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Globalization;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Services;
 using CSUploader.Upload;
 
@@ -29,17 +31,31 @@ public partial class UploadedViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
 
+    /// <summary>
+    /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
+    /// via <see cref="Lib.UI.DataGridColumnVisibilityPersistence"/>. Optional in tests.
+    /// </summary>
+    internal SettingRepository? SettingRepo { get; }
+
+    /// <summary>
+    /// Exposed to the view's code-behind so the "Reset columns" entry can prompt via
+    /// the standard opt-out confirmation flow.
+    /// </summary>
+    internal IDialogService DialogServiceForView => _dialogService;
+
     public UploadedViewModel(
         UploadPackageRepository uploadPackageRepository,
         UploadPackageFileRepository uploadPackageFileRepository,
         PackageManager packageManager,
         IDialogService dialogService,
-        IAppLogger logger)
+        IAppLogger logger,
+        SettingRepository? settingRepo = null)
     {
         _uploadPackageRepository = uploadPackageRepository;
         _uploadPackageFileRepository = uploadPackageFileRepository;
         _dialogService = dialogService;
         _logger = logger;
+        SettingRepo = settingRepo;
         packageManager.PackageCompleted += OnPackageCompleted;
         packageManager.FileCompleted += OnFileCompleted;
     }
@@ -68,6 +84,7 @@ public partial class UploadedViewModel : ObservableObject
                 FileHosterName = file.FileHosterName ?? file.FileHoster ?? string.Empty,
                 FinishedDateTime = file.FinishedDateTime,
                 FileUrl = file.FileUrl,
+                FileHash = file.FileHash,
             });
         }
     }
@@ -91,12 +108,12 @@ public partial class UploadedViewModel : ObservableObject
             if (urls.Length == 0)
             {
                 Clipboard.Clear();
-                _logger.Log(this, LogType.Status, "No URLs in selection; clipboard cleared");
+                _logger.Log(this, LogType.Status, Localizer.Instance["Logs_Status_NoUrlsClipboardCleared"]);
                 return;
             }
 
             Clipboard.SetText(string.Join(Environment.NewLine, urls));
-            _logger.Log(this, LogType.Status, $"Copied {urls.Length} URL(s) to clipboard");
+            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_CopiedUrls_Format"], urls.Length));
         }
         catch (Exception ex)
         {
@@ -119,9 +136,9 @@ public partial class UploadedViewModel : ObservableObject
         }
 
         string msg = rows.Length == 1
-            ? $"Remove '{rows[0].FileName}' from history?"
-            : $"Remove {rows.Length} entries from history?";
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadedEntry, msg, "Remove"))
+            ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Single_Format"], rows[0].FileName)
+            : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Many_Format"], rows.Length);
+        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadedEntry, msg, Localizer.Instance["Uploaded_Remove_Title"]))
         {
             return;
         }
@@ -136,7 +153,7 @@ public partial class UploadedViewModel : ObservableObject
                 await _uploadPackageFileRepository.HideAsync(fileIds);
             }
 
-            _logger.Log(this, LogType.Status, $"Hid {fileIds.Length} file(s) from the Uploaded tab");
+            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_HiddenFiles_Format"], fileIds.Length));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -166,7 +183,7 @@ public partial class UploadedViewModel : ObservableObject
             UploadPackageDto[] packages = await _uploadPackageRepository.GetCompletedAsync();
             string json = JsonSerializer.Serialize(packages, JsonOptions);
             await File.WriteAllTextAsync(dialog.FileName, json);
-            _logger.Log(this, LogType.Status, $"Exported {packages.Length} package(s) to {dialog.FileName}");
+            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_ExportedPackages_Format"], packages.Length, dialog.FileName));
         }
         catch (Exception ex)
         {

@@ -4,10 +4,12 @@
 // </copyright>
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using CSUploader.Lib.Localization;
 
 namespace CSUploader.Views;
 
@@ -18,7 +20,7 @@ public partial class AboutWindow : Window
         InitializeComponent();
 
         string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
-        VersionText.Text = $"Version {version}";
+        VersionText.Text = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["About_Version_Format"], version);
     }
 
     /// <summary>

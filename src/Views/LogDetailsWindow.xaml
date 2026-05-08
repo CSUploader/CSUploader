@@ -8,8 +8,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         mc:Ignorable="d"
-        Title="Log Details"
+        Title="{loc:Loc LogDetails_WindowTitle}"
         Width="800" Height="450"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
@@ -58,25 +59,25 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="DateTime:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc LogDetails_Field_DateTime}" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="0" Grid.Column="3" Text="Thread ID:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="{loc:Loc LogDetails_Field_ThreadId}" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
             <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding ThreadId, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Filename:" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc LogDetails_Field_Filename}" Style="{StaticResource FieldLabel}" Margin="0,0,8,6" />
             <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Filename, Mode=OneWay}" Style="{StaticResource FieldValue}" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Function:" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc LogDetails_Field_Function}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Function, Mode=OneWay}" Style="{StaticResource FieldValue}" />
 
-            <TextBlock Grid.Row="2" Grid.Column="3" Text="Line:" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
+            <TextBlock Grid.Row="2" Grid.Column="3" Text="{loc:Loc LogDetails_Field_Line}" Style="{StaticResource FieldLabel}" Margin="0,0,8,0" />
             <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding LineNumber, Mode=OneWay}" Style="{StaticResource FieldValue}" />
         </Grid>
 
         <!-- Message Content -->
         <TabControl Grid.Row="1">
-            <TabItem Header="Text">
+            <TabItem Header="{loc:Loc LogDetails_Tab_Text}">
                 <TextBox Text="{Binding Message, Mode=OneWay}"
                          IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
@@ -86,7 +87,7 @@
                          CaretBrush="{DynamicResource TextPrimaryBrush}"
                          BorderThickness="0" />
             </TabItem>
-            <TabItem Header="HTML">
+            <TabItem Header="{loc:Loc LogDetails_Tab_Html}">
                 <TextBox Text="{Binding Message, Mode=OneWay}"
                          IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
@@ -99,7 +100,7 @@
         </TabControl>
 
         <!-- Close Button -->
-        <Button Grid.Row="2" Content="Close" HorizontalAlignment="Right"
+        <Button Grid.Row="2" Content="{loc:Loc LogDetails_Btn_Close}" HorizontalAlignment="Right"
                 Width="80" Height="28" Margin="0,12,0,0"
                 Click="CloseButton_Click" IsCancel="True" />
     </Grid>

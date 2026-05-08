@@ -24,7 +24,7 @@ public class RapidgatorClient : FileHosterClient
     /// <summary>
     /// The hostname of the file hoster.
     /// </summary>
-    private static readonly string Hostname = "rapidgator.net";
+    private const string Hostname = "rapidgator.net";
 
     private readonly IAppLogger _logger;
 
@@ -38,42 +38,44 @@ public class RapidgatorClient : FileHosterClient
         : base(protocol)
     {
         _logger = logger;
-        if (protocol == Protocol.Http)
-        {
-            HttpHandler = BuildHttpHandler();
-        }
-        else if (protocol == Protocol.Ftp)
+        if (protocol == Protocol.Ftp)
         {
             throw new NotImplementedException();
         }
-        else
+
+        if (protocol is not Protocol.Http and not Protocol.Ftp)
         {
             throw new ArgumentOutOfRangeException(nameof(protocol), "Protocol not supported");
         }
 
-        HttpHandler.UploadProgress += HttpHandler_UploadProgress;
-        HttpHandler.UploadFinished += HttpHandler_UploadFinished;
+        // HttpHandler is built lazily at the start of each public HTTP-using call
+        // (CheckAccountAsync, UploadAsync) so the proxy choice always reflects the
+        // current ProxyManager state — not the state at queue-time. Changes to the
+        // master "Use proxies for uploads" toggle (or the rotation list) take effect
+        // on the next upload attempt automatically; no explicit refresh hook needed.
     }
 
     /// <summary>
-    /// Rebuilds <see cref="HttpHandler"/> with a fresh proxy from the rotation. Called
-    /// from <see cref="RefreshConnection"/> so a retried upload doesn't keep using a
-    /// proxy that just failed.
+    /// Tears down the previous <see cref="HttpHandler"/> (if any) and builds a fresh one
+    /// against the current proxy rotation. Detaches old event handlers and clears the
+    /// cached login response so credentials flow back through the new proxy. <c>internal</c>
+    /// so tests can exercise the rotation behaviour without going through a real upload.
     /// </summary>
-    public override void RefreshConnection()
+    internal void PrepareHttpHandler()
     {
         if (Protocol != Protocol.Http)
         {
             return;
         }
 
-        // Detach old event handlers before swapping the HttpHandler so we don't keep
-        // dispatching from the dead instance.
-        HttpHandler.UploadProgress -= HttpHandler_UploadProgress;
-        HttpHandler.UploadFinished -= HttpHandler_UploadFinished;
+        if (HttpHandler is not null)
+        {
+            HttpHandler.UploadProgress -= HttpHandler_UploadProgress;
+            HttpHandler.UploadFinished -= HttpHandler_UploadFinished;
+        }
 
         // Forget the cached login response — credentials need to flow back through the
-        // new proxy on first use.
+        // (potentially different) proxy on the next request.
         UserInfoResponse = null;
 
         HttpHandler = BuildHttpHandler();
@@ -85,9 +87,9 @@ public class RapidgatorClient : FileHosterClient
     {
         // Pull a proxy from the rotation (null = direct connection). Resolved once
         // per client instance; new uploads pick a fresh proxy.
-        ProxySettingDto? proxySetting = Lib.Net.ProxyManager.Current?.NextProxy();
-        System.Net.IWebProxy? proxy = proxySetting is not null
-            ? Lib.Net.ProxyManager.BuildWebProxy(proxySetting)
+        ProxySettingDto? proxySetting = ProxyManager.Current?.NextProxy();
+        IWebProxy? proxy = proxySetting is not null
+            ? ProxyManager.BuildWebProxy(proxySetting)
             : null;
         ActiveProxyId = proxy is not null ? proxySetting?.Id ?? 0 : 0;
 
@@ -143,7 +145,7 @@ public class RapidgatorClient : FileHosterClient
 
     private UserInfoResponse? UserInfoResponse { get; set; }
 
-    private HttpHandler HttpHandler { get; set; }
+    private HttpHandler? HttpHandler { get; set; }
 
     private string? FileHash { get; set; }
 
@@ -169,6 +171,11 @@ public class RapidgatorClient : FileHosterClient
     /// <inheritdoc/>
     public override async Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
     {
+        // Build a fresh HttpHandler against the current rotation so the credential check
+        // uses the proxy the user has configured *now*, not whatever was active when the
+        // client was constructed.
+        PrepareHttpHandler();
+
         try
         {
             UserInfoResponse? response = await HttpLoginAsync(username, password, cancellationToken);
@@ -196,6 +203,11 @@ public class RapidgatorClient : FileHosterClient
     /// <inheritdoc/>
     public override async Task UploadAsync(string filePath, string username, string password, CancellationToken cancellationToken = default)
     {
+        // Always-fresh HttpHandler at the start of an upload attempt so the proxy choice
+        // reflects the current ProxyManager state. Retries that re-enter UploadAsync
+        // automatically pick the next rotation entry.
+        PrepareHttpHandler();
+
         if (Protocol == Protocol.Http)
         {
             if (UserInfoResponse?.User == null || !string.Equals(UserInfoResponse.User.Email, username, StringComparison.OrdinalIgnoreCase))
@@ -271,7 +283,7 @@ public class RapidgatorClient : FileHosterClient
 
         if (folderCreateResponse.Folder == null)
         {
-            throw new ArgumentOutOfRangeException(nameof(FolderCreateResponse), "Folder does not exist.");
+            throw new ArgumentOutOfRangeException(nameof(FolderCreateResponse.Folder), "Folder does not exist.");
         }
 
         string fileName = Path.GetFileName(filePath);

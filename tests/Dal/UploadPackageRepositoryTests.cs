@@ -161,6 +161,75 @@ public class UploadPackageRepositoryTests : IDisposable
         Assert.True(reloaded!.IsRemovedFromUploads);
     }
 
+    [Fact]
+    public async Task DeleteHiddenHistoryAsync_RemovesFilesHiddenFromBothTabs()
+    {
+        // File hidden from both tabs (IsRemovedFromUploads + IsHidden) — should be deleted.
+        int pkgId = await InsertPackageAsync("pkg");
+        int hiddenInBoth = await InsertFileAsync(pkgId, "hidden.iso", FileState.Completed);
+        await _fileRepo.SoftRemoveFromUploadsAsync([hiddenInBoth]);
+        await _fileRepo.HideAsync([hiddenInBoth]);
+
+        // File visible in Uploaded only (IsHidden=false, IsRemovedFromUploads=true) — keep it.
+        int uploadedOnly = await InsertFileAsync(pkgId, "in-uploaded.iso", FileState.Completed);
+        await _fileRepo.SoftRemoveFromUploadsAsync([uploadedOnly]);
+
+        // File visible in Uploads only (IsRemovedFromUploads=false, regardless of state) — keep it.
+        int uploadsOnly = await InsertFileAsync(pkgId, "in-uploads.iso", FileState.Failed);
+
+        (int filesDeleted, int packagesDeleted) = await _packageRepo.DeleteHiddenHistoryAsync();
+
+        Assert.Equal(1, filesDeleted);
+        Assert.Equal(0, packagesDeleted); // package still has 2 visible files
+        Assert.Null(await _fileRepo.FindAsync(hiddenInBoth));
+        Assert.NotNull(await _fileRepo.FindAsync(uploadedOnly));
+        Assert.NotNull(await _fileRepo.FindAsync(uploadsOnly));
+    }
+
+    [Fact]
+    public async Task DeleteHiddenHistoryAsync_RemovesFailedFilesRemovedFromUploads()
+    {
+        // Failed/Cancelled files removed from the Uploads tab never qualified for the
+        // Uploaded tab (state != Completed) so they're invisible everywhere → delete.
+        int pkgId = await InsertPackageAsync("pkg");
+        int failed = await InsertFileAsync(pkgId, "failed.iso", FileState.Failed);
+        int cancelled = await InsertFileAsync(pkgId, "cancelled.iso", FileState.Cancelled);
+        await _fileRepo.SoftRemoveFromUploadsAsync([failed, cancelled]);
+
+        (int filesDeleted, _) = await _packageRepo.DeleteHiddenHistoryAsync();
+
+        Assert.Equal(2, filesDeleted);
+    }
+
+    [Fact]
+    public async Task DeleteHiddenHistoryAsync_DeletesOrphanPackagesAfterFiles()
+    {
+        // Package whose only file gets hard-deleted should also be removed — keeping the
+        // shell row would leave a phantom in any package-level query.
+        int orphanedPkg = await InsertPackageAsync("orphan");
+        int fileId = await InsertFileAsync(orphanedPkg, "x.iso", FileState.Completed);
+        await _fileRepo.SoftRemoveFromUploadsAsync([fileId]);
+        await _fileRepo.HideAsync([fileId]);
+
+        (int filesDeleted, int packagesDeleted) = await _packageRepo.DeleteHiddenHistoryAsync();
+
+        Assert.Equal(1, filesDeleted);
+        Assert.Equal(1, packagesDeleted);
+        Assert.Null(await _packageRepo.FindAsync(orphanedPkg));
+    }
+
+    [Fact]
+    public async Task DeleteHiddenHistoryAsync_NothingToDelete_ReturnsZeros()
+    {
+        int pkgId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(pkgId, "active.iso", FileState.Uploading);
+
+        (int filesDeleted, int packagesDeleted) = await _packageRepo.DeleteHiddenHistoryAsync();
+
+        Assert.Equal(0, filesDeleted);
+        Assert.Equal(0, packagesDeleted);
+    }
+
     private async Task<int> InsertPackageAsync(string name, bool isCompleted = false)
     {
         UploadPackageDto pkg = new()

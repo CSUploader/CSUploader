@@ -5,25 +5,34 @@
 
 using System.Globalization;
 using System.Windows.Data;
+using CSUploader.Lib.Localization;
 using CSUploader.Upload;
 
 namespace CSUploader.Converters;
 
 public class FileStateDisplayConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value switch
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        FileState.Idle => "Idle",
-        FileState.HashQueued => "Hash Queued",
-        FileState.Hashing => "Hashing",
-        FileState.UploadQueued => "Upload Queued",
-        FileState.Uploading => "Uploading",
-        FileState.Completed => "Completed",
-        FileState.Failed => "Failed",
-        FileState.Paused => "Paused",
-        FileState.Cancelled => "Cancelled",
-        _ => string.Empty,
-    };
+        // Bindings that hit this converter are re-evaluated when the row's State changes.
+        // A live language switch won't re-render rows whose state isn't moving (Completed,
+        // Failed, …) until they change again — acceptable trade-off vs. wiring every row VM
+        // to Localizer.PropertyChanged.
+        string? key = value switch
+        {
+            FileState.Idle => "Uploads_State_Idle",
+            FileState.HashQueued => "Uploads_State_HashQueued",
+            FileState.Hashing => "Uploads_State_Hashing",
+            FileState.UploadQueued => "Uploads_State_UploadQueued",
+            FileState.Uploading => "Uploads_State_Uploading",
+            FileState.Completed => "Uploads_State_Completed",
+            FileState.Failed => "Uploads_State_Failed",
+            FileState.Paused => "Uploads_State_Paused",
+            FileState.Cancelled => "Uploads_State_Cancelled",
+            _ => null,
+        };
+        return key is null ? string.Empty : Localizer.Instance[key];
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }

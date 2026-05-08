@@ -11,7 +11,9 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Services;
 using CSUploader.Upload;
 
@@ -25,11 +27,24 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _refreshTimer;
     private bool _disposed;
 
-    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService)
+    /// <summary>
+    /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
+    /// via <see cref="Lib.UI.DataGridColumnVisibilityPersistence"/>. Optional in tests.
+    /// </summary>
+    internal SettingRepository? SettingRepo { get; }
+
+    /// <summary>
+    /// Exposed to the view's code-behind so the "Reset columns" entry can prompt via
+    /// the standard opt-out confirmation flow.
+    /// </summary>
+    internal IDialogService DialogServiceForView => _dialogService;
+
+    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, SettingRepository? settingRepo = null)
     {
         _packageManager = packageManager;
         _settings = settings;
         _dialogService = dialogService;
+        SettingRepo = settingRepo;
         _packageManager.PackageAdded += PackageManager_PackageAdded;
         _packageManager.FileCompleted += PackageManager_FileCompleted;
         _packageManager.PackageCompleted += PackageManager_PackageCompleted;
@@ -44,6 +59,21 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool showUploadOverview = true;
+
+    /// <summary>
+    /// Whether the Upload Overview's stats row is shown beneath its title bar.
+    /// Toggled by clicking the chevron next to the title; <see cref="ShowUploadOverview"/>
+    /// (driven by the ✕ button and the View menu) hides the whole panel instead.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverviewToggleGlyph))]
+    private bool isOverviewExpanded = true;
+
+    /// <summary>
+    /// ▼ when the stats row is showing, ▶ when collapsed. Bound to the chevron next
+    /// to "Upload Overview".
+    /// </summary>
+    public string OverviewToggleGlyph => IsOverviewExpanded ? "\u25BC" : "\u25B6";
 
     // -- Overview field visibility toggles --
 
@@ -380,11 +410,11 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         string msg = item switch
         {
-            Package p => $"Remove package '{p.Name}' and its {p.Count()} file(s)?",
-            PackageFile f => $"Remove '{f.Name}' from the upload list?",
-            _ => "Remove this item?",
+            Package p => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_Package_Format"], p.Name, p.Count()),
+            PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_File_Format"], f.Name),
+            _ => Localizer.Instance["Uploads_Remove_Generic"],
         };
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, "Remove"))
+        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
         {
             return;
         }
@@ -432,14 +462,14 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         int totalFiles = packages.Sum(p => p.Count()) + looseFiles.Length;
         string msg = (packages.Length, looseFiles.Length) switch
         {
-            (1, 0) => $"Remove package '{packages[0].Name}' and its {packages[0].Count()} file(s)?",
-            (0, 1) => $"Remove '{looseFiles[0].Name}' from the upload list?",
-            (_, 0) => $"Remove {packages.Length} package(s) ({totalFiles} file(s))?",
-            (0, _) => $"Remove {looseFiles.Length} file(s) from the upload list?",
-            _ => $"Remove {packages.Length} package(s) and {looseFiles.Length} file(s) ({totalFiles} item(s) total)?",
+            (1, 0) => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_Package_Format"], packages[0].Name, packages[0].Count()),
+            (0, 1) => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_File_Format"], looseFiles[0].Name),
+            (_, 0) => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_PackagesOnly_Format"], packages.Length, totalFiles),
+            (0, _) => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_FilesOnly_Format"], looseFiles.Length),
+            _ => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_PackagesAndFiles_Format"], packages.Length, looseFiles.Length, totalFiles),
         };
 
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, "Remove"))
+        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
         {
             return;
         }
@@ -478,14 +508,17 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void PackageManager_FileCompleted(object? sender, PackageFile file)
     {
-        if (!_settings.AutoRemoveCompletedFiles || file.State != FileState.Completed)
+        // Immediately mode: drop this single file from the Uploads tab the moment it
+        // succeeds. Other modes either ignore per-file events (Never, AtStartup) or
+        // wait for the whole package (WhenPackageIsReady, handled below).
+        if (_settings.RemoveFinishedUploads != RemoveFinishedUploadsMode.Immediately
+            || file.State != FileState.Completed)
         {
             return;
         }
 
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            // Drop this row; PackageCompleted below handles whole-package removal.
             Package package = file.Package;
             _packageManager.RemovePackage(file);
             VisibleRows.Remove(file);
@@ -501,12 +534,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void PackageManager_PackageCompleted(object? sender, Package package)
     {
-        if (!_settings.AutoRemoveCompletedPackages)
+        // WhenPackageIsReady mode: remove the package once every file in it succeeded.
+        // Packages with any failure stay visible so the user notices.
+        if (_settings.RemoveFinishedUploads != RemoveFinishedUploadsMode.WhenPackageIsReady)
         {
             return;
         }
 
-        // Only auto-remove if every file was successful — leave packages with failures visible.
         foreach (PackageFile f in package)
         {
             if (f.State != FileState.Completed)
@@ -618,8 +652,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void RefreshTimer_Tick(object? sender, EventArgs e)
     {
-        AutoRemoveFinishedPackages();
-
         // Have each Package (and its files) raise PropertyChanged for display props.
         // This updates cells in place without affecting row state.
         foreach (object row in VisibleRows)
@@ -646,65 +678,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(FinishedLinks));
         OnPropertyChanged(nameof(SkippedLinks));
         OnPropertyChanged(nameof(FailedLinks));
-    }
-
-    private void AutoRemoveFinishedPackages()
-    {
-        RemoveFinishedUploadsMode mode = _settings.RemoveFinishedUploads;
-        if (mode == RemoveFinishedUploadsMode.Never)
-        {
-            return;
-        }
-
-        TimeSpan? threshold = mode switch
-        {
-            RemoveFinishedUploadsMode.Immediately => TimeSpan.Zero,
-            RemoveFinishedUploadsMode.AfterOneHour => TimeSpan.FromHours(1),
-            RemoveFinishedUploadsMode.AfterOneDay => TimeSpan.FromDays(1),
-            _ => null,
-        };
-
-        if (threshold is null)
-        {
-            return;
-        }
-
-        DateTime now = DateTime.Now;
-        Package[] toRemove = [.. Packages.Where(p => IsPackageFinished(p) && PackageFinishedAge(p, now) >= threshold.Value)];
-        foreach (Package package in toRemove)
-        {
-            _packageManager.RemovePackage(package);
-            RemovePackageFromView(package);
-        }
-    }
-
-    private static bool IsPackageFinished(Package package)
-    {
-        bool anyFile = false;
-        foreach (PackageFile file in package)
-        {
-            anyFile = true;
-            if (file.State != FileState.Completed)
-            {
-                return false;
-            }
-        }
-
-        return anyFile;
-    }
-
-    private static TimeSpan PackageFinishedAge(Package package, DateTime now)
-    {
-        DateTime? latest = null;
-        foreach (PackageFile file in package)
-        {
-            if (file.FinishedDate is { } finished && (latest is null || finished > latest))
-            {
-                latest = finished;
-            }
-        }
-
-        return latest is null ? TimeSpan.Zero : now - latest.Value;
     }
 
     public void Dispose()

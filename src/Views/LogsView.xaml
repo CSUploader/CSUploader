@@ -9,6 +9,7 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:behaviors="clr-namespace:CSUploader.Behaviors"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:LogsViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
@@ -69,79 +70,79 @@
         </Grid.RowDefinitions>
 
         <!-- Auto-Scroll Checkbox -->
-        <CheckBox Grid.Row="0" Content="Auto-scroll" IsChecked="{Binding AutoScroll}" Margin="4,4,4,8" />
+        <CheckBox Grid.Row="0" Content="{loc:Loc Logs_AutoScroll}" IsChecked="{Binding AutoScroll}" Margin="4,4,4,8" />
 
         <!-- Log Tabs -->
         <TabControl Grid.Row="1">
 
             <!-- Status Tab -->
-            <TabItem Header="Status">
+            <TabItem Header="{loc:Loc Logs_Tab_Status}">
                 <DataGrid ItemsSource="{Binding StatusLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
                           behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                           RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
-                        <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
-                        <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
-                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
                                             ElementStyle="{StaticResource LogMessageStyle}" />
-                        <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
 
             <!-- HTTP Tab -->
-            <TabItem Header="HTTP">
+            <TabItem Header="{loc:Loc Logs_Tab_Http}">
                 <DataGrid ItemsSource="{Binding HttpLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
                           behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                           RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
-                        <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
-                        <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
-                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
                                             ElementStyle="{StaticResource LogMessageStyle}" />
-                        <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
 
             <!-- Errors Tab -->
-            <TabItem Header="Errors">
+            <TabItem Header="{loc:Loc Logs_Tab_Errors}">
                 <DataGrid ItemsSource="{Binding ErrorLogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
                           behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                           RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
-                        <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
-                        <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
-                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
                                             ElementStyle="{StaticResource LogMessageStyle}" />
-                        <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
 
             <!-- UI Tab -->
-            <TabItem Header="UI">
+            <TabItem Header="{loc:Loc Logs_Tab_UI}">
                 <DataGrid ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}"
                           MouseDoubleClick="DataGrid_MouseDoubleClick"
                           behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                           RowStyle="{StaticResource LogRowStyle}">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="DateTime" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
-                        <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="180" />
-                        <DataGridTextColumn Header="Function" Binding="{Binding Function}" Width="160" />
-                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*"
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
                                             ElementStyle="{StaticResource LogMessageStyle}" />
-                        <DataGridTextColumn Header="Thread" Binding="{Binding ThreadId}" Width="60" />
+                        <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>

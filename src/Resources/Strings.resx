@@ -1,0 +1,1443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Auto-generated from docs/i18n-inventory*.md by scripts/md-to-resx.py.
+    Do not edit by hand — edit the inventory and regenerate.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Common_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Common_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="Common_Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Common_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Common_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Common_Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Common_All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Common_None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Common_Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Common_SelectFolder" xml:space="preserve">
+    <value>Select Folder</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>Please wait...</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  <data name="Common_Cancelling" xml:space="preserve">
+    <value>Cancelling...</value>
+  </data>
+  <data name="Common_Preparing" xml:space="preserve">
+    <value>Preparing…</value>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Main_Title_UpdateAvailable_Format" xml:space="preserve">
+    <value>CSUploader — Update available (v{0}) — click Help → Install Update</value>
+  </data>
+  <data name="Main_Menu_File" xml:space="preserve">
+    <value>_File</value>
+  </data>
+  <data name="Main_Menu_File_Exit" xml:space="preserve">
+    <value>_Exit</value>
+  </data>
+  <data name="Main_Menu_File_Exit_Gesture" xml:space="preserve">
+    <value>Alt+F4</value>
+  </data>
+  <data name="Main_Menu_View" xml:space="preserve">
+    <value>_View</value>
+  </data>
+  <data name="Main_Menu_View_UploadOverview" xml:space="preserve">
+    <value>Upload _Overview</value>
+  </data>
+  <data name="Main_Menu_View_DarkMode" xml:space="preserve">
+    <value>_Dark Mode</value>
+  </data>
+  <data name="Main_Menu_View_LightMode" xml:space="preserve">
+    <value>_Light Mode</value>
+  </data>
+  <data name="Main_Menu_Help" xml:space="preserve">
+    <value>_Help</value>
+  </data>
+  <data name="Main_Menu_Help_CheckForUpdates" xml:space="preserve">
+    <value>_Check for Updates…</value>
+  </data>
+  <data name="Main_Menu_Help_InstallUpdate" xml:space="preserve">
+    <value>_Install Update</value>
+  </data>
+  <data name="Main_Menu_Help_About" xml:space="preserve">
+    <value>_About CSUploader</value>
+  </data>
+  <data name="Main_Tab_Uploads" xml:space="preserve">
+    <value>Uploads</value>
+  </data>
+  <data name="Main_Tab_Uploaded" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Main_Tab_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Main_Tab_Logs" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="Main_CheckForUpdates_DialogTitle" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+  <data name="Main_CheckForUpdates_AlreadyLatest" xml:space="preserve">
+    <value>You're on the latest version.</value>
+  </data>
+  <data name="Main_CheckForUpdates_Available_Format" xml:space="preserve">
+    <value>Update available: v{0}.
+
+Use Help → Install Update to download and install.</value>
+  </data>
+  <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
+    <value>Add new upload</value>
+  </data>
+  <data name="Uploads_Toolbar_StartTip" xml:space="preserve">
+    <value>Start all uploads</value>
+  </data>
+  <data name="Uploads_Toolbar_PauseTip" xml:space="preserve">
+    <value>Pause / Resume</value>
+  </data>
+  <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
+    <value>Stop all uploads</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
+    <value>Move package up</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
+    <value>Move package down</value>
+  </data>
+  <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
+    <value>Remove selected</value>
+  </data>
+  <data name="Uploads_Context_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Uploads_Context_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Uploads_Context_SkipUpload" xml:space="preserve">
+    <value>Skip Upload</value>
+  </data>
+  <data name="Uploads_Context_Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Uploads_Context_OpenSourceDir" xml:space="preserve">
+    <value>Open Source Directory</value>
+  </data>
+  <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
+    <value>Set Speed Limit...</value>
+  </data>
+  <data name="Uploads_Context_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Uploads_Col_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Uploads_Col_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Uploads_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Uploads_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Uploads_Col_Speed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="Uploads_Col_ETA" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
+    <value>Bytes Loaded</value>
+  </data>
+  <data name="Uploads_Col_Progress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>Save to</value>
+  </data>
+  <data name="Uploads_Col_Added" xml:space="preserve">
+    <value>Added</value>
+  </data>
+  <data name="Uploads_Col_Finished" xml:space="preserve">
+    <value>Finished</value>
+  </data>
+  <data name="Uploads_Col_Duration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="Uploads_Col_Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
+    <value>Speed Limit</value>
+  </data>
+  <data name="Uploads_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploads_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploads_Col_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Uploads_ColumnHeader_LockTip" xml:space="preserve">
+    <value>Lock column width</value>
+  </data>
+  <data name="Uploads_ColumnMenu_Reset" xml:space="preserve">
+    <value>Reset columns</value>
+  </data>
+  <data name="Uploads_ColumnMenu_DefaultLabel" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="Uploads_Overview_Title" xml:space="preserve">
+    <value>Upload Overview</value>
+  </data>
+  <data name="Uploads_Overview_CloseTip" xml:space="preserve">
+    <value>Close overview</value>
+  </data>
+  <data name="Uploads_Overview_ToggleTip" xml:space="preserve">
+    <value>Show / hide overview stats</value>
+  </data>
+  <data name="Uploads_Overview_Packages" xml:space="preserve">
+    <value>Package(s)</value>
+  </data>
+  <data name="Uploads_Overview_Links" xml:space="preserve">
+    <value>Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytes" xml:space="preserve">
+    <value>Total Bytes</value>
+  </data>
+  <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
+    <value>Uploadspeed</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
+    <value>Bytes loaded</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytes" xml:space="preserve">
+    <value>Remaining Bytes</value>
+  </data>
+  <data name="Uploads_Overview_Eta" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
+    <value>Running Uploads</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnections" xml:space="preserve">
+    <value>Open Connections</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinks" xml:space="preserve">
+    <value>Finished Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinks" xml:space="preserve">
+    <value>Skipped Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinks" xml:space="preserve">
+    <value>Failed Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_PackagesLabel" xml:space="preserve">
+    <value>Package(s):</value>
+  </data>
+  <data name="Uploads_Overview_LinksLabel" xml:space="preserve">
+    <value>Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytesLabel" xml:space="preserve">
+    <value>Total Bytes:</value>
+  </data>
+  <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
+    <value>Uploadspeed:</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
+    <value>Bytes loaded:</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytesLabel" xml:space="preserve">
+    <value>Remaining Bytes:</value>
+  </data>
+  <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
+    <value>ETA:</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
+    <value>Running Uploads:</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnectionsLabel" xml:space="preserve">
+    <value>Open Connections:</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinksLabel" xml:space="preserve">
+    <value>Finished Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinksLabel" xml:space="preserve">
+    <value>Skipped Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinksLabel" xml:space="preserve">
+    <value>Failed Link(s):</value>
+  </data>
+  <data name="Uploads_FilterLabel" xml:space="preserve">
+    <value>File Name</value>
+  </data>
+  <data name="Uploads_FilterTip" xml:space="preserve">
+    <value>Filter by file or package name</value>
+  </data>
+  <data name="Uploads_FooterPremiumLink" xml:space="preserve">
+    <value>Add a Premium Account…</value>
+  </data>
+  <data name="Uploads_State_Idle" xml:space="preserve">
+    <value>Idle</value>
+  </data>
+  <data name="Uploads_State_HashQueued" xml:space="preserve">
+    <value>Hash Queued</value>
+  </data>
+  <data name="Uploads_State_Hashing" xml:space="preserve">
+    <value>Hashing</value>
+  </data>
+  <data name="Uploads_State_UploadQueued" xml:space="preserve">
+    <value>Upload Queued</value>
+  </data>
+  <data name="Uploads_State_Uploading" xml:space="preserve">
+    <value>Uploading</value>
+  </data>
+  <data name="Uploads_State_Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Uploads_State_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Uploads_State_Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Uploads_State_Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="Uploads_Eta_NotApplicable" xml:space="preserve">
+    <value>~</value>
+  </data>
+  <data name="Uploads_ResetColumns_Title" xml:space="preserve">
+    <value>Reset columns</value>
+  </data>
+  <data name="Uploads_ResetColumns_Message" xml:space="preserve">
+    <value>Reset the Uploads tab columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
+  </data>
+  <data name="Uploads_Remove_Title" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Uploads_Remove_Package_Format" xml:space="preserve">
+    <value>Remove package '{0}' and its {1} file(s)?</value>
+  </data>
+  <data name="Uploads_Remove_File_Format" xml:space="preserve">
+    <value>Remove '{0}' from the upload list?</value>
+  </data>
+  <data name="Uploads_Remove_Generic" xml:space="preserve">
+    <value>Remove this item?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesOnly_Format" xml:space="preserve">
+    <value>Remove {0} package(s) ({1} file(s))?</value>
+  </data>
+  <data name="Uploads_Remove_FilesOnly_Format" xml:space="preserve">
+    <value>Remove {0} file(s) from the upload list?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
+    <value>Remove {0} package(s) and {1} file(s) ({2} item(s) total)?</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
+    <value>Export to JSON…</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJsonTip" xml:space="preserve">
+    <value>Export all completed uploads (with every field) to a JSON file</value>
+  </data>
+  <data name="Uploaded_Col_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Uploaded_Col_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="Uploaded_Col_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Uploaded_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Uploaded_Col_Finished" xml:space="preserve">
+    <value>Finished</value>
+  </data>
+  <data name="Uploaded_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploaded_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploaded_Context_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Uploaded_Context_Copy_Gesture" xml:space="preserve">
+    <value>Ctrl+C</value>
+  </data>
+  <data name="Uploaded_Context_CopyURL" xml:space="preserve">
+    <value>Copy URL</value>
+  </data>
+  <data name="Uploaded_Context_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Uploaded_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Uploaded_Context_ExportJson" xml:space="preserve">
+    <value>Export to JSON…</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Title" xml:space="preserve">
+    <value>Reset columns</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
+    <value>Reset the History tab columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
+  </data>
+  <data name="Uploaded_Remove_Title" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Uploaded_Remove_Single_Format" xml:space="preserve">
+    <value>Remove '{0}' from history?</value>
+  </data>
+  <data name="Uploaded_Remove_Many_Format" xml:space="preserve">
+    <value>Remove {0} entries from history?</value>
+  </data>
+  <data name="Settings_Sidebar_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_Sidebar_Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="Settings_Sidebar_Connection" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="Settings_Sidebar_Accounts" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="Settings_General_Language_Title" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_General_Language_Desc" xml:space="preserve">
+    <value>UI language. The change applies immediately.</value>
+  </data>
+  <data name="Settings_General_Language_Label" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_General_Developer_Title" xml:space="preserve">
+    <value>Developer</value>
+  </data>
+  <data name="Settings_General_Developer_Desc" xml:space="preserve">
+    <value>Options for local development and testing.</value>
+  </data>
+  <data name="Settings_General_UseMockServer" xml:space="preserve">
+    <value>Use mock server (redirect all file hoster requests to localhost:8080/&lt;hoster&gt;)</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Title" xml:space="preserve">
+    <value>Grid Appearance</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Desc" xml:space="preserve">
+    <value>Font used for the Uploads and History tabs. Changes apply immediately.</value>
+  </data>
+  <data name="Settings_General_GridFont" xml:space="preserve">
+    <value>Grid font</value>
+  </data>
+  <data name="Settings_General_GridFontSize" xml:space="preserve">
+    <value>Grid font size</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Title" xml:space="preserve">
+    <value>Window Behaviour</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Desc" xml:space="preserve">
+    <value>Choose what happens when the main window is minimized or closed.</value>
+  </data>
+  <data name="Settings_General_MinimizeToTray" xml:space="preserve">
+    <value>Minimize the main window to the system tray instead of the taskbar</value>
+  </data>
+  <data name="Settings_General_CloseAction" xml:space="preserve">
+    <value>Close button action</value>
+  </data>
+  <data name="Settings_General_CloseAction_Ask" xml:space="preserve">
+    <value>Ask each time</value>
+  </data>
+  <data name="Settings_General_CloseAction_MinToTray" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
+    <value>Exit the application</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
+    <value>Confirmation Prompts</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Desc" xml:space="preserve">
+    <value>Tick a prompt to have it ask again before the action. Untick to suppress the confirmation for that action.</value>
+  </data>
+  <data name="Settings_General_Database_Title" xml:space="preserve">
+    <value>Database</value>
+  </data>
+  <data name="Settings_General_Database_Desc" xml:space="preserve">
+    <value>CSUploader stores your upload history (packages, files, and URLs) in a local SQLite database. Removing entries from the Uploads or History tabs only hides them — the rows stay in the database. Click Clear to permanently delete the rows that are hidden from both tabs.</value>
+  </data>
+  <data name="Settings_General_Database_BtnClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmTitle" xml:space="preserve">
+    <value>Clear database</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmMessage" xml:space="preserve">
+    <value>Permanently delete the upload records hidden from both tabs?
+
+Active and visible uploads are not affected. This cannot be undone.</value>
+  </data>
+  <data name="Settings_General_Database_Status_Cleared_Format" xml:space="preserve">
+    <value>Cleared {0} file row(s) and {1} package row(s) from the database.</value>
+  </data>
+  <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
+    <value>No hidden rows to clear.</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
+    <value>Upload Management</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Desc" xml:space="preserve">
+    <value>Connection limits, priorities, ...set up the Upload controller details.</value>
+  </data>
+  <data name="Settings_Upload_MaxConcurrent" xml:space="preserve">
+    <value>Max. simultaneous Uploads</value>
+  </data>
+  <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
+    <value>Max. simultaneous uploads per file hoster</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
+    <value>Remove finished uploads</value>
+  </data>
+  <data name="Settings_Upload_IfFileExists" xml:space="preserve">
+    <value>If the file already exists</value>
+  </data>
+  <data name="Settings_Upload_MaxCpuJobs" xml:space="preserve">
+    <value>Max. simultaneous CPU Jobs</value>
+  </data>
+  <data name="Settings_Upload_SpeedLimit" xml:space="preserve">
+    <value>Speed Limit (KB/s)</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Immediately" xml:space="preserve">
+    <value>Immediately</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_AtStartup" xml:space="preserve">
+    <value>At startup</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_WhenPackageReady" xml:space="preserve">
+    <value>When package is ready</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Ask" xml:space="preserve">
+    <value>Ask for each file</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Overwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Title" xml:space="preserve">
+    <value>Autostart Uploads</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Desc" xml:space="preserve">
+    <value>Choose if, and when CSUploader should start pending uploads without user interaction.</value>
+  </data>
+  <data name="Settings_Upload_Autostart" xml:space="preserve">
+    <value>Autostart uploads at application start</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Always" xml:space="preserve">
+    <value>Always</value>
+  </data>
+  <data name="Settings_Upload_Autostart_OnlyIfRunning" xml:space="preserve">
+    <value>Only if uploads were running at last session's end</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="Settings_Conn_Title" xml:space="preserve">
+    <value>Connection Manager</value>
+  </data>
+  <data name="Settings_Conn_Desc" xml:space="preserve">
+    <value>If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection.</value>
+  </data>
+  <data name="Settings_Conn_UseProxies" xml:space="preserve">
+    <value>Use proxies for uploads</value>
+  </data>
+  <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
+    <value>Master switch for the rotation. When off, uploads connect directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.</value>
+  </data>
+  <data name="Settings_Conn_AutoDisable" xml:space="preserve">
+    <value>Automatically uncheck failing proxies</value>
+  </data>
+  <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
+    <value>When on, a proxy that fails a manual test or an upload is unchecked so the rotation skips it. The status icon updates either way.</value>
+  </data>
+  <data name="Settings_Conn_Col_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Settings_Conn_Col_Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="Settings_Conn_Col_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Settings_Conn_Col_Host" xml:space="preserve">
+    <value>Host / IP</value>
+  </data>
+  <data name="Settings_Conn_Col_Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Settings_Conn_Col_User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Settings_Conn_Col_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Settings_Conn_Col_Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Settings_Conn_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Settings_Conn_PriorityUpTip" xml:space="preserve">
+    <value>Move up (higher priority)</value>
+  </data>
+  <data name="Settings_Conn_PriorityDownTip" xml:space="preserve">
+    <value>Move down (lower priority)</value>
+  </data>
+  <data name="Settings_Conn_Context_Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromText" xml:space="preserve">
+    <value>Import from text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromFile" xml:space="preserve">
+    <value>Import from file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToText" xml:space="preserve">
+    <value>Export all proxies to text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToFile" xml:space="preserve">
+    <value>Export all proxies to file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToText" xml:space="preserve">
+    <value>Export tested-OK proxies to text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
+    <value>Export tested-OK proxies to file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Settings_Conn_Btn_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Settings_Conn_Btn_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveSelected" xml:space="preserve">
+    <value>Remove selected</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveFailed" xml:space="preserve">
+    <value>Remove failed</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAll" xml:space="preserve">
+    <value>Test All</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAllTip" xml:space="preserve">
+    <value>Test connectivity for every proxy in the list</value>
+  </data>
+  <data name="Settings_Conn_Btn_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileDialogTitle" xml:space="preserve">
+    <value>Import proxies</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileFilter" xml:space="preserve">
+    <value>Proxy lists (*.txt)|*.txt|All files (*.*)|*.*</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogTitle" xml:space="preserve">
+    <value>Import Proxies</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogDesc" xml:space="preserve">
+    <value>Paste proxy lines (one per line). Format: scheme://[user:pass@]host[:port] — port defaults to 80/443/1080 by scheme.</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_DialogTitle" xml:space="preserve">
+    <value>Export All Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_DialogTitle" xml:space="preserve">
+    <value>Export Tested-OK Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_Desc_Format" xml:space="preserve">
+    <value>{0} proxy(s):</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
+    <value>{0} proxy(s) with a successful last test:</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
+    <value>Remove proxy</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_One_Format" xml:space="preserve">
+    <value>Remove proxy '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Many_Format" xml:space="preserve">
+    <value>Remove {0} proxies?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Title" xml:space="preserve">
+    <value>Remove failed proxies</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_One_Format" xml:space="preserve">
+    <value>Remove the failed proxy '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Many_Format" xml:space="preserve">
+    <value>Remove {0} failed proxies?</value>
+  </data>
+  <data name="Settings_Conn_Status_Queued" xml:space="preserve">
+    <value>Queued…</value>
+  </data>
+  <data name="Settings_Conn_Status_Testing" xml:space="preserve">
+    <value>Testing…</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLive" xml:space="preserve">
+    <value>OK (live)</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyUnknown_Format" xml:space="preserve">
+    <value>OK {0}ms (unexpected response)</value>
+  </data>
+  <data name="Settings_Conn_Status_Failed_Format" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_Saved" xml:space="preserve">
+    <value>Saved</value>
+  </data>
+  <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
+    <value>Save failed: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
+    <value>Imported {0} proxy(s) — click Save to persist</value>
+  </data>
+  <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
+    <value>Exported {0} proxy(s) to {1}</value>
+  </data>
+  <data name="Settings_Accounts_Title" xml:space="preserve">
+    <value>Account Manager</value>
+  </data>
+  <data name="Settings_Accounts_Desc" xml:space="preserve">
+    <value>Enter and manage all your Premium/Gold/Platinum accounts.</value>
+  </data>
+  <data name="Settings_Accounts_Col_Enabled" xml:space="preserve">
+    <value>✓</value>
+  </data>
+  <data name="Settings_Accounts_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Settings_Accounts_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Settings_Accounts_Col_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Settings_Accounts_Col_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Settings_Accounts_Col_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
+    <value>Edit Account...</value>
+  </data>
+  <data name="Settings_Accounts_Context_Refresh" xml:space="preserve">
+    <value>Check / Refresh</value>
+  </data>
+  <data name="Settings_Accounts_Context_Enable" xml:space="preserve">
+    <value>Enable</value>
+  </data>
+  <data name="Settings_Accounts_Context_Disable" xml:space="preserve">
+    <value>Disable</value>
+  </data>
+  <data name="Settings_Accounts_Context_Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
+    <value>Remove Account</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
+    <value>Remove account '{0}' for {1}?</value>
+  </data>
+  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
+    <value>Please fill in the file hoster, username, and password.</value>
+  </data>
+  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
+    <value>Account Check</value>
+  </data>
+  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
+    <value>Account check failed: {0}
+
+Add anyway?</value>
+  </data>
+  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
+    <value>Could not verify account: {0}
+
+Add anyway?</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
+    <value>Verifying credentials...</value>
+  </data>
+  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
+    <value>Checking account...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
+    <value>No accounts to refresh.</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
+    <value>Verified: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
+    <value>Warning: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
+    <value>Valid: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
+    <value>Valid! {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
+    <value>Check error: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountAdded_Format" xml:space="preserve">
+    <value>Account added for {0}!</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
+    <value>No implementation for {0}. Cannot check.</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
+    <value>No implementation for {0}. Account will be saved without verification.</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
+    <value>Checking {0}@{1}... ({2}/{3})</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingShort" xml:space="preserve">
+    <value>Checking...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl" xml:space="preserve">
+    <value>No implementation</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
+    <value>Refreshed {0} accounts. {1} updated.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
+    <value>Account '{0}' disabled.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
+    <value>Account '{0}' enabled.</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Settings_Accounts_PasswordMask" xml:space="preserve">
+    <value>******</value>
+  </data>
+  <data name="Logs_AutoScroll" xml:space="preserve">
+    <value>Auto-scroll</value>
+  </data>
+  <data name="Logs_Tab_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Logs_Tab_Http" xml:space="preserve">
+    <value>HTTP</value>
+  </data>
+  <data name="Logs_Tab_Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="Logs_Tab_UI" xml:space="preserve">
+    <value>UI</value>
+  </data>
+  <data name="Logs_Col_DateTime" xml:space="preserve">
+    <value>DateTime</value>
+  </data>
+  <data name="Logs_Col_Filename" xml:space="preserve">
+    <value>Filename</value>
+  </data>
+  <data name="Logs_Col_Function" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="Logs_Col_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="Logs_Col_Message" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="Logs_Col_Thread" xml:space="preserve">
+    <value>Thread</value>
+  </data>
+  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
+    <value>No URLs in selection; clipboard cleared</value>
+  </data>
+  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
+    <value>Copied {0} URL(s) to clipboard</value>
+  </data>
+  <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
+    <value>Hid {0} file(s) from the History tab</value>
+  </data>
+  <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
+    <value>Exported {0} package(s) to {1}</value>
+  </data>
+  <data name="Wizard_Title" xml:space="preserve">
+    <value>Upload Wizard</value>
+  </data>
+  <data name="Wizard_Step_Directory" xml:space="preserve">
+    <value>1. Directory</value>
+  </data>
+  <data name="Wizard_Step_Files" xml:space="preserve">
+    <value>2. Files</value>
+  </data>
+  <data name="Wizard_Step_FileHosters" xml:space="preserve">
+    <value>3. File Hosters</value>
+  </data>
+  <data name="Wizard_Step_Start" xml:space="preserve">
+    <value>4. Start</value>
+  </data>
+  <data name="Wizard_Step0_Title" xml:space="preserve">
+    <value>Select Upload Directory</value>
+  </data>
+  <data name="Wizard_Step0_Desc" xml:space="preserve">
+    <value>Choose the directory containing the files you want to upload.</value>
+  </data>
+  <data name="Wizard_Step0_Browse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
+    <value>Select Upload Directory</value>
+  </data>
+  <data name="Wizard_Step1_Title" xml:space="preserve">
+    <value>Select Files</value>
+  </data>
+  <data name="Wizard_Step1_PackageTitleLabel" xml:space="preserve">
+    <value>Package title:</value>
+  </data>
+  <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
+    <value>Filter:</value>
+  </data>
+  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Wizard_Step1_Col_File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Wizard_Step1_Col_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Wizard_Step1_SelectedLabel" xml:space="preserve">
+    <value>Selected:</value>
+  </data>
+  <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
+    <value>file(s)</value>
+  </data>
+  <data name="Wizard_Step2_Title" xml:space="preserve">
+    <value>Select File Hosters</value>
+  </data>
+  <data name="Wizard_Step2_Desc" xml:space="preserve">
+    <value>Choose which file hosters to upload to and select accounts.</value>
+  </data>
+  <data name="Wizard_Step2_Col_Use" xml:space="preserve">
+    <value>Use</value>
+  </data>
+  <data name="Wizard_Step2_Col_FileHoster" xml:space="preserve">
+    <value>File Hoster</value>
+  </data>
+  <data name="Wizard_Step2_Col_Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
+    <value>(anonymous)</value>
+  </data>
+  <data name="Wizard_Step2_AccountSelect" xml:space="preserve">
+    <value>(select account)</value>
+  </data>
+  <data name="Wizard_Step2_AddAccountLink" xml:space="preserve">
+    <value>Add account…</value>
+  </data>
+  <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
+    <value>This hoster requires an account. Click "Add account…" to add one.</value>
+  </data>
+  <data name="Wizard_Step3_Title" xml:space="preserve">
+    <value>When to Start</value>
+  </data>
+  <data name="Wizard_Step3_Desc" xml:space="preserve">
+    <value>Choose when the upload should begin.</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Immediately" xml:space="preserve">
+    <value>Start immediately after closing the wizard</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Later" xml:space="preserve">
+    <value>Add to queue but start later (manual start)</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Scheduled" xml:space="preserve">
+    <value>Schedule for a specific date and time</value>
+  </data>
+  <data name="Wizard_Step3_TimeFormatHint" xml:space="preserve">
+    <value>(HH:mm)</value>
+  </data>
+  <data name="Wizard_Btn_Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Wizard_Btn_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Wizard_Btn_Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Wizard_Btn_Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
+    <value>Please select a valid directory.</value>
+  </data>
+  <data name="Wizard_Validation_PickFile" xml:space="preserve">
+    <value>Please select at least one file.</value>
+  </data>
+  <data name="Wizard_Validation_PickHoster" xml:space="preserve">
+    <value>Please select at least one file hoster.</value>
+  </data>
+  <data name="Wizard_Error_Format" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
+    <value>Remove package or file from Uploads tab</value>
+  </data>
+  <data name="Confirm_RemoveUploadedEntry" xml:space="preserve">
+    <value>Remove entries from the History tab</value>
+  </data>
+  <data name="Confirm_RemoveFileHosterAccount" xml:space="preserve">
+    <value>Remove a file hoster account</value>
+  </data>
+  <data name="Confirm_RemoveProxy" xml:space="preserve">
+    <value>Remove a proxy from Connection Manager</value>
+  </data>
+  <data name="Confirm_ResetColumns" xml:space="preserve">
+    <value>Reset columns to their defaults on the Uploads / History tab</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>About CSUploader</value>
+  </data>
+  <data name="About_AppName" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="About_Version_Format" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>A powerful file upload manager for multiple hosting services. Features include hashing, queue management, and real-time progress tracking.</value>
+  </data>
+  <data name="About_Field_Framework" xml:space="preserve">
+    <value>Framework:</value>
+  </data>
+  <data name="About_Field_Framework_Value" xml:space="preserve">
+    <value>.NET 10.0 (WPF)</value>
+  </data>
+  <data name="About_Field_Database" xml:space="preserve">
+    <value>Database:</value>
+  </data>
+  <data name="About_Field_Database_Value" xml:space="preserve">
+    <value>SQLite via EF Core 10</value>
+  </data>
+  <data name="About_Field_License" xml:space="preserve">
+    <value>License:</value>
+  </data>
+  <data name="About_Field_License_Value" xml:space="preserve">
+    <value>MIT</value>
+  </data>
+  <data name="About_Field_Source" xml:space="preserve">
+    <value>Source:</value>
+  </data>
+  <data name="About_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="CloseAction_WindowTitle" xml:space="preserve">
+    <value>Close CSUploader</value>
+  </data>
+  <data name="CloseAction_Heading" xml:space="preserve">
+    <value>What would you like the close button to do?</value>
+  </data>
+  <data name="CloseAction_Subheading" xml:space="preserve">
+    <value>Pick one — you can change this later under Settings → General.</value>
+  </data>
+  <data name="CloseAction_Remember" xml:space="preserve">
+    <value>Remember my choice</value>
+  </data>
+  <data name="CloseAction_BtnMinimize" xml:space="preserve">
+    <value>Minimize to tray</value>
+  </data>
+  <data name="CloseAction_BtnExit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="CloseAction_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Confirmation_WindowTitle" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Confirmation_DontAskAgain" xml:space="preserve">
+    <value>Don't ask me again for this action</value>
+  </data>
+  <data name="Confirmation_BtnYes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Confirmation_BtnNo" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="EditAccount_WindowTitle" xml:space="preserve">
+    <value>Edit Account</value>
+  </data>
+  <data name="EditAccount_AddTitle" xml:space="preserve">
+    <value>Add Account</value>
+  </data>
+  <data name="EditAccount_FileHosterLabel" xml:space="preserve">
+    <value>File Hoster:</value>
+  </data>
+  <data name="EditAccount_UsernameLabel" xml:space="preserve">
+    <value>Username:</value>
+  </data>
+  <data name="EditAccount_PasswordLabel" xml:space="preserve">
+    <value>Password:</value>
+  </data>
+  <data name="EditAccount_AccountEnabled" xml:space="preserve">
+    <value>Account enabled</value>
+  </data>
+  <data name="EditAccount_BtnSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="EditAccount_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
+    <value>Please enter both a username and a password.</value>
+  </data>
+  <data name="HttpDetails_WindowTitle" xml:space="preserve">
+    <value>HTTP Transaction Details</value>
+  </data>
+  <data name="HttpDetails_Tab_Request" xml:space="preserve">
+    <value>Request</value>
+  </data>
+  <data name="HttpDetails_Tab_Response" xml:space="preserve">
+    <value>Response</value>
+  </data>
+  <data name="HttpDetails_Tab_FullDump" xml:space="preserve">
+    <value>Full Dump</value>
+  </data>
+  <data name="HttpDetails_SubTab_Headers" xml:space="preserve">
+    <value>Headers</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyRaw" xml:space="preserve">
+    <value>Body (Raw)</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyJson" xml:space="preserve">
+    <value>Body (JSON)</value>
+  </data>
+  <data name="HttpDetails_SubTab_Hex" xml:space="preserve">
+    <value>Hex</value>
+  </data>
+  <data name="HttpDetails_Timing_Format" xml:space="preserve">
+    <value>Started: {0}  |  Duration: {1}ms  |  Size: {2} bytes</value>
+  </data>
+  <data name="HttpDetails_Proxy_Format" xml:space="preserve">
+    <value>Proxy: {0}</value>
+  </data>
+  <data name="HttpDetails_NoData" xml:space="preserve">
+    <value>(no data)</value>
+  </data>
+  <data name="HttpDetails_NoBody" xml:space="preserve">
+    <value>(no body)</value>
+  </data>
+  <data name="HttpDetails_FullDump_Request" xml:space="preserve">
+    <value>REQUEST</value>
+  </data>
+  <data name="HttpDetails_FullDump_Response" xml:space="preserve">
+    <value>RESPONSE</value>
+  </data>
+  <data name="LogDetails_WindowTitle" xml:space="preserve">
+    <value>Log Details</value>
+  </data>
+  <data name="LogDetails_Field_DateTime" xml:space="preserve">
+    <value>DateTime:</value>
+  </data>
+  <data name="LogDetails_Field_ThreadId" xml:space="preserve">
+    <value>Thread ID:</value>
+  </data>
+  <data name="LogDetails_Field_Filename" xml:space="preserve">
+    <value>Filename:</value>
+  </data>
+  <data name="LogDetails_Field_Function" xml:space="preserve">
+    <value>Function:</value>
+  </data>
+  <data name="LogDetails_Field_Line" xml:space="preserve">
+    <value>Line:</value>
+  </data>
+  <data name="LogDetails_Tab_Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="LogDetails_Tab_Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
+  <data name="LogDetails_Btn_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Progress_WindowTitle" xml:space="preserve">
+    <value>Please wait...</value>
+  </data>
+  <data name="Progress_DefaultLabel" xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  <data name="Progress_LabelSuffix" xml:space="preserve">
+    <value>Please wait...</value>
+  </data>
+  <data name="Progress_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Progress_BtnCancelling" xml:space="preserve">
+    <value>Cancelling...</value>
+  </data>
+  <data name="UpdateProgress_WindowTitle" xml:space="preserve">
+    <value>Updating CSUploader</value>
+  </data>
+  <data name="UpdateProgress_StatusInitial" xml:space="preserve">
+    <value>Preparing…</value>
+  </data>
+  <data name="UpdateProgress_StatusDownloading_Format" xml:space="preserve">
+    <value>Downloading update v{0}…</value>
+  </data>
+  <data name="UpdateProgress_StatusRestarting" xml:space="preserve">
+    <value>Restarting…</value>
+  </data>
+  <data name="UpdateProgress_StatusFailed_Format" xml:space="preserve">
+    <value>Update failed: {0}</value>
+  </data>
+  <data name="UpdateProgress_PercentInitial" xml:space="preserve">
+    <value>0%</value>
+  </data>
+  <data name="ProxyText_WindowTitle" xml:space="preserve">
+    <value>Proxies</value>
+  </data>
+  <data name="ProxyText_BtnImport" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="ProxyText_BtnCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="ProxyText_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ProxyText_BtnClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="SpeedLimit_WindowTitle" xml:space="preserve">
+    <value>Speed Limit</value>
+  </data>
+  <data name="SpeedLimit_Heading" xml:space="preserve">
+    <value>Set Speed Limit</value>
+  </data>
+  <data name="SpeedLimit_Subheading" xml:space="preserve">
+    <value>Per-package override. Leave empty to use the global setting.</value>
+  </data>
+  <data name="SpeedLimit_Unit" xml:space="preserve">
+    <value>KB/s</value>
+  </data>
+  <data name="SpeedLimit_BtnClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="SpeedLimit_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="SpeedLimit_BtnOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="SpeedLimit_Validation_Title" xml:space="preserve">
+    <value>Invalid value</value>
+  </data>
+  <data name="SpeedLimit_Validation_Message" xml:space="preserve">
+    <value>Please enter a positive integer (KB/s), or leave empty to clear.</value>
+  </data>
+  <data name="Dialog_DefaultErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Dialog_DefaultConfirmTitle" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+  <data name="Dialog_DefaultBrowseFolderTitle" xml:space="preserve">
+    <value>Select Folder</value>
+  </data>
+  <data name="Dialog_GenericErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Picker_Filter_Json" xml:space="preserve">
+    <value>JSON files (*.json)|*.json|All files (*.*)|*.*</value>
+  </data>
+  <data name="Picker_Filter_ProxyLists" xml:space="preserve">
+    <value>Proxy lists (*.txt)|*.txt|All files (*.*)|*.*</value>
+  </data>
+  <data name="SpeedLimit_Display_Mbps_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="SpeedLimit_Display_Kbps_Format" xml:space="preserve">
+    <value>{0} KB/s</value>
+  </data>
+  <data name="Uploads_Overview_UploadSpeed_Zero" xml:space="preserve">
+    <value>0 B/s</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Show" xml:space="preserve">
+    <value>Show CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Tray_Balloon_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Balloon_Body" xml:space="preserve">
+    <value>Still running in the tray. Click the icon to restore the window, or right-click for Exit.</value>
+  </data>
+</root>

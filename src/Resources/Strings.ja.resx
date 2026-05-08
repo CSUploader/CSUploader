@@ -1,0 +1,1443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Auto-generated from docs/i18n-inventory*.md by scripts/md-to-resx.py.
+    Do not edit by hand — edit the inventory and regenerate.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>はい</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>いいえ</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="Common_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Common_Edit" xml:space="preserve">
+    <value>編集</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>参照</value>
+  </data>
+  <data name="Common_Back" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="Common_Next" xml:space="preserve">
+    <value>次へ</value>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>適用</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Common_Details" xml:space="preserve">
+    <value>詳細</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="Common_Import" xml:space="preserve">
+    <value>インポート</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>エクスポート</value>
+  </data>
+  <data name="Common_All" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="Common_None" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="Common_Test" xml:space="preserve">
+    <value>テスト</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="Common_SelectFolder" xml:space="preserve">
+    <value>フォルダーを選択</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>お待ちください…</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>読み込み中…</value>
+  </data>
+  <data name="Common_Cancelling" xml:space="preserve">
+    <value>キャンセル中…</value>
+  </data>
+  <data name="Common_Preparing" xml:space="preserve">
+    <value>準備中…</value>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Main_Title_UpdateAvailable_Format" xml:space="preserve">
+    <value>CSUploader — 更新あり (v{0}) — ヘルプ → 更新をインストール をクリック</value>
+  </data>
+  <data name="Main_Menu_File" xml:space="preserve">
+    <value>ファイル(_F)</value>
+  </data>
+  <data name="Main_Menu_File_Exit" xml:space="preserve">
+    <value>終了(_E)</value>
+  </data>
+  <data name="Main_Menu_File_Exit_Gesture" xml:space="preserve">
+    <value>Alt+F4</value>
+  </data>
+  <data name="Main_Menu_View" xml:space="preserve">
+    <value>表示(_V)</value>
+  </data>
+  <data name="Main_Menu_View_UploadOverview" xml:space="preserve">
+    <value>アップロード概要(_O)</value>
+  </data>
+  <data name="Main_Menu_View_DarkMode" xml:space="preserve">
+    <value>ダークモード(_D)</value>
+  </data>
+  <data name="Main_Menu_View_LightMode" xml:space="preserve">
+    <value>ライトモード(_L)</value>
+  </data>
+  <data name="Main_Menu_Help" xml:space="preserve">
+    <value>ヘルプ(_H)</value>
+  </data>
+  <data name="Main_Menu_Help_CheckForUpdates" xml:space="preserve">
+    <value>更新を確認(_C)…</value>
+  </data>
+  <data name="Main_Menu_Help_InstallUpdate" xml:space="preserve">
+    <value>更新をインストール(_I)</value>
+  </data>
+  <data name="Main_Menu_Help_About" xml:space="preserve">
+    <value>CSUploader について(_A)</value>
+  </data>
+  <data name="Main_Tab_Uploads" xml:space="preserve">
+    <value>アップロード</value>
+  </data>
+  <data name="Main_Tab_Uploaded" xml:space="preserve">
+    <value>履歴</value>
+  </data>
+  <data name="Main_Tab_Settings" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="Main_Tab_Logs" xml:space="preserve">
+    <value>ログ</value>
+  </data>
+  <data name="Main_CheckForUpdates_DialogTitle" xml:space="preserve">
+    <value>更新を確認</value>
+  </data>
+  <data name="Main_CheckForUpdates_AlreadyLatest" xml:space="preserve">
+    <value>最新バージョンを使用中です。</value>
+  </data>
+  <data name="Main_CheckForUpdates_Available_Format" xml:space="preserve">
+    <value>更新があります: v{0}。
+
+ダウンロードとインストールには ヘルプ → 更新をインストール を使用してください。</value>
+  </data>
+  <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
+    <value>新しいアップロードを追加</value>
+  </data>
+  <data name="Uploads_Toolbar_StartTip" xml:space="preserve">
+    <value>すべてのアップロードを開始</value>
+  </data>
+  <data name="Uploads_Toolbar_PauseTip" xml:space="preserve">
+    <value>一時停止 / 再開</value>
+  </data>
+  <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
+    <value>すべてのアップロードを停止</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
+    <value>パッケージを上へ移動</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
+    <value>パッケージを下へ移動</value>
+  </data>
+  <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
+    <value>選択項目を削除</value>
+  </data>
+  <data name="Uploads_Context_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="Uploads_Context_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Uploads_Context_SkipUpload" xml:space="preserve">
+    <value>アップロードをスキップ</value>
+  </data>
+  <data name="Uploads_Context_Reset" xml:space="preserve">
+    <value>リセット</value>
+  </data>
+  <data name="Uploads_Context_OpenSourceDir" xml:space="preserve">
+    <value>ソースディレクトリを開く</value>
+  </data>
+  <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
+    <value>速度制限を設定…</value>
+  </data>
+  <data name="Uploads_Context_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Uploads_Col_Name" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="Uploads_Col_Size" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="Uploads_Col_Hoster" xml:space="preserve">
+    <value>ホスター</value>
+  </data>
+  <data name="Uploads_Col_Status" xml:space="preserve">
+    <value>ステータス</value>
+  </data>
+  <data name="Uploads_Col_Speed" xml:space="preserve">
+    <value>速度</value>
+  </data>
+  <data name="Uploads_Col_ETA" xml:space="preserve">
+    <value>残り時間</value>
+  </data>
+  <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
+    <value>読み込み済みバイト数</value>
+  </data>
+  <data name="Uploads_Col_Progress" xml:space="preserve">
+    <value>進捗</value>
+  </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>保存先</value>
+  </data>
+  <data name="Uploads_Col_Added" xml:space="preserve">
+    <value>追加日時</value>
+  </data>
+  <data name="Uploads_Col_Finished" xml:space="preserve">
+    <value>完了日時</value>
+  </data>
+  <data name="Uploads_Col_Duration" xml:space="preserve">
+    <value>所要時間</value>
+  </data>
+  <data name="Uploads_Col_Priority" xml:space="preserve">
+    <value>優先度</value>
+  </data>
+  <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
+    <value>速度制限</value>
+  </data>
+  <data name="Uploads_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploads_Col_Hash" xml:space="preserve">
+    <value>ハッシュ</value>
+  </data>
+  <data name="Uploads_Col_Error" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="Uploads_ColumnHeader_LockTip" xml:space="preserve">
+    <value>列幅をロック</value>
+  </data>
+  <data name="Uploads_ColumnMenu_Reset" xml:space="preserve">
+    <value>列をリセット</value>
+  </data>
+  <data name="Uploads_ColumnMenu_DefaultLabel" xml:space="preserve">
+    <value>列</value>
+  </data>
+  <data name="Uploads_Overview_Title" xml:space="preserve">
+    <value>アップロード概要</value>
+  </data>
+  <data name="Uploads_Overview_CloseTip" xml:space="preserve">
+    <value>概要を閉じる</value>
+  </data>
+  <data name="Uploads_Overview_ToggleTip" xml:space="preserve">
+    <value>概要統計の表示 / 非表示</value>
+  </data>
+  <data name="Uploads_Overview_Packages" xml:space="preserve">
+    <value>パッケージ</value>
+  </data>
+  <data name="Uploads_Overview_Links" xml:space="preserve">
+    <value>リンク</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytes" xml:space="preserve">
+    <value>総バイト数</value>
+  </data>
+  <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
+    <value>アップロード速度</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
+    <value>読み込み済みバイト数</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytes" xml:space="preserve">
+    <value>残りバイト数</value>
+  </data>
+  <data name="Uploads_Overview_Eta" xml:space="preserve">
+    <value>残り時間</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
+    <value>実行中のアップロード</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnections" xml:space="preserve">
+    <value>接続中の接続数</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinks" xml:space="preserve">
+    <value>完了したリンク</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinks" xml:space="preserve">
+    <value>スキップされたリンク</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinks" xml:space="preserve">
+    <value>失敗したリンク</value>
+  </data>
+  <data name="Uploads_Overview_PackagesLabel" xml:space="preserve">
+    <value>パッケージ:</value>
+  </data>
+  <data name="Uploads_Overview_LinksLabel" xml:space="preserve">
+    <value>リンク:</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytesLabel" xml:space="preserve">
+    <value>総バイト数:</value>
+  </data>
+  <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
+    <value>アップロード速度:</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
+    <value>読み込み済みバイト数:</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytesLabel" xml:space="preserve">
+    <value>残りバイト数:</value>
+  </data>
+  <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
+    <value>残り時間:</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
+    <value>実行中のアップロード:</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnectionsLabel" xml:space="preserve">
+    <value>接続中の接続数:</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinksLabel" xml:space="preserve">
+    <value>完了したリンク:</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinksLabel" xml:space="preserve">
+    <value>スキップされたリンク:</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinksLabel" xml:space="preserve">
+    <value>失敗したリンク:</value>
+  </data>
+  <data name="Uploads_FilterLabel" xml:space="preserve">
+    <value>ファイル名</value>
+  </data>
+  <data name="Uploads_FilterTip" xml:space="preserve">
+    <value>ファイル名またはパッケージ名で絞り込み</value>
+  </data>
+  <data name="Uploads_FooterPremiumLink" xml:space="preserve">
+    <value>プレミアムアカウントを追加…</value>
+  </data>
+  <data name="Uploads_State_Idle" xml:space="preserve">
+    <value>待機中</value>
+  </data>
+  <data name="Uploads_State_HashQueued" xml:space="preserve">
+    <value>ハッシュ待機中</value>
+  </data>
+  <data name="Uploads_State_Hashing" xml:space="preserve">
+    <value>ハッシュ計算中</value>
+  </data>
+  <data name="Uploads_State_UploadQueued" xml:space="preserve">
+    <value>アップロード待機中</value>
+  </data>
+  <data name="Uploads_State_Uploading" xml:space="preserve">
+    <value>アップロード中</value>
+  </data>
+  <data name="Uploads_State_Completed" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="Uploads_State_Failed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="Uploads_State_Paused" xml:space="preserve">
+    <value>一時停止中</value>
+  </data>
+  <data name="Uploads_State_Cancelled" xml:space="preserve">
+    <value>キャンセル済み</value>
+  </data>
+  <data name="Uploads_Eta_NotApplicable" xml:space="preserve">
+    <value>~</value>
+  </data>
+  <data name="Uploads_ResetColumns_Title" xml:space="preserve">
+    <value>列をリセット</value>
+  </data>
+  <data name="Uploads_ResetColumns_Message" xml:space="preserve">
+    <value>アップロードタブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。</value>
+  </data>
+  <data name="Uploads_Remove_Title" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Uploads_Remove_Package_Format" xml:space="preserve">
+    <value>パッケージ「{0}」とその {1} 個のファイルを削除しますか?</value>
+  </data>
+  <data name="Uploads_Remove_File_Format" xml:space="preserve">
+    <value>アップロードリストから「{0}」を削除しますか?</value>
+  </data>
+  <data name="Uploads_Remove_Generic" xml:space="preserve">
+    <value>この項目を削除しますか?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesOnly_Format" xml:space="preserve">
+    <value>パッケージを {0} 個 ({1} 個のファイル) 削除しますか?</value>
+  </data>
+  <data name="Uploads_Remove_FilesOnly_Format" xml:space="preserve">
+    <value>アップロードリストから {0} 個のファイルを削除しますか?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
+    <value>パッケージを {0} 個とファイルを {1} 個 (合計 {2} 項目) 削除しますか?</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
+    <value>JSON にエクスポート…</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJsonTip" xml:space="preserve">
+    <value>完了したアップロードをすべてのフィールドとともに JSON ファイルにエクスポート</value>
+  </data>
+  <data name="Uploaded_Col_Name" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="Uploaded_Col_Path" xml:space="preserve">
+    <value>パス</value>
+  </data>
+  <data name="Uploaded_Col_Size" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="Uploaded_Col_Hoster" xml:space="preserve">
+    <value>ホスター</value>
+  </data>
+  <data name="Uploaded_Col_Finished" xml:space="preserve">
+    <value>完了日時</value>
+  </data>
+  <data name="Uploaded_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploaded_Col_Hash" xml:space="preserve">
+    <value>ハッシュ</value>
+  </data>
+  <data name="Uploaded_Context_Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="Uploaded_Context_Copy_Gesture" xml:space="preserve">
+    <value>Ctrl+C</value>
+  </data>
+  <data name="Uploaded_Context_CopyURL" xml:space="preserve">
+    <value>URL をコピー</value>
+  </data>
+  <data name="Uploaded_Context_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Uploaded_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Uploaded_Context_ExportJson" xml:space="preserve">
+    <value>JSON にエクスポート…</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Title" xml:space="preserve">
+    <value>列をリセット</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
+    <value>履歴タブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。</value>
+  </data>
+  <data name="Uploaded_Remove_Title" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Uploaded_Remove_Single_Format" xml:space="preserve">
+    <value>履歴から「{0}」を削除しますか?</value>
+  </data>
+  <data name="Uploaded_Remove_Many_Format" xml:space="preserve">
+    <value>履歴から {0} 件のエントリを削除しますか?</value>
+  </data>
+  <data name="Settings_Sidebar_General" xml:space="preserve">
+    <value>一般</value>
+  </data>
+  <data name="Settings_Sidebar_Upload" xml:space="preserve">
+    <value>アップロード</value>
+  </data>
+  <data name="Settings_Sidebar_Connection" xml:space="preserve">
+    <value>接続</value>
+  </data>
+  <data name="Settings_Sidebar_Accounts" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
+  <data name="Settings_General_Language_Title" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="Settings_General_Language_Desc" xml:space="preserve">
+    <value>UI の言語です。変更は即座に適用されます。</value>
+  </data>
+  <data name="Settings_General_Language_Label" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="Settings_General_Developer_Title" xml:space="preserve">
+    <value>開発者向け</value>
+  </data>
+  <data name="Settings_General_Developer_Desc" xml:space="preserve">
+    <value>ローカル開発とテスト用のオプションです。</value>
+  </data>
+  <data name="Settings_General_UseMockServer" xml:space="preserve">
+    <value>モックサーバーを使用 (すべてのファイルホスターリクエストを localhost:8080/&lt;hoster&gt; へリダイレクト)</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Title" xml:space="preserve">
+    <value>グリッドの外観</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Desc" xml:space="preserve">
+    <value>アップロードタブと履歴タブで使用するフォントです。変更は即座に適用されます。</value>
+  </data>
+  <data name="Settings_General_GridFont" xml:space="preserve">
+    <value>グリッドフォント</value>
+  </data>
+  <data name="Settings_General_GridFontSize" xml:space="preserve">
+    <value>グリッドフォントサイズ</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Title" xml:space="preserve">
+    <value>ウィンドウの動作</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Desc" xml:space="preserve">
+    <value>メインウィンドウを最小化または閉じたときの動作を選択します。</value>
+  </data>
+  <data name="Settings_General_MinimizeToTray" xml:space="preserve">
+    <value>メインウィンドウをタスクバーではなくシステムトレイに最小化する</value>
+  </data>
+  <data name="Settings_General_CloseAction" xml:space="preserve">
+    <value>閉じるボタンの動作</value>
+  </data>
+  <data name="Settings_General_CloseAction_Ask" xml:space="preserve">
+    <value>毎回確認する</value>
+  </data>
+  <data name="Settings_General_CloseAction_MinToTray" xml:space="preserve">
+    <value>トレイに最小化</value>
+  </data>
+  <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
+    <value>アプリケーションを終了</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
+    <value>確認プロンプト</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Desc" xml:space="preserve">
+    <value>チェックを入れると操作前に再度確認します。チェックを外すと、その操作の確認が省略されます。</value>
+  </data>
+  <data name="Settings_General_Database_Title" xml:space="preserve">
+    <value>データベース</value>
+  </data>
+  <data name="Settings_General_Database_Desc" xml:space="preserve">
+    <value>CSUploader はアップロード履歴 (パッケージ、ファイル、URL) をローカルの SQLite データベースに保存します。「アップロード」または「履歴」タブから項目を削除しても非表示になるだけで、行はデータベースに残ります。「クリア」をクリックすると、両方のタブで非表示になっている行を完全に削除します。</value>
+  </data>
+  <data name="Settings_General_Database_BtnClear" xml:space="preserve">
+    <value>クリア</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmTitle" xml:space="preserve">
+    <value>データベースをクリア</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmMessage" xml:space="preserve">
+    <value>両方のタブで非表示になっているアップロード記録を完全に削除しますか？
+
+進行中および表示中のアップロードには影響しません。この操作は取り消せません。</value>
+  </data>
+  <data name="Settings_General_Database_Status_Cleared_Format" xml:space="preserve">
+    <value>データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。</value>
+  </data>
+  <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
+    <value>クリアできる非表示の行はありません。</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
+    <value>アップロード管理</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Desc" xml:space="preserve">
+    <value>接続上限、優先度など、アップロードコントローラーの詳細を設定します。</value>
+  </data>
+  <data name="Settings_Upload_MaxConcurrent" xml:space="preserve">
+    <value>同時アップロード最大数</value>
+  </data>
+  <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
+    <value>ファイルホスターごとの同時アップロード最大数</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
+    <value>完了したアップロードを削除</value>
+  </data>
+  <data name="Settings_Upload_IfFileExists" xml:space="preserve">
+    <value>ファイルが既に存在する場合</value>
+  </data>
+  <data name="Settings_Upload_MaxCpuJobs" xml:space="preserve">
+    <value>同時 CPU ジョブ最大数</value>
+  </data>
+  <data name="Settings_Upload_SpeedLimit" xml:space="preserve">
+    <value>速度制限 (KB/s)</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Never" xml:space="preserve">
+    <value>しない</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Immediately" xml:space="preserve">
+    <value>すぐに</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_AtStartup" xml:space="preserve">
+    <value>起動時に</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_WhenPackageReady" xml:space="preserve">
+    <value>パッケージ完了時に</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Ask" xml:space="preserve">
+    <value>ファイルごとに確認</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Skip" xml:space="preserve">
+    <value>スキップ</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Overwrite" xml:space="preserve">
+    <value>上書き</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Rename" xml:space="preserve">
+    <value>名前変更</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Title" xml:space="preserve">
+    <value>アップロードの自動開始</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Desc" xml:space="preserve">
+    <value>CSUploader が保留中のアップロードをユーザー操作なしで開始するかどうか、またそのタイミングを選択します。</value>
+  </data>
+  <data name="Settings_Upload_Autostart" xml:space="preserve">
+    <value>アプリ起動時にアップロードを自動開始</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Always" xml:space="preserve">
+    <value>常に</value>
+  </data>
+  <data name="Settings_Upload_Autostart_OnlyIfRunning" xml:space="preserve">
+    <value>前回終了時にアップロードが実行中だった場合のみ</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
+    <value>しない</value>
+  </data>
+  <data name="Settings_Conn_Title" xml:space="preserve">
+    <value>接続マネージャー</value>
+  </data>
+  <data name="Settings_Conn_Desc" xml:space="preserve">
+    <value>インターネットへのアクセスにプロキシが必要な場合は、ここで設定します。複数のプロキシは新しいアップロードごとにローテーションされます。有効なプロキシがない場合の既定動作は直接接続です。</value>
+  </data>
+  <data name="Settings_Conn_UseProxies" xml:space="preserve">
+    <value>アップロードでプロキシを使用</value>
+  </data>
+  <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
+    <value>ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあっても直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。</value>
+  </data>
+  <data name="Settings_Conn_AutoDisable" xml:space="preserve">
+    <value>失敗したプロキシのチェックを自動的に外す</value>
+  </data>
+  <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
+    <value>オンにすると、手動テストやアップロードに失敗したプロキシのチェックが外され、ローテーションでスキップされます。ステータスアイコンはどちらの場合でも更新されます。</value>
+  </data>
+  <data name="Settings_Conn_Col_On" xml:space="preserve">
+    <value>有効</value>
+  </data>
+  <data name="Settings_Conn_Col_Priority" xml:space="preserve">
+    <value>優先度</value>
+  </data>
+  <data name="Settings_Conn_Col_Type" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="Settings_Conn_Col_Host" xml:space="preserve">
+    <value>ホスト / IP</value>
+  </data>
+  <data name="Settings_Conn_Col_Port" xml:space="preserve">
+    <value>ポート</value>
+  </data>
+  <data name="Settings_Conn_Col_User" xml:space="preserve">
+    <value>ユーザー</value>
+  </data>
+  <data name="Settings_Conn_Col_Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="Settings_Conn_Col_Test" xml:space="preserve">
+    <value>テスト</value>
+  </data>
+  <data name="Settings_Conn_Col_Status" xml:space="preserve">
+    <value>ステータス</value>
+  </data>
+  <data name="Settings_Conn_PriorityUpTip" xml:space="preserve">
+    <value>上へ移動 (優先度を上げる)</value>
+  </data>
+  <data name="Settings_Conn_PriorityDownTip" xml:space="preserve">
+    <value>下へ移動 (優先度を下げる)</value>
+  </data>
+  <data name="Settings_Conn_Context_Test" xml:space="preserve">
+    <value>テスト</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import" xml:space="preserve">
+    <value>インポート</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromText" xml:space="preserve">
+    <value>テキストからインポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromFile" xml:space="preserve">
+    <value>ファイルからインポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export" xml:space="preserve">
+    <value>エクスポート</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToText" xml:space="preserve">
+    <value>すべてのプロキシをテキストにエクスポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToFile" xml:space="preserve">
+    <value>すべてのプロキシをファイルにエクスポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToText" xml:space="preserve">
+    <value>テスト成功のプロキシをテキストにエクスポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
+    <value>テスト成功のプロキシをファイルにエクスポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Settings_Conn_Btn_Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="Settings_Conn_Btn_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveSelected" xml:space="preserve">
+    <value>選択項目を削除</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveFailed" xml:space="preserve">
+    <value>失敗したものを削除</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAll" xml:space="preserve">
+    <value>すべてテスト</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAllTip" xml:space="preserve">
+    <value>リスト内のすべてのプロキシの接続性をテストします</value>
+  </data>
+  <data name="Settings_Conn_Btn_Details" xml:space="preserve">
+    <value>詳細</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileDialogTitle" xml:space="preserve">
+    <value>プロキシをインポート</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileFilter" xml:space="preserve">
+    <value>プロキシリスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogTitle" xml:space="preserve">
+    <value>プロキシをインポート</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogDesc" xml:space="preserve">
+    <value>プロキシ行を貼り付けてください (1 行に 1 つ)。形式: scheme://[user:pass@]host[:port] — ポートはスキームに応じて 80/443/1080 が既定値になります。</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_DialogTitle" xml:space="preserve">
+    <value>すべてのプロキシをエクスポート</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_DialogTitle" xml:space="preserve">
+    <value>テスト成功のプロキシをエクスポート</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_Desc_Format" xml:space="preserve">
+    <value>プロキシ {0} 個:</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
+    <value>直近のテストに成功したプロキシ {0} 個:</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
+    <value>プロキシを削除</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_One_Format" xml:space="preserve">
+    <value>プロキシ「{0}:{1}」を削除しますか?</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Many_Format" xml:space="preserve">
+    <value>プロキシを {0} 個削除しますか?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Title" xml:space="preserve">
+    <value>失敗したプロキシを削除</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_One_Format" xml:space="preserve">
+    <value>失敗したプロキシ「{0}:{1}」を削除しますか?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Many_Format" xml:space="preserve">
+    <value>失敗したプロキシを {0} 個削除しますか?</value>
+  </data>
+  <data name="Settings_Conn_Status_Queued" xml:space="preserve">
+    <value>待機中…</value>
+  </data>
+  <data name="Settings_Conn_Status_Testing" xml:space="preserve">
+    <value>テスト中…</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLive" xml:space="preserve">
+    <value>OK (ライブ)</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyUnknown_Format" xml:space="preserve">
+    <value>OK {0}ms (予期しない応答)</value>
+  </data>
+  <data name="Settings_Conn_Status_Failed_Format" xml:space="preserve">
+    <value>失敗: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_Saved" xml:space="preserve">
+    <value>保存しました</value>
+  </data>
+  <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
+    <value>保存に失敗しました: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
+    <value>プロキシを {0} 個インポートしました — 保存をクリックして反映してください</value>
+  </data>
+  <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
+    <value>プロキシ {0} 個を {1} にエクスポートしました</value>
+  </data>
+  <data name="Settings_Accounts_Title" xml:space="preserve">
+    <value>アカウントマネージャー</value>
+  </data>
+  <data name="Settings_Accounts_Desc" xml:space="preserve">
+    <value>プレミアム/ゴールド/プラチナアカウントを入力・管理します。</value>
+  </data>
+  <data name="Settings_Accounts_Col_Enabled" xml:space="preserve">
+    <value>✓</value>
+  </data>
+  <data name="Settings_Accounts_Col_Hoster" xml:space="preserve">
+    <value>ホスター</value>
+  </data>
+  <data name="Settings_Accounts_Col_Status" xml:space="preserve">
+    <value>ステータス</value>
+  </data>
+  <data name="Settings_Accounts_Col_Username" xml:space="preserve">
+    <value>ユーザー名</value>
+  </data>
+  <data name="Settings_Accounts_Col_Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="Settings_Accounts_Col_Type" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
+    <value>アカウントを編集…</value>
+  </data>
+  <data name="Settings_Accounts_Context_Refresh" xml:space="preserve">
+    <value>チェック / 更新</value>
+  </data>
+  <data name="Settings_Accounts_Context_Enable" xml:space="preserve">
+    <value>有効化</value>
+  </data>
+  <data name="Settings_Accounts_Context_Disable" xml:space="preserve">
+    <value>無効化</value>
+  </data>
+  <data name="Settings_Accounts_Context_Delete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
+    <value>アカウントを削除</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
+    <value>{1} のアカウント「{0}」を削除しますか?</value>
+  </data>
+  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
+    <value>ファイルホスター、ユーザー名、パスワードを入力してください。</value>
+  </data>
+  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
+    <value>アカウントチェック</value>
+  </data>
+  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
+    <value>アカウントチェックに失敗しました: {0}
+
+それでも追加しますか?</value>
+  </data>
+  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
+    <value>アカウントを検証できませんでした: {0}
+
+それでも追加しますか?</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
+    <value>認証情報を検証中…</value>
+  </data>
+  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
+    <value>アカウントをチェック中…</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
+    <value>更新するアカウントがありません。</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
+    <value>検証済み: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
+    <value>警告: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
+    <value>有効: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
+    <value>有効です! {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
+    <value>失敗: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
+    <value>チェックエラー: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
+    <value>エラー: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountAdded_Format" xml:space="preserve">
+    <value>{0} のアカウントを追加しました!</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
+    <value>{0} の実装がありません。チェックできません。</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
+    <value>{0} の実装がありません。アカウントは検証なしで保存されます。</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
+    <value>{0}@{1} をチェック中… ({2}/{3})</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingShort" xml:space="preserve">
+    <value>チェック中…</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl" xml:space="preserve">
+    <value>実装なし</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
+    <value>{0} 個のアカウントを更新しました。{1} 個が更新されました。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
+    <value>アカウント「{0}」を無効化しました。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
+    <value>アカウント「{0}」を有効化しました。</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_Failed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="Settings_Accounts_PasswordMask" xml:space="preserve">
+    <value>******</value>
+  </data>
+  <data name="Logs_AutoScroll" xml:space="preserve">
+    <value>自動スクロール</value>
+  </data>
+  <data name="Logs_Tab_Status" xml:space="preserve">
+    <value>ステータス</value>
+  </data>
+  <data name="Logs_Tab_Http" xml:space="preserve">
+    <value>HTTP</value>
+  </data>
+  <data name="Logs_Tab_Errors" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="Logs_Tab_UI" xml:space="preserve">
+    <value>UI</value>
+  </data>
+  <data name="Logs_Col_DateTime" xml:space="preserve">
+    <value>日時</value>
+  </data>
+  <data name="Logs_Col_Filename" xml:space="preserve">
+    <value>ファイル名</value>
+  </data>
+  <data name="Logs_Col_Function" xml:space="preserve">
+    <value>関数</value>
+  </data>
+  <data name="Logs_Col_Line" xml:space="preserve">
+    <value>行</value>
+  </data>
+  <data name="Logs_Col_Message" xml:space="preserve">
+    <value>メッセージ</value>
+  </data>
+  <data name="Logs_Col_Thread" xml:space="preserve">
+    <value>スレッド</value>
+  </data>
+  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
+    <value>選択範囲に URL がありません。クリップボードをクリアしました</value>
+  </data>
+  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
+    <value>URL を {0} 件クリップボードにコピーしました</value>
+  </data>
+  <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
+    <value>履歴タブから {0} 個のファイルを非表示にしました</value>
+  </data>
+  <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
+    <value>パッケージ {0} 個を {1} にエクスポートしました</value>
+  </data>
+  <data name="Wizard_Title" xml:space="preserve">
+    <value>アップロードウィザード</value>
+  </data>
+  <data name="Wizard_Step_Directory" xml:space="preserve">
+    <value>1. ディレクトリ</value>
+  </data>
+  <data name="Wizard_Step_Files" xml:space="preserve">
+    <value>2. ファイル</value>
+  </data>
+  <data name="Wizard_Step_FileHosters" xml:space="preserve">
+    <value>3. ファイルホスター</value>
+  </data>
+  <data name="Wizard_Step_Start" xml:space="preserve">
+    <value>4. 開始</value>
+  </data>
+  <data name="Wizard_Step0_Title" xml:space="preserve">
+    <value>アップロードディレクトリを選択</value>
+  </data>
+  <data name="Wizard_Step0_Desc" xml:space="preserve">
+    <value>アップロードしたいファイルを含むディレクトリを選択してください。</value>
+  </data>
+  <data name="Wizard_Step0_Browse" xml:space="preserve">
+    <value>参照</value>
+  </data>
+  <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
+    <value>アップロードディレクトリを選択</value>
+  </data>
+  <data name="Wizard_Step1_Title" xml:space="preserve">
+    <value>ファイルを選択</value>
+  </data>
+  <data name="Wizard_Step1_PackageTitleLabel" xml:space="preserve">
+    <value>パッケージタイトル:</value>
+  </data>
+  <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
+    <value>フィルター:</value>
+  </data>
+  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="Wizard_Step1_Col_File" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="Wizard_Step1_Col_Size" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="Wizard_Step1_SelectedLabel" xml:space="preserve">
+    <value>選択中:</value>
+  </data>
+  <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
+    <value>個のファイル</value>
+  </data>
+  <data name="Wizard_Step2_Title" xml:space="preserve">
+    <value>ファイルホスターを選択</value>
+  </data>
+  <data name="Wizard_Step2_Desc" xml:space="preserve">
+    <value>アップロード先のファイルホスターを選択し、アカウントを指定してください。</value>
+  </data>
+  <data name="Wizard_Step2_Col_Use" xml:space="preserve">
+    <value>使用</value>
+  </data>
+  <data name="Wizard_Step2_Col_FileHoster" xml:space="preserve">
+    <value>ファイルホスター</value>
+  </data>
+  <data name="Wizard_Step2_Col_Account" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
+  <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
+    <value>(匿名)</value>
+  </data>
+  <data name="Wizard_Step2_AccountSelect" xml:space="preserve">
+    <value>(アカウントを選択)</value>
+  </data>
+  <data name="Wizard_Step2_AddAccountLink" xml:space="preserve">
+    <value>アカウントを追加…</value>
+  </data>
+  <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
+    <value>このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。</value>
+  </data>
+  <data name="Wizard_Step3_Title" xml:space="preserve">
+    <value>開始タイミング</value>
+  </data>
+  <data name="Wizard_Step3_Desc" xml:space="preserve">
+    <value>アップロードを開始するタイミングを選択してください。</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Immediately" xml:space="preserve">
+    <value>ウィザードを閉じた直後に開始</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Later" xml:space="preserve">
+    <value>キューに追加して後で開始 (手動開始)</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Scheduled" xml:space="preserve">
+    <value>指定した日時にスケジュール</value>
+  </data>
+  <data name="Wizard_Step3_TimeFormatHint" xml:space="preserve">
+    <value>(HH:mm)</value>
+  </data>
+  <data name="Wizard_Btn_Back" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="Wizard_Btn_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Wizard_Btn_Next" xml:space="preserve">
+    <value>次へ</value>
+  </data>
+  <data name="Wizard_Btn_Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
+    <value>有効なディレクトリを選択してください。</value>
+  </data>
+  <data name="Wizard_Validation_PickFile" xml:space="preserve">
+    <value>ファイルを 1 つ以上選択してください。</value>
+  </data>
+  <data name="Wizard_Validation_PickHoster" xml:space="preserve">
+    <value>ファイルホスターを 1 つ以上選択してください。</value>
+  </data>
+  <data name="Wizard_Error_Format" xml:space="preserve">
+    <value>エラー: {0}</value>
+  </data>
+  <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
+    <value>アップロードタブからパッケージまたはファイルを削除</value>
+  </data>
+  <data name="Confirm_RemoveUploadedEntry" xml:space="preserve">
+    <value>履歴タブからエントリを削除</value>
+  </data>
+  <data name="Confirm_RemoveFileHosterAccount" xml:space="preserve">
+    <value>ファイルホスターアカウントを削除</value>
+  </data>
+  <data name="Confirm_RemoveProxy" xml:space="preserve">
+    <value>接続マネージャーからプロキシを削除</value>
+  </data>
+  <data name="Confirm_ResetColumns" xml:space="preserve">
+    <value>アップロード / 履歴タブの列を既定値にリセット</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>CSUploader について</value>
+  </data>
+  <data name="About_AppName" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="About_Version_Format" xml:space="preserve">
+    <value>バージョン {0}</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>複数のホスティングサービスに対応する強力なファイルアップロードマネージャーです。ハッシュ計算、キュー管理、リアルタイムの進捗追跡などの機能を備えています。</value>
+  </data>
+  <data name="About_Field_Framework" xml:space="preserve">
+    <value>フレームワーク:</value>
+  </data>
+  <data name="About_Field_Framework_Value" xml:space="preserve">
+    <value>.NET 10.0 (WPF)</value>
+  </data>
+  <data name="About_Field_Database" xml:space="preserve">
+    <value>データベース:</value>
+  </data>
+  <data name="About_Field_Database_Value" xml:space="preserve">
+    <value>SQLite via EF Core 10</value>
+  </data>
+  <data name="About_Field_License" xml:space="preserve">
+    <value>ライセンス:</value>
+  </data>
+  <data name="About_Field_License_Value" xml:space="preserve">
+    <value>MIT</value>
+  </data>
+  <data name="About_Field_Source" xml:space="preserve">
+    <value>ソース:</value>
+  </data>
+  <data name="About_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="CloseAction_WindowTitle" xml:space="preserve">
+    <value>CSUploader を閉じる</value>
+  </data>
+  <data name="CloseAction_Heading" xml:space="preserve">
+    <value>閉じるボタンの動作をどのようにしますか?</value>
+  </data>
+  <data name="CloseAction_Subheading" xml:space="preserve">
+    <value>いずれかを選択してください — 後で 設定 → 一般 から変更できます。</value>
+  </data>
+  <data name="CloseAction_Remember" xml:space="preserve">
+    <value>この選択を記憶する</value>
+  </data>
+  <data name="CloseAction_BtnMinimize" xml:space="preserve">
+    <value>トレイに最小化</value>
+  </data>
+  <data name="CloseAction_BtnExit" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="CloseAction_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Confirmation_WindowTitle" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="Confirmation_DontAskAgain" xml:space="preserve">
+    <value>この操作については今後確認しない</value>
+  </data>
+  <data name="Confirmation_BtnYes" xml:space="preserve">
+    <value>はい</value>
+  </data>
+  <data name="Confirmation_BtnNo" xml:space="preserve">
+    <value>いいえ</value>
+  </data>
+  <data name="EditAccount_WindowTitle" xml:space="preserve">
+    <value>アカウントを編集</value>
+  </data>
+  <data name="EditAccount_AddTitle" xml:space="preserve">
+    <value>アカウントを追加</value>
+  </data>
+  <data name="EditAccount_FileHosterLabel" xml:space="preserve">
+    <value>ファイルホスター:</value>
+  </data>
+  <data name="EditAccount_UsernameLabel" xml:space="preserve">
+    <value>ユーザー名:</value>
+  </data>
+  <data name="EditAccount_PasswordLabel" xml:space="preserve">
+    <value>パスワード:</value>
+  </data>
+  <data name="EditAccount_AccountEnabled" xml:space="preserve">
+    <value>アカウントを有効化</value>
+  </data>
+  <data name="EditAccount_BtnSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="EditAccount_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
+    <value>ユーザー名とパスワードの両方を入力してください。</value>
+  </data>
+  <data name="HttpDetails_WindowTitle" xml:space="preserve">
+    <value>HTTP トランザクションの詳細</value>
+  </data>
+  <data name="HttpDetails_Tab_Request" xml:space="preserve">
+    <value>リクエスト</value>
+  </data>
+  <data name="HttpDetails_Tab_Response" xml:space="preserve">
+    <value>レスポンス</value>
+  </data>
+  <data name="HttpDetails_Tab_FullDump" xml:space="preserve">
+    <value>完全ダンプ</value>
+  </data>
+  <data name="HttpDetails_SubTab_Headers" xml:space="preserve">
+    <value>ヘッダー</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyRaw" xml:space="preserve">
+    <value>ボディ (Raw)</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyJson" xml:space="preserve">
+    <value>ボディ (JSON)</value>
+  </data>
+  <data name="HttpDetails_SubTab_Hex" xml:space="preserve">
+    <value>Hex</value>
+  </data>
+  <data name="HttpDetails_Timing_Format" xml:space="preserve">
+    <value>開始: {0}  |  所要時間: {1}ms  |  サイズ: {2} バイト</value>
+  </data>
+  <data name="HttpDetails_Proxy_Format" xml:space="preserve">
+    <value>プロキシ: {0}</value>
+  </data>
+  <data name="HttpDetails_NoData" xml:space="preserve">
+    <value>(データなし)</value>
+  </data>
+  <data name="HttpDetails_NoBody" xml:space="preserve">
+    <value>(ボディなし)</value>
+  </data>
+  <data name="HttpDetails_FullDump_Request" xml:space="preserve">
+    <value>リクエスト</value>
+  </data>
+  <data name="HttpDetails_FullDump_Response" xml:space="preserve">
+    <value>レスポンス</value>
+  </data>
+  <data name="LogDetails_WindowTitle" xml:space="preserve">
+    <value>ログの詳細</value>
+  </data>
+  <data name="LogDetails_Field_DateTime" xml:space="preserve">
+    <value>日時:</value>
+  </data>
+  <data name="LogDetails_Field_ThreadId" xml:space="preserve">
+    <value>スレッド ID:</value>
+  </data>
+  <data name="LogDetails_Field_Filename" xml:space="preserve">
+    <value>ファイル名:</value>
+  </data>
+  <data name="LogDetails_Field_Function" xml:space="preserve">
+    <value>関数:</value>
+  </data>
+  <data name="LogDetails_Field_Line" xml:space="preserve">
+    <value>行:</value>
+  </data>
+  <data name="LogDetails_Tab_Text" xml:space="preserve">
+    <value>テキスト</value>
+  </data>
+  <data name="LogDetails_Tab_Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
+  <data name="LogDetails_Btn_Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Progress_WindowTitle" xml:space="preserve">
+    <value>お待ちください…</value>
+  </data>
+  <data name="Progress_DefaultLabel" xml:space="preserve">
+    <value>読み込み中…</value>
+  </data>
+  <data name="Progress_LabelSuffix" xml:space="preserve">
+    <value>お待ちください…</value>
+  </data>
+  <data name="Progress_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Progress_BtnCancelling" xml:space="preserve">
+    <value>キャンセル中…</value>
+  </data>
+  <data name="UpdateProgress_WindowTitle" xml:space="preserve">
+    <value>CSUploader を更新中</value>
+  </data>
+  <data name="UpdateProgress_StatusInitial" xml:space="preserve">
+    <value>準備中…</value>
+  </data>
+  <data name="UpdateProgress_StatusDownloading_Format" xml:space="preserve">
+    <value>更新 v{0} をダウンロード中…</value>
+  </data>
+  <data name="UpdateProgress_StatusRestarting" xml:space="preserve">
+    <value>再起動中…</value>
+  </data>
+  <data name="UpdateProgress_StatusFailed_Format" xml:space="preserve">
+    <value>更新に失敗しました: {0}</value>
+  </data>
+  <data name="UpdateProgress_PercentInitial" xml:space="preserve">
+    <value>0%</value>
+  </data>
+  <data name="ProxyText_WindowTitle" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="ProxyText_BtnImport" xml:space="preserve">
+    <value>インポート</value>
+  </data>
+  <data name="ProxyText_BtnCopy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="ProxyText_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="ProxyText_BtnClose" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="SpeedLimit_WindowTitle" xml:space="preserve">
+    <value>速度制限</value>
+  </data>
+  <data name="SpeedLimit_Heading" xml:space="preserve">
+    <value>速度制限を設定</value>
+  </data>
+  <data name="SpeedLimit_Subheading" xml:space="preserve">
+    <value>パッケージごとのオーバーライドです。空欄にすると全体設定が使用されます。</value>
+  </data>
+  <data name="SpeedLimit_Unit" xml:space="preserve">
+    <value>KB/s</value>
+  </data>
+  <data name="SpeedLimit_BtnClear" xml:space="preserve">
+    <value>クリア</value>
+  </data>
+  <data name="SpeedLimit_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="SpeedLimit_BtnOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="SpeedLimit_Validation_Title" xml:space="preserve">
+    <value>値が無効です</value>
+  </data>
+  <data name="SpeedLimit_Validation_Message" xml:space="preserve">
+    <value>正の整数 (KB/s) を入力するか、空欄のままでクリアしてください。</value>
+  </data>
+  <data name="Dialog_DefaultErrorTitle" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="Dialog_DefaultConfirmTitle" xml:space="preserve">
+    <value>確認</value>
+  </data>
+  <data name="Dialog_DefaultBrowseFolderTitle" xml:space="preserve">
+    <value>フォルダーを選択</value>
+  </data>
+  <data name="Dialog_GenericErrorTitle" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="Picker_Filter_Json" xml:space="preserve">
+    <value>JSON ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*</value>
+  </data>
+  <data name="Picker_Filter_ProxyLists" xml:space="preserve">
+    <value>プロキシリスト (*.txt)|*.txt|すべてのファイル (*.*)|*.*</value>
+  </data>
+  <data name="SpeedLimit_Display_Mbps_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="SpeedLimit_Display_Kbps_Format" xml:space="preserve">
+    <value>{0} KB/s</value>
+  </data>
+  <data name="Uploads_Overview_UploadSpeed_Zero" xml:space="preserve">
+    <value>0 B/s</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Show" xml:space="preserve">
+    <value>CSUploader を表示</value>
+  </data>
+  <data name="Tray_Menu_Exit" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="Tray_Balloon_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Balloon_Body" xml:space="preserve">
+    <value>トレイで実行中です。アイコンをクリックするとウィンドウが復元され、右クリックで終了できます。</value>
+  </data>
+</root>

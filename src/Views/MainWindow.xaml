@@ -8,6 +8,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="clr-namespace:CSUploader.Views"
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}"
         Width="1024" Height="800"
@@ -23,37 +24,38 @@
 
         <!-- ═══ Menu Bar ═══ -->
         <Menu Grid.Row="0" Background="{DynamicResource SurfaceBrush}" FontSize="12">
-                <MenuItem Header="_File">
-                    <MenuItem Header="_Exit" InputGestureText="Alt+F4" Click="MenuExit_Click" />
+                <MenuItem Header="{loc:Loc Main_Menu_File}">
+                    <MenuItem Header="{loc:Loc Main_Menu_File_Exit}"
+                              InputGestureText="{loc:Loc Main_Menu_File_Exit_Gesture}"
+                              Click="MenuExit_Click" />
                 </MenuItem>
-                <MenuItem Header="_View">
-                    <MenuItem Header="Upload _Overview" IsCheckable="True"
+                <MenuItem Header="{loc:Loc Main_Menu_View}">
+                    <MenuItem Header="{loc:Loc Main_Menu_View_UploadOverview}" IsCheckable="True"
                               IsChecked="{Binding UploadsViewModel.ShowUploadOverview}" />
                     <Separator />
                     <MenuItem Header="{Binding ThemeMenuLabel}" Command="{Binding ToggleThemeCommand}" />
                 </MenuItem>
-                <MenuItem Header="_Help">
-                    <MenuItem Header="_Check for Updates…" Click="MenuCheckForUpdates_Click" />
-                    <MenuItem Header="_Install Update"
+                <MenuItem Header="{loc:Loc Main_Menu_Help}">
+                    <MenuItem Header="{loc:Loc Main_Menu_Help_CheckForUpdates}" Click="MenuCheckForUpdates_Click" />
+                    <MenuItem Header="{loc:Loc Main_Menu_Help_InstallUpdate}"
                               Command="{Binding InstallUpdateCommand}"
                               IsEnabled="{Binding IsUpdateAvailable}" />
                     <Separator />
-                    <MenuItem Header="_About CSUploader" Click="MenuAbout_Click" />
+                    <MenuItem Header="{loc:Loc Main_Menu_Help_About}" Click="MenuAbout_Click" />
                 </MenuItem>
         </Menu>
 
-        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}"
-                    PreviewMouseLeftButtonDown="TabControl_PreviewMouseLeftButtonDown">
-            <TabItem Header="Uploads">
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
+            <TabItem Header="{loc:Loc Main_Tab_Uploads}">
                 <views:UploadsView DataContext="{Binding UploadsViewModel}" />
             </TabItem>
-            <TabItem Header="Uploaded">
+            <TabItem Header="{loc:Loc Main_Tab_Uploaded}">
                 <views:UploadedView DataContext="{Binding UploadedViewModel}" />
             </TabItem>
-            <TabItem Header="Settings">
+            <TabItem Header="{loc:Loc Main_Tab_Settings}">
                 <views:SettingsView DataContext="{Binding SettingsViewModel}" />
             </TabItem>
-            <TabItem Header="Logs">
+            <TabItem Header="{loc:Loc Main_Tab_Logs}">
                 <views:LogsView DataContext="{Binding LogsViewModel}" />
             </TabItem>
         </TabControl>

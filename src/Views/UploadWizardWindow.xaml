@@ -7,7 +7,8 @@
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
-        Title="Upload Wizard"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        Title="{loc:Loc Wizard_Title}"
         Width="850" Height="620"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
@@ -40,13 +41,13 @@
             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
             Padding="20,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-        <TextBlock Text="1. Directory" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=0}"
+        <TextBlock Text="{loc:Loc Wizard_Step_Directory}" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=0}"
                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
-        <TextBlock Text="2. Files" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=1}"
+        <TextBlock Text="{loc:Loc Wizard_Step_Files}" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=1}"
                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
-        <TextBlock Text="3. File Hosters" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=2}"
+        <TextBlock Text="{loc:Loc Wizard_Step_FileHosters}" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=2}"
                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
-        <TextBlock Text="4. Start" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=3}"
+        <TextBlock Text="{loc:Loc Wizard_Step_Start}" FontSize="13" FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=3}"
                    Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
     </Border>
@@ -56,9 +57,9 @@
 
       <!-- Step 0: Directory -->
       <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
-        <TextBlock Text="Select Upload Directory" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Text="{loc:Loc Wizard_Step0_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
-        <TextBlock Text="Choose the directory containing the files you want to upload."
+        <TextBlock Text="{loc:Loc Wizard_Step0_Desc}"
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
 
         <Grid>
@@ -68,7 +69,7 @@
           </Grid.ColumnDefinitions>
           <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=PropertyChanged}"
                    FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
-          <Button Grid.Column="1" Content="Browse" Width="80" Margin="8,0,0,0"
+          <Button Grid.Column="1" Content="{loc:Loc Wizard_Step0_Browse}" Width="80" Margin="8,0,0,0"
                   Command="{Binding BrowseDirectoryCommand}" />
         </Grid>
       </StackPanel>
@@ -83,7 +84,7 @@
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Select Files" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step1_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
 
         <Grid Grid.Row="1" Margin="0,0,0,10">
@@ -91,7 +92,7 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="Package title:" FontSize="12" VerticalAlignment="Center"
+          <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_PackageTitleLabel}" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding PackageTitle, UpdateSourceTrigger=PropertyChanged}"
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
@@ -104,13 +105,13 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="Filter:" FontSize="12" VerticalAlignment="Center"
+          <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_FilterLabel}" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged}"
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
-          <Button Grid.Column="2" Content="All" Width="50" Margin="8,0,0,0"
+          <Button Grid.Column="2" Content="{loc:Loc Wizard_Step1_BtnAll}" Width="50" Margin="8,0,0,0"
                   Command="{Binding SelectAllCommand}" />
-          <Button Grid.Column="3" Content="None" Width="50" Margin="4,0,0,0"
+          <Button Grid.Column="3" Content="{loc:Loc Wizard_Step1_BtnNone}" Width="50" Margin="4,0,0,0"
                   Command="{Binding SelectNoneCommand}" />
         </Grid>
 
@@ -152,7 +153,7 @@
                 </Style>
               </DataGridCheckBoxColumn.ElementStyle>
             </DataGridCheckBoxColumn>
-            <DataGridTemplateColumn Header="File" Width="*" IsReadOnly="True"
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step1_Col_File}" Width="*" IsReadOnly="True"
                                     SortMemberPath="RelativePath"
                                     ClipboardContentBinding="{Binding RelativePath}">
               <DataGridTemplateColumn.CellTemplate>
@@ -168,7 +169,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Size" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="100" IsReadOnly="True">
+            <DataGridTextColumn Header="{loc:Loc Wizard_Step1_Col_Size}" Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}}" Width="100" IsReadOnly="True">
               <DataGridTextColumn.ElementStyle>
                 <Style TargetType="TextBlock">
                   <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -179,12 +180,14 @@
           </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="4" Margin="0,4,0,0" FontSize="11"
-                   Foreground="{DynamicResource TextSecondaryBrush}">
-          <Run Text="Selected:" />
-          <Run Text="{Binding Files.Count, Mode=OneWay}" />
-          <Run Text="file(s)" />
-        </TextBlock>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,0">
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Text="{loc:Loc Wizard_Step1_SelectedLabel}" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Margin="4,0,0,0" Text="{Binding Files.Count, Mode=OneWay}" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Margin="4,0,0,0" Text="{loc:Loc Wizard_Step1_FilesUnit}" />
+        </StackPanel>
       </Grid>
 
       <!-- Step 2: File Hosters -->
@@ -195,9 +198,9 @@
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Select File Hosters" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
-        <TextBlock Grid.Row="1" Text="Choose which file hosters to upload to and select accounts."
+        <TextBlock Grid.Row="1" Text="{loc:Loc Wizard_Step2_Desc}"
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
 
         <DataGrid Grid.Row="2" ItemsSource="{Binding FileHosters}"
@@ -230,44 +233,18 @@
             </Style>
           </DataGrid.CellStyle>
           <DataGrid.Columns>
-            <DataGridCheckBoxColumn Header="Use" Binding="{Binding Use, UpdateSourceTrigger=PropertyChanged}" Width="42">
-              <DataGridCheckBoxColumn.ElementStyle>
-                <Style TargetType="CheckBox">
-                  <Setter Property="HorizontalAlignment" Value="Center" />
-                  <Setter Property="VerticalAlignment" Value="Center" />
-                </Style>
-              </DataGridCheckBoxColumn.ElementStyle>
-            </DataGridCheckBoxColumn>
-            <DataGridTemplateColumn Header="File Hoster" Width="180" IsReadOnly="True"
-                                    SortMemberPath="FileHosterName"
-                                    ClipboardContentBinding="{Binding FileHosterName}">
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Use}" Width="42"
+                                    SortMemberPath="Use">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
-                           Width="18" Height="18" Margin="0,0,6,0"
-                           RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="{Binding FileHosterName}" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                  </StackPanel>
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Account" Width="*">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
-                  <Grid>
-                    <ComboBox ItemsSource="{Binding Accounts}"
-                              SelectedItem="{Binding SelectedAccount, UpdateSourceTrigger=PropertyChanged}"
-                              DisplayMemberPath="Username"
-                              VerticalAlignment="Center"
-                              HorizontalAlignment="Left"
-                              Width="200"
-                              Padding="4,2" FontSize="12"
+                  <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <CheckBox IsChecked="{Binding Use, UpdateSourceTrigger=PropertyChanged}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
                               Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}" />
-                    <TextBlock Text="(anonymous)" VerticalAlignment="Center"
-                               FontSize="12" FontStyle="Italic"
-                               Foreground="{DynamicResource TextDisabledBrush}" Padding="6,2">
+                    <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               ToolTip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}">
                       <TextBlock.Style>
                         <Style TargetType="TextBlock">
                           <Setter Property="Visibility" Value="Visible" />
@@ -283,25 +260,96 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_FileHoster}" Width="180" IsReadOnly="True"
+                                    SortMemberPath="FileHosterName"
+                                    ClipboardContentBinding="{Binding FileHosterName}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                      <Style TargetType="StackPanel">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding HasAccounts}" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="ToolTip" Value="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </StackPanel.Style>
+                    <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
+                           Width="18" Height="18" Margin="0,0,6,0"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontStyle" Value="Normal" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasAccounts}" Value="False">
+                              <Setter Property="FontStyle" Value="Italic" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                      <Run Text="{Binding FileHosterName, Mode=OneWay}" />
+                    </TextBlock>
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Account}" Width="*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Grid>
+                    <ComboBox ItemsSource="{Binding Accounts}"
+                              SelectedItem="{Binding SelectedAccount, UpdateSourceTrigger=PropertyChanged}"
+                              DisplayMemberPath="Username"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Left"
+                              Width="200"
+                              Padding="4,2" FontSize="12"
+                              Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock VerticalAlignment="Center" FontSize="12" Padding="6,2">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Visibility" Value="Visible" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasAccounts}" Value="True">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                      <Hyperlink Foreground="{DynamicResource AccentBrush}"
+                                 Command="{Binding DataContext.AddAccountForHosterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 CommandParameter="{Binding}"
+                                 ToolTip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}">
+                        <Run Text="{loc:Loc Wizard_Step2_AddAccountLink}" />
+                      </Hyperlink>
+                    </TextBlock>
+                  </Grid>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
       </Grid>
 
       <!-- Step 3: When to start -->
       <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
-        <TextBlock Text="When to Start" FontSize="16" FontWeight="SemiBold"
+        <TextBlock Text="{loc:Loc Wizard_Step3_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
-        <TextBlock Text="Choose when the upload should begin."
+        <TextBlock Text="{loc:Loc Wizard_Step3_Desc}"
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
 
         <StackPanel Margin="0,0,0,12">
-          <RadioButton Content="Start immediately after closing the wizard"
+          <RadioButton Content="{loc:Loc Wizard_Step3_Mode_Immediately}"
                        IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Immediately}"
                        Margin="0,0,0,10" FontSize="12" />
-          <RadioButton Content="Add to queue but start later (manual start)"
+          <RadioButton Content="{loc:Loc Wizard_Step3_Mode_Later}"
                        IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Later}"
                        Margin="0,0,0,10" FontSize="12" />
-          <RadioButton Content="Schedule for a specific date and time"
+          <RadioButton Content="{loc:Loc Wizard_Step3_Mode_Scheduled}"
                        IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Scheduled}"
                        Margin="0,0,0,10" FontSize="12" />
         </StackPanel>
@@ -311,7 +359,7 @@
           <DatePicker SelectedDate="{Binding ScheduledDate}" Width="160" FontSize="12" VerticalContentAlignment="Center" />
           <TextBox Text="{Binding ScheduledTime, UpdateSourceTrigger=PropertyChanged}" Width="70" Margin="8,0,0,0"
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
-          <TextBlock Text="(HH:mm)" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11" />
+          <TextBlock Text="{loc:Loc Wizard_Step3_TimeFormatHint}" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11" />
         </StackPanel>
       </StackPanel>
     </Grid>
@@ -321,11 +369,11 @@
             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
             Background="{DynamicResource SurfaceAltBrush}">
       <Grid>
-        <Button Content="Back" Width="80" Height="30" HorizontalAlignment="Left"
+        <Button Content="{loc:Loc Wizard_Btn_Back}" Width="80" Height="30" HorizontalAlignment="Left"
                 Command="{Binding GoBackCommand}"
                 Visibility="{Binding CanGoBack, Converter={StaticResource BoolToVisibility}}" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-          <Button Content="Cancel" Width="80" Height="30" IsCancel="True" Margin="0,0,8,0" />
+          <Button Content="{loc:Loc Wizard_Btn_Cancel}" Width="80" Height="30" IsCancel="True" Margin="0,0,8,0" />
           <Button Content="{Binding NextButtonText}" Width="100" Height="30"
                   Command="{Binding GoNextCommand}"
                   Style="{StaticResource PrimaryButtonStyle}" />

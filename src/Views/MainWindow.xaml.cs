@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using CSUploader.Lib.Localization;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
@@ -128,7 +129,7 @@ public partial class MainWindow : Window
         {
             // Logged but not surfaced — the in-memory AppSettings is already updated, so
             // the choice still applies for the rest of this session.
-            CSUploader.Lib.Logger.Current.Log(this, CSUploader.Lib.LogType.Error, $"Failed to persist close action: {ex.Message}");
+            Lib.Logger.Current.Log(this, Lib.LogType.Error, $"Failed to persist close action: {ex.Message}");
         }
     }
 
@@ -138,67 +139,6 @@ public partial class MainWindow : Window
         Close();
     }
 
-    /// <summary>
-    /// Intercepts tab-header clicks before the TabControl commits the selection. If the
-    /// user is leaving Settings with unsaved edits and declines the discard prompt, we
-    /// swallow the click here — that avoids the brief flash of the new tab that the
-    /// after-the-fact ViewModel revert produced. Keyboard navigation still goes through
-    /// the ViewModel handler as a backstop.
-    /// </summary>
-    private void TabControl_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not TabControl tabControl)
-        {
-            return;
-        }
-
-        TabItem? targetTab = FindAncestor<TabItem>(e.OriginalSource as DependencyObject);
-        if (targetTab is null || targetTab.IsSelected)
-        {
-            return;
-        }
-
-        if (DataContext is not MainViewModel vm)
-        {
-            return;
-        }
-
-        int currentIndex = tabControl.SelectedIndex;
-        int targetIndex = tabControl.ItemContainerGenerator.IndexFromContainer(targetTab);
-        if (currentIndex != 2 || targetIndex == currentIndex)
-        {
-            // 2 == Settings tab. Only intercept when leaving it.
-            return;
-        }
-
-        // Always swallow the click and route the navigation through the ViewModel — the
-        // modal dialog inside TryConfirmDiscardChanges disrupts the TabControl's bubble
-        // path enough that letting the original click through doesn't reliably commit
-        // the tab change after the user confirms.
-        e.Handled = true;
-        if (vm.SettingsViewModel.TryConfirmDiscardChanges())
-        {
-            vm.SelectedTabIndex = targetIndex;
-        }
-    }
-
-    private static T? FindAncestor<T>(DependencyObject? start)
-        where T : DependencyObject
-    {
-        DependencyObject? current = start;
-        while (current is not null)
-        {
-            if (current is T match)
-            {
-                return match;
-            }
-
-            current = VisualTreeHelper.GetParent(current);
-        }
-
-        return null;
-    }
-
     private async void MenuCheckForUpdates_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm)
@@ -206,9 +146,9 @@ public partial class MainWindow : Window
             await vm.CheckForUpdatesAsync();
             MessageBox.Show(
                 vm.IsUpdateAvailable
-                    ? $"Update available: v{vm.AvailableVersion}.\n\nUse Help → Install Update to download and install."
-                    : "You're on the latest version.",
-                "Check for Updates",
+                    ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], vm.AvailableVersion)
+                    : Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"],
+                Localizer.Instance["Main_CheckForUpdates_DialogTitle"],
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }

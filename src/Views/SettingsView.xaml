@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
              d:DesignWidth="1024" d:DesignHeight="800"
@@ -57,8 +58,17 @@
             <Setter Property="Margin" Value="40,2,0,10" />
         </Style>
 
+        <!-- Hovering a row highlights it (JD2-style) so the user can tell which setting
+             pairs with which description. Background=Transparent so the grid is
+             hit-testable across its full width; the IsMouseOver trigger swaps the fill. -->
         <Style x:Key="SettingRow" TargetType="Grid">
-            <Setter Property="Margin" Value="40,0,0,8" />
+            <Setter Property="Margin" Value="40,0,0,2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="SettingLabel" TargetType="TextBlock">
@@ -127,25 +137,25 @@
                 <ListBoxItem IsSelected="True">
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource StatusOkImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="General" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{loc:Loc Settings_Sidebar_General}" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource StatusUploadingImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Upload" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{loc:Loc Settings_Sidebar_Upload}" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource ActionSpeedImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Connection" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{loc:Loc Settings_Sidebar_Connection}" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
                 <ListBoxItem>
                     <StackPanel HorizontalAlignment="Center" Width="120">
                         <Image Source="{StaticResource AccountImage}" Width="32" Height="32" HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Accounts" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{loc:Loc Settings_Sidebar_Accounts}" FontSize="11" HorizontalAlignment="Center" Margin="0,3,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     </StackPanel>
                 </ListBoxItem>
             </ListBox>
@@ -168,33 +178,66 @@
                 </Style>
             </ScrollViewer.Style>
             <StackPanel Margin="20,16,20,20" MaxWidth="900">
+                <!-- Language. The picker takes effect immediately; already-open dialogs
+                     keep whatever language they captured at construction. -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Developer" Style="{StaticResource SectionTitle}" />
-                </StackPanel>
-                <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Options for local development and testing." />
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <CheckBox Content="Use mock server (redirect all file hoster requests to localhost:8080/&lt;hoster&gt;)"
-                              IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
-                </Grid>
-
-                <!-- Grid appearance (font for Uploads / Uploaded tabs) -->
-                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
-                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Grid Appearance" Style="{StaticResource SectionTitle}" />
+                    <Path Data="{StaticResource SettingsLanguageGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_Language_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}"
-                           Text="Font used for the Uploads and Uploaded tabs. Changes apply immediately." />
+                           Text="{loc:Loc Settings_General_Language_Desc}" />
 
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Grid font" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_Language_Label}" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding LanguageOptions}"
+                              SelectedValuePath="Value"
+                              DisplayMemberPath="Label"
+                              SelectedValue="{Binding Language}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Path Data="{StaticResource SettingsDeveloperGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_Developer_Title}" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="{loc:Loc Settings_General_Developer_Desc}" />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <CheckBox Content="{loc:Loc Settings_General_UseMockServer}"
+                              IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Grid appearance (font for Uploads / Uploaded tabs) -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Path Data="{StaticResource SettingsGridAppearanceGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_GridAppearance_Title}" Style="{StaticResource SectionTitle}" />
+                </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="{loc:Loc Settings_General_GridAppearance_Desc}" />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFont}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding GridFontFamilyOptions}"
                               SelectedItem="{Binding GridFontFamily}"
@@ -226,24 +269,27 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Grid font size" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFontSize}" Style="{StaticResource SettingLabel}" />
                     <TextBox Grid.Column="1"
-                             Text="{Binding GridFontSize, UpdateSourceTrigger=PropertyChanged, StringFormat=F0}"
+                             Text="{Binding GridFontSize, UpdateSourceTrigger=LostFocus, StringFormat=F0}"
                              Style="{StaticResource SettingInput}"
                              HorizontalContentAlignment="Right" />
                 </Grid>
 
                 <!-- Window behaviour (minimize / close → tray) -->
                 <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
-                    <Image Source="{StaticResource StatusOkImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Window Behaviour" Style="{StaticResource SectionTitle}" />
+                    <Path Data="{StaticResource SettingsWindowBehaviourGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_WindowBehaviour_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}"
-                           Text="Choose what happens when the main window is minimized or closed." />
+                           Text="{loc:Loc Settings_General_WindowBehaviour_Desc}" />
 
                 <Grid Style="{StaticResource SettingRow}">
-                    <CheckBox Content="Minimize the main window to the system tray instead of the taskbar"
+                    <CheckBox Content="{loc:Loc Settings_General_MinimizeToTray}"
                               IsChecked="{Binding MinimizeToTray}" VerticalAlignment="Center" />
                 </Grid>
 
@@ -252,7 +298,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Close button action" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_CloseAction}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding CloseActionOptions}"
                               SelectedValue="{Binding CloseAction}"
@@ -263,12 +309,15 @@
 
                 <!-- Confirmation prompts -->
                 <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
-                    <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Confirmation Prompts" Style="{StaticResource SectionTitle}" />
+                    <Path Data="{StaticResource SettingsConfirmationGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_ConfirmationPrompts_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}"
-                           Text="Tick a prompt to have it ask again before the action. Untick to suppress the confirmation for that action." />
+                           Text="{loc:Loc Settings_General_ConfirmationPrompts_Desc}" />
 
                 <ItemsControl ItemsSource="{Binding ConfirmationPrompts}" Margin="40,4,0,0">
                     <ItemsControl.ItemTemplate>
@@ -280,13 +329,26 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <Separator Margin="0,20,0,12" />
-                <StackPanel Orientation="Horizontal" Margin="40,0,0,0">
-                    <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                            Width="130" Height="32" />
-                    <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
-                               Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+                <!-- Database — destructive cleanup, kept last on the page so the user has to
+                     scroll past the everyday settings to reach it. -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Path Data="{StaticResource SettingsDatabaseGeometry}"
+                          Fill="{DynamicResource AccentBrush}"
+                          Width="20" Height="20" Stretch="Uniform"
+                          VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <TextBlock Text="{loc:Loc Settings_General_Database_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="{loc:Loc Settings_General_Database_Desc}" />
+
+                <Grid Style="{StaticResource SettingRow}" Margin="40,4,0,0">
+                    <Button HorizontalAlignment="Left"
+                            Width="120" Height="28"
+                            Command="{Binding ClearDatabaseCommand}"
+                            Content="{loc:Loc Settings_General_Database_BtnClear}"
+                            Style="{StaticResource JD2Button}" />
+                </Grid>
             </StackPanel>
         </ScrollViewer>
 
@@ -305,18 +367,18 @@
             <StackPanel Margin="20,16,20,20" MaxWidth="900">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                     <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Upload Management" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{loc:Loc Settings_Upload_Mgmt_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource SectionDesc}" Text="Connection limits, priorities, ...set up the Upload controller details." />
+                <TextBlock Style="{StaticResource SectionDesc}" Text="{loc:Loc Settings_Upload_Mgmt_Desc}" />
 
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Max. simultaneous Uploads" Style="{StaticResource SettingLabel}" />
-                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxConcurrent}" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
                 </Grid>
 
                 <Grid Style="{StaticResource SettingRow}">
@@ -325,9 +387,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="252" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Max. simultaneous uploads per file hoster" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxPerHoster}" Style="{StaticResource SettingLabel}" />
                     <CheckBox Grid.Column="1" IsChecked="{Binding MaxUploadsPerHostEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBox Grid.Column="2" Text="{Binding MaxUploadsPerHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" IsEnabled="{Binding MaxUploadsPerHostEnabled}" HorizontalContentAlignment="Right" />
+                    <TextBox Grid.Column="2" Text="{Binding MaxUploadsPerHost, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" IsEnabled="{Binding MaxUploadsPerHostEnabled}" HorizontalContentAlignment="Right" />
                 </Grid>
 
                 <Grid Style="{StaticResource SettingRow}">
@@ -335,7 +397,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Remove finished uploads" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_RemoveFinished}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding RemoveFinishedUploadsOptions}"
                               SelectedValuePath="Value"
@@ -349,27 +411,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Auto-remove completed files" Style="{StaticResource SettingLabel}"
-                               ToolTip="Remove individual files from the Uploads tab as soon as they finish uploading successfully. History on the Uploaded tab is preserved." />
-                    <CheckBox Grid.Column="1" IsChecked="{Binding AutoRemoveCompletedFiles}" VerticalAlignment="Center" />
-                </Grid>
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Auto-remove completed packages" Style="{StaticResource SettingLabel}"
-                               ToolTip="Remove the whole package from the Uploads tab once every file in it has finished successfully. History on the Uploaded tab is preserved." />
-                    <CheckBox Grid.Column="1" IsChecked="{Binding AutoRemoveCompletedPackages}" VerticalAlignment="Center" />
-                </Grid>
-
-                <Grid Style="{StaticResource SettingRow}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="If the file already exists" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_IfFileExists}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
                               ItemsSource="{Binding IfFileExistsOptions}"
                               SelectedValuePath="Value"
@@ -383,8 +425,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Max. simultaneous CPU Jobs" Style="{StaticResource SettingLabel}" />
-                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxCpuJobs}" Style="{StaticResource SettingLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
                 </Grid>
 
                 <Grid Style="{StaticResource SettingRow}">
@@ -393,18 +435,34 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="252" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Speed Limit (KB/s)" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_SpeedLimit}" Style="{StaticResource SettingLabel}" />
                     <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBox Grid.Column="2" Text="{Binding SpeedLimitValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource SettingInput}" IsEnabled="{Binding SpeedLimitEnabled}" HorizontalContentAlignment="Right" />
+                    <TextBox Grid.Column="2" Text="{Binding SpeedLimitValue, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" IsEnabled="{Binding SpeedLimitEnabled}" HorizontalContentAlignment="Right" />
                 </Grid>
 
-                <Separator Margin="0,16,0,12" />
-                <StackPanel Orientation="Horizontal" Margin="40,0,0,0">
-                    <Button Content="Save Settings" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}"
-                            Width="130" Height="32" />
-                    <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
-                               Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+                <!-- Autostart Uploads -->
+                <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+                    <Image Source="{StaticResource StatusUploadingImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="{loc:Loc Settings_Upload_Autostart_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="{loc:Loc Settings_Upload_Autostart_Desc}" />
+
+                <Grid Style="{StaticResource SettingRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="280" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_Autostart}" Style="{StaticResource SettingLabel}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding AutostartUploadsOptions}"
+                              SelectedValuePath="Value"
+                              DisplayMemberPath="Label"
+                              SelectedValue="{Binding AutostartUploads}"
+                              FontSize="12" Padding="4,3" />
+                </Grid>
+
             </StackPanel>
         </ScrollViewer>
 
@@ -431,15 +489,19 @@
             <StackPanel Grid.Row="0" Margin="20,16,20,0">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                     <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Connection Manager" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{loc:Loc Settings_Conn_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource SectionDesc}"
-                           Text="If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection." />
-                <CheckBox Content="Automatically uncheck failing proxies"
-                          IsChecked="{Binding AutoDisableFailingProxies}"
-                          ToolTip="When on, a proxy that fails a manual test or an upload is unchecked so the rotation skips it. The status icon updates either way."
+                           Text="{loc:Loc Settings_Conn_Desc}" />
+                <CheckBox Content="{loc:Loc Settings_Conn_UseProxies}"
+                          IsChecked="{Binding ProxiesEnabled}"
+                          ToolTip="{loc:Loc Settings_Conn_UseProxiesTip}"
                           Margin="0,8,0,0" />
+                <CheckBox Content="{loc:Loc Settings_Conn_AutoDisable}"
+                          IsChecked="{Binding AutoDisableFailingProxies}"
+                          ToolTip="{loc:Loc Settings_Conn_AutoDisableTip}"
+                          Margin="0,4,0,0" />
             </StackPanel>
 
             <DataGrid x:Name="proxyGrid" Grid.Row="1" Margin="20,8,20,8"
@@ -479,18 +541,18 @@
                 </DataGrid.InputBindings>
                 <DataGrid.ContextMenu>
                     <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                        <MenuItem Header="Test"
+                        <MenuItem Header="{loc:Loc Settings_Conn_Context_Test}"
                                   Command="{Binding TestCommand}"
                                   CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <Separator />
-                        <MenuItem Header="Remove"
-                                  InputGestureText="Del"
+                        <MenuItem Header="{loc:Loc Settings_Conn_Context_Remove}"
+                                  InputGestureText="{loc:Loc Settings_Conn_Context_Remove_Gesture}"
                                   Command="{Binding RemoveSelectedCommand}"
                                   CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                     </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                    <DataGridCheckBoxColumn Header="{loc:Loc Settings_Conn_Col_On}" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="40">
                         <DataGridCheckBoxColumn.ElementStyle>
                             <Style TargetType="CheckBox">
                                 <Setter Property="HorizontalAlignment" Value="Center" />
@@ -498,7 +560,7 @@
                             </Style>
                         </DataGridCheckBoxColumn.ElementStyle>
                     </DataGridCheckBoxColumn>
-                    <DataGridTemplateColumn Header="Priority" Width="90">
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Priority}" Width="90">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <!-- Inline style strips the global Button padding (10,4) — at this
@@ -519,16 +581,16 @@
                                     <Button Content="&#x25B2;" Margin="0,0,2,0"
                                             Command="{Binding DataContext.MoveUpCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            ToolTip="Move up (higher priority)" />
+                                            ToolTip="{loc:Loc Settings_Conn_PriorityUpTip}" />
                                     <Button Content="&#x25BC;"
                                             Command="{Binding DataContext.MoveDownCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}"
-                                            ToolTip="Move down (lower priority)" />
+                                            ToolTip="{loc:Loc Settings_Conn_PriorityDownTip}" />
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="Type" Width="100" SortMemberPath="Type">
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Type}" Width="100" SortMemberPath="Type">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <ComboBox ItemsSource="{x:Static vm:ConnectionManagerViewModel.ProxyTypeOptions}"
@@ -538,11 +600,11 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Host / IP" Binding="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
-                    <DataGridTextColumn Header="Port" Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                    <DataGridTextColumn Header="User" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                    <DataGridTextColumn Header="Password" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                    <DataGridTemplateColumn Header="Test" Width="60" SortMemberPath="TestOutcome" IsReadOnly="True">
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Host}" Binding="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Port}" Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_User}" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Password}" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Test}" Width="60" SortMemberPath="TestOutcome" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Image Source="{Binding TestOutcome, Converter={StaticResource ProxyTestOutcomeIcon}}"
@@ -553,7 +615,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="Status" Width="280" SortMemberPath="TestStatus" IsReadOnly="True">
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Status}" Width="280" SortMemberPath="TestStatus" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Grid>
@@ -567,7 +629,7 @@
                                                VerticalAlignment="Center"
                                                ToolTip="{Binding TestStatus}" />
                                     <Button Grid.Column="1"
-                                            Content="Details"
+                                            Content="{loc:Loc Settings_Conn_Btn_Details}"
                                             FontSize="11"
                                             Padding="6,1"
                                             Margin="6,0,0,0"
@@ -589,13 +651,13 @@
                             Click="ImportProxiesButton_Click"
                             Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Import" />
+                            <TextBlock Text="{loc:Loc Settings_Conn_Btn_Import}" />
                             <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                <MenuItem Header="Import from text…" Command="{Binding ImportFromTextCommand}" />
-                                <MenuItem Header="Import from file…" Command="{Binding ImportFromFileCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromText}" Command="{Binding ImportFromTextCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromFile}" Command="{Binding ImportFromFileCommand}" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
@@ -604,26 +666,26 @@
                             Click="ExportProxiesButton_Click"
                             Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Export" />
+                            <TextBlock Text="{loc:Loc Settings_Conn_Btn_Export}" />
                             <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                <MenuItem Header="Export all proxies to text…" Command="{Binding ExportAllToTextCommand}" />
-                                <MenuItem Header="Export all proxies to file…" Command="{Binding ExportAllToFileCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToText}" Command="{Binding ExportAllToTextCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToFile}" Command="{Binding ExportAllToFileCommand}" />
                                 <Separator />
-                                <MenuItem Header="Export tested-OK proxies to text…" Command="{Binding ExportOkToTextCommand}" />
-                                <MenuItem Header="Export tested-OK proxies to file…" Command="{Binding ExportOkToFileCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToText}" Command="{Binding ExportOkToTextCommand}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToFile}" Command="{Binding ExportOkToFileCommand}" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <Button Content="Save" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" Width="100" />
+                    <Button Content="{loc:Loc Settings_Conn_Btn_Save}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" Width="100" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                     <Button Style="{StaticResource JD2Button}" Command="{Binding AddCommand}" Margin="0,0,6,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,4,0" />
-                            <TextBlock Text="Add" />
+                            <TextBlock Text="{loc:Loc Settings_Conn_Btn_Add}" />
                         </StackPanel>
                     </Button>
                     <!-- Click opens the ContextMenu (handled in code-behind) so the user
@@ -639,24 +701,24 @@
                             Margin="0,0,6,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="−" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,4,0" />
-                            <TextBlock Text="Remove" />
+                            <TextBlock Text="{loc:Loc Settings_Conn_Btn_Remove}" />
                             <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                <MenuItem Header="Remove selected"
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_RemoveSelected}"
                                           Command="{Binding RemoveSelectedCommand}"
                                           CommandParameter="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                <MenuItem Header="Remove failed"
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_RemoveFailed}"
                                           Command="{Binding RemoveFailedCommand}" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
                     <Button Style="{StaticResource JD2Button}"
                             Command="{Binding TestAllCommand}"
-                            ToolTip="Test connectivity for every proxy in the list"
+                            ToolTip="{loc:Loc Settings_Conn_Btn_TestAllTip}"
                             Margin="0,0,6,0">
-                        <TextBlock Text="Test All" />
+                        <TextBlock Text="{loc:Loc Settings_Conn_Btn_TestAll}" />
                     </Button>
                     <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
                                Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
@@ -687,11 +749,11 @@
             <StackPanel Grid.Row="0" Margin="20,16,20,0">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
                     <Image Source="{StaticResource AccountImage}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
-                    <TextBlock Text="Account Manager" Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="{loc:Loc Settings_Accounts_Title}" Style="{StaticResource SectionTitle}" />
                 </StackPanel>
                 <Separator Margin="0,0,0,4" />
                 <TextBlock FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"
-                           Text="Enter and manage all your Premium/Gold/Platinum accounts." />
+                           Text="{loc:Loc Settings_Accounts_Desc}" />
             </StackPanel>
 
             <!-- DataGrid fills all remaining space -->
@@ -769,8 +831,8 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Hoster" Binding="{Binding FileHosterName}" Width="180" />
-                    <DataGridTemplateColumn Header="Status" Width="200">
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Hoster}" Binding="{Binding FileHosterName}" Width="180" />
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
@@ -780,24 +842,24 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="180" />
-                    <DataGridTextColumn Header="Password" Width="100">
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Username}" Binding="{Binding Username}" Width="180" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Password}" Width="100">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock"><Setter Property="Text" Value="******" /></Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="Type" Binding="{Binding AccountType}" Width="*" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="*" />
                 </DataGrid.Columns>
 
                 <DataGrid.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="Edit Account..." Command="{Binding EditAccountCommand}" />
-                        <MenuItem Header="Check / Refresh" Command="{Binding RefreshAccountCommand}" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Edit}" Command="{Binding EditAccountCommand}" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Refresh}" Command="{Binding RefreshAccountCommand}" />
                         <Separator />
-                        <MenuItem Header="Enable" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
-                        <MenuItem Header="Disable" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Enable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Disable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
                         <Separator />
-                        <MenuItem Header="Delete" Command="{Binding RemoveAccountCommand}" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Delete}" Command="{Binding RemoveAccountCommand}" />
                     </ContextMenu>
                 </DataGrid.ContextMenu>
             </DataGrid>
@@ -810,19 +872,19 @@
                     <Button Style="{StaticResource JD2Button}" Command="{Binding AddAccountDialogCommand}" Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="Add" VerticalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Add}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource JD2Button}" Command="{Binding RemoveAccountCommand}" Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="-" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="Remove" VerticalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Remove}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource JD2Button}" Command="{Binding RefreshAllAccountsCommand}">
                         <StackPanel Orientation="Horizontal">
                             <Image Source="{StaticResource ActionRetryImage}" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <TextBlock Text="Refresh" VerticalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Refresh}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

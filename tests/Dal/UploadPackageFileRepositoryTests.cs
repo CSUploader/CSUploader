@@ -70,8 +70,11 @@ public class UploadPackageFileRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetDoneFilesWithPackageNameAsync_ReturnsOnlyTerminalStates()
+    public async Task GetDoneFilesWithPackageNameAsync_ReturnsOnlyCompletedFiles()
     {
+        // Failed / Cancelled rows must NOT show up in the Uploaded tab — that view is the
+        // "successful uploads with URLs" history. Failed rows belong on the Uploads tab
+        // where the user retries them.
         int packageId = await InsertPackageAsync("pkg");
         await InsertFileAsync(packageId, "completed.iso", FileState.Completed);
         await InsertFileAsync(packageId, "failed.iso", FileState.Failed);
@@ -84,7 +87,7 @@ public class UploadPackageFileRepositoryTests : IDisposable
             await _fileRepo.GetDoneFilesWithPackageNameAsync();
 
         string[] returnedNames = [.. rows.Select(r => r.File.FileName ?? string.Empty).OrderBy(n => n, StringComparer.Ordinal)];
-        Assert.Equal(new[] { "cancelled.iso", "completed.iso", "failed.iso" }, returnedNames);
+        Assert.Equal(new[] { "completed.iso" }, returnedNames);
     }
 
     [Fact]

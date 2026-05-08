@@ -17,10 +17,6 @@ public static class SettingKey
 
     public static string RemoveFinishedUploads { get; } = "removeFinishedUploads";
 
-    public static string AutoRemoveCompletedFiles { get; } = "autoRemoveCompletedFiles";
-
-    public static string AutoRemoveCompletedPackages { get; } = "autoRemoveCompletedPackages";
-
     public static string GridFontFamily { get; } = "gridFontFamily";
 
     public static string GridFontSize { get; } = "gridFontSize";
@@ -28,6 +24,8 @@ public static class SettingKey
     public static string IsDarkMode { get; } = "isDarkMode";
 
     public static string IfFileExists { get; } = "ifFileExists";
+
+    public static string AutostartUploads { get; } = "autostartUploads";
 
     public static string SpeedLimit { get; } = "speedLimit";
 
@@ -40,4 +38,12 @@ public static class SettingKey
     public static string CloseAction { get; } = "closeAction";
 
     public static string AutoDisableFailingProxies { get; } = "autoDisableFailingProxies";
+
+    public static string ProxiesEnabled { get; } = "proxiesEnabled";
+
+    public static string UploadsTabHiddenColumns { get; } = "uploadsTabHiddenColumns";
+
+    public static string UploadedTabHiddenColumns { get; } = "uploadedTabHiddenColumns";
+
+    public static string Language { get; } = "language";
 }

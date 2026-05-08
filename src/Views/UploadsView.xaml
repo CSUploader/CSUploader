@@ -9,6 +9,7 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadsViewModel}"
              d:DesignWidth="1600" d:DesignHeight="900">
@@ -111,7 +112,7 @@
                 BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
                 Padding="4,2">
             <StackPanel Orientation="Horizontal">
-                <Button Style="{StaticResource ToolbarButton}" Click="AddUploadButton_Click" ToolTip="Add new upload">
+                <Button Style="{StaticResource ToolbarButton}" Click="AddUploadButton_Click" ToolTip="{loc:Loc Uploads_Toolbar_AddTip}">
                     <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Margin="0,-4,0,0" />
@@ -120,13 +121,13 @@
                 <!-- Separator -->
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
 
-                <Button Style="{StaticResource ToolbarButton}" Command="{Binding StartCommand}" ToolTip="Start all uploads">
+                <Button Style="{StaticResource ToolbarButton}" Command="{Binding StartCommand}" ToolTip="{loc:Loc Uploads_Toolbar_StartTip}">
                     <Image Source="{StaticResource ButtonStartImage}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
-                <Button Style="{StaticResource ToolbarButton}" Command="{Binding PauseCommand}" ToolTip="Pause / Resume">
+                <Button Style="{StaticResource ToolbarButton}" Command="{Binding PauseCommand}" ToolTip="{loc:Loc Uploads_Toolbar_PauseTip}">
                     <Image Source="{StaticResource ButtonPauseImage}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
-                <Button Style="{StaticResource ToolbarButton}" Command="{Binding StopCommand}" ToolTip="Stop all uploads">
+                <Button Style="{StaticResource ToolbarButton}" Command="{Binding StopCommand}" ToolTip="{loc:Loc Uploads_Toolbar_StopTip}">
                     <Image Source="{StaticResource ButtonStopImage}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
 
@@ -136,14 +137,14 @@
                 <Button Style="{StaticResource ToolbarButton}"
                         Command="{Binding MoveUpCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="Move package up">
+                        ToolTip="{loc:Loc Uploads_Toolbar_MoveUpTip}">
                     <TextBlock Text="&#x25B2;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
                 <Button Style="{StaticResource ToolbarButton}"
                         Command="{Binding MoveDownCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="Move package down">
+                        ToolTip="{loc:Loc Uploads_Toolbar_MoveDownTip}">
                     <TextBlock Text="&#x25BC;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
@@ -154,7 +155,7 @@
                 <Button Style="{StaticResource ToolbarButton}"
                         Command="{Binding RemoveSelectedCommand}"
                         CommandParameter="{Binding SelectedItems, ElementName=uploadsGrid}"
-                        ToolTip="Remove selected">
+                        ToolTip="{loc:Loc Uploads_Toolbar_RemoveTip}">
                     <TextBlock Text="&#x2715;" FontSize="16" FontWeight="Bold"
                                Foreground="{DynamicResource ErrorBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -195,35 +196,35 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                    <MenuItem Header="Start" Command="{Binding RetryCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_Start}" Command="{Binding RetryCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
                         <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Stop" Command="{Binding StopSelectedCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_Stop}" Command="{Binding StopSelectedCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Stoppable}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Skip Upload" Command="{Binding SkipUploadCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_SkipUpload}" Command="{Binding SkipUploadCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSkipImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Reset" Command="{Binding ResetFileCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_Reset}" Command="{Binding ResetFileCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionResetImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <Separator />
-                    <MenuItem Header="Open Source Directory" Command="{Binding OpenSourceDirectoryCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_OpenSourceDir}" Command="{Binding OpenSourceDirectoryCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionFolderImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Set Speed Limit..." Command="{Binding SetSpeedLimitCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_SetSpeedLimit}" Command="{Binding SetSpeedLimitCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <Separator />
-                    <MenuItem Header="Remove" Command="{Binding RemoveCommand}"
+                    <MenuItem Header="{loc:Loc Uploads_Context_Remove}" Command="{Binding RemoveCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 </ContextMenu>
             </DataGrid.ContextMenu>
@@ -252,7 +253,7 @@
                                                       Width="14" Height="14" Margin="4,0,0,0"
                                                       Click="ColumnLock_Click"
                                                       Background="Transparent" BorderThickness="0"
-                                                      ToolTip="Lock column width">
+                                                      ToolTip="{loc:Loc Uploads_ColumnHeader_LockTip}">
                                             <ToggleButton.Template>
                                                 <ControlTemplate TargetType="ToggleButton">
                                                     <Border Background="Transparent">
@@ -324,7 +325,7 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Name" Width="248" CanUserReorder="False">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <!-- Horizontal stack: collapsed elements take zero width, so the package
@@ -387,7 +388,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Size" Width="120">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -402,7 +403,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Hoster" Width="120">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hoster}" Width="120">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -416,7 +417,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Status" Width="140">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -429,11 +430,11 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
-                <DataGridTextColumn Header="ETA" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
-                <DataGridTextColumn Header="Bytes Loaded" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Speed}" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_ETA}" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesLoaded}" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
 
-                <DataGridTemplateColumn Header="Progress" Width="140">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Grid x:Name="PGrid" Margin="2,3">
@@ -454,7 +455,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Save to" Binding="{Binding SaveFrom}" Width="180">
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_SaveTo}" Binding="{Binding SaveFrom}" Width="180">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -462,38 +463,71 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Added"
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Added}"
                                     Binding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}}"
                                     Width="130" Visibility="Collapsed" />
-                <DataGridTextColumn Header="Finished"
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Finished}"
                                     Binding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}}"
                                     Width="130" Visibility="Collapsed" />
-                <DataGridTextColumn Header="Duration"
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Duration}"
                                     Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
                                     Width="80" Visibility="Collapsed" />
-                <DataGridTextColumn Header="Priority"
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Priority}"
                                     Binding="{Binding Priority, TargetNullValue=''}"
                                     Width="70" Visibility="Collapsed" />
-                <DataGridTextColumn Header="Speed Limit"
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_SpeedLimit}"
                                     Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
                                     Width="90" Visibility="Collapsed" />
-                <DataGridTextColumn Header="URL"
-                                    Binding="{Binding FileUrl}"
-                                    Width="200" Visibility="Collapsed">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="VerticalAlignment" Value="Center" />
-                            <Style.Triggers>
-                                <!-- Suppress the aggregated package URL — the per-file rows already show them -->
-                                <DataTrigger Binding="{Binding IsPackageRow}" Value="True">
-                                    <Setter Property="Text" Value="" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="220" MinWidth="60">
+                <!-- Template column instead of TextColumn so the IsPackageRow trigger can
+                     suppress the aggregated value. With a DataGridTextColumn, Binding sets
+                     Text as a local value, and Style triggers can't override locals (WPF
+                     dependency-property precedence). Inside this DataTemplate the
+                     style-setter sets Text, so the trigger wins. -->
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hash}"
+                                        Width="280" MinWidth="100" Visibility="Collapsed"
+                                        SortMemberPath="FileHash"
+                                        ClipboardContentBinding="{Binding FileHash}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       FontFamily="Consolas, Cascadia Mono, Segoe UI"
+                                       Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding FileHash}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPackageRow}" Value="True">
+                                                <Setter Property="Text" Value="" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_URL}"
+                                        Width="200" Visibility="Collapsed"
+                                        SortMemberPath="FileUrl"
+                                        ClipboardContentBinding="{Binding FileUrl}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding FileUrl}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPackageRow}" Value="True">
+                                                <Setter Property="Text" Value="" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Error}" Binding="{Binding Error}" Width="220" MinWidth="60">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="Red" />
@@ -523,39 +557,53 @@
                                 Background="Transparent" BorderThickness="0" Cursor="Hand"
                                 FontSize="10" Content="&#x2715;" Foreground="{DynamicResource OverviewCloseBrush}"
                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                                ToolTip="Close overview" Padding="0"
+                                ToolTip="{loc:Loc Uploads_Overview_CloseTip}" Padding="0"
                                 Click="OverviewCloseButton_Click" />
 
-                        <!-- Green arrow + title -->
-                        <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}">
-                            <Run Text="&#x25BC;" Foreground="{DynamicResource OverviewArrowBrush}" FontSize="10" /> <!-- Green down arrow -->
-                            <Run Text=" Upload Overview" />
-                        </TextBlock>
+                        <!-- Chevron + title. Sibling TextBlocks instead of Run inlines:
+                             clicks on a Run can trigger WPF's "Run is not a Visual or
+                             Visual3D" path on Win11; sibling TextBlocks hit-test to real
+                             Visuals. The chevron toggles IsOverviewExpanded. -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    MouseLeftButtonUp="OverviewToggle_MouseLeftButtonUp"
+                                    Background="Transparent"
+                                    ToolTip="{loc:Loc Uploads_Overview_ToggleTip}">
+                            <TextBlock Text="{Binding OverviewToggleGlyph}" FontSize="10"
+                                       Foreground="{DynamicResource OverviewArrowBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_Title}"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       Margin="4,0,0,0"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
                     </DockPanel>
                 </Border>
 
-                <!-- Stats area with right-click context menu for toggling fields -->
+                <!-- Stats area with right-click context menu for toggling fields. Hidden
+                     when the user collapses the overview via the chevron in the title bar. -->
                 <Border Grid.Row="1" Background="{DynamicResource SurfaceAltBrush}" Padding="6,3,6,4"
-                        BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0">
+                        BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0"
+                        Visibility="{Binding IsOverviewExpanded, Converter={StaticResource BoolToVisibility}}">
 
                     <!-- JD2-style right-click menu to toggle stat fields -->
                     <Border.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="Package(s)" IsCheckable="True" IsChecked="{Binding ShowPackages}" />
-                            <MenuItem Header="Link(s)" IsCheckable="True" IsChecked="{Binding ShowLinks}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_Packages}" IsCheckable="True" IsChecked="{Binding ShowPackages}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_Links}" IsCheckable="True" IsChecked="{Binding ShowLinks}" />
                             <Separator />
-                            <MenuItem Header="Total Bytes" IsCheckable="True" IsChecked="{Binding ShowTotalBytes}" />
-                            <MenuItem Header="Uploadspeed" IsCheckable="True" IsChecked="{Binding ShowUploadspeed}" />
-                            <MenuItem Header="Bytes loaded" IsCheckable="True" IsChecked="{Binding ShowBytesLoaded}" />
-                            <MenuItem Header="Remaining Bytes" IsCheckable="True" IsChecked="{Binding ShowRemainingBytes}" />
-                            <MenuItem Header="ETA" IsCheckable="True" IsChecked="{Binding ShowEta}" />
-                            <MenuItem Header="Running Uploads" IsCheckable="True" IsChecked="{Binding ShowRunningUploads}" />
-                            <MenuItem Header="Open Connections" IsCheckable="True" IsChecked="{Binding ShowOpenConnections}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_TotalBytes}" IsCheckable="True" IsChecked="{Binding ShowTotalBytes}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_Uploadspeed}" IsCheckable="True" IsChecked="{Binding ShowUploadspeed}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_BytesLoaded}" IsCheckable="True" IsChecked="{Binding ShowBytesLoaded}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_RemainingBytes}" IsCheckable="True" IsChecked="{Binding ShowRemainingBytes}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_Eta}" IsCheckable="True" IsChecked="{Binding ShowEta}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_RunningUploads}" IsCheckable="True" IsChecked="{Binding ShowRunningUploads}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_OpenConnections}" IsCheckable="True" IsChecked="{Binding ShowOpenConnections}" />
                             <Separator />
-                            <MenuItem Header="Finished Link(s)" IsCheckable="True" IsChecked="{Binding ShowFinishedLinks}" />
-                            <MenuItem Header="Skipped Link(s)" IsCheckable="True" IsChecked="{Binding ShowSkippedLinks}" />
-                            <MenuItem Header="Failed Link(s)" IsCheckable="True" IsChecked="{Binding ShowFailedLinks}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_FinishedLinks}" IsCheckable="True" IsChecked="{Binding ShowFinishedLinks}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_SkippedLinks}" IsCheckable="True" IsChecked="{Binding ShowSkippedLinks}" />
+                            <MenuItem Header="{loc:Loc Uploads_Overview_FailedLinks}" IsCheckable="True" IsChecked="{Binding ShowFailedLinks}" />
                         </ContextMenu>
                     </Border.ContextMenu>
 
@@ -563,73 +611,73 @@
                         <!-- Each stat is a label+value pair that collapses when toggled off -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowPackages, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Package(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_PackagesLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding PackageCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowTotalBytes, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Total Bytes:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_TotalBytesLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding TotalBytes}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowBytesLoaded, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Bytes loaded:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_BytesLoadedLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding BytesLoaded}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowEta, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="ETA:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_EtaLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding Eta}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowOpenConnections, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Open Connections:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_OpenConnectionsLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_LinksLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding FileCount}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowUploadspeed, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Uploadspeed:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_UploadspeedLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding UploadSpeed}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowRemainingBytes, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Remaining Bytes:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_RemainingBytesLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding RemainingBytes}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowRunningUploads, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Running Uploads:" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_RunningUploadsLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding RunningUploads}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowFinishedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Finished Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_FinishedLinksLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding FinishedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowSkippedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Skipped Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_SkippedLinksLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding SkippedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Margin="0,0,16,1"
                                     Visibility="{Binding ShowFailedLinks, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Failed Link(s):" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{loc:Loc Uploads_Overview_FailedLinksLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding FailedLinks}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                         </StackPanel>
                     </WrapPanel>
@@ -643,7 +691,7 @@
                 Padding="6,4">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left"
-                           Text="File Name"
+                           Text="{loc:Loc Uploads_FilterLabel}"
                            Width="110"
                            FontSize="11"
                            VerticalAlignment="Center"
@@ -652,21 +700,31 @@
                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
                          FontSize="11"
                          VerticalContentAlignment="Center"
-                         ToolTip="Filter by file or package name" />
+                         ToolTip="{loc:Loc Uploads_FilterTip}" />
             </DockPanel>
         </Border>
 
-        <!-- Premium account footer link -->
+        <!-- Premium account footer link. Sibling TextBlocks (not Run inlines) inside a
+             StackPanel so clicks hit-test to a Visual rather than a Run, which avoids
+             WPF's "Run is not a Visual or Visual3D" path on Win11. -->
         <Border Grid.Row="4" Background="{DynamicResource SurfaceMutedBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                 Padding="8,3">
-            <TextBlock x:Name="PremiumAccountLink"
-                       Cursor="Hand"
-                       MouseLeftButtonUp="PremiumAccountLink_Click"
-                       FontSize="11"
-                       Foreground="{DynamicResource AccentBrush}">
-                <Run Text="&#x2795;" FontFamily="Segoe UI Symbol" /> Add a Premium Account…
-            </TextBlock>
+            <StackPanel x:Name="PremiumAccountLink"
+                        Orientation="Horizontal"
+                        Cursor="Hand"
+                        Background="Transparent"
+                        MouseLeftButtonUp="PremiumAccountLink_Click">
+                <TextBlock Text="&#x2795;" FontFamily="Segoe UI Symbol"
+                           FontSize="11"
+                           Foreground="{DynamicResource AccentBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc Uploads_FooterPremiumLink}"
+                           FontSize="11"
+                           Foreground="{DynamicResource AccentBrush}"
+                           Margin="4,0,0,0"
+                           VerticalAlignment="Center" />
+            </StackPanel>
         </Border>
     </Grid>
 </UserControl>

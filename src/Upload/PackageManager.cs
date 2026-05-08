@@ -54,6 +54,10 @@ public class PackageManager
         _scheduler.PackageAdded += (_, package) => PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
         _scheduler.FileStateChanged += OnFileStateChanged;
         _scheduler.Start();
+
+        // No need to subscribe to ProxyManager.RotationReloaded — RapidgatorClient (and
+        // any future hoster) builds its HttpHandler at the start of each upload attempt,
+        // so a queued file naturally picks up the latest proxy choice on its next run.
     }
 
     /// <summary>
@@ -140,9 +144,10 @@ public class PackageManager
     /// <summary>
     /// Loads all persisted packages, including completed ones, so the Uploads tab keeps
     /// showing finished work after a restart. Resumes scheduling for any non-terminal
-    /// packages. Honours <see cref="AppSettings.AutoRemoveCompletedFiles"/> /
-    /// <see cref="AppSettings.AutoRemoveCompletedPackages"/> at load time so the
-    /// auto-remove behaviour is consistent across restarts.
+    /// packages. When <see cref="AppSettings.RemoveFinishedUploads"/> is
+    /// <see cref="RemoveFinishedUploadsMode.AtStartup"/>, fully-successful packages are
+    /// soft-removed from the Uploads tab here so the user starts each session with a
+    /// clean queue.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async Task LoadPersistedPackagesAsync()
@@ -238,10 +243,21 @@ public class PackageManager
                 // Override Name since it was persisted
                 package.Name = pkgDto.Name ?? package.Name;
 
+                // Track whether any file was in a non-paused/cancelled/terminal state at
+                // last shutdown. Drives the Autostart Uploads "Only if running at last
+                // session's end" gate below.
+                bool wasRunningAtShutdown = false;
+
                 // Reconstruct PackageFiles
                 List<PackageFile> files = [];
                 foreach (UploadPackageFileDto fileDto in pkgDto.Files)
                 {
+                    if (fileDto.State is FileState.Idle or FileState.HashQueued or FileState.Hashing
+                        or FileState.UploadQueued or FileState.Uploading)
+                    {
+                        wasRunningAtShutdown = true;
+                    }
+
                     string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
                     var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
                     if (client is null)
@@ -277,7 +293,8 @@ public class PackageManager
                     {
                         DbId = fileDto.Id,
                         Priority = fileDto.Priority,
-                        IsHashingComplete = fileDto.IsHashingComplete
+                        IsHashingComplete = fileDto.IsHashingComplete,
+                        FileHash = fileDto.FileHash,
                     };
                     client.SpeedLimitProvider = pf.GetEffectiveSpeedLimitBytesPerSecond;
 
@@ -305,21 +322,13 @@ public class PackageManager
                 bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);
                 bool allSuccessful = files.Count > 0 && files.TrueForAll(f => f.State == FileState.Completed);
 
-                // Honour the auto-remove settings on restart so behaviour matches in-session.
-                if (allSuccessful && _settings.AutoRemoveCompletedPackages)
+                // AtStartup mode: drop fully-successful packages from the Uploads tab on
+                // app launch. The Uploaded tab still shows the row via its own query —
+                // soft-remove only flips the IsRemovedFromUploads flag.
+                if (allSuccessful && _settings.RemoveFinishedUploads == RemoveFinishedUploadsMode.AtStartup)
                 {
-                    await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
+                    await _packageRepo.SoftRemoveFromUploadsAsync(pkgDto.Id);
                     continue;
-                }
-
-                if (_settings.AutoRemoveCompletedFiles)
-                {
-                    files = [.. files.Where(f => f.State != FileState.Completed)];
-                    if (files.Count == 0)
-                    {
-                        await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
-                        continue;
-                    }
                 }
 
                 package.AddPackageFiles([.. files]);
@@ -337,9 +346,19 @@ public class PackageManager
                     continue;
                 }
 
-                // Resume scheduling for packages that should auto-start
+                // Honour the Autostart Uploads policy. Never → leave the package idle
+                // (user can click Start). OnlyIfRunningAtLastSession → resume only if a
+                // file was active when the app shut down. Always → resume unconditionally.
+                bool shouldAutostart = _settings.AutostartUploads switch
+                {
+                    AutostartUploadsMode.Never => false,
+                    AutostartUploadsMode.Always => true,
+                    AutostartUploadsMode.OnlyIfRunningAtLastSession => wasRunningAtShutdown,
+                    _ => false,
+                };
+
                 bool hasQueuedFiles = files.Any(f => f.State is FileState.HashQueued or FileState.UploadQueued);
-                if (hasQueuedFiles)
+                if (shouldAutostart && hasQueuedFiles)
                 {
                     if (pkgDto.ScheduledStartTime is not null && pkgDto.ScheduledStartTime > DateTime.Now)
                     {
@@ -407,6 +426,7 @@ public class PackageManager
                     StartDateTime = DateTime.Now,
                     State = file.State,
                     IsHashingComplete = file.IsHashingComplete,
+                    FileHash = file.FileHash,
                     FileHosterLoginId = file.FileHosterLogin?.Id ?? 0,
                     Priority = file.Priority,
                     SortOrder = sortOrder++,
@@ -441,6 +461,13 @@ public class PackageManager
         FileState state = e.NewState;
         string? error = e.File.Error;
         string? fileUrl = e.File.FileUrl;
+        // Hashing → next-state transition is the natural "hash now valid" moment. Capture
+        // the hash here (string is interned-cheap) and persist alongside the state change.
+        string? fileHashIfJustComputed = e.OldState == FileState.Hashing
+                && e.File.IsHashingComplete
+                && !string.IsNullOrEmpty(e.File.FileHash)
+            ? e.File.FileHash
+            : null;
         DateTime? finishedDateTime = state is FileState.Completed or FileState.Failed or FileState.Cancelled
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
@@ -451,7 +478,7 @@ public class PackageManager
         int activeProxyId = e.File.FileHoster.ActiveProxyId;
         if (activeProxyId > 0 && state is FileState.Completed or FileState.Failed)
         {
-            Lib.Net.ProxyManager.Current?.ReportResult(
+            ProxyManager.Current?.ReportResult(
                 activeProxyId,
                 success: state == FileState.Completed,
                 message: state == FileState.Failed ? error : null);
@@ -463,6 +490,11 @@ public class PackageManager
             try
             {
                 await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime);
+
+                if (fileHashIfJustComputed is not null)
+                {
+                    await _fileRepo.UpdateHashAsync(fileId, fileHashIfJustComputed);
+                }
 
                 bool isTerminal = state is FileState.Completed or FileState.Failed or FileState.Cancelled;
                 if (isTerminal)
@@ -673,9 +705,8 @@ public class PackageManager
     {
         if (file.State is FileState.Failed or FileState.Cancelled)
         {
-            // Pick a fresh proxy so a bad/dead proxy doesn't poison every retry.
-            file.FileHoster.RefreshConnection();
-
+            // No explicit RefreshConnection needed — UploadAsync rebuilds the
+            // HttpHandler at entry, so the retry naturally picks the next proxy.
             if (file.RequiresHashingBeforeUpload && !file.IsHashingComplete)
             {
                 file.State = FileState.HashQueued;
@@ -711,7 +742,8 @@ public class PackageManager
     private static void ResetFile(PackageFile file)
     {
         StopFile(file);
-        file.FileHoster.RefreshConnection();
+        // No explicit RefreshConnection — UploadAsync rebuilds the HttpHandler against
+        // the current rotation when the scheduler picks the file up again.
         file.IsHashingComplete = false;
         file.Error = null;
         file.FileUrl = null;

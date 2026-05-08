@@ -108,36 +108,15 @@ public partial class ProxySettingItem : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasTestDetails))]
-    [NotifyPropertyChangedFor(nameof(TestOutcome))]
     private string testStatus = string.Empty;
 
     /// <summary>
-    /// Coarse pass/fail/untested classification derived from <see cref="TestStatus"/>,
-    /// drives the status-icon column in the Connection Manager grid.
+    /// Coarse pass/fail/untested classification, set explicitly alongside <see cref="TestStatus"/>.
+    /// Drives the status-icon column in the Connection Manager grid. Set explicitly (rather than
+    /// parsed from <see cref="TestStatus"/>) so localised status strings don't break the icon.
     /// </summary>
-    public ProxyTestOutcome TestOutcome
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(TestStatus))
-            {
-                return ProxyTestOutcome.Untested;
-            }
-
-            if (TestStatus.StartsWith("OK", StringComparison.Ordinal))
-            {
-                return ProxyTestOutcome.Ok;
-            }
-
-            if (TestStatus.StartsWith("Failed", StringComparison.Ordinal))
-            {
-                return ProxyTestOutcome.Failed;
-            }
-
-            // "Queued…" / "Testing…" — treat as in-progress, no icon yet.
-            return ProxyTestOutcome.Untested;
-        }
-    }
+    [ObservableProperty]
+    private ProxyTestOutcome testOutcome = ProxyTestOutcome.Untested;
 
     /// <summary>
     /// Full HTTP transaction (request + response, with headers) from the most recent

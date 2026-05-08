@@ -63,6 +63,22 @@ public class UploadScheduler : IDisposable
     }
 
     /// <summary>
+    /// Snapshot count of packages currently registered with the scheduler. Test-only —
+    /// lets the autostart-mode tests assert whether LoadPersistedPackagesAsync registered
+    /// the package or skipped it without poking through `_packages` reflectively.
+    /// </summary>
+    internal int RegisteredPackageCount
+    {
+        get
+        {
+            lock (_packagesLock)
+            {
+                return _packages.Count;
+            }
+        }
+    }
+
+    /// <summary>
     /// Adds a package and schedules its files. Idempotent — re-adding an existing package is a no-op.
     /// </summary>
     /// <param name="package">The package to add.</param>

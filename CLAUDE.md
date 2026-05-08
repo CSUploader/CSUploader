@@ -123,7 +123,7 @@ All services are registered in `App.xaml.cs:ConfigureServices()`. Key registrati
 
 ### Upload System (src/Upload/)
 
-- `FileHosterClient` — Abstract base with a static factory dictionary. `RefreshConnection()` is overridden by hosters with long-lived `HttpClient`s so retried files pick a fresh proxy.
+- `FileHosterClient` — Abstract base with a static factory dictionary. Hosters build their `HttpHandler` lazily at the start of each upload attempt so retried files automatically pick the next proxy from the rotation.
 - `RapidgatorClient` — HTTP-based client (only active hoster). Builds its `HttpHandler` with the next rotation proxy.
 - `Package` / `PackageFile` — In-memory upload hierarchy. Persisted via `UploadPackageRepository` / `UploadPackageFileRepository` with soft-remove flags (`IsHidden` for the Uploaded tab, `IsRemovedFromUploads` for the Uploads tab — independent).
 - `PackageManager` — Orchestrates packages with concurrent job limits from `AppSettings`. On terminal file-state changes, calls `ProxyManager.Current?.ReportResult` so the Connection grid reflects the live outcome.

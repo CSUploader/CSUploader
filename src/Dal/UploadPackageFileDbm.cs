@@ -42,6 +42,13 @@ public class UploadPackageFileDbm
 
     public bool IsHashingComplete { get; set; }
 
+    /// <summary>
+    /// Hex-encoded hash bytes for hosters that hash before upload (Rapidgator → MD5).
+    /// Stored so the hash survives restarts and is visible in the UI; null until hashing
+    /// completes successfully or for hosters that don't pre-hash.
+    /// </summary>
+    public string? FileHash { get; set; }
+
     public int FileHosterLoginId { get; set; }
 
     public int Priority { get; set; }

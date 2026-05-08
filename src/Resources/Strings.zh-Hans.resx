@@ -1,0 +1,1443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Auto-generated from docs/i18n-inventory*.md by scripts/md-to-resx.py.
+    Do not edit by hand — edit the inventory and regenerate.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>否</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="Common_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Common_Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>浏览</value>
+  </data>
+  <data name="Common_Back" xml:space="preserve">
+    <value>上一步</value>
+  </data>
+  <data name="Common_Next" xml:space="preserve">
+    <value>下一步</value>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>应用</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="Common_Details" xml:space="preserve">
+    <value>详情</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="Common_Import" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="Common_All" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="Common_None" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="Common_Test" xml:space="preserve">
+    <value>测试</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>警告</value>
+  </data>
+  <data name="Common_SelectFolder" xml:space="preserve">
+    <value>选择文件夹</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>请稍候…</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>加载中…</value>
+  </data>
+  <data name="Common_Cancelling" xml:space="preserve">
+    <value>正在取消…</value>
+  </data>
+  <data name="Common_Preparing" xml:space="preserve">
+    <value>准备中…</value>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>未知</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Main_Title_UpdateAvailable_Format" xml:space="preserve">
+    <value>CSUploader — 有可用更新（v{0}）— 点击 帮助 → 安装更新</value>
+  </data>
+  <data name="Main_Menu_File" xml:space="preserve">
+    <value>文件(_F)</value>
+  </data>
+  <data name="Main_Menu_File_Exit" xml:space="preserve">
+    <value>退出(_E)</value>
+  </data>
+  <data name="Main_Menu_File_Exit_Gesture" xml:space="preserve">
+    <value>Alt+F4</value>
+  </data>
+  <data name="Main_Menu_View" xml:space="preserve">
+    <value>视图(_V)</value>
+  </data>
+  <data name="Main_Menu_View_UploadOverview" xml:space="preserve">
+    <value>上传概览(_O)</value>
+  </data>
+  <data name="Main_Menu_View_DarkMode" xml:space="preserve">
+    <value>深色模式(_D)</value>
+  </data>
+  <data name="Main_Menu_View_LightMode" xml:space="preserve">
+    <value>浅色模式(_L)</value>
+  </data>
+  <data name="Main_Menu_Help" xml:space="preserve">
+    <value>帮助(_H)</value>
+  </data>
+  <data name="Main_Menu_Help_CheckForUpdates" xml:space="preserve">
+    <value>检查更新(_C)…</value>
+  </data>
+  <data name="Main_Menu_Help_InstallUpdate" xml:space="preserve">
+    <value>安装更新(_I)</value>
+  </data>
+  <data name="Main_Menu_Help_About" xml:space="preserve">
+    <value>关于 CSUploader(_A)</value>
+  </data>
+  <data name="Main_Tab_Uploads" xml:space="preserve">
+    <value>上传中</value>
+  </data>
+  <data name="Main_Tab_Uploaded" xml:space="preserve">
+    <value>历史</value>
+  </data>
+  <data name="Main_Tab_Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Main_Tab_Logs" xml:space="preserve">
+    <value>日志</value>
+  </data>
+  <data name="Main_CheckForUpdates_DialogTitle" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="Main_CheckForUpdates_AlreadyLatest" xml:space="preserve">
+    <value>您当前已是最新版本。</value>
+  </data>
+  <data name="Main_CheckForUpdates_Available_Format" xml:space="preserve">
+    <value>有可用更新：v{0}。
+
+请使用 帮助 → 安装更新 来下载并安装。</value>
+  </data>
+  <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
+    <value>添加新上传</value>
+  </data>
+  <data name="Uploads_Toolbar_StartTip" xml:space="preserve">
+    <value>开始所有上传</value>
+  </data>
+  <data name="Uploads_Toolbar_PauseTip" xml:space="preserve">
+    <value>暂停 / 恢复</value>
+  </data>
+  <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
+    <value>停止所有上传</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
+    <value>上移包</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
+    <value>下移包</value>
+  </data>
+  <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
+    <value>移除所选项</value>
+  </data>
+  <data name="Uploads_Context_Start" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="Uploads_Context_Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Uploads_Context_SkipUpload" xml:space="preserve">
+    <value>跳过上传</value>
+  </data>
+  <data name="Uploads_Context_Reset" xml:space="preserve">
+    <value>重置</value>
+  </data>
+  <data name="Uploads_Context_OpenSourceDir" xml:space="preserve">
+    <value>打开源目录</value>
+  </data>
+  <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
+    <value>设置速度限制…</value>
+  </data>
+  <data name="Uploads_Context_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Uploads_Col_Name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="Uploads_Col_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Uploads_Col_Hoster" xml:space="preserve">
+    <value>文件托管商</value>
+  </data>
+  <data name="Uploads_Col_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Uploads_Col_Speed" xml:space="preserve">
+    <value>速度</value>
+  </data>
+  <data name="Uploads_Col_ETA" xml:space="preserve">
+    <value>剩余时间</value>
+  </data>
+  <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
+    <value>已传字节</value>
+  </data>
+  <data name="Uploads_Col_Progress" xml:space="preserve">
+    <value>进度</value>
+  </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>保存至</value>
+  </data>
+  <data name="Uploads_Col_Added" xml:space="preserve">
+    <value>添加时间</value>
+  </data>
+  <data name="Uploads_Col_Finished" xml:space="preserve">
+    <value>完成时间</value>
+  </data>
+  <data name="Uploads_Col_Duration" xml:space="preserve">
+    <value>耗时</value>
+  </data>
+  <data name="Uploads_Col_Priority" xml:space="preserve">
+    <value>优先级</value>
+  </data>
+  <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
+    <value>速度限制</value>
+  </data>
+  <data name="Uploads_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploads_Col_Hash" xml:space="preserve">
+    <value>哈希</value>
+  </data>
+  <data name="Uploads_Col_Error" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Uploads_ColumnHeader_LockTip" xml:space="preserve">
+    <value>锁定列宽</value>
+  </data>
+  <data name="Uploads_ColumnMenu_Reset" xml:space="preserve">
+    <value>重置列</value>
+  </data>
+  <data name="Uploads_ColumnMenu_DefaultLabel" xml:space="preserve">
+    <value>列</value>
+  </data>
+  <data name="Uploads_Overview_Title" xml:space="preserve">
+    <value>上传概览</value>
+  </data>
+  <data name="Uploads_Overview_CloseTip" xml:space="preserve">
+    <value>关闭概览</value>
+  </data>
+  <data name="Uploads_Overview_ToggleTip" xml:space="preserve">
+    <value>显示 / 隐藏概览统计</value>
+  </data>
+  <data name="Uploads_Overview_Packages" xml:space="preserve">
+    <value>包数</value>
+  </data>
+  <data name="Uploads_Overview_Links" xml:space="preserve">
+    <value>链接数</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytes" xml:space="preserve">
+    <value>总字节数</value>
+  </data>
+  <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
+    <value>上传速度</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
+    <value>已传字节</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytes" xml:space="preserve">
+    <value>剩余字节</value>
+  </data>
+  <data name="Uploads_Overview_Eta" xml:space="preserve">
+    <value>剩余时间</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
+    <value>运行中的上传</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnections" xml:space="preserve">
+    <value>打开的连接</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinks" xml:space="preserve">
+    <value>已完成链接</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinks" xml:space="preserve">
+    <value>已跳过链接</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinks" xml:space="preserve">
+    <value>失败的链接</value>
+  </data>
+  <data name="Uploads_Overview_PackagesLabel" xml:space="preserve">
+    <value>包数：</value>
+  </data>
+  <data name="Uploads_Overview_LinksLabel" xml:space="preserve">
+    <value>链接数：</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytesLabel" xml:space="preserve">
+    <value>总字节数：</value>
+  </data>
+  <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
+    <value>上传速度：</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
+    <value>已传字节：</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytesLabel" xml:space="preserve">
+    <value>剩余字节：</value>
+  </data>
+  <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
+    <value>剩余时间：</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
+    <value>运行中的上传：</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnectionsLabel" xml:space="preserve">
+    <value>打开的连接：</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinksLabel" xml:space="preserve">
+    <value>已完成链接：</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinksLabel" xml:space="preserve">
+    <value>已跳过链接：</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinksLabel" xml:space="preserve">
+    <value>失败的链接：</value>
+  </data>
+  <data name="Uploads_FilterLabel" xml:space="preserve">
+    <value>文件名</value>
+  </data>
+  <data name="Uploads_FilterTip" xml:space="preserve">
+    <value>按文件或包名筛选</value>
+  </data>
+  <data name="Uploads_FooterPremiumLink" xml:space="preserve">
+    <value>添加高级账户…</value>
+  </data>
+  <data name="Uploads_State_Idle" xml:space="preserve">
+    <value>空闲</value>
+  </data>
+  <data name="Uploads_State_HashQueued" xml:space="preserve">
+    <value>校验排队中</value>
+  </data>
+  <data name="Uploads_State_Hashing" xml:space="preserve">
+    <value>校验中</value>
+  </data>
+  <data name="Uploads_State_UploadQueued" xml:space="preserve">
+    <value>上传排队中</value>
+  </data>
+  <data name="Uploads_State_Uploading" xml:space="preserve">
+    <value>上传中</value>
+  </data>
+  <data name="Uploads_State_Completed" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="Uploads_State_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="Uploads_State_Paused" xml:space="preserve">
+    <value>已暂停</value>
+  </data>
+  <data name="Uploads_State_Cancelled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+  <data name="Uploads_Eta_NotApplicable" xml:space="preserve">
+    <value>~</value>
+  </data>
+  <data name="Uploads_ResetColumns_Title" xml:space="preserve">
+    <value>重置列</value>
+  </data>
+  <data name="Uploads_ResetColumns_Message" xml:space="preserve">
+    <value>是否将"上传中"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。</value>
+  </data>
+  <data name="Uploads_Remove_Title" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Uploads_Remove_Package_Format" xml:space="preserve">
+    <value>是否移除包"{0}"及其 {1} 个文件？</value>
+  </data>
+  <data name="Uploads_Remove_File_Format" xml:space="preserve">
+    <value>是否将"{0}"从上传列表中移除？</value>
+  </data>
+  <data name="Uploads_Remove_Generic" xml:space="preserve">
+    <value>是否移除此项？</value>
+  </data>
+  <data name="Uploads_Remove_PackagesOnly_Format" xml:space="preserve">
+    <value>是否移除 {0} 个包（共 {1} 个文件）？</value>
+  </data>
+  <data name="Uploads_Remove_FilesOnly_Format" xml:space="preserve">
+    <value>是否从上传列表中移除 {0} 个文件？</value>
+  </data>
+  <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
+    <value>是否移除 {0} 个包和 {1} 个文件（共 {2} 项）？</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
+    <value>导出为 JSON…</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJsonTip" xml:space="preserve">
+    <value>将所有已完成的上传（包含全部字段）导出到 JSON 文件</value>
+  </data>
+  <data name="Uploaded_Col_Name" xml:space="preserve">
+    <value>名称</value>
+  </data>
+  <data name="Uploaded_Col_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="Uploaded_Col_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Uploaded_Col_Hoster" xml:space="preserve">
+    <value>文件托管商</value>
+  </data>
+  <data name="Uploaded_Col_Finished" xml:space="preserve">
+    <value>完成时间</value>
+  </data>
+  <data name="Uploaded_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploaded_Col_Hash" xml:space="preserve">
+    <value>哈希</value>
+  </data>
+  <data name="Uploaded_Context_Copy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="Uploaded_Context_Copy_Gesture" xml:space="preserve">
+    <value>Ctrl+C</value>
+  </data>
+  <data name="Uploaded_Context_CopyURL" xml:space="preserve">
+    <value>复制 URL</value>
+  </data>
+  <data name="Uploaded_Context_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Uploaded_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Uploaded_Context_ExportJson" xml:space="preserve">
+    <value>导出为 JSON…</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Title" xml:space="preserve">
+    <value>重置列</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
+    <value>是否将"历史"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。</value>
+  </data>
+  <data name="Uploaded_Remove_Title" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Uploaded_Remove_Single_Format" xml:space="preserve">
+    <value>是否将"{0}"从历史记录中移除？</value>
+  </data>
+  <data name="Uploaded_Remove_Many_Format" xml:space="preserve">
+    <value>是否从历史记录中移除 {0} 条记录？</value>
+  </data>
+  <data name="Settings_Sidebar_General" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="Settings_Sidebar_Upload" xml:space="preserve">
+    <value>上传</value>
+  </data>
+  <data name="Settings_Sidebar_Connection" xml:space="preserve">
+    <value>连接</value>
+  </data>
+  <data name="Settings_Sidebar_Accounts" xml:space="preserve">
+    <value>账户</value>
+  </data>
+  <data name="Settings_General_Language_Title" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_General_Language_Desc" xml:space="preserve">
+    <value>界面语言。更改将立即生效。</value>
+  </data>
+  <data name="Settings_General_Language_Label" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_General_Developer_Title" xml:space="preserve">
+    <value>开发者</value>
+  </data>
+  <data name="Settings_General_Developer_Desc" xml:space="preserve">
+    <value>用于本地开发和测试的选项。</value>
+  </data>
+  <data name="Settings_General_UseMockServer" xml:space="preserve">
+    <value>使用模拟服务器（将所有文件托管商请求重定向到 localhost:8080/&lt;hoster&gt;）</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Title" xml:space="preserve">
+    <value>表格外观</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Desc" xml:space="preserve">
+    <value>用于"上传中"和"历史"标签页的字体。修改将立即生效。</value>
+  </data>
+  <data name="Settings_General_GridFont" xml:space="preserve">
+    <value>表格字体</value>
+  </data>
+  <data name="Settings_General_GridFontSize" xml:space="preserve">
+    <value>表格字号</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Title" xml:space="preserve">
+    <value>窗口行为</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Desc" xml:space="preserve">
+    <value>选择主窗口最小化或关闭时的行为。</value>
+  </data>
+  <data name="Settings_General_MinimizeToTray" xml:space="preserve">
+    <value>将主窗口最小化到系统托盘而非任务栏</value>
+  </data>
+  <data name="Settings_General_CloseAction" xml:space="preserve">
+    <value>关闭按钮行为</value>
+  </data>
+  <data name="Settings_General_CloseAction_Ask" xml:space="preserve">
+    <value>每次询问</value>
+  </data>
+  <data name="Settings_General_CloseAction_MinToTray" xml:space="preserve">
+    <value>最小化到托盘</value>
+  </data>
+  <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
+    <value>退出应用</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
+    <value>确认提示</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Desc" xml:space="preserve">
+    <value>勾选某项以在执行该操作前再次询问。取消勾选将不再显示该确认。</value>
+  </data>
+  <data name="Settings_General_Database_Title" xml:space="preserve">
+    <value>数据库</value>
+  </data>
+  <data name="Settings_General_Database_Desc" xml:space="preserve">
+    <value>CSUploader 将您的上传历史记录（包、文件和 URL）保存在本地 SQLite 数据库中。从"上传中"或"历史"标签页中删除条目时只会将其隐藏 — 数据行仍保留在数据库中。点击"清除"将永久删除已从两个标签页中隐藏的数据行。</value>
+  </data>
+  <data name="Settings_General_Database_BtnClear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmTitle" xml:space="preserve">
+    <value>清除数据库</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmMessage" xml:space="preserve">
+    <value>永久删除已从两个标签页中隐藏的上传记录吗？
+
+活动中和可见的上传不会受影响。此操作不可撤销。</value>
+  </data>
+  <data name="Settings_General_Database_Status_Cleared_Format" xml:space="preserve">
+    <value>已从数据库中清除 {0} 个文件行和 {1} 个包行。</value>
+  </data>
+  <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
+    <value>没有可清除的隐藏数据行。</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
+    <value>上传管理</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Desc" xml:space="preserve">
+    <value>配置连接限制、优先级……设置上传控制器的详细参数。</value>
+  </data>
+  <data name="Settings_Upload_MaxConcurrent" xml:space="preserve">
+    <value>最大同时上传数</value>
+  </data>
+  <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
+    <value>每个文件托管商的最大同时上传数</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
+    <value>移除已完成的上传</value>
+  </data>
+  <data name="Settings_Upload_IfFileExists" xml:space="preserve">
+    <value>当文件已存在时</value>
+  </data>
+  <data name="Settings_Upload_MaxCpuJobs" xml:space="preserve">
+    <value>最大同时 CPU 任务数</value>
+  </data>
+  <data name="Settings_Upload_SpeedLimit" xml:space="preserve">
+    <value>速度限制（KB/s）</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Never" xml:space="preserve">
+    <value>从不</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Immediately" xml:space="preserve">
+    <value>立即</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_AtStartup" xml:space="preserve">
+    <value>启动时</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_WhenPackageReady" xml:space="preserve">
+    <value>包就绪时</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Ask" xml:space="preserve">
+    <value>每个文件都询问</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Skip" xml:space="preserve">
+    <value>跳过</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Overwrite" xml:space="preserve">
+    <value>覆盖</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Rename" xml:space="preserve">
+    <value>重命名</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Title" xml:space="preserve">
+    <value>自动开始上传</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Desc" xml:space="preserve">
+    <value>选择 CSUploader 是否以及何时无需用户操作即可启动待处理的上传。</value>
+  </data>
+  <data name="Settings_Upload_Autostart" xml:space="preserve">
+    <value>应用启动时自动开始上传</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Always" xml:space="preserve">
+    <value>始终</value>
+  </data>
+  <data name="Settings_Upload_Autostart_OnlyIfRunning" xml:space="preserve">
+    <value>仅当上次会话结束时仍有上传在运行</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
+    <value>从不</value>
+  </data>
+  <data name="Settings_Conn_Title" xml:space="preserve">
+    <value>连接管理器</value>
+  </data>
+  <data name="Settings_Conn_Desc" xml:space="preserve">
+    <value>如果访问互联网需要代理，请在此处配置。多个代理将在新上传中轮换使用。在没有启用任何代理时，默认行为是直接连接。</value>
+  </data>
+  <data name="Settings_Conn_UseProxies" xml:space="preserve">
+    <value>上传时使用代理</value>
+  </data>
+  <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
+    <value>轮换的总开关。关闭后，即使列表中存在代理，上传也将直接连接 — 便于在尚未正式启用前添加和测试代理。</value>
+  </data>
+  <data name="Settings_Conn_AutoDisable" xml:space="preserve">
+    <value>自动取消勾选失败的代理</value>
+  </data>
+  <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
+    <value>启用后，手动测试或上传失败的代理将被取消勾选，从而在轮换中跳过该代理。无论如何状态图标都会更新。</value>
+  </data>
+  <data name="Settings_Conn_Col_On" xml:space="preserve">
+    <value>启用</value>
+  </data>
+  <data name="Settings_Conn_Col_Priority" xml:space="preserve">
+    <value>优先级</value>
+  </data>
+  <data name="Settings_Conn_Col_Type" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="Settings_Conn_Col_Host" xml:space="preserve">
+    <value>主机 / IP</value>
+  </data>
+  <data name="Settings_Conn_Col_Port" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="Settings_Conn_Col_User" xml:space="preserve">
+    <value>用户名</value>
+  </data>
+  <data name="Settings_Conn_Col_Password" xml:space="preserve">
+    <value>密码</value>
+  </data>
+  <data name="Settings_Conn_Col_Test" xml:space="preserve">
+    <value>测试</value>
+  </data>
+  <data name="Settings_Conn_Col_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Settings_Conn_PriorityUpTip" xml:space="preserve">
+    <value>上移（提高优先级）</value>
+  </data>
+  <data name="Settings_Conn_PriorityDownTip" xml:space="preserve">
+    <value>下移（降低优先级）</value>
+  </data>
+  <data name="Settings_Conn_Context_Test" xml:space="preserve">
+    <value>测试</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromText" xml:space="preserve">
+    <value>从文本导入…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromFile" xml:space="preserve">
+    <value>从文件导入…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export" xml:space="preserve">
+    <value>导出</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToText" xml:space="preserve">
+    <value>将所有代理导出到文本…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToFile" xml:space="preserve">
+    <value>将所有代理导出到文件…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToText" xml:space="preserve">
+    <value>将测试通过的代理导出到文本…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
+    <value>将测试通过的代理导出到文件…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Save" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="Settings_Conn_Btn_Add" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="Settings_Conn_Btn_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveSelected" xml:space="preserve">
+    <value>移除所选项</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveFailed" xml:space="preserve">
+    <value>移除失败的项</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAll" xml:space="preserve">
+    <value>全部测试</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAllTip" xml:space="preserve">
+    <value>测试列表中所有代理的连通性</value>
+  </data>
+  <data name="Settings_Conn_Btn_Details" xml:space="preserve">
+    <value>详情</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileDialogTitle" xml:space="preserve">
+    <value>导入代理</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileFilter" xml:space="preserve">
+    <value>代理列表 (*.txt)|*.txt|所有文件 (*.*)|*.*</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogTitle" xml:space="preserve">
+    <value>导入代理</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogDesc" xml:space="preserve">
+    <value>粘贴代理行（每行一个）。格式：scheme://[user:pass@]host[:port] — 端口默认按协议为 80/443/1080。</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_DialogTitle" xml:space="preserve">
+    <value>导出所有代理</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_DialogTitle" xml:space="preserve">
+    <value>导出测试通过的代理</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_Desc_Format" xml:space="preserve">
+    <value>共 {0} 个代理：</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
+    <value>共 {0} 个最近一次测试成功的代理：</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
+    <value>移除代理</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_One_Format" xml:space="preserve">
+    <value>是否移除代理"{0}:{1}"？</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Many_Format" xml:space="preserve">
+    <value>是否移除 {0} 个代理？</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Title" xml:space="preserve">
+    <value>移除失败的代理</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_One_Format" xml:space="preserve">
+    <value>是否移除失败的代理"{0}:{1}"？</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Many_Format" xml:space="preserve">
+    <value>是否移除 {0} 个失败的代理？</value>
+  </data>
+  <data name="Settings_Conn_Status_Queued" xml:space="preserve">
+    <value>已排队…</value>
+  </data>
+  <data name="Settings_Conn_Status_Testing" xml:space="preserve">
+    <value>测试中…</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLive" xml:space="preserve">
+    <value>正常（在线）</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>正常 {0}ms ({1})</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyUnknown_Format" xml:space="preserve">
+    <value>正常 {0}ms（响应异常）</value>
+  </data>
+  <data name="Settings_Conn_Status_Failed_Format" xml:space="preserve">
+    <value>失败：{0}</value>
+  </data>
+  <data name="Settings_Conn_Status_Saved" xml:space="preserve">
+    <value>已保存</value>
+  </data>
+  <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
+    <value>保存失败：{0}</value>
+  </data>
+  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
+    <value>已导入 {0} 个代理 — 请点击"保存"以持久化</value>
+  </data>
+  <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
+    <value>已将 {0} 个代理导出到 {1}</value>
+  </data>
+  <data name="Settings_Accounts_Title" xml:space="preserve">
+    <value>账户管理器</value>
+  </data>
+  <data name="Settings_Accounts_Desc" xml:space="preserve">
+    <value>录入并管理您的所有 Premium/Gold/Platinum 账户。</value>
+  </data>
+  <data name="Settings_Accounts_Col_Enabled" xml:space="preserve">
+    <value>✓</value>
+  </data>
+  <data name="Settings_Accounts_Col_Hoster" xml:space="preserve">
+    <value>文件托管商</value>
+  </data>
+  <data name="Settings_Accounts_Col_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Settings_Accounts_Col_Username" xml:space="preserve">
+    <value>用户名</value>
+  </data>
+  <data name="Settings_Accounts_Col_Password" xml:space="preserve">
+    <value>密码</value>
+  </data>
+  <data name="Settings_Accounts_Col_Type" xml:space="preserve">
+    <value>类型</value>
+  </data>
+  <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
+    <value>编辑账户…</value>
+  </data>
+  <data name="Settings_Accounts_Context_Refresh" xml:space="preserve">
+    <value>检查 / 刷新</value>
+  </data>
+  <data name="Settings_Accounts_Context_Enable" xml:space="preserve">
+    <value>启用</value>
+  </data>
+  <data name="Settings_Accounts_Context_Disable" xml:space="preserve">
+    <value>禁用</value>
+  </data>
+  <data name="Settings_Accounts_Context_Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Add" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Remove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
+    <value>移除账户</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
+    <value>是否移除 {1} 的账户"{0}"？</value>
+  </data>
+  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
+    <value>请填写文件托管商、用户名和密码。</value>
+  </data>
+  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
+    <value>账户检查</value>
+  </data>
+  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
+    <value>账户检查失败：{0}
+
+是否仍然添加？</value>
+  </data>
+  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
+    <value>无法验证账户：{0}
+
+是否仍然添加？</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
+    <value>正在验证凭据…</value>
+  </data>
+  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
+    <value>正在检查账户…</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
+    <value>没有可刷新的账户。</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
+    <value>已验证：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
+    <value>警告：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
+    <value>有效：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
+    <value>有效！{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
+    <value>失败：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
+    <value>检查错误：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
+    <value>错误：{0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountAdded_Format" xml:space="preserve">
+    <value>已为 {0} 添加账户！</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
+    <value>尚未实现 {0}，无法检查。</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
+    <value>尚未实现 {0}，账户将不经验证直接保存。</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
+    <value>正在检查 {0}@{1}…（{2}/{3}）</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingShort" xml:space="preserve">
+    <value>检查中…</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl" xml:space="preserve">
+    <value>尚未实现</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
+    <value>已刷新 {0} 个账户，{1} 个有更新。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
+    <value>账户"{0}"已禁用。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
+    <value>账户"{0}"已启用。</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
+    <value>正常</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_Failed" xml:space="preserve">
+    <value>失败</value>
+  </data>
+  <data name="Settings_Accounts_PasswordMask" xml:space="preserve">
+    <value>******</value>
+  </data>
+  <data name="Logs_AutoScroll" xml:space="preserve">
+    <value>自动滚动</value>
+  </data>
+  <data name="Logs_Tab_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Logs_Tab_Http" xml:space="preserve">
+    <value>HTTP</value>
+  </data>
+  <data name="Logs_Tab_Errors" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Logs_Tab_UI" xml:space="preserve">
+    <value>界面</value>
+  </data>
+  <data name="Logs_Col_DateTime" xml:space="preserve">
+    <value>时间</value>
+  </data>
+  <data name="Logs_Col_Filename" xml:space="preserve">
+    <value>文件名</value>
+  </data>
+  <data name="Logs_Col_Function" xml:space="preserve">
+    <value>函数</value>
+  </data>
+  <data name="Logs_Col_Line" xml:space="preserve">
+    <value>行号</value>
+  </data>
+  <data name="Logs_Col_Message" xml:space="preserve">
+    <value>消息</value>
+  </data>
+  <data name="Logs_Col_Thread" xml:space="preserve">
+    <value>线程</value>
+  </data>
+  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
+    <value>所选项中未包含 URL；剪贴板已清空</value>
+  </data>
+  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
+    <value>已复制 {0} 个 URL 到剪贴板</value>
+  </data>
+  <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
+    <value>已从"历史"标签页隐藏 {0} 个文件</value>
+  </data>
+  <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
+    <value>已将 {0} 个包导出到 {1}</value>
+  </data>
+  <data name="Wizard_Title" xml:space="preserve">
+    <value>上传向导</value>
+  </data>
+  <data name="Wizard_Step_Directory" xml:space="preserve">
+    <value>1. 目录</value>
+  </data>
+  <data name="Wizard_Step_Files" xml:space="preserve">
+    <value>2. 文件</value>
+  </data>
+  <data name="Wizard_Step_FileHosters" xml:space="preserve">
+    <value>3. 文件托管商</value>
+  </data>
+  <data name="Wizard_Step_Start" xml:space="preserve">
+    <value>4. 开始</value>
+  </data>
+  <data name="Wizard_Step0_Title" xml:space="preserve">
+    <value>选择上传目录</value>
+  </data>
+  <data name="Wizard_Step0_Desc" xml:space="preserve">
+    <value>选择包含您要上传文件的目录。</value>
+  </data>
+  <data name="Wizard_Step0_Browse" xml:space="preserve">
+    <value>浏览</value>
+  </data>
+  <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
+    <value>选择上传目录</value>
+  </data>
+  <data name="Wizard_Step1_Title" xml:space="preserve">
+    <value>选择文件</value>
+  </data>
+  <data name="Wizard_Step1_PackageTitleLabel" xml:space="preserve">
+    <value>包标题：</value>
+  </data>
+  <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
+    <value>筛选：</value>
+  </data>
+  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
+    <value>全部</value>
+  </data>
+  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="Wizard_Step1_Col_File" xml:space="preserve">
+    <value>文件</value>
+  </data>
+  <data name="Wizard_Step1_Col_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Wizard_Step1_SelectedLabel" xml:space="preserve">
+    <value>已选：</value>
+  </data>
+  <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
+    <value>个文件</value>
+  </data>
+  <data name="Wizard_Step2_Title" xml:space="preserve">
+    <value>选择文件托管商</value>
+  </data>
+  <data name="Wizard_Step2_Desc" xml:space="preserve">
+    <value>选择要上传到的文件托管商，并选择对应账户。</value>
+  </data>
+  <data name="Wizard_Step2_Col_Use" xml:space="preserve">
+    <value>使用</value>
+  </data>
+  <data name="Wizard_Step2_Col_FileHoster" xml:space="preserve">
+    <value>文件托管商</value>
+  </data>
+  <data name="Wizard_Step2_Col_Account" xml:space="preserve">
+    <value>账户</value>
+  </data>
+  <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
+    <value>（匿名）</value>
+  </data>
+  <data name="Wizard_Step2_AccountSelect" xml:space="preserve">
+    <value>（选择账户）</value>
+  </data>
+  <data name="Wizard_Step2_AddAccountLink" xml:space="preserve">
+    <value>添加账户…</value>
+  </data>
+  <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
+    <value>此托管商需要账户。点击"添加账户…"以添加。</value>
+  </data>
+  <data name="Wizard_Step3_Title" xml:space="preserve">
+    <value>何时开始</value>
+  </data>
+  <data name="Wizard_Step3_Desc" xml:space="preserve">
+    <value>选择上传应何时开始。</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Immediately" xml:space="preserve">
+    <value>关闭向导后立即开始</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Later" xml:space="preserve">
+    <value>加入队列但稍后开始（手动启动）</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Scheduled" xml:space="preserve">
+    <value>计划在指定的日期和时间开始</value>
+  </data>
+  <data name="Wizard_Step3_TimeFormatHint" xml:space="preserve">
+    <value>(HH:mm)</value>
+  </data>
+  <data name="Wizard_Btn_Back" xml:space="preserve">
+    <value>上一步</value>
+  </data>
+  <data name="Wizard_Btn_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Wizard_Btn_Next" xml:space="preserve">
+    <value>下一步</value>
+  </data>
+  <data name="Wizard_Btn_Add" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
+    <value>请选择一个有效的目录。</value>
+  </data>
+  <data name="Wizard_Validation_PickFile" xml:space="preserve">
+    <value>请至少选择一个文件。</value>
+  </data>
+  <data name="Wizard_Validation_PickHoster" xml:space="preserve">
+    <value>请至少选择一个文件托管商。</value>
+  </data>
+  <data name="Wizard_Error_Format" xml:space="preserve">
+    <value>错误：{0}</value>
+  </data>
+  <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
+    <value>从"上传中"标签页移除包或文件</value>
+  </data>
+  <data name="Confirm_RemoveUploadedEntry" xml:space="preserve">
+    <value>从"历史"标签页中移除条目</value>
+  </data>
+  <data name="Confirm_RemoveFileHosterAccount" xml:space="preserve">
+    <value>移除文件托管商账户</value>
+  </data>
+  <data name="Confirm_RemoveProxy" xml:space="preserve">
+    <value>从连接管理器移除代理</value>
+  </data>
+  <data name="Confirm_ResetColumns" xml:space="preserve">
+    <value>将"上传中"/"历史"标签页的列重置为默认设置</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>关于 CSUploader</value>
+  </data>
+  <data name="About_AppName" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="About_Version_Format" xml:space="preserve">
+    <value>版本 {0}</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>一款功能强大的多文件托管服务上传管理器，支持哈希校验、队列管理和实时进度跟踪。</value>
+  </data>
+  <data name="About_Field_Framework" xml:space="preserve">
+    <value>框架：</value>
+  </data>
+  <data name="About_Field_Framework_Value" xml:space="preserve">
+    <value>.NET 10.0 (WPF)</value>
+  </data>
+  <data name="About_Field_Database" xml:space="preserve">
+    <value>数据库：</value>
+  </data>
+  <data name="About_Field_Database_Value" xml:space="preserve">
+    <value>SQLite via EF Core 10</value>
+  </data>
+  <data name="About_Field_License" xml:space="preserve">
+    <value>许可证：</value>
+  </data>
+  <data name="About_Field_License_Value" xml:space="preserve">
+    <value>MIT</value>
+  </data>
+  <data name="About_Field_Source" xml:space="preserve">
+    <value>源码：</value>
+  </data>
+  <data name="About_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="CloseAction_WindowTitle" xml:space="preserve">
+    <value>关闭 CSUploader</value>
+  </data>
+  <data name="CloseAction_Heading" xml:space="preserve">
+    <value>您希望关闭按钮执行什么操作？</value>
+  </data>
+  <data name="CloseAction_Subheading" xml:space="preserve">
+    <value>选择一项 — 您之后可在 设置 → 常规 中更改。</value>
+  </data>
+  <data name="CloseAction_Remember" xml:space="preserve">
+    <value>记住我的选择</value>
+  </data>
+  <data name="CloseAction_BtnMinimize" xml:space="preserve">
+    <value>最小化到托盘</value>
+  </data>
+  <data name="CloseAction_BtnExit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="CloseAction_BtnCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Confirmation_WindowTitle" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="Confirmation_DontAskAgain" xml:space="preserve">
+    <value>此操作不再询问</value>
+  </data>
+  <data name="Confirmation_BtnYes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="Confirmation_BtnNo" xml:space="preserve">
+    <value>否</value>
+  </data>
+  <data name="EditAccount_WindowTitle" xml:space="preserve">
+    <value>编辑账户</value>
+  </data>
+  <data name="EditAccount_AddTitle" xml:space="preserve">
+    <value>添加账户</value>
+  </data>
+  <data name="EditAccount_FileHosterLabel" xml:space="preserve">
+    <value>文件托管商：</value>
+  </data>
+  <data name="EditAccount_UsernameLabel" xml:space="preserve">
+    <value>用户名：</value>
+  </data>
+  <data name="EditAccount_PasswordLabel" xml:space="preserve">
+    <value>密码：</value>
+  </data>
+  <data name="EditAccount_AccountEnabled" xml:space="preserve">
+    <value>账户已启用</value>
+  </data>
+  <data name="EditAccount_BtnSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="EditAccount_BtnCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
+    <value>请输入用户名和密码。</value>
+  </data>
+  <data name="HttpDetails_WindowTitle" xml:space="preserve">
+    <value>HTTP 事务详情</value>
+  </data>
+  <data name="HttpDetails_Tab_Request" xml:space="preserve">
+    <value>请求</value>
+  </data>
+  <data name="HttpDetails_Tab_Response" xml:space="preserve">
+    <value>响应</value>
+  </data>
+  <data name="HttpDetails_Tab_FullDump" xml:space="preserve">
+    <value>完整转储</value>
+  </data>
+  <data name="HttpDetails_SubTab_Headers" xml:space="preserve">
+    <value>头部</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyRaw" xml:space="preserve">
+    <value>正文（原始）</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyJson" xml:space="preserve">
+    <value>正文（JSON）</value>
+  </data>
+  <data name="HttpDetails_SubTab_Hex" xml:space="preserve">
+    <value>十六进制</value>
+  </data>
+  <data name="HttpDetails_Timing_Format" xml:space="preserve">
+    <value>开始时间：{0}  |  耗时：{1}ms  |  大小：{2} 字节</value>
+  </data>
+  <data name="HttpDetails_Proxy_Format" xml:space="preserve">
+    <value>代理：{0}</value>
+  </data>
+  <data name="HttpDetails_NoData" xml:space="preserve">
+    <value>（无数据）</value>
+  </data>
+  <data name="HttpDetails_NoBody" xml:space="preserve">
+    <value>（无正文）</value>
+  </data>
+  <data name="HttpDetails_FullDump_Request" xml:space="preserve">
+    <value>请求</value>
+  </data>
+  <data name="HttpDetails_FullDump_Response" xml:space="preserve">
+    <value>响应</value>
+  </data>
+  <data name="LogDetails_WindowTitle" xml:space="preserve">
+    <value>日志详情</value>
+  </data>
+  <data name="LogDetails_Field_DateTime" xml:space="preserve">
+    <value>时间：</value>
+  </data>
+  <data name="LogDetails_Field_ThreadId" xml:space="preserve">
+    <value>线程 ID：</value>
+  </data>
+  <data name="LogDetails_Field_Filename" xml:space="preserve">
+    <value>文件名：</value>
+  </data>
+  <data name="LogDetails_Field_Function" xml:space="preserve">
+    <value>函数：</value>
+  </data>
+  <data name="LogDetails_Field_Line" xml:space="preserve">
+    <value>行号：</value>
+  </data>
+  <data name="LogDetails_Tab_Text" xml:space="preserve">
+    <value>文本</value>
+  </data>
+  <data name="LogDetails_Tab_Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
+  <data name="LogDetails_Btn_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Progress_WindowTitle" xml:space="preserve">
+    <value>请稍候…</value>
+  </data>
+  <data name="Progress_DefaultLabel" xml:space="preserve">
+    <value>加载中…</value>
+  </data>
+  <data name="Progress_LabelSuffix" xml:space="preserve">
+    <value>请稍候…</value>
+  </data>
+  <data name="Progress_BtnCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Progress_BtnCancelling" xml:space="preserve">
+    <value>正在取消…</value>
+  </data>
+  <data name="UpdateProgress_WindowTitle" xml:space="preserve">
+    <value>正在更新 CSUploader</value>
+  </data>
+  <data name="UpdateProgress_StatusInitial" xml:space="preserve">
+    <value>准备中…</value>
+  </data>
+  <data name="UpdateProgress_StatusDownloading_Format" xml:space="preserve">
+    <value>正在下载更新 v{0}…</value>
+  </data>
+  <data name="UpdateProgress_StatusRestarting" xml:space="preserve">
+    <value>正在重启…</value>
+  </data>
+  <data name="UpdateProgress_StatusFailed_Format" xml:space="preserve">
+    <value>更新失败：{0}</value>
+  </data>
+  <data name="UpdateProgress_PercentInitial" xml:space="preserve">
+    <value>0%</value>
+  </data>
+  <data name="ProxyText_WindowTitle" xml:space="preserve">
+    <value>代理</value>
+  </data>
+  <data name="ProxyText_BtnImport" xml:space="preserve">
+    <value>导入</value>
+  </data>
+  <data name="ProxyText_BtnCopy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="ProxyText_BtnCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ProxyText_BtnClose" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="SpeedLimit_WindowTitle" xml:space="preserve">
+    <value>速度限制</value>
+  </data>
+  <data name="SpeedLimit_Heading" xml:space="preserve">
+    <value>设置速度限制</value>
+  </data>
+  <data name="SpeedLimit_Subheading" xml:space="preserve">
+    <value>单包覆盖设置。留空则使用全局设置。</value>
+  </data>
+  <data name="SpeedLimit_Unit" xml:space="preserve">
+    <value>KB/s</value>
+  </data>
+  <data name="SpeedLimit_BtnClear" xml:space="preserve">
+    <value>清除</value>
+  </data>
+  <data name="SpeedLimit_BtnCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="SpeedLimit_BtnOk" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="SpeedLimit_Validation_Title" xml:space="preserve">
+    <value>无效值</value>
+  </data>
+  <data name="SpeedLimit_Validation_Message" xml:space="preserve">
+    <value>请输入正整数（KB/s），或留空以清除。</value>
+  </data>
+  <data name="Dialog_DefaultErrorTitle" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Dialog_DefaultConfirmTitle" xml:space="preserve">
+    <value>确认</value>
+  </data>
+  <data name="Dialog_DefaultBrowseFolderTitle" xml:space="preserve">
+    <value>选择文件夹</value>
+  </data>
+  <data name="Dialog_GenericErrorTitle" xml:space="preserve">
+    <value>错误</value>
+  </data>
+  <data name="Picker_Filter_Json" xml:space="preserve">
+    <value>JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*</value>
+  </data>
+  <data name="Picker_Filter_ProxyLists" xml:space="preserve">
+    <value>代理列表 (*.txt)|*.txt|所有文件 (*.*)|*.*</value>
+  </data>
+  <data name="SpeedLimit_Display_Mbps_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="SpeedLimit_Display_Kbps_Format" xml:space="preserve">
+    <value>{0} KB/s</value>
+  </data>
+  <data name="Uploads_Overview_UploadSpeed_Zero" xml:space="preserve">
+    <value>0 B/s</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Show" xml:space="preserve">
+    <value>显示 CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="Tray_Balloon_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Balloon_Body" xml:space="preserve">
+    <value>仍在托盘中运行。点击图标以恢复窗口，或右击选择"退出"。</value>
+  </data>
+</root>

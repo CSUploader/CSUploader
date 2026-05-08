@@ -145,8 +145,8 @@ public class HttpTransaction
 
         try
         {
-            JsonElement element = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(json);
-            return System.Text.Json.JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+            JsonElement element = JsonSerializer.Deserialize<JsonElement>(json);
+            return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
         }
         catch
         {

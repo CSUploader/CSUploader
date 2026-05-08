@@ -3,8 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
@@ -50,178 +52,164 @@ public class SettingsViewModelTests : IDisposable
     private SettingsViewModel CreateVm(IDialogService? dialog = null) =>
         new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>());
 
+    // Polls the DB briefly because each property's auto-save is fire-and-forget.
+    private async Task<string?> WaitForSettingValueAsync(string key)
+    {
+        for (int i = 0; i < 50; i++)
+        {
+            SettingDto? row = await _settingRepo.FindByKeyAsync(key);
+            if (row is not null)
+            {
+                return row.Value;
+            }
+
+            await Task.Delay(20);
+        }
+
+        return null;
+    }
+
     [Fact]
-    public async Task HasUnsavedChanges_AfterLoad_IsFalse()
+    public async Task LoadAsync_DoesNotPersistOnHydrate()
+    {
+        // The auto-save partials must short-circuit during LoadAsync — otherwise hydrating
+        // the VM from existing DB rows would re-write them on every launch.
+        SettingsViewModel vm = CreateVm();
+
+        await vm.LoadAsync();
+
+        // No properties were edited; the row count for the auto-saved keys should be zero.
+        Assert.Null(await _settingRepo.FindByKeyAsync(SettingKey.MaxConcurrentCPUJobs));
+        Assert.Null(await _settingRepo.FindByKeyAsync(SettingKey.GridFontFamily));
+        Assert.Null(await _settingRepo.FindByKeyAsync(SettingKey.MinimizeToTray));
+    }
+
+    [Fact]
+    public async Task EditingMaxConcurrentCPUJobs_AutoPersistsToDatabase()
     {
         SettingsViewModel vm = CreateVm();
         await vm.LoadAsync();
 
-        Assert.False(vm.HasUnsavedChanges);
+        vm.MaxConcurrentCPUJobs = 7;
+
+        Assert.Equal("7", await WaitForSettingValueAsync(SettingKey.MaxConcurrentCPUJobs));
+        Assert.Equal(7, _appSettings.MaxConcurrentCPUJobs);
     }
 
     [Fact]
-    public async Task HasUnsavedChanges_AfterEditingProperty_BecomesTrue()
+    public async Task EditingGridFontFamily_AutoPersistsToDatabase()
     {
         SettingsViewModel vm = CreateVm();
         await vm.LoadAsync();
 
         vm.GridFontFamily = "Comic Sans MS";
 
-        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal("Comic Sans MS", await WaitForSettingValueAsync(SettingKey.GridFontFamily));
+        Assert.Equal("Comic Sans MS", _appSettings.GridFontFamily);
     }
 
     [Fact]
-    public async Task TryConfirmDiscardChanges_WithNoChanges_ReturnsTrueWithoutPrompting()
-    {
-        Mock<IDialogService> dialog = new();
-        SettingsViewModel vm = CreateVm(dialog.Object);
-        await vm.LoadAsync();
-
-        Assert.True(vm.TryConfirmDiscardChanges());
-
-        dialog.Verify(
-            d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task TryConfirmDiscardChanges_WhenUserConfirms_RevertsPropertiesAndReturnsTrue()
-    {
-        Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(
-                ConfirmationKeys.DiscardSettingsChanges,
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(true);
-
-        SettingsViewModel vm = CreateVm(dialog.Object);
-        await vm.LoadAsync();
-        string original = vm.GridFontFamily;
-        vm.GridFontFamily = "Comic Sans MS";
-
-        bool result = vm.TryConfirmDiscardChanges();
-
-        Assert.True(result);
-        Assert.Equal(original, vm.GridFontFamily);
-        Assert.False(vm.HasUnsavedChanges);
-    }
-
-    [Fact]
-    public async Task TryConfirmDiscardChanges_WhenUserDeclines_KeepsChangesAndReturnsFalse()
-    {
-        Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(
-                ConfirmationKeys.DiscardSettingsChanges,
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(false);
-
-        SettingsViewModel vm = CreateVm(dialog.Object);
-        await vm.LoadAsync();
-        vm.GridFontFamily = "Comic Sans MS";
-
-        bool result = vm.TryConfirmDiscardChanges();
-
-        Assert.False(result);
-        Assert.Equal("Comic Sans MS", vm.GridFontFamily);
-        Assert.True(vm.HasUnsavedChanges);
-    }
-
-    [Fact]
-    public async Task SaveCommand_AfterEditing_ClearsUnsavedChanges()
-    {
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
-        vm.GridFontFamily = "Comic Sans MS";
-        Assert.True(vm.HasUnsavedChanges);
-
-        await vm.SaveCommand.ExecuteAsync(null);
-
-        Assert.False(vm.HasUnsavedChanges);
-    }
-
-    [Fact]
-    public async Task HasUnsavedChanges_AfterEditingMinimizeToTray_BecomesTrue()
+    public async Task EditingMinimizeToTray_AutoPersistsAndUpdatesAppSettings()
     {
         SettingsViewModel vm = CreateVm();
         await vm.LoadAsync();
 
-        vm.MinimizeToTray = !vm.MinimizeToTray;
-
-        Assert.True(vm.HasUnsavedChanges);
-    }
-
-    [Fact]
-    public async Task SaveCommand_PersistsCloseActionAndMinimizeToTray()
-    {
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
         vm.MinimizeToTray = true;
+
+        Assert.Equal("true", await WaitForSettingValueAsync(SettingKey.MinimizeToTray));
+        Assert.True(_appSettings.MinimizeToTray);
+    }
+
+    [Fact]
+    public async Task EditingCloseAction_AutoPersistsAndUpdatesAppSettings()
+    {
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
         vm.CloseAction = CloseAction.MinimizeToTray;
 
-        await vm.SaveCommand.ExecuteAsync(null);
-
-        // Reload from DB into a fresh VM and check that values stuck.
-        SettingsViewModel reloaded = CreateVm();
-        await reloaded.LoadAsync();
-
-        Assert.True(reloaded.MinimizeToTray);
-        Assert.Equal(CloseAction.MinimizeToTray, reloaded.CloseAction);
+        Assert.Equal(nameof(CloseAction.MinimizeToTray), await WaitForSettingValueAsync(SettingKey.CloseAction));
+        Assert.Equal(CloseAction.MinimizeToTray, _appSettings.CloseAction);
     }
 
     [Fact]
-    public async Task HasUnsavedChanges_AfterEditingCloseAction_BecomesTrue()
+    public async Task EditingAutostartUploads_AutoPersistsToDatabase()
     {
         SettingsViewModel vm = CreateVm();
         await vm.LoadAsync();
 
-        vm.CloseAction = CloseAction.Exit;
+        vm.AutostartUploads = AutostartUploadsMode.Never;
 
-        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal(nameof(AutostartUploadsMode.Never), await WaitForSettingValueAsync(SettingKey.AutostartUploads));
+        Assert.Equal(AutostartUploadsMode.Never, _appSettings.AutostartUploads);
     }
 
     [Fact]
-    public async Task TryConfirmDiscardChanges_WhenUserConfirms_RevertsWindowBehaviorSettings()
+    public async Task EditingRemoveFinishedUploads_AutoPersistsToDatabase()
     {
-        // CloseAction and MinimizeToTray go through the same snapshot/restore path as the
-        // other tracked settings — make sure the discard flow actually rolls them back.
-        Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(
-                ConfirmationKeys.DiscardSettingsChanges,
-                It.IsAny<string>(),
-                It.IsAny<string>()))
-            .Returns(true);
-
-        SettingsViewModel vm = CreateVm(dialog.Object);
-        await vm.LoadAsync();
-        CloseAction originalAction = vm.CloseAction;
-        bool originalMinimize = vm.MinimizeToTray;
-        vm.CloseAction = CloseAction.Exit;
-        vm.MinimizeToTray = !originalMinimize;
-
-        bool result = vm.TryConfirmDiscardChanges();
-
-        Assert.True(result);
-        Assert.Equal(originalAction, vm.CloseAction);
-        Assert.Equal(originalMinimize, vm.MinimizeToTray);
-        Assert.False(vm.HasUnsavedChanges);
-    }
-
-    [Fact]
-    public async Task HasUnsavedChanges_AfterSaveThenEdit_BecomesTrueAgain()
-    {
-        // Regression: snapshot must be re-captured on Save, otherwise a second round of
-        // edits would still compare against the original-on-load snapshot and falsely
-        // appear dirty (or clean) at the wrong time.
         SettingsViewModel vm = CreateVm();
         await vm.LoadAsync();
-        vm.GridFontFamily = "Consolas";
-        await vm.SaveCommand.ExecuteAsync(null);
-        Assert.False(vm.HasUnsavedChanges);
 
-        vm.GridFontFamily = "Verdana";
+        vm.RemoveFinishedUploads = RemoveFinishedUploadsMode.Immediately;
 
-        Assert.True(vm.HasUnsavedChanges);
+        Assert.Equal(nameof(RemoveFinishedUploadsMode.Immediately), await WaitForSettingValueAsync(SettingKey.RemoveFinishedUploads));
+        Assert.Equal(RemoveFinishedUploadsMode.Immediately, _appSettings.RemoveFinishedUploads);
+    }
+
+    [Fact]
+    public async Task LoadAsync_AutoDetectsLanguage_WhenNoneSaved()
+    {
+        // Empty Language in DB → PickSupportedLanguage walks the OS culture chain. We can't
+        // assert a specific tag (depends on the test host's culture) but it must be one of
+        // the four shipped languages and Localizer must end up on that culture.
+        SettingsViewModel vm = CreateVm();
+
+        await vm.LoadAsync();
+
+        Assert.Contains(vm.Language, Localizer.SupportedLanguages);
+        Assert.Equal(vm.Language, _appSettings.Language);
+        Assert.Equal(vm.Language, Localizer.Instance.Culture.Name);
+    }
+
+    [Fact]
+    public async Task LoadAsync_HydratesSavedLanguage()
+    {
+        await _settingRepo.InsertAsync(new SettingDto { Key = SettingKey.Language, Value = "ja" });
+        SettingsViewModel vm = CreateVm();
+
+        await vm.LoadAsync();
+
+        Assert.Equal("ja", vm.Language);
+        Assert.Equal("ja", _appSettings.Language);
+        Assert.Equal("ja", Localizer.Instance.Culture.Name);
+    }
+
+    [Fact]
+    public async Task EditingLanguage_AutoPersistsAndAppliesCultureLive()
+    {
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+        Localizer.Instance.Culture = new CultureInfo("en");
+
+        vm.Language = "zh-Hans";
+
+        Assert.Equal("zh-Hans", await WaitForSettingValueAsync(SettingKey.Language));
+        Assert.Equal("zh-Hans", _appSettings.Language);
+        Assert.Equal("zh-Hans", Localizer.Instance.Culture.Name);
+    }
+
+    [Fact]
+    public async Task EditingSpeedLimitEnabled_AutoPersistsToDatabase()
+    {
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+        vm.SpeedLimitValue = 2048;
+        await Task.Delay(40); // let the SpeedLimitValue write settle
+
+        vm.SpeedLimitEnabled = true;
+
+        Assert.Equal("2048", await WaitForSettingValueAsync(SettingKey.SpeedLimit));
+        Assert.Equal(2048, _appSettings.SpeedLimit);
     }
 
     private class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)

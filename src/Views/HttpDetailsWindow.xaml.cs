@@ -3,8 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Text;
 using System.Windows;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net.Http;
 using CSUploader.ViewModels;
 
@@ -28,18 +30,25 @@ public partial class HttpDetailsWindow : Window
 
         if (tx is null)
         {
-            SummaryText.Text = fallbackMessage ?? "(no data)";
+            SummaryText.Text = fallbackMessage ?? Localizer.Instance["HttpDetails_NoData"];
             return;
         }
 
         // Summary header
         SummaryText.Text = tx.Summary;
-        TimingText.Text = $"Started: {tx.StartTime:HH:mm:ss.fff}  |  Duration: {tx.Duration.TotalMilliseconds:F0}ms  |  Size: {tx.ResponseBodyBytes?.Length ?? 0} bytes";
-        ProxyText.Text = $"Proxy: {tx.Proxy}";
+        TimingText.Text = string.Format(
+            CultureInfo.CurrentCulture,
+            Localizer.Instance["HttpDetails_Timing_Format"],
+            tx.StartTime.ToString("HH:mm:ss.fff", CultureInfo.CurrentCulture),
+            tx.Duration.TotalMilliseconds.ToString("F0", CultureInfo.CurrentCulture),
+            tx.ResponseBodyBytes?.Length ?? 0);
+        ProxyText.Text = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["HttpDetails_Proxy_Format"], tx.Proxy);
+
+        string noBody = Localizer.Instance["HttpDetails_NoBody"];
 
         // Request
         RequestHeadersBox.Text = tx.RequestHeadersText;
-        RequestBodyRawBox.Text = tx.RequestBody ?? "(no body)";
+        RequestBodyRawBox.Text = tx.RequestBody ?? noBody;
         RequestBodyJsonBox.Text = HttpTransaction.PrettyPrintJson(tx.RequestBody);
         RequestHexBox.Text = tx.RequestBodyBytes is not null
             ? HttpTransaction.ToHexDump(tx.RequestBodyBytes)
@@ -47,13 +56,15 @@ public partial class HttpDetailsWindow : Window
 
         // Response
         ResponseHeadersBox.Text = tx.ResponseHeadersText;
-        ResponseBodyRawBox.Text = tx.ResponseBody ?? "(no body)";
+        ResponseBodyRawBox.Text = tx.ResponseBody ?? noBody;
         ResponseBodyJsonBox.Text = HttpTransaction.PrettyPrintJson(tx.ResponseBody);
         ResponseHexBox.Text = HttpTransaction.ToHexDump(tx.ResponseBodyBytes);
 
         // Full dump
+        string reqHeader = Localizer.Instance["HttpDetails_FullDump_Request"];
+        string respHeader = Localizer.Instance["HttpDetails_FullDump_Response"];
         StringBuilder dump = new();
-        dump.AppendLine("══════════════════ REQUEST ══════════════════");
+        dump.AppendLine($"══════════════════ {reqHeader} ══════════════════");
         dump.AppendLine();
         dump.AppendLine(tx.RequestHeadersText);
         if (!string.IsNullOrEmpty(tx.RequestBody))
@@ -63,7 +74,7 @@ public partial class HttpDetailsWindow : Window
         }
 
         dump.AppendLine();
-        dump.AppendLine("══════════════════ RESPONSE ══════════════════");
+        dump.AppendLine($"══════════════════ {respHeader} ══════════════════");
         dump.AppendLine();
         dump.AppendLine(tx.ResponseHeadersText);
         if (!string.IsNullOrEmpty(tx.ResponseBody))

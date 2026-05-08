@@ -3,8 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -15,6 +17,7 @@ using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
+[Collection(nameof(AppSettingsCollection))]
 public class ConnectionManagerViewModelTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -22,8 +25,15 @@ public class ConnectionManagerViewModelTests : IDisposable
     private readonly ProxySettingRepository _repo;
     private readonly ProxyManager _manager;
 
+    private readonly CultureInfo _originalCulture;
+
     public ConnectionManagerViewModelTests()
     {
+        // Pin Localizer to English so tests asserting specific status prefixes ("Failed", "OK")
+        // don't break if a previous LocalizerTests run left a non-English culture on the singleton.
+        _originalCulture = Localizer.Instance.Culture;
+        Localizer.Instance.Culture = new CultureInfo("en");
+
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
@@ -43,6 +53,7 @@ public class ConnectionManagerViewModelTests : IDisposable
     public void Dispose()
     {
         _connection.Dispose();
+        Localizer.Instance.Culture = _originalCulture;
         GC.SuppressFinalize(this);
     }
 
@@ -215,7 +226,9 @@ public class ConnectionManagerViewModelTests : IDisposable
 
         // Manually paint test outcomes so we don't need a real network round-trip.
         vm.Proxies[0].TestStatus = "OK 100ms";
+        vm.Proxies[0].TestOutcome = ProxyTestOutcome.Ok;
         vm.Proxies[1].TestStatus = "Failed: timeout";
+        vm.Proxies[1].TestOutcome = ProxyTestOutcome.Failed;
         vm.Proxies[2].TestStatus = string.Empty; // untested
         vm.Proxies[1].Host = "bad-proxy";
 
@@ -236,6 +249,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
         vm.AddCommand.Execute(null);
         vm.Proxies[0].TestStatus = "Failed: dead";
+        vm.Proxies[0].TestOutcome = ProxyTestOutcome.Failed;
 
         vm.RemoveFailedCommand.Execute(null);
 
@@ -249,6 +263,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
         vm.AddCommand.Execute(null);
         vm.Proxies[0].TestStatus = "OK 100ms";
+        vm.Proxies[0].TestOutcome = ProxyTestOutcome.Ok;
 
         vm.RemoveFailedCommand.Execute(null);
 
@@ -344,6 +359,26 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveCommand_PersistsProxiesEnabledFlagToDatabase()
+    {
+        AppSettings settings = new();
+        ConnectionManagerViewModel vm = new(
+            _repo, _manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
+            new SettingRepository(_factory), settings);
+
+        await vm.LoadAsync();
+        vm.ProxiesEnabled = false;
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.False(settings.ProxiesEnabled);
+        SettingRepository repo = new(_factory);
+        SettingDto? row = await repo.FindByKeyAsync(SettingKey.ProxiesEnabled);
+        Assert.NotNull(row);
+        Assert.Equal("false", row!.Value);
+    }
+
+    [Fact]
     public async Task SaveCommand_PersistsAutoDisableFlagToDatabase()
     {
         AppSettings settings = new();
@@ -372,38 +407,28 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     [Fact]
-    public void TestOutcome_OkStatus_ClassifiesAsOk()
+    public void TestOutcome_DefaultsToUntested()
     {
+        // Fresh row: no status set, no outcome set → Untested (suppresses any icon until
+        // a real test runs).
+        ProxySettingItem item = new(new ProxySettingDto());
+
+        Assert.Equal(ProxyTestOutcome.Untested, item.TestOutcome);
+        Assert.Equal(string.Empty, item.TestStatus);
+    }
+
+    [Fact]
+    public void TestOutcome_SetExplicitlyAlongsideStatus()
+    {
+        // TestOutcome is now an explicit field rather than derived from TestStatus —
+        // this keeps the icon column working when status strings are localised.
         ProxySettingItem item = new(new ProxySettingDto())
         {
             TestStatus = "OK 250ms (1.2.3.4)",
+            TestOutcome = ProxyTestOutcome.Ok,
         };
 
         Assert.Equal(ProxyTestOutcome.Ok, item.TestOutcome);
-    }
-
-    [Fact]
-    public void TestOutcome_FailedStatus_ClassifiesAsFailed()
-    {
-        ProxySettingItem item = new(new ProxySettingDto())
-        {
-            TestStatus = "Failed: connection refused",
-        };
-
-        Assert.Equal(ProxyTestOutcome.Failed, item.TestOutcome);
-    }
-
-    [Fact]
-    public void TestOutcome_QueuedOrTesting_ClassifiesAsUntested()
-    {
-        // In-flight states shouldn't briefly flash the green/red icon — only after the
-        // result is known.
-        ProxySettingItem item = new(new ProxySettingDto())
-        {
-            TestStatus = "Testing…",
-        };
-
-        Assert.Equal(ProxyTestOutcome.Untested, item.TestOutcome);
     }
 
     [Fact]

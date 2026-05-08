@@ -1,0 +1,1443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Auto-generated from docs/i18n-inventory*.md by scripts/md-to-resx.py.
+    Do not edit by hand — edit the inventory and regenerate.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>Oo</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>Hindi</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>I-save</value>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>Idagdag</value>
+  </data>
+  <data name="Common_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Isara</value>
+  </data>
+  <data name="Common_Edit" xml:space="preserve">
+    <value>I-edit</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Burahin</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>Mag-browse</value>
+  </data>
+  <data name="Common_Back" xml:space="preserve">
+    <value>Bumalik</value>
+  </data>
+  <data name="Common_Next" xml:space="preserve">
+    <value>Susunod</value>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>I-apply</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>I-refresh</value>
+  </data>
+  <data name="Common_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>Kopyahin</value>
+  </data>
+  <data name="Common_Import" xml:space="preserve">
+    <value>Mag-import</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>Mag-export</value>
+  </data>
+  <data name="Common_All" xml:space="preserve">
+    <value>Lahat</value>
+  </data>
+  <data name="Common_None" xml:space="preserve">
+    <value>Wala</value>
+  </data>
+  <data name="Common_Test" xml:space="preserve">
+    <value>I-test</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Kumpirmahin</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>Babala</value>
+  </data>
+  <data name="Common_SelectFolder" xml:space="preserve">
+    <value>Pumili ng Folder</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>Mangyaring maghintay...</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>Naglo-load...</value>
+  </data>
+  <data name="Common_Cancelling" xml:space="preserve">
+    <value>Kinakansela...</value>
+  </data>
+  <data name="Common_Preparing" xml:space="preserve">
+    <value>Naghahanda…</value>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>hindi alam</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Main_Title_UpdateAvailable_Format" xml:space="preserve">
+    <value>CSUploader — May available na update (v{0}) — i-click ang Help → Install Update</value>
+  </data>
+  <data name="Main_Menu_File" xml:space="preserve">
+    <value>File(_F)</value>
+  </data>
+  <data name="Main_Menu_File_Exit" xml:space="preserve">
+    <value>Lumabas(_E)</value>
+  </data>
+  <data name="Main_Menu_File_Exit_Gesture" xml:space="preserve">
+    <value>Alt+F4</value>
+  </data>
+  <data name="Main_Menu_View" xml:space="preserve">
+    <value>View(_V)</value>
+  </data>
+  <data name="Main_Menu_View_UploadOverview" xml:space="preserve">
+    <value>Upload Overview(_O)</value>
+  </data>
+  <data name="Main_Menu_View_DarkMode" xml:space="preserve">
+    <value>Dark Mode(_D)</value>
+  </data>
+  <data name="Main_Menu_View_LightMode" xml:space="preserve">
+    <value>Light Mode(_L)</value>
+  </data>
+  <data name="Main_Menu_Help" xml:space="preserve">
+    <value>Help(_H)</value>
+  </data>
+  <data name="Main_Menu_Help_CheckForUpdates" xml:space="preserve">
+    <value>Mag-check ng Updates(_C)…</value>
+  </data>
+  <data name="Main_Menu_Help_InstallUpdate" xml:space="preserve">
+    <value>I-install ang Update(_I)</value>
+  </data>
+  <data name="Main_Menu_Help_About" xml:space="preserve">
+    <value>Tungkol sa CSUploader(_A)</value>
+  </data>
+  <data name="Main_Tab_Uploads" xml:space="preserve">
+    <value>Uploads</value>
+  </data>
+  <data name="Main_Tab_Uploaded" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Main_Tab_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Main_Tab_Logs" xml:space="preserve">
+    <value>Logs</value>
+  </data>
+  <data name="Main_CheckForUpdates_DialogTitle" xml:space="preserve">
+    <value>Mag-check ng Updates</value>
+  </data>
+  <data name="Main_CheckForUpdates_AlreadyLatest" xml:space="preserve">
+    <value>Nasa pinakabagong version ka na.</value>
+  </data>
+  <data name="Main_CheckForUpdates_Available_Format" xml:space="preserve">
+    <value>May available na update: v{0}.
+
+Gamitin ang Help → Install Update para i-download at i-install.</value>
+  </data>
+  <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
+    <value>Magdagdag ng bagong upload</value>
+  </data>
+  <data name="Uploads_Toolbar_StartTip" xml:space="preserve">
+    <value>Simulan lahat ng uploads</value>
+  </data>
+  <data name="Uploads_Toolbar_PauseTip" xml:space="preserve">
+    <value>I-pause / Ipagpatuloy</value>
+  </data>
+  <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
+    <value>Itigil lahat ng uploads</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
+    <value>Ilipat ang package pataas</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
+    <value>Ilipat ang package pababa</value>
+  </data>
+  <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
+    <value>Tanggalin ang napili</value>
+  </data>
+  <data name="Uploads_Context_Start" xml:space="preserve">
+    <value>Simulan</value>
+  </data>
+  <data name="Uploads_Context_Stop" xml:space="preserve">
+    <value>Itigil</value>
+  </data>
+  <data name="Uploads_Context_SkipUpload" xml:space="preserve">
+    <value>Laktawan ang Upload</value>
+  </data>
+  <data name="Uploads_Context_Reset" xml:space="preserve">
+    <value>I-reset</value>
+  </data>
+  <data name="Uploads_Context_OpenSourceDir" xml:space="preserve">
+    <value>Buksan ang Source Directory</value>
+  </data>
+  <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
+    <value>Itakda ang Speed Limit...</value>
+  </data>
+  <data name="Uploads_Context_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Uploads_Col_Name" xml:space="preserve">
+    <value>Pangalan</value>
+  </data>
+  <data name="Uploads_Col_Size" xml:space="preserve">
+    <value>Laki</value>
+  </data>
+  <data name="Uploads_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Uploads_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Uploads_Col_Speed" xml:space="preserve">
+    <value>Bilis</value>
+  </data>
+  <data name="Uploads_Col_ETA" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
+    <value>Bytes Na-load</value>
+  </data>
+  <data name="Uploads_Col_Progress" xml:space="preserve">
+    <value>Progreso</value>
+  </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>I-save sa</value>
+  </data>
+  <data name="Uploads_Col_Added" xml:space="preserve">
+    <value>Idinagdag</value>
+  </data>
+  <data name="Uploads_Col_Finished" xml:space="preserve">
+    <value>Tapos</value>
+  </data>
+  <data name="Uploads_Col_Duration" xml:space="preserve">
+    <value>Tagal</value>
+  </data>
+  <data name="Uploads_Col_Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
+    <value>Speed Limit</value>
+  </data>
+  <data name="Uploads_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploads_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploads_Col_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Uploads_ColumnHeader_LockTip" xml:space="preserve">
+    <value>I-lock ang lapad ng column</value>
+  </data>
+  <data name="Uploads_ColumnMenu_Reset" xml:space="preserve">
+    <value>I-reset ang mga column</value>
+  </data>
+  <data name="Uploads_ColumnMenu_DefaultLabel" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="Uploads_Overview_Title" xml:space="preserve">
+    <value>Upload Overview</value>
+  </data>
+  <data name="Uploads_Overview_CloseTip" xml:space="preserve">
+    <value>Isara ang overview</value>
+  </data>
+  <data name="Uploads_Overview_ToggleTip" xml:space="preserve">
+    <value>Ipakita / itago ang overview stats</value>
+  </data>
+  <data name="Uploads_Overview_Packages" xml:space="preserve">
+    <value>Package(s)</value>
+  </data>
+  <data name="Uploads_Overview_Links" xml:space="preserve">
+    <value>Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytes" xml:space="preserve">
+    <value>Total na Bytes</value>
+  </data>
+  <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
+    <value>Bilis ng Upload</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
+    <value>Bytes na-load</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytes" xml:space="preserve">
+    <value>Natitirang Bytes</value>
+  </data>
+  <data name="Uploads_Overview_Eta" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
+    <value>Tumatakbong Uploads</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnections" xml:space="preserve">
+    <value>Bukas na Connections</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinks" xml:space="preserve">
+    <value>Tapos na Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinks" xml:space="preserve">
+    <value>Nilaktawang Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinks" xml:space="preserve">
+    <value>Failed na Link(s)</value>
+  </data>
+  <data name="Uploads_Overview_PackagesLabel" xml:space="preserve">
+    <value>Package(s):</value>
+  </data>
+  <data name="Uploads_Overview_LinksLabel" xml:space="preserve">
+    <value>Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytesLabel" xml:space="preserve">
+    <value>Total na Bytes:</value>
+  </data>
+  <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
+    <value>Bilis ng Upload:</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
+    <value>Bytes na-load:</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytesLabel" xml:space="preserve">
+    <value>Natitirang Bytes:</value>
+  </data>
+  <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
+    <value>ETA:</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
+    <value>Tumatakbong Uploads:</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnectionsLabel" xml:space="preserve">
+    <value>Bukas na Connections:</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinksLabel" xml:space="preserve">
+    <value>Tapos na Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinksLabel" xml:space="preserve">
+    <value>Nilaktawang Link(s):</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinksLabel" xml:space="preserve">
+    <value>Failed na Link(s):</value>
+  </data>
+  <data name="Uploads_FilterLabel" xml:space="preserve">
+    <value>Pangalan ng File</value>
+  </data>
+  <data name="Uploads_FilterTip" xml:space="preserve">
+    <value>I-filter ayon sa pangalan ng file o package</value>
+  </data>
+  <data name="Uploads_FooterPremiumLink" xml:space="preserve">
+    <value>Magdagdag ng Premium Account…</value>
+  </data>
+  <data name="Uploads_State_Idle" xml:space="preserve">
+    <value>Idle</value>
+  </data>
+  <data name="Uploads_State_HashQueued" xml:space="preserve">
+    <value>Naka-queue ang Hash</value>
+  </data>
+  <data name="Uploads_State_Hashing" xml:space="preserve">
+    <value>Naghahash</value>
+  </data>
+  <data name="Uploads_State_UploadQueued" xml:space="preserve">
+    <value>Naka-queue ang Upload</value>
+  </data>
+  <data name="Uploads_State_Uploading" xml:space="preserve">
+    <value>Nag-uupload</value>
+  </data>
+  <data name="Uploads_State_Completed" xml:space="preserve">
+    <value>Tapos na</value>
+  </data>
+  <data name="Uploads_State_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Uploads_State_Paused" xml:space="preserve">
+    <value>Naka-pause</value>
+  </data>
+  <data name="Uploads_State_Cancelled" xml:space="preserve">
+    <value>Kinansela</value>
+  </data>
+  <data name="Uploads_Eta_NotApplicable" xml:space="preserve">
+    <value>~</value>
+  </data>
+  <data name="Uploads_ResetColumns_Title" xml:space="preserve">
+    <value>I-reset ang mga column</value>
+  </data>
+  <data name="Uploads_ResetColumns_Message" xml:space="preserve">
+    <value>I-reset ang mga column ng Uploads tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.</value>
+  </data>
+  <data name="Uploads_Remove_Title" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Uploads_Remove_Package_Format" xml:space="preserve">
+    <value>Tanggalin ang package na '{0}' at ang {1} file(s) nito?</value>
+  </data>
+  <data name="Uploads_Remove_File_Format" xml:space="preserve">
+    <value>Tanggalin ang '{0}' sa upload list?</value>
+  </data>
+  <data name="Uploads_Remove_Generic" xml:space="preserve">
+    <value>Tanggalin ang item na ito?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesOnly_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} package(s) ({1} file(s))?</value>
+  </data>
+  <data name="Uploads_Remove_FilesOnly_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} file(s) sa upload list?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} package(s) at {1} file(s) ({2} item(s) lahat)?</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
+    <value>I-export sa JSON…</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJsonTip" xml:space="preserve">
+    <value>I-export ang lahat ng natapos na uploads (kasama lahat ng field) sa JSON file</value>
+  </data>
+  <data name="Uploaded_Col_Name" xml:space="preserve">
+    <value>Pangalan</value>
+  </data>
+  <data name="Uploaded_Col_Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="Uploaded_Col_Size" xml:space="preserve">
+    <value>Laki</value>
+  </data>
+  <data name="Uploaded_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Uploaded_Col_Finished" xml:space="preserve">
+    <value>Tapos</value>
+  </data>
+  <data name="Uploaded_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploaded_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploaded_Context_Copy" xml:space="preserve">
+    <value>Kopyahin</value>
+  </data>
+  <data name="Uploaded_Context_Copy_Gesture" xml:space="preserve">
+    <value>Ctrl+C</value>
+  </data>
+  <data name="Uploaded_Context_CopyURL" xml:space="preserve">
+    <value>Kopyahin ang URL</value>
+  </data>
+  <data name="Uploaded_Context_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Uploaded_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Uploaded_Context_ExportJson" xml:space="preserve">
+    <value>I-export sa JSON…</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Title" xml:space="preserve">
+    <value>I-reset ang mga column</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
+    <value>I-reset ang mga column ng History tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.</value>
+  </data>
+  <data name="Uploaded_Remove_Title" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Uploaded_Remove_Single_Format" xml:space="preserve">
+    <value>Tanggalin ang '{0}' sa history?</value>
+  </data>
+  <data name="Uploaded_Remove_Many_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} entries sa history?</value>
+  </data>
+  <data name="Settings_Sidebar_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_Sidebar_Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="Settings_Sidebar_Connection" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="Settings_Sidebar_Accounts" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="Settings_General_Language_Title" xml:space="preserve">
+    <value>Wika</value>
+  </data>
+  <data name="Settings_General_Language_Desc" xml:space="preserve">
+    <value>Wika ng UI. Ang pagbabago ay agad na ia-apply.</value>
+  </data>
+  <data name="Settings_General_Language_Label" xml:space="preserve">
+    <value>Wika</value>
+  </data>
+  <data name="Settings_General_Developer_Title" xml:space="preserve">
+    <value>Developer</value>
+  </data>
+  <data name="Settings_General_Developer_Desc" xml:space="preserve">
+    <value>Mga option para sa local development at testing.</value>
+  </data>
+  <data name="Settings_General_UseMockServer" xml:space="preserve">
+    <value>Gamitin ang mock server (i-redirect lahat ng file hoster requests sa localhost:8080/&lt;hoster&gt;)</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Title" xml:space="preserve">
+    <value>Hitsura ng Grid</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Desc" xml:space="preserve">
+    <value>Font na gagamitin para sa Uploads at History tabs. Ang mga pagbabago ay agad na ia-apply.</value>
+  </data>
+  <data name="Settings_General_GridFont" xml:space="preserve">
+    <value>Grid font</value>
+  </data>
+  <data name="Settings_General_GridFontSize" xml:space="preserve">
+    <value>Sukat ng grid font</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Title" xml:space="preserve">
+    <value>Galaw ng Window</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Desc" xml:space="preserve">
+    <value>Pumili kung ano ang mangyayari kapag ang main window ay na-minimize o na-close.</value>
+  </data>
+  <data name="Settings_General_MinimizeToTray" xml:space="preserve">
+    <value>I-minimize ang main window sa system tray sa halip na sa taskbar</value>
+  </data>
+  <data name="Settings_General_CloseAction" xml:space="preserve">
+    <value>Aksyon ng close button</value>
+  </data>
+  <data name="Settings_General_CloseAction_Ask" xml:space="preserve">
+    <value>Magtanong sa bawat pagkakataon</value>
+  </data>
+  <data name="Settings_General_CloseAction_MinToTray" xml:space="preserve">
+    <value>I-minimize sa tray</value>
+  </data>
+  <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
+    <value>Lumabas sa application</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
+    <value>Confirmation Prompts</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Desc" xml:space="preserve">
+    <value>I-tick ang isang prompt para magtanong ulit bago ang aksyon. I-untick para hindi na magpakita ng confirmation para sa aksyong iyon.</value>
+  </data>
+  <data name="Settings_General_Database_Title" xml:space="preserve">
+    <value>Database</value>
+  </data>
+  <data name="Settings_General_Database_Desc" xml:space="preserve">
+    <value>Iniimbak ng CSUploader ang upload history mo (mga package, file, at URL) sa isang lokal na SQLite database. Ang pag-alis ng entries sa Uploads o History tab ay nagtatago lamang ng mga ito — nananatili ang rows sa database. I-click ang Clear para permanenteng tanggalin ang mga rows na nakatago sa parehong tab.</value>
+  </data>
+  <data name="Settings_General_Database_BtnClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmTitle" xml:space="preserve">
+    <value>I-clear ang database</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmMessage" xml:space="preserve">
+    <value>Permanenteng tanggalin ang upload records na nakatago sa parehong tab?
+
+Hindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.</value>
+  </data>
+  <data name="Settings_General_Database_Status_Cleared_Format" xml:space="preserve">
+    <value>Na-clear ang {0} file row at {1} package row mula sa database.</value>
+  </data>
+  <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
+    <value>Walang nakatagong rows na ic-clear.</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
+    <value>Upload Management</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Desc" xml:space="preserve">
+    <value>Connection limits, priorities, ...i-set up ang mga detalye ng Upload controller.</value>
+  </data>
+  <data name="Settings_Upload_MaxConcurrent" xml:space="preserve">
+    <value>Max. na sabay-sabay na Uploads</value>
+  </data>
+  <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
+    <value>Max. na sabay-sabay na uploads per file hoster</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
+    <value>Tanggalin ang tapos na uploads</value>
+  </data>
+  <data name="Settings_Upload_IfFileExists" xml:space="preserve">
+    <value>Kung umiiral na ang file</value>
+  </data>
+  <data name="Settings_Upload_MaxCpuJobs" xml:space="preserve">
+    <value>Max. na sabay-sabay na CPU Jobs</value>
+  </data>
+  <data name="Settings_Upload_SpeedLimit" xml:space="preserve">
+    <value>Speed Limit (KB/s)</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Never" xml:space="preserve">
+    <value>Hinding-hindi</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Immediately" xml:space="preserve">
+    <value>Agad-agad</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_AtStartup" xml:space="preserve">
+    <value>Sa startup</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_WhenPackageReady" xml:space="preserve">
+    <value>Kapag handa na ang package</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Ask" xml:space="preserve">
+    <value>Magtanong para sa bawat file</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Skip" xml:space="preserve">
+    <value>Laktawan</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Overwrite" xml:space="preserve">
+    <value>I-overwrite</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Rename" xml:space="preserve">
+    <value>Palitan ang pangalan</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Title" xml:space="preserve">
+    <value>Autostart na Uploads</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Desc" xml:space="preserve">
+    <value>Pumili kung ang CSUploader ay magsisimula ng pending na uploads nang walang user interaction, at kung kailan.</value>
+  </data>
+  <data name="Settings_Upload_Autostart" xml:space="preserve">
+    <value>Autostart na uploads sa pagsisimula ng application</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Always" xml:space="preserve">
+    <value>Palagi</value>
+  </data>
+  <data name="Settings_Upload_Autostart_OnlyIfRunning" xml:space="preserve">
+    <value>Kung tumatakbo ang uploads sa pagtatapos ng huling session lamang</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
+    <value>Hinding-hindi</value>
+  </data>
+  <data name="Settings_Conn_Title" xml:space="preserve">
+    <value>Connection Manager</value>
+  </data>
+  <data name="Settings_Conn_Desc" xml:space="preserve">
+    <value>Kung kailangan ng proxy para makapunta sa internet, i-configure mo sila dito. Ang maraming proxies ay iniikot para sa bagong uploads. Ang default na behavior na walang naka-enable na proxies ay direct connection.</value>
+  </data>
+  <data name="Settings_Conn_UseProxies" xml:space="preserve">
+    <value>Gumamit ng proxies para sa uploads</value>
+  </data>
+  <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
+    <value>Master switch para sa rotation. Kapag naka-off, ang uploads ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.</value>
+  </data>
+  <data name="Settings_Conn_AutoDisable" xml:space="preserve">
+    <value>Awtomatikong i-uncheck ang failing na proxies</value>
+  </data>
+  <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
+    <value>Kapag naka-on, ang isang proxy na nag-fail sa manual test o sa upload ay ina-uncheck para laktawan ng rotation. Ang status icon ay nag-a-update kahit anong mangyari.</value>
+  </data>
+  <data name="Settings_Conn_Col_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="Settings_Conn_Col_Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="Settings_Conn_Col_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Settings_Conn_Col_Host" xml:space="preserve">
+    <value>Host / IP</value>
+  </data>
+  <data name="Settings_Conn_Col_Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Settings_Conn_Col_User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Settings_Conn_Col_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Settings_Conn_Col_Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Settings_Conn_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Settings_Conn_PriorityUpTip" xml:space="preserve">
+    <value>Ilipat pataas (mas mataas na priority)</value>
+  </data>
+  <data name="Settings_Conn_PriorityDownTip" xml:space="preserve">
+    <value>Ilipat pababa (mas mababang priority)</value>
+  </data>
+  <data name="Settings_Conn_Context_Test" xml:space="preserve">
+    <value>I-test</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import" xml:space="preserve">
+    <value>Mag-import</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromText" xml:space="preserve">
+    <value>Mag-import mula sa text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromFile" xml:space="preserve">
+    <value>Mag-import mula sa file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export" xml:space="preserve">
+    <value>Mag-export</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToText" xml:space="preserve">
+    <value>I-export lahat ng proxies sa text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToFile" xml:space="preserve">
+    <value>I-export lahat ng proxies sa file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToText" xml:space="preserve">
+    <value>I-export ang tested-OK na proxies sa text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
+    <value>I-export ang tested-OK na proxies sa file…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Save" xml:space="preserve">
+    <value>I-save</value>
+  </data>
+  <data name="Settings_Conn_Btn_Add" xml:space="preserve">
+    <value>Idagdag</value>
+  </data>
+  <data name="Settings_Conn_Btn_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveSelected" xml:space="preserve">
+    <value>Tanggalin ang napili</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveFailed" xml:space="preserve">
+    <value>Tanggalin ang failed</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAll" xml:space="preserve">
+    <value>I-test Lahat</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAllTip" xml:space="preserve">
+    <value>I-test ang connectivity para sa bawat proxy sa list</value>
+  </data>
+  <data name="Settings_Conn_Btn_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileDialogTitle" xml:space="preserve">
+    <value>Mag-import ng proxies</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileFilter" xml:space="preserve">
+    <value>Proxy lists (*.txt)|*.txt|All files (*.*)|*.*</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogTitle" xml:space="preserve">
+    <value>Mag-import ng Proxies</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogDesc" xml:space="preserve">
+    <value>I-paste ang proxy lines (isa kada linya). Format: scheme://[user:pass@]host[:port] — ang port ay default sa 80/443/1080 ayon sa scheme.</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_DialogTitle" xml:space="preserve">
+    <value>I-export Lahat ng Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_DialogTitle" xml:space="preserve">
+    <value>I-export ang Tested-OK na Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_Desc_Format" xml:space="preserve">
+    <value>{0} proxy(s):</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
+    <value>{0} proxy(s) na may successful na huling test:</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
+    <value>Tanggalin ang proxy</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_One_Format" xml:space="preserve">
+    <value>Tanggalin ang proxy na '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Many_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} proxies?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Title" xml:space="preserve">
+    <value>Tanggalin ang failed na proxies</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_One_Format" xml:space="preserve">
+    <value>Tanggalin ang failed na proxy na '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Many_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} failed na proxies?</value>
+  </data>
+  <data name="Settings_Conn_Status_Queued" xml:space="preserve">
+    <value>Naka-queue…</value>
+  </data>
+  <data name="Settings_Conn_Status_Testing" xml:space="preserve">
+    <value>Tine-test…</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLive" xml:space="preserve">
+    <value>OK (live)</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyUnknown_Format" xml:space="preserve">
+    <value>OK {0}ms (hindi inaasahang response)</value>
+  </data>
+  <data name="Settings_Conn_Status_Failed_Format" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_Saved" xml:space="preserve">
+    <value>Na-save</value>
+  </data>
+  <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
+    <value>Hindi na-save: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
+    <value>Na-import ang {0} proxy(s) — i-click ang Save para i-persist</value>
+  </data>
+  <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
+    <value>Na-export ang {0} proxy(s) sa {1}</value>
+  </data>
+  <data name="Settings_Accounts_Title" xml:space="preserve">
+    <value>Account Manager</value>
+  </data>
+  <data name="Settings_Accounts_Desc" xml:space="preserve">
+    <value>Ilagay at pamahalaan lahat ng iyong Premium/Gold/Platinum accounts.</value>
+  </data>
+  <data name="Settings_Accounts_Col_Enabled" xml:space="preserve">
+    <value>✓</value>
+  </data>
+  <data name="Settings_Accounts_Col_Hoster" xml:space="preserve">
+    <value>Hoster</value>
+  </data>
+  <data name="Settings_Accounts_Col_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Settings_Accounts_Col_Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Settings_Accounts_Col_Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Settings_Accounts_Col_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
+    <value>I-edit ang Account...</value>
+  </data>
+  <data name="Settings_Accounts_Context_Refresh" xml:space="preserve">
+    <value>I-check / I-refresh</value>
+  </data>
+  <data name="Settings_Accounts_Context_Enable" xml:space="preserve">
+    <value>I-enable</value>
+  </data>
+  <data name="Settings_Accounts_Context_Disable" xml:space="preserve">
+    <value>I-disable</value>
+  </data>
+  <data name="Settings_Accounts_Context_Delete" xml:space="preserve">
+    <value>Burahin</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Add" xml:space="preserve">
+    <value>Idagdag</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Remove" xml:space="preserve">
+    <value>Tanggalin</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
+    <value>I-refresh</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
+    <value>Tanggalin ang Account</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
+    <value>Tanggalin ang account na '{0}' para sa {1}?</value>
+  </data>
+  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
+    <value>Mangyaring punan ang file hoster, username, at password.</value>
+  </data>
+  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
+    <value>Account Check</value>
+  </data>
+  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
+    <value>Nag-fail ang account check: {0}
+
+Idagdag pa rin?</value>
+  </data>
+  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
+    <value>Hindi ma-verify ang account: {0}
+
+Idagdag pa rin?</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
+    <value>Vinerify ang credentials...</value>
+  </data>
+  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
+    <value>Chinecheck ang account...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
+    <value>Walang accounts na ire-refresh.</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
+    <value>Na-verify: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
+    <value>Babala: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
+    <value>Valid: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
+    <value>Valid! {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
+    <value>Failed: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
+    <value>Check error: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountAdded_Format" xml:space="preserve">
+    <value>Naidagdag ang account para sa {0}!</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
+    <value>Walang implementation para sa {0}. Hindi ma-check.</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
+    <value>Walang implementation para sa {0}. Ang account ay isa-save nang walang verification.</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
+    <value>Chinecheck ang {0}@{1}... ({2}/{3})</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingShort" xml:space="preserve">
+    <value>Chinecheck...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl" xml:space="preserve">
+    <value>Walang implementation</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
+    <value>Na-refresh ang {0} accounts. {1} ang na-update.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
+    <value>Naka-disable ang account na '{0}'.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
+    <value>Naka-enable ang account na '{0}'.</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Settings_Accounts_PasswordMask" xml:space="preserve">
+    <value>******</value>
+  </data>
+  <data name="Logs_AutoScroll" xml:space="preserve">
+    <value>Auto-scroll</value>
+  </data>
+  <data name="Logs_Tab_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Logs_Tab_Http" xml:space="preserve">
+    <value>HTTP</value>
+  </data>
+  <data name="Logs_Tab_Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="Logs_Tab_UI" xml:space="preserve">
+    <value>UI</value>
+  </data>
+  <data name="Logs_Col_DateTime" xml:space="preserve">
+    <value>DateTime</value>
+  </data>
+  <data name="Logs_Col_Filename" xml:space="preserve">
+    <value>Filename</value>
+  </data>
+  <data name="Logs_Col_Function" xml:space="preserve">
+    <value>Function</value>
+  </data>
+  <data name="Logs_Col_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="Logs_Col_Message" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="Logs_Col_Thread" xml:space="preserve">
+    <value>Thread</value>
+  </data>
+  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
+    <value>Walang URLs sa selection; nilinis ang clipboard</value>
+  </data>
+  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
+    <value>Nakopya ang {0} URL(s) sa clipboard</value>
+  </data>
+  <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
+    <value>Itinago ang {0} file(s) sa History tab</value>
+  </data>
+  <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
+    <value>Na-export ang {0} package(s) sa {1}</value>
+  </data>
+  <data name="Wizard_Title" xml:space="preserve">
+    <value>Upload Wizard</value>
+  </data>
+  <data name="Wizard_Step_Directory" xml:space="preserve">
+    <value>1. Directory</value>
+  </data>
+  <data name="Wizard_Step_Files" xml:space="preserve">
+    <value>2. Files</value>
+  </data>
+  <data name="Wizard_Step_FileHosters" xml:space="preserve">
+    <value>3. File Hosters</value>
+  </data>
+  <data name="Wizard_Step_Start" xml:space="preserve">
+    <value>4. Simulan</value>
+  </data>
+  <data name="Wizard_Step0_Title" xml:space="preserve">
+    <value>Pumili ng Upload Directory</value>
+  </data>
+  <data name="Wizard_Step0_Desc" xml:space="preserve">
+    <value>Pumili ng directory na naglalaman ng mga files na gusto mong i-upload.</value>
+  </data>
+  <data name="Wizard_Step0_Browse" xml:space="preserve">
+    <value>Mag-browse</value>
+  </data>
+  <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
+    <value>Pumili ng Upload Directory</value>
+  </data>
+  <data name="Wizard_Step1_Title" xml:space="preserve">
+    <value>Pumili ng Files</value>
+  </data>
+  <data name="Wizard_Step1_PackageTitleLabel" xml:space="preserve">
+    <value>Titulo ng package:</value>
+  </data>
+  <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
+    <value>Filter:</value>
+  </data>
+  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
+    <value>Lahat</value>
+  </data>
+  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
+    <value>Wala</value>
+  </data>
+  <data name="Wizard_Step1_Col_File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Wizard_Step1_Col_Size" xml:space="preserve">
+    <value>Laki</value>
+  </data>
+  <data name="Wizard_Step1_SelectedLabel" xml:space="preserve">
+    <value>Napili:</value>
+  </data>
+  <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
+    <value>file(s)</value>
+  </data>
+  <data name="Wizard_Step2_Title" xml:space="preserve">
+    <value>Pumili ng File Hosters</value>
+  </data>
+  <data name="Wizard_Step2_Desc" xml:space="preserve">
+    <value>Pumili kung saang file hosters mag-uupload at pumili ng accounts.</value>
+  </data>
+  <data name="Wizard_Step2_Col_Use" xml:space="preserve">
+    <value>Gamitin</value>
+  </data>
+  <data name="Wizard_Step2_Col_FileHoster" xml:space="preserve">
+    <value>File Hoster</value>
+  </data>
+  <data name="Wizard_Step2_Col_Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
+    <value>(anonymous)</value>
+  </data>
+  <data name="Wizard_Step2_AccountSelect" xml:space="preserve">
+    <value>(pumili ng account)</value>
+  </data>
+  <data name="Wizard_Step2_AddAccountLink" xml:space="preserve">
+    <value>Magdagdag ng account…</value>
+  </data>
+  <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
+    <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
+  </data>
+  <data name="Wizard_Step3_Title" xml:space="preserve">
+    <value>Kailan Magsisimula</value>
+  </data>
+  <data name="Wizard_Step3_Desc" xml:space="preserve">
+    <value>Pumili kung kailan magsisimula ang upload.</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Immediately" xml:space="preserve">
+    <value>Magsimula agad pagkatapos isara ang wizard</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Later" xml:space="preserve">
+    <value>Idagdag sa queue pero magsimula mamaya (manual start)</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Scheduled" xml:space="preserve">
+    <value>Mag-iskedyul para sa partikular na petsa at oras</value>
+  </data>
+  <data name="Wizard_Step3_TimeFormatHint" xml:space="preserve">
+    <value>(HH:mm)</value>
+  </data>
+  <data name="Wizard_Btn_Back" xml:space="preserve">
+    <value>Bumalik</value>
+  </data>
+  <data name="Wizard_Btn_Cancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="Wizard_Btn_Next" xml:space="preserve">
+    <value>Susunod</value>
+  </data>
+  <data name="Wizard_Btn_Add" xml:space="preserve">
+    <value>Idagdag</value>
+  </data>
+  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
+    <value>Mangyaring pumili ng valid na directory.</value>
+  </data>
+  <data name="Wizard_Validation_PickFile" xml:space="preserve">
+    <value>Mangyaring pumili ng kahit isang file.</value>
+  </data>
+  <data name="Wizard_Validation_PickHoster" xml:space="preserve">
+    <value>Mangyaring pumili ng kahit isang file hoster.</value>
+  </data>
+  <data name="Wizard_Error_Format" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
+    <value>Tanggalin ang package o file sa Uploads tab</value>
+  </data>
+  <data name="Confirm_RemoveUploadedEntry" xml:space="preserve">
+    <value>Tanggalin ang entries sa History tab</value>
+  </data>
+  <data name="Confirm_RemoveFileHosterAccount" xml:space="preserve">
+    <value>Tanggalin ang isang file hoster account</value>
+  </data>
+  <data name="Confirm_RemoveProxy" xml:space="preserve">
+    <value>Tanggalin ang isang proxy sa Connection Manager</value>
+  </data>
+  <data name="Confirm_ResetColumns" xml:space="preserve">
+    <value>I-reset ang mga column sa default sa Uploads / History tab</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>Tungkol sa CSUploader</value>
+  </data>
+  <data name="About_AppName" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="About_Version_Format" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>Isang malakas na file upload manager para sa maraming hosting services. Kasama ang hashing, queue management, at real-time progress tracking.</value>
+  </data>
+  <data name="About_Field_Framework" xml:space="preserve">
+    <value>Framework:</value>
+  </data>
+  <data name="About_Field_Framework_Value" xml:space="preserve">
+    <value>.NET 10.0 (WPF)</value>
+  </data>
+  <data name="About_Field_Database" xml:space="preserve">
+    <value>Database:</value>
+  </data>
+  <data name="About_Field_Database_Value" xml:space="preserve">
+    <value>SQLite via EF Core 10</value>
+  </data>
+  <data name="About_Field_License" xml:space="preserve">
+    <value>License:</value>
+  </data>
+  <data name="About_Field_License_Value" xml:space="preserve">
+    <value>MIT</value>
+  </data>
+  <data name="About_Field_Source" xml:space="preserve">
+    <value>Source:</value>
+  </data>
+  <data name="About_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="CloseAction_WindowTitle" xml:space="preserve">
+    <value>Isara ang CSUploader</value>
+  </data>
+  <data name="CloseAction_Heading" xml:space="preserve">
+    <value>Ano ang gusto mong gawin ng close button?</value>
+  </data>
+  <data name="CloseAction_Subheading" xml:space="preserve">
+    <value>Pumili ng isa — pwede mo itong baguhin mamaya sa Settings → General.</value>
+  </data>
+  <data name="CloseAction_Remember" xml:space="preserve">
+    <value>Tandaan ang aking pinili</value>
+  </data>
+  <data name="CloseAction_BtnMinimize" xml:space="preserve">
+    <value>I-minimize sa tray</value>
+  </data>
+  <data name="CloseAction_BtnExit" xml:space="preserve">
+    <value>Lumabas</value>
+  </data>
+  <data name="CloseAction_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="Confirmation_WindowTitle" xml:space="preserve">
+    <value>Kumpirmahin</value>
+  </data>
+  <data name="Confirmation_DontAskAgain" xml:space="preserve">
+    <value>Huwag nang itanong sa akin para sa aksyong ito</value>
+  </data>
+  <data name="Confirmation_BtnYes" xml:space="preserve">
+    <value>Oo</value>
+  </data>
+  <data name="Confirmation_BtnNo" xml:space="preserve">
+    <value>Hindi</value>
+  </data>
+  <data name="EditAccount_WindowTitle" xml:space="preserve">
+    <value>I-edit ang Account</value>
+  </data>
+  <data name="EditAccount_AddTitle" xml:space="preserve">
+    <value>Magdagdag ng Account</value>
+  </data>
+  <data name="EditAccount_FileHosterLabel" xml:space="preserve">
+    <value>File Hoster:</value>
+  </data>
+  <data name="EditAccount_UsernameLabel" xml:space="preserve">
+    <value>Username:</value>
+  </data>
+  <data name="EditAccount_PasswordLabel" xml:space="preserve">
+    <value>Password:</value>
+  </data>
+  <data name="EditAccount_AccountEnabled" xml:space="preserve">
+    <value>Naka-enable ang account</value>
+  </data>
+  <data name="EditAccount_BtnSave" xml:space="preserve">
+    <value>I-save</value>
+  </data>
+  <data name="EditAccount_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
+    <value>Mangyaring ipasok ang username at password.</value>
+  </data>
+  <data name="HttpDetails_WindowTitle" xml:space="preserve">
+    <value>HTTP Transaction Details</value>
+  </data>
+  <data name="HttpDetails_Tab_Request" xml:space="preserve">
+    <value>Request</value>
+  </data>
+  <data name="HttpDetails_Tab_Response" xml:space="preserve">
+    <value>Response</value>
+  </data>
+  <data name="HttpDetails_Tab_FullDump" xml:space="preserve">
+    <value>Full Dump</value>
+  </data>
+  <data name="HttpDetails_SubTab_Headers" xml:space="preserve">
+    <value>Headers</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyRaw" xml:space="preserve">
+    <value>Body (Raw)</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyJson" xml:space="preserve">
+    <value>Body (JSON)</value>
+  </data>
+  <data name="HttpDetails_SubTab_Hex" xml:space="preserve">
+    <value>Hex</value>
+  </data>
+  <data name="HttpDetails_Timing_Format" xml:space="preserve">
+    <value>Sinimulan: {0}  |  Tagal: {1}ms  |  Laki: {2} bytes</value>
+  </data>
+  <data name="HttpDetails_Proxy_Format" xml:space="preserve">
+    <value>Proxy: {0}</value>
+  </data>
+  <data name="HttpDetails_NoData" xml:space="preserve">
+    <value>(walang data)</value>
+  </data>
+  <data name="HttpDetails_NoBody" xml:space="preserve">
+    <value>(walang body)</value>
+  </data>
+  <data name="HttpDetails_FullDump_Request" xml:space="preserve">
+    <value>REQUEST</value>
+  </data>
+  <data name="HttpDetails_FullDump_Response" xml:space="preserve">
+    <value>RESPONSE</value>
+  </data>
+  <data name="LogDetails_WindowTitle" xml:space="preserve">
+    <value>Log Details</value>
+  </data>
+  <data name="LogDetails_Field_DateTime" xml:space="preserve">
+    <value>DateTime:</value>
+  </data>
+  <data name="LogDetails_Field_ThreadId" xml:space="preserve">
+    <value>Thread ID:</value>
+  </data>
+  <data name="LogDetails_Field_Filename" xml:space="preserve">
+    <value>Filename:</value>
+  </data>
+  <data name="LogDetails_Field_Function" xml:space="preserve">
+    <value>Function:</value>
+  </data>
+  <data name="LogDetails_Field_Line" xml:space="preserve">
+    <value>Line:</value>
+  </data>
+  <data name="LogDetails_Tab_Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="LogDetails_Tab_Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
+  <data name="LogDetails_Btn_Close" xml:space="preserve">
+    <value>Isara</value>
+  </data>
+  <data name="Progress_WindowTitle" xml:space="preserve">
+    <value>Mangyaring maghintay...</value>
+  </data>
+  <data name="Progress_DefaultLabel" xml:space="preserve">
+    <value>Naglo-load...</value>
+  </data>
+  <data name="Progress_LabelSuffix" xml:space="preserve">
+    <value>Mangyaring maghintay...</value>
+  </data>
+  <data name="Progress_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="Progress_BtnCancelling" xml:space="preserve">
+    <value>Kinakansela...</value>
+  </data>
+  <data name="UpdateProgress_WindowTitle" xml:space="preserve">
+    <value>Ina-update ang CSUploader</value>
+  </data>
+  <data name="UpdateProgress_StatusInitial" xml:space="preserve">
+    <value>Naghahanda…</value>
+  </data>
+  <data name="UpdateProgress_StatusDownloading_Format" xml:space="preserve">
+    <value>Dina-download ang update v{0}…</value>
+  </data>
+  <data name="UpdateProgress_StatusRestarting" xml:space="preserve">
+    <value>Nire-restart…</value>
+  </data>
+  <data name="UpdateProgress_StatusFailed_Format" xml:space="preserve">
+    <value>Nag-fail ang update: {0}</value>
+  </data>
+  <data name="UpdateProgress_PercentInitial" xml:space="preserve">
+    <value>0%</value>
+  </data>
+  <data name="ProxyText_WindowTitle" xml:space="preserve">
+    <value>Proxies</value>
+  </data>
+  <data name="ProxyText_BtnImport" xml:space="preserve">
+    <value>Mag-import</value>
+  </data>
+  <data name="ProxyText_BtnCopy" xml:space="preserve">
+    <value>Kopyahin</value>
+  </data>
+  <data name="ProxyText_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="ProxyText_BtnClose" xml:space="preserve">
+    <value>Isara</value>
+  </data>
+  <data name="SpeedLimit_WindowTitle" xml:space="preserve">
+    <value>Speed Limit</value>
+  </data>
+  <data name="SpeedLimit_Heading" xml:space="preserve">
+    <value>Itakda ang Speed Limit</value>
+  </data>
+  <data name="SpeedLimit_Subheading" xml:space="preserve">
+    <value>Per-package override. Iwanang blangko para gamitin ang global setting.</value>
+  </data>
+  <data name="SpeedLimit_Unit" xml:space="preserve">
+    <value>KB/s</value>
+  </data>
+  <data name="SpeedLimit_BtnClear" xml:space="preserve">
+    <value>Linisin</value>
+  </data>
+  <data name="SpeedLimit_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="SpeedLimit_BtnOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="SpeedLimit_Validation_Title" xml:space="preserve">
+    <value>Invalid na value</value>
+  </data>
+  <data name="SpeedLimit_Validation_Message" xml:space="preserve">
+    <value>Mangyaring maglagay ng positibong integer (KB/s), o iwanang blangko para linisin.</value>
+  </data>
+  <data name="Dialog_DefaultErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Dialog_DefaultConfirmTitle" xml:space="preserve">
+    <value>Kumpirmahin</value>
+  </data>
+  <data name="Dialog_DefaultBrowseFolderTitle" xml:space="preserve">
+    <value>Pumili ng Folder</value>
+  </data>
+  <data name="Dialog_GenericErrorTitle" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Picker_Filter_Json" xml:space="preserve">
+    <value>JSON files (*.json)|*.json|All files (*.*)|*.*</value>
+  </data>
+  <data name="Picker_Filter_ProxyLists" xml:space="preserve">
+    <value>Proxy lists (*.txt)|*.txt|All files (*.*)|*.*</value>
+  </data>
+  <data name="SpeedLimit_Display_Mbps_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="SpeedLimit_Display_Kbps_Format" xml:space="preserve">
+    <value>{0} KB/s</value>
+  </data>
+  <data name="Uploads_Overview_UploadSpeed_Zero" xml:space="preserve">
+    <value>0 B/s</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Show" xml:space="preserve">
+    <value>Ipakita ang CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Exit" xml:space="preserve">
+    <value>Lumabas</value>
+  </data>
+  <data name="Tray_Balloon_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Balloon_Body" xml:space="preserve">
+    <value>Tumatakbo pa rin sa tray. I-click ang icon para ibalik ang window, o i-right-click para sa Exit.</value>
+  </data>
+</root>

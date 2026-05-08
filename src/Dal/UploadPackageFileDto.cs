@@ -33,6 +33,8 @@ public class UploadPackageFileDto
 
     public bool IsHashingComplete { get; set; }
 
+    public string? FileHash { get; set; }
+
     public int FileHosterLoginId { get; set; }
 
     public int Priority { get; set; }

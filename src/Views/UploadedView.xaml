@@ -9,6 +9,7 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadedViewModel}"
              d:DesignWidth="1600" d:DesignHeight="1100"
@@ -67,10 +68,10 @@
                 BorderThickness="0,0,0,1"
                 Padding="12,6">
             <StackPanel Orientation="Horizontal">
-                <Button Content="Export to JSON…"
+                <Button Content="{loc:Loc Uploaded_Toolbar_ExportJson}"
                         Command="{Binding ExportJsonCommand}"
                         Padding="10,4"
-                        ToolTip="Export all completed uploads (with every field) to a JSON file" />
+                        ToolTip="{loc:Loc Uploaded_Toolbar_ExportJsonTip}" />
             </StackPanel>
         </Border>
 
@@ -141,20 +142,20 @@
         </DataGrid.CellStyle>
         <DataGrid.ContextMenu>
             <ContextMenu>
-                <MenuItem Header="Copy"
-                          InputGestureText="Ctrl+C"
+                <MenuItem Header="{loc:Loc Uploaded_Context_Copy}"
+                          InputGestureText="{loc:Loc Uploaded_Context_Copy_Gesture}"
                           Command="ApplicationCommands.Copy"
                           CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                <MenuItem Header="Copy URL"
+                <MenuItem Header="{loc:Loc Uploaded_Context_CopyURL}"
                           Command="{Binding PlacementTarget.DataContext.CopyUrlsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 <Separator />
-                <MenuItem Header="Remove"
-                          InputGestureText="Del"
+                <MenuItem Header="{loc:Loc Uploaded_Context_Remove}"
+                          InputGestureText="{loc:Loc Uploaded_Context_Remove_Gesture}"
                           Command="{Binding PlacementTarget.DataContext.RemoveSelectedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                           CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 <Separator />
-                <MenuItem Header="Export to JSON…"
+                <MenuItem Header="{loc:Loc Uploaded_Context_ExportJson}"
                           Command="{Binding PlacementTarget.DataContext.ExportJsonCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
             </ContextMenu>
         </DataGrid.ContextMenu>
@@ -232,7 +233,7 @@
         </DataGrid.GroupStyle>
 
         <DataGrid.Columns>
-            <DataGridTemplateColumn Header="Name"
+            <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_Name}"
                                     Width="400"
                                     MinWidth="120"
                                     SortMemberPath="FileName"
@@ -253,7 +254,7 @@
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTextColumn Header="Path"
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Path}"
                                 Binding="{Binding FileDirectory}"
                                 ClipboardContentBinding="{Binding FileDirectory}"
                                 Width="300"
@@ -267,7 +268,7 @@
                 </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
-            <DataGridTextColumn Header="Size"
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Size}"
                                 Binding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
                                 ClipboardContentBinding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
                                 Width="100"
@@ -281,7 +282,7 @@
                 </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
-            <DataGridTemplateColumn Header="Hoster"
+            <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_Hoster}"
                                     Width="120"
                                     MinWidth="70"
                                     SortMemberPath="FileHosterName"
@@ -300,7 +301,7 @@
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTextColumn Header="Finished"
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Finished}"
                                 Binding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
                                 ClipboardContentBinding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
                                 Width="160"
@@ -313,7 +314,23 @@
                 </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
-            <DataGridTemplateColumn Header="URL" Width="500" MinWidth="200"
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Hash}"
+                                Binding="{Binding FileHash}"
+                                ClipboardContentBinding="{Binding FileHash}"
+                                Width="280"
+                                MinWidth="100">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, Segoe UI" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        <Setter Property="ToolTip" Value="{Binding FileHash}" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+
+            <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_URL}" Width="500" MinWidth="200"
                                     ClipboardContentBinding="{Binding FileUrl}">
                 <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>

@@ -3,13 +3,19 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
+
 namespace CSUploader.Services;
 
 public interface IDialogService
 {
-    void ShowError(string message, string title = "Error");
+    /// <summary>
+    /// Default titles (Error / Confirm / Select Folder) come from <c>Localizer</c> when omitted,
+    /// so language switches are reflected on the next call.
+    /// </summary>
+    void ShowError(string message, string? title = null);
 
-    bool ShowConfirmation(string message, string title = "Confirm");
+    bool ShowConfirmation(string message, string? title = null);
 
     /// <summary>
     /// Shows a confirmation dialog with a "Don't ask me again" checkbox. If the user has
@@ -18,7 +24,14 @@ public interface IDialogService
     /// is persisted to the settings store.
     /// </summary>
     /// <param name="confirmationKey">Stable key from <see cref="ConfirmationKeys"/>.</param>
-    bool ShowOptOutConfirmation(string confirmationKey, string message, string title = "Confirm");
+    bool ShowOptOutConfirmation(string confirmationKey, string message, string? title = null);
 
-    string? BrowseFolder(string? initialDirectory = null, string title = "Select Folder");
+    string? BrowseFolder(string? initialDirectory = null, string? title = null);
+
+    /// <summary>
+    /// Opens the add-account editor preselected to <paramref name="hosterName"/> (locked
+    /// when only one hoster is provided). Returns the new account when the user clicks
+    /// Save, or null if the dialog was cancelled.
+    /// </summary>
+    FileHosterLoginDto? ShowAddAccountDialog(string hosterName, string[] availableHosters, string? title = null);
 }

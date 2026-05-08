@@ -47,6 +47,33 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCompleted, isCompleted), ct);
     }
 
+    /// <summary>
+    /// Hard-deletes the upload-history rows that are no longer visible in either tab — i.e.
+    /// files soft-removed from Uploads and either soft-hidden from Uploaded or in a non-Completed
+    /// terminal state. Then deletes any package row that has no remaining files. Visible rows
+    /// (active queue + Uploaded-tab successes) are left untouched.
+    /// </summary>
+    public async Task<(int FilesDeleted, int PackagesDeleted)> DeleteHiddenHistoryAsync(CancellationToken ct = default)
+    {
+        int completed = (int)FileState.Completed;
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+
+        // Files that are gone from BOTH tabs: removed from Uploads, AND either hidden from
+        // Uploaded or never qualified for Uploaded (state != Completed).
+        int filesDeleted = await db.Set<UploadPackageFileDbm>()
+            .Where(f => f.IsRemovedFromUploads && (f.IsHidden || f.State != completed))
+            .ExecuteDeleteAsync(ct);
+
+        // Orphan packages: every file row has been deleted (either now or previously). Inner
+        // join in GetDoneFilesWithPackageNameAsync would drop their files anyway, so removing
+        // these doesn't lose any visible history.
+        int packagesDeleted = await db.Set<UploadPackageDbm>()
+            .Where(p => !db.Set<UploadPackageFileDbm>().Any(f => f.PackageId == p.Id))
+            .ExecuteDeleteAsync(ct);
+
+        return (filesDeleted, packagesDeleted);
+    }
+
     protected override UploadPackageDto MapToDto(UploadPackageDbm entity) => new()
     {
         Id = entity.Id,
@@ -72,6 +99,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             State = (FileState)f.State,
             Error = f.Error,
             IsHashingComplete = f.IsHashingComplete,
+            FileHash = f.FileHash,
             FileHosterLoginId = f.FileHosterLoginId,
             Priority = f.Priority,
             SortOrder = f.SortOrder,

@@ -93,6 +93,7 @@ public static class FirstRun
             ("UploadPackageFile", "IsHidden", "ALTER TABLE UploadPackageFile ADD COLUMN IsHidden INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "IsRemovedFromUploads", "ALTER TABLE UploadPackageFile ADD COLUMN IsRemovedFromUploads INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackage", "IsRemovedFromUploads", "ALTER TABLE UploadPackage ADD COLUMN IsRemovedFromUploads INTEGER NOT NULL DEFAULT 0"),
+            ("UploadPackageFile", "FileHash", "ALTER TABLE UploadPackageFile ADD COLUMN FileHash TEXT"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)

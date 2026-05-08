@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using System.Windows;
+using CSUploader.Lib.Localization;
 
 namespace CSUploader.Views;
 
@@ -41,8 +42,11 @@ public partial class SpeedLimitDialog : Window
 
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int limit) || limit <= 0)
         {
-            MessageBox.Show("Please enter a positive integer (KB/s), or leave empty to clear.",
-                "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(
+                Localizer.Instance["SpeedLimit_Validation_Message"],
+                Localizer.Instance["SpeedLimit_Validation_Title"],
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return;
         }
 

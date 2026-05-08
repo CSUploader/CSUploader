@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Windows;
+using CSUploader.Lib.Localization;
 
 namespace CSUploader.Views;
 
@@ -32,10 +33,10 @@ public partial class ProgressWindow : Window
         ProgressWindow progressWindow = new()
         {
             Owner = owner,
-            Title = "Please wait...",
+            Title = Localizer.Instance["Progress_WindowTitle"],
         };
 
-        progressWindow.LabelText.Text = labelText + Environment.NewLine + "Please wait...";
+        progressWindow.LabelText.Text = labelText + Environment.NewLine + Localizer.Instance["Progress_LabelSuffix"];
 
         if (!allowCancel)
         {
@@ -73,7 +74,7 @@ public partial class ProgressWindow : Window
 
         if (capturedException is not null)
         {
-            MessageBox.Show(capturedException.ToString(), "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(capturedException.ToString(), Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         return result;
@@ -99,6 +100,6 @@ public partial class ProgressWindow : Window
     {
         _cancellationTokenSource?.Cancel();
         CancelButton.IsEnabled = false;
-        CancelButton.Content = "Cancelling...";
+        CancelButton.Content = Localizer.Instance["Progress_BtnCancelling"];
     }
 }

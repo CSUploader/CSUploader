@@ -5,6 +5,7 @@
 
 using System.Windows;
 using CSUploader.Dal;
+using CSUploader.Lib.Localization;
 using CSUploader.Upload;
 using CSUploader.Views;
 using Ookii.Dialogs.Wpf;
@@ -22,22 +23,23 @@ public class DialogService : IDialogService
         _settingRepository = settingRepository;
     }
 
-    public void ShowError(string message, string title = "Error") => MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+    public void ShowError(string message, string? title = null) =>
+        MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
 
-    public bool ShowConfirmation(string message, string title = "Confirm")
+    public bool ShowConfirmation(string message, string? title = null)
     {
-        MessageBoxResult result = MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+        MessageBoxResult result = MessageBox.Show(message, title ?? Localizer.Instance["Common_Confirm"], MessageBoxButton.YesNo, MessageBoxImage.Question);
         return result == MessageBoxResult.Yes;
     }
 
-    public bool ShowOptOutConfirmation(string confirmationKey, string message, string title = "Confirm")
+    public bool ShowOptOutConfirmation(string confirmationKey, string message, string? title = null)
     {
         if (_settings.SuppressedConfirmations.Contains(confirmationKey))
         {
             return true;
         }
 
-        ConfirmationDialog dialog = new(message, title);
+        ConfirmationDialog dialog = new(message, title ?? Localizer.Instance["Common_Confirm"]);
         bool? result = dialog.ShowDialog();
         if (result != true || !dialog.Confirmed)
         {
@@ -56,11 +58,11 @@ public class DialogService : IDialogService
         return true;
     }
 
-    public string? BrowseFolder(string? initialDirectory = null, string title = "Select Folder")
+    public string? BrowseFolder(string? initialDirectory = null, string? title = null)
     {
         VistaFolderBrowserDialog dialog = new()
         {
-            Description = title,
+            Description = title ?? Localizer.Instance["Common_SelectFolder"],
             UseDescriptionForTitle = true,
         };
 
@@ -71,6 +73,23 @@ public class DialogService : IDialogService
 
         bool? dialogResult = dialog.ShowDialog();
         return dialogResult == true ? dialog.SelectedPath : null;
+    }
+
+    public FileHosterLoginDto? ShowAddAccountDialog(string hosterName, string[] availableHosters, string? title = null)
+    {
+        FileHosterLoginDto seed = new()
+        {
+            FileHosterName = hosterName,
+            AccountType = AccountType.Free,
+        };
+
+        EditAccountWindow dialog = new(seed, availableHosters)
+        {
+            Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
+            Owner = Application.Current.MainWindow,
+        };
+
+        return dialog.ShowDialog() == true ? dialog.Result : null;
     }
 
     private async Task PersistSuppressedAsync()

@@ -85,4 +85,27 @@
     <BitmapImage x:Key="Logo19Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_19_19.png" />
     <BitmapImage x:Key="Logo20Image" UriSource="pack://application:,,,/Properties/Images/Logo/logo_20_20.png" />
 
+    <!-- ═══ Settings General-tab section icons ═══
+         Geometry resources (Material Design Icons, Apache 2.0). Used by SettingsView's
+         General page as `<Path Data="{StaticResource ...}" Fill="{DynamicResource AccentBrush}" />`
+         so the icons adapt to light/dark theme rather than baking in a fixed PNG colour. -->
+
+    <!-- "translate" — distinct from a generic globe so language picker is unmistakable. -->
+    <Geometry x:Key="SettingsLanguageGeometry">M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z</Geometry>
+
+    <!-- "code-tags" — chevrons that read as <code/>, fitting the developer-flag section. -->
+    <Geometry x:Key="SettingsDeveloperGeometry">M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6Z</Geometry>
+
+    <!-- "view-grid" — 2×2 grid mirrors the Uploads/Uploaded DataGrid layout. -->
+    <Geometry x:Key="SettingsGridAppearanceGeometry">M3,11H11V3H3M3,21H11V13H3M13,21H21V13H13M13,3V11H21V3</Geometry>
+
+    <!-- "application" — window-with-titlebar matches the section's minimize/close subject. -->
+    <Geometry x:Key="SettingsWindowBehaviourGeometry">M21,2H3A2,2 0 0,0 1,4V20A2,2 0 0,0 3,22H21A2,2 0 0,0 23,20V4A2,2 0 0,0 21,2M21,20H3V6H21V20Z</Geometry>
+
+    <!-- "help-circle" — question mark in a circle, signals "ask before…" prompts. -->
+    <Geometry x:Key="SettingsConfirmationGeometry">M10,19H13V22H10V19M12,2C17.35,2.22 19.68,7.62 16.5,11.67C15.67,12.67 14.33,13.33 13.67,14.17C13,15 13,16 13,17H10C10,15.33 10,13.92 10.67,12.92C11.33,11.92 12.67,11.33 13.5,10.67C15.92,8.43 15.32,5.26 12,5.5A3,3 0 0,0 9,8.5H6C6.03,4.95 8.39,2.21 12,2Z</Geometry>
+
+    <!-- "database" — three-disc cylinder for the upload-history clear section. -->
+    <Geometry x:Key="SettingsDatabaseGeometry">M12,3C7.58,3 4,4.79 4,7C4,9.21 7.58,11 12,11C16.42,11 20,9.21 20,7C20,4.79 16.42,3 12,3M4,9V12C4,14.21 7.58,16 12,16C16.42,16 20,14.21 20,12V9C20,11.21 16.42,13 12,13C7.58,13 4,11.21 4,9M4,14V17C4,19.21 7.58,21 12,21C16.42,21 20,19.21 20,17V14C20,16.21 16.42,18 12,18C7.58,18 4,16.21 4,14Z</Geometry>
+
 </ResourceDictionary>

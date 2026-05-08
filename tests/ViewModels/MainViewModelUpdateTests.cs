@@ -28,7 +28,7 @@ public class MainViewModelUpdateTests : IDisposable
         _connection.Open();
 
         ServiceCollection sc = new();
-        sc.AddSingleton<IAppLogger>(Mock.Of<IAppLogger>());
+        sc.AddSingleton(Mock.Of<IAppLogger>());
         sc.AddSingleton(new AppSettings());
         sc.AddDbContextFactory<CSUploaderDbContext>(o => o.UseSqlite(_connection));
         sc.AddSingleton<SettingRepository>();
@@ -39,7 +39,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<UploadScheduler>();
         sc.AddSingleton<PackageManager>();
         sc.AddSingleton<CSUploader.Lib.Net.ProxyManager>();
-        sc.AddSingleton<IDialogService>(Mock.Of<IDialogService>());
+        sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
         sc.AddSingleton<SettingsViewModel>();

@@ -18,18 +18,20 @@ public static class ConfirmationKeys
     public const string RemoveUploadedEntry = "remove-uploaded-entry";
     public const string RemoveFileHosterAccount = "remove-file-hoster-account";
     public const string RemoveProxy = "remove-proxy";
-    public const string DiscardSettingsChanges = "discard-settings-changes";
+    public const string ResetColumns = "reset-columns";
 
     /// <summary>
-    /// Ordered list of all known confirmation keys with a short human label, used by the
-    /// Settings page to let users re-enable prompts they previously dismissed.
+    /// Ordered list of all known confirmation keys paired with the ResX resource key for the
+    /// user-visible label. Used by the Settings page to let users re-enable prompts they
+    /// previously dismissed; the row VM resolves the label through <c>Localizer</c> so it
+    /// updates live on culture change.
     /// </summary>
-    public static ReadOnlyCollection<(string Key, string Label)> All { get; } = new List<(string, string)>
+    public static ReadOnlyCollection<(string Key, string LabelResourceKey)> All { get; } = new List<(string, string)>
     {
-        (RemoveUploadPackageOrFile, "Remove package or file from Uploads tab"),
-        (RemoveUploadedEntry, "Remove entries from Uploaded history"),
-        (RemoveFileHosterAccount, "Remove a file hoster account"),
-        (RemoveProxy, "Remove a proxy from Connection Manager"),
-        (DiscardSettingsChanges, "Discard unsaved Settings changes when leaving the tab"),
+        (RemoveUploadPackageOrFile, "Confirm_RemoveUploadPackageOrFile"),
+        (RemoveUploadedEntry, "Confirm_RemoveUploadedEntry"),
+        (RemoveFileHosterAccount, "Confirm_RemoveFileHosterAccount"),
+        (RemoveProxy, "Confirm_RemoveProxy"),
+        (ResetColumns, "Confirm_ResetColumns"),
     }.AsReadOnly();
 }

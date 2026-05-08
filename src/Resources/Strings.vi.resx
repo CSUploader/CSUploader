@@ -1,0 +1,1443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Auto-generated from docs/i18n-inventory*.md by scripts/md-to-resx.py.
+    Do not edit by hand — edit the inventory and regenerate.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>Có</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>Không</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Lưu</value>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>Thêm</value>
+  </data>
+  <data name="Common_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Đóng</value>
+  </data>
+  <data name="Common_Edit" xml:space="preserve">
+    <value>Sửa</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>Duyệt</value>
+  </data>
+  <data name="Common_Back" xml:space="preserve">
+    <value>Quay lại</value>
+  </data>
+  <data name="Common_Next" xml:space="preserve">
+    <value>Tiếp theo</value>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>Áp dụng</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>Làm mới</value>
+  </data>
+  <data name="Common_Details" xml:space="preserve">
+    <value>Chi tiết</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="Common_Import" xml:space="preserve">
+    <value>Nhập</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>Xuất</value>
+  </data>
+  <data name="Common_All" xml:space="preserve">
+    <value>Tất cả</value>
+  </data>
+  <data name="Common_None" xml:space="preserve">
+    <value>Không có</value>
+  </data>
+  <data name="Common_Test" xml:space="preserve">
+    <value>Kiểm tra</value>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Xác nhận</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>Cảnh báo</value>
+  </data>
+  <data name="Common_SelectFolder" xml:space="preserve">
+    <value>Chọn thư mục</value>
+  </data>
+  <data name="Common_PleaseWait" xml:space="preserve">
+    <value>Vui lòng chờ...</value>
+  </data>
+  <data name="Common_Loading" xml:space="preserve">
+    <value>Đang tải...</value>
+  </data>
+  <data name="Common_Cancelling" xml:space="preserve">
+    <value>Đang hủy...</value>
+  </data>
+  <data name="Common_Preparing" xml:space="preserve">
+    <value>Đang chuẩn bị…</value>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>không xác định</value>
+  </data>
+  <data name="Main_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Main_Title_UpdateAvailable_Format" xml:space="preserve">
+    <value>CSUploader — Có bản cập nhật (v{0}) — nhấn Trợ giúp → Cài đặt bản cập nhật</value>
+  </data>
+  <data name="Main_Menu_File" xml:space="preserve">
+    <value>Tệp(_F)</value>
+  </data>
+  <data name="Main_Menu_File_Exit" xml:space="preserve">
+    <value>Thoát(_E)</value>
+  </data>
+  <data name="Main_Menu_File_Exit_Gesture" xml:space="preserve">
+    <value>Alt+F4</value>
+  </data>
+  <data name="Main_Menu_View" xml:space="preserve">
+    <value>Xem(_V)</value>
+  </data>
+  <data name="Main_Menu_View_UploadOverview" xml:space="preserve">
+    <value>Tổng quan tải lên(_O)</value>
+  </data>
+  <data name="Main_Menu_View_DarkMode" xml:space="preserve">
+    <value>Chế độ tối(_D)</value>
+  </data>
+  <data name="Main_Menu_View_LightMode" xml:space="preserve">
+    <value>Chế độ sáng(_L)</value>
+  </data>
+  <data name="Main_Menu_Help" xml:space="preserve">
+    <value>Trợ giúp(_H)</value>
+  </data>
+  <data name="Main_Menu_Help_CheckForUpdates" xml:space="preserve">
+    <value>Kiểm tra cập nhật(_C)…</value>
+  </data>
+  <data name="Main_Menu_Help_InstallUpdate" xml:space="preserve">
+    <value>Cài đặt bản cập nhật(_I)</value>
+  </data>
+  <data name="Main_Menu_Help_About" xml:space="preserve">
+    <value>Giới thiệu CSUploader(_A)</value>
+  </data>
+  <data name="Main_Tab_Uploads" xml:space="preserve">
+    <value>Đang tải lên</value>
+  </data>
+  <data name="Main_Tab_Uploaded" xml:space="preserve">
+    <value>Lịch sử</value>
+  </data>
+  <data name="Main_Tab_Settings" xml:space="preserve">
+    <value>Cài đặt</value>
+  </data>
+  <data name="Main_Tab_Logs" xml:space="preserve">
+    <value>Nhật ký</value>
+  </data>
+  <data name="Main_CheckForUpdates_DialogTitle" xml:space="preserve">
+    <value>Kiểm tra cập nhật</value>
+  </data>
+  <data name="Main_CheckForUpdates_AlreadyLatest" xml:space="preserve">
+    <value>Bạn đang dùng phiên bản mới nhất.</value>
+  </data>
+  <data name="Main_CheckForUpdates_Available_Format" xml:space="preserve">
+    <value>Có bản cập nhật: v{0}.
+
+Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuống và cài đặt.</value>
+  </data>
+  <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
+    <value>Thêm lượt tải lên mới</value>
+  </data>
+  <data name="Uploads_Toolbar_StartTip" xml:space="preserve">
+    <value>Bắt đầu tất cả các lượt tải lên</value>
+  </data>
+  <data name="Uploads_Toolbar_PauseTip" xml:space="preserve">
+    <value>Tạm dừng / Tiếp tục</value>
+  </data>
+  <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
+    <value>Dừng tất cả các lượt tải lên</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
+    <value>Di chuyển gói lên</value>
+  </data>
+  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
+    <value>Di chuyển gói xuống</value>
+  </data>
+  <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
+    <value>Xóa mục đã chọn</value>
+  </data>
+  <data name="Uploads_Context_Start" xml:space="preserve">
+    <value>Bắt đầu</value>
+  </data>
+  <data name="Uploads_Context_Stop" xml:space="preserve">
+    <value>Dừng</value>
+  </data>
+  <data name="Uploads_Context_SkipUpload" xml:space="preserve">
+    <value>Bỏ qua tải lên</value>
+  </data>
+  <data name="Uploads_Context_Reset" xml:space="preserve">
+    <value>Đặt lại</value>
+  </data>
+  <data name="Uploads_Context_OpenSourceDir" xml:space="preserve">
+    <value>Mở thư mục nguồn</value>
+  </data>
+  <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
+    <value>Đặt giới hạn tốc độ...</value>
+  </data>
+  <data name="Uploads_Context_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Uploads_Col_Name" xml:space="preserve">
+    <value>Tên</value>
+  </data>
+  <data name="Uploads_Col_Size" xml:space="preserve">
+    <value>Kích thước</value>
+  </data>
+  <data name="Uploads_Col_Hoster" xml:space="preserve">
+    <value>Nhà lưu trữ</value>
+  </data>
+  <data name="Uploads_Col_Status" xml:space="preserve">
+    <value>Trạng thái</value>
+  </data>
+  <data name="Uploads_Col_Speed" xml:space="preserve">
+    <value>Tốc độ</value>
+  </data>
+  <data name="Uploads_Col_ETA" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
+    <value>Byte đã tải</value>
+  </data>
+  <data name="Uploads_Col_Progress" xml:space="preserve">
+    <value>Tiến độ</value>
+  </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>Lưu vào</value>
+  </data>
+  <data name="Uploads_Col_Added" xml:space="preserve">
+    <value>Đã thêm</value>
+  </data>
+  <data name="Uploads_Col_Finished" xml:space="preserve">
+    <value>Đã hoàn tất</value>
+  </data>
+  <data name="Uploads_Col_Duration" xml:space="preserve">
+    <value>Thời lượng</value>
+  </data>
+  <data name="Uploads_Col_Priority" xml:space="preserve">
+    <value>Ưu tiên</value>
+  </data>
+  <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
+    <value>Giới hạn tốc độ</value>
+  </data>
+  <data name="Uploads_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploads_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploads_Col_Error" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="Uploads_ColumnHeader_LockTip" xml:space="preserve">
+    <value>Khóa độ rộng cột</value>
+  </data>
+  <data name="Uploads_ColumnMenu_Reset" xml:space="preserve">
+    <value>Đặt lại các cột</value>
+  </data>
+  <data name="Uploads_ColumnMenu_DefaultLabel" xml:space="preserve">
+    <value>Cột</value>
+  </data>
+  <data name="Uploads_Overview_Title" xml:space="preserve">
+    <value>Tổng quan tải lên</value>
+  </data>
+  <data name="Uploads_Overview_CloseTip" xml:space="preserve">
+    <value>Đóng tổng quan</value>
+  </data>
+  <data name="Uploads_Overview_ToggleTip" xml:space="preserve">
+    <value>Hiện / ẩn thống kê tổng quan</value>
+  </data>
+  <data name="Uploads_Overview_Packages" xml:space="preserve">
+    <value>Gói</value>
+  </data>
+  <data name="Uploads_Overview_Links" xml:space="preserve">
+    <value>Liên kết</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytes" xml:space="preserve">
+    <value>Tổng số byte</value>
+  </data>
+  <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
+    <value>Tốc độ tải lên</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
+    <value>Byte đã tải</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytes" xml:space="preserve">
+    <value>Byte còn lại</value>
+  </data>
+  <data name="Uploads_Overview_Eta" xml:space="preserve">
+    <value>ETA</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
+    <value>Lượt tải lên đang chạy</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnections" xml:space="preserve">
+    <value>Kết nối đang mở</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinks" xml:space="preserve">
+    <value>Liên kết đã hoàn tất</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinks" xml:space="preserve">
+    <value>Liên kết đã bỏ qua</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinks" xml:space="preserve">
+    <value>Liên kết thất bại</value>
+  </data>
+  <data name="Uploads_Overview_PackagesLabel" xml:space="preserve">
+    <value>Gói:</value>
+  </data>
+  <data name="Uploads_Overview_LinksLabel" xml:space="preserve">
+    <value>Liên kết:</value>
+  </data>
+  <data name="Uploads_Overview_TotalBytesLabel" xml:space="preserve">
+    <value>Tổng số byte:</value>
+  </data>
+  <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
+    <value>Tốc độ tải lên:</value>
+  </data>
+  <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
+    <value>Byte đã tải:</value>
+  </data>
+  <data name="Uploads_Overview_RemainingBytesLabel" xml:space="preserve">
+    <value>Byte còn lại:</value>
+  </data>
+  <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
+    <value>ETA:</value>
+  </data>
+  <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
+    <value>Lượt tải lên đang chạy:</value>
+  </data>
+  <data name="Uploads_Overview_OpenConnectionsLabel" xml:space="preserve">
+    <value>Kết nối đang mở:</value>
+  </data>
+  <data name="Uploads_Overview_FinishedLinksLabel" xml:space="preserve">
+    <value>Liên kết đã hoàn tất:</value>
+  </data>
+  <data name="Uploads_Overview_SkippedLinksLabel" xml:space="preserve">
+    <value>Liên kết đã bỏ qua:</value>
+  </data>
+  <data name="Uploads_Overview_FailedLinksLabel" xml:space="preserve">
+    <value>Liên kết thất bại:</value>
+  </data>
+  <data name="Uploads_FilterLabel" xml:space="preserve">
+    <value>Tên tệp</value>
+  </data>
+  <data name="Uploads_FilterTip" xml:space="preserve">
+    <value>Lọc theo tên tệp hoặc tên gói</value>
+  </data>
+  <data name="Uploads_FooterPremiumLink" xml:space="preserve">
+    <value>Thêm tài khoản Premium…</value>
+  </data>
+  <data name="Uploads_State_Idle" xml:space="preserve">
+    <value>Nhàn rỗi</value>
+  </data>
+  <data name="Uploads_State_HashQueued" xml:space="preserve">
+    <value>Đang chờ băm</value>
+  </data>
+  <data name="Uploads_State_Hashing" xml:space="preserve">
+    <value>Đang băm</value>
+  </data>
+  <data name="Uploads_State_UploadQueued" xml:space="preserve">
+    <value>Đang chờ tải lên</value>
+  </data>
+  <data name="Uploads_State_Uploading" xml:space="preserve">
+    <value>Đang tải lên</value>
+  </data>
+  <data name="Uploads_State_Completed" xml:space="preserve">
+    <value>Đã hoàn tất</value>
+  </data>
+  <data name="Uploads_State_Failed" xml:space="preserve">
+    <value>Thất bại</value>
+  </data>
+  <data name="Uploads_State_Paused" xml:space="preserve">
+    <value>Đã tạm dừng</value>
+  </data>
+  <data name="Uploads_State_Cancelled" xml:space="preserve">
+    <value>Đã hủy</value>
+  </data>
+  <data name="Uploads_Eta_NotApplicable" xml:space="preserve">
+    <value>~</value>
+  </data>
+  <data name="Uploads_ResetColumns_Title" xml:space="preserve">
+    <value>Đặt lại các cột</value>
+  </data>
+  <data name="Uploads_ResetColumns_Message" xml:space="preserve">
+    <value>Đặt lại các cột của thẻ Đang tải lên về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.</value>
+  </data>
+  <data name="Uploads_Remove_Title" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Uploads_Remove_Package_Format" xml:space="preserve">
+    <value>Xóa gói '{0}' và {1} tệp của nó?</value>
+  </data>
+  <data name="Uploads_Remove_File_Format" xml:space="preserve">
+    <value>Xóa '{0}' khỏi danh sách tải lên?</value>
+  </data>
+  <data name="Uploads_Remove_Generic" xml:space="preserve">
+    <value>Xóa mục này?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesOnly_Format" xml:space="preserve">
+    <value>Xóa {0} gói ({1} tệp)?</value>
+  </data>
+  <data name="Uploads_Remove_FilesOnly_Format" xml:space="preserve">
+    <value>Xóa {0} tệp khỏi danh sách tải lên?</value>
+  </data>
+  <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
+    <value>Xóa {0} gói và {1} tệp (tổng {2} mục)?</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
+    <value>Xuất ra JSON…</value>
+  </data>
+  <data name="Uploaded_Toolbar_ExportJsonTip" xml:space="preserve">
+    <value>Xuất tất cả các lượt tải lên đã hoàn tất (kèm mọi trường) ra tệp JSON</value>
+  </data>
+  <data name="Uploaded_Col_Name" xml:space="preserve">
+    <value>Tên</value>
+  </data>
+  <data name="Uploaded_Col_Path" xml:space="preserve">
+    <value>Đường dẫn</value>
+  </data>
+  <data name="Uploaded_Col_Size" xml:space="preserve">
+    <value>Kích thước</value>
+  </data>
+  <data name="Uploaded_Col_Hoster" xml:space="preserve">
+    <value>Nhà lưu trữ</value>
+  </data>
+  <data name="Uploaded_Col_Finished" xml:space="preserve">
+    <value>Đã hoàn tất</value>
+  </data>
+  <data name="Uploaded_Col_URL" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Uploaded_Col_Hash" xml:space="preserve">
+    <value>Hash</value>
+  </data>
+  <data name="Uploaded_Context_Copy" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="Uploaded_Context_Copy_Gesture" xml:space="preserve">
+    <value>Ctrl+C</value>
+  </data>
+  <data name="Uploaded_Context_CopyURL" xml:space="preserve">
+    <value>Sao chép URL</value>
+  </data>
+  <data name="Uploaded_Context_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Uploaded_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Uploaded_Context_ExportJson" xml:space="preserve">
+    <value>Xuất ra JSON…</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Title" xml:space="preserve">
+    <value>Đặt lại các cột</value>
+  </data>
+  <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
+    <value>Đặt lại các cột của thẻ Lịch sử về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.</value>
+  </data>
+  <data name="Uploaded_Remove_Title" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Uploaded_Remove_Single_Format" xml:space="preserve">
+    <value>Xóa '{0}' khỏi lịch sử?</value>
+  </data>
+  <data name="Uploaded_Remove_Many_Format" xml:space="preserve">
+    <value>Xóa {0} mục khỏi lịch sử?</value>
+  </data>
+  <data name="Settings_Sidebar_General" xml:space="preserve">
+    <value>Chung</value>
+  </data>
+  <data name="Settings_Sidebar_Upload" xml:space="preserve">
+    <value>Tải lên</value>
+  </data>
+  <data name="Settings_Sidebar_Connection" xml:space="preserve">
+    <value>Kết nối</value>
+  </data>
+  <data name="Settings_Sidebar_Accounts" xml:space="preserve">
+    <value>Tài khoản</value>
+  </data>
+  <data name="Settings_General_Language_Title" xml:space="preserve">
+    <value>Ngôn ngữ</value>
+  </data>
+  <data name="Settings_General_Language_Desc" xml:space="preserve">
+    <value>Ngôn ngữ giao diện. Thay đổi sẽ áp dụng ngay lập tức.</value>
+  </data>
+  <data name="Settings_General_Language_Label" xml:space="preserve">
+    <value>Ngôn ngữ</value>
+  </data>
+  <data name="Settings_General_Developer_Title" xml:space="preserve">
+    <value>Nhà phát triển</value>
+  </data>
+  <data name="Settings_General_Developer_Desc" xml:space="preserve">
+    <value>Tùy chọn dành cho phát triển và kiểm thử cục bộ.</value>
+  </data>
+  <data name="Settings_General_UseMockServer" xml:space="preserve">
+    <value>Dùng máy chủ giả (chuyển hướng mọi yêu cầu nhà lưu trữ tập tin đến localhost:8080/&lt;hoster&gt;)</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Title" xml:space="preserve">
+    <value>Giao diện bảng</value>
+  </data>
+  <data name="Settings_General_GridAppearance_Desc" xml:space="preserve">
+    <value>Phông chữ dùng cho thẻ Đang tải lên và Lịch sử. Thay đổi áp dụng ngay lập tức.</value>
+  </data>
+  <data name="Settings_General_GridFont" xml:space="preserve">
+    <value>Phông chữ bảng</value>
+  </data>
+  <data name="Settings_General_GridFontSize" xml:space="preserve">
+    <value>Cỡ chữ bảng</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Title" xml:space="preserve">
+    <value>Hành vi cửa sổ</value>
+  </data>
+  <data name="Settings_General_WindowBehaviour_Desc" xml:space="preserve">
+    <value>Chọn điều xảy ra khi cửa sổ chính được thu nhỏ hoặc đóng.</value>
+  </data>
+  <data name="Settings_General_MinimizeToTray" xml:space="preserve">
+    <value>Thu nhỏ cửa sổ chính vào khay hệ thống thay vì thanh tác vụ</value>
+  </data>
+  <data name="Settings_General_CloseAction" xml:space="preserve">
+    <value>Hành động của nút đóng</value>
+  </data>
+  <data name="Settings_General_CloseAction_Ask" xml:space="preserve">
+    <value>Hỏi mỗi lần</value>
+  </data>
+  <data name="Settings_General_CloseAction_MinToTray" xml:space="preserve">
+    <value>Thu nhỏ vào khay</value>
+  </data>
+  <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
+    <value>Thoát ứng dụng</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
+    <value>Hộp thoại xác nhận</value>
+  </data>
+  <data name="Settings_General_ConfirmationPrompts_Desc" xml:space="preserve">
+    <value>Đánh dấu một mục để được hỏi lại trước khi thực hiện hành động. Bỏ đánh dấu để tắt xác nhận cho hành động đó.</value>
+  </data>
+  <data name="Settings_General_Database_Title" xml:space="preserve">
+    <value>Cơ sở dữ liệu</value>
+  </data>
+  <data name="Settings_General_Database_Desc" xml:space="preserve">
+    <value>CSUploader lưu lịch sử tải lên (gói, tệp và URL) trong một cơ sở dữ liệu SQLite cục bộ. Khi xóa các mục khỏi tab "Tải lên" hoặc "Lịch sử", chúng chỉ bị ẩn — các dòng vẫn còn trong cơ sở dữ liệu. Nhấp vào "Xóa" để xóa vĩnh viễn các dòng đã bị ẩn khỏi cả hai tab.</value>
+  </data>
+  <data name="Settings_General_Database_BtnClear" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmTitle" xml:space="preserve">
+    <value>Xóa cơ sở dữ liệu</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmMessage" xml:space="preserve">
+    <value>Xóa vĩnh viễn các bản ghi tải lên đã bị ẩn khỏi cả hai tab?
+
+Các lượt tải lên đang hoạt động và hiển thị sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.</value>
+  </data>
+  <data name="Settings_General_Database_Status_Cleared_Format" xml:space="preserve">
+    <value>Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.</value>
+  </data>
+  <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
+    <value>Không có dòng ẩn nào để xóa.</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
+    <value>Quản lý tải lên</value>
+  </data>
+  <data name="Settings_Upload_Mgmt_Desc" xml:space="preserve">
+    <value>Giới hạn kết nối, ưu tiên, ...thiết lập chi tiết bộ điều khiển tải lên.</value>
+  </data>
+  <data name="Settings_Upload_MaxConcurrent" xml:space="preserve">
+    <value>Số lượt tải lên đồng thời tối đa</value>
+  </data>
+  <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
+    <value>Số lượt tải lên đồng thời tối đa cho mỗi nhà lưu trữ tập tin</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
+    <value>Xóa các lượt tải lên đã hoàn tất</value>
+  </data>
+  <data name="Settings_Upload_IfFileExists" xml:space="preserve">
+    <value>Nếu tệp đã tồn tại</value>
+  </data>
+  <data name="Settings_Upload_MaxCpuJobs" xml:space="preserve">
+    <value>Số tác vụ CPU đồng thời tối đa</value>
+  </data>
+  <data name="Settings_Upload_SpeedLimit" xml:space="preserve">
+    <value>Giới hạn tốc độ (KB/s)</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Never" xml:space="preserve">
+    <value>Không bao giờ</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_Immediately" xml:space="preserve">
+    <value>Ngay lập tức</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_AtStartup" xml:space="preserve">
+    <value>Khi khởi động</value>
+  </data>
+  <data name="Settings_Upload_RemoveFinished_WhenPackageReady" xml:space="preserve">
+    <value>Khi gói sẵn sàng</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Ask" xml:space="preserve">
+    <value>Hỏi cho từng tệp</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Skip" xml:space="preserve">
+    <value>Bỏ qua</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Overwrite" xml:space="preserve">
+    <value>Ghi đè</value>
+  </data>
+  <data name="Settings_Upload_IfExists_Rename" xml:space="preserve">
+    <value>Đổi tên</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Title" xml:space="preserve">
+    <value>Tự động bắt đầu tải lên</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Desc" xml:space="preserve">
+    <value>Chọn xem CSUploader có và khi nào nên bắt đầu các lượt tải lên đang chờ mà không cần tương tác từ người dùng.</value>
+  </data>
+  <data name="Settings_Upload_Autostart" xml:space="preserve">
+    <value>Tự động bắt đầu tải lên khi khởi động ứng dụng</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Always" xml:space="preserve">
+    <value>Luôn luôn</value>
+  </data>
+  <data name="Settings_Upload_Autostart_OnlyIfRunning" xml:space="preserve">
+    <value>Chỉ khi có lượt tải lên đang chạy lúc kết thúc phiên trước</value>
+  </data>
+  <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
+    <value>Không bao giờ</value>
+  </data>
+  <data name="Settings_Conn_Title" xml:space="preserve">
+    <value>Trình quản lý kết nối</value>
+  </data>
+  <data name="Settings_Conn_Desc" xml:space="preserve">
+    <value>Nếu cần dùng proxy để truy cập internet, hãy cấu hình tại đây. Nhiều proxy sẽ được luân phiên cho các lượt tải lên mới. Hành vi mặc định khi không có proxy nào được bật là kết nối trực tiếp.</value>
+  </data>
+  <data name="Settings_Conn_UseProxies" xml:space="preserve">
+    <value>Dùng proxy cho các lượt tải lên</value>
+  </data>
+  <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
+    <value>Công tắc tổng cho việc luân phiên. Khi tắt, các lượt tải lên sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.</value>
+  </data>
+  <data name="Settings_Conn_AutoDisable" xml:space="preserve">
+    <value>Tự động bỏ chọn các proxy bị lỗi</value>
+  </data>
+  <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
+    <value>Khi bật, một proxy thất bại trong kiểm tra thủ công hoặc khi tải lên sẽ bị bỏ chọn để vòng luân phiên bỏ qua nó. Biểu tượng trạng thái sẽ luôn cập nhật dù bật hay tắt.</value>
+  </data>
+  <data name="Settings_Conn_Col_On" xml:space="preserve">
+    <value>Bật</value>
+  </data>
+  <data name="Settings_Conn_Col_Priority" xml:space="preserve">
+    <value>Ưu tiên</value>
+  </data>
+  <data name="Settings_Conn_Col_Type" xml:space="preserve">
+    <value>Loại</value>
+  </data>
+  <data name="Settings_Conn_Col_Host" xml:space="preserve">
+    <value>Máy chủ / IP</value>
+  </data>
+  <data name="Settings_Conn_Col_Port" xml:space="preserve">
+    <value>Cổng</value>
+  </data>
+  <data name="Settings_Conn_Col_User" xml:space="preserve">
+    <value>Người dùng</value>
+  </data>
+  <data name="Settings_Conn_Col_Password" xml:space="preserve">
+    <value>Mật khẩu</value>
+  </data>
+  <data name="Settings_Conn_Col_Test" xml:space="preserve">
+    <value>Kiểm tra</value>
+  </data>
+  <data name="Settings_Conn_Col_Status" xml:space="preserve">
+    <value>Trạng thái</value>
+  </data>
+  <data name="Settings_Conn_PriorityUpTip" xml:space="preserve">
+    <value>Di chuyển lên (ưu tiên cao hơn)</value>
+  </data>
+  <data name="Settings_Conn_PriorityDownTip" xml:space="preserve">
+    <value>Di chuyển xuống (ưu tiên thấp hơn)</value>
+  </data>
+  <data name="Settings_Conn_Context_Test" xml:space="preserve">
+    <value>Kiểm tra</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Settings_Conn_Context_Remove_Gesture" xml:space="preserve">
+    <value>Del</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import" xml:space="preserve">
+    <value>Nhập</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromText" xml:space="preserve">
+    <value>Nhập từ văn bản…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Import_FromFile" xml:space="preserve">
+    <value>Nhập từ tệp…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export" xml:space="preserve">
+    <value>Xuất</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToText" xml:space="preserve">
+    <value>Xuất tất cả proxy ra văn bản…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_AllToFile" xml:space="preserve">
+    <value>Xuất tất cả proxy ra tệp…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToText" xml:space="preserve">
+    <value>Xuất các proxy đã kiểm tra OK ra văn bản…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
+    <value>Xuất các proxy đã kiểm tra OK ra tệp…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Save" xml:space="preserve">
+    <value>Lưu</value>
+  </data>
+  <data name="Settings_Conn_Btn_Add" xml:space="preserve">
+    <value>Thêm</value>
+  </data>
+  <data name="Settings_Conn_Btn_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveSelected" xml:space="preserve">
+    <value>Xóa mục đã chọn</value>
+  </data>
+  <data name="Settings_Conn_Btn_RemoveFailed" xml:space="preserve">
+    <value>Xóa các mục thất bại</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAll" xml:space="preserve">
+    <value>Kiểm tra tất cả</value>
+  </data>
+  <data name="Settings_Conn_Btn_TestAllTip" xml:space="preserve">
+    <value>Kiểm tra kết nối cho mọi proxy trong danh sách</value>
+  </data>
+  <data name="Settings_Conn_Btn_Details" xml:space="preserve">
+    <value>Chi tiết</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileDialogTitle" xml:space="preserve">
+    <value>Nhập proxy</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_FileFilter" xml:space="preserve">
+    <value>Danh sách proxy (*.txt)|*.txt|Tất cả tệp (*.*)|*.*</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogTitle" xml:space="preserve">
+    <value>Nhập proxy</value>
+  </data>
+  <data name="Settings_Conn_ImportProxies_DialogDesc" xml:space="preserve">
+    <value>Dán các dòng proxy (mỗi dòng một proxy). Định dạng: scheme://[user:pass@]host[:port] — cổng mặc định theo scheme là 80/443/1080.</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_DialogTitle" xml:space="preserve">
+    <value>Xuất tất cả proxy</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_DialogTitle" xml:space="preserve">
+    <value>Xuất các proxy đã kiểm tra OK</value>
+  </data>
+  <data name="Settings_Conn_ExportAll_Desc_Format" xml:space="preserve">
+    <value>{0} proxy:</value>
+  </data>
+  <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
+    <value>{0} proxy có lần kiểm tra cuối thành công:</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
+    <value>Xóa proxy</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_One_Format" xml:space="preserve">
+    <value>Xóa proxy '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveProxy_Many_Format" xml:space="preserve">
+    <value>Xóa {0} proxy?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Title" xml:space="preserve">
+    <value>Xóa các proxy thất bại</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_One_Format" xml:space="preserve">
+    <value>Xóa proxy thất bại '{0}:{1}'?</value>
+  </data>
+  <data name="Settings_Conn_RemoveFailedProxy_Many_Format" xml:space="preserve">
+    <value>Xóa {0} proxy thất bại?</value>
+  </data>
+  <data name="Settings_Conn_Status_Queued" xml:space="preserve">
+    <value>Đã xếp hàng…</value>
+  </data>
+  <data name="Settings_Conn_Status_Testing" xml:space="preserve">
+    <value>Đang kiểm tra…</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLive" xml:space="preserve">
+    <value>OK (trực tiếp)</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="Settings_Conn_Status_OkLatencyUnknown_Format" xml:space="preserve">
+    <value>OK {0}ms (phản hồi không như mong đợi)</value>
+  </data>
+  <data name="Settings_Conn_Status_Failed_Format" xml:space="preserve">
+    <value>Thất bại: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_Saved" xml:space="preserve">
+    <value>Đã lưu</value>
+  </data>
+  <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
+    <value>Lưu thất bại: {0}</value>
+  </data>
+  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
+    <value>Đã nhập {0} proxy — nhấn Lưu để lưu lại</value>
+  </data>
+  <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
+    <value>Đã xuất {0} proxy ra {1}</value>
+  </data>
+  <data name="Settings_Accounts_Title" xml:space="preserve">
+    <value>Trình quản lý tài khoản</value>
+  </data>
+  <data name="Settings_Accounts_Desc" xml:space="preserve">
+    <value>Nhập và quản lý tất cả tài khoản Premium/Gold/Platinum của bạn.</value>
+  </data>
+  <data name="Settings_Accounts_Col_Enabled" xml:space="preserve">
+    <value>✓</value>
+  </data>
+  <data name="Settings_Accounts_Col_Hoster" xml:space="preserve">
+    <value>Nhà lưu trữ</value>
+  </data>
+  <data name="Settings_Accounts_Col_Status" xml:space="preserve">
+    <value>Trạng thái</value>
+  </data>
+  <data name="Settings_Accounts_Col_Username" xml:space="preserve">
+    <value>Tên đăng nhập</value>
+  </data>
+  <data name="Settings_Accounts_Col_Password" xml:space="preserve">
+    <value>Mật khẩu</value>
+  </data>
+  <data name="Settings_Accounts_Col_Type" xml:space="preserve">
+    <value>Loại</value>
+  </data>
+  <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
+    <value>Sửa tài khoản...</value>
+  </data>
+  <data name="Settings_Accounts_Context_Refresh" xml:space="preserve">
+    <value>Kiểm tra / Làm mới</value>
+  </data>
+  <data name="Settings_Accounts_Context_Enable" xml:space="preserve">
+    <value>Bật</value>
+  </data>
+  <data name="Settings_Accounts_Context_Disable" xml:space="preserve">
+    <value>Tắt</value>
+  </data>
+  <data name="Settings_Accounts_Context_Delete" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Add" xml:space="preserve">
+    <value>Thêm</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Remove" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
+    <value>Làm mới</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
+    <value>Xóa tài khoản</value>
+  </data>
+  <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
+    <value>Xóa tài khoản '{0}' của {1}?</value>
+  </data>
+  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
+    <value>Vui lòng điền nhà lưu trữ tập tin, tên đăng nhập và mật khẩu.</value>
+  </data>
+  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
+    <value>Kiểm tra tài khoản</value>
+  </data>
+  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
+    <value>Kiểm tra tài khoản thất bại: {0}
+
+Vẫn thêm?</value>
+  </data>
+  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
+    <value>Không thể xác minh tài khoản: {0}
+
+Vẫn thêm?</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
+    <value>Đang xác minh thông tin đăng nhập...</value>
+  </data>
+  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
+    <value>Đang kiểm tra tài khoản...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
+    <value>Không có tài khoản nào để làm mới.</value>
+  </data>
+  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
+    <value>Đã xác minh: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
+    <value>Cảnh báo: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
+    <value>Hợp lệ: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
+    <value>Hợp lệ! {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
+    <value>Thất bại: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
+    <value>Lỗi kiểm tra: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
+    <value>Lỗi: {0}</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountAdded_Format" xml:space="preserve">
+    <value>Đã thêm tài khoản cho {0}!</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
+    <value>Chưa hỗ trợ {0}. Không thể kiểm tra.</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
+    <value>Chưa hỗ trợ {0}. Tài khoản sẽ được lưu mà không xác minh.</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
+    <value>Đang kiểm tra {0}@{1}... ({2}/{3})</value>
+  </data>
+  <data name="Settings_Accounts_Status_CheckingShort" xml:space="preserve">
+    <value>Đang kiểm tra...</value>
+  </data>
+  <data name="Settings_Accounts_Status_NoImpl" xml:space="preserve">
+    <value>Chưa hỗ trợ</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
+    <value>Đã làm mới {0} tài khoản. {1} đã cập nhật.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
+    <value>Đã tắt tài khoản '{0}'.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
+    <value>Đã bật tài khoản '{0}'.</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Settings_Accounts_DefaultStatus_Failed" xml:space="preserve">
+    <value>Thất bại</value>
+  </data>
+  <data name="Settings_Accounts_PasswordMask" xml:space="preserve">
+    <value>******</value>
+  </data>
+  <data name="Logs_AutoScroll" xml:space="preserve">
+    <value>Tự động cuộn</value>
+  </data>
+  <data name="Logs_Tab_Status" xml:space="preserve">
+    <value>Trạng thái</value>
+  </data>
+  <data name="Logs_Tab_Http" xml:space="preserve">
+    <value>HTTP</value>
+  </data>
+  <data name="Logs_Tab_Errors" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="Logs_Tab_UI" xml:space="preserve">
+    <value>Giao diện</value>
+  </data>
+  <data name="Logs_Col_DateTime" xml:space="preserve">
+    <value>Thời gian</value>
+  </data>
+  <data name="Logs_Col_Filename" xml:space="preserve">
+    <value>Tên tệp</value>
+  </data>
+  <data name="Logs_Col_Function" xml:space="preserve">
+    <value>Hàm</value>
+  </data>
+  <data name="Logs_Col_Line" xml:space="preserve">
+    <value>Dòng</value>
+  </data>
+  <data name="Logs_Col_Message" xml:space="preserve">
+    <value>Thông điệp</value>
+  </data>
+  <data name="Logs_Col_Thread" xml:space="preserve">
+    <value>Luồng</value>
+  </data>
+  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
+    <value>Không có URL nào trong vùng chọn; bộ nhớ tạm đã được xóa</value>
+  </data>
+  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
+    <value>Đã sao chép {0} URL vào bộ nhớ tạm</value>
+  </data>
+  <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
+    <value>Đã ẩn {0} tệp khỏi thẻ Lịch sử</value>
+  </data>
+  <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
+    <value>Đã xuất {0} gói ra {1}</value>
+  </data>
+  <data name="Wizard_Title" xml:space="preserve">
+    <value>Trình hướng dẫn tải lên</value>
+  </data>
+  <data name="Wizard_Step_Directory" xml:space="preserve">
+    <value>1. Thư mục</value>
+  </data>
+  <data name="Wizard_Step_Files" xml:space="preserve">
+    <value>2. Tệp</value>
+  </data>
+  <data name="Wizard_Step_FileHosters" xml:space="preserve">
+    <value>3. Nhà lưu trữ tập tin</value>
+  </data>
+  <data name="Wizard_Step_Start" xml:space="preserve">
+    <value>4. Bắt đầu</value>
+  </data>
+  <data name="Wizard_Step0_Title" xml:space="preserve">
+    <value>Chọn thư mục tải lên</value>
+  </data>
+  <data name="Wizard_Step0_Desc" xml:space="preserve">
+    <value>Chọn thư mục chứa các tệp bạn muốn tải lên.</value>
+  </data>
+  <data name="Wizard_Step0_Browse" xml:space="preserve">
+    <value>Duyệt</value>
+  </data>
+  <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
+    <value>Chọn thư mục tải lên</value>
+  </data>
+  <data name="Wizard_Step1_Title" xml:space="preserve">
+    <value>Chọn tệp</value>
+  </data>
+  <data name="Wizard_Step1_PackageTitleLabel" xml:space="preserve">
+    <value>Tiêu đề gói:</value>
+  </data>
+  <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
+    <value>Bộ lọc:</value>
+  </data>
+  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
+    <value>Tất cả</value>
+  </data>
+  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
+    <value>Không</value>
+  </data>
+  <data name="Wizard_Step1_Col_File" xml:space="preserve">
+    <value>Tệp</value>
+  </data>
+  <data name="Wizard_Step1_Col_Size" xml:space="preserve">
+    <value>Kích thước</value>
+  </data>
+  <data name="Wizard_Step1_SelectedLabel" xml:space="preserve">
+    <value>Đã chọn:</value>
+  </data>
+  <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
+    <value>tệp</value>
+  </data>
+  <data name="Wizard_Step2_Title" xml:space="preserve">
+    <value>Chọn nhà lưu trữ tập tin</value>
+  </data>
+  <data name="Wizard_Step2_Desc" xml:space="preserve">
+    <value>Chọn các nhà lưu trữ tập tin để tải lên và chọn tài khoản.</value>
+  </data>
+  <data name="Wizard_Step2_Col_Use" xml:space="preserve">
+    <value>Dùng</value>
+  </data>
+  <data name="Wizard_Step2_Col_FileHoster" xml:space="preserve">
+    <value>Nhà lưu trữ tập tin</value>
+  </data>
+  <data name="Wizard_Step2_Col_Account" xml:space="preserve">
+    <value>Tài khoản</value>
+  </data>
+  <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
+    <value>(ẩn danh)</value>
+  </data>
+  <data name="Wizard_Step2_AccountSelect" xml:space="preserve">
+    <value>(chọn tài khoản)</value>
+  </data>
+  <data name="Wizard_Step2_AddAccountLink" xml:space="preserve">
+    <value>Thêm tài khoản…</value>
+  </data>
+  <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
+    <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
+  </data>
+  <data name="Wizard_Step3_Title" xml:space="preserve">
+    <value>Khi nào bắt đầu</value>
+  </data>
+  <data name="Wizard_Step3_Desc" xml:space="preserve">
+    <value>Chọn khi nào lượt tải lên sẽ bắt đầu.</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Immediately" xml:space="preserve">
+    <value>Bắt đầu ngay sau khi đóng trình hướng dẫn</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Later" xml:space="preserve">
+    <value>Thêm vào hàng đợi nhưng bắt đầu sau (khởi động thủ công)</value>
+  </data>
+  <data name="Wizard_Step3_Mode_Scheduled" xml:space="preserve">
+    <value>Lên lịch cho ngày và giờ cụ thể</value>
+  </data>
+  <data name="Wizard_Step3_TimeFormatHint" xml:space="preserve">
+    <value>(HH:mm)</value>
+  </data>
+  <data name="Wizard_Btn_Back" xml:space="preserve">
+    <value>Quay lại</value>
+  </data>
+  <data name="Wizard_Btn_Cancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="Wizard_Btn_Next" xml:space="preserve">
+    <value>Tiếp theo</value>
+  </data>
+  <data name="Wizard_Btn_Add" xml:space="preserve">
+    <value>Thêm</value>
+  </data>
+  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
+    <value>Vui lòng chọn một thư mục hợp lệ.</value>
+  </data>
+  <data name="Wizard_Validation_PickFile" xml:space="preserve">
+    <value>Vui lòng chọn ít nhất một tệp.</value>
+  </data>
+  <data name="Wizard_Validation_PickHoster" xml:space="preserve">
+    <value>Vui lòng chọn ít nhất một nhà lưu trữ tập tin.</value>
+  </data>
+  <data name="Wizard_Error_Format" xml:space="preserve">
+    <value>Lỗi: {0}</value>
+  </data>
+  <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
+    <value>Xóa gói hoặc tệp khỏi thẻ Đang tải lên</value>
+  </data>
+  <data name="Confirm_RemoveUploadedEntry" xml:space="preserve">
+    <value>Xóa các mục khỏi thẻ Lịch sử</value>
+  </data>
+  <data name="Confirm_RemoveFileHosterAccount" xml:space="preserve">
+    <value>Xóa một tài khoản nhà lưu trữ tập tin</value>
+  </data>
+  <data name="Confirm_RemoveProxy" xml:space="preserve">
+    <value>Xóa một proxy khỏi Trình quản lý kết nối</value>
+  </data>
+  <data name="Confirm_ResetColumns" xml:space="preserve">
+    <value>Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử</value>
+  </data>
+  <data name="About_WindowTitle" xml:space="preserve">
+    <value>Giới thiệu CSUploader</value>
+  </data>
+  <data name="About_AppName" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="About_Version_Format" xml:space="preserve">
+    <value>Phiên bản {0}</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>Trình quản lý tải tệp mạnh mẽ cho nhiều dịch vụ lưu trữ. Tính năng bao gồm băm, quản lý hàng đợi và theo dõi tiến độ thời gian thực.</value>
+  </data>
+  <data name="About_Field_Framework" xml:space="preserve">
+    <value>Nền tảng:</value>
+  </data>
+  <data name="About_Field_Framework_Value" xml:space="preserve">
+    <value>.NET 10.0 (WPF)</value>
+  </data>
+  <data name="About_Field_Database" xml:space="preserve">
+    <value>Cơ sở dữ liệu:</value>
+  </data>
+  <data name="About_Field_Database_Value" xml:space="preserve">
+    <value>SQLite via EF Core 10</value>
+  </data>
+  <data name="About_Field_License" xml:space="preserve">
+    <value>Giấy phép:</value>
+  </data>
+  <data name="About_Field_License_Value" xml:space="preserve">
+    <value>MIT</value>
+  </data>
+  <data name="About_Field_Source" xml:space="preserve">
+    <value>Mã nguồn:</value>
+  </data>
+  <data name="About_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="CloseAction_WindowTitle" xml:space="preserve">
+    <value>Đóng CSUploader</value>
+  </data>
+  <data name="CloseAction_Heading" xml:space="preserve">
+    <value>Bạn muốn nút đóng làm gì?</value>
+  </data>
+  <data name="CloseAction_Subheading" xml:space="preserve">
+    <value>Chọn một mục — bạn có thể thay đổi sau trong Cài đặt → Chung.</value>
+  </data>
+  <data name="CloseAction_Remember" xml:space="preserve">
+    <value>Ghi nhớ lựa chọn của tôi</value>
+  </data>
+  <data name="CloseAction_BtnMinimize" xml:space="preserve">
+    <value>Thu nhỏ vào khay</value>
+  </data>
+  <data name="CloseAction_BtnExit" xml:space="preserve">
+    <value>Thoát</value>
+  </data>
+  <data name="CloseAction_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="Confirmation_WindowTitle" xml:space="preserve">
+    <value>Xác nhận</value>
+  </data>
+  <data name="Confirmation_DontAskAgain" xml:space="preserve">
+    <value>Không hỏi lại cho hành động này</value>
+  </data>
+  <data name="Confirmation_BtnYes" xml:space="preserve">
+    <value>Có</value>
+  </data>
+  <data name="Confirmation_BtnNo" xml:space="preserve">
+    <value>Không</value>
+  </data>
+  <data name="EditAccount_WindowTitle" xml:space="preserve">
+    <value>Sửa tài khoản</value>
+  </data>
+  <data name="EditAccount_AddTitle" xml:space="preserve">
+    <value>Thêm tài khoản</value>
+  </data>
+  <data name="EditAccount_FileHosterLabel" xml:space="preserve">
+    <value>Nhà lưu trữ tập tin:</value>
+  </data>
+  <data name="EditAccount_UsernameLabel" xml:space="preserve">
+    <value>Tên đăng nhập:</value>
+  </data>
+  <data name="EditAccount_PasswordLabel" xml:space="preserve">
+    <value>Mật khẩu:</value>
+  </data>
+  <data name="EditAccount_AccountEnabled" xml:space="preserve">
+    <value>Tài khoản đã bật</value>
+  </data>
+  <data name="EditAccount_BtnSave" xml:space="preserve">
+    <value>Lưu</value>
+  </data>
+  <data name="EditAccount_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
+    <value>Vui lòng nhập cả tên đăng nhập và mật khẩu.</value>
+  </data>
+  <data name="HttpDetails_WindowTitle" xml:space="preserve">
+    <value>Chi tiết giao dịch HTTP</value>
+  </data>
+  <data name="HttpDetails_Tab_Request" xml:space="preserve">
+    <value>Yêu cầu</value>
+  </data>
+  <data name="HttpDetails_Tab_Response" xml:space="preserve">
+    <value>Phản hồi</value>
+  </data>
+  <data name="HttpDetails_Tab_FullDump" xml:space="preserve">
+    <value>Toàn bộ</value>
+  </data>
+  <data name="HttpDetails_SubTab_Headers" xml:space="preserve">
+    <value>Tiêu đề</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyRaw" xml:space="preserve">
+    <value>Nội dung (Thô)</value>
+  </data>
+  <data name="HttpDetails_SubTab_BodyJson" xml:space="preserve">
+    <value>Nội dung (JSON)</value>
+  </data>
+  <data name="HttpDetails_SubTab_Hex" xml:space="preserve">
+    <value>Hex</value>
+  </data>
+  <data name="HttpDetails_Timing_Format" xml:space="preserve">
+    <value>Bắt đầu: {0}  |  Thời lượng: {1}ms  |  Kích thước: {2} byte</value>
+  </data>
+  <data name="HttpDetails_Proxy_Format" xml:space="preserve">
+    <value>Proxy: {0}</value>
+  </data>
+  <data name="HttpDetails_NoData" xml:space="preserve">
+    <value>(không có dữ liệu)</value>
+  </data>
+  <data name="HttpDetails_NoBody" xml:space="preserve">
+    <value>(không có nội dung)</value>
+  </data>
+  <data name="HttpDetails_FullDump_Request" xml:space="preserve">
+    <value>YÊU CẦU</value>
+  </data>
+  <data name="HttpDetails_FullDump_Response" xml:space="preserve">
+    <value>PHẢN HỒI</value>
+  </data>
+  <data name="LogDetails_WindowTitle" xml:space="preserve">
+    <value>Chi tiết nhật ký</value>
+  </data>
+  <data name="LogDetails_Field_DateTime" xml:space="preserve">
+    <value>Thời gian:</value>
+  </data>
+  <data name="LogDetails_Field_ThreadId" xml:space="preserve">
+    <value>ID luồng:</value>
+  </data>
+  <data name="LogDetails_Field_Filename" xml:space="preserve">
+    <value>Tên tệp:</value>
+  </data>
+  <data name="LogDetails_Field_Function" xml:space="preserve">
+    <value>Hàm:</value>
+  </data>
+  <data name="LogDetails_Field_Line" xml:space="preserve">
+    <value>Dòng:</value>
+  </data>
+  <data name="LogDetails_Tab_Text" xml:space="preserve">
+    <value>Văn bản</value>
+  </data>
+  <data name="LogDetails_Tab_Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
+  <data name="LogDetails_Btn_Close" xml:space="preserve">
+    <value>Đóng</value>
+  </data>
+  <data name="Progress_WindowTitle" xml:space="preserve">
+    <value>Vui lòng chờ...</value>
+  </data>
+  <data name="Progress_DefaultLabel" xml:space="preserve">
+    <value>Đang tải...</value>
+  </data>
+  <data name="Progress_LabelSuffix" xml:space="preserve">
+    <value>Vui lòng chờ...</value>
+  </data>
+  <data name="Progress_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="Progress_BtnCancelling" xml:space="preserve">
+    <value>Đang hủy...</value>
+  </data>
+  <data name="UpdateProgress_WindowTitle" xml:space="preserve">
+    <value>Đang cập nhật CSUploader</value>
+  </data>
+  <data name="UpdateProgress_StatusInitial" xml:space="preserve">
+    <value>Đang chuẩn bị…</value>
+  </data>
+  <data name="UpdateProgress_StatusDownloading_Format" xml:space="preserve">
+    <value>Đang tải bản cập nhật v{0}…</value>
+  </data>
+  <data name="UpdateProgress_StatusRestarting" xml:space="preserve">
+    <value>Đang khởi động lại…</value>
+  </data>
+  <data name="UpdateProgress_StatusFailed_Format" xml:space="preserve">
+    <value>Cập nhật thất bại: {0}</value>
+  </data>
+  <data name="UpdateProgress_PercentInitial" xml:space="preserve">
+    <value>0%</value>
+  </data>
+  <data name="ProxyText_WindowTitle" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
+  <data name="ProxyText_BtnImport" xml:space="preserve">
+    <value>Nhập</value>
+  </data>
+  <data name="ProxyText_BtnCopy" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="ProxyText_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="ProxyText_BtnClose" xml:space="preserve">
+    <value>Đóng</value>
+  </data>
+  <data name="SpeedLimit_WindowTitle" xml:space="preserve">
+    <value>Giới hạn tốc độ</value>
+  </data>
+  <data name="SpeedLimit_Heading" xml:space="preserve">
+    <value>Đặt giới hạn tốc độ</value>
+  </data>
+  <data name="SpeedLimit_Subheading" xml:space="preserve">
+    <value>Ghi đè cho từng gói. Để trống để dùng cài đặt chung.</value>
+  </data>
+  <data name="SpeedLimit_Unit" xml:space="preserve">
+    <value>KB/s</value>
+  </data>
+  <data name="SpeedLimit_BtnClear" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="SpeedLimit_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="SpeedLimit_BtnOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="SpeedLimit_Validation_Title" xml:space="preserve">
+    <value>Giá trị không hợp lệ</value>
+  </data>
+  <data name="SpeedLimit_Validation_Message" xml:space="preserve">
+    <value>Vui lòng nhập một số nguyên dương (KB/s), hoặc để trống để xóa.</value>
+  </data>
+  <data name="Dialog_DefaultErrorTitle" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="Dialog_DefaultConfirmTitle" xml:space="preserve">
+    <value>Xác nhận</value>
+  </data>
+  <data name="Dialog_DefaultBrowseFolderTitle" xml:space="preserve">
+    <value>Chọn thư mục</value>
+  </data>
+  <data name="Dialog_GenericErrorTitle" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="Picker_Filter_Json" xml:space="preserve">
+    <value>Tệp JSON (*.json)|*.json|Tất cả tệp (*.*)|*.*</value>
+  </data>
+  <data name="Picker_Filter_ProxyLists" xml:space="preserve">
+    <value>Danh sách proxy (*.txt)|*.txt|Tất cả tệp (*.*)|*.*</value>
+  </data>
+  <data name="SpeedLimit_Display_Mbps_Format" xml:space="preserve">
+    <value>{0} MB/s</value>
+  </data>
+  <data name="SpeedLimit_Display_Kbps_Format" xml:space="preserve">
+    <value>{0} KB/s</value>
+  </data>
+  <data name="Uploads_Overview_UploadSpeed_Zero" xml:space="preserve">
+    <value>0 B/s</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Show" xml:space="preserve">
+    <value>Hiện CSUploader</value>
+  </data>
+  <data name="Tray_Menu_Exit" xml:space="preserve">
+    <value>Thoát</value>
+  </data>
+  <data name="Tray_Balloon_Title" xml:space="preserve">
+    <value>CSUploader</value>
+  </data>
+  <data name="Tray_Balloon_Body" xml:space="preserve">
+    <value>Vẫn đang chạy trong khay. Nhấn vào biểu tượng để khôi phục cửa sổ, hoặc nhấn chuột phải để chọn Thoát.</value>
+  </data>
+</root>

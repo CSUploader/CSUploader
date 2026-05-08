@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Upload;
@@ -105,6 +106,193 @@ public class PackageManagerSoftRemoveTests : IDisposable
         await _packageManager.LoadPersistedPackagesAsync();
 
         Assert.DoesNotContain(_packageManager.Packages, p => p.DbId == packageId);
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_AtStartupMode_SoftRemovesFullySuccessfulPackages()
+    {
+        // RemoveFinishedUploadsMode.AtStartup: a package whose every file completed
+        // successfully should be flagged IsRemovedFromUploads=true on load, so the
+        // Uploads tab starts the session clean. Persisted history on the Uploaded tab
+        // is untouched (the row stays in the DB).
+        // PackageFile's ctor reads FileInfo.Length so the test files have to exist on
+        // disk; we use a temp dir cleaned up in finally.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int doneId = await InsertPackageAsync("done");
+            await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
+            await InsertFileAtAsync(tempDir, doneId, "b.iso", FileState.Completed);
+
+            int activeId = await InsertPackageAsync("active");
+            await InsertFileAtAsync(tempDir, activeId, "c.iso", FileState.Uploading);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
+            UploadPackageDto? activeRow = await _packageRepo.FindAsync(activeId);
+            Assert.NotNull(doneRow);
+            Assert.True(doneRow!.IsRemovedFromUploads, "fully-completed package should be soft-removed");
+            Assert.NotNull(activeRow);
+            Assert.False(activeRow!.IsRemovedFromUploads, "in-flight package should stay visible");
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_AutostartNever_DoesNotScheduleQueuedPackages()
+    {
+        // Mode Never: the package loads (visible on Uploads tab) but the scheduler
+        // doesn't pick it up. The user has to click Start.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int packageId = await InsertPackageAsync("queued");
+            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            Assert.Equal(0, scheduler.RegisteredPackageCount);
+            Assert.Single(manager.Packages); // still loaded — just not scheduled
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_AutostartAlways_SchedulesQueuedPackages()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int packageId = await InsertPackageAsync("queued");
+            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            Assert.Equal(1, scheduler.RegisteredPackageCount);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_AutostartOnlyIfRunning_ActiveState_SchedulesPackage()
+    {
+        // OnlyIfRunningAtLastSession + a file in an active state (Uploading) → schedule.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int packageId = await InsertPackageAsync("running");
+            // Pre-remap state Uploading counts as "was running at shutdown".
+            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Uploading);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            Assert.Equal(1, scheduler.RegisteredPackageCount);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_AutostartOnlyIfRunning_PausedOnly_DoesNotSchedule()
+    {
+        // OnlyIfRunningAtLastSession + only Paused files → don't schedule. The user
+        // explicitly paused, so we honour that on next launch.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int packageId = await InsertPackageAsync("paused");
+            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Paused);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            Assert.Equal(0, scheduler.RegisteredPackageCount);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task LoadPersistedPackagesAsync_NeverMode_LeavesAllPackagesVisible()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.Never };
+            using UploadScheduler scheduler = new(settings);
+            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>());
+
+            int doneId = await InsertPackageAsync("done");
+            await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
+            Assert.NotNull(doneRow);
+            Assert.False(doneRow!.IsRemovedFromUploads);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    private async Task<int> InsertFileAtAsync(string dir, int packageId, string fileName, FileState state)
+    {
+        // Create the actual file so PackageFile's FileInfo.Length doesn't throw on load.
+        string path = Path.Combine(dir, fileName);
+        await File.WriteAllBytesAsync(path, new byte[] { 0 });
+        UploadPackageFileDto file = new()
+        {
+            FileName = fileName,
+            FileDirectory = dir,
+            FileSize = 1,
+            FileHoster = "Rapidgator",
+            FileHosterName = "Rapidgator",
+            State = state,
+            PackageId = packageId,
+        };
+        await _fileRepo.InsertAsync(file);
+        return file.Id;
     }
 
     [Fact]

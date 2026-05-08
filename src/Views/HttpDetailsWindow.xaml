@@ -4,7 +4,8 @@
 <Window x:Class="CSUploader.Views.HttpDetailsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="HTTP Transaction Details"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        Title="{loc:Loc HttpDetails_WindowTitle}"
         Width="950" Height="650"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
@@ -33,7 +34,7 @@
         <TabControl Grid.Row="1" BorderThickness="0" Padding="0">
 
             <!-- Request Tab -->
-            <TabItem Header="Request">
+            <TabItem Header="{loc:Loc HttpDetails_Tab_Request}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -42,26 +43,26 @@
 
                     <!-- Sub-tabs for request -->
                     <TabControl Grid.Row="1" Margin="8">
-                        <TabItem Header="Headers">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_Headers}">
                             <TextBox x:Name="RequestHeadersBox" IsReadOnly="True" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Body (Raw)">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyRaw}">
                             <TextBox x:Name="RequestBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Body (JSON)">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyJson}">
                             <TextBox x:Name="RequestBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Hex">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_Hex}">
                             <TextBox x:Name="RequestHexBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
@@ -73,29 +74,29 @@
             </TabItem>
 
             <!-- Response Tab -->
-            <TabItem Header="Response">
+            <TabItem Header="{loc:Loc HttpDetails_Tab_Response}">
                 <Grid>
                     <TabControl Margin="8">
-                        <TabItem Header="Headers">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_Headers}">
                             <TextBox x:Name="ResponseHeadersBox" IsReadOnly="True" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Body (Raw)">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyRaw}">
                             <TextBox x:Name="ResponseBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Body (JSON)">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyJson}">
                             <TextBox x:Name="ResponseBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
                                      FontFamily="Consolas" FontSize="12" BorderThickness="0"
                                      Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         </TabItem>
-                        <TabItem Header="Hex">
+                        <TabItem Header="{loc:Loc HttpDetails_SubTab_Hex}">
                             <TextBox x:Name="ResponseHexBox" IsReadOnly="True" AcceptsReturn="True"
                                      TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                                      HorizontalScrollBarVisibility="Auto"
@@ -107,7 +108,7 @@
             </TabItem>
 
             <!-- Full Dump Tab -->
-            <TabItem Header="Full Dump">
+            <TabItem Header="{loc:Loc HttpDetails_Tab_FullDump}">
                 <TextBox x:Name="FullDumpBox" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto" Margin="8"

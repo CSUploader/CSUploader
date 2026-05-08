@@ -7,7 +7,7 @@ namespace CSUploader.Lib.Net;
 
 /// <summary>
 /// Supported proxy protocols. Stored as the integer value on
-/// <see cref="CSUploader.Dal.ProxySettingDbm.Type"/>.
+/// <see cref="Dal.ProxySettingDbm.Type"/>.
 /// </summary>
 public enum ProxyType
 {

@@ -16,7 +16,7 @@ public class ProxySettingDbm
     public int Id { get; set; }
 
     /// <summary>
-    /// <see cref="CSUploader.Lib.Net.ProxyType"/> as an int.
+    /// <see cref="Lib.Net.ProxyType"/> as an int.
     /// </summary>
     public int Type { get; set; }
 

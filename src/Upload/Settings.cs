@@ -9,12 +9,6 @@ namespace CSUploader.Upload;
 
 public class AppSettings
 {
-    /// <summary>
-    /// Static accessor for code that hasn't been migrated to DI yet.
-    /// Prefer constructor injection of AppSettings where possible.
-    /// </summary>
-    public static AppSettings Current { get; set; } = new();
-
     public static int DefaultUploadsTabPageRefreshTimer { get; } = 1;
 
     public static int DefaultMaxConcurrentCPUJobs { get; } = 1;
@@ -33,11 +27,22 @@ public class AppSettings
 
     public static IfFileExistsBehavior DefaultIfFileExists { get; } = IfFileExistsBehavior.Ask;
 
+    public static AutostartUploadsMode DefaultAutostartUploads { get; } = AutostartUploadsMode.OnlyIfRunningAtLastSession;
+
+    /// <summary>
+    /// Empty string means "auto-detect from <see cref="System.Globalization.CultureInfo.CurrentUICulture"/>
+    /// on first launch". After the user picks a language explicitly, this holds a BCP-47
+    /// tag like "en", "zh-Hans", "ko", "ja".
+    /// </summary>
+    public static string DefaultLanguage { get; } = string.Empty;
+
     public static bool DefaultMinimizeToTray { get; } = false;
 
     public static CloseAction DefaultCloseAction { get; } = CloseAction.Ask;
 
     public static bool DefaultAutoDisableFailingProxies { get; } = true;
+
+    public static bool DefaultProxiesEnabled { get; } = true;
 
 #if DEBUG
     public static bool DefaultUseMockServer { get; } = true;
@@ -46,6 +51,15 @@ public class AppSettings
 #endif
 
     public static Regex UrlRegex { get; } = new Regex("(?:https?[:]\\/\\/)?(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&//=]*)", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Static accessor for code that hasn't been migrated to DI yet. Declared after all
+    /// Default* fields because the instance initializer (`= DefaultX`) reads them; if
+    /// `Current = new()` ran before those statics, every Default-referencing property
+    /// would silently get the type's zero default instead.
+    /// Prefer constructor injection of AppSettings where possible.
+    /// </summary>
+    public static AppSettings Current { get; set; } = new();
 
     private int? uploadsTabPageRefreshTimer;
     private int? maxConcurrentCPUJobs;
@@ -81,18 +95,6 @@ public class AppSettings
     public RemoveFinishedUploadsMode RemoveFinishedUploads { get; set; } = DefaultRemoveFinishedUploads;
 
     /// <summary>
-    /// When true, a successful file is removed from the Uploads tab as soon as it completes.
-    /// History on the Uploaded tab is preserved.
-    /// </summary>
-    public bool AutoRemoveCompletedFiles { get; set; }
-
-    /// <summary>
-    /// When true, a package is removed from the Uploads tab as soon as every file in it
-    /// has completed successfully. History on the Uploaded tab is preserved.
-    /// </summary>
-    public bool AutoRemoveCompletedPackages { get; set; }
-
-    /// <summary>
     /// Font family applied to the Uploads / Uploaded DataGrids. Bound via the GridFontFamily
     /// dynamic resource so updates propagate live.
     /// </summary>
@@ -113,6 +115,18 @@ public class AppSettings
     public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
 
     /// <summary>
+    /// Auto-start policy for pending uploads at app launch. <see cref="AutostartUploadsMode.Never"/>
+    /// keeps loaded packages idle until the user clicks Start.
+    /// </summary>
+    public AutostartUploadsMode AutostartUploads { get; set; } = DefaultAutostartUploads;
+
+    /// <summary>
+    /// Active UI language as a BCP-47 tag (e.g. "en", "zh-Hans", "ko", "ja"). Empty
+    /// means "auto-detect from the OS's current UI culture on next launch".
+    /// </summary>
+    public string Language { get; set; } = DefaultLanguage;
+
+    /// <summary>
     /// When true, minimising the main window hides it into the system tray instead of
     /// the taskbar. The tray icon restores the window on click.
     /// </summary>
@@ -130,6 +144,13 @@ public class AppSettings
     /// way; this flag only controls the auto-uncheck behaviour.
     /// </summary>
     public bool AutoDisableFailingProxies { get; set; } = DefaultAutoDisableFailingProxies;
+
+    /// <summary>
+    /// Master switch for the proxy rotation. When false, uploads bypass every configured
+    /// proxy and connect directly — the Connection Manager grid and per-proxy Test still
+    /// work, so you can curate / verify proxies without committing to using them yet.
+    /// </summary>
+    public bool ProxiesEnabled { get; set; } = DefaultProxiesEnabled;
 
     public int? SpeedLimit { get; set; }
 

@@ -6,8 +6,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         mc:Ignorable="d"
-        Title="Please wait..."
+        Title="{loc:Loc Progress_WindowTitle}"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
         Topmost="True"
@@ -24,14 +25,14 @@
         </Grid.RowDefinitions>
 
         <!-- Label -->
-        <TextBlock Grid.Row="0" x:Name="LabelText" Text="Loading..."
+        <TextBlock Grid.Row="0" x:Name="LabelText" Text="{loc:Loc Progress_DefaultLabel}"
                    Margin="0,0,0,12" FontSize="13" TextWrapping="Wrap" />
 
         <!-- Progress Bar -->
         <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="20" Margin="0,0,0,12" />
 
         <!-- Cancel Button -->
-        <Button Grid.Row="2" x:Name="CancelButton" Content="Cancel"
+        <Button Grid.Row="2" x:Name="CancelButton" Content="{loc:Loc Progress_BtnCancel}"
                 HorizontalAlignment="Right" Width="80" Height="28"
                 Click="CancelButton_Click" Visibility="Collapsed" />
     </Grid>

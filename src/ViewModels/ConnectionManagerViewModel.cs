@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -76,6 +77,15 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private bool autoDisableFailingProxies = AppSettings.DefaultAutoDisableFailingProxies;
 
     /// <summary>
+    /// Bound to the "Use proxies for uploads" checkbox above the grid. When false,
+    /// uploads bypass every proxy regardless of per-row Enabled state — handy for
+    /// adding/testing proxies before committing to using them. Mirrored into
+    /// <see cref="AppSettings.ProxiesEnabled"/> on Save.
+    /// </summary>
+    [ObservableProperty]
+    private bool proxiesEnabled = AppSettings.DefaultProxiesEnabled;
+
+    /// <summary>
     /// Drop-down options shown in the Type column.
     /// </summary>
     public static ProxyType[] ProxyTypeOptions { get; } =
@@ -91,10 +101,12 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
 
         // SettingsViewModel.LoadAsync runs first and hydrates AppSettings; mirror the
-        // current value into our bound property so the checkbox reflects the saved choice.
+        // current values into our bound properties so the checkboxes reflect the saved
+        // choices.
         if (_appSettings is not null)
         {
             AutoDisableFailingProxies = _appSettings.AutoDisableFailingProxies;
+            ProxiesEnabled = _appSettings.ProxiesEnabled;
         }
     }
 
@@ -110,7 +122,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
 
             if (e.Success)
             {
-                item.TestStatus = "OK (live)";
+                item.TestStatus = Localizer.Instance["Settings_Conn_Status_OkLive"];
+                item.TestOutcome = ProxyTestOutcome.Ok;
             }
             else
             {
@@ -120,7 +133,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
                     firstLine = firstLine[..120] + "…";
                 }
 
-                item.TestStatus = $"Failed: {firstLine}";
+                item.TestStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Failed_Format"], firstLine);
+                item.TestOutcome = ProxyTestOutcome.Failed;
 
                 if (_appSettings?.AutoDisableFailingProxies ?? AutoDisableFailingProxies)
                 {
@@ -171,9 +185,9 @@ public partial class ConnectionManagerViewModel : ObservableObject
         if (!_dialogService.ShowOptOutConfirmation(
                 ConfirmationKeys.RemoveProxy,
                 items.Length == 1
-                    ? $"Remove proxy '{items[0].Host}:{items[0].Port}'?"
-                    : $"Remove {items.Length} proxies?",
-                "Remove proxy"))
+                    ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveProxy_One_Format"], items[0].Host, items[0].Port)
+                    : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveProxy_Many_Format"], items.Length),
+                Localizer.Instance["Settings_Conn_RemoveProxy_Title"]))
         {
             return;
         }
@@ -196,9 +210,9 @@ public partial class ConnectionManagerViewModel : ObservableObject
         if (!_dialogService.ShowOptOutConfirmation(
                 ConfirmationKeys.RemoveProxy,
                 failing.Length == 1
-                    ? $"Remove the failed proxy '{failing[0].Host}:{failing[0].Port}'?"
-                    : $"Remove {failing.Length} failed proxies?",
-                "Remove failed proxies"))
+                    ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveFailedProxy_One_Format"], failing[0].Host, failing[0].Port)
+                    : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveFailedProxy_Many_Format"], failing.Length),
+                Localizer.Instance["Settings_Conn_RemoveFailedProxy_Title"]))
         {
             return;
         }
@@ -294,13 +308,14 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private async Task RunTestAsync(ProxySettingItem item)
     {
         item.IsTesting = true;
-        item.TestStatus = "Queued…";
+        item.TestStatus = Localizer.Instance["Settings_Conn_Status_Queued"];
+        item.TestOutcome = ProxyTestOutcome.Untested;
         item.TestTransaction = null;
 
         await _testSemaphore.WaitAsync().ConfigureAwait(true);
         try
         {
-            item.TestStatus = "Testing…";
+            item.TestStatus = Localizer.Instance["Settings_Conn_Status_Testing"];
             ProxyTestResult result = await ProxyManager.TestProxyAsync(item.Dto, _logger).ConfigureAwait(true);
 
             // Status line stays compact — full request+response lives in TestTransaction
@@ -309,8 +324,9 @@ public partial class ConnectionManagerViewModel : ObservableObject
             if (result.Success)
             {
                 item.TestStatus = string.IsNullOrEmpty(result.DetectedIp)
-                    ? $"OK {result.LatencyMs}ms (unexpected response)"
-                    : $"OK {result.LatencyMs}ms ({result.DetectedIp})";
+                    ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_OkLatencyUnknown_Format"], result.LatencyMs)
+                    : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_OkLatencyIp_Format"], result.LatencyMs, result.DetectedIp);
+                item.TestOutcome = ProxyTestOutcome.Ok;
             }
             else
             {
@@ -320,7 +336,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
                     firstLine = firstLine[..120] + "…";
                 }
 
-                item.TestStatus = $"Failed: {firstLine}";
+                item.TestStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Failed_Format"], firstLine);
+                item.TestOutcome = ProxyTestOutcome.Failed;
 
                 // Honour the per-VM toggle (mirrors AppSettings on Save) so the user can
                 // opt out of the auto-uncheck while still seeing the red status icon.
@@ -334,7 +351,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            item.TestStatus = $"Failed: {ex.Message}";
+            item.TestStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Failed_Format"], ex.Message);
+            item.TestOutcome = ProxyTestOutcome.Failed;
             item.TestTransaction = null;
         }
         finally
@@ -376,31 +394,23 @@ public partial class ConnectionManagerViewModel : ObservableObject
                 await _repo.DeleteAsync(removed, cancellationToken);
             }
 
-            // Persist the auto-disable preference alongside the proxy list so toggling
-            // the checkbox + clicking Save is the single committal action on this page.
+            // Persist the page-level toggles alongside the proxy list so toggling them +
+            // clicking Save is the single committal action on this page.
             if (_appSettings is not null)
             {
                 _appSettings.AutoDisableFailingProxies = AutoDisableFailingProxies;
+                _appSettings.ProxiesEnabled = ProxiesEnabled;
             }
 
             if (_settingRepo is not null)
             {
-                string value = AutoDisableFailingProxies ? "true" : "false";
-                SettingDto? existingSetting = await _settingRepo.FindByKeyAsync(SettingKey.AutoDisableFailingProxies, cancellationToken);
-                if (existingSetting is null)
-                {
-                    await _settingRepo.InsertAsync(new SettingDto { Key = SettingKey.AutoDisableFailingProxies, Value = value }, cancellationToken);
-                }
-                else
-                {
-                    existingSetting.Value = value;
-                    await _settingRepo.UpdateAsync(existingSetting, cancellationToken);
-                }
+                await UpsertSettingAsync(SettingKey.AutoDisableFailingProxies, AutoDisableFailingProxies ? "true" : "false", cancellationToken);
+                await UpsertSettingAsync(SettingKey.ProxiesEnabled, ProxiesEnabled ? "true" : "false", cancellationToken);
             }
 
             await _proxyManager.ReloadAsync(cancellationToken);
 
-            SaveStatus = "Saved";
+            SaveStatus = Localizer.Instance["Settings_Conn_Status_Saved"];
             try
             {
                 await Task.Delay(1500, cancellationToken);
@@ -412,7 +422,26 @@ public partial class ConnectionManagerViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Failed to save proxies: {ex.Message}");
-            SaveStatus = $"Save failed: {ex.Message}";
+            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_SaveFailed_Format"], ex.Message);
+        }
+    }
+
+    private async Task UpsertSettingAsync(string key, string value, CancellationToken cancellationToken)
+    {
+        if (_settingRepo is null)
+        {
+            return;
+        }
+
+        SettingDto? existing = await _settingRepo.FindByKeyAsync(key, cancellationToken);
+        if (existing is null)
+        {
+            await _settingRepo.InsertAsync(new SettingDto { Key = key, Value = value }, cancellationToken);
+        }
+        else
+        {
+            existing.Value = value;
+            await _settingRepo.UpdateAsync(existing, cancellationToken);
         }
     }
 
@@ -421,9 +450,9 @@ public partial class ConnectionManagerViewModel : ObservableObject
     {
         Microsoft.Win32.OpenFileDialog dialog = new()
         {
-            Filter = "Proxy lists (*.txt)|*.txt|All files (*.*)|*.*",
+            Filter = Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
             DefaultExt = ".txt",
-            Title = "Import proxies",
+            Title = Localizer.Instance["Settings_Conn_ImportProxies_FileDialogTitle"],
         };
         if (dialog.ShowDialog() != true)
         {
@@ -434,7 +463,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         {
             string[] lines = await File.ReadAllLinesAsync(dialog.FileName);
             int added = AppendFromLines(lines);
-            SaveStatus = $"Imported {added} proxy(s) — click Save to persist";
+            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ImportedNeedsSave_Format"], added);
         }
         catch (Exception ex)
         {
@@ -446,8 +475,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private void ImportFromText()
     {
         Views.ProxyTextDialog dialog = new(
-            "Import Proxies",
-            "Paste proxy lines (one per line). Format: scheme://[user:pass@]host[:port] — port defaults to 80/443/1080 by scheme.",
+            Localizer.Instance["Settings_Conn_ImportProxies_DialogTitle"],
+            Localizer.Instance["Settings_Conn_ImportProxies_DialogDesc"],
             initialText: string.Empty,
             readOnly: false)
         {
@@ -461,7 +490,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         string[] lines = (dialog.ResultText ?? string.Empty)
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         int added = AppendFromLines(lines);
-        SaveStatus = $"Imported {added} proxy(s) — click Save to persist";
+        SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ImportedNeedsSave_Format"], added);
     }
 
     [RelayCommand]
@@ -514,7 +543,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
             FileName = okOnly
                 ? $"csuploader-proxies-ok-{DateTime.Now:yyyyMMdd-HHmmss}.txt"
                 : $"csuploader-proxies-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
-            Filter = "Proxy lists (*.txt)|*.txt|All files (*.*)|*.*",
+            Filter = Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
             DefaultExt = ".txt",
             AddExtension = true,
         };
@@ -527,7 +556,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         {
             string[] lines = [.. BuildExportLines(okOnly)];
             await File.WriteAllLinesAsync(dialog.FileName, lines);
-            SaveStatus = $"Exported {lines.Length} proxy(s) to {Path.GetFileName(dialog.FileName)}";
+            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ExportedToFile_Format"], lines.Length, Path.GetFileName(dialog.FileName));
         }
         catch (Exception ex)
         {
@@ -540,10 +569,10 @@ public partial class ConnectionManagerViewModel : ObservableObject
         string text = string.Join(Environment.NewLine, BuildExportLines(okOnly));
         int count = text.Length == 0 ? 0 : text.Split('\n').Length;
         Views.ProxyTextDialog dialog = new(
-            okOnly ? "Export Tested-OK Proxies" : "Export All Proxies",
+            okOnly ? Localizer.Instance["Settings_Conn_ExportOk_DialogTitle"] : Localizer.Instance["Settings_Conn_ExportAll_DialogTitle"],
             okOnly
-                ? $"{count} proxy(s) with a successful last test:"
-                : $"{count} proxy(s):",
+                ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_ExportOk_Desc_Format"], count)
+                : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_ExportAll_Desc_Format"], count),
             text,
             readOnly: true)
         {

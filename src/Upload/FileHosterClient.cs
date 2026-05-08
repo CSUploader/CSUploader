@@ -145,16 +145,6 @@ public abstract class FileHosterClient
     public int ActiveProxyId { get; set; }
 
     /// <summary>
-    /// Rebuilds the underlying HTTP transport so the next request picks a fresh proxy
-    /// from <see cref="Lib.Net.ProxyManager.NextProxy"/>. Called when a failed file is
-    /// retried so a bad proxy doesn't poison every retry. Default implementation is a
-    /// no-op for hosters that don't use a long-lived HttpClient.
-    /// </summary>
-    public virtual void RefreshConnection()
-    {
-    }
-
-    /// <summary>
     /// Returns an instance of a file hoster client for the specified name and protocol.
     /// </summary>
     /// <param name="name">The name of the file hoster.</param>

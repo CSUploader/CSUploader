@@ -15,6 +15,7 @@ using Moq;
 
 namespace CSUploader.Tests.Lib.Net;
 
+[Collection(nameof(AppSettingsCollection))]
 public class ProxyManagerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -102,6 +103,27 @@ public class ProxyManagerTests : IDisposable
     {
         ProxySettingDto dto = new() { Type = ProxyType.Http, Host = string.Empty, Port = 80 };
         Assert.Null(ProxyManager.BuildWebProxy(dto));
+    }
+
+    [Fact]
+    public async Task NextProxy_ProxiesEnabledFalse_ReturnsNullEvenWithEnabledRows()
+    {
+        // The master switch must trump per-row Enabled state — uploads should connect
+        // directly when the user has flipped "Use proxies for uploads" off, regardless
+        // of how many configured proxies are in the rotation.
+        AppSettings previous = AppSettings.Current;
+        AppSettings.Current = new AppSettings { ProxiesEnabled = false };
+        try
+        {
+            await _repo.InsertAsync(new ProxySettingDto { Type = ProxyType.Http, Host = "a", Port = 1, Enabled = true });
+            await _manager.ReloadAsync();
+
+            Assert.Null(_manager.NextProxy());
+        }
+        finally
+        {
+            AppSettings.Current = previous;
+        }
     }
 
     [Fact]
