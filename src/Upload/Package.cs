@@ -461,7 +461,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     {
         lock (_filesLock)
         { PackageFiles.Remove(packageFile); }
-        packageFile.Cleanup();
         packageFile.Cts?.Cancel();
         packageFile.Cts?.Dispose();
         packageFile.Cts = null;
@@ -481,7 +480,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 
         foreach (PackageFile packageFile in snapshot)
         {
-            packageFile.Cleanup();
             packageFile.Cts?.Cancel();
             packageFile.Cts?.Dispose();
             packageFile.Cts = null;

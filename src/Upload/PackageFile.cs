@@ -51,11 +51,6 @@ public class PackageFile : INotifyPropertyChanged
         FileInfo = new FileInfo(filePath);
 
         FileHoster = fileHoster;
-        FileHoster.UploadProgress += FileHoster_UploadProgress;
-        FileHoster.UploadFinished += FileHoster_UploadFinished;
-        FileHoster.HashingProgress += FileHoster_HashingProgress;
-        FileHoster.HashingFinished += FileHoster_HashingFinished;
-
         FileHosterLogin = fileHosterLoginDto;
         SaveFrom = Path.GetDirectoryName(filePath);
         FileType = FileInfo.Extension[1..];
@@ -327,17 +322,6 @@ public class PackageFile : INotifyPropertyChanged
     private FileInfo FileInfo { get; set; }
 
     /// <summary>
-    /// Cleans up event handlers from the file hoster client.
-    /// </summary>
-    public void Cleanup()
-    {
-        FileHoster.UploadProgress -= FileHoster_UploadProgress;
-        FileHoster.UploadFinished -= FileHoster_UploadFinished;
-        FileHoster.HashingProgress -= FileHoster_HashingProgress;
-        FileHoster.HashingFinished -= FileHoster_HashingFinished;
-    }
-
-    /// <summary>
     /// Builds the immutable inputs for one upload attempt. Called by <see cref="UploadScheduler"/>
     /// just before invoking <see cref="Pipeline.AttemptRunner.RunAsync"/>.
     /// </summary>
@@ -404,97 +388,5 @@ public class PackageFile : INotifyPropertyChanged
         TimeRemaining = null;
         BytesLoaded = null;
         Progress = null;
-    }
-
-    private void FileHoster_UploadProgress(object? sender, OperationProgressEventArgs e)
-    {
-        try
-        {
-            BytesRemaining = e.BytesRemaining;
-            BytesLoaded = e.BytesProcessed;
-            Progress = e.Progress;
-            Speed = e.Speed;
-            Duration = e.TimeElapsed;
-            TimeRemaining = e.TimeRemaining;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw - progress update is non-critical
-        }
-    }
-
-    private void FileHoster_UploadFinished(object? sender, FileHosterUploadFinishedEventArgs e)
-    {
-        try
-        {
-            IsUploadFinished = true;
-            Duration = e.TimeElapsed;
-            if (e.Success)
-            {
-                BytesRemaining = null;
-                FileUrl = e.FileInfo?.Url;
-                Progress = 100.0;
-            }
-            else
-            {
-                Error = e.Result;
-            }
-
-            Speed = null;
-            TimeRemaining = null;
-            FinishedDate = e.DateTimeFinished;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw
-        }
-    }
-
-    private void FileHoster_HashingProgress(object? sender, OperationProgressEventArgs e)
-    {
-        try
-        {
-            BytesRemaining = e.BytesRemaining;
-            BytesLoaded = e.BytesProcessed;
-            Progress = e.Progress;
-            Speed = e.Speed;
-            Duration = e.TimeElapsed;
-            TimeRemaining = e.TimeRemaining;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw - progress update is non-critical
-        }
-    }
-
-    private void FileHoster_HashingFinished(object? sender, HashingFinishedEventArgs e)
-    {
-        try
-        {
-            Duration = e.TimeElapsed;
-
-            if (e.Success)
-            {
-                IsHashingComplete = true;
-                if (e.Hash is { Length: > 0 })
-                {
-                    FileHash = Convert.ToHexString(e.Hash).ToLowerInvariant();
-                }
-
-                Progress = 100.0;
-                BytesRemaining = IsUploadFinished ? null : Size;
-            }
-            else
-            {
-                Error = e.Error;
-            }
-
-            Speed = null;
-            TimeRemaining = null;
-        }
-        catch (Exception)
-        {
-            // Event handler must not throw
-        }
     }
 }
