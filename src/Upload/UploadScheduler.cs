@@ -336,19 +336,18 @@ public class UploadScheduler : IDisposable
             }
             catch (OperationCanceledException)
             {
-                Post(() => SetFileState(file, FileState.Cancelled));
+                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
                 return;
             }
             catch (Exception ex)
             {
                 file.Error = ex.Message;
                 _logger.Log(this, LogType.Error, $"Upload pipeline crashed: {ex}");
-                Post(() => SetFileState(file, FileState.Failed));
+                Post(() => OnUploadCompleted(file, success: false));
                 return;
             }
 
-            Post(() => SetFileState(file, success ? FileState.Completed : FileState.Failed));
-            Post(FillSlots);
+            Post(() => OnUploadCompleted(file, success: success));
         });
     }
 
