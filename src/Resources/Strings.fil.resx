@@ -1103,11 +1103,11 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
     <value>Filter:</value>
   </data>
-  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
-    <value>Lahat</value>
+  <data name="Wizard_Step1_BtnSelectAll" xml:space="preserve">
+    <value>Piliin lahat</value>
   </data>
-  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
-    <value>Wala</value>
+  <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
+    <value>Alisin sa pagpili lahat</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>File</value>

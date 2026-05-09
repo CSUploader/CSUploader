@@ -1103,11 +1103,11 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
     <value>필터:</value>
   </data>
-  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
-    <value>모두</value>
+  <data name="Wizard_Step1_BtnSelectAll" xml:space="preserve">
+    <value>모두 선택</value>
   </data>
-  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
-    <value>없음</value>
+  <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
+    <value>모두 선택 해제</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>파일</value>

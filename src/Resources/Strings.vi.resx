@@ -1103,11 +1103,11 @@ Vẫn thêm?</value>
   <data name="Wizard_Step1_FilterLabel" xml:space="preserve">
     <value>Bộ lọc:</value>
   </data>
-  <data name="Wizard_Step1_BtnAll" xml:space="preserve">
-    <value>Tất cả</value>
+  <data name="Wizard_Step1_BtnSelectAll" xml:space="preserve">
+    <value>Chọn tất cả</value>
   </data>
-  <data name="Wizard_Step1_BtnNone" xml:space="preserve">
-    <value>Không</value>
+  <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
+    <value>Bỏ chọn tất cả</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>Tệp</value>

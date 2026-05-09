@@ -80,6 +80,7 @@
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -102,20 +103,23 @@
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_FilterLabel}" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged}"
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
-          <Button Grid.Column="2" Content="{loc:Loc Wizard_Step1_BtnAll}" Width="50" Margin="8,0,0,0"
-                  Command="{Binding SelectAllCommand}" />
-          <Button Grid.Column="3" Content="{loc:Loc Wizard_Step1_BtnNone}" Width="50" Margin="4,0,0,0"
-                  Command="{Binding SelectNoneCommand}" />
         </Grid>
 
-        <DataGrid Grid.Row="3" ItemsSource="{Binding Files}"
+        <!-- Bulk-select buttons sit above the file list so it's clear they
+             act on the file list below, not on the filter textbox. -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,6">
+          <Button Content="{loc:Loc Wizard_Step1_BtnSelectAll}" MinWidth="100" Padding="10,4"
+                  Command="{Binding SelectAllCommand}" />
+          <Button Content="{loc:Loc Wizard_Step1_BtnDeselectAll}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
+                  Command="{Binding SelectNoneCommand}" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="4" ItemsSource="{Binding Files}"
                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   IsReadOnly="False" SelectionMode="Single" RowHeaderWidth="0"
                   GridLinesVisibility="Horizontal"
@@ -180,7 +184,7 @@
           </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,0">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,0">
           <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                      Text="{loc:Loc Wizard_Step1_SelectedLabel}" />
           <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
