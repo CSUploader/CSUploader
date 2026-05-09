@@ -159,7 +159,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_Language_Label}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
@@ -200,7 +200,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFont}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
@@ -232,7 +232,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFontSize}" Style="{StaticResource SettingLabel}" />
                     <TextBox Grid.Column="1"
@@ -261,7 +261,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_CloseAction}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
@@ -362,7 +362,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxConcurrent}" Style="{StaticResource SettingLabel}" />
                     <TextBox Grid.Column="1" Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
@@ -382,7 +382,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_RemoveFinished}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
@@ -396,7 +396,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_IfFileExists}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
@@ -410,7 +410,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxCpuJobs}" Style="{StaticResource SettingLabel}" />
                     <TextBox Grid.Column="1" Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=LostFocus}" Style="{StaticResource SettingInput}" HorizontalContentAlignment="Right" />
@@ -439,7 +439,7 @@
                 <Grid Style="{StaticResource SettingRow}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="360" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_Autostart}" Style="{StaticResource SettingLabel}" />
                     <ComboBox Grid.Column="1"
