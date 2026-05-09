@@ -260,6 +260,10 @@ Settings_General_CloseAction_Ask         = Magtanong sa bawat pagkakataon
 Settings_General_CloseAction_MinToTray   = I-minimize sa tray
 Settings_General_CloseAction_Exit        = Lumabas sa application
 
+Settings_General_Notifications_Title  = Mga Abiso
+Settings_General_Notifications_Desc   = Lalabas na popup sa kanang-ibaba kapag tapos na ang pag-upload.
+Settings_General_ShowCompletionToasts = Magpakita ng popup na abiso kapag tapos na ang pag-upload
+
 Settings_General_ConfirmationPrompts_Title = Confirmation Prompts
 Settings_General_ConfirmationPrompts_Desc  = I-tick ang isang prompt para magtanong ulit bago ang aksyon. I-untick para hindi na magpakita ng confirmation para sa aksyong iyon.
 
@@ -270,6 +274,16 @@ Settings_General_Database_ConfirmTitle     = I-clear ang database
 Settings_General_Database_ConfirmMessage   = Permanenteng tanggalin ang upload records na nakatago sa parehong tab?\n\nHindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.
 Settings_General_Database_Status_Cleared_Format    = Na-clear ang {0} file row at {1} package row mula sa database.
 Settings_General_Database_Status_NothingToClear    = Walang nakatagong rows na ic-clear.
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = Tapos na ang pag-upload
+Toast_PackageCompleted_Title = Tapos na ang package
+Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}
 ```
 
 ---

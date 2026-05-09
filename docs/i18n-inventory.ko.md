@@ -260,6 +260,10 @@ Settings_General_CloseAction_Ask         = 매번 묻기
 Settings_General_CloseAction_MinToTray   = 트레이로 최소화
 Settings_General_CloseAction_Exit        = 응용 프로그램 종료
 
+Settings_General_Notifications_Title  = 알림
+Settings_General_Notifications_Desc   = 업로드가 완료되면 오른쪽 하단에 팝업을 표시합니다.
+Settings_General_ShowCompletionToasts = 업로드가 완료되면 팝업 알림 표시
+
 Settings_General_ConfirmationPrompts_Title = 확인 메시지
 Settings_General_ConfirmationPrompts_Desc  = 동작 전에 다시 묻도록 하려면 확인란을 선택하세요. 해당 동작에 대한 확인 메시지를 표시하지 않으려면 선택을 해제하세요.
 
@@ -270,6 +274,16 @@ Settings_General_Database_ConfirmTitle     = 데이터베이스 지우기
 Settings_General_Database_ConfirmMessage   = 두 탭 모두에서 숨겨진 업로드 기록을 영구적으로 삭제하시겠습니까?\n\n활성 및 표시 중인 업로드는 영향을 받지 않습니다. 이 작업은 되돌릴 수 없습니다.
 Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.
 Settings_General_Database_Status_NothingToClear    = 지울 숨겨진 행이 없습니다.
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = 업로드 완료
+Toast_PackageCompleted_Title = 패키지 업로드 완료
+Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}
 ```
 
 ---

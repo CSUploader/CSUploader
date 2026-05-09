@@ -259,6 +259,10 @@ Settings_General_CloseAction_Ask         = 毎回確認する
 Settings_General_CloseAction_MinToTray   = トレイに最小化
 Settings_General_CloseAction_Exit        = アプリケーションを終了
 
+Settings_General_Notifications_Title  = 通知
+Settings_General_Notifications_Desc   = アップロード完了時に画面右下にポップアップを表示します。
+Settings_General_ShowCompletionToasts = アップロード完了時にポップアップ通知を表示
+
 Settings_General_ConfirmationPrompts_Title = 確認プロンプト
 Settings_General_ConfirmationPrompts_Desc  = チェックを入れると操作前に再度確認します。チェックを外すと、その操作の確認が省略されます。
 
@@ -269,6 +273,16 @@ Settings_General_Database_ConfirmTitle     = データベースをクリア
 Settings_General_Database_ConfirmMessage   = 両方のタブで非表示になっているアップロード記録を完全に削除しますか？\n\n進行中および表示中のアップロードには影響しません。この操作は取り消せません。
 Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。
 Settings_General_Database_Status_NothingToClear    = クリアできる非表示の行はありません。
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = アップロード完了
+Toast_PackageCompleted_Title = パッケージのアップロード完了
+Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}
 ```
 
 ---

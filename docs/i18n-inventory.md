@@ -260,6 +260,10 @@ Settings_General_CloseAction_Ask         = Ask each time
 Settings_General_CloseAction_MinToTray   = Minimize to tray
 Settings_General_CloseAction_Exit        = Exit the application
 
+Settings_General_Notifications_Title  = Notifications
+Settings_General_Notifications_Desc   = Bottom-right popup that appears when an upload finishes.
+Settings_General_ShowCompletionToasts = Show a popup notification when an upload finishes
+
 Settings_General_ConfirmationPrompts_Title = Confirmation Prompts
 Settings_General_ConfirmationPrompts_Desc  = Tick a prompt to have it ask again before the action. Untick to suppress the confirmation for that action.
 
@@ -270,6 +274,16 @@ Settings_General_Database_ConfirmTitle     = Clear database
 Settings_General_Database_ConfirmMessage   = Permanently delete the upload records hidden from both tabs?\n\nActive and visible uploads are not affected. This cannot be undone.
 Settings_General_Database_Status_Cleared_Format    = Cleared {0} file row(s) and {1} package row(s) from the database.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = No hidden rows to clear.
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = Upload finished
+Toast_PackageCompleted_Title = Package finished
+Toast_PackageCompleted_Body  = {0} of {1} files uploaded — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---

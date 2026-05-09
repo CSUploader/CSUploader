@@ -260,6 +260,10 @@ Settings_General_CloseAction_Ask         = 每次询问
 Settings_General_CloseAction_MinToTray   = 最小化到托盘
 Settings_General_CloseAction_Exit        = 退出应用
 
+Settings_General_Notifications_Title  = 通知
+Settings_General_Notifications_Desc   = 上传完成时在右下角显示弹出通知。
+Settings_General_ShowCompletionToasts = 上传完成时显示弹出通知
+
 Settings_General_ConfirmationPrompts_Title = 确认提示
 Settings_General_ConfirmationPrompts_Desc  = 勾选某项以在执行该操作前再次询问。取消勾选将不再显示该确认。
 
@@ -270,6 +274,16 @@ Settings_General_Database_ConfirmTitle     = 清除数据库
 Settings_General_Database_ConfirmMessage   = 永久删除已从两个标签页中隐藏的上传记录吗？\n\n活动中和可见的上传不会受影响。此操作不可撤销。
 Settings_General_Database_Status_Cleared_Format    = 已从数据库中清除 {0} 个文件行和 {1} 个包行。
 Settings_General_Database_Status_NothingToClear    = 没有可清除的隐藏数据行。
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = 上传完成
+Toast_PackageCompleted_Title = 包上传完成
+Toast_PackageCompleted_Body  = 已上传 {0} / {1} 个文件 — {2}
 ```
 
 ---

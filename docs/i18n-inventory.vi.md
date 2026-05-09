@@ -268,6 +268,10 @@ Settings_General_CloseAction_Ask         = Hỏi mỗi lần
 Settings_General_CloseAction_MinToTray   = Thu nhỏ vào khay
 Settings_General_CloseAction_Exit        = Thoát ứng dụng
 
+Settings_General_Notifications_Title  = Thông báo
+Settings_General_Notifications_Desc   = Cửa sổ bật lên ở góc dưới bên phải khi quá trình tải lên hoàn tất.
+Settings_General_ShowCompletionToasts = Hiển thị thông báo bật lên khi tải lên hoàn tất
+
 Settings_General_ConfirmationPrompts_Title = Hộp thoại xác nhận
 Settings_General_ConfirmationPrompts_Desc  = Đánh dấu một mục để được hỏi lại trước khi thực hiện hành động. Bỏ đánh dấu để tắt xác nhận cho hành động đó.
 
@@ -278,6 +282,16 @@ Settings_General_Database_ConfirmTitle     = Xóa cơ sở dữ liệu
 Settings_General_Database_ConfirmMessage   = Xóa vĩnh viễn các bản ghi tải lên đã bị ẩn khỏi cả hai tab?\n\nCác lượt tải lên đang hoạt động và hiển thị sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.
 Settings_General_Database_Status_Cleared_Format    = Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.
 Settings_General_Database_Status_NothingToClear    = Không có dòng ẩn nào để xóa.
+```
+
+---
+
+## Toast notifications
+
+```
+Toast_FileCompleted_Title    = Tải lên hoàn tất
+Toast_PackageCompleted_Title = Gói tải lên hoàn tất
+Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}
 ```
 
 ---
