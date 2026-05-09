@@ -258,6 +258,9 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>Progreso</value>
   </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>I-save sa</value>
+  </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>Idinagdag</value>
   </data>
@@ -561,6 +564,15 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
     <value>Lumabas sa application</value>
   </data>
+  <data name="Settings_General_Notifications_Title" xml:space="preserve">
+    <value>Mga Abiso</value>
+  </data>
+  <data name="Settings_General_Notifications_Desc" xml:space="preserve">
+    <value>Lalabas na popup sa kanang-ibaba kapag tapos na ang pag-upload.</value>
+  </data>
+  <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
+    <value>Magpakita ng popup na abiso kapag tapos na ang pag-upload</value>
+  </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>Confirmation Prompts</value>
   </data>
@@ -589,6 +601,15 @@ Hindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.</v
   </data>
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>Walang nakatagong rows na ic-clear.</value>
+  </data>
+  <data name="Toast_FileCompleted_Title" xml:space="preserve">
+    <value>Tapos na ang pag-upload</value>
+  </data>
+  <data name="Toast_PackageCompleted_Title" xml:space="preserve">
+    <value>Tapos na ang package</value>
+  </data>
+  <data name="Toast_PackageCompleted_Body" xml:space="preserve">
+    <value>{0} sa {1} na file ang na-upload — {2}</value>
   </data>
   <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
     <value>Upload Management</value>

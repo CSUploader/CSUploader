@@ -258,6 +258,9 @@
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>进度</value>
   </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>保存至</value>
+  </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>添加时间</value>
   </data>
@@ -561,6 +564,15 @@
   <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
     <value>退出应用</value>
   </data>
+  <data name="Settings_General_Notifications_Title" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="Settings_General_Notifications_Desc" xml:space="preserve">
+    <value>上传完成时在右下角显示弹出通知。</value>
+  </data>
+  <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
+    <value>上传完成时显示弹出通知</value>
+  </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>确认提示</value>
   </data>
@@ -589,6 +601,15 @@
   </data>
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>没有可清除的隐藏数据行。</value>
+  </data>
+  <data name="Toast_FileCompleted_Title" xml:space="preserve">
+    <value>上传完成</value>
+  </data>
+  <data name="Toast_PackageCompleted_Title" xml:space="preserve">
+    <value>包上传完成</value>
+  </data>
+  <data name="Toast_PackageCompleted_Body" xml:space="preserve">
+    <value>已上传 {0} / {1} 个文件 — {2}</value>
   </data>
   <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
     <value>上传管理</value>

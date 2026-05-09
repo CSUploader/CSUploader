@@ -258,6 +258,9 @@
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>進捗</value>
   </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>保存先</value>
+  </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>追加日時</value>
   </data>
@@ -561,6 +564,15 @@
   <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
     <value>アプリケーションを終了</value>
   </data>
+  <data name="Settings_General_Notifications_Title" xml:space="preserve">
+    <value>通知</value>
+  </data>
+  <data name="Settings_General_Notifications_Desc" xml:space="preserve">
+    <value>アップロード完了時に画面右下にポップアップを表示します。</value>
+  </data>
+  <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
+    <value>アップロード完了時にポップアップ通知を表示</value>
+  </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>確認プロンプト</value>
   </data>
@@ -589,6 +601,15 @@
   </data>
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>クリアできる非表示の行はありません。</value>
+  </data>
+  <data name="Toast_FileCompleted_Title" xml:space="preserve">
+    <value>アップロード完了</value>
+  </data>
+  <data name="Toast_PackageCompleted_Title" xml:space="preserve">
+    <value>パッケージのアップロード完了</value>
+  </data>
+  <data name="Toast_PackageCompleted_Body" xml:space="preserve">
+    <value>{1} 件中 {0} 件のファイルをアップロード — {2}</value>
   </data>
   <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
     <value>アップロード管理</value>

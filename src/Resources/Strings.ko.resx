@@ -258,6 +258,9 @@
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>진행률</value>
   </data>
+  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+    <value>저장 위치</value>
+  </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>추가됨</value>
   </data>
@@ -561,6 +564,15 @@
   <data name="Settings_General_CloseAction_Exit" xml:space="preserve">
     <value>응용 프로그램 종료</value>
   </data>
+  <data name="Settings_General_Notifications_Title" xml:space="preserve">
+    <value>알림</value>
+  </data>
+  <data name="Settings_General_Notifications_Desc" xml:space="preserve">
+    <value>업로드가 완료되면 오른쪽 하단에 팝업을 표시합니다.</value>
+  </data>
+  <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
+    <value>업로드가 완료되면 팝업 알림 표시</value>
+  </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>확인 메시지</value>
   </data>
@@ -589,6 +601,15 @@
   </data>
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>지울 숨겨진 행이 없습니다.</value>
+  </data>
+  <data name="Toast_FileCompleted_Title" xml:space="preserve">
+    <value>업로드 완료</value>
+  </data>
+  <data name="Toast_PackageCompleted_Title" xml:space="preserve">
+    <value>패키지 업로드 완료</value>
+  </data>
+  <data name="Toast_PackageCompleted_Body" xml:space="preserve">
+    <value>{1}개 중 {0}개 파일 업로드됨 — {2}</value>
   </data>
   <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
     <value>업로드 관리</value>
