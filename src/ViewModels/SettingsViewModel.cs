@@ -106,6 +106,11 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     private int speedLimitValue;
 
+    // ── Notification settings ──
+
+    [ObservableProperty]
+    private bool showCompletionToasts = AppSettings.DefaultShowCompletionToasts;
+
     // ── Developer settings ──
 
     [ObservableProperty]
@@ -311,6 +316,10 @@ public partial class SettingsViewModel(
                     MinimizeToTray = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.ShowCompletionToasts:
+                    ShowCompletionToasts = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
                 case var k when k == SettingKey.CloseAction:
                     if (Enum.TryParse(setting.Value, out CloseAction parsedCloseAction))
                     {
@@ -360,6 +369,7 @@ public partial class SettingsViewModel(
         _settings.UseMockServer = UseMockServer;
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
+        _settings.ShowCompletionToasts = ShowCompletionToasts;
 
         // Resolve the active UI language: saved value → fallback to OS detection if blank.
         // Display the resolved tag on the dropdown so it always reflects what's in effect.
@@ -517,6 +527,13 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = value;
         _trayIconManager?.UpdateVisibility();
         _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
+    }
+
+    partial void OnShowCompletionToastsChanged(bool value)
+    {
+        if (_suppressAutoSave) return;
+        _settings.ShowCompletionToasts = value;
+        _ = AutoSaveAsync(SettingKey.ShowCompletionToasts, value ? "true" : "false");
     }
 
     partial void OnCloseActionChanged(CloseAction value)
