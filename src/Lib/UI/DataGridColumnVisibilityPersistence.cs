@@ -66,7 +66,7 @@ public static class DataGridColumnVisibilityPersistence
             // Split visible|displayIndex; tolerate older rows that only stored the
             // visibility marker by defaulting DisplayIndex to -1 (= "leave at XAML
             // default").
-            int bar = payload.IndexOf(FieldSeparator);
+            int bar = payload.IndexOf(FieldSeparator, StringComparison.Ordinal);
             string visibilityToken = bar < 0 ? payload : payload[..bar];
             string indexToken = bar < 0 ? string.Empty : payload[(bar + 1)..];
 
