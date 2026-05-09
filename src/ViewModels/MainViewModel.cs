@@ -165,7 +165,7 @@ public partial class MainViewModel : ObservableObject
     public void ActivateAndShowUploadedTab()
     {
         _services.GetService<Services.TrayIconManager>()?.ShowMainWindow();
-        SelectedTabIndex = 1;
+        SelectedTabIndex = 1; // Uploaded tab (order: Uploads, Uploaded, Settings, Logs).
     }
 
     public UploadsViewModel UploadsViewModel { get; }
