@@ -50,6 +50,8 @@ Common_Loading                    = 読み込み中…
 Common_Cancelling                 = キャンセル中…
 Common_Preparing                  = 準備中…
 Common_Unknown                    = 不明
+Common_Context_Copy               = Copy
+Common_Context_OpenUrl            = Open URL
 ```
 
 `Common_Save` は、設定 → 接続ページの保存ボタン、アカウント編集ダイアログの保存ボタン、
@@ -273,6 +275,11 @@ Settings_General_Database_ConfirmTitle     = データベースをクリア
 Settings_General_Database_ConfirmMessage   = 両方のタブで非表示になっているアップロード記録を完全に削除しますか？\n\n進行中および表示中のアップロードには影響しません。この操作は取り消せません。
 Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。
 Settings_General_Database_Status_NothingToClear    = クリアできる非表示の行はありません。
+Settings_General_Database_BtnClearLogs              = Clear logs
+Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
 ---
@@ -464,6 +471,7 @@ Settings_Accounts_PasswordMask            = ******
 
 ```
 Logs_AutoScroll                    = 自動スクロール
+Logs_BtnClear                      = Clear
 Logs_Tab_Status                    = ステータス
 Logs_Tab_Http                      = HTTP
 Logs_Tab_Errors                    = エラー

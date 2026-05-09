@@ -50,6 +50,8 @@ Common_Loading                    = 加载中…
 Common_Cancelling                 = 正在取消…
 Common_Preparing                  = 准备中…
 Common_Unknown                    = 未知
+Common_Context_Copy               = Copy
+Common_Context_OpenUrl            = Open URL
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -274,6 +276,11 @@ Settings_General_Database_ConfirmTitle     = 清除数据库
 Settings_General_Database_ConfirmMessage   = 永久删除已从两个标签页中隐藏的上传记录吗？\n\n活动中和可见的上传不会受影响。此操作不可撤销。
 Settings_General_Database_Status_Cleared_Format    = 已从数据库中清除 {0} 个文件行和 {1} 个包行。
 Settings_General_Database_Status_NothingToClear    = 没有可清除的隐藏数据行。
+Settings_General_Database_BtnClearLogs              = Clear logs
+Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
 ---
@@ -465,6 +472,7 @@ Settings_Accounts_PasswordMask            = ******
 
 ```
 Logs_AutoScroll                    = 自动滚动
+Logs_BtnClear                      = Clear
 Logs_Tab_Status                    = 状态
 Logs_Tab_Http                      = HTTP
 Logs_Tab_Errors                    = 错误

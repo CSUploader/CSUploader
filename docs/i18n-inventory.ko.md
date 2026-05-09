@@ -50,6 +50,8 @@ Common_Loading                    = 불러오는 중…
 Common_Cancelling                 = 취소하는 중…
 Common_Preparing                  = 준비 중…
 Common_Unknown                    = 알 수 없음
+Common_Context_Copy               = Copy
+Common_Context_OpenUrl            = Open URL
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -274,6 +276,11 @@ Settings_General_Database_ConfirmTitle     = 데이터베이스 지우기
 Settings_General_Database_ConfirmMessage   = 두 탭 모두에서 숨겨진 업로드 기록을 영구적으로 삭제하시겠습니까?\n\n활성 및 표시 중인 업로드는 영향을 받지 않습니다. 이 작업은 되돌릴 수 없습니다.
 Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.
 Settings_General_Database_Status_NothingToClear    = 지울 숨겨진 행이 없습니다.
+Settings_General_Database_BtnClearLogs              = Clear logs
+Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
 ---
@@ -465,6 +472,7 @@ Settings_Accounts_PasswordMask            = ******
 
 ```
 Logs_AutoScroll                    = 자동 스크롤
+Logs_BtnClear                      = Clear
 Logs_Tab_Status                    = 상태
 Logs_Tab_Http                      = HTTP
 Logs_Tab_Errors                    = 오류

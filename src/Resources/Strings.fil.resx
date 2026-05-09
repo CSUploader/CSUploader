@@ -130,6 +130,12 @@
   <data name="Common_Unknown" xml:space="preserve">
     <value>hindi alam</value>
   </data>
+  <data name="Common_Context_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Common_Context_OpenUrl" xml:space="preserve">
+    <value>Open URL</value>
+  </data>
   <data name="Main_Title" xml:space="preserve">
     <value>CSUploader</value>
   </data>
@@ -602,6 +608,23 @@ Hindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.</v
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>Walang nakatagong rows na ic-clear.</value>
   </data>
+  <data name="Settings_General_Database_BtnClearLogs" xml:space="preserve">
+    <value>Clear logs</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmClearLogsTitle" xml:space="preserve">
+    <value>Clear log history</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmClearLogsMessage" xml:space="preserve">
+    <value>Permanently delete all log entries from the database?
+
+This affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.</value>
+  </data>
+  <data name="Settings_General_Database_LogsCleared_Format" xml:space="preserve">
+    <value>Cleared {0} log entr(ies) from the database.</value>
+  </data>
+  <data name="Settings_General_Database_LogsNothingToClear" xml:space="preserve">
+    <value>No log entries to clear.</value>
+  </data>
   <data name="Toast_FileCompleted_Title" xml:space="preserve">
     <value>Tapos na ang pag-upload</value>
   </data>
@@ -995,6 +1018,9 @@ Idagdag pa rin?</value>
   </data>
   <data name="Logs_AutoScroll" xml:space="preserve">
     <value>Auto-scroll</value>
+  </data>
+  <data name="Logs_BtnClear" xml:space="preserve">
+    <value>Clear</value>
   </data>
   <data name="Logs_Tab_Status" xml:space="preserve">
     <value>Status</value>
