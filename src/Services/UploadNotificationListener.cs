@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using CSUploader.Upload;
 
 namespace CSUploader.Services;
@@ -13,11 +13,13 @@ namespace CSUploader.Services;
 /// calls. Tracks per-package "summary already fired" so retries after a failure don't
 /// re-trigger the package-completion summary.
 /// </summary>
-public sealed class UploadNotificationListener
+public sealed class UploadNotificationListener : IDisposable
 {
     private readonly UploadScheduler _scheduler;
     private readonly IToastNotificationService _toasts;
-    private readonly ConcurrentDictionary<Package, byte> _summaryShown = new();
+    private readonly ConditionalWeakTable<Package, object> _summaryShown = new();
+    private static readonly object SummaryFiredSentinel = new();
+    private bool _disposed;
 
     public UploadNotificationListener(UploadScheduler scheduler, IToastNotificationService toasts)
     {
@@ -61,10 +63,17 @@ public sealed class UploadNotificationListener
             return;
         }
 
-        if (_summaryShown.TryAdd(pkg, 0))
+        if (_summaryShown.TryAdd(pkg, SummaryFiredSentinel))
         {
             _toasts.ShowPackageCompleted(pkg, succeeded, total);
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _scheduler.FileStateChanged -= HandleFileStateChanged;
     }
 
     private static bool IsTerminal(FileState state) =>
