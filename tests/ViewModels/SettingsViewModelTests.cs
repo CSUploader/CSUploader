@@ -130,6 +130,18 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task EditingShowCompletionToasts_AutoPersistsAndUpdatesAppSettings()
+    {
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        vm.ShowCompletionToasts = false;
+
+        Assert.Equal("false", await WaitForSettingValueAsync(SettingKey.ShowCompletionToasts));
+        Assert.False(_appSettings.ShowCompletionToasts);
+    }
+
+    [Fact]
     public async Task EditingCloseAction_AutoPersistsAndUpdatesAppSettings()
     {
         SettingsViewModel vm = CreateVm();
