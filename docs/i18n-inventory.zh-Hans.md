@@ -289,6 +289,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = 上传完成
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = 包上传完成
 Toast_PackageCompleted_Body  = 已上传 {0} / {1} 个文件 — {2}
 ```

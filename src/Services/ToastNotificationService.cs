@@ -58,9 +58,13 @@ public sealed class ToastNotificationService : IToastNotificationService
     public void ShowFileCompleted(PackageFile file)
     {
         if (!_settings.ShowCompletionToasts) return;
+        string body = string.Format(
+            CultureInfo.CurrentCulture,
+            Localizer.Instance["Toast_FileCompleted_Body"],
+            file.Name);
         _dispatchToUi(() => ShowToast(
             title: Localizer.Instance["Toast_FileCompleted_Title"],
-            message: file.Name,
+            message: body,
             iconKey: "StatusSuccessImage"));
     }
 

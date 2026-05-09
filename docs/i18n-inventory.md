@@ -289,6 +289,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = Upload finished
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Package finished
 Toast_PackageCompleted_Body  = {0} of {1} files uploaded — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```

@@ -288,6 +288,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = アップロード完了
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = パッケージのアップロード完了
 Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}
 ```

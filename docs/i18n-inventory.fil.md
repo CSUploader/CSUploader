@@ -289,6 +289,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = Tapos na ang pag-upload
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Tapos na ang package
 Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}
 ```

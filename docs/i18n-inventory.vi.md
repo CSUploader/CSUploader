@@ -297,6 +297,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = Tải lên hoàn tất
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Gói tải lên hoàn tất
 Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}
 ```

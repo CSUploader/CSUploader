@@ -289,6 +289,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 
 ```
 Toast_FileCompleted_Title    = 업로드 완료
+Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = 패키지 업로드 완료
 Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}
 ```

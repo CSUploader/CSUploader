@@ -628,6 +628,9 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Toast_FileCompleted_Title" xml:space="preserve">
     <value>アップロード完了</value>
   </data>
+  <data name="Toast_FileCompleted_Body" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="Toast_PackageCompleted_Title" xml:space="preserve">
     <value>パッケージのアップロード完了</value>
   </data>
