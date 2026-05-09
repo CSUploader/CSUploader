@@ -44,6 +44,8 @@ public class AppSettings
 
     public static bool DefaultProxiesEnabled { get; } = true;
 
+    public static bool DefaultShowCompletionToasts { get; } = true;
+
 #if DEBUG
     public static bool DefaultUseMockServer { get; } = true;
 #else
@@ -142,6 +144,12 @@ public class AppSettings
     /// work, so you can curate / verify proxies without committing to using them yet.
     /// </summary>
     public bool ProxiesEnabled { get; set; } = DefaultProxiesEnabled;
+
+    /// <summary>
+    /// Master switch for the bottom-right "upload finished" toast popups. When false,
+    /// completions are silent (still visible in the Uploaded tab and Logs).
+    /// </summary>
+    public bool ShowCompletionToasts { get; set; } = DefaultShowCompletionToasts;
 
     public int? SpeedLimit { get; set; }
 
