@@ -16,15 +16,13 @@ namespace CSUploader.Tests.Services;
 public class ToastNotificationServiceTests
 {
     private const double ToastHeight = 80;
-    private const double ToastWidth = 360;
-    private const double Margin = 12;
 
     private readonly AppSettings _settings = new();
     private readonly FakeToastWindowFactory _factory = new();
     private readonly Rect _workArea = new(0, 0, 1920, 1040);
 
     private ToastNotificationService CreateService()
-        => new(_settings, _factory, () => _workArea, activate: () => { });
+        => new(_settings, _factory, () => _workArea, activate: () => { }, dispatchToUi: action => action());
 
     [Fact]
     public void ShowFileCompleted_WhenSettingDisabled_DoesNotCreateToast()
@@ -47,8 +45,8 @@ public class ToastNotificationServiceTests
 
         Assert.Single(_factory.Created);
         FakeToastHost host = _factory.Created[0];
-        Assert.Equal(_workArea.Right - ToastWidth - Margin, host.Left);
-        Assert.Equal(_workArea.Bottom - Margin - ToastHeight, host.Top);
+        Assert.Equal(_workArea.Right - ToastNotificationService.ToastWidth - ToastNotificationService.Margin, host.Left);
+        Assert.Equal(_workArea.Bottom - ToastNotificationService.Margin - ToastHeight, host.Top);
     }
 
     [Fact]
@@ -62,7 +60,7 @@ public class ToastNotificationServiceTests
         service.ShowFileCompleted(BuildFile("c.zip"));
 
         Assert.Equal(3, _factory.Created.Count);
-        double bottomTop = _workArea.Bottom - Margin - ToastHeight;
+        double bottomTop = _workArea.Bottom - ToastNotificationService.Margin - ToastHeight;
         Assert.Equal(bottomTop, _factory.Created[0].Top);
         Assert.Equal(bottomTop - ToastHeight, _factory.Created[1].Top);
         Assert.Equal(bottomTop - 2 * ToastHeight, _factory.Created[2].Top);
@@ -82,7 +80,7 @@ public class ToastNotificationServiceTests
         _factory.Created[1].RaiseClosed();
 
         // The remaining toasts (a, c) should occupy the two bottom slots.
-        double bottomTop = _workArea.Bottom - Margin - ToastHeight;
+        double bottomTop = _workArea.Bottom - ToastNotificationService.Margin - ToastHeight;
         Assert.Equal(bottomTop, _factory.Created[0].Top);
         Assert.Equal(bottomTop - ToastHeight, _factory.Created[2].Top);
     }
@@ -108,7 +106,7 @@ public class ToastNotificationServiceTests
     {
         _settings.ShowCompletionToasts = true;
         bool activated = false;
-        ToastNotificationService service = new(_settings, _factory, () => _workArea, activate: () => activated = true);
+        ToastNotificationService service = new(_settings, _factory, () => _workArea, activate: () => activated = true, dispatchToUi: action => action());
 
         service.ShowFileCompleted(BuildFile("foo.zip"));
         _factory.Created[0].ViewModel.ActivateCommand.Execute(null);

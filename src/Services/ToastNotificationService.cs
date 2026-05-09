@@ -19,34 +19,49 @@ namespace CSUploader.Services;
 /// </summary>
 public sealed class ToastNotificationService : IToastNotificationService
 {
-    private const double ToastWidth = 360;
-    private const double Margin = 12;
+    internal const double ToastWidth = 360;
+    internal const double Margin = 12;
 
     private readonly AppSettings _settings;
     private readonly IToastWindowFactory _factory;
     private readonly Func<Rect> _workAreaProvider;
     private readonly Action _activate;
+    private readonly Action<Action> _dispatchToUi;
     private readonly List<IToastHost> _activeToasts = new();
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="ToastNotificationService"/>.
+    /// </summary>
+    /// <param name="settings">Application settings.</param>
+    /// <param name="factory">Factory for creating toast host windows.</param>
+    /// <param name="workAreaProvider">Returns the current work-area rectangle used for positioning.</param>
+    /// <param name="activate">Callback invoked when the user clicks a toast to bring the main window forward.</param>
+    /// <param name="dispatchToUi">
+    /// Callback that marshals an action onto the UI thread. In production pass
+    /// <c>action => Application.Current.Dispatcher.BeginInvoke(action)</c>; in tests pass
+    /// <c>action => action()</c> to run synchronously.
+    /// </param>
     public ToastNotificationService(
         AppSettings settings,
         IToastWindowFactory factory,
         Func<Rect> workAreaProvider,
-        Action activate)
+        Action activate,
+        Action<Action> dispatchToUi)
     {
         _settings = settings;
         _factory = factory;
         _workAreaProvider = workAreaProvider;
         _activate = activate;
+        _dispatchToUi = dispatchToUi;
     }
 
     public void ShowFileCompleted(PackageFile file)
     {
         if (!_settings.ShowCompletionToasts) return;
-        ShowToast(
+        _dispatchToUi(() => ShowToast(
             title: Localizer.Instance["Toast_FileCompleted_Title"],
             message: file.Name,
-            iconKey: "StatusSuccessImage");
+            iconKey: "StatusSuccessImage"));
     }
 
     public void ShowPackageCompleted(Package package, int succeeded, int total)
@@ -60,10 +75,10 @@ public sealed class ToastNotificationService : IToastNotificationService
             total,
             package.Name);
 
-        ShowToast(
+        _dispatchToUi(() => ShowToast(
             title: Localizer.Instance["Toast_PackageCompleted_Title"],
             message: body,
-            iconKey: "PackageClosedImage");
+            iconKey: "PackageClosedImage"));
     }
 
     private void ShowToast(string title, string message, string iconKey)
@@ -86,11 +101,11 @@ public sealed class ToastNotificationService : IToastNotificationService
         };
 
         host = _factory.Create(vm);
-        host.Closed += (_, _) =>
+        host.Closed += (_, _) => _dispatchToUi(() =>
         {
             _activeToasts.Remove(host);
             Reflow();
-        };
+        });
 
         _activeToasts.Add(host);
         Reflow();
