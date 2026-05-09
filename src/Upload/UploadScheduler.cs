@@ -315,6 +315,7 @@ public class UploadScheduler : IDisposable
                     else if (ev is Lib.Crypto.HashFailed hf)
                     {
                         file.Error = hf.Reason;
+                        _logger.Log(this, LogType.Error, $"Hashing failed for {file.Name}: {hf.Reason}");
                     }
                 }
             }
@@ -357,7 +358,15 @@ public class UploadScheduler : IDisposable
                     }
 
                     file.ApplyEvent(ev);
-                    if (ev is Pipeline.AttemptCompleted ac)
+                    if (ev is Pipeline.AttemptFailed af)
+                    {
+                        _logger.Log(this, LogType.Error, $"Upload failed for {file.Name}: {af.Reason}");
+                    }
+                    else if (ev is Pipeline.AuthFailed authFailed)
+                    {
+                        _logger.Log(this, LogType.Error, $"Authentication failed for {file.Name}: {authFailed.Reason}");
+                    }
+                    else if (ev is Pipeline.AttemptCompleted ac)
                     {
                         success = ac.Success;
                     }

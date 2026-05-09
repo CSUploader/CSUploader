@@ -116,6 +116,32 @@ public static class FirstRun
 
         // New tables added after the first release — EnsureCreated() doesn't add them
         // to existing databases, so create them explicitly when missing.
+        if (!TableExists(ctx, "LogEntry"))
+        {
+            try
+            {
+#pragma warning disable EF1002
+                ctx.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE LogEntry (
+                        Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        DateTime TEXT NOT NULL,
+                        LogType INTEGER NOT NULL,
+                        Filename TEXT,
+                        Function TEXT,
+                        LineNumber INTEGER NOT NULL DEFAULT 0,
+                        ThreadId INTEGER NOT NULL DEFAULT 0,
+                        Message TEXT NOT NULL DEFAULT ''
+                    )");
+                ctx.Database.ExecuteSqlRaw("CREATE INDEX IX_LogEntry_DateTime ON LogEntry (DateTime)");
+#pragma warning restore EF1002
+                logger.Log(null, LogType.Status, "Schema migration: created table LogEntry");
+            }
+            catch (Exception ex)
+            {
+                logger.Log(null, LogType.Error, $"Schema migration failed to create LogEntry: {ex.Message}");
+            }
+        }
+
         if (!TableExists(ctx, "ProxySetting"))
         {
             try

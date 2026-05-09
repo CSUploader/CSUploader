@@ -176,6 +176,71 @@ public partial class MainViewModel : ObservableObject
     {
         FirstRun.InitializeDatabase(_services, _logger);
 
+        // Hydrate the Logs tab from the persisted store BEFORE wiring the persistence
+        // handler, so this session's events aren't double-counted. Old entries keep
+        // their original DateTime, which is the whole point of persistence.
+        LogEntryRepository logEntryRepo = _services.GetRequiredService<LogEntryRepository>();
+        try
+        {
+            // Best-effort retention: drop entries older than 30 days so the table doesn't
+            // grow unbounded across long-running installs.
+            await logEntryRepo.DeleteOlderThanAsync(DateTime.Now.AddDays(-30));
+
+            LogEntryDto[] recent = await logEntryRepo.GetRecentAsync(5000);
+            foreach (LogEntryDto entry in recent)
+            {
+                LogEvent ev = new()
+                {
+                    DateTime = entry.DateTime,
+                    LogType = entry.LogType,
+                    Filename = entry.Filename,
+                    Function = entry.Function,
+                    LineNumber = entry.LineNumber,
+                    ThreadId = entry.ThreadId,
+                    Message = entry.Message,
+                };
+                LogsViewModel.AddLogEntry(ev);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to load persisted log entries: {ex.Message}");
+        }
+
+        // Persist every Status/Error/UI entry going forward. HTTP entries carry an
+        // HttpTransaction with bodies/headers we don't want to dump into SQLite, so
+        // they stay session-only. Fire-and-forget — logging must never crash the app.
+        _logger.OnLogOutput += (_, e) =>
+        {
+            if (e.LogType == LogType.Http)
+            {
+                return;
+            }
+
+            LogEntryDto dto = new()
+            {
+                DateTime = e.DateTime,
+                LogType = e.LogType,
+                Filename = e.Filename,
+                Function = e.Function,
+                LineNumber = e.LineNumber,
+                ThreadId = e.ThreadId,
+                Message = e.Message ?? string.Empty,
+            };
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await logEntryRepo.InsertAsync(dto);
+                }
+                catch
+                {
+                    // Swallow — a logging failure must not crash the app, and re-logging
+                    // here would risk a feedback loop.
+                }
+            });
+        };
+
         // Restore the persisted theme before the user sees the UI to avoid a light->dark
         // flash. Suppress the change handler's auto-save while we apply the loaded value.
         SettingRepository settingRepo = _services.GetRequiredService<SettingRepository>();

@@ -32,6 +32,8 @@ public class CSUploaderDbContext : DbContext
 
     public DbSet<ProxySettingDbm> ProxySettings => Set<ProxySettingDbm>();
 
+    public DbSet<LogEntryDbm> LogEntries => Set<LogEntryDbm>();
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
@@ -72,6 +74,13 @@ public class CSUploaderDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<LogEntryDbm>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.HasIndex(e => e.DateTime);
         });
     }
 }

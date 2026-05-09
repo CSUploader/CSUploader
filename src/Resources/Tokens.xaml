@@ -115,6 +115,43 @@
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     </Style>
 
+    <!-- JD2-style raised button. Defined here (not in a per-View Resources block) so any
+         View can reference it via {StaticResource JD2Button}; the underlying JD2Button*
+         brushes live in Theme.Light.xaml / Theme.Dark.xaml. -->
+    <Style x:Key="JD2Button" TargetType="Button">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinWidth" Value="90" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="1" Padding="{TemplateBinding Padding}"
+                            BorderThickness="1" BorderBrush="{DynamicResource JD2ButtonBorderBrush}"
+                            Background="{DynamicResource JD2ButtonBgBrush}"
+                            TextElement.Foreground="{TemplateBinding Foreground}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource JD2ButtonHoverBorderBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource JD2ButtonHoverBgBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource JD2ButtonPressedBgBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ═══ Global implicit styles for dark mode support ═══ -->
 
     <!-- TextBox -->
@@ -398,6 +435,66 @@
         </ControlTemplate.Triggers>
     </ControlTemplate>
 
+    <!-- SubmenuHeader template — a MenuItem with child items inside a popup menu.
+         Mirrors SubmenuItemTemplate but adds a right-pointing chevron in column 2 and
+         a Popup hosting the child items. Without this the default theme falls back to
+         the plain item template, which has no Popup, so children silently never render. -->
+    <ControlTemplate x:Key="SubmenuHeaderTemplate" TargetType="MenuItem">
+        <Border x:Name="Bd"
+                Background="{TemplateBinding Background}"
+                BorderBrush="Transparent"
+                BorderThickness="0"
+                Padding="8,4"
+                SnapsToDevicePixels="True">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                      Width="16" Height="16">
+                    <ContentPresenter ContentSource="Icon"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+                <ContentPresenter Grid.Column="1" ContentSource="Header"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True" />
+                <TextBlock Grid.Column="2" Text="&#x25B6;" FontSize="10"
+                           VerticalAlignment="Center" Margin="20,0,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                <Popup x:Name="PART_Popup"
+                       AllowsTransparency="True"
+                       Focusable="False"
+                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                       Placement="Right"
+                       HorizontalOffset="-2"
+                       PopupAnimation="None">
+                    <Border Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            Padding="2"
+                            SnapsToDevicePixels="True">
+                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </Popup>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsSubmenuOpen" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
     <!-- SubmenuItem template (used inside ContextMenu and dropdown popups) -->
     <ControlTemplate x:Key="SubmenuItemTemplate" TargetType="MenuItem">
         <Border x:Name="Bd"
@@ -464,7 +561,7 @@
                 <Setter Property="Template" Value="{StaticResource SubmenuItemTemplate}" />
             </Trigger>
             <Trigger Property="Role" Value="SubmenuHeader">
-                <Setter Property="Template" Value="{StaticResource SubmenuItemTemplate}" />
+                <Setter Property="Template" Value="{StaticResource SubmenuHeaderTemplate}" />
             </Trigger>
         </Style.Triggers>
     </Style>

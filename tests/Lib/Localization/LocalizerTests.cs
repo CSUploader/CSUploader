@@ -10,7 +10,10 @@ using CSUploader.Lib.Localization;
 namespace CSUploader.Tests.Lib.Localization;
 
 // Localizer.Instance is a process-wide singleton — leaving its Culture mutated bleeds into
-// any later test that reads localised strings (e.g. the Settings VM tests). Reset on dispose.
+// any later test that reads localised strings (e.g. the Settings VM tests). Reset on dispose
+// AND join the LocalizerCollection so xUnit serializes us against other classes that touch
+// the singleton, otherwise per-test cleanup races against parallel readers.
+[Collection(LocalizerCollection.Name)]
 public class LocalizerTests : IDisposable
 {
     private readonly CultureInfo _originalCulture = Localizer.Instance.Culture;

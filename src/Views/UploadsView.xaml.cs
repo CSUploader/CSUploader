@@ -215,6 +215,32 @@ public partial class UploadsView : UserControl
     }
 
     /// <summary>
+    /// Suppresses the DataGrid's context menu when the right-click landed on empty space
+    /// below the rows. Every menu entry binds against the selected row, so opening it on
+    /// whitespace would yield a non-functional menu.
+    /// </summary>
+    private void UploadsGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        DependencyObject? source = e.OriginalSource as DependencyObject;
+        if (FindAncestor<DataGridRow>(source) is not null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
+    {
+        while (source is not null and not T)
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return source as T;
+    }
+
+    /// <summary>
     /// Switches to the Settings tab and selects the Accounts category.
     /// </summary>
     private void PremiumAccountLink_Click(object sender, MouseButtonEventArgs e)

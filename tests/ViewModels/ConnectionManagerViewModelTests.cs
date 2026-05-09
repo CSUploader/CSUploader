@@ -17,6 +17,7 @@ using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
+[Collection(LocalizerCollection.Name)]
 public class ConnectionManagerViewModelTests : IDisposable
 {
     private readonly SqliteConnection _connection;

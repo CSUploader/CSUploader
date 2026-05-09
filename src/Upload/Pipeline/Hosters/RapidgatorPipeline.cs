@@ -98,13 +98,11 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
             yield return new TransferStarted(ctx.FileSize);
 
-            // === File upload request → upload_url + upload_id ===
-            string? uploadUrl;
-            string? uploadId;
-            string? upError;
+            // === File upload request → upload_url + upload_id (or instant-finish) ===
+            UploadUrlResult upload;
             try
             {
-                (uploadUrl, uploadId, upError) = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
+                upload = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
             }
             catch (AuthExpiredException)
             {
@@ -113,11 +111,22 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
                 break;
             }
 
-            if (uploadUrl is null || uploadId is null)
+            if (upload.Error is not null)
             {
-                attemptFailure = upError ?? "file/upload failed";
+                attemptFailure = upload.Error;
                 break;
             }
+
+            // Hash-dedup hit — server already had this file. Skip bytes upload and the
+            // upload_info round-trip; the public URL is right here.
+            if (upload.CompletedFileUrl is not null)
+            {
+                finalUrl = upload.CompletedFileUrl;
+                break;
+            }
+
+            string uploadUrl = upload.UploadUrl!;
+            string uploadId = upload.UploadId!;
 
             // === Multipart upload bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
             // UploadBytesAsync runs concurrently; progress callbacks write into an unbounded
@@ -227,7 +236,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out LoginEnvelope? env) || env?.Status != 200 || env.Response is null)
         {
-            return (null, env?.Details ?? "login failed");
+            return (null, FormatApiError("login failed", env?.Details, env?.Status, body));
         }
 
         return (new RapidgatorAuthState(env.Response.Token, env.Response.User?.FolderId ?? 0), null);
@@ -250,13 +259,26 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
         {
             if (env?.Status == 401) throw new AuthExpiredException();
-            return (null, env?.Details ?? "folder/create failed");
+            return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
         }
 
         return (env.Response.Folder.Id, null);
     }
 
-    private async Task<(string?, string?, string?)> GetUploadUrlAsync(AttemptContext ctx, RapidgatorAuthState auth, int folderId)
+    /// <summary>
+    /// Result of /api/v2/file/upload. Three mutually-exclusive shapes:
+    ///   - <see cref="Error"/> set: API rejected the request (size cap, auth, etc.).
+    ///   - <see cref="CompletedFileUrl"/> set: hash dedup hit — Rapidgator already had this
+    ///     file, so they instantly assigned it to our account and returned the public URL
+    ///     without us uploading any bytes. Skip the multipart + upload_info steps.
+    ///   - <see cref="UploadUrl"/> + <see cref="UploadId"/> set: normal flow, POST bytes.
+    /// </summary>
+    private sealed record UploadUrlResult(string? UploadUrl, string? UploadId, string? CompletedFileUrl, string? Error);
+
+    /// <summary>State value Rapidgator returns when the file is already on their servers.</summary>
+    private const int RapidgatorUploadStateDone = 2;
+
+    private async Task<UploadUrlResult> GetUploadUrlAsync(AttemptContext ctx, RapidgatorAuthState auth, int folderId)
     {
         string url = $"https://www.rapidgator.net/api/v2/file/upload"
             + $"?folder_id={folderId}"
@@ -269,10 +291,24 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
         {
             if (env?.Status == 401) throw new AuthExpiredException();
-            return (null, null, env?.Details ?? "file/upload failed");
+            return new UploadUrlResult(null, null, null, FormatApiError("file/upload failed", env?.Details, env?.Status, body));
         }
 
-        return (env.Response.Upload.Url, env.Response.Upload.UploadId, null);
+        UploadUrl upload = env.Response.Upload;
+
+        // Hash-dedup short-circuit. The server returns `url: null`, `state: 2 ("Done")`,
+        // and a populated `file.url` we can use directly.
+        if (upload.State == RapidgatorUploadStateDone && !string.IsNullOrEmpty(upload.File?.Url))
+        {
+            return new UploadUrlResult(null, null, upload.File!.Url, null);
+        }
+
+        if (string.IsNullOrEmpty(upload.Url) || string.IsNullOrEmpty(upload.UploadId))
+        {
+            return new UploadUrlResult(null, null, null, FormatApiError("file/upload failed", env?.Details, env?.Status, body));
+        }
+
+        return new UploadUrlResult(upload.Url, upload.UploadId, null, null);
     }
 
     private Task UploadBytesAsync(AttemptContext ctx, string uploadUrl)
@@ -288,7 +324,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env) || env?.Status != 200 || env.Response?.Upload?.File?.Url is null)
         {
             if (env?.Status == 401) throw new AuthExpiredException();
-            return (null, env?.Details ?? "file/upload_info failed");
+            return (null, FormatApiError("file/upload_info failed", env?.Details, env?.Status, body));
         }
 
         return (env.Response.Upload.File.Url, null);
@@ -296,6 +332,41 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
     private Task<string> GetAsync(AttemptContext ctx, string url)
         => _httpOverride is not null ? _httpOverride(url) : ctx.Handler.GetStringAsync(url, ctx.Cancellation);
+
+    private static string FormatApiError(string fallback, string? details, int? status, string? rawBody = null)
+    {
+        // Best case: server returned a structured envelope. Prefer its details over our
+        // generic fallback, and append the HTTP status when we have one.
+        if (status is int s)
+        {
+            string head = string.IsNullOrEmpty(details) ? fallback : details!;
+            return $"{head} (HTTP {s})";
+        }
+
+        if (!string.IsNullOrEmpty(details))
+        {
+            return details!;
+        }
+
+        // Worst case: deserialization failed (env was null) — body wasn't shaped like our
+        // envelope at all. Tail a snippet of the raw body so the user can see what came
+        // back (HTML error page, plain-text reject, etc.) instead of just "X failed".
+        if (!string.IsNullOrWhiteSpace(rawBody))
+        {
+            string snippet = rawBody.Trim()
+                .Replace("\r", " ", StringComparison.Ordinal)
+                .Replace("\n", " ", StringComparison.Ordinal);
+            const int Max = 200;
+            if (snippet.Length > Max)
+            {
+                snippet = snippet[..Max] + "…";
+            }
+
+            return $"{fallback}: {snippet}";
+        }
+
+        return fallback;
+    }
 
     private sealed class LoginEnvelope
     {
@@ -355,7 +426,18 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     {
         [JsonPropertyName("upload_id")] public string UploadId { get; set; } = string.Empty;
 
-        [JsonPropertyName("url")] public string Url { get; set; } = string.Empty;
+        // Null on the hash-dedup path — Rapidgator skips the bytes upload and returns the
+        // public URL directly inside `file`. Default empty kept for the normal flow.
+        [JsonPropertyName("url")] public string? Url { get; set; } = string.Empty;
+
+        [JsonPropertyName("state")] public int State { get; set; }
+
+        [JsonPropertyName("file")] public UploadUrlFile? File { get; set; }
+    }
+
+    private sealed class UploadUrlFile
+    {
+        [JsonPropertyName("url")] public string? Url { get; set; }
     }
 
     private sealed class UploadInfoEnvelope

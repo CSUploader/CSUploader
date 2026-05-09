@@ -5,6 +5,7 @@
 
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CSUploader.Lib;
 
 namespace CSUploader.ViewModels;
@@ -42,4 +43,16 @@ public partial class LogsViewModel : ObservableObject
                 break;
         }
     }
+
+    [RelayCommand]
+    private void ClearStatusLogs() => StatusLogs.Clear();
+
+    [RelayCommand]
+    private void ClearHttpLogs() => HttpLogs.Clear();
+
+    [RelayCommand]
+    private void ClearErrorLogs() => ErrorLogs.Clear();
+
+    [RelayCommand]
+    private void ClearUILogs() => UILogs.Clear();
 }

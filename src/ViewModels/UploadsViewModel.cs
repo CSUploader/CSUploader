@@ -6,6 +6,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Threading;
@@ -485,6 +486,72 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         {
             _packageManager.RemovePackage(file);
             VisibleRows.Remove(file);
+        }
+    }
+
+    /// <summary>
+    /// Currently focused row (Package or PackageFile). Driven from the DataGrid's
+    /// SelectedItem so the per-column "Copy" submenu can find the row even though
+    /// each MenuItem only carries a single CommandParameter (the column key).
+    /// </summary>
+    [ObservableProperty]
+    private object? selectedRow;
+
+    /// <summary>
+    /// Opens the row's <c>FileUrl</c> in the user's default browser. Only enabled for
+    /// <see cref="PackageFile"/> rows with a non-empty URL — Package rows aggregate
+    /// nothing meaningful here so the menu item disables itself for them.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanOpenUrl))]
+    private static void OpenUrl(object? row)
+    {
+        string? url = (row as PackageFile)?.FileUrl;
+        if (string.IsNullOrEmpty(url))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch
+        {
+            // Best-effort: the URL came from the hoster API and Process.Start rarely
+            // fails on a valid http(s) link. A failure here shouldn't crash the UI.
+        }
+    }
+
+    private static bool CanOpenUrl(object? row) =>
+        row is PackageFile file && !string.IsNullOrEmpty(file.FileUrl);
+
+    /// <summary>
+    /// Copies the value of <paramref name="columnKey"/> from <see cref="SelectedRow"/>
+    /// to the clipboard. Column keys mirror the resx <c>Uploads_Col_*</c> suffix so
+    /// XAML can drive the submenu without a separate enum.
+    /// </summary>
+    [RelayCommand]
+    private void CopyColumn(string? columnKey)
+    {
+        if (string.IsNullOrEmpty(columnKey) || SelectedRow is null)
+        {
+            return;
+        }
+
+        string? text = ColumnValueExtractor.Extract(SelectedRow, columnKey, isUploadsTab: true);
+        if (text is null)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+        }
+        catch
+        {
+            // Clipboard.SetText can throw on rare contention with another app —
+            // swallow rather than crash the UI thread for a copy operation.
         }
     }
 

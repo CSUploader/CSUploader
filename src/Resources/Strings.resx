@@ -61,6 +61,12 @@
   <data name="Common_Close" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="Common_Context_Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Common_Context_OpenUrl" xml:space="preserve">
+    <value>Open URL</value>
+  </data>
   <data name="Common_Edit" xml:space="preserve">
     <value>Edit</value>
   </data>
@@ -259,7 +265,7 @@ Use Help → Install Update to download and install.</value>
     <value>Progress</value>
   </data>
   <data name="Uploads_Col_SaveTo" xml:space="preserve">
-    <value>Save to</value>
+    <value>Source folder</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>Added</value>
@@ -592,6 +598,23 @@ Active and visible uploads are not affected. This cannot be undone.</value>
   </data>
   <data name="Settings_General_Database_Status_NothingToClear" xml:space="preserve">
     <value>No hidden rows to clear.</value>
+  </data>
+  <data name="Settings_General_Database_BtnClearLogs" xml:space="preserve">
+    <value>Clear logs</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmClearLogsTitle" xml:space="preserve">
+    <value>Clear log history</value>
+  </data>
+  <data name="Settings_General_Database_ConfirmClearLogsMessage" xml:space="preserve">
+    <value>Permanently delete all log entries from the database?
+
+This affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.</value>
+  </data>
+  <data name="Settings_General_Database_LogsCleared_Format" xml:space="preserve">
+    <value>Cleared {0} log entr(ies) from the database.</value>
+  </data>
+  <data name="Settings_General_Database_LogsNothingToClear" xml:space="preserve">
+    <value>No log entries to clear.</value>
   </data>
   <data name="Settings_Upload_Mgmt_Title" xml:space="preserve">
     <value>Upload Management</value>
@@ -977,6 +1000,9 @@ Add anyway?</value>
   </data>
   <data name="Logs_AutoScroll" xml:space="preserve">
     <value>Auto-scroll</value>
+  </data>
+  <data name="Logs_BtnClear" xml:space="preserve">
+    <value>Clear</value>
   </data>
   <data name="Logs_Tab_Status" xml:space="preserve">
     <value>Status</value>

@@ -5,6 +5,7 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -118,6 +119,65 @@ public partial class UploadedViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Copy URL failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Currently focused row, driven from the DataGrid's SelectedItem so the per-column
+    /// "Copy" submenu can locate the value to copy with just the column key as parameter.
+    /// </summary>
+    [ObservableProperty]
+    private UploadedFileRow? selectedRow;
+
+    /// <summary>
+    /// Opens the row's <c>FileUrl</c> in the default browser. Disabled when the row has
+    /// no URL (e.g. an entry from before URL persistence existed).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanOpenUrl))]
+    private static void OpenUrl(UploadedFileRow? row)
+    {
+        if (string.IsNullOrEmpty(row?.FileUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(row.FileUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            // Best-effort — see the same swallow in UploadsViewModel.OpenUrl.
+        }
+    }
+
+    private static bool CanOpenUrl(UploadedFileRow? row) => !string.IsNullOrEmpty(row?.FileUrl);
+
+    /// <summary>
+    /// Copies the value of <paramref name="columnKey"/> from <see cref="SelectedRow"/>
+    /// to the clipboard. Column keys mirror the resx <c>Uploaded_Col_*</c> suffix.
+    /// </summary>
+    [RelayCommand]
+    private void CopyColumn(string? columnKey)
+    {
+        if (string.IsNullOrEmpty(columnKey) || SelectedRow is null)
+        {
+            return;
+        }
+
+        string? text = ColumnValueExtractor.Extract(SelectedRow, columnKey, isUploadsTab: false);
+        if (text is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch
+        {
+            // Swallow contention errors from Clipboard.SetText — copying must never crash the UI thread.
         }
     }
 

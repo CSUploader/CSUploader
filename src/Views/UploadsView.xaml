@@ -166,6 +166,7 @@
         <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   Loaded="UploadsGrid_Loaded"
+                  ContextMenuOpening="UploadsGrid_ContextMenuOpening"
                   ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
@@ -187,7 +188,9 @@
                   AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
                   RowHeaderWidth="0"
                   BorderThickness="0"
-                  Tag="{Binding}">
+                  Tag="{Binding}"
+                  SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
+                  ClipboardCopyMode="IncludeHeader">
 
             <DataGrid.InputBindings>
                 <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}"
@@ -219,9 +222,42 @@
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionFolderImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="{loc:Loc Common_Context_OpenUrl}" Command="{Binding OpenUrlCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                     <MenuItem Header="{loc:Loc Uploads_Context_SetSpeedLimit}" Command="{Binding SetSpeedLimitCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <!-- Per-column copy submenu. Each item passes its column key (matching
+                         the resx Uploads_Col_* suffix) as CommandParameter; the VM looks up
+                         the value from SelectedRow via reflection. -->
+                    <MenuItem Header="{loc:Loc Common_Context_Copy}">
+                        <!-- Row-copy via the DataGrid's built-in ApplicationCommands.Copy
+                             (TSV of the selected row, including headers). Mirrors the
+                             entry on the History tab so both tabs feel the same. -->
+                        <MenuItem Header="{loc:Loc Uploaded_Context_Copy}"
+                                  InputGestureText="{loc:Loc Uploaded_Context_Copy_Gesture}"
+                                  Command="ApplicationCommands.Copy"
+                                  CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <Separator />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Name}" Command="{Binding CopyColumnCommand}" CommandParameter="Name" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Size}" Command="{Binding CopyColumnCommand}" CommandParameter="Size" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Hoster}" Command="{Binding CopyColumnCommand}" CommandParameter="Hoster" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Status}" Command="{Binding CopyColumnCommand}" CommandParameter="Status" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Speed}" Command="{Binding CopyColumnCommand}" CommandParameter="Speed" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_ETA}" Command="{Binding CopyColumnCommand}" CommandParameter="ETA" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_BytesLoaded}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesLoaded" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Progress}" Command="{Binding CopyColumnCommand}" CommandParameter="Progress" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_SaveTo}" Command="{Binding CopyColumnCommand}" CommandParameter="SaveTo" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Added}" Command="{Binding CopyColumnCommand}" CommandParameter="Added" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Duration}" Command="{Binding CopyColumnCommand}" CommandParameter="Duration" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Priority}" Command="{Binding CopyColumnCommand}" CommandParameter="Priority" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_SpeedLimit}" Command="{Binding CopyColumnCommand}" CommandParameter="SpeedLimit" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Hash}" Command="{Binding CopyColumnCommand}" CommandParameter="Hash" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Error}" Command="{Binding CopyColumnCommand}" CommandParameter="Error" />
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="{loc:Loc Uploads_Context_Remove}" Command="{Binding RemoveCommand}"

@@ -79,6 +79,7 @@
               x:Name="FilesGrid"
               Loaded="FilesGrid_Loaded"
               PreviewMouseRightButtonDown="FilesGrid_PreviewMouseRightButtonDown"
+              ContextMenuOpening="FilesGrid_ContextMenuOpening"
               ItemsSource="{Binding Source={StaticResource FilesView}}"
               AutoGenerateColumns="False"
               CanUserAddRows="False"
@@ -88,6 +89,7 @@
               CanUserSortColumns="True"
               IsReadOnly="True"
               SelectionUnit="FullRow"
+              SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
               ClipboardCopyMode="IncludeHeader"
               HeadersVisibility="Column"
               GridLinesVisibility="All"
@@ -142,13 +144,40 @@
         </DataGrid.CellStyle>
         <DataGrid.ContextMenu>
             <ContextMenu>
-                <MenuItem Header="{loc:Loc Uploaded_Context_Copy}"
-                          InputGestureText="{loc:Loc Uploaded_Context_Copy_Gesture}"
-                          Command="ApplicationCommands.Copy"
-                          CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                <MenuItem Header="{loc:Loc Uploaded_Context_CopyURL}"
-                          Command="{Binding PlacementTarget.DataContext.CopyUrlsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                <!-- Copy submenu: existing row-copy (Ctrl+C built-in) sits at the top,
+                     followed by one entry per column. Column-key strings match the resx
+                     Uploaded_Col_* suffix so the VM can map them via reflection. -->
+                <MenuItem Header="{loc:Loc Common_Context_Copy}">
+                    <MenuItem Header="{loc:Loc Uploaded_Context_Copy}"
+                              InputGestureText="{loc:Loc Uploaded_Context_Copy_Gesture}"
+                              Command="ApplicationCommands.Copy"
+                              CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    <Separator />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Name}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Name" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Path}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Path" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Size}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Size" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Hoster}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Hoster" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Finished}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Finished" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Hash}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Hash" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_URL}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="URL" />
+                </MenuItem>
+                <MenuItem Header="{loc:Loc Common_Context_OpenUrl}"
+                          Command="{Binding PlacementTarget.DataContext.OpenUrlCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 <Separator />
                 <MenuItem Header="{loc:Loc Uploaded_Context_Remove}"
                           InputGestureText="{loc:Loc Uploaded_Context_Remove_Gesture}"

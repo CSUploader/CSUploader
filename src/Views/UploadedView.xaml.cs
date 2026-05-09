@@ -215,6 +215,28 @@ public partial class UploadedView : UserControl
         }
     }
 
+    /// <summary>
+    /// Suppresses the DataGrid's context menu when the right-click landed on empty space
+    /// below the rows. Every menu entry needs a selected row (or the whole group) to act
+    /// on, so opening it on whitespace would just yield a useless do-nothing menu.
+    /// </summary>
+    private void FilesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        DependencyObject? source = e.OriginalSource as DependencyObject;
+        if (FindAncestor<DataGridRow>(source) is not null)
+        {
+            return;
+        }
+
+        // Group headers are right-clickable too — selects every row in the package.
+        if (FindAncestor<GroupItem>(source) is not null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
     private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
     {
         while (source is not null and not T)

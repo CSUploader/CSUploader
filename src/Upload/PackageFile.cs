@@ -282,9 +282,14 @@ public class PackageFile : INotifyPropertyChanged
 
             case Pipeline.TransferProgress tp:
                 BytesLoaded = tp.BytesUploaded;
-                BytesRemaining = tp.TotalBytes - tp.BytesUploaded;
+                long remaining = tp.TotalBytes - tp.BytesUploaded;
+                BytesRemaining = remaining;
                 Progress = tp.PercentComplete;
                 Speed = (long)tp.SpeedBytesPerSec;
+                Duration = StartedDate.HasValue ? DateTime.Now - StartedDate.Value : null;
+                TimeRemaining = tp.SpeedBytesPerSec > 0 && remaining > 0
+                    ? TimeSpan.FromSeconds(remaining / tp.SpeedBytesPerSec)
+                    : null;
                 break;
 
             case Pipeline.TransferCompleted tc:
@@ -294,17 +299,23 @@ public class PackageFile : INotifyPropertyChanged
                 BytesRemaining = null;
                 Speed = null;
                 FinishedDate = DateTime.Now;
+                Duration = StartedDate.HasValue ? FinishedDate.Value - StartedDate.Value : Duration;
+                TimeRemaining = null;
                 break;
 
             case Pipeline.AttemptFailed af:
                 Error = af.Reason;
                 Speed = null;
                 FinishedDate = DateTime.Now;
+                Duration = StartedDate.HasValue ? FinishedDate.Value - StartedDate.Value : Duration;
+                TimeRemaining = null;
                 break;
 
             case Pipeline.AttemptCancelled:
                 FinishedDate = DateTime.Now;
                 Speed = null;
+                Duration = StartedDate.HasValue ? FinishedDate.Value - StartedDate.Value : Duration;
+                TimeRemaining = null;
                 break;
         }
     }

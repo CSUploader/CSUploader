@@ -3,9 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Lib.Update;
@@ -20,13 +22,21 @@ using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
+[Collection(LocalizerCollection.Name)]
 public class MainViewModelUpdateTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _services;
+    private readonly CultureInfo _originalCulture;
 
     public MainViewModelUpdateTests()
     {
+        // Pin Localizer to English — WindowTitle assertions ("Update available", "CSUploader")
+        // hit Localizer.Instance, so we'd flake on any non-en host or after a peer test that
+        // mutated the singleton.
+        _originalCulture = Localizer.Instance.Culture;
+        Localizer.Instance.Culture = new CultureInfo("en");
+
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
@@ -64,6 +74,7 @@ public class MainViewModelUpdateTests : IDisposable
     {
         _services.Dispose();
         _connection.Dispose();
+        Localizer.Instance.Culture = _originalCulture;
         GC.SuppressFinalize(this);
     }
 

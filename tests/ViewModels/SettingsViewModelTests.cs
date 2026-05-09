@@ -16,6 +16,7 @@ using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
+[Collection(LocalizerCollection.Name)]
 public class SettingsViewModelTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -23,9 +24,16 @@ public class SettingsViewModelTests : IDisposable
     private readonly SettingRepository _settingRepo;
     private readonly FileHosterLoginRepository _loginRepo;
     private readonly AppSettings _appSettings;
+    private readonly CultureInfo _originalCulture;
 
     public SettingsViewModelTests()
     {
+        // Several tests mutate Localizer.Instance.Culture (LoadAsync auto-detects, the
+        // language-edit test reassigns). Snapshot now and restore on dispose so we don't
+        // bleed into other classes — even though the Localizer collection serializes us,
+        // a leaked culture would still affect the next test in this class.
+        _originalCulture = Localizer.Instance.Culture;
+
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
 
@@ -46,11 +54,12 @@ public class SettingsViewModelTests : IDisposable
     public void Dispose()
     {
         _connection.Dispose();
+        Localizer.Instance.Culture = _originalCulture;
         GC.SuppressFinalize(this);
     }
 
-    private SettingsViewModel CreateVm(IDialogService? dialog = null) =>
-        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>());
+    private SettingsViewModel CreateVm(IDialogService? dialog = null, LogEntryRepository? logRepo = null) =>
+        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), logEntryRepository: logRepo);
 
     // Polls the DB briefly because each property's auto-save is fire-and-forget.
     private async Task<string?> WaitForSettingValueAsync(string key)
@@ -196,6 +205,41 @@ public class SettingsViewModelTests : IDisposable
         Assert.Equal("zh-Hans", await WaitForSettingValueAsync(SettingKey.Language));
         Assert.Equal("zh-Hans", _appSettings.Language);
         Assert.Equal("zh-Hans", Localizer.Instance.Culture.Name);
+    }
+
+    [Fact]
+    public async Task ClearLogsAsync_WhenConfirmed_DeletesEveryPersistedEntry()
+    {
+        LogEntryRepository logRepo = new(_factory);
+        await logRepo.InsertAsync(new LogEntryDto { DateTime = DateTime.Now.AddDays(-1), LogType = LogType.Status, Message = "old" });
+        await logRepo.InsertAsync(new LogEntryDto { DateTime = DateTime.Now, LogType = LogType.Error, Message = "new" });
+
+        Mock<IDialogService> dialog = new();
+        dialog.Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string?>())).Returns(true);
+
+        SettingsViewModel vm = CreateVm(dialog.Object, logRepo);
+
+        await vm.ClearLogsCommand.ExecuteAsync(null);
+
+        LogEntryDto[] remaining = await logRepo.GetAllAsync();
+        Assert.Empty(remaining);
+    }
+
+    [Fact]
+    public async Task ClearLogsAsync_WhenDeclined_KeepsEveryEntry()
+    {
+        LogEntryRepository logRepo = new(_factory);
+        await logRepo.InsertAsync(new LogEntryDto { DateTime = DateTime.Now, LogType = LogType.Status, Message = "kept" });
+
+        Mock<IDialogService> dialog = new();
+        dialog.Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string?>())).Returns(false);
+
+        SettingsViewModel vm = CreateVm(dialog.Object, logRepo);
+
+        await vm.ClearLogsCommand.ExecuteAsync(null);
+
+        LogEntryDto[] remaining = await logRepo.GetAllAsync();
+        Assert.Single(remaining);
     }
 
     [Fact]

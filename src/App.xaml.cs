@@ -86,6 +86,7 @@ public partial class App : Application
         services.AddSingleton<UploadPackageRepository>();
         services.AddSingleton<UploadPackageFileRepository>();
         services.AddSingleton<ProxySettingRepository>();
+        services.AddSingleton<LogEntryRepository>();
 
         // Upload
         services.AddSingleton<Lib.Crypto.IHashingService, Lib.Crypto.HashingService>();

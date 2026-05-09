@@ -50,6 +50,57 @@ public class PackageFilePipelineEventsTests
     }
 
     [Fact]
+    public void ApplyEvent_TransferProgress_ComputesTimeRemainingFromSpeed()
+    {
+        PackageFile file = MakeFile(out _);
+        file.ApplyEvent(new TransferStarted(TotalBytes: 1000));
+
+        // 50/1000 done at 100 B/s → 950 bytes left → 9.5 seconds remaining.
+        file.ApplyEvent(new TransferProgress(BytesUploaded: 50, TotalBytes: 1000, SpeedBytesPerSec: 100.0));
+
+        Assert.NotNull(file.TimeRemaining);
+        Assert.Equal(9.5, file.TimeRemaining!.Value.TotalSeconds, precision: 1);
+    }
+
+    [Fact]
+    public void ApplyEvent_TransferProgress_LeavesTimeRemainingNullWhenSpeedIsZero()
+    {
+        PackageFile file = MakeFile(out _);
+        file.ApplyEvent(new TransferStarted(TotalBytes: 1000));
+
+        file.ApplyEvent(new TransferProgress(BytesUploaded: 50, TotalBytes: 1000, SpeedBytesPerSec: 0.0));
+
+        Assert.Null(file.TimeRemaining);
+    }
+
+    [Fact]
+    public void ApplyEvent_TransferProgress_UpdatesDurationFromStartedDate()
+    {
+        PackageFile file = MakeFile(out _);
+        file.ApplyEvent(new TransferStarted(TotalBytes: 1000));
+
+        // The pipeline runs progress events ~immediately after Started; Duration must be
+        // a small but non-null TimeSpan (was permanently null before the fix).
+        file.ApplyEvent(new TransferProgress(BytesUploaded: 50, TotalBytes: 1000, SpeedBytesPerSec: 100.0));
+
+        Assert.NotNull(file.Duration);
+        Assert.True(file.Duration!.Value.TotalSeconds < 5, "Duration drifted unexpectedly large for an immediate progress event");
+    }
+
+    [Fact]
+    public void ApplyEvent_TransferCompleted_ClearsTimeRemainingAndFinalizesDuration()
+    {
+        PackageFile file = MakeFile(out _);
+        file.ApplyEvent(new TransferStarted(TotalBytes: 1000));
+        file.ApplyEvent(new TransferProgress(BytesUploaded: 50, TotalBytes: 1000, SpeedBytesPerSec: 100.0));
+
+        file.ApplyEvent(new TransferCompleted("https://x/y"));
+
+        Assert.Null(file.TimeRemaining);
+        Assert.NotNull(file.Duration);
+    }
+
+    [Fact]
     public void ApplyEvent_TransferStarted_ClearsStaleStateFromPriorAttempt()
     {
         PackageFile file = MakeFile(out _);

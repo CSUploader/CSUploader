@@ -24,7 +24,8 @@ public partial class SettingsViewModel(
     IDialogService dialogService,
     IAppLogger logger,
     TrayIconManager? trayIconManager = null,
-    UploadPackageRepository? uploadPackageRepository = null) : ObservableObject
+    UploadPackageRepository? uploadPackageRepository = null,
+    LogEntryRepository? logEntryRepository = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -35,6 +36,7 @@ public partial class SettingsViewModel(
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.
     private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
+    private readonly LogEntryRepository? _logEntryRepository = logEntryRepository;
 
     // Suppresses auto-save while LoadAsync is hydrating ObservableProperty values from the
     // DB — otherwise every "real" load would round-trip back through SaveSettingAsync.
@@ -629,6 +631,42 @@ public partial class SettingsViewModel(
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Clear database failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearLogsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_logEntryRepository is null)
+        {
+            return;
+        }
+
+        if (!_dialogService.ShowConfirmation(
+                Loc("Settings_General_Database_ConfirmClearLogsMessage"),
+                Loc("Settings_General_Database_ConfirmClearLogsTitle")))
+        {
+            return;
+        }
+
+        try
+        {
+            // Pass DateTime.MaxValue so every persisted entry is older than the cutoff.
+            // Reuses the existing trim path instead of inventing a new "delete all" verb.
+            int deleted = await _logEntryRepository.DeleteOlderThanAsync(DateTime.MaxValue, cancellationToken);
+
+            if (deleted == 0)
+            {
+                _logger.Log(this, LogType.Status, Loc("Settings_General_Database_LogsNothingToClear"));
+            }
+            else
+            {
+                _logger.Log(this, LogType.Status, LocF("Settings_General_Database_LogsCleared_Format", deleted));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Clear logs failed: {ex.Message}");
         }
     }
 
