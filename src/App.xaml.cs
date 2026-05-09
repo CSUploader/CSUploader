@@ -117,7 +117,7 @@ public partial class App : Application
             sp.GetRequiredService<IToastWindowFactory>(),
             workAreaProvider: () => System.Windows.SystemParameters.WorkArea,
             activate: () => sp.GetRequiredService<ViewModels.MainViewModel>().ActivateAndShowUploadedTab(),
-            dispatchToUi: action => System.Windows.Application.Current.Dispatcher.BeginInvoke(action)));
+            dispatchToUi: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action)));
         services.AddSingleton<UploadNotificationListener>();
 
         // ViewModels
