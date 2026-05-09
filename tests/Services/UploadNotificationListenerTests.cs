@@ -35,7 +35,11 @@ public class UploadNotificationListenerTests : IDisposable
         _listener = new UploadNotificationListener(_scheduler, _toasts.Object);
     }
 
-    public void Dispose() => _scheduler.Dispose();
+    public void Dispose()
+    {
+        _scheduler.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public void Completed_FiresShowFileCompleted()
