@@ -49,6 +49,10 @@ public partial class App : Application
             }
         };
 
+        // Eagerly resolve the notification listener so it subscribes to
+        // UploadScheduler.FileStateChanged immediately at startup (singletons are lazy).
+        _ = _serviceProvider.GetRequiredService<Services.UploadNotificationListener>();
+
         // Register the global Window.Loaded handler so every window picks up the
         // dark title bar automatically. MainViewModel.InitializeAsync sets the
         // initial value once the persisted setting is read.
@@ -107,6 +111,14 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<TrayIconManager>();
+        services.AddSingleton<IToastWindowFactory, DefaultToastWindowFactory>();
+        services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationService(
+            sp.GetRequiredService<AppSettings>(),
+            sp.GetRequiredService<IToastWindowFactory>(),
+            workAreaProvider: () => System.Windows.SystemParameters.WorkArea,
+            activate: () => sp.GetRequiredService<ViewModels.MainViewModel>().ActivateAndShowUploadedTab(),
+            dispatchToUi: action => System.Windows.Application.Current.Dispatcher.BeginInvoke(action)));
+        services.AddSingleton<UploadNotificationListener>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

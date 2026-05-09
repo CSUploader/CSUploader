@@ -162,6 +162,12 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public void ActivateAndShowUploadedTab()
+    {
+        _services.GetService<Services.TrayIconManager>()?.ShowMainWindow();
+        SelectedTabIndex = 1;
+    }
+
     public UploadsViewModel UploadsViewModel { get; }
 
     public UploadedViewModel UploadedViewModel { get; }

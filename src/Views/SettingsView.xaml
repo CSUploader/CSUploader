@@ -271,6 +271,17 @@
                               FontSize="12" Padding="4,3" />
                 </Grid>
 
+                <!-- Notifications -->
+                <TextBlock Text="{loc:Loc Settings_General_Notifications_Title}" Style="{StaticResource SectionTitle}" Margin="0,20,0,2" />
+                <Separator Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource SectionDesc}"
+                           Text="{loc:Loc Settings_General_Notifications_Desc}" />
+
+                <Grid Style="{StaticResource SettingRow}">
+                  <CheckBox Content="{loc:Loc Settings_General_ShowCompletionToasts}"
+                            IsChecked="{Binding ShowCompletionToasts}" VerticalAlignment="Center" />
+                </Grid>
+
                 <!-- Confirmation prompts -->
                 <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
                     <Path Data="{StaticResource SettingsConfirmationGeometry}"
