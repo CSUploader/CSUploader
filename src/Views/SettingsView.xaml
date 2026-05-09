@@ -63,6 +63,7 @@
              hit-testable across its full width; the IsMouseOver trigger swaps the fill. -->
         <Style x:Key="SettingRow" TargetType="Grid">
             <Setter Property="Margin" Value="40,0,0,2" />
+            <Setter Property="MinHeight" Value="26" />
             <Setter Property="Background" Value="Transparent" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
