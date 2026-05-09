@@ -19,7 +19,7 @@ public sealed class UploadNotificationListener : IDisposable
     private readonly IToastNotificationService _toasts;
     private readonly ConditionalWeakTable<Package, object> _summaryShown = new();
     private static readonly object SummaryFiredSentinel = new();
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public UploadNotificationListener(UploadScheduler scheduler, IToastNotificationService toasts)
     {
