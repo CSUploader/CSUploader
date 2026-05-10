@@ -384,10 +384,7 @@ public class PackageManager
     {
         Package package = new(options);
 
-        if (!string.IsNullOrEmpty(package.SaveFrom))
-        {
-            package.AddPackageFiles(package.SaveFrom);
-        }
+        package.AddPackageFiles();
 
         lock (_lock)
         {
