@@ -130,7 +130,8 @@ public class UploadWizardViewModelTests : IDisposable
     public async Task GoNext_FilesMode_NoFiles_ShowsValidationError()
     {
         Mock<IDialogService> dialog = new();
-        UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+        UploadWizardViewModel vm = CreateVm(dialog.Object);
+        vm.Mode = UploadWizardMode.Files;
 
         await vm.GoNextCommand.ExecuteAsync(null);
 
@@ -149,7 +150,8 @@ public class UploadWizardViewModelTests : IDisposable
             dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
                 .Returns([tempA]);
 
-            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
 
             vm.BrowseFilesCommand.Execute(null);
 
@@ -172,7 +174,8 @@ public class UploadWizardViewModelTests : IDisposable
             Mock<IDialogService> dialog = new();
             dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
                 .Returns([tempA]);
-            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
             vm.PackageTitle = string.Empty; // pretend user cleared it
 
@@ -199,7 +202,8 @@ public class UploadWizardViewModelTests : IDisposable
                 .Returns([tempA])
                 .Returns([tempA.ToUpperInvariant()]);
 
-            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
             vm.AddMoreFilesCommand.Execute(null);
 
@@ -222,7 +226,8 @@ public class UploadWizardViewModelTests : IDisposable
             dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
                 .Returns([tempA]);
 
-            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
             string before = vm.FilesCountText;
 
             vm.BrowseFilesCommand.Execute(null);
@@ -254,7 +259,8 @@ public class UploadWizardViewModelTests : IDisposable
                 .Returns([fileA])
                 .Returns([fileB]);
 
-            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
             vm.AddMoreFilesCommand.Execute(null);
 
@@ -268,8 +274,36 @@ public class UploadWizardViewModelTests : IDisposable
         }
     }
 
-    private UploadWizardViewModel CreateVm(IDialogService dialog, UploadWizardMode mode = UploadWizardMode.Directory) =>
-        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings(), mode);
+    [Fact]
+    public void ModeChange_ClearsFilesAndDirectoryPath()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
+            vm.BrowseFilesCommand.Execute(null);
+            vm.DirectoryPath = "C:\\should-be-cleared";
+            Assert.Single(vm.Files);
+
+            vm.Mode = UploadWizardMode.Directory;
+
+            Assert.Empty(vm.Files);
+            Assert.Equal(string.Empty, vm.DirectoryPath);
+        }
+        finally
+        {
+            File.Delete(tempA);
+        }
+    }
+
+    private UploadWizardViewModel CreateVm(IDialogService dialog) =>
+        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
 
     private static AttemptRunner BuildAttemptRunner()
     {

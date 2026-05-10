@@ -516,6 +516,9 @@ Wizard_Step_FileHosters            = 3. Nhà lưu trữ tập tin
 Wizard_Step_Start                  = 4. Bắt đầu
 Wizard_Step_FilesSource            = 1. Tệp
 
+Wizard_Step0_Mode_Directory        = Tải lên thư mục
+Wizard_Step0_Mode_Files            = Tải lên tệp
+
 Wizard_Step0_Title                 = Chọn thư mục tải lên
 Wizard_Step0_Desc                  = Chọn thư mục chứa các tệp bạn muốn tải lên.
 Wizard_Step0_Browse                = Duyệt
@@ -558,9 +561,6 @@ Wizard_Validation_PickValidDir     = Vui lòng chọn một thư mục hợp l�
 Wizard_Validation_PickFile         = Vui lòng chọn ít nhất một tệp.
 Wizard_Validation_PickHoster       = Vui lòng chọn ít nhất một nhà lưu trữ tập tin.
 Wizard_Error_Format                = Lỗi: {0}                                              # {0} = exception.Message
-
-Wizard_Menu_UploadDirectory        = Tải lên thư mục…
-Wizard_Menu_UploadFiles            = Tải lên tệp…
 
 Wizard_Step0_Files_Title           = Chọn tệp
 Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.

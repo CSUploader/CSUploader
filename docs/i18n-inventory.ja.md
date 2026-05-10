@@ -507,6 +507,9 @@ Wizard_Step_FileHosters            = 3. ファイルホスター
 Wizard_Step_Start                  = 4. 開始
 Wizard_Step_FilesSource            = 1. ファイル
 
+Wizard_Step0_Mode_Directory        = ディレクトリをアップロード
+Wizard_Step0_Mode_Files            = ファイルをアップロード
+
 Wizard_Step0_Title                 = アップロードディレクトリを選択
 Wizard_Step0_Desc                  = アップロードしたいファイルを含むディレクトリを選択してください。
 Wizard_Step0_Browse                = 参照
@@ -549,9 +552,6 @@ Wizard_Validation_PickValidDir     = 有効なディレクトリを選択して�
 Wizard_Validation_PickFile         = ファイルを 1 つ以上選択してください。
 Wizard_Validation_PickHoster       = ファイルホスターを 1 つ以上選択してください。
 Wizard_Error_Format                = エラー: {0}                                              # {0} = exception.Message
-
-Wizard_Menu_UploadDirectory        = ディレクトリをアップロード…
-Wizard_Menu_UploadFiles            = ファイルをアップロード…
 
 Wizard_Step0_Files_Title           = ファイルを選択
 Wizard_Step0_Files_Desc            = アップロードしたいファイルを選んでください。後で追加することもできます。

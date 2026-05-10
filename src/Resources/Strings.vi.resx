@@ -1088,6 +1088,12 @@ Vẫn thêm?</value>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Tệp</value>
   </data>
+  <data name="Wizard_Step0_Mode_Directory" xml:space="preserve">
+    <value>Tải lên thư mục</value>
+  </data>
+  <data name="Wizard_Step0_Mode_Files" xml:space="preserve">
+    <value>Tải lên tệp</value>
+  </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>Chọn thư mục tải lên</value>
   </data>
@@ -1195,12 +1201,6 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>Lỗi: {0}</value>
-  </data>
-  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
-    <value>Tải lên thư mục…</value>
-  </data>
-  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
-    <value>Tải lên tệp…</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>Chọn tệp</value>

@@ -508,6 +508,9 @@ Wizard_Step_FileHosters            = 3. File Hosters
 Wizard_Step_Start                  = 4. Simulan
 Wizard_Step_FilesSource            = 1. Mga File
 
+Wizard_Step0_Mode_Directory        = Mag-upload ng directory
+Wizard_Step0_Mode_Files            = Mag-upload ng mga file
+
 Wizard_Step0_Title                 = Pumili ng Upload Directory
 Wizard_Step0_Desc                  = Pumili ng directory na naglalaman ng mga files na gusto mong i-upload.
 Wizard_Step0_Browse                = Mag-browse
@@ -550,9 +553,6 @@ Wizard_Validation_PickValidDir     = Mangyaring pumili ng valid na directory.
 Wizard_Validation_PickFile         = Mangyaring pumili ng kahit isang file.
 Wizard_Validation_PickHoster       = Mangyaring pumili ng kahit isang file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
-
-Wizard_Menu_UploadDirectory        = Mag-upload ng directory…
-Wizard_Menu_UploadFiles            = Mag-upload ng mga file…
 
 Wizard_Step0_Files_Title           = Pumili ng mga File
 Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.

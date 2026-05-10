@@ -25,31 +25,31 @@ public partial class UploadWizardViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
     private readonly AppSettings _settings;
-    private readonly UploadWizardMode _mode;
 
     public UploadWizardViewModel(
         PackageManager packageManager,
         FileHosterLoginRepository fileHosterLoginRepository,
         IDialogService dialogService,
         IAppLogger logger,
-        AppSettings settings,
-        UploadWizardMode mode)
+        AppSettings settings)
     {
         _packageManager = packageManager;
         _fileHosterLoginRepository = fileHosterLoginRepository;
         _dialogService = dialogService;
         _logger = logger;
         _settings = settings;
-        _mode = mode;
 
         Files.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FilesCountText));
     }
 
-    public UploadWizardMode Mode => _mode;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDirectoryMode))]
+    [NotifyPropertyChangedFor(nameof(IsFilesMode))]
+    private UploadWizardMode mode;
 
-    public bool IsDirectoryMode => _mode == UploadWizardMode.Directory;
+    public bool IsDirectoryMode => Mode == UploadWizardMode.Directory;
 
-    public bool IsFilesMode => _mode == UploadWizardMode.Files;
+    public bool IsFilesMode => Mode == UploadWizardMode.Files;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]
@@ -104,6 +104,13 @@ public partial class UploadWizardViewModel : ObservableObject
     partial void OnFileFilterChanged(string value)
     {
         ApplyFilter();
+    }
+
+    partial void OnModeChanged(UploadWizardMode value)
+    {
+        Files.Clear();
+        DirectoryPath = string.Empty;
+        FileFilter = string.Empty;
     }
 
     [RelayCommand]

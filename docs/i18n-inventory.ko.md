@@ -508,6 +508,9 @@ Wizard_Step_FileHosters            = 3. 파일 호스터
 Wizard_Step_Start                  = 4. 시작
 Wizard_Step_FilesSource            = 1. 파일
 
+Wizard_Step0_Mode_Directory        = 디렉터리 업로드
+Wizard_Step0_Mode_Files            = 파일 업로드
+
 Wizard_Step0_Title                 = 업로드 디렉터리 선택
 Wizard_Step0_Desc                  = 업로드할 파일이 들어 있는 디렉터리를 선택하세요.
 Wizard_Step0_Browse                = 찾아보기
@@ -550,9 +553,6 @@ Wizard_Validation_PickValidDir     = 유효한 디렉터리를 선택해 주십�
 Wizard_Validation_PickFile         = 파일을 하나 이상 선택해 주십시오.
 Wizard_Validation_PickHoster       = 파일 호스터를 하나 이상 선택해 주십시오.
 Wizard_Error_Format                = 오류: {0}                                              # {0} = exception.Message
-
-Wizard_Menu_UploadDirectory        = 디렉터리 업로드…
-Wizard_Menu_UploadFiles            = 파일 업로드…
 
 Wizard_Step0_Files_Title           = 파일 선택
 Wizard_Step0_Files_Desc            = 업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.

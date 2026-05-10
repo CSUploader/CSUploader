@@ -1088,6 +1088,12 @@ Add anyway?</value>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Files</value>
   </data>
+  <data name="Wizard_Step0_Mode_Directory" xml:space="preserve">
+    <value>Upload directory</value>
+  </data>
+  <data name="Wizard_Step0_Mode_Files" xml:space="preserve">
+    <value>Upload files</value>
+  </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>Select Upload Directory</value>
   </data>
@@ -1195,12 +1201,6 @@ Add anyway?</value>
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>Error: {0}</value>
-  </data>
-  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
-    <value>Upload directory…</value>
-  </data>
-  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
-    <value>Upload files…</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>Select files</value>

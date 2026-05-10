@@ -508,6 +508,9 @@ Wizard_Step_FileHosters            = 3. File Hosters
 Wizard_Step_Start                  = 4. Start
 Wizard_Step_FilesSource            = 1. Files
 
+Wizard_Step0_Mode_Directory        = Upload directory
+Wizard_Step0_Mode_Files            = Upload files
+
 Wizard_Step0_Title                 = Select Upload Directory
 Wizard_Step0_Desc                  = Choose the directory containing the files you want to upload.
 Wizard_Step0_Browse                = Browse
@@ -550,9 +553,6 @@ Wizard_Validation_PickValidDir     = Please select a valid directory.
 Wizard_Validation_PickFile         = Please select at least one file.
 Wizard_Validation_PickHoster       = Please select at least one file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
-
-Wizard_Menu_UploadDirectory        = Upload directory…
-Wizard_Menu_UploadFiles            = Upload files…
 
 Wizard_Step0_Files_Title           = Select files
 Wizard_Step0_Files_Desc            = Pick the files you want to upload. You can add more later.

@@ -66,41 +66,54 @@
 
       <!-- Step 0: host -->
       <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
+        <StackPanel>
 
-        <!-- Directory mode -->
-        <StackPanel Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}">
-          <TextBlock Text="{loc:Loc Wizard_Step0_Title}" FontSize="16" FontWeight="SemiBold"
-                     Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
-          <TextBlock Text="{loc:Loc Wizard_Step0_Desc}"
-                     FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
-
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=PropertyChanged}"
-                     FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
-            <Button Grid.Column="1" Content="{loc:Loc Wizard_Step0_Browse}" Width="80" Margin="8,0,0,0"
-                    Command="{Binding BrowseDirectoryCommand}" />
-          </Grid>
-        </StackPanel>
-
-        <!-- Files mode -->
-        <StackPanel Visibility="{Binding IsFilesMode, Converter={StaticResource BoolToVisibility}}">
-          <TextBlock Text="{loc:Loc Wizard_Step0_Files_Title}" FontSize="16" FontWeight="SemiBold"
-                     Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
-          <TextBlock Text="{loc:Loc Wizard_Step0_Files_Desc}"
-                     FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
-
-          <StackPanel Orientation="Horizontal">
-            <Button Content="{loc:Loc Wizard_Step0_Files_Pick}" MinWidth="120" Padding="10,6"
-                    Command="{Binding BrowseFilesCommand}" />
-            <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
-                       Foreground="{DynamicResource TextSecondaryBrush}">
-              <Run Text="{Binding FilesCountText, Mode=OneWay}" />
-            </TextBlock>
+          <!-- Mode picker -->
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+            <RadioButton Content="{loc:Loc Wizard_Step0_Mode_Directory}"
+                         IsChecked="{Binding Mode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Directory}"
+                         GroupName="WizardMode" Margin="0,0,16,0" FontSize="12" />
+            <RadioButton Content="{loc:Loc Wizard_Step0_Mode_Files}"
+                         IsChecked="{Binding Mode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Files}"
+                         GroupName="WizardMode" FontSize="12" />
           </StackPanel>
+
+          <!-- Directory mode -->
+          <StackPanel Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{loc:Loc Wizard_Step0_Title}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
+            <TextBlock Text="{loc:Loc Wizard_Step0_Desc}"
+                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
+
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=PropertyChanged}"
+                       FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
+              <Button Grid.Column="1" Content="{loc:Loc Wizard_Step0_Browse}" Width="80" Margin="8,0,0,0"
+                      Command="{Binding BrowseDirectoryCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Files mode -->
+          <StackPanel Visibility="{Binding IsFilesMode, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{loc:Loc Wizard_Step0_Files_Title}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
+            <TextBlock Text="{loc:Loc Wizard_Step0_Files_Desc}"
+                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
+
+            <StackPanel Orientation="Horizontal">
+              <Button Content="{loc:Loc Wizard_Step0_Files_Pick}" MinWidth="120" Padding="10,6"
+                      Command="{Binding BrowseFilesCommand}" />
+              <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
+                         Foreground="{DynamicResource TextSecondaryBrush}">
+                <Run Text="{Binding FilesCountText, Mode=OneWay}" />
+              </TextBlock>
+            </StackPanel>
+          </StackPanel>
+
         </StackPanel>
       </Grid>
 
