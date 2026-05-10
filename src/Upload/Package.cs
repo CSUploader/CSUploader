@@ -513,37 +513,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         AddPackageFiles([.. packageFiles]);
     }
 
-    /// <summary>
-    /// Adds package files from the given directory.
-    /// </summary>
-    /// <param name="directory">The directory to scan for files.</param>
-    public void AddPackageFiles(string directory)
-    {
-        List<PackageFile> packageFiles = [];
-        HashSet<string>? selectedFiles = Options.SelectedFiles is { Count: > 0 }
-            ? new HashSet<string>(Options.SelectedFiles, StringComparer.OrdinalIgnoreCase)
-            : null;
-
-        foreach (string filePath in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-        {
-            if (selectedFiles is not null && !selectedFiles.Contains(filePath))
-            {
-                continue;
-            }
-
-            foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
-            {
-                FileHosterClient? fileHoster = ResolveHosterClient(kvp);
-                if (fileHoster != null)
-                {
-                    packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
-                }
-            }
-        }
-
-        AddPackageFiles([.. packageFiles]);
-    }
-
     private FileHosterClient? ResolveHosterClient(KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp)
     {
         return FileHosterClient.FileHosters
