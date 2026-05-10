@@ -125,8 +125,8 @@ public class UploadWizardViewModelTests : IDisposable
             Times.Never);
     }
 
-    private UploadWizardViewModel CreateVm(IDialogService dialog) =>
-        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
+    private UploadWizardViewModel CreateVm(IDialogService dialog, UploadWizardMode mode = UploadWizardMode.Directory) =>
+        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings(), mode);
 
     private static AttemptRunner BuildAttemptRunner()
     {

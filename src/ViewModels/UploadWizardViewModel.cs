@@ -20,7 +20,8 @@ public partial class UploadWizardViewModel(
     FileHosterLoginRepository fileHosterLoginRepository,
     IDialogService dialogService,
     IAppLogger logger,
-    AppSettings settings) : ObservableObject
+    AppSettings settings,
+    UploadWizardMode mode) : ObservableObject
 {
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
 
@@ -29,6 +30,13 @@ public partial class UploadWizardViewModel(
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
     private readonly AppSettings _settings = settings;
+    private readonly UploadWizardMode _mode = mode;
+
+    public UploadWizardMode Mode => _mode;
+
+    public bool IsDirectoryMode => _mode == UploadWizardMode.Directory;
+
+    public bool IsFilesMode => _mode == UploadWizardMode.Files;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]

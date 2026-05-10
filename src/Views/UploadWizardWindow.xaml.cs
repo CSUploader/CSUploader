@@ -18,7 +18,7 @@ public partial class UploadWizardWindow : Window
 {
     private readonly UploadWizardViewModel _vm;
 
-    public UploadWizardWindow(UploadsViewModel uploadsVm)
+    public UploadWizardWindow(UploadsViewModel uploadsVm, UploadWizardMode mode)
     {
         InitializeComponent();
 
@@ -28,7 +28,8 @@ public partial class UploadWizardWindow : Window
             sp.GetRequiredService<FileHosterLoginRepository>(),
             sp.GetRequiredService<IDialogService>(),
             sp.GetRequiredService<IAppLogger>(),
-            sp.GetRequiredService<AppSettings>());
+            sp.GetRequiredService<AppSettings>(),
+            mode);
 
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;

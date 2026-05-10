@@ -161,7 +161,7 @@ public partial class UploadsView : UserControl
     {
         if (DataContext is UploadsViewModel vm)
         {
-            var wizard = new UploadWizardWindow(vm)
+            var wizard = new UploadWizardWindow(vm, UploadWizardMode.Directory)
             {
                 Owner = Window.GetWindow(this),
             };
