@@ -48,6 +48,41 @@ public class HashingServiceTests
     }
 
     [Fact]
+    public async Task HashFileAsync_MultiChunkFile_YieldsProgressEvents()
+    {
+        // Use the test-only overload that disables the production throttle. Then the
+        // service emits a progress event after every chunk (1 MiB) until the final one.
+        // 4 MiB → 3 progress events + Started + Completed = 5 total.
+        string tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        const int sizeBytes = 4 * 1024 * 1024;
+        await File.WriteAllBytesAsync(tempFile, new byte[sizeBytes]);
+
+        try
+        {
+            HashingService sut = new(TimeSpan.Zero);
+
+            List<HashEvent> events = new();
+            await foreach (HashEvent e in sut.HashFileAsync(tempFile, HashAlgorithmName.MD5, CancellationToken.None))
+            {
+                events.Add(e);
+            }
+
+            Assert.IsType<HashStarted>(events[0]);
+            Assert.IsType<HashCompleted>(events[^1]);
+
+            HashProgress[] progress = [.. events.OfType<HashProgress>()];
+            Assert.NotEmpty(progress);
+            Assert.All(progress, p => Assert.Equal(sizeBytes, p.TotalBytes));
+            Assert.All(progress, p => Assert.True(p.BytesProcessed > 0));
+            Assert.All(progress, p => Assert.True(p.PercentComplete is > 0 and < 100));
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
     public async Task HashFileAsync_NonExistentFile_YieldsHashFailed()
     {
         // Arrange
