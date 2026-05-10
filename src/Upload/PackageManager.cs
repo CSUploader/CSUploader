@@ -642,9 +642,13 @@ public class PackageManager
     }
 
     /// <summary>
-    /// Starts (retries) a specific package or package file.
+    /// Starts (or force-starts) a specific package or package file. Manual start
+    /// overrides any pending scheduled start: <see cref="Package.ScheduledStartTime"/>
+    /// is cleared and the package is registered with the scheduler immediately.
+    /// Idle, Paused, Failed, and Cancelled files are all transitioned into the
+    /// hash or upload queue; already-running and Completed files are left alone.
     /// </summary>
-    /// <param name="item">The package or file to retry.</param>
+    /// <param name="item">The package or file to start.</param>
     public void StartPackage(object item)
     {
         if (IsPaused)
@@ -654,17 +658,25 @@ public class PackageManager
 
         if (item is Package package)
         {
-            // Re-queue failed/cancelled files
+            package.ScheduledStartTime = null;
+
             foreach (PackageFile file in package)
             {
-                RetryFileIfNeeded(file);
+                ForceQueueIfStartable(file);
             }
 
+            // Idempotent: registers the package with the scheduler if it hasn't
+            // been added yet (e.g. user clicked Start before a future-scheduled
+            // delay elapsed) and transitions any remaining Idle files.
+            _scheduler.AddPackage(package);
             _scheduler.StartAll();
         }
         else if (item is PackageFile packageFile)
         {
-            RetryFileIfNeeded(packageFile);
+            packageFile.Package.ScheduledStartTime = null;
+            _scheduler.AddPackage(packageFile.Package);
+
+            ForceQueueIfStartable(packageFile);
             _scheduler.StartAll();
         }
     }
@@ -688,20 +700,29 @@ public class PackageManager
         }
     }
 
-    private static void RetryFileIfNeeded(PackageFile file)
+    private static void ForceQueueIfStartable(PackageFile file)
     {
-        if (file.State is FileState.Failed or FileState.Cancelled)
+        // Don't disturb files that are already running or done. HashQueued/UploadQueued
+        // also no-op: they're already in the queue; FillSlots will pick them up.
+        if (file.State is FileState.Hashing
+            or FileState.Uploading
+            or FileState.HashQueued
+            or FileState.UploadQueued
+            or FileState.Completed)
         {
-            // No explicit RefreshConnection needed — AttemptRunner rebuilds the
-            // HttpHandler at entry, so the retry naturally picks the next proxy.
-            if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
-            {
-                file.State = FileState.HashQueued;
-            }
-            else
-            {
-                file.State = FileState.UploadQueued;
-            }
+            return;
+        }
+
+        // No explicit RefreshConnection needed — AttemptRunner rebuilds the
+        // HttpHandler at entry, so the retry naturally picks the next proxy.
+        file.Error = null;
+        if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
+        {
+            file.State = FileState.HashQueued;
+        }
+        else
+        {
+            file.State = FileState.UploadQueued;
         }
     }
 

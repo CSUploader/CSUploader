@@ -324,6 +324,92 @@ public class PackageManagerSoftRemoveTests : IDisposable
         Assert.NotNull(await _packageRepo.FindAsync(removed));
     }
 
+    [Fact]
+    public async Task StartPackage_ScheduledPackageNotYetRegistered_RegistersAndClearsSchedule()
+    {
+        // Repro: user added a package with Schedule mode and the delay hasn't elapsed.
+        // Right-clicking → Start must override the schedule, register the package with
+        // the scheduler, and queue any Idle files.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "scheduled",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+            PackageFile file = package.Single();
+            Assert.Equal(FileState.Idle, file.State);
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+            Assert.NotNull(package.ScheduledStartTime);
+
+            _packageManager.StartPackage(package);
+
+            Assert.Null(package.ScheduledStartTime);
+            Assert.Equal(1, _scheduler.RegisteredPackageCount);
+            // Could be HashQueued/UploadQueued or already advanced to Hashing/Uploading
+            // by the scheduler's background loop — any non-Idle state proves we kicked it off.
+            Assert.NotEqual(FileState.Idle, file.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StartPackage_IndividualIdleFile_RegistersPackageAndTransitionsFile()
+    {
+        // Right-click a single file (not the whole package) → Start. The package should
+        // get registered with the scheduler, only the chosen file should be queued, and
+        // its parent's pending schedule should be cleared.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string fileA = Path.Combine(tempDir, "a.iso");
+            string fileB = Path.Combine(tempDir, "b.iso");
+            await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
+            await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "scheduled",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [fileA, fileB],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+            PackageFile target = package.First();
+
+            _packageManager.StartPackage(target);
+
+            Assert.Null(package.ScheduledStartTime);
+            Assert.Equal(1, _scheduler.RegisteredPackageCount);
+            // Target transitions synchronously via ForceQueueIfStartable. Sibling files
+            // get queued asynchronously by SchedulePackageFiles when the scheduler's
+            // background loop drains the post — not asserted here to avoid a race.
+            Assert.NotEqual(FileState.Idle, target.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
     private static async Task<T?> WaitForAsync<T>(Func<Task<T?>> probe)
         where T : class
     {
