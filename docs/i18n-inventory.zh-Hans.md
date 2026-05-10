@@ -123,6 +123,7 @@ Uploads_Col_Progress              = 进度
 Uploads_Col_SaveTo                = 保存至
 Uploads_Col_Added                 = 添加时间
 Uploads_Col_Finished              = 完成时间
+Uploads_Col_ScheduledAt           = 计划开始时间
 Uploads_Col_Duration              = 耗时
 Uploads_Col_Priority              = 优先级
 Uploads_Col_SpeedLimit            = 速度限制

@@ -276,6 +276,9 @@
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>완료됨</value>
   </data>
+  <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
+    <value>예약 시각</value>
+  </data>
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>소요 시간</value>
   </data>

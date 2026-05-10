@@ -123,6 +123,7 @@ Uploads_Col_Progress              = 진행률
 Uploads_Col_SaveTo                = 저장 위치
 Uploads_Col_Added                 = 추가됨
 Uploads_Col_Finished              = 완료됨
+Uploads_Col_ScheduledAt           = 예약 시각
 Uploads_Col_Duration              = 소요 시간
 Uploads_Col_Priority              = 우선순위
 Uploads_Col_SpeedLimit            = 속도 제한

@@ -131,6 +131,7 @@ Uploads_Col_Progress              = Tiến độ
 Uploads_Col_SaveTo                = Lưu vào
 Uploads_Col_Added                 = Đã thêm
 Uploads_Col_Finished              = Đã hoàn tất
+Uploads_Col_ScheduledAt           = Lên lịch lúc
 Uploads_Col_Duration              = Thời lượng
 Uploads_Col_Priority              = Ưu tiên
 Uploads_Col_SpeedLimit            = Giới hạn tốc độ

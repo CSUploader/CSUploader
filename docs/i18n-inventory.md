@@ -123,6 +123,7 @@ Uploads_Col_Progress              = Progress
 Uploads_Col_SaveTo                = Save to
 Uploads_Col_Added                 = Added
 Uploads_Col_Finished              = Finished
+Uploads_Col_ScheduledAt           = Scheduled at
 Uploads_Col_Duration              = Duration
 Uploads_Col_Priority              = Priority
 Uploads_Col_SpeedLimit            = Speed Limit

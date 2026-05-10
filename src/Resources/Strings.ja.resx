@@ -276,6 +276,9 @@
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>完了日時</value>
   </data>
+  <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
+    <value>開始予定日時</value>
+  </data>
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>所要時間</value>
   </data>

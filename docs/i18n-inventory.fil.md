@@ -123,6 +123,7 @@ Uploads_Col_Progress              = Progreso
 Uploads_Col_SaveTo                = I-save sa
 Uploads_Col_Added                 = Idinagdag
 Uploads_Col_Finished              = Tapos
+Uploads_Col_ScheduledAt           = Naka-iskedyul sa
 Uploads_Col_Duration              = Tagal
 Uploads_Col_Priority              = Priority
 Uploads_Col_SpeedLimit            = Speed Limit

@@ -50,6 +50,7 @@ internal static class ColumnValueExtractor
                 "SaveTo" => "SaveFrom",
                 "Added" => "AddedDate",
                 "Finished" => "FinishedDate",
+                "ScheduledAt" => "ScheduledStartTime",
                 "SpeedLimit" => "EffectiveSpeedLimitKBps",
                 "Hash" => "FileHash",
                 "URL" => "FileUrl",
