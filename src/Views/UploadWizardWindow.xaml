@@ -91,7 +91,7 @@
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=PropertyChanged}"
+            <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=LostFocus}"
                      FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
             <Button Grid.Column="1" Content="{loc:Loc Wizard_Step0_Browse}" Width="80" Margin="8,0,0,0"
                     Command="{Binding BrowseDirectoryCommand}" />
