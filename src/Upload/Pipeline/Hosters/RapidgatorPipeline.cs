@@ -14,6 +14,14 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 public sealed class RapidgatorPipeline : IFileHosterPipeline
 {
     private readonly ConcurrentDictionary<int, RapidgatorAuthState> _authByCredentialsId = new();
+
+    // One login at a time per credentials id. Without this, kicking off N parallel
+    // uploads against the same account triggers N concurrent login round-trips, which
+    // Rapidgator rate-limits with "Frequent logins. Please wait 20 seconds…". The
+    // gate's leader does the login and writes the cache; followers double-check and
+    // reuse it without extra API calls.
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
+
     private readonly Func<string, Task<string>>? _httpOverride;
     private readonly Func<string, string, Func<long?>?, Task>? _uploadOverride;
 
@@ -35,6 +43,12 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         _uploadOverride = uploadOverride;
     }
 
+    /// <summary>Test ctor — async GET override so concurrency tests can introduce delays.</summary>
+    internal RapidgatorPipeline(Func<string, Task<string>> asyncGetOverride)
+    {
+        _httpOverride = asyncGetOverride;
+    }
+
     /// <summary>Thrown internally when a post-auth API call returns HTTP 401 (token expired).</summary>
     private sealed class AuthExpiredException : Exception { }
 
@@ -47,21 +61,31 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         // === Auth ===
-        if (!_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out RapidgatorAuthState? auth))
+        RapidgatorAuthState? auth;
+        if (!_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out auth))
         {
-            yield return new AuthStarted();
+            (RapidgatorAuthState? gated, bool didLogin, string? error) = await EnsureAuthAsync(ctx, ct);
+            auth = gated;
 
-            (RapidgatorAuthState? newAuth, string? error) = await LoginAsync(ctx);
-            if (newAuth is null)
+            if (didLogin)
             {
-                yield return new AuthFailed(error ?? "login returned no token");
+                yield return new AuthStarted();
+            }
+
+            if (auth is null)
+            {
+                if (didLogin)
+                {
+                    yield return new AuthFailed(error ?? "login returned no token");
+                }
                 yield return new AttemptFailed(error ?? "login failed", null);
                 yield break;
             }
 
-            _authByCredentialsId[ctx.Credentials.Id] = newAuth;
-            auth = newAuth;
-            yield return new AuthSucceeded();
+            if (didLogin)
+            {
+                yield return new AuthSucceeded();
+            }
         }
 
         // === Post-auth flow (folder → transfer → upload_info) ===
@@ -224,6 +248,42 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         if (finalUrl is not null)
         {
             yield return new TransferCompleted(finalUrl);
+        }
+    }
+
+    /// <summary>
+    /// Acquires the per-credentials gate, double-checks the cache, and either logs in
+    /// (for the first caller) or returns the cached state (for everyone after).
+    /// </summary>
+    /// <returns>
+    /// (auth, didLogin, error). <c>didLogin</c> is true only for the leader that
+    /// performed the actual round-trip; followers see the cache and report didLogin=false
+    /// so RunAsync can suppress the AuthStarted/AuthSucceeded events that would otherwise
+    /// fire redundantly per file.
+    /// </returns>
+    private async Task<(RapidgatorAuthState? Auth, bool DidLogin, string? Error)> EnsureAuthAsync(AttemptContext ctx, CancellationToken ct)
+    {
+        SemaphoreSlim gate = _loginGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        try
+        {
+            if (_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out RapidgatorAuthState? cached))
+            {
+                return (cached, false, null);
+            }
+
+            (RapidgatorAuthState? newAuth, string? error) = await LoginAsync(ctx);
+            if (newAuth is null)
+            {
+                return (null, true, error);
+            }
+
+            _authByCredentialsId[ctx.Credentials.Id] = newAuth;
+            return (newAuth, true, null);
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 

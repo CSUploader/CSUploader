@@ -70,6 +70,51 @@ public class RapidgatorPipelineAuthTests
     }
 
     [Fact]
+    public async Task RunAsync_ManyParallelCallsSameCredentials_OnlyOneLogin()
+    {
+        // Repro for "Frequent logins. Please wait 20 seconds…": before the per-credentials
+        // semaphore gate, kicking off N parallel pipelines for the same account triggered N
+        // concurrent login round-trips. The fix: only the first caller logs in; the rest
+        // wait on the gate and reuse the cached token.
+        const int parallel = 50;
+        const string loginResponse = """{"response":{"token":"TOK1","user":{"folder_id":"5973665"}},"status":200,"details":null}""";
+        const string folderResponse = """{"response":{"folder":{"folder_id":"8676913","mode":0,"mode_label":"Public","parent_folder_id":"5973665","name":"nope","url":"https://r/folder/8676913","nb_folders":0,"nb_files":0,"size_files":0,"created":1778221286,"folders":[]}},"status":200,"details":null}""";
+
+        int loginCalls = 0;
+        async Task<string> Respond(string url)
+        {
+            if (url.Contains("/api/v2/user/login", StringComparison.Ordinal))
+            {
+                Interlocked.Increment(ref loginCalls);
+                // Hold the request long enough that the other 49 callers pile up at the gate
+                // (and hit the cache when they wake up) instead of racing through too fast.
+                await Task.Delay(50);
+                return loginResponse;
+            }
+            return folderResponse;
+        }
+
+        RapidgatorPipeline pipeline = new(Respond);
+
+        Task[] tasks = new Task[parallel];
+        for (int i = 0; i < parallel; i++)
+        {
+            tasks[i] = Task.Run(async () =>
+            {
+                AttemptContext ctx = MakeContext();
+                await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+                {
+                    if (ev is TransferStarted) break;
+                }
+            });
+        }
+
+        await Task.WhenAll(tasks);
+
+        Assert.Equal(1, loginCalls);
+    }
+
+    [Fact]
     public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
     {
         Queue<string> responses = new(new[] { """{"response":null,"status":401,"details":"bad credentials"}""" });
