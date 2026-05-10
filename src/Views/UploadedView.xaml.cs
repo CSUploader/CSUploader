@@ -223,6 +223,16 @@ public partial class UploadedView : UserControl
     private void FilesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         DependencyObject? source = e.OriginalSource as DependencyObject;
+
+        // Column headers have their own ContextMenu (the show/hide menu, set via the
+        // cloned ColumnHeaderStyle in FilesGrid_Loaded). The ContextMenuOpening event
+        // bubbles up from the header to the DataGrid, so we must let it pass — otherwise
+        // setting e.Handled below cancels the header's menu too.
+        if (FindAncestor<DataGridColumnHeader>(source) is not null)
+        {
+            return;
+        }
+
         if (FindAncestor<DataGridRow>(source) is not null)
         {
             return;
