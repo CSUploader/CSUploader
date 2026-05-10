@@ -81,7 +81,6 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         CreatedDateTime = entity.CreatedDateTime,
         ScheduledStartTime = entity.ScheduledStartTime,
         IsCompleted = entity.IsCompleted,
-        DirectoryPath = entity.DirectoryPath,
         SpeedLimitKBps = entity.SpeedLimitKBps,
         StartMode = (UploadStartMode)entity.StartMode,
         IsRemovedFromUploads = entity.IsRemovedFromUploads,
@@ -116,7 +115,6 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         dto.CreatedDateTime = entity.CreatedDateTime;
         dto.ScheduledStartTime = entity.ScheduledStartTime;
         dto.IsCompleted = entity.IsCompleted;
-        dto.DirectoryPath = entity.DirectoryPath;
         dto.SpeedLimitKBps = entity.SpeedLimitKBps;
         dto.StartMode = (UploadStartMode)entity.StartMode;
         dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
@@ -129,7 +127,6 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         CreatedDateTime = dto.CreatedDateTime,
         ScheduledStartTime = dto.ScheduledStartTime,
         IsCompleted = dto.IsCompleted,
-        DirectoryPath = dto.DirectoryPath ?? string.Empty,
         SpeedLimitKBps = dto.SpeedLimitKBps,
         StartMode = (int)dto.StartMode,
         IsRemovedFromUploads = dto.IsRemovedFromUploads,

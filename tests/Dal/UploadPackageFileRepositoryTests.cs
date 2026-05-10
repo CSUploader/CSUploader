@@ -205,7 +205,6 @@ public class UploadPackageFileRepositoryTests : IDisposable
             Name = name,
             CreatedDateTime = DateTime.Now,
             IsCompleted = isCompleted,
-            DirectoryPath = string.Empty,
         };
         await _packageRepo.InsertAsync(pkg);
         return pkg.Id;

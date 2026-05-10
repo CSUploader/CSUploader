@@ -143,7 +143,6 @@ public class UploadedViewModelTests : IDisposable
             Name = name,
             CreatedDateTime = DateTime.Now,
             IsCompleted = false,
-            DirectoryPath = string.Empty,
         };
         await _packageRepo.InsertAsync(pkg);
         return pkg.Id;

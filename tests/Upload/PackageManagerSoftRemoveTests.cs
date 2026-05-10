@@ -350,7 +350,6 @@ public class PackageManagerSoftRemoveTests : IDisposable
             Name = name,
             CreatedDateTime = DateTime.Now,
             IsCompleted = false,
-            DirectoryPath = string.Empty,
             IsRemovedFromUploads = isRemovedFromUploads,
         };
         await _packageRepo.InsertAsync(pkg);

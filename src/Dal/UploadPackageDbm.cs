@@ -24,9 +24,6 @@ public class UploadPackageDbm
 
     public bool IsCompleted { get; set; }
 
-    [Required]
-    public string DirectoryPath { get; set; } = string.Empty;
-
     public int? SpeedLimitKBps { get; set; }
 
     public int StartMode { get; set; }

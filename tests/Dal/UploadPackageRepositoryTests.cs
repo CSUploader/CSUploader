@@ -150,7 +150,6 @@ public class UploadPackageRepositoryTests : IDisposable
         UploadPackageDto pkg = new()
         {
             Name = "x",
-            DirectoryPath = "C:\\x",
             CreatedDateTime = DateTime.Now,
             IsRemovedFromUploads = true,
         };
@@ -237,7 +236,6 @@ public class UploadPackageRepositoryTests : IDisposable
             Name = name,
             CreatedDateTime = DateTime.Now,
             IsCompleted = isCompleted,
-            DirectoryPath = string.Empty,
         };
         await _packageRepo.InsertAsync(pkg);
         return pkg.Id;

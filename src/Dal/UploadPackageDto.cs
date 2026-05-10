@@ -19,8 +19,6 @@ public class UploadPackageDto
 
     public bool IsCompleted { get; set; }
 
-    public string? DirectoryPath { get; set; }
-
     public int? SpeedLimitKBps { get; set; }
 
     public UploadStartMode StartMode { get; set; }

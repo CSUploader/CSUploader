@@ -72,7 +72,6 @@ public static class FirstRun
             ("UploadPackage", "CreatedDateTime", "ALTER TABLE UploadPackage ADD COLUMN CreatedDateTime TEXT NOT NULL DEFAULT '0001-01-01'"),
             ("UploadPackage", "ScheduledStartTime", "ALTER TABLE UploadPackage ADD COLUMN ScheduledStartTime TEXT"),
             ("UploadPackage", "IsCompleted", "ALTER TABLE UploadPackage ADD COLUMN IsCompleted INTEGER NOT NULL DEFAULT 0"),
-            ("UploadPackage", "DirectoryPath", "ALTER TABLE UploadPackage ADD COLUMN DirectoryPath TEXT NOT NULL DEFAULT ''"),
             ("UploadPackage", "SpeedLimitKBps", "ALTER TABLE UploadPackage ADD COLUMN SpeedLimitKBps INTEGER"),
             ("UploadPackage", "StartMode", "ALTER TABLE UploadPackage ADD COLUMN StartMode INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "FileName", "ALTER TABLE UploadPackageFile ADD COLUMN FileName TEXT NOT NULL DEFAULT ''"),

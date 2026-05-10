@@ -406,7 +406,6 @@ public class PackageManager
                 CreatedDateTime = DateTime.Now,
                 ScheduledStartTime = package.ScheduledStartTime,
                 IsCompleted = false,
-                DirectoryPath = package.SaveFrom ?? string.Empty,
                 SpeedLimitKBps = package.SpeedLimitKBps,
                 StartMode = UploadStartMode.Immediately,
             };
