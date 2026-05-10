@@ -328,7 +328,7 @@ Use Help → Install Update to download and install.</value>
     <value>Total Bytes</value>
   </data>
   <data name="Uploads_Overview_Uploadspeed" xml:space="preserve">
-    <value>Uploadspeed</value>
+    <value>Upload speed</value>
   </data>
   <data name="Uploads_Overview_BytesLoaded" xml:space="preserve">
     <value>Bytes loaded</value>
@@ -364,7 +364,7 @@ Use Help → Install Update to download and install.</value>
     <value>Total Bytes:</value>
   </data>
   <data name="Uploads_Overview_UploadspeedLabel" xml:space="preserve">
-    <value>Uploadspeed:</value>
+    <value>Upload speed:</value>
   </data>
   <data name="Uploads_Overview_BytesLoadedLabel" xml:space="preserve">
     <value>Bytes loaded:</value>
