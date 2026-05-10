@@ -117,8 +117,9 @@
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
         </Grid>
 
-        <!-- Row 3: filter -->
-        <Grid Grid.Row="3" Margin="0,0,0,8">
+        <!-- Row 3: filter (directory mode only — files-mode users curated the list themselves) -->
+        <Grid Grid.Row="3" Margin="0,0,0,8"
+              Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
@@ -129,9 +130,9 @@
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
         </Grid>
 
-        <!-- Row 4: bulk-select buttons sit above the file list so it's clear they
-             act on the file list below, not on the filter textbox. -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6">
+        <!-- Row 4: bulk-select buttons (directory mode only — files-mode users curated the list themselves) -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6"
+                    Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}">
           <Button Content="{loc:Loc Wizard_Step1_BtnSelectAll}" MinWidth="100" Padding="10,4"
                   Command="{Binding SelectAllCommand}" />
           <Button Content="{loc:Loc Wizard_Step1_BtnDeselectAll}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
