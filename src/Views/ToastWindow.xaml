@@ -53,10 +53,10 @@
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0,4,0">
         <TextBlock Text="{Binding Title}"
                    FontWeight="Bold"
-                   Foreground="{DynamicResource TextBrush}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
                    TextTrimming="CharacterEllipsis" />
         <TextBlock Text="{Binding Message}"
-                   Foreground="{DynamicResource TextBrush}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
                    TextTrimming="CharacterEllipsis"
                    Margin="0,2,0,0" />
       </StackPanel>
@@ -70,7 +70,7 @@
               HorizontalAlignment="Right"
               Background="Transparent"
               BorderThickness="0"
-              Foreground="{DynamicResource TextBrush}"
+              Foreground="{DynamicResource TextPrimaryBrush}"
               Cursor="Hand"
               Command="{Binding CloseCommand}"
               Click="OnCloseClicked" />
