@@ -69,7 +69,23 @@ public class PackageFile : INotifyPropertyChanged
     /// <summary>
     /// Gets the total size of the file.
     /// </summary>
-    public long? Size => FileInfo?.Length;
+    public long? Size
+    {
+        get
+        {
+            // FileInfo.Length throws FileNotFoundException when the file isn't on disk,
+            // which can happen after a Completed file's source got deleted (terminal-state
+            // rows are preserved for the History tab even if the source is long gone).
+            try
+            {
+                return FileInfo?.Length;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the file hosters used the package is uploading to.

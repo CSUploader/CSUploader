@@ -463,6 +463,72 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_OneBadPackage_DoesNotAbortOthers()
+    {
+        // Repro: a Completed package whose source file has been deleted threw
+        // FileNotFoundException out of FileInfo.Length inside PackageFile.ctor,
+        // and the exception escaped the per-package loop — wiping every package
+        // remaining in iteration order from the Uploads tab on restart.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string goodPath = Path.Combine(tempDir, "good.iso");
+            await File.WriteAllBytesAsync(goodPath, new byte[] { 0 });
+            string ghostPath = Path.Combine(tempDir, "ghost.iso");
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+
+            // Persist a "ghost" package whose Completed file points at a path that
+            // no longer exists on disk. Insert it FIRST so it's iterated first —
+            // before the bug fix this would tank the load for every later package.
+            UploadPackageDto ghostPkg = new()
+            {
+                Name = "ghost",
+                CreatedDateTime = DateTime.Now,
+                IsCompleted = true,
+            };
+            await _packageRepo.InsertAsync(ghostPkg);
+            await _fileRepo.InsertAsync(new UploadPackageFileDto
+            {
+                FileName = "ghost.iso",
+                FileDirectory = tempDir,
+                FileSize = 1,
+                FileHoster = "Rapidgator",
+                FileHosterName = "Rapidgator",
+                FileHosterLoginId = 0,
+                State = FileState.Completed,
+                PackageId = ghostPkg.Id,
+            });
+
+            // Then a normal package whose file is on disk.
+            PackageOptions options = new()
+            {
+                Title = "good",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [goodPath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+            await _packageManager.AddPackageOnlyAsync(options);
+
+            AppSettings settings = new();
+            DefaultFileHosterRegistry reg = new([]);
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+            await freshManager.LoadPersistedPackagesAsync();
+
+            // The ghost package's terminal-state row keeps it visible (no disk read
+            // needed for display); the good package must also load.
+            Assert.Contains(freshManager.Packages, p => p.Name == "good");
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task ResetPackage_ReregistersAndStartsScheduler()
     {
         // Repro: after a Failed file is right-click → Reset, the file transitioned to

@@ -162,221 +162,236 @@ public class PackageManager
 
             foreach (UploadPackageDto pkgDto in all)
             {
-                // Skip packages that the user has soft-removed from the Uploads tab.
-                // Their per-file rows may still be visible on the Uploaded tab.
-                if (pkgDto.IsRemovedFromUploads)
+                try
                 {
-                    continue;
+                    await LoadOnePersistedPackageAsync(pkgDto);
                 }
-
-                if (pkgDto.Files is null || pkgDto.Files.Count == 0)
+                catch (Exception ex)
                 {
-                    continue;
-                }
-
-                // Drop individual file rows the user removed from Uploads (the package
-                // itself was kept). They stay queryable for the Uploaded tab via IsHidden.
-                pkgDto.Files = [.. pkgDto.Files.Where(f => !f.IsRemovedFromUploads)];
-                if (pkgDto.Files.Count == 0)
-                {
-                    continue;
-                }
-
-                // Build FileHosterLogins dictionary (one resolved login per hoster name).
-                // resolvedLogins is also reused by the file-reconstruction loop below so
-                // every PackageFile for the same hoster shares the same login instance —
-                // and we only hit the DB once per hoster instead of once per file.
-                Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
-                Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
-
-                foreach (UploadPackageFileDto fileDto in pkgDto.Files)
-                {
-                    string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
-                    if (string.IsNullOrEmpty(hosterName) || fileHosterLogins.Keys.Any(k => string.Equals(k.Name, hosterName, StringComparison.Ordinal)))
-                    {
-                        continue;
-                    }
-
-                    var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
-                    if (client is null)
-                    {
-                        continue;
-                    }
-
-                    FileHosterLoginDto? login = null;
-                    if (fileDto.FileHosterLoginId > 0)
-                    {
-                        login = await _loginRepo.FindAsync(fileDto.FileHosterLoginId);
-                        if (login is null)
-                        {
-                            _logger.Log(this, LogType.Error, $"Persisted FileHosterLoginId={fileDto.FileHosterLoginId} for {hosterName} could not be found in the accounts table; using anonymous login (uploads will likely fail).");
-                        }
-                    }
-                    else
-                    {
-                        _logger.Log(this, LogType.Error, $"Persisted file for {hosterName} has FileHosterLoginId=0; the package was saved without a login bound. Edit the package's hoster account and retry.");
-                    }
-
-                    login ??= new FileHosterLoginDto { FileHosterName = hosterName };
-
-                    fileHosterLogins[client] = login;
-                    resolvedLogins[hosterName] = login;
-                }
-
-                if (fileHosterLogins.Count == 0)
-                {
-                    continue;
-                }
-
-                // Reconstruct Package
-                PackageOptions options = new()
-                {
-                    Title = pkgDto.Name ?? string.Empty,
-                    Logger = _logger,
-                    FileHosters = fileHosterLogins,
-                    Settings = _settings,
-                };
-                Package package = new(options)
-                {
-                    DbId = pkgDto.Id,
-                    ScheduledStartTime = pkgDto.ScheduledStartTime,
-                    SpeedLimitKBps = pkgDto.SpeedLimitKBps,
-                };
-
-                // Override Name since it was persisted
-                package.Name = pkgDto.Name ?? package.Name;
-
-                // Track whether any file was in a non-paused/cancelled/terminal state at
-                // last shutdown. Drives the Autostart Uploads "Only if running at last
-                // session's end" gate below.
-                bool wasRunningAtShutdown = false;
-
-                // Reconstruct PackageFiles
-                List<PackageFile> files = [];
-                foreach (UploadPackageFileDto fileDto in pkgDto.Files)
-                {
-                    if (fileDto.State is FileState.Idle or FileState.HashQueued or FileState.Hashing
-                        or FileState.UploadQueued or FileState.Uploading)
-                    {
-                        wasRunningAtShutdown = true;
-                    }
-
-                    string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
-                    var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
-                    if (client is null)
-                    {
-                        continue;
-                    }
-
-                    // Reuse the login already resolved (with logging) by the first loop —
-                    // ensures every file for this hoster ends up with the same credentials.
-                    if (!resolvedLogins.TryGetValue(hosterName, out FileHosterLoginDto? login))
-                    {
-                        login = new FileHosterLoginDto { FileHosterName = hosterName };
-                    }
-
-                    string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
-
-                    // Terminal-state files only need their metadata (URL, size, status) for
-                    // display — the source file may be long gone. Only require disk presence
-                    // when we'd actually need to read the file again (re-hash or re-upload).
-                    bool isTerminal = fileDto.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
-                    if (!isTerminal && !File.Exists(filePath))
-                    {
-                        _logger.Log(this, LogType.Error, $"File no longer exists: {filePath}");
-                        continue;
-                    }
-
-                    PackageFile pf = new(package, filePath, client, login)
-                    {
-                        DbId = fileDto.Id,
-                        Priority = fileDto.Priority,
-                        IsHashingComplete = fileDto.IsHashingComplete,
-                        FileHash = fileDto.FileHash,
-                    };
-
-                    // Remap state: interrupted Hashing/Uploading -> re-queue.
-                    // Idle and Uploading map to HashQueued when hashing is required and
-                    // not yet complete, so the file always has a valid hash before upload.
-                    bool needsHash = _registry.Find(hosterName)?.RequiresHashingBeforeUpload ?? false;
-                    FileState restoredState = fileDto.State switch
-                    {
-                        FileState.Hashing => FileState.HashQueued,
-                        FileState.Uploading => needsHash && !pf.IsHashingComplete
-                            ? FileState.HashQueued
-                            : FileState.UploadQueued,
-                        FileState.Idle => needsHash && !pf.IsHashingComplete
-                            ? FileState.HashQueued
-                            : FileState.UploadQueued,
-                        _ => fileDto.State,
-                    };
-                    pf.State = restoredState;
-                    pf.Error = fileDto.Error;
-                    pf.FileUrl = fileDto.FileUrl;
-
-                    files.Add(pf);
-                }
-
-                if (files.Count == 0)
-                {
-                    continue;
-                }
-
-                bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);
-                bool allSuccessful = files.Count > 0 && files.TrueForAll(f => f.State == FileState.Completed);
-
-                // AtStartup mode: drop fully-successful packages from the Uploads tab on
-                // app launch. The Uploaded tab still shows the row via its own query —
-                // soft-remove only flips the IsRemovedFromUploads flag.
-                if (allSuccessful && _settings.RemoveFinishedUploads == RemoveFinishedUploadsMode.AtStartup)
-                {
-                    await _packageRepo.SoftRemoveFromUploadsAsync(pkgDto.Id);
-                    continue;
-                }
-
-                package.AddPackageFiles([.. files]);
-
-                lock (_lock)
-                { Packages.Add(package); }
-                PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
-
-                if (allTerminal)
-                {
-                    // All files reached a terminal state already. Keep the package on the
-                    // Uploads tab (so the user can see / Remove it manually) but don't try
-                    // to schedule it for further work; just keep the DB flag in sync.
-                    await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
-                    continue;
-                }
-
-                // Honour the Autostart Uploads policy. Never → leave the package idle
-                // (user can click Start). OnlyIfRunningAtLastSession → resume only if a
-                // file was active when the app shut down. Always → resume unconditionally.
-                bool shouldAutostart = _settings.AutostartUploads switch
-                {
-                    AutostartUploadsMode.Never => false,
-                    AutostartUploadsMode.Always => true,
-                    AutostartUploadsMode.OnlyIfRunningAtLastSession => wasRunningAtShutdown,
-                    _ => false,
-                };
-
-                bool hasQueuedFiles = files.Any(f => f.State is FileState.HashQueued or FileState.UploadQueued);
-                if (shouldAutostart && hasQueuedFiles)
-                {
-                    if (pkgDto.ScheduledStartTime is not null && pkgDto.ScheduledStartTime > DateTime.Now)
-                    {
-                        ScheduleDelayedStart(package, pkgDto.ScheduledStartTime.Value);
-                    }
-                    else
-                    {
-                        _scheduler.AddPackage(package);
-                    }
+                    // Per-package isolation: a single bad row (e.g. a Completed file
+                    // whose source has been deleted, throwing inside FileInfo.Length)
+                    // must not abort the whole load. Log and move on.
+                    _logger.Log(this, LogType.Error, $"Skipped persisted package id={pkgDto.Id} ({pkgDto.Name}): {ex.Message}");
                 }
             }
         }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Failed to load persisted packages: {ex.Message}");
+        }
+    }
+
+    private async Task LoadOnePersistedPackageAsync(UploadPackageDto pkgDto)
+    {
+        // Skip packages that the user has soft-removed from the Uploads tab.
+        // Their per-file rows may still be visible on the Uploaded tab.
+        if (pkgDto.IsRemovedFromUploads)
+        {
+            return;
+        }
+
+        if (pkgDto.Files is null || pkgDto.Files.Count == 0)
+        {
+            return;
+        }
+
+        // Drop individual file rows the user removed from Uploads (the package
+        // itself was kept). They stay queryable for the Uploaded tab via IsHidden.
+        pkgDto.Files = [.. pkgDto.Files.Where(f => !f.IsRemovedFromUploads)];
+        if (pkgDto.Files.Count == 0)
+        {
+            return;
+        }
+
+        // Build FileHosterLogins dictionary (one resolved login per hoster name).
+        // resolvedLogins is also reused by the file-reconstruction loop below so
+        // every PackageFile for the same hoster shares the same login instance —
+        // and we only hit the DB once per hoster instead of once per file.
+        Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
+        Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
+
+        foreach (UploadPackageFileDto fileDto in pkgDto.Files)
+        {
+            string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
+            if (string.IsNullOrEmpty(hosterName) || fileHosterLogins.Keys.Any(k => string.Equals(k.Name, hosterName, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
+            if (client is null)
+            {
+                continue;
+            }
+
+            FileHosterLoginDto? login = null;
+            if (fileDto.FileHosterLoginId > 0)
+            {
+                login = await _loginRepo.FindAsync(fileDto.FileHosterLoginId);
+                if (login is null)
+                {
+                    _logger.Log(this, LogType.Error, $"Persisted FileHosterLoginId={fileDto.FileHosterLoginId} for {hosterName} could not be found in the accounts table; using anonymous login (uploads will likely fail).");
+                }
+            }
+            else
+            {
+                _logger.Log(this, LogType.Error, $"Persisted file for {hosterName} has FileHosterLoginId=0; the package was saved without a login bound. Edit the package's hoster account and retry.");
+            }
+
+            login ??= new FileHosterLoginDto { FileHosterName = hosterName };
+
+            fileHosterLogins[client] = login;
+            resolvedLogins[hosterName] = login;
+        }
+
+        if (fileHosterLogins.Count == 0)
+        {
+            return;
+        }
+
+        // Reconstruct Package
+        PackageOptions options = new()
+        {
+            Title = pkgDto.Name ?? string.Empty,
+            Logger = _logger,
+            FileHosters = fileHosterLogins,
+            Settings = _settings,
+        };
+        Package package = new(options)
+        {
+            DbId = pkgDto.Id,
+            ScheduledStartTime = pkgDto.ScheduledStartTime,
+            SpeedLimitKBps = pkgDto.SpeedLimitKBps,
+        };
+
+        // Override Name since it was persisted
+        package.Name = pkgDto.Name ?? package.Name;
+
+        // Track whether any file was in a non-paused/cancelled/terminal state at
+        // last shutdown. Drives the Autostart Uploads "Only if running at last
+        // session's end" gate below.
+        bool wasRunningAtShutdown = false;
+
+        // Reconstruct PackageFiles
+        List<PackageFile> files = [];
+        foreach (UploadPackageFileDto fileDto in pkgDto.Files)
+        {
+            if (fileDto.State is FileState.Idle or FileState.HashQueued or FileState.Hashing
+                or FileState.UploadQueued or FileState.Uploading)
+            {
+                wasRunningAtShutdown = true;
+            }
+
+            string hosterName = fileDto.FileHosterName ?? fileDto.FileHoster ?? string.Empty;
+            var client = FileHosterClient.FindByHost(hosterName, Protocol.Http, _logger);
+            if (client is null)
+            {
+                continue;
+            }
+
+            // Reuse the login already resolved (with logging) by the first loop —
+            // ensures every file for this hoster ends up with the same credentials.
+            if (!resolvedLogins.TryGetValue(hosterName, out FileHosterLoginDto? login))
+            {
+                login = new FileHosterLoginDto { FileHosterName = hosterName };
+            }
+
+            string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
+
+            // Terminal-state files only need their metadata (URL, size, status) for
+            // display — the source file may be long gone. Only require disk presence
+            // when we'd actually need to read the file again (re-hash or re-upload).
+            bool isTerminal = fileDto.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
+            if (!isTerminal && !File.Exists(filePath))
+            {
+                _logger.Log(this, LogType.Error, $"File no longer exists: {filePath}");
+                continue;
+            }
+
+            PackageFile pf = new(package, filePath, client, login)
+            {
+                DbId = fileDto.Id,
+                Priority = fileDto.Priority,
+                IsHashingComplete = fileDto.IsHashingComplete,
+                FileHash = fileDto.FileHash,
+            };
+
+            // Remap state: interrupted Hashing/Uploading -> re-queue.
+            // Idle and Uploading map to HashQueued when hashing is required and
+            // not yet complete, so the file always has a valid hash before upload.
+            bool needsHash = _registry.Find(hosterName)?.RequiresHashingBeforeUpload ?? false;
+            FileState restoredState = fileDto.State switch
+            {
+                FileState.Hashing => FileState.HashQueued,
+                FileState.Uploading => needsHash && !pf.IsHashingComplete
+                    ? FileState.HashQueued
+                    : FileState.UploadQueued,
+                FileState.Idle => needsHash && !pf.IsHashingComplete
+                    ? FileState.HashQueued
+                    : FileState.UploadQueued,
+                _ => fileDto.State,
+            };
+            pf.State = restoredState;
+            pf.Error = fileDto.Error;
+            pf.FileUrl = fileDto.FileUrl;
+
+            files.Add(pf);
+        }
+
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);
+        bool allSuccessful = files.Count > 0 && files.TrueForAll(f => f.State == FileState.Completed);
+
+        // AtStartup mode: drop fully-successful packages from the Uploads tab on
+        // app launch. The Uploaded tab still shows the row via its own query —
+        // soft-remove only flips the IsRemovedFromUploads flag.
+        if (allSuccessful && _settings.RemoveFinishedUploads == RemoveFinishedUploadsMode.AtStartup)
+        {
+            await _packageRepo.SoftRemoveFromUploadsAsync(pkgDto.Id);
+            return;
+        }
+
+        package.AddPackageFiles([.. files]);
+
+        lock (_lock)
+        { Packages.Add(package); }
+        PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
+
+        if (allTerminal)
+        {
+            // All files reached a terminal state already. Keep the package on the
+            // Uploads tab (so the user can see / Remove it manually) but don't try
+            // to schedule it for further work; just keep the DB flag in sync.
+            await _packageRepo.UpdateCompletedFlagAsync(pkgDto.Id, true);
+            return;
+        }
+
+        // Honour the Autostart Uploads policy. Never → leave the package idle
+        // (user can click Start). OnlyIfRunningAtLastSession → resume only if a
+        // file was active when the app shut down. Always → resume unconditionally.
+        bool shouldAutostart = _settings.AutostartUploads switch
+        {
+            AutostartUploadsMode.Never => false,
+            AutostartUploadsMode.Always => true,
+            AutostartUploadsMode.OnlyIfRunningAtLastSession => wasRunningAtShutdown,
+            _ => false,
+        };
+
+        bool hasQueuedFiles = files.Any(f => f.State is FileState.HashQueued or FileState.UploadQueued);
+        if (shouldAutostart && hasQueuedFiles)
+        {
+            if (pkgDto.ScheduledStartTime is not null && pkgDto.ScheduledStartTime > DateTime.Now)
+            {
+                ScheduleDelayedStart(package, pkgDto.ScheduledStartTime.Value);
+            }
+            else
+            {
+                _scheduler.AddPackage(package);
+            }
         }
     }
 
