@@ -159,9 +159,28 @@ public partial class UploadsView : UserControl
 
     private void AddUploadButton_Click(object sender, RoutedEventArgs e)
     {
+        if (sender is Button btn && btn.ContextMenu is not null)
+        {
+            btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.IsOpen = true;
+        }
+    }
+
+    private void AddUploadDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        OpenWizard(UploadWizardMode.Directory);
+    }
+
+    private void AddUploadFiles_Click(object sender, RoutedEventArgs e)
+    {
+        OpenWizard(UploadWizardMode.Files);
+    }
+
+    private void OpenWizard(UploadWizardMode mode)
+    {
         if (DataContext is UploadsViewModel vm)
         {
-            var wizard = new UploadWizardWindow(vm, UploadWizardMode.Directory)
+            var wizard = new UploadWizardWindow(vm, mode)
             {
                 Owner = Window.GetWindow(this),
             };

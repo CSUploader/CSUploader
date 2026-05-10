@@ -113,6 +113,12 @@
                 Padding="4,2">
             <StackPanel Orientation="Horizontal">
                 <Button Style="{StaticResource ToolbarButton}" Click="AddUploadButton_Click" ToolTip="{loc:Loc Uploads_Toolbar_AddTip}">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{loc:Loc Wizard_Menu_UploadDirectory}" Click="AddUploadDirectory_Click" />
+                            <MenuItem Header="{loc:Loc Wizard_Menu_UploadFiles}" Click="AddUploadFiles_Click" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
                     <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Margin="0,-4,0,0" />
