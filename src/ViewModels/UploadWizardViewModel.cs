@@ -271,7 +271,7 @@ public partial class UploadWizardViewModel(
         PackageOptions options = new()
         {
             DirectoryPath = DirectoryPath,
-            Title = string.IsNullOrWhiteSpace(PackageTitle) ? null : PackageTitle.Trim(),
+            Title = PackageTitle.Trim(),
             Logger = _logger,
             Settings = _settings,
             SelectedFiles = [.. Files.Where(f => f.IsSelected).Select(f => f.FullPath)],

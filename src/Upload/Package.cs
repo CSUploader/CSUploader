@@ -72,9 +72,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// <summary>
     /// Gets or sets the name of the package.
     /// </summary>
-    public string Name { get; set; } = !string.IsNullOrWhiteSpace(options.Title)
-            ? options.Title
-            : Path.GetFileNameWithoutExtension(options.DirectoryPath) ?? throw new ArgumentException(nameof(options.DirectoryPath));
+    public string Name { get; set; } = options.Title;
 
     /// <summary>
     /// Gets the total size of the package.

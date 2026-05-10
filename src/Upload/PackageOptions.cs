@@ -30,9 +30,9 @@ public class PackageOptions
     public string? DirectoryPath { get; set; }
 
     /// <summary>
-    /// Gets or sets a custom title for the package. When null, the directory name is used.
+    /// Gets or sets the title for the package.
     /// </summary>
-    public string? Title { get; set; }
+    public required string Title { get; set; }
 
     /// <summary>
     /// Gets or sets the selected files to include in the package.

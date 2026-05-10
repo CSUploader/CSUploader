@@ -231,7 +231,7 @@ public class PackageManager
                 // Reconstruct Package
                 PackageOptions options = new()
                 {
-                    DirectoryPath = pkgDto.DirectoryPath,
+                    Title = pkgDto.Name ?? string.Empty,
                     Logger = _logger,
                     FileHosters = fileHosterLogins,
                     Settings = _settings,
