@@ -75,6 +75,23 @@ public class DialogService : IDialogService
         return dialogResult == true ? dialog.SelectedPath : null;
     }
 
+    public string[]? BrowseFiles(string? title = null, string? filter = null)
+    {
+        Microsoft.Win32.OpenFileDialog dialog = new()
+        {
+            Title = title ?? Localizer.Instance["Common_SelectFiles"],
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+
+        if (!string.IsNullOrEmpty(filter))
+        {
+            dialog.Filter = filter;
+        }
+
+        return dialog.ShowDialog() == true ? dialog.FileNames : null;
+    }
+
     public FileHosterLoginDto? ShowAddAccountDialog(string hosterName, string[] availableHosters, string? title = null)
     {
         FileHosterLoginDto seed = new()

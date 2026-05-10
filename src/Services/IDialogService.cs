@@ -29,6 +29,13 @@ public interface IDialogService
     string? BrowseFolder(string? initialDirectory = null, string? title = null);
 
     /// <summary>
+    /// Opens a multi-select file dialog. <paramref name="filter"/> follows full Win32
+    /// filter syntax (e.g. <c>"All files|*.*"</c>); <c>null</c> means no filter.
+    /// Returns the array of full paths chosen, or <c>null</c> on cancel.
+    /// </summary>
+    string[]? BrowseFiles(string? title = null, string? filter = null);
+
+    /// <summary>
     /// Opens the add-account editor preselected to <paramref name="hosterName"/> (locked
     /// when only one hoster is provided). Returns the new account when the user clicks
     /// Save, or null if the dialog was cancelled.
