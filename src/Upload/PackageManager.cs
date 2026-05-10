@@ -749,11 +749,13 @@ public class PackageManager
             }
 
             _scheduler.AddPackage(package);
+            _scheduler.StartAll();
         }
         else if (item is PackageFile packageFile)
         {
             ResetFile(packageFile);
             _scheduler.AddPackage(packageFile.Package);
+            _scheduler.StartAll();
         }
     }
 

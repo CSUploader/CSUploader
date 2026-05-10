@@ -368,6 +368,58 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task ResetPackage_ReregistersAndStartsScheduler()
+    {
+        // Repro: after a Failed file is right-click → Reset, the file transitioned to
+        // HashQueued but the scheduler never picked it up because nothing called
+        // StartAll afterwards (and AddPackage is idempotent — no work for an already-
+        // registered package).
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "p",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            PackageFile file = package.Single();
+            // Simulate a stopped/failed state — the scenario the user reported.
+            file.State = FileState.Failed;
+            file.Error = "boom";
+            _scheduler.PauseAll();
+
+            _packageManager.ResetPackage(file);
+
+            // The reset itself runs synchronously: state moves to HashQueued and error
+            // clears immediately. StartAll runs through the scheduler's channel, so we
+            // poll briefly for IsPaused → false to prove the unpause was actually queued
+            // and processed (the bug was that StartAll wasn't called at all, so IsPaused
+            // would stay true forever).
+            Assert.Null(file.Error);
+            Assert.NotEqual(FileState.Failed, file.State);
+
+            for (int i = 0; i < 50 && _scheduler.IsPaused; i++)
+            {
+                await Task.Delay(20);
+            }
+            Assert.False(_scheduler.IsPaused);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task StartPackages_SkipsFutureScheduledPackages()
     {
         // Toolbar Start-all should not start packages whose scheduled time hasn't elapsed.
