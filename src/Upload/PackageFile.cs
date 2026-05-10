@@ -102,6 +102,14 @@ public class PackageFile : INotifyPropertyChanged
     public Package Package { get; }
 
     /// <summary>
+    /// Gets the package's <see cref="Upload.Package.ScheduledStartTime"/> so the
+    /// "Scheduled at" column can render on file rows too — scheduling itself is
+    /// only meaningful at the package level, but every row in the same package
+    /// shares the same value.
+    /// </summary>
+    public DateTime? ScheduledStartTime => Package.ScheduledStartTime;
+
+    /// <summary>
     /// Gets a value indicating whether upload has finished.
     /// </summary>
     public bool IsUploadFinished { get; internal set; }
