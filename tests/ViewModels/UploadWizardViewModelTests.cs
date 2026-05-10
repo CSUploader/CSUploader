@@ -187,6 +187,62 @@ public class UploadWizardViewModelTests : IDisposable
         }
     }
 
+    [Fact]
+    public void AddMoreFiles_DedupesByFullPath_CaseInsensitive()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA])
+                .Returns([tempA.ToUpperInvariant()]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            vm.BrowseFilesCommand.Execute(null);
+            vm.AddMoreFilesCommand.Execute(null);
+
+            Assert.Single(vm.Files);
+        }
+        finally
+        {
+            File.Delete(tempA);
+        }
+    }
+
+    [Fact]
+    public void AddMoreFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
+    {
+        string dirA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string dirB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dirA);
+        Directory.CreateDirectory(dirB);
+        string fileA = Path.Combine(dirA, "data.bin");
+        string fileB = Path.Combine(dirB, "data.bin");
+        File.WriteAllText(fileA, "a");
+        File.WriteAllText(fileB, "b");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([fileA])
+                .Returns([fileB]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            vm.BrowseFilesCommand.Execute(null);
+            vm.AddMoreFilesCommand.Execute(null);
+
+            Assert.Equal(2, vm.Files.Count);
+            Assert.Contains(vm.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(dirA, recursive: true);
+            Directory.Delete(dirB, recursive: true);
+        }
+    }
+
     private UploadWizardViewModel CreateVm(IDialogService dialog, UploadWizardMode mode = UploadWizardMode.Directory) =>
         new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings(), mode);
 

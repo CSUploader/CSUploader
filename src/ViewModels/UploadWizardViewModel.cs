@@ -121,6 +121,20 @@ public partial class UploadWizardViewModel(
         }
     }
 
+    [RelayCommand]
+    private void AddMoreFiles()
+    {
+        string[]? picked = _dialogService.BrowseFiles(
+            Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
+
+        if (picked is null || picked.Length == 0)
+        {
+            return;
+        }
+
+        AppendFiles(picked);
+    }
+
     private void AppendFiles(IEnumerable<string> filePaths)
     {
         HashSet<string> existing = new(
@@ -135,10 +149,21 @@ public partial class UploadWizardViewModel(
             }
 
             FileInfo fi = new(filePath);
+            string display = fi.Name;
+            if (Files.Any(f => string.Equals(f.FileName, fi.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                string folderName = Path.GetFileName(Path.GetDirectoryName(filePath) ?? string.Empty);
+                display = string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Step1_DuplicateFilenameSuffixFormat"],
+                    fi.Name,
+                    folderName);
+            }
+
             Files.Add(new FileEntry
             {
                 FullPath = filePath,
-                RelativePath = fi.Name,
+                RelativePath = display,
                 FileName = fi.Name,
                 Size = fi.Length,
                 IsSelected = true,
