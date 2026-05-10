@@ -82,4 +82,84 @@ public class PackageTests
 
         Assert.Empty(package);
     }
+
+    [Fact]
+    public void SaveFrom_NoFiles_ReturnsNull()
+    {
+        Package package = new(new PackageOptions { Title = "t", FileHosters = new() });
+
+        Assert.Null(package.SaveFrom);
+    }
+
+    [Fact]
+    public void SaveFrom_AllFilesShareDirectory_ReturnsThatDirectory()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+        string a = Path.Combine(dir, "a.bin");
+        string b = Path.Combine(dir, "b.bin");
+        File.WriteAllText(a, "a");
+        File.WriteAllText(b, "b");
+        try
+        {
+            PackageOptions options = new()
+            {
+                Title = "t",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [a, b],
+                FileHosters = new() { { new FileHosterClient("Rapidgator", Protocol.Http), new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+            Package package = new(options);
+            package.AddPackageFiles();
+
+            Assert.Equal(dir, package.SaveFrom);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveFrom_FilesShareAncestor_ReturnsLongestCommonParent()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string sub = Path.Combine(root, "sub");
+        Directory.CreateDirectory(sub);
+        string topFile = Path.Combine(root, "top.bin");
+        string subFile = Path.Combine(sub, "child.bin");
+        File.WriteAllText(topFile, "x");
+        File.WriteAllText(subFile, "y");
+        try
+        {
+            PackageOptions options = new()
+            {
+                Title = "t",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [topFile, subFile],
+                FileHosters = new() { { new FileHosterClient("Rapidgator", Protocol.Http), new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+            Package package = new(options);
+            package.AddPackageFiles();
+
+            Assert.Equal(root, package.SaveFrom);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(new string?[] { @"C:\X\Y", @"C:\X\Z" }, @"C:\X")]
+    [InlineData(new string?[] { @"C:\X\Y\Inner", @"C:\X\Y\Other" }, @"C:\X\Y")]
+    [InlineData(new string?[] { @"C:\X" }, @"C:\X")]
+    [InlineData(new string?[] { @"C:\X\Y", @"D:\Z" }, null)]
+    [InlineData(new string?[] { @"C:\X\Y", null }, @"C:\X\Y")]
+    [InlineData(new string?[] { null, null }, null)]
+    [InlineData(new string?[] { }, null)]
+    public void LongestCommonDirectory_Cases(string?[] inputs, string? expected)
+    {
+        Assert.Equal(expected, Package.LongestCommonDirectory(inputs));
+    }
 }

@@ -442,9 +442,79 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 #pragma warning restore CA1822
 
     /// <summary>
-    /// Gets or sets the file path of the file on disk.
+    /// Gets the directory all package files share, or the longest common parent if files
+    /// span subfolders, or null if no files are present or files span unrelated roots
+    /// (e.g. different drives). Computed live from <see cref="PackageFile.SaveFrom"/>
+    /// values; not stored.
     /// </summary>
-    public string? SaveFrom { get; set; } = options.DirectoryPath;
+    public string? SaveFrom
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            if (files.Length == 0)
+            {
+                return null;
+            }
+
+            return LongestCommonDirectory(files.Select(f => f.SaveFrom));
+        }
+    }
+
+    /// <summary>
+    /// Returns the longest directory that is an ancestor of every non-null/non-empty
+    /// path in <paramref name="dirs"/>. Returns null when there is no shared root
+    /// (e.g. paths on different drives) or when no usable input is supplied. Public
+    /// for direct unit testing.
+    /// </summary>
+    public static string? LongestCommonDirectory(IEnumerable<string?> dirs)
+    {
+        string[] arr = [.. dirs.Where(d => !string.IsNullOrEmpty(d))!];
+        if (arr.Length == 0)
+        {
+            return null;
+        }
+        if (arr.Length == 1)
+        {
+            return arr[0];
+        }
+
+        string current = arr[0];
+        for (int i = 1; i < arr.Length; i++)
+        {
+            current = CommonAncestor(current, arr[i]);
+            if (string.IsNullOrEmpty(current))
+            {
+                return null;
+            }
+        }
+        return current;
+    }
+
+    private static string CommonAncestor(string a, string b)
+    {
+        string? candidate = a;
+        while (!string.IsNullOrEmpty(candidate))
+        {
+            if (string.Equals(candidate, b, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            string withSep = candidate.EndsWith(Path.DirectorySeparatorChar)
+                ? candidate
+                : candidate + Path.DirectorySeparatorChar;
+            if (b.StartsWith(withSep, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+
+            candidate = Path.GetDirectoryName(candidate);
+        }
+        return string.Empty;
+    }
 
     /// <summary>
     /// Gets the options used to create this package.
