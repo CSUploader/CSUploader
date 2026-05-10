@@ -45,6 +45,7 @@ Common_Confirm                    = Kumpirmahin
 Common_Error                      = Error
 Common_Warning                    = Babala
 Common_SelectFolder               = Pumili ng Folder
+Common_SelectFiles                 = Pumili ng mga File
 Common_PleaseWait                 = Mangyaring maghintay...
 Common_Loading                    = Naglo-load...
 Common_Cancelling                 = Kinakansela...
@@ -501,10 +502,11 @@ Logs_Status_ExportedPackages_Format = Na-export ang {0} package(s) sa {1}       
 ```
 Wizard_Title                       = Upload Wizard
 
-Wizard_Step_Directory              = 1. Directory
+Wizard_Step_DirectorySource        = 1. Directory
 Wizard_Step_Files                  = 2. Files
 Wizard_Step_FileHosters            = 3. File Hosters
 Wizard_Step_Start                  = 4. Simulan
+Wizard_Step_FilesSource            = 1. Mga File
 
 Wizard_Step0_Title                 = Pumili ng Upload Directory
 Wizard_Step0_Desc                  = Pumili ng directory na naglalaman ng mga files na gusto mong i-upload.
@@ -548,6 +550,21 @@ Wizard_Validation_PickValidDir     = Mangyaring pumili ng valid na directory.
 Wizard_Validation_PickFile         = Mangyaring pumili ng kahit isang file.
 Wizard_Validation_PickHoster       = Mangyaring pumili ng kahit isang file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
+
+Wizard_Menu_UploadDirectory        = Mag-upload ng directory…
+Wizard_Menu_UploadFiles            = Mag-upload ng mga file…
+
+Wizard_Step0_Files_Title           = Pumili ng mga File
+Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.
+Wizard_Step0_Files_Pick            = Pumili ng mga file…
+Wizard_Step0_Files_BrowseDialogTitle = Pumili ng mga file para i-upload                                  # used when calling BrowseFiles
+Wizard_Step0_Files_CountFormat     = {0} file(s) ang napili                                    # {0} = file count
+
+Wizard_Step1_BtnAddMore            = Magdagdag ng higit pang mga file…
+Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (nasa {1})                                    # {0} = filename, {1} = parent folder name
+
+Wizard_Validation_PickAtLeastOneFile = Pumili ng kahit isang file bago magpatuloy.
+Wizard_Validation_TitleRequired    = Maglagay ng titulo ng package.
 ```
 
 ---

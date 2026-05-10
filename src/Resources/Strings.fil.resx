@@ -115,6 +115,9 @@
   <data name="Common_SelectFolder" xml:space="preserve">
     <value>Pumili ng Folder</value>
   </data>
+  <data name="Common_SelectFiles" xml:space="preserve">
+    <value>Pumili ng mga File</value>
+  </data>
   <data name="Common_PleaseWait" xml:space="preserve">
     <value>Mangyaring maghintay...</value>
   </data>
@@ -1070,7 +1073,7 @@ Idagdag pa rin?</value>
   <data name="Wizard_Title" xml:space="preserve">
     <value>Upload Wizard</value>
   </data>
-  <data name="Wizard_Step_Directory" xml:space="preserve">
+  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. Directory</value>
   </data>
   <data name="Wizard_Step_Files" xml:space="preserve">
@@ -1081,6 +1084,9 @@ Idagdag pa rin?</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
     <value>4. Simulan</value>
+  </data>
+  <data name="Wizard_Step_FilesSource" xml:space="preserve">
+    <value>1. Mga File</value>
   </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>Pumili ng Upload Directory</value>
@@ -1189,6 +1195,39 @@ Idagdag pa rin?</value>
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>Error: {0}</value>
+  </data>
+  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
+    <value>Mag-upload ng directory…</value>
+  </data>
+  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
+    <value>Mag-upload ng mga file…</value>
+  </data>
+  <data name="Wizard_Step0_Files_Title" xml:space="preserve">
+    <value>Pumili ng mga File</value>
+  </data>
+  <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
+    <value>Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.</value>
+  </data>
+  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
+    <value>Pumili ng mga file…</value>
+  </data>
+  <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
+    <value>Pumili ng mga file para i-upload</value>
+  </data>
+  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
+    <value>{0} file(s) ang napili</value>
+  </data>
+  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
+    <value>Magdagdag ng higit pang mga file…</value>
+  </data>
+  <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
+    <value>{0} (nasa {1})</value>
+  </data>
+  <data name="Wizard_Validation_PickAtLeastOneFile" xml:space="preserve">
+    <value>Pumili ng kahit isang file bago magpatuloy.</value>
+  </data>
+  <data name="Wizard_Validation_TitleRequired" xml:space="preserve">
+    <value>Maglagay ng titulo ng package.</value>
   </data>
   <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
     <value>Tanggalin ang package o file sa Uploads tab</value>

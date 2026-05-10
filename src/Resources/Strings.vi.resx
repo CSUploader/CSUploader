@@ -115,6 +115,9 @@
   <data name="Common_SelectFolder" xml:space="preserve">
     <value>Chọn thư mục</value>
   </data>
+  <data name="Common_SelectFiles" xml:space="preserve">
+    <value>Chọn tệp</value>
+  </data>
   <data name="Common_PleaseWait" xml:space="preserve">
     <value>Vui lòng chờ...</value>
   </data>
@@ -1070,7 +1073,7 @@ Vẫn thêm?</value>
   <data name="Wizard_Title" xml:space="preserve">
     <value>Trình hướng dẫn tải lên</value>
   </data>
-  <data name="Wizard_Step_Directory" xml:space="preserve">
+  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. Thư mục</value>
   </data>
   <data name="Wizard_Step_Files" xml:space="preserve">
@@ -1081,6 +1084,9 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
     <value>4. Bắt đầu</value>
+  </data>
+  <data name="Wizard_Step_FilesSource" xml:space="preserve">
+    <value>1. Tệp</value>
   </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>Chọn thư mục tải lên</value>
@@ -1189,6 +1195,39 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>Lỗi: {0}</value>
+  </data>
+  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
+    <value>Tải lên thư mục…</value>
+  </data>
+  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
+    <value>Tải lên tệp…</value>
+  </data>
+  <data name="Wizard_Step0_Files_Title" xml:space="preserve">
+    <value>Chọn tệp</value>
+  </data>
+  <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
+    <value>Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.</value>
+  </data>
+  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
+    <value>Chọn tệp…</value>
+  </data>
+  <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
+    <value>Chọn tệp để tải lên</value>
+  </data>
+  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
+    <value>Đã chọn {0} tệp</value>
+  </data>
+  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
+    <value>Thêm tệp khác…</value>
+  </data>
+  <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
+    <value>{0} (trong {1})</value>
+  </data>
+  <data name="Wizard_Validation_PickAtLeastOneFile" xml:space="preserve">
+    <value>Vui lòng chọn ít nhất một tệp trước khi tiếp tục.</value>
+  </data>
+  <data name="Wizard_Validation_TitleRequired" xml:space="preserve">
+    <value>Vui lòng nhập tiêu đề gói.</value>
   </data>
   <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
     <value>Xóa gói hoặc tệp khỏi thẻ Đang tải lên</value>

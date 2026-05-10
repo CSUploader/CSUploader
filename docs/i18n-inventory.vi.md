@@ -53,6 +53,7 @@ Common_Confirm                    = Xác nhận
 Common_Error                      = Lỗi
 Common_Warning                    = Cảnh báo
 Common_SelectFolder               = Chọn thư mục
+Common_SelectFiles                 = Chọn tệp
 Common_PleaseWait                 = Vui lòng chờ...
 Common_Loading                    = Đang tải...
 Common_Cancelling                 = Đang hủy...
@@ -509,10 +510,11 @@ Logs_Status_ExportedPackages_Format = Đã xuất {0} gói ra {1}               
 ```
 Wizard_Title                       = Trình hướng dẫn tải lên
 
-Wizard_Step_Directory              = 1. Thư mục
+Wizard_Step_DirectorySource        = 1. Thư mục
 Wizard_Step_Files                  = 2. Tệp
 Wizard_Step_FileHosters            = 3. Nhà lưu trữ tập tin
 Wizard_Step_Start                  = 4. Bắt đầu
+Wizard_Step_FilesSource            = 1. Tệp
 
 Wizard_Step0_Title                 = Chọn thư mục tải lên
 Wizard_Step0_Desc                  = Chọn thư mục chứa các tệp bạn muốn tải lên.
@@ -556,6 +558,21 @@ Wizard_Validation_PickValidDir     = Vui lòng chọn một thư mục hợp l�
 Wizard_Validation_PickFile         = Vui lòng chọn ít nhất một tệp.
 Wizard_Validation_PickHoster       = Vui lòng chọn ít nhất một nhà lưu trữ tập tin.
 Wizard_Error_Format                = Lỗi: {0}                                              # {0} = exception.Message
+
+Wizard_Menu_UploadDirectory        = Tải lên thư mục…
+Wizard_Menu_UploadFiles            = Tải lên tệp…
+
+Wizard_Step0_Files_Title           = Chọn tệp
+Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.
+Wizard_Step0_Files_Pick            = Chọn tệp…
+Wizard_Step0_Files_BrowseDialogTitle = Chọn tệp để tải lên                                  # used when calling BrowseFiles
+Wizard_Step0_Files_CountFormat     = Đã chọn {0} tệp                                    # {0} = file count
+
+Wizard_Step1_BtnAddMore            = Thêm tệp khác…
+Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (trong {1})                                    # {0} = filename, {1} = parent folder name
+
+Wizard_Validation_PickAtLeastOneFile = Vui lòng chọn ít nhất một tệp trước khi tiếp tục.
+Wizard_Validation_TitleRequired    = Vui lòng nhập tiêu đề gói.
 ```
 
 ---

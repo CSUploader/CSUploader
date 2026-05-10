@@ -45,6 +45,7 @@ Common_Confirm                    = 確認
 Common_Error                      = エラー
 Common_Warning                    = 警告
 Common_SelectFolder               = フォルダーを選択
+Common_SelectFiles                 = ファイルを選択
 Common_PleaseWait                 = お待ちください…
 Common_Loading                    = 読み込み中…
 Common_Cancelling                 = キャンセル中…
@@ -500,10 +501,11 @@ Logs_Status_ExportedPackages_Format = パッケージ {0} 個を {1} にエク�
 ```
 Wizard_Title                       = アップロードウィザード
 
-Wizard_Step_Directory              = 1. ディレクトリ
+Wizard_Step_DirectorySource        = 1. ディレクトリ
 Wizard_Step_Files                  = 2. ファイル
 Wizard_Step_FileHosters            = 3. ファイルホスター
 Wizard_Step_Start                  = 4. 開始
+Wizard_Step_FilesSource            = 1. ファイル
 
 Wizard_Step0_Title                 = アップロードディレクトリを選択
 Wizard_Step0_Desc                  = アップロードしたいファイルを含むディレクトリを選択してください。
@@ -547,6 +549,21 @@ Wizard_Validation_PickValidDir     = 有効なディレクトリを選択して�
 Wizard_Validation_PickFile         = ファイルを 1 つ以上選択してください。
 Wizard_Validation_PickHoster       = ファイルホスターを 1 つ以上選択してください。
 Wizard_Error_Format                = エラー: {0}                                              # {0} = exception.Message
+
+Wizard_Menu_UploadDirectory        = ディレクトリをアップロード…
+Wizard_Menu_UploadFiles            = ファイルをアップロード…
+
+Wizard_Step0_Files_Title           = ファイルを選択
+Wizard_Step0_Files_Desc            = アップロードしたいファイルを選んでください。後で追加することもできます。
+Wizard_Step0_Files_Pick            = ファイルを選択…
+Wizard_Step0_Files_BrowseDialogTitle = アップロードするファイルを選択                                  # used when calling BrowseFiles
+Wizard_Step0_Files_CountFormat     = {0} 個のファイルを選択中                                    # {0} = file count
+
+Wizard_Step1_BtnAddMore            = ファイルをさらに追加…
+Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（{1} 内）                                    # {0} = filename, {1} = parent folder name
+
+Wizard_Validation_PickAtLeastOneFile = 続行する前にファイルを 1 つ以上選択してください。
+Wizard_Validation_TitleRequired    = パッケージタイトルを入力してください。
 ```
 
 ---

@@ -115,6 +115,9 @@
   <data name="Common_SelectFolder" xml:space="preserve">
     <value>폴더 선택</value>
   </data>
+  <data name="Common_SelectFiles" xml:space="preserve">
+    <value>파일 선택</value>
+  </data>
   <data name="Common_PleaseWait" xml:space="preserve">
     <value>잠시만 기다려 주십시오…</value>
   </data>
@@ -1070,7 +1073,7 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Wizard_Title" xml:space="preserve">
     <value>업로드 마법사</value>
   </data>
-  <data name="Wizard_Step_Directory" xml:space="preserve">
+  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. 디렉터리</value>
   </data>
   <data name="Wizard_Step_Files" xml:space="preserve">
@@ -1081,6 +1084,9 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
     <value>4. 시작</value>
+  </data>
+  <data name="Wizard_Step_FilesSource" xml:space="preserve">
+    <value>1. 파일</value>
   </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>업로드 디렉터리 선택</value>
@@ -1189,6 +1195,39 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>오류: {0}</value>
+  </data>
+  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
+    <value>디렉터리 업로드…</value>
+  </data>
+  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
+    <value>파일 업로드…</value>
+  </data>
+  <data name="Wizard_Step0_Files_Title" xml:space="preserve">
+    <value>파일 선택</value>
+  </data>
+  <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
+    <value>업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.</value>
+  </data>
+  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
+    <value>파일 선택…</value>
+  </data>
+  <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
+    <value>업로드할 파일 선택</value>
+  </data>
+  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
+    <value>{0}개 파일 선택됨</value>
+  </data>
+  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
+    <value>파일 더 추가…</value>
+  </data>
+  <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
+    <value>{0} ({1} 내)</value>
+  </data>
+  <data name="Wizard_Validation_PickAtLeastOneFile" xml:space="preserve">
+    <value>계속하기 전에 파일을 하나 이상 선택해 주십시오.</value>
+  </data>
+  <data name="Wizard_Validation_TitleRequired" xml:space="preserve">
+    <value>패키지 제목을 입력해 주십시오.</value>
   </data>
   <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
     <value>업로드 탭에서 패키지 또는 파일 제거</value>

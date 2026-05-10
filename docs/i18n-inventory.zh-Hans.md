@@ -45,6 +45,7 @@ Common_Confirm                    = 确认
 Common_Error                      = 错误
 Common_Warning                    = 警告
 Common_SelectFolder               = 选择文件夹
+Common_SelectFiles                 = 选择文件
 Common_PleaseWait                 = 请稍候…
 Common_Loading                    = 加载中…
 Common_Cancelling                 = 正在取消…
@@ -501,10 +502,11 @@ Logs_Status_ExportedPackages_Format = 已将 {0} 个包导出到 {1}            
 ```
 Wizard_Title                       = 上传向导
 
-Wizard_Step_Directory              = 1. 目录
+Wizard_Step_DirectorySource        = 1. 目录
 Wizard_Step_Files                  = 2. 文件
 Wizard_Step_FileHosters            = 3. 文件托管商
 Wizard_Step_Start                  = 4. 开始
+Wizard_Step_FilesSource            = 1. 文件
 
 Wizard_Step0_Title                 = 选择上传目录
 Wizard_Step0_Desc                  = 选择包含您要上传文件的目录。
@@ -548,6 +550,21 @@ Wizard_Validation_PickValidDir     = 请选择一个有效的目录。
 Wizard_Validation_PickFile         = 请至少选择一个文件。
 Wizard_Validation_PickHoster       = 请至少选择一个文件托管商。
 Wizard_Error_Format                = 错误：{0}                                              # {0} = exception.Message
+
+Wizard_Menu_UploadDirectory        = 上传目录…
+Wizard_Menu_UploadFiles            = 上传文件…
+
+Wizard_Step0_Files_Title           = 选择文件
+Wizard_Step0_Files_Desc            = 选择您要上传的文件。您可以稍后添加更多文件。
+Wizard_Step0_Files_Pick            = 选择文件…
+Wizard_Step0_Files_BrowseDialogTitle = 选择要上传的文件                                  # used when calling BrowseFiles
+Wizard_Step0_Files_CountFormat     = 已选择 {0} 个文件                                    # {0} = file count
+
+Wizard_Step1_BtnAddMore            = 添加更多文件…
+Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（位于 {1}）                                    # {0} = filename, {1} = parent folder name
+
+Wizard_Validation_PickAtLeastOneFile = 继续之前请至少选择一个文件。
+Wizard_Validation_TitleRequired    = 请输入包标题。
 ```
 
 ---

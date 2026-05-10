@@ -45,6 +45,7 @@ Common_Confirm                    = Confirm
 Common_Error                      = Error
 Common_Warning                    = Warning
 Common_SelectFolder               = Select Folder
+Common_SelectFiles                 = Select files
 Common_PleaseWait                 = Please wait...
 Common_Loading                    = Loading...
 Common_Cancelling                 = Cancelling...
@@ -501,10 +502,11 @@ Logs_Status_ExportedPackages_Format = Exported {0} package(s) to {1}            
 ```
 Wizard_Title                       = Upload Wizard
 
-Wizard_Step_Directory              = 1. Directory
+Wizard_Step_DirectorySource        = 1. Directory
 Wizard_Step_Files                  = 2. Files
 Wizard_Step_FileHosters            = 3. File Hosters
 Wizard_Step_Start                  = 4. Start
+Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Title                 = Select Upload Directory
 Wizard_Step0_Desc                  = Choose the directory containing the files you want to upload.
@@ -548,6 +550,21 @@ Wizard_Validation_PickValidDir     = Please select a valid directory.
 Wizard_Validation_PickFile         = Please select at least one file.
 Wizard_Validation_PickHoster       = Please select at least one file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
+
+Wizard_Menu_UploadDirectory        = Upload directory…
+Wizard_Menu_UploadFiles            = Upload files…
+
+Wizard_Step0_Files_Title           = Select files
+Wizard_Step0_Files_Desc            = Pick the files you want to upload. You can add more later.
+Wizard_Step0_Files_Pick            = Pick files…
+Wizard_Step0_Files_BrowseDialogTitle = Pick files to upload                                  # used when calling BrowseFiles
+Wizard_Step0_Files_CountFormat     = {0} file(s) selected                                    # {0} = file count
+
+Wizard_Step1_BtnAddMore            = Add more files…
+Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (in {1})                                    # {0} = filename, {1} = parent folder name
+
+Wizard_Validation_PickAtLeastOneFile = Pick at least one file before continuing.
+Wizard_Validation_TitleRequired    = Enter a package title.
 ```
 
 ---

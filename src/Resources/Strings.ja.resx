@@ -115,6 +115,9 @@
   <data name="Common_SelectFolder" xml:space="preserve">
     <value>フォルダーを選択</value>
   </data>
+  <data name="Common_SelectFiles" xml:space="preserve">
+    <value>ファイルを選択</value>
+  </data>
   <data name="Common_PleaseWait" xml:space="preserve">
     <value>お待ちください…</value>
   </data>
@@ -1070,7 +1073,7 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Wizard_Title" xml:space="preserve">
     <value>アップロードウィザード</value>
   </data>
-  <data name="Wizard_Step_Directory" xml:space="preserve">
+  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. ディレクトリ</value>
   </data>
   <data name="Wizard_Step_Files" xml:space="preserve">
@@ -1081,6 +1084,9 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
     <value>4. 開始</value>
+  </data>
+  <data name="Wizard_Step_FilesSource" xml:space="preserve">
+    <value>1. ファイル</value>
   </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>アップロードディレクトリを選択</value>
@@ -1189,6 +1195,39 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>エラー: {0}</value>
+  </data>
+  <data name="Wizard_Menu_UploadDirectory" xml:space="preserve">
+    <value>ディレクトリをアップロード…</value>
+  </data>
+  <data name="Wizard_Menu_UploadFiles" xml:space="preserve">
+    <value>ファイルをアップロード…</value>
+  </data>
+  <data name="Wizard_Step0_Files_Title" xml:space="preserve">
+    <value>ファイルを選択</value>
+  </data>
+  <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
+    <value>アップロードしたいファイルを選んでください。後で追加することもできます。</value>
+  </data>
+  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
+    <value>ファイルを選択…</value>
+  </data>
+  <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
+    <value>アップロードするファイルを選択</value>
+  </data>
+  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
+    <value>{0} 個のファイルを選択中</value>
+  </data>
+  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
+    <value>ファイルをさらに追加…</value>
+  </data>
+  <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
+    <value>{0}（{1} 内）</value>
+  </data>
+  <data name="Wizard_Validation_PickAtLeastOneFile" xml:space="preserve">
+    <value>続行する前にファイルを 1 つ以上選択してください。</value>
+  </data>
+  <data name="Wizard_Validation_TitleRequired" xml:space="preserve">
+    <value>パッケージタイトルを入力してください。</value>
   </data>
   <data name="Confirm_RemoveUploadPackageOrFile" xml:space="preserve">
     <value>アップロードタブからパッケージまたはファイルを削除</value>
