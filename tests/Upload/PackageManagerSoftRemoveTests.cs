@@ -368,6 +368,101 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task AddLaterWithSavedAccountThenReload_PackageReappears()
+    {
+        // Same as AddLaterThenReload but the FileHosterLogin actually exists in the
+        // accounts table — i.e. the user picked a saved account in the wizard. This
+        // is the path real users hit (the login lookup at LoadPersistedPackagesAsync
+        // line 209 returns a real row instead of null).
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            // Persist a hoster login first.
+            FileHosterLoginDto savedLogin = new()
+            {
+                FileHosterName = "Rapidgator",
+                Username = "user",
+                Password = "pw",
+            };
+            await _loginRepo.InsertAsync(savedLogin);
+            Assert.True(savedLogin.Id > 0);
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "later",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, savedLogin } },
+            };
+
+            Package added = await _packageManager.AddPackageOnlyAsync(options);
+
+            AppSettings settings = new();
+            DefaultFileHosterRegistry reg = new([]);
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+            await freshManager.LoadPersistedPackagesAsync();
+
+            Assert.Single(freshManager.Packages);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task AddLaterThenReload_PackageReappears()
+    {
+        // End-to-end repro: drive the wizard's "Add later" path via AddPackageOnlyAsync,
+        // then create a fresh PackageManager pointing at the same DB and call
+        // LoadPersistedPackagesAsync. The reload should produce the same package.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "later",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package added = await _packageManager.AddPackageOnlyAsync(options);
+            Assert.NotNull(added.DbId);
+            int packageId = added.DbId!.Value;
+
+            // Fresh manager+scheduler against the same shared SQLite — simulates a restart.
+            AppSettings settings = new();
+            DefaultFileHosterRegistry reg = new([]);
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+            await freshManager.LoadPersistedPackagesAsync();
+
+            Assert.Single(freshManager.Packages);
+            Package loaded = freshManager.Packages.Single();
+            Assert.Equal(packageId, loaded.DbId);
+            Assert.Single(loaded);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task ResetPackage_ReregistersAndStartsScheduler()
     {
         // Repro: after a Failed file is right-click → Reset, the file transitioned to
