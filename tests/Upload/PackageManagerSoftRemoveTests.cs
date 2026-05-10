@@ -68,7 +68,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
     public async Task RemovePackage_PackageInstance_FlipsIsRemovedFromUploadsInDatabase()
     {
         int packageId = await InsertPackageAsync("pkg");
-        Package package = new(new PackageOptions { Title = "pkg", DirectoryPath = "pkg" }) { DbId = packageId };
+        Package package = new(new PackageOptions { Title = "pkg" }) { DbId = packageId };
 
         _packageManager.RemovePackage(package);
 
@@ -87,7 +87,7 @@ public class PackageManagerSoftRemoveTests : IDisposable
         // Soft-remove must NOT delete the row — the Uploaded tab still queries by file
         // and joins against the package name.
         int packageId = await InsertPackageAsync("pkg");
-        Package package = new(new PackageOptions { Title = "pkg", DirectoryPath = "pkg" }) { DbId = packageId };
+        Package package = new(new PackageOptions { Title = "pkg" }) { DbId = packageId };
 
         _packageManager.RemovePackage(package);
 

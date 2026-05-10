@@ -125,7 +125,7 @@ public class PackageFilePipelineEventsTests
         // Use any tempfile path that exists for the FileInfo construction
         string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         File.WriteAllText(path, "x");
-        Package pkg = new(new PackageOptions { Title = "test", SelectedFiles = [path], DirectoryPath = Path.GetDirectoryName(path)!, Logger = Mock.Of<IAppLogger>() });
+        Package pkg = new(new PackageOptions { Title = "test", SelectedFiles = [path], Logger = Mock.Of<IAppLogger>() });
         client = new FileHosterClient("Stub", Protocol.Http);
         PackageFile file = new(pkg, path, client, new FileHosterLoginDto());
         return file;

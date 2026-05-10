@@ -270,7 +270,6 @@ public partial class UploadWizardViewModel(
     {
         PackageOptions options = new()
         {
-            DirectoryPath = DirectoryPath,
             Title = PackageTitle.Trim(),
             Logger = _logger,
             Settings = _settings,

@@ -22,14 +22,6 @@ public class PackageOptions
     /// </summary>
     public AppSettings? Settings { get; init; }
     /// <summary>
-    /// Gets or sets the directory path to the files.
-    /// </summary>
-    /// <value>
-    /// The directory path to the files.
-    /// </value>
-    public string? DirectoryPath { get; set; }
-
-    /// <summary>
     /// Gets or sets the title for the package.
     /// </summary>
     public required string Title { get; set; }
