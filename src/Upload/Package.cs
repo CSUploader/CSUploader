@@ -487,8 +487,8 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
-    /// Adds package files from <see cref="PackageOptions.SelectedFiles"/> directly,
-    /// without enumerating any directory.
+    /// Adds one <see cref="PackageFile"/> per (selected file x configured hoster)
+    /// using paths from <see cref="PackageOptions.SelectedFiles"/>.
     /// </summary>
     public void AddPackageFiles()
     {
@@ -502,10 +502,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         {
             foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
             {
-                FileHosterClient? fileHoster = FileHosterClient.FileHosters
-                    .Where(fh => fh.Key == kvp.Key.Name)
-                    .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!))
-                    .FirstOrDefault();
+                FileHosterClient? fileHoster = ResolveHosterClient(kvp);
                 if (fileHoster != null)
                 {
                     packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
@@ -536,7 +533,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 
             foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
             {
-                FileHosterClient? fileHoster = FileHosterClient.FileHosters.Where(fh => fh.Key == kvp.Key.Name).Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!)).FirstOrDefault();
+                FileHosterClient? fileHoster = ResolveHosterClient(kvp);
                 if (fileHoster != null)
                 {
                     packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
@@ -545,6 +542,14 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         }
 
         AddPackageFiles([.. packageFiles]);
+    }
+
+    private FileHosterClient? ResolveHosterClient(KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp)
+    {
+        return FileHosterClient.FileHosters
+            .Where(fh => fh.Key == kvp.Key.Name)
+            .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!))
+            .FirstOrDefault();
     }
 
     /// <summary>

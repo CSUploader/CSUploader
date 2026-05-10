@@ -17,8 +17,8 @@ public class PackageTests
     [Fact]
     public void AddPackageFiles_NoArg_AddsOneFilePerSelectedFilePerHoster()
     {
-        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        string tempB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string tempA = Path.Combine(Path.GetTempPath(), "task1-a.bin");
+        string tempB = Path.Combine(Path.GetTempPath(), "task1-b.bin");
         File.WriteAllText(tempA, "a");
         File.WriteAllText(tempB, "b");
         try
@@ -35,7 +35,10 @@ public class PackageTests
 
             package.AddPackageFiles();
 
-            Assert.Equal(2, package.Count());
+            PackageFile[] files = [.. package];
+            Assert.Equal(2, files.Length);
+            Assert.Contains(files, f => string.Equals(f.Name, Path.GetFileName(tempA), StringComparison.Ordinal));
+            Assert.Contains(files, f => string.Equals(f.Name, Path.GetFileName(tempB), StringComparison.Ordinal));
         }
         finally
         {
@@ -53,6 +56,24 @@ public class PackageTests
             Title = "test",
             Logger = Mock.Of<IAppLogger>(),
             SelectedFiles = [],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
+        Package package = new(options);
+
+        package.AddPackageFiles();
+
+        Assert.Empty(package);
+    }
+
+    [Fact]
+    public void AddPackageFiles_NoArg_WhenSelectedFilesNull_AddsNothing()
+    {
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
+        {
+            Title = "test",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = null,
             FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
         };
         Package package = new(options);
