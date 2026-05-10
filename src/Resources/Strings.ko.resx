@@ -1206,13 +1206,10 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
     <value>업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>파일 선택…</value>
+    <value>파일 추가…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>업로드할 파일 선택</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>파일 더 추가…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0} ({1} 내)</value>

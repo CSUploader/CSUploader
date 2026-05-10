@@ -1206,13 +1206,10 @@ Add anyway?</value>
     <value>Pick the files you want to upload. You can add more later.</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>Pick files…</value>
+    <value>Add files…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Pick files to upload</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>Add more files…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0} (in {1})</value>

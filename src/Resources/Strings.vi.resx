@@ -1206,13 +1206,10 @@ Vẫn thêm?</value>
     <value>Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>Chọn tệp…</value>
+    <value>Thêm tệp…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Chọn tệp để tải lên</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>Thêm tệp khác…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0} (trong {1})</value>

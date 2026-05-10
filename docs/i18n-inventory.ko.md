@@ -555,10 +555,9 @@ Wizard_Error_Format                = 오류: {0}                                
 
 Wizard_Step0_Files_Title           = 파일 선택
 Wizard_Step0_Files_Desc            = 업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.
-Wizard_Step0_Files_Pick            = 파일 선택…
+Wizard_Step0_Files_Pick            = 파일 추가…
 Wizard_Step0_Files_BrowseDialogTitle = 업로드할 파일 선택                                  # used when calling BrowseFiles
 
-Wizard_Step1_BtnAddMore            = 파일 더 추가…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} ({1} 내)                                    # {0} = filename, {1} = parent folder name
 
 Wizard_Validation_PickAtLeastOneFile = 계속하기 전에 파일을 하나 이상 선택해 주십시오.

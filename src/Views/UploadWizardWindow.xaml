@@ -136,9 +136,6 @@
                   Command="{Binding SelectAllCommand}" />
           <Button Content="{loc:Loc Wizard_Step1_BtnDeselectAll}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
                   Command="{Binding SelectNoneCommand}" />
-          <Button Content="{loc:Loc Wizard_Step1_BtnAddMore}" MinWidth="120" Padding="10,4" Margin="6,0,0,0"
-                  Command="{Binding AddMoreFilesCommand}"
-                  Visibility="{Binding IsFilesMode, Converter={StaticResource BoolToVisibility}}" />
         </StackPanel>
 
         <!-- Row 5: DataGrid of files -->

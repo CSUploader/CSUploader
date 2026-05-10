@@ -1206,13 +1206,10 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
     <value>アップロードしたいファイルを選んでください。後で追加することもできます。</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>ファイルを選択…</value>
+    <value>ファイルを追加…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>アップロードするファイルを選択</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>ファイルをさらに追加…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0}（{1} 内）</value>

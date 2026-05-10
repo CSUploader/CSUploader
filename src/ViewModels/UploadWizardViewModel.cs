@@ -130,27 +130,12 @@ public partial class UploadWizardViewModel : ObservableObject
             return;
         }
 
-        Files.Clear();
         AppendFiles(picked);
 
         if (string.IsNullOrWhiteSpace(PackageTitle) && Files.Count > 0)
         {
             PackageTitle = Path.GetFileNameWithoutExtension(Files[0].FullPath) ?? string.Empty;
         }
-    }
-
-    [RelayCommand]
-    private void AddMoreFiles()
-    {
-        string[]? picked = _dialogService.BrowseFiles(
-            Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
-
-        if (picked is null || picked.Length == 0)
-        {
-            return;
-        }
-
-        AppendFiles(picked);
     }
 
     private void AppendFiles(IEnumerable<string> filePaths)

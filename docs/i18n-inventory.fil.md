@@ -555,10 +555,9 @@ Wizard_Error_Format                = Error: {0}                                 
 
 Wizard_Step0_Files_Title           = Pumili ng mga File
 Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.
-Wizard_Step0_Files_Pick            = Pumili ng mga file…
+Wizard_Step0_Files_Pick            = Magdagdag ng mga file…
 Wizard_Step0_Files_BrowseDialogTitle = Pumili ng mga file para i-upload                                  # used when calling BrowseFiles
 
-Wizard_Step1_BtnAddMore            = Magdagdag ng higit pang mga file…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (nasa {1})                                    # {0} = filename, {1} = parent folder name
 
 Wizard_Validation_PickAtLeastOneFile = Pumili ng kahit isang file bago magpatuloy.

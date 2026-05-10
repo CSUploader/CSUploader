@@ -1206,13 +1206,10 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
     <value>选择您要上传的文件。您可以稍后添加更多文件。</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>选择文件…</value>
+    <value>添加文件…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>选择要上传的文件</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>添加更多文件…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0}（位于 {1}）</value>

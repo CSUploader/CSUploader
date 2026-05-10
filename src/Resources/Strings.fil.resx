@@ -1206,13 +1206,10 @@ Idagdag pa rin?</value>
     <value>Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.</value>
   </data>
   <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>Pumili ng mga file…</value>
+    <value>Magdagdag ng mga file…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Pumili ng mga file para i-upload</value>
-  </data>
-  <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
-    <value>Magdagdag ng higit pang mga file…</value>
   </data>
   <data name="Wizard_Step1_DuplicateFilenameSuffixFormat" xml:space="preserve">
     <value>{0} (nasa {1})</value>

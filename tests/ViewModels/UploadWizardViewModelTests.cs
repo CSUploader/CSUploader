@@ -190,7 +190,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void AddMoreFiles_DedupesByFullPath_CaseInsensitive()
+    public void BrowseFiles_AppendsAndDedupesByFullPath_CaseInsensitive()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         File.WriteAllText(tempA, "x");
@@ -204,7 +204,7 @@ public class UploadWizardViewModelTests : IDisposable
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
-            vm.AddMoreFilesCommand.Execute(null);
+            vm.BrowseFilesCommand.Execute(null);
 
             Assert.Single(vm.Files);
         }
@@ -215,7 +215,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void AddMoreFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
+    public void BrowseFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
     {
         string dirA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         string dirB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
@@ -235,7 +235,7 @@ public class UploadWizardViewModelTests : IDisposable
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
-            vm.AddMoreFilesCommand.Execute(null);
+            vm.BrowseFilesCommand.Execute(null);
 
             Assert.Equal(2, vm.Files.Count);
             Assert.Contains(vm.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
@@ -244,6 +244,36 @@ public class UploadWizardViewModelTests : IDisposable
         {
             Directory.Delete(dirA, recursive: true);
             Directory.Delete(dirB, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void BrowseFiles_DoesNotClearExistingFiles()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        string tempB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "a");
+        File.WriteAllText(tempB, "b");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA])
+                .Returns([tempB]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
+            vm.BrowseFilesCommand.Execute(null);
+            Assert.Single(vm.Files);
+
+            vm.BrowseFilesCommand.Execute(null);
+
+            Assert.Equal(2, vm.Files.Count);
+        }
+        finally
+        {
+            File.Delete(tempA);
+            File.Delete(tempB);
         }
     }
 

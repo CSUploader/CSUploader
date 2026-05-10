@@ -563,10 +563,9 @@ Wizard_Error_Format                = Lỗi: {0}                                 
 
 Wizard_Step0_Files_Title           = Chọn tệp
 Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.
-Wizard_Step0_Files_Pick            = Chọn tệp…
+Wizard_Step0_Files_Pick            = Thêm tệp…
 Wizard_Step0_Files_BrowseDialogTitle = Chọn tệp để tải lên                                  # used when calling BrowseFiles
 
-Wizard_Step1_BtnAddMore            = Thêm tệp khác…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (trong {1})                                    # {0} = filename, {1} = parent folder name
 
 Wizard_Validation_PickAtLeastOneFile = Vui lòng chọn ít nhất một tệp trước khi tiếp tục.

@@ -555,10 +555,9 @@ Wizard_Error_Format                = 错误：{0}                               
 
 Wizard_Step0_Files_Title           = 选择文件
 Wizard_Step0_Files_Desc            = 选择您要上传的文件。您可以稍后添加更多文件。
-Wizard_Step0_Files_Pick            = 选择文件…
+Wizard_Step0_Files_Pick            = 添加文件…
 Wizard_Step0_Files_BrowseDialogTitle = 选择要上传的文件                                  # used when calling BrowseFiles
 
-Wizard_Step1_BtnAddMore            = 添加更多文件…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（位于 {1}）                                    # {0} = filename, {1} = parent folder name
 
 Wizard_Validation_PickAtLeastOneFile = 继续之前请至少选择一个文件。
