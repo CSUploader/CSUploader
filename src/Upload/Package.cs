@@ -487,6 +487,36 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
+    /// Adds package files from <see cref="PackageOptions.SelectedFiles"/> directly,
+    /// without enumerating any directory.
+    /// </summary>
+    public void AddPackageFiles()
+    {
+        if (Options.SelectedFiles is not { Count: > 0 } selected)
+        {
+            return;
+        }
+
+        List<PackageFile> packageFiles = [];
+        foreach (string filePath in selected)
+        {
+            foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
+            {
+                FileHosterClient? fileHoster = FileHosterClient.FileHosters
+                    .Where(fh => fh.Key == kvp.Key.Name)
+                    .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!))
+                    .FirstOrDefault();
+                if (fileHoster != null)
+                {
+                    packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
+                }
+            }
+        }
+
+        AddPackageFiles([.. packageFiles]);
+    }
+
+    /// <summary>
     /// Adds package files from the given directory.
     /// </summary>
     /// <param name="directory">The directory to scan for files.</param>
