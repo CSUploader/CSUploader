@@ -228,7 +228,7 @@ public class UploadWizardViewModelTests : IDisposable
             vm.BrowseFilesCommand.Execute(null);
 
             Assert.NotEqual(before, vm.FilesCountText);
-            Assert.Contains("1", vm.FilesCountText);
+            Assert.Contains("1", vm.FilesCountText, StringComparison.Ordinal);
         }
         finally
         {
