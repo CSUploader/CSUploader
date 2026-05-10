@@ -43,6 +43,7 @@
         <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:ItemStateToVisibilityConverter x:Key="ItemStateToVisibility" />
+        <conv:StartMenuLabelConverter x:Key="StartMenuLabel" />
 
         <!-- Toolbar button style - large icons like JD2 -->
         <Style x:Key="ToolbarButton" TargetType="Button">
@@ -199,7 +200,8 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                    <MenuItem Header="{loc:Loc Uploads_Context_Start}" Command="{Binding RetryCommand}"
+                    <MenuItem Header="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource StartMenuLabel}}"
+                              Command="{Binding RetryCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
                         <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>

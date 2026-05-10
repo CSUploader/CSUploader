@@ -225,6 +225,9 @@
   <data name="Uploads_Context_Start" xml:space="preserve">
     <value>开始</value>
   </data>
+  <data name="Uploads_Context_StartNow" xml:space="preserve">
+    <value>立即开始</value>
+  </data>
   <data name="Uploads_Context_Stop" xml:space="preserve">
     <value>停止</value>
   </data>

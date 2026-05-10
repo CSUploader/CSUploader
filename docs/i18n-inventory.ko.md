@@ -105,6 +105,7 @@ Uploads_Toolbar_MoveDownTip       = 패키지 아래로 이동
 Uploads_Toolbar_RemoveTip         = 선택 항목 제거
 
 Uploads_Context_Start             = 시작
+Uploads_Context_StartNow          = 지금 시작
 Uploads_Context_Stop              = 중지
 Uploads_Context_SkipUpload        = 업로드 건너뛰기
 Uploads_Context_Reset             = 재설정

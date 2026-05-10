@@ -528,8 +528,18 @@ public class PackageManager
         Package[] snapshot;
         lock (_lock)
         { snapshot = [.. Packages]; }
+
+        DateTime now = DateTime.Now;
         foreach (Package package in snapshot)
         {
+            // Respect scheduled-for-future packages: the toolbar's Start-all is a
+            // bulk action. To override a schedule the user must explicitly right-click
+            // the package and pick "Start now".
+            if (package.ScheduledStartTime is { } scheduled && scheduled > now)
+            {
+                continue;
+            }
+
             _scheduler.AddPackage(package);
         }
 

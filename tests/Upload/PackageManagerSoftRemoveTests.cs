@@ -368,6 +368,79 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task StartPackages_SkipsFutureScheduledPackages()
+    {
+        // Toolbar Start-all should not start packages whose scheduled time hasn't elapsed.
+        // The user has to right-click → "Start now" to override.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "scheduled",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+            _packageManager.StartPackages();
+
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+            Assert.NotNull(package.ScheduledStartTime);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StartPackages_StartsPackagesWithPastSchedule()
+    {
+        // A package whose scheduled time has already elapsed should be picked up by
+        // Start-all — its schedule has effectively expired.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "expired",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            // Past schedule — ScheduleDelayedStart adds immediately when delay <= 0,
+            // but for this assertion we keep the in-memory ScheduledStartTime set so
+            // StartPackages still has to make the >Now decision.
+            package.ScheduledStartTime = DateTime.Now.AddMinutes(-5);
+
+            _packageManager.StartPackages();
+
+            Assert.Equal(1, _scheduler.RegisteredPackageCount);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task StartPackage_IndividualIdleFile_RegistersPackageAndTransitionsFile()
     {
         // Right-click a single file (not the whole package) → Start. The package should

@@ -105,6 +105,7 @@ Uploads_Toolbar_MoveDownTip       = Ilipat ang package pababa
 Uploads_Toolbar_RemoveTip         = Tanggalin ang napili
 
 Uploads_Context_Start             = Simulan
+Uploads_Context_StartNow          = Simulan ngayon
 Uploads_Context_Stop              = Itigil
 Uploads_Context_SkipUpload        = Laktawan ang Upload
 Uploads_Context_Reset             = I-reset

@@ -105,6 +105,7 @@ Uploads_Toolbar_MoveDownTip       = 下移包
 Uploads_Toolbar_RemoveTip         = 移除所选项
 
 Uploads_Context_Start             = 开始
+Uploads_Context_StartNow          = 立即开始
 Uploads_Context_Stop              = 停止
 Uploads_Context_SkipUpload        = 跳过上传
 Uploads_Context_Reset             = 重置
