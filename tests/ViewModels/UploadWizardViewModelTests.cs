@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
@@ -123,6 +124,67 @@ public class UploadWizardViewModelTests : IDisposable
         dialog.Verify(
             d => d.ShowAddAccountDialog(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task GoNext_FilesMode_NoFiles_ShowsValidationError()
+    {
+        Mock<IDialogService> dialog = new();
+        UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+
+        await vm.GoNextCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, vm.CurrentStep);
+        dialog.Verify(d => d.ShowError(It.IsAny<string>(), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public void BrowseFiles_PopulatesFilesAndDefaultsTitle()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+
+            vm.BrowseFilesCommand.Execute(null);
+
+            Assert.Single(vm.Files);
+            Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
+        }
+        finally
+        {
+            File.Delete(tempA);
+        }
+    }
+
+    [Fact]
+    public async Task GoNext_FilesMode_WithFiles_AdvancesAndDefaultsTitle()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA]);
+            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            vm.BrowseFilesCommand.Execute(null);
+            vm.PackageTitle = string.Empty; // pretend user cleared it
+
+            await vm.GoNextCommand.ExecuteAsync(null);
+
+            Assert.Equal(1, vm.CurrentStep);
+            Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
+        }
+        finally
+        {
+            File.Delete(tempA);
+        }
     }
 
     private UploadWizardViewModel CreateVm(IDialogService dialog, UploadWizardMode mode = UploadWizardMode.Directory) =>

@@ -102,21 +102,91 @@ public partial class UploadWizardViewModel(
     }
 
     [RelayCommand]
+    private void BrowseFiles()
+    {
+        string[]? picked = _dialogService.BrowseFiles(
+            Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
+
+        if (picked is null || picked.Length == 0)
+        {
+            return;
+        }
+
+        Files.Clear();
+        AppendFiles(picked);
+
+        if (string.IsNullOrWhiteSpace(PackageTitle) && Files.Count > 0)
+        {
+            PackageTitle = Path.GetFileNameWithoutExtension(Files[0].FullPath) ?? string.Empty;
+        }
+    }
+
+    private void AppendFiles(IEnumerable<string> filePaths)
+    {
+        HashSet<string> existing = new(
+            Files.Select(f => f.FullPath),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (string filePath in filePaths)
+        {
+            if (existing.Contains(filePath))
+            {
+                continue;
+            }
+
+            FileInfo fi = new(filePath);
+            Files.Add(new FileEntry
+            {
+                FullPath = filePath,
+                RelativePath = fi.Name,
+                FileName = fi.Name,
+                Size = fi.Length,
+                IsSelected = true,
+                IsVisible = true,
+            });
+            existing.Add(filePath);
+        }
+    }
+
+    [RelayCommand]
     private async Task GoNextAsync()
     {
         if (CurrentStep == 0)
         {
-            if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
+            if (IsDirectoryMode)
             {
-                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
-                return;
+                if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
+                {
+                    _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
+                    return;
+                }
+
+                LoadFiles();
+            }
+            else // Files mode
+            {
+                if (Files.Count == 0)
+                {
+                    _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(PackageTitle))
+                {
+                    PackageTitle = Path.GetFileNameWithoutExtension(Files[0].FullPath) ?? string.Empty;
+                }
             }
 
-            LoadFiles();
             CurrentStep = 1;
         }
         else if (CurrentStep == 1)
         {
+            if (string.IsNullOrWhiteSpace(PackageTitle))
+            {
+                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_TitleRequired"]);
+                return;
+            }
+
             if (!Files.Any(f => f.IsSelected))
             {
                 _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickFile"]);
