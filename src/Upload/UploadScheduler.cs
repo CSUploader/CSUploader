@@ -307,14 +307,32 @@ public class UploadScheduler : IDisposable
                 string filePath = Path.Combine(file.SaveFrom!, file.Name);
                 await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, cts.Token))
                 {
-                    if (ev is Lib.Crypto.HashCompleted hc)
+                    if (ev is Lib.Crypto.HashStarted)
+                    {
+                        file.StartedDate = DateTime.Now;
+                    }
+                    else if (ev is Lib.Crypto.HashProgress hp)
+                    {
+                        file.Speed = (long)hp.SpeedBytesPerSec;
+                        file.Progress = hp.PercentComplete;
+                        file.Duration = file.StartedDate.HasValue ? DateTime.Now - file.StartedDate.Value : null;
+                        long remaining = hp.TotalBytes - hp.BytesProcessed;
+                        file.TimeRemaining = hp.SpeedBytesPerSec > 0 && remaining > 0
+                            ? TimeSpan.FromSeconds(remaining / hp.SpeedBytesPerSec)
+                            : null;
+                    }
+                    else if (ev is Lib.Crypto.HashCompleted hc)
                     {
                         file.FileHash = hc.HexHash;
                         file.IsHashingComplete = true;
+                        file.Speed = null;
+                        file.Progress = 0.0;
+                        file.TimeRemaining = null;
                     }
                     else if (ev is Lib.Crypto.HashFailed hf)
                     {
                         file.Error = hf.Reason;
+                        file.Speed = null;
                         _logger.Log(this, LogType.Error, $"Hashing failed for {file.Name}: {hf.Reason}");
                     }
                 }
