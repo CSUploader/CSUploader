@@ -1076,14 +1076,11 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. Directory</value>
   </data>
-  <data name="Wizard_Step_Files" xml:space="preserve">
-    <value>2. Files</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
-    <value>3. File Hosters</value>
+    <value>2. File Hosters</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>4. Simulan</value>
+    <value>3. Simulan</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Mga File</value>
@@ -1213,9 +1210,6 @@ Idagdag pa rin?</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Pumili ng mga file para i-upload</value>
-  </data>
-  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
-    <value>{0} file(s) ang napili</value>
   </data>
   <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
     <value>Magdagdag ng higit pang mga file…</value>

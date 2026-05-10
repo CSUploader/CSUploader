@@ -1076,14 +1076,11 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. 目录</value>
   </data>
-  <data name="Wizard_Step_Files" xml:space="preserve">
-    <value>2. 文件</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
-    <value>3. 文件托管商</value>
+    <value>2. 文件托管商</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>4. 开始</value>
+    <value>3. 开始</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 文件</value>
@@ -1213,9 +1210,6 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>选择要上传的文件</value>
-  </data>
-  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
-    <value>已选择 {0} 个文件</value>
   </data>
   <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
     <value>添加更多文件…</value>

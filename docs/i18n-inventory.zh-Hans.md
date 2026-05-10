@@ -503,9 +503,8 @@ Logs_Status_ExportedPackages_Format = 已将 {0} 个包导出到 {1}            
 Wizard_Title                       = 上传向导
 
 Wizard_Step_DirectorySource        = 1. 目录
-Wizard_Step_Files                  = 2. 文件
-Wizard_Step_FileHosters            = 3. 文件托管商
-Wizard_Step_Start                  = 4. 开始
+Wizard_Step_FileHosters            = 2. 文件托管商
+Wizard_Step_Start                  = 3. 开始
 Wizard_Step_FilesSource            = 1. 文件
 
 Wizard_Step0_Mode_Directory        = 上传目录
@@ -558,7 +557,6 @@ Wizard_Step0_Files_Title           = 选择文件
 Wizard_Step0_Files_Desc            = 选择您要上传的文件。您可以稍后添加更多文件。
 Wizard_Step0_Files_Pick            = 选择文件…
 Wizard_Step0_Files_BrowseDialogTitle = 选择要上传的文件                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = 已选择 {0} 个文件                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = 添加更多文件…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（位于 {1}）                                    # {0} = filename, {1} = parent folder name

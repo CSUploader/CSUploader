@@ -503,9 +503,8 @@ Logs_Status_ExportedPackages_Format = Exported {0} package(s) to {1}            
 Wizard_Title                       = Upload Wizard
 
 Wizard_Step_DirectorySource        = 1. Directory
-Wizard_Step_Files                  = 2. Files
-Wizard_Step_FileHosters            = 3. File Hosters
-Wizard_Step_Start                  = 4. Start
+Wizard_Step_FileHosters            = 2. File Hosters
+Wizard_Step_Start                  = 3. Start
 Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Mode_Directory        = Upload directory
@@ -558,7 +557,6 @@ Wizard_Step0_Files_Title           = Select files
 Wizard_Step0_Files_Desc            = Pick the files you want to upload. You can add more later.
 Wizard_Step0_Files_Pick            = Pick files…
 Wizard_Step0_Files_BrowseDialogTitle = Pick files to upload                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = {0} file(s) selected                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = Add more files…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (in {1})                                    # {0} = filename, {1} = parent folder name

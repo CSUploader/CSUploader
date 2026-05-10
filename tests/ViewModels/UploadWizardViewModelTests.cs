@@ -165,7 +165,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task GoNext_FilesMode_WithFiles_AdvancesAndDefaultsTitle()
+    public async Task GoNext_FilesMode_WithFiles_Advances()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         File.WriteAllText(tempA, "x");
@@ -177,12 +177,11 @@ public class UploadWizardViewModelTests : IDisposable
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
             vm.BrowseFilesCommand.Execute(null);
-            vm.PackageTitle = string.Empty; // pretend user cleared it
+            // PackageTitle was defaulted from filename by BrowseFiles; leave it intact
 
             await vm.GoNextCommand.ExecuteAsync(null);
 
             Assert.Equal(1, vm.CurrentStep);
-            Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
         }
         finally
         {
@@ -208,32 +207,6 @@ public class UploadWizardViewModelTests : IDisposable
             vm.AddMoreFilesCommand.Execute(null);
 
             Assert.Single(vm.Files);
-        }
-        finally
-        {
-            File.Delete(tempA);
-        }
-    }
-
-    [Fact]
-    public void FilesCountText_UpdatesWhenFilesChange()
-    {
-        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
-        File.WriteAllText(tempA, "x");
-        try
-        {
-            Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA]);
-
-            UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            string before = vm.FilesCountText;
-
-            vm.BrowseFilesCommand.Execute(null);
-
-            Assert.NotEqual(before, vm.FilesCountText);
-            Assert.Contains("1", vm.FilesCountText, StringComparison.Ordinal);
         }
         finally
         {
@@ -271,6 +244,30 @@ public class UploadWizardViewModelTests : IDisposable
         {
             Directory.Delete(dirA, recursive: true);
             Directory.Delete(dirB, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DirectoryPath_WhenSetToValidDirectory_PopulatesFiles()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+        string a = Path.Combine(dir, "a.bin");
+        string b = Path.Combine(dir, "b.bin");
+        File.WriteAllText(a, "a");
+        File.WriteAllText(b, "b");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+
+            vm.DirectoryPath = dir;
+
+            Assert.Equal(2, vm.Files.Count);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
         }
     }
 

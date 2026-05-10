@@ -1076,14 +1076,11 @@ Vẫn thêm?</value>
   <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. Thư mục</value>
   </data>
-  <data name="Wizard_Step_Files" xml:space="preserve">
-    <value>2. Tệp</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
-    <value>3. Nhà lưu trữ tập tin</value>
+    <value>2. Nhà lưu trữ tập tin</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>4. Bắt đầu</value>
+    <value>3. Bắt đầu</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Tệp</value>
@@ -1213,9 +1210,6 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Chọn tệp để tải lên</value>
-  </data>
-  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
-    <value>Đã chọn {0} tệp</value>
   </data>
   <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
     <value>Thêm tệp khác…</value>

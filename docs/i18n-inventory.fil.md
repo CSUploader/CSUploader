@@ -503,9 +503,8 @@ Logs_Status_ExportedPackages_Format = Na-export ang {0} package(s) sa {1}       
 Wizard_Title                       = Upload Wizard
 
 Wizard_Step_DirectorySource        = 1. Directory
-Wizard_Step_Files                  = 2. Files
-Wizard_Step_FileHosters            = 3. File Hosters
-Wizard_Step_Start                  = 4. Simulan
+Wizard_Step_FileHosters            = 2. File Hosters
+Wizard_Step_Start                  = 3. Simulan
 Wizard_Step_FilesSource            = 1. Mga File
 
 Wizard_Step0_Mode_Directory        = Mag-upload ng directory
@@ -558,7 +557,6 @@ Wizard_Step0_Files_Title           = Pumili ng mga File
 Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.
 Wizard_Step0_Files_Pick            = Pumili ng mga file…
 Wizard_Step0_Files_BrowseDialogTitle = Pumili ng mga file para i-upload                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = {0} file(s) ang napili                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = Magdagdag ng higit pang mga file…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (nasa {1})                                    # {0} = filename, {1} = parent folder name

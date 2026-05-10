@@ -1076,14 +1076,11 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. 디렉터리</value>
   </data>
-  <data name="Wizard_Step_Files" xml:space="preserve">
-    <value>2. 파일</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
-    <value>3. 파일 호스터</value>
+    <value>2. 파일 호스터</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>4. 시작</value>
+    <value>3. 시작</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 파일</value>
@@ -1213,9 +1210,6 @@ This affects only the persisted history loaded on startup. The Logs tab keeps sh
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>업로드할 파일 선택</value>
-  </data>
-  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
-    <value>{0}개 파일 선택됨</value>
   </data>
   <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
     <value>파일 더 추가…</value>

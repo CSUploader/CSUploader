@@ -1076,14 +1076,11 @@ Add anyway?</value>
   <data name="Wizard_Step_DirectorySource" xml:space="preserve">
     <value>1. Directory</value>
   </data>
-  <data name="Wizard_Step_Files" xml:space="preserve">
-    <value>2. Files</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
-    <value>3. File Hosters</value>
+    <value>2. File Hosters</value>
   </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>4. Start</value>
+    <value>3. Start</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Files</value>
@@ -1213,9 +1210,6 @@ Add anyway?</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Pick files to upload</value>
-  </data>
-  <data name="Wizard_Step0_Files_CountFormat" xml:space="preserve">
-    <value>{0} file(s) selected</value>
   </data>
   <data name="Wizard_Step1_BtnAddMore" xml:space="preserve">
     <value>Add more files…</value>

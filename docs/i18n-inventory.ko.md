@@ -503,9 +503,8 @@ Logs_Status_ExportedPackages_Format = 패키지 {0}개를 {1}(으)로 내보냈�
 Wizard_Title                       = 업로드 마법사
 
 Wizard_Step_DirectorySource        = 1. 디렉터리
-Wizard_Step_Files                  = 2. 파일
-Wizard_Step_FileHosters            = 3. 파일 호스터
-Wizard_Step_Start                  = 4. 시작
+Wizard_Step_FileHosters            = 2. 파일 호스터
+Wizard_Step_Start                  = 3. 시작
 Wizard_Step_FilesSource            = 1. 파일
 
 Wizard_Step0_Mode_Directory        = 디렉터리 업로드
@@ -558,7 +557,6 @@ Wizard_Step0_Files_Title           = 파일 선택
 Wizard_Step0_Files_Desc            = 업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.
 Wizard_Step0_Files_Pick            = 파일 선택…
 Wizard_Step0_Files_BrowseDialogTitle = 업로드할 파일 선택                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = {0}개 파일 선택됨                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = 파일 더 추가…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} ({1} 내)                                    # {0} = filename, {1} = parent folder name

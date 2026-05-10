@@ -511,9 +511,8 @@ Logs_Status_ExportedPackages_Format = Đã xuất {0} gói ra {1}               
 Wizard_Title                       = Trình hướng dẫn tải lên
 
 Wizard_Step_DirectorySource        = 1. Thư mục
-Wizard_Step_Files                  = 2. Tệp
-Wizard_Step_FileHosters            = 3. Nhà lưu trữ tập tin
-Wizard_Step_Start                  = 4. Bắt đầu
+Wizard_Step_FileHosters            = 2. Nhà lưu trữ tập tin
+Wizard_Step_Start                  = 3. Bắt đầu
 Wizard_Step_FilesSource            = 1. Tệp
 
 Wizard_Step0_Mode_Directory        = Tải lên thư mục
@@ -566,7 +565,6 @@ Wizard_Step0_Files_Title           = Chọn tệp
 Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.
 Wizard_Step0_Files_Pick            = Chọn tệp…
 Wizard_Step0_Files_BrowseDialogTitle = Chọn tệp để tải lên                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = Đã chọn {0} tệp                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = Thêm tệp khác…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (trong {1})                                    # {0} = filename, {1} = parent folder name

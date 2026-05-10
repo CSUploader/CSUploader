@@ -502,9 +502,8 @@ Logs_Status_ExportedPackages_Format = パッケージ {0} 個を {1} にエク�
 Wizard_Title                       = アップロードウィザード
 
 Wizard_Step_DirectorySource        = 1. ディレクトリ
-Wizard_Step_Files                  = 2. ファイル
-Wizard_Step_FileHosters            = 3. ファイルホスター
-Wizard_Step_Start                  = 4. 開始
+Wizard_Step_FileHosters            = 2. ファイルホスター
+Wizard_Step_Start                  = 3. 開始
 Wizard_Step_FilesSource            = 1. ファイル
 
 Wizard_Step0_Mode_Directory        = ディレクトリをアップロード
@@ -557,7 +556,6 @@ Wizard_Step0_Files_Title           = ファイルを選択
 Wizard_Step0_Files_Desc            = アップロードしたいファイルを選んでください。後で追加することもできます。
 Wizard_Step0_Files_Pick            = ファイルを選択…
 Wizard_Step0_Files_BrowseDialogTitle = アップロードするファイルを選択                                  # used when calling BrowseFiles
-Wizard_Step0_Files_CountFormat     = {0} 個のファイルを選択中                                    # {0} = file count
 
 Wizard_Step1_BtnAddMore            = ファイルをさらに追加…
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（{1} 内）                                    # {0} = filename, {1} = parent folder name

@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -39,7 +38,6 @@ public partial class UploadWizardViewModel : ObservableObject
         _logger = logger;
         _settings = settings;
 
-        Files.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FilesCountText));
     }
 
     [ObservableProperty]
@@ -69,11 +67,6 @@ public partial class UploadWizardViewModel : ObservableObject
 
     public ObservableCollection<FileEntry> Files { get; } = [];
 
-    public string FilesCountText => string.Format(
-        System.Globalization.CultureInfo.CurrentCulture,
-        Localizer.Instance["Wizard_Step0_Files_CountFormat"],
-        Files.Count);
-
     public ObservableCollection<FileHosterSelectionViewModel> FileHosters { get; } = [];
 
     [ObservableProperty]
@@ -90,9 +83,9 @@ public partial class UploadWizardViewModel : ObservableObject
 
     public bool CanGoBack => CurrentStep > 0;
 
-    public bool CanGoNext => CurrentStep <= 3;
+    public bool CanGoNext => CurrentStep <= 2;
 
-    public bool IsLastStep => CurrentStep == 3;
+    public bool IsLastStep => CurrentStep == 2;
 
     public string NextButtonText => IsLastStep
         ? Localizer.Instance["Wizard_Btn_Add"]
@@ -203,6 +196,7 @@ public partial class UploadWizardViewModel : ObservableObject
     {
         if (CurrentStep == 0)
         {
+            // Source picked + files validated + title set.
             if (IsDirectoryMode)
             {
                 if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
@@ -211,7 +205,12 @@ public partial class UploadWizardViewModel : ObservableObject
                     return;
                 }
 
-                LoadFiles();
+                // Files may not have loaded yet if the user typed a path; LoadFiles is
+                // idempotent (clears + re-enumerates).
+                if (Files.Count == 0)
+                {
+                    LoadFiles();
+                }
             }
             else // Files mode
             {
@@ -220,17 +219,8 @@ public partial class UploadWizardViewModel : ObservableObject
                     _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
                     return;
                 }
-
-                if (string.IsNullOrWhiteSpace(PackageTitle))
-                {
-                    PackageTitle = Path.GetFileNameWithoutExtension(Files[0].FullPath) ?? string.Empty;
-                }
             }
 
-            CurrentStep = 1;
-        }
-        else if (CurrentStep == 1)
-        {
             if (string.IsNullOrWhiteSpace(PackageTitle))
             {
                 _dialogService.ShowError(Localizer.Instance["Wizard_Validation_TitleRequired"]);
@@ -244,18 +234,26 @@ public partial class UploadWizardViewModel : ObservableObject
             }
 
             await LoadFileHostersAsync();
+            CurrentStep = 1;
+        }
+        else if (CurrentStep == 1)
+        {
             CurrentStep = 2;
         }
         else if (CurrentStep == 2)
-        {
-            CurrentStep = 3;
-        }
-        else if (CurrentStep == 3)
         {
             if (await StartUploadAsync())
             {
                 Completed = true;
             }
+        }
+    }
+
+    partial void OnDirectoryPathChanged(string value)
+    {
+        if (IsDirectoryMode && !string.IsNullOrWhiteSpace(value) && Directory.Exists(value))
+        {
+            LoadFiles();
         }
     }
 
