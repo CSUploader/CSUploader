@@ -313,10 +313,12 @@ public class UploadScheduler : IDisposable
                     }
                     else if (ev is Lib.Crypto.HashProgress hp)
                     {
+                        long remaining = hp.TotalBytes - hp.BytesProcessed;
                         file.Speed = (long)hp.SpeedBytesPerSec;
                         file.Progress = hp.PercentComplete;
+                        file.BytesLoaded = hp.BytesProcessed;
+                        file.BytesRemaining = remaining;
                         file.Duration = file.StartedDate.HasValue ? DateTime.Now - file.StartedDate.Value : null;
-                        long remaining = hp.TotalBytes - hp.BytesProcessed;
                         file.TimeRemaining = hp.SpeedBytesPerSec > 0 && remaining > 0
                             ? TimeSpan.FromSeconds(remaining / hp.SpeedBytesPerSec)
                             : null;
