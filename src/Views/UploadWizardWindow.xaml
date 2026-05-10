@@ -98,7 +98,7 @@
                     Command="{Binding BrowseFilesCommand}" />
             <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12"
                        Foreground="{DynamicResource TextSecondaryBrush}">
-              <Run Text="{Binding Files.Count, StringFormat={loc:Loc Wizard_Step0_Files_CountFormat}, Mode=OneWay}" />
+              <Run Text="{Binding FilesCountText, Mode=OneWay}" />
             </TextBlock>
           </StackPanel>
         </StackPanel>

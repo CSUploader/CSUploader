@@ -27,8 +27,8 @@ public class PackageOptions
     public required string Title { get; set; }
 
     /// <summary>
-    /// Gets or sets the selected files to include in the package.
-    /// When null, all files in the directory are included.
+    /// Full paths of files to include in the package. When null or empty, no files are added
+    /// (the wizard always populates this for both Directory and Files modes).
     /// </summary>
     public List<string>? SelectedFiles { get; set; }
 

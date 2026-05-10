@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -15,22 +16,34 @@ using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
 
-public partial class UploadWizardViewModel(
-    PackageManager packageManager,
-    FileHosterLoginRepository fileHosterLoginRepository,
-    IDialogService dialogService,
-    IAppLogger logger,
-    AppSettings settings,
-    UploadWizardMode mode) : ObservableObject
+public partial class UploadWizardViewModel : ObservableObject
 {
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
 
-    private readonly PackageManager _packageManager = packageManager;
-    private readonly FileHosterLoginRepository _fileHosterLoginRepository = fileHosterLoginRepository;
-    private readonly IDialogService _dialogService = dialogService;
-    private readonly IAppLogger _logger = logger;
-    private readonly AppSettings _settings = settings;
-    private readonly UploadWizardMode _mode = mode;
+    private readonly PackageManager _packageManager;
+    private readonly FileHosterLoginRepository _fileHosterLoginRepository;
+    private readonly IDialogService _dialogService;
+    private readonly IAppLogger _logger;
+    private readonly AppSettings _settings;
+    private readonly UploadWizardMode _mode;
+
+    public UploadWizardViewModel(
+        PackageManager packageManager,
+        FileHosterLoginRepository fileHosterLoginRepository,
+        IDialogService dialogService,
+        IAppLogger logger,
+        AppSettings settings,
+        UploadWizardMode mode)
+    {
+        _packageManager = packageManager;
+        _fileHosterLoginRepository = fileHosterLoginRepository;
+        _dialogService = dialogService;
+        _logger = logger;
+        _settings = settings;
+        _mode = mode;
+
+        Files.CollectionChanged += (_, _) => OnPropertyChanged(nameof(FilesCountText));
+    }
 
     public UploadWizardMode Mode => _mode;
 
@@ -55,6 +68,11 @@ public partial class UploadWizardViewModel(
     private string fileFilter = string.Empty;
 
     public ObservableCollection<FileEntry> Files { get; } = [];
+
+    public string FilesCountText => string.Format(
+        System.Globalization.CultureInfo.CurrentCulture,
+        Localizer.Instance["Wizard_Step0_Files_CountFormat"],
+        Files.Count);
 
     public ObservableCollection<FileHosterSelectionViewModel> FileHosters { get; } = [];
 

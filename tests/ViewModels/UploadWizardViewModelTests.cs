@@ -212,6 +212,31 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void FilesCountText_UpdatesWhenFilesChange()
+    {
+        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(tempA, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
+                .Returns([tempA]);
+
+            UploadWizardViewModel vm = CreateVm(dialog.Object, UploadWizardMode.Files);
+            string before = vm.FilesCountText;
+
+            vm.BrowseFilesCommand.Execute(null);
+
+            Assert.NotEqual(before, vm.FilesCountText);
+            Assert.Contains("1", vm.FilesCountText);
+        }
+        finally
+        {
+            File.Delete(tempA);
+        }
+    }
+
+    [Fact]
     public void AddMoreFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
     {
         string dirA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
