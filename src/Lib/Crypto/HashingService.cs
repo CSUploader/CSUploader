@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
@@ -14,25 +15,18 @@ namespace CSUploader.Lib.Crypto;
 /// at most once every 250ms so the UI's Speed and Progress columns can update during long
 /// hashing runs without flooding the channel for fast disks.
 /// </summary>
-public sealed class HashingService : IHashingService
+/// <remarks>
+/// Test-only overload: passes <see cref="TimeSpan.Zero"/> to emit progress on every
+/// chunk so unit tests don't depend on disk speed crossing the production throttle.
+/// </remarks>
+public sealed class HashingService(TimeSpan progressInterval) : IHashingService
 {
     private const int ChunkSize = 1 << 20; // 1 MiB
-    private static readonly TimeSpan DefaultProgressInterval = TimeSpan.FromMilliseconds(250);
-
-    private readonly TimeSpan _progressInterval;
+    private static readonly TimeSpan _defaultProgressInterval = TimeSpan.FromMilliseconds(250);
 
     public HashingService()
-        : this(DefaultProgressInterval)
+        : this(_defaultProgressInterval)
     {
-    }
-
-    /// <summary>
-    /// Test-only overload: passes <see cref="TimeSpan.Zero"/> to emit progress on every
-    /// chunk so unit tests don't depend on disk speed crossing the production throttle.
-    /// </summary>
-    public HashingService(TimeSpan progressInterval)
-    {
-        _progressInterval = progressInterval;
     }
 
     /// <inheritdoc/>
@@ -60,24 +54,13 @@ public sealed class HashingService : IHashingService
 
         using (hasher)
         {
-            FileStream? fs = null;
-            HashFailed? openFailure = null;
-            try
-            {
-                fs = File.OpenRead(filePath);
-            }
-            catch (Exception ex)
-            {
-                openFailure = new HashFailed(ex.Message, ex);
-            }
-
-            if (openFailure is not null)
+            if (!TryOpenRead(filePath, out FileStream? fs, out HashFailed? openFailure))
             {
                 yield return openFailure;
                 yield break;
             }
 
-            using (fs!)
+            using (fs)
             {
                 byte[] buffer = new byte[ChunkSize];
                 long bytesProcessed = 0;
@@ -90,7 +73,7 @@ public sealed class HashingService : IHashingService
                     HashFailed? readFailure = null;
                     try
                     {
-                        read = await fs!.ReadAsync(buffer.AsMemory(0, ChunkSize), ct);
+                        read = await fs.ReadAsync(buffer.AsMemory(0, ChunkSize), ct);
                     }
                     catch (OperationCanceledException)
                     {
@@ -118,7 +101,7 @@ public sealed class HashingService : IHashingService
                     // Skip the emit on the chunk that finishes the file so HashCompleted
                     // is the next event instead of a redundant 100% progress.
                     DateTime now = DateTime.UtcNow;
-                    if (bytesProcessed < totalBytes && (now - lastProgress) >= _progressInterval)
+                    if (bytesProcessed < totalBytes && (now - lastProgress) >= progressInterval)
                     {
                         double elapsed = (now - startedAt).TotalSeconds;
                         double speed = elapsed > 0 ? bytesProcessed / elapsed : 0.0;
@@ -143,6 +126,25 @@ public sealed class HashingService : IHashingService
         catch (Exception)
         {
             return null;
+        }
+    }
+
+    private static bool TryOpenRead(
+        string filePath,
+        [NotNullWhen(true)] out FileStream? stream,
+        [NotNullWhen(false)] out HashFailed? failure)
+    {
+        try
+        {
+            stream = File.OpenRead(filePath);
+            failure = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            stream = null;
+            failure = new HashFailed(ex.Message, ex);
+            return false;
         }
     }
 }

@@ -585,7 +585,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     {
         return FileHosterClient.FileHosters
             .Where(fh => fh.Key == kvp.Key.Name)
-            .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger!))
+            .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger ?? Lib.Logger.Current))
             .FirstOrDefault();
     }
 

@@ -61,18 +61,21 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         // === Auth ===
-        RapidgatorAuthState? auth;
-        if (!_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out auth))
+        RapidgatorAuthState auth;
+        if (_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out RapidgatorAuthState? cached))
+        {
+            auth = cached;
+        }
+        else
         {
             (RapidgatorAuthState? gated, bool didLogin, string? error) = await EnsureAuthAsync(ctx, ct);
-            auth = gated;
 
             if (didLogin)
             {
                 yield return new AuthStarted();
             }
 
-            if (auth is null)
+            if (gated is null)
             {
                 if (didLogin)
                 {
@@ -86,6 +89,8 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             {
                 yield return new AuthSucceeded();
             }
+
+            auth = gated;
         }
 
         // === Post-auth flow (folder → transfer → upload_info) ===
@@ -105,7 +110,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             string? folderError;
             try
             {
-                (folderId, folderError) = await CreateFolderAsync(ctx, auth!, folderName);
+                (folderId, folderError) = await CreateFolderAsync(ctx, auth, folderName);
             }
             catch (AuthExpiredException)
             {
@@ -126,7 +131,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             UploadUrlResult upload;
             try
             {
-                upload = await GetUploadUrlAsync(ctx, auth!, folderId.Value);
+                upload = await GetUploadUrlAsync(ctx, auth, folderId.Value);
             }
             catch (AuthExpiredException)
             {
@@ -149,8 +154,13 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
                 break;
             }
 
-            string uploadUrl = upload.UploadUrl!;
-            string uploadId = upload.UploadId!;
+            // GetUploadUrlAsync guarantees both fields are populated when neither Error nor
+            // CompletedFileUrl is set, but the compiler can't see that — bail defensively.
+            if (upload.UploadUrl is not { } uploadUrl || upload.UploadId is not { } uploadId)
+            {
+                attemptFailure = "file/upload returned no upload_url";
+                break;
+            }
 
             // === Multipart upload bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
             // UploadBytesAsync runs concurrently; progress callbacks write into an unbounded
@@ -200,7 +210,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             string? infoError;
             try
             {
-                (fileUrl, infoError) = await GetUploadInfoAsync(ctx, auth!, uploadId);
+                (fileUrl, infoError) = await GetUploadInfoAsync(ctx, auth, uploadId);
             }
             catch (AuthExpiredException)
             {
@@ -358,9 +368,9 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
         // Hash-dedup short-circuit. The server returns `url: null`, `state: 2 ("Done")`,
         // and a populated `file.url` we can use directly.
-        if (upload.State == RapidgatorUploadStateDone && !string.IsNullOrEmpty(upload.File?.Url))
+        if (upload.State == RapidgatorUploadStateDone && upload.File?.Url is { Length: > 0 } completedUrl)
         {
-            return new UploadUrlResult(null, null, upload.File!.Url, null);
+            return new UploadUrlResult(null, null, completedUrl, null);
         }
 
         if (string.IsNullOrEmpty(upload.Url) || string.IsNullOrEmpty(upload.UploadId))
@@ -399,13 +409,13 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         // generic fallback, and append the HTTP status when we have one.
         if (status is int s)
         {
-            string head = string.IsNullOrEmpty(details) ? fallback : details!;
+            string head = details is { Length: > 0 } ? details : fallback;
             return $"{head} (HTTP {s})";
         }
 
-        if (!string.IsNullOrEmpty(details))
+        if (details is { Length: > 0 })
         {
-            return details!;
+            return details;
         }
 
         // Worst case: deserialization failed (env was null) — body wasn't shaped like our

@@ -304,7 +304,7 @@ public class UploadScheduler : IDisposable
         {
             try
             {
-                string filePath = Path.Combine(file.SaveFrom!, file.Name);
+                string filePath = Path.Combine(file.SaveFrom ?? string.Empty, file.Name);
                 await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, cts.Token))
                 {
                     if (ev is Lib.Crypto.HashStarted)

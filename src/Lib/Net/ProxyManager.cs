@@ -199,9 +199,9 @@ public class ProxyManager : IProxySource
             int status = captured?.StatusCode ?? 0;
             if (status is < 200 or >= 300)
             {
-                string reason = string.IsNullOrEmpty(captured?.StatusReason)
-                    ? "non-success status"
-                    : captured!.StatusReason;
+                string reason = captured?.StatusReason is { Length: > 0 } statusReason
+                    ? statusReason
+                    : "non-success status";
                 return ProxyTestResult.Failed($"HTTP {status} {reason}") with
                 {
                     LatencyMs = sw.ElapsedMilliseconds,

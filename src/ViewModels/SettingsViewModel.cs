@@ -703,9 +703,9 @@ public partial class SettingsViewModel(
             Owner = System.Windows.Application.Current.MainWindow,
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() == true && dialog.Result is { } addResult)
         {
-            _ = AddAccountFromDialogAsync(dialog.Result);
+            _ = AddAccountFromDialogAsync(addResult);
         }
     }
 
@@ -977,10 +977,10 @@ public partial class SettingsViewModel(
             Owner = System.Windows.Application.Current.MainWindow
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() == true && dialog.Result is { } editResult)
         {
             // Save changes
-            _ = SaveEditedAccountAsync(dialog.Result);
+            _ = SaveEditedAccountAsync(editResult);
         }
     }
 

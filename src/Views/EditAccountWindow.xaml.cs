@@ -38,7 +38,7 @@ public partial class EditAccountWindow : Window
         EnabledCheck.IsChecked = !account.Disabled;
     }
 
-    public FileHosterLoginDto Result { get; private set; } = null!;
+    public FileHosterLoginDto? Result { get; private set; }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
