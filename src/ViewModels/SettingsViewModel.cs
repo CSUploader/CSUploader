@@ -25,7 +25,8 @@ public partial class SettingsViewModel(
     IAppLogger logger,
     TrayIconManager? trayIconManager = null,
     UploadPackageRepository? uploadPackageRepository = null,
-    LogEntryRepository? logEntryRepository = null) : ObservableObject
+    LogEntryRepository? logEntryRepository = null,
+    LogsViewModel? logsViewModel = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -37,6 +38,9 @@ public partial class SettingsViewModel(
     // construct an upload-package repo. Wired by DI in the real app.
     private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
     private readonly LogEntryRepository? _logEntryRepository = logEntryRepository;
+    // Optional so Clear logs can also wipe the in-memory Logs-tab listviews. Optional
+    // because the existing test fixtures construct SettingsViewModel without one.
+    private readonly LogsViewModel? _logsViewModel = logsViewModel;
 
     // Suppresses auto-save while LoadAsync is hydrating ObservableProperty values from the
     // DB — otherwise every "real" load would round-trip back through SaveSettingAsync.
@@ -671,6 +675,13 @@ public partial class SettingsViewModel(
             // Pass DateTime.MaxValue so every persisted entry is older than the cutoff.
             // Reuses the existing trim path instead of inventing a new "delete all" verb.
             int deleted = await _logEntryRepository.DeleteOlderThanAsync(DateTime.MaxValue, cancellationToken);
+
+            // Wipe the in-memory Logs-tab listviews too — the user's intent is "I don't
+            // want to see these anymore", which the DB delete alone doesn't satisfy.
+            _logsViewModel?.StatusLogs.Clear();
+            _logsViewModel?.HttpLogs.Clear();
+            _logsViewModel?.ErrorLogs.Clear();
+            _logsViewModel?.UILogs.Clear();
 
             if (deleted == 0)
             {
