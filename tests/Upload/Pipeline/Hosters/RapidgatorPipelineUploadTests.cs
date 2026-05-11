@@ -27,8 +27,8 @@ public class RapidgatorPipelineUploadTests
             """{"response":{"folder":{"folder_id":"8676913","mode":0,"mode_label":"Public","parent_folder_id":"5973665","name":"package1","url":"https://r/folder/8676913","nb_folders":0,"nb_files":0,"size_files":0,"created":1778221286,"folders":[]}},"status":200,"details":null}""",
             // file/upload — returns the upload_url + upload_id
             """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
-            // file/upload_info — confirms upload, returns public file url
-            """{"response":{"upload":{"file":{"url":"https://r.net/file/abc123"}}},"status":200,"details":null}""",
+            // file/upload_info — confirms upload (state=2 "Done"), returns public file url
+            """{"response":{"upload":{"file":{"url":"https://r.net/file/abc123"},"state":2}},"status":200,"details":null}""",
         });
         RapidgatorPipeline pipeline = new(
             getOverride: url => responses.Dequeue(),
@@ -135,6 +135,73 @@ public class RapidgatorPipelineUploadTests
         AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
         Assert.EndsWith("…", failure.Reason, StringComparison.Ordinal);
         Assert.True(failure.Reason.Length < 300, $"message length {failure.Reason.Length} exceeded the 200-char snippet cap");
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUploadInfoStillProcessing_PollsUntilDone()
+    {
+        // After the bytes upload, Rapidgator may keep upload_info in state 1 ("Processing")
+        // for several seconds before flipping to 2 ("Done") with the public file.url. The
+        // pipeline used to single-shot upload_info and fail the upload as soon as the first
+        // poll came back without a URL. Now it polls until state hits Done.
+        Queue<string> responses = new(new[]
+        {
+            // login
+            """{"response":{"token":"TOK","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // folder/create
+            """{"response":{"folder":{"folder_id":"8676913"}},"status":200,"details":null}""",
+            // file/upload
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
+            // upload_info poll 1: still processing (state=1, file.url null)
+            """{"response":{"upload":{"file":null,"state":1}},"status":200,"details":null}""",
+            // upload_info poll 2: still processing
+            """{"response":{"upload":{"file":null,"state":1}},"status":200,"details":null}""",
+            // upload_info poll 3: done — surface the public URL
+            """{"response":{"upload":{"file":{"url":"https://r.net/file/poll-ok"},"state":2}},"status":200,"details":null}""",
+        });
+        RapidgatorPipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://r.net/file/poll-ok", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUploadInfoStateIsFail_StopsPollingAndReportsAttemptFailed()
+    {
+        // state=3 ("Fail") is terminal — the server rejected the upload during its post-upload
+        // processing pass. The pipeline must stop polling immediately and surface the failure.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"8676913"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
+            // upload_info immediately reports server-side rejection
+            """{"response":{"upload":{"file":null,"state":3}},"status":200,"details":"upload corrupt"}""",
+        });
+        RapidgatorPipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        // No further polling — would have been the 5th response.
+        Assert.Empty(responses);
     }
 
     private static AttemptContext MakeContext() => new()

@@ -348,6 +348,20 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     /// <summary>State value Rapidgator returns when the file is already on their servers.</summary>
     private const int RapidgatorUploadStateDone = 2;
 
+    /// <summary>State value Rapidgator returns when the server-side post-upload processing
+    /// determined the file is bad/rejected. Terminal failure — stop polling upload_info.</summary>
+    private const int RapidgatorUploadStateFail = 3;
+
+    /// <summary>Hard cap on how long we wait for Rapidgator to finish processing an upload
+    /// after the bytes are transferred. Most files finish within seconds; a slow day can
+    /// stretch to a minute or two for very large files.</summary>
+    private static readonly TimeSpan _uploadInfoPollTimeout = TimeSpan.FromMinutes(3);
+
+    /// <summary>Minimum/maximum gap between consecutive upload_info polls. Backs off
+    /// exponentially between these bounds.</summary>
+    private static readonly TimeSpan _uploadInfoPollMinDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan _uploadInfoPollMaxDelay = TimeSpan.FromSeconds(5);
+
     private async Task<UploadUrlResult> GetUploadUrlAsync(AttemptContext ctx, RapidgatorAuthState auth, int folderId)
     {
         string url = $"https://www.rapidgator.net/api/v2/file/upload"
@@ -388,16 +402,75 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
 
     private async Task<(string?, string?)> GetUploadInfoAsync(AttemptContext ctx, RapidgatorAuthState auth, string uploadId)
     {
+        // After the bytes upload, Rapidgator post-processes the file on their side. Until
+        // that finishes the response is a HTTP 200 with `upload.state` in {0,1} and the
+        // public `file.url` still null. Poll with backoff until state hits 2 (Done) or
+        // 3 (Fail), or we run out the timeout budget.
         string url = $"https://www.rapidgator.net/api/v2/file/upload_info?upload_id={uploadId}&token={auth.Token}";
-        string body = await GetAsync(ctx, url);
+        DateTime deadline = DateTime.UtcNow + _uploadInfoPollTimeout;
+        TimeSpan delay = _uploadInfoPollMinDelay;
 
-        if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env) || env?.Status != 200 || env.Response?.Upload?.File?.Url is null)
+        while (true)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
-            return (null, FormatApiError("file/upload_info failed", env?.Details, env?.Status, body));
-        }
+            string body = await GetAsync(ctx, url);
 
-        return (env.Response.Upload.File.Url, null);
+            if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env))
+            {
+                return (null, FormatApiError("file/upload_info: response was not JSON", null, null, body));
+            }
+
+            if (env?.Status == 401)
+            {
+                throw new AuthExpiredException();
+            }
+
+            if (env?.Status != 200)
+            {
+                return (null, FormatApiError("file/upload_info failed", env?.Details, env?.Status, body));
+            }
+
+            UploadInfoUpload? upload = env.Response?.Upload;
+
+            // Terminal success: server is done processing and gave us the public URL.
+            if (upload?.State == RapidgatorUploadStateDone && upload.File?.Url is { Length: > 0 } fileUrl)
+            {
+                return (fileUrl, null);
+            }
+
+            // Terminal failure: server-side processing rejected the file. We build the
+            // message inline (instead of letting FormatApiError pick `details` over our
+            // fallback) so the "state 3" diagnostic is always visible — knowing this came
+            // from the post-upload state machine rather than a transport error matters when
+            // triaging.
+            if (upload?.State == RapidgatorUploadStateFail)
+            {
+                string suffix = env.Details is { Length: > 0 } d ? $": {d}" : string.Empty;
+                return (null, $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status})");
+            }
+
+            // Out of budget — give up. Surfacing the last state we saw helps the user
+            // tell "stuck processing" from "missing field" from "unexpected shape".
+            if (DateTime.UtcNow >= deadline)
+            {
+                string detail = upload is null
+                    ? "no upload payload"
+                    : $"state={upload.State}, url={(upload.File?.Url is { Length: > 0 } u ? u : "(null)")}";
+                return (null, FormatApiError($"file/upload_info: timed out waiting for processing ({detail})", env.Details, env.Status, body));
+            }
+
+            try
+            {
+                await Task.Delay(delay, ctx.Cancellation);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+
+            // Exponential backoff, capped at MaxDelay.
+            TimeSpan next = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * 2);
+            delay = next > _uploadInfoPollMaxDelay ? _uploadInfoPollMaxDelay : next;
+        }
     }
 
     private Task<string> GetAsync(AttemptContext ctx, string url)
@@ -527,6 +600,9 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
     private sealed class UploadInfoUpload
     {
         [JsonPropertyName("file")] public UploadInfoFile? File { get; set; }
+
+        /// <summary>Upload pipeline state: 0=Uploading, 1=Processing, 2=Done, 3=Fail.</summary>
+        [JsonPropertyName("state")] public int State { get; set; }
     }
 
     private sealed class UploadInfoFile
