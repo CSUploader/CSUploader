@@ -274,6 +274,7 @@ public class PackageManager
 
         // Reconstruct PackageFiles
         List<PackageFile> files = [];
+        List<string> missingFilePaths = [];
         foreach (UploadPackageFileDto fileDto in pkgDto.Files)
         {
             if (fileDto.State is FileState.Idle or FileState.HashQueued or FileState.Hashing
@@ -304,7 +305,7 @@ public class PackageManager
             bool isTerminal = fileDto.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
             if (!isTerminal && !File.Exists(filePath))
             {
-                _logger.Log(this, LogType.Error, $"File no longer exists: {filePath}");
+                missingFilePaths.Add(filePath);
                 continue;
             }
 
@@ -347,7 +348,25 @@ public class PackageManager
 
         if (files.Count == 0)
         {
+            // Every file's source is gone and none reached a terminal state. The package
+            // is invisible (no rows in either tab), so leaving it in the DB would just
+            // re-fire this branch on every restart. Soft-remove from Uploads and log a
+            // single Status (not Error — the user almost certainly deleted these files
+            // themselves) summarizing what was dropped.
+            if (missingFilePaths.Count > 0)
+            {
+                await _packageRepo.SoftRemoveFromUploadsAsync(pkgDto.Id);
+                _logger.Log(this, LogType.Status, $"Skipped persisted package '{pkgDto.Name}' — source files missing: {string.Join(", ", missingFilePaths)}");
+            }
+
             return;
+        }
+
+        // Some files survived. Mention the missing ones so the user knows the package is
+        // partial. Still Status — the visible package row already signals "something's up".
+        if (missingFilePaths.Count > 0)
+        {
+            _logger.Log(this, LogType.Status, $"Persisted package '{pkgDto.Name}' loaded with {missingFilePaths.Count} missing file(s): {string.Join(", ", missingFilePaths)}");
         }
 
         bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);

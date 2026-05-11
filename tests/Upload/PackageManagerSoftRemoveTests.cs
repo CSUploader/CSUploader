@@ -529,6 +529,43 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_AllFilesMissingNonTerminal_SoftRemovesPackage()
+    {
+        // Repro: a non-terminal package whose source files have all been deleted used
+        // to log a per-file Error and silently drop the package without removing the DB
+        // row — so the user kept seeing the same errors on every restart for a package
+        // not visible in either tab. Now it soft-removes from Uploads and logs once.
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        UploadPackageDto pkg = new() { Name = "ghosted", CreatedDateTime = DateTime.Now };
+        await _packageRepo.InsertAsync(pkg);
+        await _fileRepo.InsertAsync(new UploadPackageFileDto
+        {
+            FileName = "part1.rar",
+            FileDirectory = @"C:\path\that\does\not\exist",
+            FileSize = 1024,
+            FileHoster = "Rapidgator",
+            FileHosterName = "Rapidgator",
+            State = FileState.UploadQueued,
+            PackageId = pkg.Id,
+        });
+
+        AppSettings settings = new();
+        DefaultFileHosterRegistry reg = new([]);
+        using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+        PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+        await freshManager.LoadPersistedPackagesAsync();
+
+        Assert.Empty(freshManager.Packages);
+
+        // Underlying DB row should be flipped so future restarts skip it via the
+        // IsRemovedFromUploads guard at the top of LoadOnePersistedPackageAsync.
+        UploadPackageDto? reloaded = (await _packageRepo.GetAllAsync()).FirstOrDefault(p => p.Id == pkg.Id);
+        Assert.NotNull(reloaded);
+        Assert.True(reloaded!.IsRemovedFromUploads);
+    }
+
+    [Fact]
     public async Task ResetPackage_ReregistersAndStartsScheduler()
     {
         // Repro: after a Failed file is right-click → Reset, the file transitioned to
