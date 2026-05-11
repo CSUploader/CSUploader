@@ -54,4 +54,11 @@ public enum FileState
     /// File operation was cancelled.
     /// </summary>
     Cancelled,
+
+    /// <summary>
+    /// Package-level only: all files have reached a terminal state and at least
+    /// one succeeded and at least one failed/cancelled. Never assigned to an
+    /// individual file — only returned by <see cref="Package.Status"/>.
+    /// </summary>
+    CompletedWithErrors,
 }

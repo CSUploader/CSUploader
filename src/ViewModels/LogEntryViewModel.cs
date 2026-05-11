@@ -26,5 +26,8 @@ public class LogEntryViewModel(LogEvent logEvent)
 
     public bool HasHttpTransaction => HttpTransaction is not null;
 
+    /// <summary>HTTP response status code (e.g. 200, 401, 503), or null for non-HTTP rows.</summary>
+    public int? StatusCode => HttpTransaction?.StatusCode;
+
     public string FullMessage => $"[{DateTime:HH:mm:ss.fff}] [{ThreadId}] {Filename}:{LineNumber} {Function} - {Message}";
 }

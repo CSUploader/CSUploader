@@ -122,6 +122,7 @@
                               RowStyle="{StaticResource LogRowStyle}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Status}" Binding="{Binding StatusCode}" Width="60" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />

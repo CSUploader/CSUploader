@@ -178,6 +178,7 @@ Uploads_State_Hashing             = ハッシュ計算中
 Uploads_State_UploadQueued        = アップロード待機中
 Uploads_State_Uploading           = アップロード中
 Uploads_State_Completed           = 完了
+Uploads_State_CompletedWithErrors = 完了（エラーあり）
 Uploads_State_Failed              = 失敗
 Uploads_State_Paused              = 一時停止中
 Uploads_State_Cancelled           = キャンセル済み
@@ -482,6 +483,7 @@ Logs_Tab_Errors                    = エラー
 Logs_Tab_UI                        = UI
 
 Logs_Col_DateTime                  = 日時
+Logs_Col_Status                    = ステータス
 Logs_Col_Filename                  = ファイル名
 Logs_Col_Function                  = 関数
 Logs_Col_Line                      = 行

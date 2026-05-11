@@ -417,6 +417,9 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_State_Completed" xml:space="preserve">
     <value>Đã hoàn tất</value>
   </data>
+  <data name="Uploads_State_CompletedWithErrors" xml:space="preserve">
+    <value>Hoàn tất có lỗi</value>
+  </data>
   <data name="Uploads_State_Failed" xml:space="preserve">
     <value>Thất bại</value>
   </data>
@@ -1048,6 +1051,9 @@ Vẫn thêm?</value>
   </data>
   <data name="Logs_Col_DateTime" xml:space="preserve">
     <value>Thời gian</value>
+  </data>
+  <data name="Logs_Col_Status" xml:space="preserve">
+    <value>Trạng thái</value>
   </data>
   <data name="Logs_Col_Filename" xml:space="preserve">
     <value>Tên tệp</value>

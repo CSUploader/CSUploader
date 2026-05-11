@@ -317,19 +317,9 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 
             FileState[] states = [.. files.Select(f => f.State)];
 
-            // Terminal: all files completed
-            if (states.All(s => s == FileState.Completed))
-            {
-                return FileState.Completed;
-            }
-
-            // Terminal: any file failed
-            if (states.Any(s => s == FileState.Failed))
-            {
-                return FileState.Failed;
-            }
-
-            // In progress: any file actively running
+            // In-progress checks come first: a single failed file shouldn't flip the
+            // whole package to "Failed" while siblings are still hashing/uploading —
+            // the package is only terminal once every file has reached a terminal state.
             if (states.Any(s => s == FileState.Uploading))
             {
                 return FileState.Uploading;
@@ -340,19 +330,36 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 return FileState.Hashing;
             }
 
-            // Queued: any file waiting
             if (states.Any(s => s is FileState.HashQueued or FileState.UploadQueued))
             {
                 return FileState.UploadQueued;
             }
 
-            // Paused
             if (states.Any(s => s == FileState.Paused))
             {
                 return FileState.Paused;
             }
 
-            // Cancelled
+            // Past this point every file is terminal (Completed / Failed / Cancelled)
+            // or Idle. Choose the rollup that best describes the outcome.
+            bool anyCompleted = states.Any(s => s == FileState.Completed);
+            bool anyFailed = states.Any(s => s is FileState.Failed or FileState.Cancelled);
+
+            if (anyCompleted && anyFailed)
+            {
+                return FileState.CompletedWithErrors;
+            }
+
+            if (states.All(s => s == FileState.Completed))
+            {
+                return FileState.Completed;
+            }
+
+            if (states.Any(s => s == FileState.Failed))
+            {
+                return FileState.Failed;
+            }
+
             if (states.Any(s => s == FileState.Cancelled))
             {
                 return FileState.Cancelled;

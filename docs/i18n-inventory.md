@@ -179,6 +179,7 @@ Uploads_State_Hashing             = Hashing
 Uploads_State_UploadQueued        = Upload Queued
 Uploads_State_Uploading           = Uploading
 Uploads_State_Completed           = Completed
+Uploads_State_CompletedWithErrors = Done with errors
 Uploads_State_Failed              = Failed
 Uploads_State_Paused              = Paused
 Uploads_State_Cancelled           = Cancelled
@@ -483,6 +484,7 @@ Logs_Tab_Errors                    = Errors
 Logs_Tab_UI                        = UI
 
 Logs_Col_DateTime                  = DateTime
+Logs_Col_Status                    = Status
 Logs_Col_Filename                  = Filename
 Logs_Col_Function                  = Function
 Logs_Col_Line                      = Line

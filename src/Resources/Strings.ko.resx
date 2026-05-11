@@ -417,6 +417,9 @@
   <data name="Uploads_State_Completed" xml:space="preserve">
     <value>완료됨</value>
   </data>
+  <data name="Uploads_State_CompletedWithErrors" xml:space="preserve">
+    <value>완료(오류 있음)</value>
+  </data>
   <data name="Uploads_State_Failed" xml:space="preserve">
     <value>실패</value>
   </data>
@@ -1048,6 +1051,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Logs_Col_DateTime" xml:space="preserve">
     <value>날짜/시간</value>
+  </data>
+  <data name="Logs_Col_Status" xml:space="preserve">
+    <value>상태</value>
   </data>
   <data name="Logs_Col_Filename" xml:space="preserve">
     <value>파일 이름</value>

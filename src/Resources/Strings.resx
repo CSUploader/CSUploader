@@ -417,6 +417,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_State_Completed" xml:space="preserve">
     <value>Completed</value>
   </data>
+  <data name="Uploads_State_CompletedWithErrors" xml:space="preserve">
+    <value>Done with errors</value>
+  </data>
   <data name="Uploads_State_Failed" xml:space="preserve">
     <value>Failed</value>
   </data>
@@ -1048,6 +1051,9 @@ Add anyway?</value>
   </data>
   <data name="Logs_Col_DateTime" xml:space="preserve">
     <value>DateTime</value>
+  </data>
+  <data name="Logs_Col_Status" xml:space="preserve">
+    <value>Status</value>
   </data>
   <data name="Logs_Col_Filename" xml:space="preserve">
     <value>Filename</value>

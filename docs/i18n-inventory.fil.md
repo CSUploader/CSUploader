@@ -179,6 +179,7 @@ Uploads_State_Hashing             = Naghahash
 Uploads_State_UploadQueued        = Naka-queue ang Upload
 Uploads_State_Uploading           = Nag-uupload
 Uploads_State_Completed           = Tapos na
+Uploads_State_CompletedWithErrors = Tapos na may error
 Uploads_State_Failed              = Failed
 Uploads_State_Paused              = Naka-pause
 Uploads_State_Cancelled           = Kinansela
@@ -483,6 +484,7 @@ Logs_Tab_Errors                    = Errors
 Logs_Tab_UI                        = UI
 
 Logs_Col_DateTime                  = DateTime
+Logs_Col_Status                    = Status
 Logs_Col_Filename                  = Filename
 Logs_Col_Function                  = Function
 Logs_Col_Line                      = Line

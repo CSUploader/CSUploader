@@ -26,6 +26,7 @@ public class FileStateDisplayConverter : IValueConverter
             FileState.UploadQueued => "Uploads_State_UploadQueued",
             FileState.Uploading => "Uploads_State_Uploading",
             FileState.Completed => "Uploads_State_Completed",
+            FileState.CompletedWithErrors => "Uploads_State_CompletedWithErrors",
             FileState.Failed => "Uploads_State_Failed",
             FileState.Paused => "Uploads_State_Paused",
             FileState.Cancelled => "Uploads_State_Cancelled",

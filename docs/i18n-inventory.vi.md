@@ -187,6 +187,7 @@ Uploads_State_Hashing             = Đang băm
 Uploads_State_UploadQueued        = Đang chờ tải lên
 Uploads_State_Uploading           = Đang tải lên
 Uploads_State_Completed           = Đã hoàn tất
+Uploads_State_CompletedWithErrors = Hoàn tất có lỗi
 Uploads_State_Failed              = Thất bại
 Uploads_State_Paused              = Đã tạm dừng
 Uploads_State_Cancelled           = Đã hủy
@@ -491,6 +492,7 @@ Logs_Tab_Errors                    = Lỗi
 Logs_Tab_UI                        = Giao diện
 
 Logs_Col_DateTime                  = Thời gian
+Logs_Col_Status                    = Trạng thái
 Logs_Col_Filename                  = Tên tệp
 Logs_Col_Function                  = Hàm
 Logs_Col_Line                      = Dòng

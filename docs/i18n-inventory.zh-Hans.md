@@ -179,6 +179,7 @@ Uploads_State_Hashing             = 校验中
 Uploads_State_UploadQueued        = 上传排队中
 Uploads_State_Uploading           = 上传中
 Uploads_State_Completed           = 已完成
+Uploads_State_CompletedWithErrors = 完成（有错误）
 Uploads_State_Failed              = 失败
 Uploads_State_Paused              = 已暂停
 Uploads_State_Cancelled           = 已取消
@@ -483,6 +484,7 @@ Logs_Tab_Errors                    = 错误
 Logs_Tab_UI                        = 界面
 
 Logs_Col_DateTime                  = 时间
+Logs_Col_Status                    = 状态
 Logs_Col_Filename                  = 文件名
 Logs_Col_Function                  = 函数
 Logs_Col_Line                      = 行号

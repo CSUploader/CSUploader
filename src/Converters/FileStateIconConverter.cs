@@ -31,6 +31,7 @@ public class FileStateIconConverter : IValueConverter
             FileState.Hashing => "StatusHashingImage",
             FileState.Uploading => "StatusUploadingImage",
             FileState.Completed => "StatusSuccessImage",
+            FileState.CompletedWithErrors => "StatusWarningImage",
             FileState.Failed => "StatusFailedImage",
             FileState.Paused => "StatusWarningImage",
             FileState.Cancelled => "StatusCancelledImage",

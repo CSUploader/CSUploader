@@ -150,6 +150,74 @@ public class PackageTests
         }
     }
 
+    [Fact]
+    public void Status_OneFailedWhileOthersUploading_ReturnsUploadingNotFailed()
+    {
+        // Regression: the rollup used to short-circuit to Failed on any failed file
+        // even when siblings were still uploading. Package should reflect the
+        // in-progress work until every file has reached a terminal state.
+        Package package = MakePackageWithFiles(
+            FileState.Uploading, FileState.Failed, FileState.Hashing, FileState.Completed);
+
+        Assert.Equal(FileState.Uploading, package.Status);
+    }
+
+    [Fact]
+    public void Status_AllTerminalMixCompletedAndFailed_ReturnsCompletedWithErrors()
+    {
+        Package package = MakePackageWithFiles(FileState.Completed, FileState.Failed, FileState.Completed);
+
+        Assert.Equal(FileState.CompletedWithErrors, package.Status);
+    }
+
+    [Fact]
+    public void Status_AllFailed_ReturnsFailed()
+    {
+        Package package = MakePackageWithFiles(FileState.Failed, FileState.Failed);
+
+        Assert.Equal(FileState.Failed, package.Status);
+    }
+
+    [Fact]
+    public void Status_AllCompleted_ReturnsCompleted()
+    {
+        Package package = MakePackageWithFiles(FileState.Completed, FileState.Completed);
+
+        Assert.Equal(FileState.Completed, package.Status);
+    }
+
+    private static Package MakePackageWithFiles(params FileState[] fileStates)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"csu-status-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        List<string> paths = [];
+        for (int i = 0; i < fileStates.Length; i++)
+        {
+            string p = Path.Combine(dir, $"f{i}.bin");
+            File.WriteAllText(p, "x");
+            paths.Add(p);
+        }
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
+        {
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = paths,
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
+        Package package = new(options);
+        package.AddPackageFiles();
+
+        int j = 0;
+        foreach (PackageFile pf in package)
+        {
+            pf.State = fileStates[j++];
+        }
+
+        return package;
+    }
+
     [Theory]
     [InlineData(new string?[] { @"C:\X\Y", @"C:\X\Z" }, @"C:\X")]
     [InlineData(new string?[] { @"C:\X\Y\Inner", @"C:\X\Y\Other" }, @"C:\X\Y")]

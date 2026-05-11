@@ -179,6 +179,7 @@ Uploads_State_Hashing             = 해시 계산 중
 Uploads_State_UploadQueued        = 업로드 대기 중
 Uploads_State_Uploading           = 업로드 중
 Uploads_State_Completed           = 완료됨
+Uploads_State_CompletedWithErrors = 완료(오류 있음)
 Uploads_State_Failed              = 실패
 Uploads_State_Paused              = 일시 중지됨
 Uploads_State_Cancelled           = 취소됨
@@ -483,6 +484,7 @@ Logs_Tab_Errors                    = 오류
 Logs_Tab_UI                        = UI
 
 Logs_Col_DateTime                  = 날짜/시간
+Logs_Col_Status                    = 상태
 Logs_Col_Filename                  = 파일 이름
 Logs_Col_Function                  = 함수
 Logs_Col_Line                      = 줄
