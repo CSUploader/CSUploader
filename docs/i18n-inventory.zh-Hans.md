@@ -281,7 +281,7 @@ Settings_General_Database_Status_Cleared_Format    = 已从数据库中清除 {0
 Settings_General_Database_Status_NothingToClear    = 没有可清除的隐藏数据行。
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
-Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
 Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```

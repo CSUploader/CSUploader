@@ -281,7 +281,7 @@ Settings_General_Database_Status_Cleared_Format    = Cleared {0} file row(s) and
 Settings_General_Database_Status_NothingToClear    = No hidden rows to clear.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
-Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
 Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```

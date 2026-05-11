@@ -626,7 +626,7 @@ Active and visible uploads are not affected. This cannot be undone.</value>
   <data name="Settings_General_Database_ConfirmClearLogsMessage" xml:space="preserve">
     <value>Permanently delete all log entries from the database?
 
-This affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.</value>
+The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_General_Database_LogsCleared_Format" xml:space="preserve">
     <value>Cleared {0} log entr(ies) from the database.</value>

@@ -281,7 +281,7 @@ Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 �
 Settings_General_Database_Status_NothingToClear    = 지울 숨겨진 행이 없습니다.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
-Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThis affects only the persisted history loaded on startup. The Logs tab keeps showing this session's entries until you close the app. This cannot be undone.
+Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
 Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
