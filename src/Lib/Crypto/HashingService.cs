@@ -90,7 +90,7 @@ public sealed class HashingService : IHashingService
                     HashFailed? readFailure = null;
                     try
                     {
-                        read = await fs.ReadAsync(buffer.AsMemory(0, ChunkSize), ct);
+                        read = await fs!.ReadAsync(buffer.AsMemory(0, ChunkSize), ct);
                     }
                     catch (OperationCanceledException)
                     {
