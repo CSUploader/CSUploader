@@ -20,19 +20,11 @@ namespace CSUploader.Services;
 /// Single-click and the "Show CSUploader" menu item restore the window; "Exit" tears down
 /// the application via <see cref="Application.Shutdown()"/>.
 /// </summary>
-public sealed class TrayIconManager : IDisposable
+public sealed class TrayIconManager(AppSettings settings, IAppLogger logger) : IDisposable
 {
-    private readonly AppSettings _settings;
-    private readonly IAppLogger _logger;
     private NotifyIcon? _notifyIcon;
     private bool _disposed;
     private bool _firstHideTipShown;
-
-    public TrayIconManager(AppSettings settings, IAppLogger logger)
-    {
-        _settings = settings;
-        _logger = logger;
-    }
 
     /// <summary>
     /// Reads <see cref="AppSettings"/> and creates/destroys the tray icon to match. Call
@@ -45,8 +37,8 @@ public sealed class TrayIconManager : IDisposable
             return;
         }
 
-        bool needIcon = _settings.MinimizeToTray
-            || _settings.CloseAction == CloseAction.MinimizeToTray;
+        bool needIcon = settings.MinimizeToTray
+            || settings.CloseAction == CloseAction.MinimizeToTray;
 
         if (needIcon)
         {
@@ -81,7 +73,7 @@ public sealed class TrayIconManager : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Log(this, LogType.Error, $"Failed to show tray balloon tip: {ex.Message}");
+            logger.Log(this, LogType.Error, $"Failed to show tray balloon tip: {ex.Message}");
         }
     }
 
@@ -152,7 +144,7 @@ public sealed class TrayIconManager : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.Log(this, LogType.Error, $"Failed to create tray icon: {ex.Message}");
+            logger.Log(this, LogType.Error, $"Failed to create tray icon: {ex.Message}");
             DisposeIcon();
         }
     }

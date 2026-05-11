@@ -14,7 +14,12 @@ namespace CSUploader.Upload;
 /// known hosters. Upload behavior lives in <see cref="Pipeline.IFileHosterPipeline"/>
 /// implementations resolved via <see cref="Pipeline.IFileHosterRegistry"/>.
 /// </summary>
-public sealed class FileHosterClient
+/// <remarks>
+/// Initializes a new instance of the <see cref="FileHosterClient"/> class.
+/// </remarks>
+/// <param name="name">The display name of the file hoster.</param>
+/// <param name="protocol">The protocol used for uploading.</param>
+public sealed class FileHosterClient(string name, Protocol protocol)
 {
     public static ReadOnlyDictionary<string, string> FileHosters { get; } = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
     {
@@ -51,25 +56,14 @@ public sealed class FileHosterClient
     });
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="FileHosterClient"/> class.
-    /// </summary>
-    /// <param name="name">The display name of the file hoster.</param>
-    /// <param name="protocol">The protocol used for uploading.</param>
-    public FileHosterClient(string name, Protocol protocol)
-    {
-        Name = name;
-        Protocol = protocol;
-    }
-
-    /// <summary>
     /// Gets the name of the file hoster.
     /// </summary>
-    public string Name { get; }
+    public string Name { get; } = name;
 
     /// <summary>
     /// Gets the protocol used for uploading by the file hoster.
     /// </summary>
-    public Protocol Protocol { get; }
+    public Protocol Protocol { get; } = protocol;
 
     /// <summary>
     /// Checks the account credentials and returns the account type.

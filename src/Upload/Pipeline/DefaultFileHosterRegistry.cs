@@ -9,14 +9,9 @@ namespace CSUploader.Upload.Pipeline;
 /// Default registry constructed from the DI-injected enumerable of pipelines. Each
 /// new hoster is registered by adding one DI line; no static factory map needed.
 /// </summary>
-public sealed class DefaultFileHosterRegistry : IFileHosterRegistry
+public sealed class DefaultFileHosterRegistry(IEnumerable<IFileHosterPipeline> pipelines) : IFileHosterRegistry
 {
-    private readonly Dictionary<string, IFileHosterPipeline> _byName;
-
-    public DefaultFileHosterRegistry(IEnumerable<IFileHosterPipeline> pipelines)
-    {
-        _byName = pipelines.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
-    }
+    private readonly Dictionary<string, IFileHosterPipeline> _byName = pipelines.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
     public IFileHosterPipeline? Find(string hosterName)
         => _byName.TryGetValue(hosterName, out IFileHosterPipeline? p) ? p : null;

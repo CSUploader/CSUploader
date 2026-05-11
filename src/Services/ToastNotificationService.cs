@@ -17,52 +17,37 @@ namespace CSUploader.Services;
 /// <see cref="AppSettings.ShowCompletionToasts"/> gate; silently no-ops when off.
 /// New toasts appear above the existing stack; closing one re-flows the rest down.
 /// </summary>
-public sealed class ToastNotificationService : IToastNotificationService
+/// <remarks>
+/// Initializes a new instance of <see cref="ToastNotificationService"/>.
+/// </remarks>
+/// <param name="settings">Application settings.</param>
+/// <param name="factory">Factory for creating toast host windows.</param>
+/// <param name="workAreaProvider">Returns the current work-area rectangle used for positioning.</param>
+/// <param name="activate">Callback invoked when the user clicks a toast to bring the main window forward.</param>
+/// <param name="dispatchToUi">
+/// Callback that marshals an action onto the UI thread. In production pass
+/// <c>action => Application.Current.Dispatcher.BeginInvoke(action)</c>; in tests pass
+/// <c>action => action()</c> to run synchronously.
+/// </param>
+public sealed class ToastNotificationService(
+    AppSettings settings,
+    IToastWindowFactory factory,
+    Func<Rect> workAreaProvider,
+    Action activate,
+    Action<Action> dispatchToUi) : IToastNotificationService
 {
     internal const double ToastWidth = 360;
     internal const double Margin = 12;
-
-    private readonly AppSettings _settings;
-    private readonly IToastWindowFactory _factory;
-    private readonly Func<Rect> _workAreaProvider;
-    private readonly Action _activate;
-    private readonly Action<Action> _dispatchToUi;
     private readonly List<IToastHost> _activeToasts = new();
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="ToastNotificationService"/>.
-    /// </summary>
-    /// <param name="settings">Application settings.</param>
-    /// <param name="factory">Factory for creating toast host windows.</param>
-    /// <param name="workAreaProvider">Returns the current work-area rectangle used for positioning.</param>
-    /// <param name="activate">Callback invoked when the user clicks a toast to bring the main window forward.</param>
-    /// <param name="dispatchToUi">
-    /// Callback that marshals an action onto the UI thread. In production pass
-    /// <c>action => Application.Current.Dispatcher.BeginInvoke(action)</c>; in tests pass
-    /// <c>action => action()</c> to run synchronously.
-    /// </param>
-    public ToastNotificationService(
-        AppSettings settings,
-        IToastWindowFactory factory,
-        Func<Rect> workAreaProvider,
-        Action activate,
-        Action<Action> dispatchToUi)
-    {
-        _settings = settings;
-        _factory = factory;
-        _workAreaProvider = workAreaProvider;
-        _activate = activate;
-        _dispatchToUi = dispatchToUi;
-    }
 
     public void ShowFileCompleted(PackageFile file)
     {
-        if (!_settings.ShowCompletionToasts) return;
+        if (!settings.ShowCompletionToasts) return;
         string body = string.Format(
             CultureInfo.CurrentCulture,
             Localizer.Instance["Toast_FileCompleted_Body"],
             file.Name);
-        _dispatchToUi(() => ShowToast(
+        dispatchToUi(() => ShowToast(
             title: Localizer.Instance["Toast_FileCompleted_Title"],
             message: body,
             iconKey: "StatusSuccessImage"));
@@ -70,7 +55,7 @@ public sealed class ToastNotificationService : IToastNotificationService
 
     public void ShowPackageCompleted(Package package, int succeeded, int total)
     {
-        if (!_settings.ShowCompletionToasts) return;
+        if (!settings.ShowCompletionToasts) return;
 
         string body = string.Format(
             CultureInfo.CurrentCulture,
@@ -79,7 +64,7 @@ public sealed class ToastNotificationService : IToastNotificationService
             total,
             package.Name);
 
-        _dispatchToUi(() => ShowToast(
+        dispatchToUi(() => ShowToast(
             title: Localizer.Instance["Toast_PackageCompleted_Title"],
             message: body,
             iconKey: "PackageClosedImage"));
@@ -94,7 +79,7 @@ public sealed class ToastNotificationService : IToastNotificationService
         ToastViewModel vm = new(
             activateCommand: new RelayCommand(() =>
             {
-                _activate();
+                activate();
                 host?.Close();
             }),
             closeCommand: new RelayCommand(() => host?.Close()))
@@ -104,8 +89,8 @@ public sealed class ToastNotificationService : IToastNotificationService
             IconKey = iconKey,
         };
 
-        host = _factory.Create(vm);
-        host.Closed += (_, _) => _dispatchToUi(() =>
+        host = factory.Create(vm);
+        host.Closed += (_, _) => dispatchToUi(() =>
         {
             _activeToasts.Remove(host);
             Reflow();
@@ -118,7 +103,7 @@ public sealed class ToastNotificationService : IToastNotificationService
 
     private void Reflow()
     {
-        Rect work = _workAreaProvider();
+        Rect work = workAreaProvider();
         double cumulative = 0;
         foreach (IToastHost h in _activeToasts)
         {

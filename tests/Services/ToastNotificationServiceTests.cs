@@ -142,11 +142,9 @@ public class ToastNotificationServiceTests
         }
     }
 
-    private sealed class FakeToastHost : IToastHost
+    private sealed class FakeToastHost(ToastViewModel viewModel) : IToastHost
     {
-        public FakeToastHost(ToastViewModel viewModel) => ViewModel = viewModel;
-
-        public ToastViewModel ViewModel { get; }
+        public ToastViewModel ViewModel { get; } = viewModel;
         public double Height => ToastHeight;
         public double Top { get; set; }
         public double Left { get; set; }

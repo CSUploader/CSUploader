@@ -13,7 +13,7 @@ namespace CSUploader.ViewModels;
 /// Message / IconKey for display and ActivateCommand / CloseCommand for input.
 /// The toast service builds the VM (including the commands) when raising a toast.
 /// </summary>
-public partial class ToastViewModel : ObservableObject
+public partial class ToastViewModel(IRelayCommand activateCommand, IRelayCommand closeCommand) : ObservableObject
 {
     [ObservableProperty]
     private string title = string.Empty;
@@ -28,13 +28,7 @@ public partial class ToastViewModel : ObservableObject
     [ObservableProperty]
     private string iconKey = "StatusSuccessImage";
 
-    public ToastViewModel(IRelayCommand activateCommand, IRelayCommand closeCommand)
-    {
-        ActivateCommand = activateCommand;
-        CloseCommand = closeCommand;
-    }
+    public IRelayCommand ActivateCommand { get; } = activateCommand;
 
-    public IRelayCommand ActivateCommand { get; }
-
-    public IRelayCommand CloseCommand { get; }
+    public IRelayCommand CloseCommand { get; } = closeCommand;
 }

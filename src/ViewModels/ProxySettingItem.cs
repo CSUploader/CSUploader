@@ -15,14 +15,9 @@ namespace CSUploader.ViewModels;
 /// INPC so two-way bindings on cells flow back into the underlying DTO and survive
 /// Save → DB round-trips.
 /// </summary>
-public partial class ProxySettingItem : ObservableObject
+public partial class ProxySettingItem(ProxySettingDto dto) : ObservableObject
 {
-    public ProxySettingItem(ProxySettingDto dto)
-    {
-        Dto = dto;
-    }
-
-    public ProxySettingDto Dto { get; }
+    public ProxySettingDto Dto { get; } = dto;
 
     public bool Enabled
     {

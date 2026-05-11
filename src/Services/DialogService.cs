@@ -12,17 +12,8 @@ using Ookii.Dialogs.Wpf;
 
 namespace CSUploader.Services;
 
-public class DialogService : IDialogService
+public class DialogService(AppSettings settings, SettingRepository settingRepository) : IDialogService
 {
-    private readonly AppSettings _settings;
-    private readonly SettingRepository _settingRepository;
-
-    public DialogService(AppSettings settings, SettingRepository settingRepository)
-    {
-        _settings = settings;
-        _settingRepository = settingRepository;
-    }
-
     public void ShowError(string message, string? title = null) =>
         MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
 
@@ -34,7 +25,7 @@ public class DialogService : IDialogService
 
     public bool ShowOptOutConfirmation(string confirmationKey, string message, string? title = null)
     {
-        if (_settings.SuppressedConfirmations.Contains(confirmationKey))
+        if (settings.SuppressedConfirmations.Contains(confirmationKey))
         {
             return true;
         }
@@ -48,7 +39,7 @@ public class DialogService : IDialogService
 
         if (dialog.DontAskAgain)
         {
-            _settings.SuppressedConfirmations.Add(confirmationKey);
+            settings.SuppressedConfirmations.Add(confirmationKey);
 
             // Fire-and-forget the DB write; if it fails the user will just be asked again
             // on next action, which is an acceptable fallback.
@@ -113,16 +104,16 @@ public class DialogService : IDialogService
     {
         try
         {
-            string value = string.Join(",", _settings.SuppressedConfirmations);
-            SettingDto? existing = await _settingRepository.FindByKeyAsync(SettingKey.SuppressedConfirmations);
+            string value = string.Join(",", settings.SuppressedConfirmations);
+            SettingDto? existing = await settingRepository.FindByKeyAsync(SettingKey.SuppressedConfirmations);
             if (existing is not null)
             {
                 existing.Value = value;
-                await _settingRepository.UpdateAsync(existing);
+                await settingRepository.UpdateAsync(existing);
             }
             else
             {
-                await _settingRepository.InsertAsync(new SettingDto { Key = SettingKey.SuppressedConfirmations, Value = value });
+                await settingRepository.InsertAsync(new SettingDto { Key = SettingKey.SuppressedConfirmations, Value = value });
             }
         }
         catch

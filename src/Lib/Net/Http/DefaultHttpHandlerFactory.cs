@@ -9,15 +9,8 @@ using CSUploader.Upload;
 
 namespace CSUploader.Lib.Net.Http;
 
-public sealed class DefaultHttpHandlerFactory : IHttpHandlerFactory
+public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandlerFactory
 {
-    private readonly AppSettings _settings;
-
-    public DefaultHttpHandlerFactory(AppSettings settings)
-    {
-        _settings = settings;
-    }
-
     public HttpHandler Create(ProxyChoice proxy, IAppLogger logger)
     {
         HttpClientHandler clientHandler = new()
@@ -42,7 +35,7 @@ public sealed class DefaultHttpHandlerFactory : IHttpHandlerFactory
             Timeout = Timeout.InfiniteTimeSpan,
         };
 
-        MockServerConfig snap = MockServerConfig.FromAppSettings(_settings);
+        MockServerConfig snap = MockServerConfig.FromAppSettings(settings);
         return new HttpHandler(client, logger, proxy.Description, snap);
     }
 }

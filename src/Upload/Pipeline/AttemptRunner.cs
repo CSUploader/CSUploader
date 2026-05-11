@@ -14,11 +14,8 @@ namespace CSUploader.Upload.Pipeline;
 /// Outer pipeline orchestrator. One <c>RunAsync</c> call = one upload attempt.
 /// Picks proxy → builds handler → invokes hoster pipeline → emits <see cref="AttemptCompleted"/>.
 /// </summary>
-public sealed class AttemptRunner
+public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource proxySource, IHttpHandlerFactory handlerFactory)
 {
-    private readonly IFileHosterRegistry _registry;
-    private readonly IProxySource _proxySource;
-    private readonly IHttpHandlerFactory _handlerFactory;
 
     /// <summary>
     /// Raised after every attempt. <see cref="ProxyManager"/> subscribes here to update
@@ -27,22 +24,15 @@ public sealed class AttemptRunner
     /// </summary>
     public event EventHandler<AttemptCompleted>? AttemptCompleted;
 
-    public AttemptRunner(IFileHosterRegistry registry, IProxySource proxySource, IHttpHandlerFactory handlerFactory)
-    {
-        _registry = registry;
-        _proxySource = proxySource;
-        _handlerFactory = handlerFactory;
-    }
-
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptInputs inputs, [EnumeratorCancellation] CancellationToken ct)
     {
-        ProxyChoice proxy = _proxySource.Next();
+        ProxyChoice proxy = proxySource.Next();
         yield return new ProxyPicked(proxy);
 
-        HttpHandler handler = _handlerFactory.Create(proxy, inputs.Logger);
+        HttpHandler handler = handlerFactory.Create(proxy, inputs.Logger);
         yield return new HandlerBuilt(handler);
 
-        IFileHosterPipeline? pipeline = _registry.Find(inputs.HosterName);
+        IFileHosterPipeline? pipeline = registry.Find(inputs.HosterName);
         if (pipeline is null)
         {
             string reason = $"No pipeline registered for hoster '{inputs.HosterName}'";

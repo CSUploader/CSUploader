@@ -15,31 +15,14 @@ using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
 
-public partial class UploadWizardViewModel : ObservableObject
+public partial class UploadWizardViewModel(
+    PackageManager packageManager,
+    FileHosterLoginRepository fileHosterLoginRepository,
+    IDialogService dialogService,
+    IAppLogger logger,
+    AppSettings settings) : ObservableObject
 {
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
-
-    private readonly PackageManager _packageManager;
-    private readonly FileHosterLoginRepository _fileHosterLoginRepository;
-    private readonly IDialogService _dialogService;
-    private readonly IAppLogger _logger;
-    private readonly AppSettings _settings;
-
-    public UploadWizardViewModel(
-        PackageManager packageManager,
-        FileHosterLoginRepository fileHosterLoginRepository,
-        IDialogService dialogService,
-        IAppLogger logger,
-        AppSettings settings)
-    {
-        _packageManager = packageManager;
-        _fileHosterLoginRepository = fileHosterLoginRepository;
-        _dialogService = dialogService;
-        _logger = logger;
-        _settings = settings;
-
-    }
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDirectoryMode))]
     [NotifyPropertyChangedFor(nameof(IsFilesMode))]
@@ -109,7 +92,7 @@ public partial class UploadWizardViewModel : ObservableObject
     [RelayCommand]
     private void BrowseDirectory()
     {
-        string? folder = _dialogService.BrowseFolder(
+        string? folder = dialogService.BrowseFolder(
             string.IsNullOrEmpty(DirectoryPath) ? null : DirectoryPath,
             Localizer.Instance["Wizard_Step0_BrowseDialogTitle"]);
 
@@ -122,7 +105,7 @@ public partial class UploadWizardViewModel : ObservableObject
     [RelayCommand]
     private void BrowseFiles()
     {
-        string[]? picked = _dialogService.BrowseFiles(
+        string[]? picked = dialogService.BrowseFiles(
             Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
 
         if (picked is null || picked.Length == 0)
@@ -186,7 +169,7 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
                 {
-                    _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
+                    dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
                     return;
                 }
 
@@ -201,20 +184,20 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 if (Files.Count == 0)
                 {
-                    _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
+                    dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
                     return;
                 }
             }
 
             if (string.IsNullOrWhiteSpace(PackageTitle))
             {
-                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_TitleRequired"]);
+                dialogService.ShowError(Localizer.Instance["Wizard_Validation_TitleRequired"]);
                 return;
             }
 
             if (!Files.Any(f => f.IsSelected))
             {
-                _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickFile"]);
+                dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickFile"]);
                 return;
             }
 
@@ -260,7 +243,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
 
         string[] availableHosters = [hoster.FileHosterName];
-        FileHosterLoginDto? result = _dialogService.ShowAddAccountDialog(
+        FileHosterLoginDto? result = dialogService.ShowAddAccountDialog(
             hoster.FileHosterName,
             availableHosters,
             Localizer.Instance["EditAccount_AddTitle"]);
@@ -272,16 +255,16 @@ public partial class UploadWizardViewModel : ObservableObject
 
         try
         {
-            await _fileHosterLoginRepository.InsertAsync(result);
+            await fileHosterLoginRepository.InsertAsync(result);
         }
         catch (Exception ex)
         {
-            _logger.Log(this, LogType.Error, $"Failed to save new {hoster.FileHosterName} account: {ex}");
-            _dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            logger.Log(this, LogType.Error, $"Failed to save new {hoster.FileHosterName} account: {ex}");
+            dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return;
         }
 
-        FileHosterLoginDto[] accounts = await _fileHosterLoginRepository.FindAsync(hoster.FileHosterName);
+        FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(hoster.FileHosterName);
         hoster.SetAccounts(accounts);
 
         // Auto-tick "Use" now that an account exists — saves the user a click and
@@ -358,7 +341,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
         foreach (string fileHosterName in FileHosterClient.FileHosters.Keys)
         {
-            FileHosterLoginDto[] accounts = await _fileHosterLoginRepository.FindAsync(fileHosterName);
+            FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(fileHosterName);
 
             FileHosterSelectionViewModel? sticky = _stickyHosters.Find(
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
@@ -382,8 +365,8 @@ public partial class UploadWizardViewModel : ObservableObject
         PackageOptions options = new()
         {
             Title = PackageTitle.Trim(),
-            Logger = _logger,
-            Settings = _settings,
+            Logger = logger,
+            Settings = settings,
             SelectedFiles = [.. Files.Where(f => f.IsSelected).Select(f => f.FullPath)],
         };
 
@@ -394,7 +377,7 @@ public partial class UploadWizardViewModel : ObservableObject
                 continue;
             }
 
-            var client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, _logger);
+            var client = FileHosterClient.FindByHost(hoster.FileHosterName, Protocol.Http, logger);
             if (client is not null)
             {
                 FileHosterLoginDto account = hoster.SelectedAccount ?? new FileHosterLoginDto
@@ -407,7 +390,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
         if (options.FileHosters.Count == 0)
         {
-            _dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickHoster"]);
+            dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickHoster"]);
             return false;
         }
 
@@ -418,12 +401,12 @@ public partial class UploadWizardViewModel : ObservableObject
             switch (StartMode)
             {
                 case UploadStartMode.Immediately:
-                    await _packageManager.AddAndStartPackageAsync(options);
-                    _packageManager.StartPackages();
+                    await packageManager.AddAndStartPackageAsync(options);
+                    packageManager.StartPackages();
                     break;
 
                 case UploadStartMode.Later:
-                    await _packageManager.AddPackageOnlyAsync(options);
+                    await packageManager.AddPackageOnlyAsync(options);
                     break;
 
                 case UploadStartMode.Scheduled:
@@ -432,9 +415,9 @@ public partial class UploadWizardViewModel : ObservableObject
                         time = TimeSpan.Zero;
                     }
 
-                    Package package = await _packageManager.AddPackageOnlyAsync(options);
+                    Package package = await packageManager.AddPackageOnlyAsync(options);
                     DateTime scheduled = ScheduledDate.Date + time;
-                    _packageManager.ScheduleDelayedStart(package, scheduled);
+                    packageManager.ScheduleDelayedStart(package, scheduled);
                     break;
             }
 
@@ -442,8 +425,8 @@ public partial class UploadWizardViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _logger.Log(this, LogType.Error, $"Failed to add upload job: {ex}");
-            _dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            logger.Log(this, LogType.Error, $"Failed to add upload job: {ex}");
+            dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return false;
         }
     }
