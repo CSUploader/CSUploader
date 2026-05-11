@@ -316,6 +316,13 @@ public class PackageManager
                 FileHash = fileDto.FileHash,
             };
 
+            // Source file may have been deleted between sessions for terminal-state
+            // rows. Restore the persisted size so the History row still has it.
+            if (pf.Size is null && fileDto.FileSize > 0)
+            {
+                pf.Size = fileDto.FileSize;
+            }
+
             // Remap state: interrupted Hashing/Uploading -> re-queue.
             // Idle and Uploading map to HashQueued when hashing is required and
             // not yet complete, so the file always has a valid hash before upload.

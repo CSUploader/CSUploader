@@ -52,7 +52,12 @@ public class PackageFile : INotifyPropertyChanged
         FileHoster = fileHoster;
         FileHosterLogin = fileHosterLoginDto;
         SaveFrom = Path.GetDirectoryName(filePath);
-        FileType = FileInfo.Extension[1..];
+        FileType = FileInfo.Extension.Length > 0 ? FileInfo.Extension[1..] : string.Empty;
+
+        // Snapshot the size once at construction. Reading FileInfo.Length on every
+        // binding tick would throw FileNotFoundException for terminal-state rows
+        // whose source file has since been deleted, spamming the debugger.
+        Size = FileInfo.Exists ? FileInfo.Length : null;
         BytesRemaining = Size;
     }
 
@@ -67,25 +72,11 @@ public class PackageFile : INotifyPropertyChanged
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the total size of the file.
+    /// Gets or sets the total size of the file. Snapshotted at construction from
+    /// <see cref="FileInfo"/>; the loader overrides it with the persisted DB value
+    /// for terminal-state rows whose source file is gone.
     /// </summary>
-    public long? Size
-    {
-        get
-        {
-            // FileInfo.Length throws FileNotFoundException when the file isn't on disk,
-            // which can happen after a Completed file's source got deleted (terminal-state
-            // rows are preserved for the History tab even if the source is long gone).
-            try
-            {
-                return FileInfo?.Length;
-            }
-            catch (IOException)
-            {
-                return null;
-            }
-        }
-    }
+    public long? Size { get; set; }
 
     /// <summary>
     /// Gets the file hosters used the package is uploading to.
