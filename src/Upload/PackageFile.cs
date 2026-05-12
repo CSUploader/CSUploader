@@ -26,6 +26,8 @@ public class PackageFile : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Progress)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesLoaded)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BytesRemaining)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StartedDate)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishedDate)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Duration)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimeRemaining)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Error)));
@@ -109,7 +111,7 @@ public class PackageFile : INotifyPropertyChanged
     public Package Package { get; }
 
     /// <summary>
-    /// Gets the package's <see cref="Upload.Package.ScheduledStartTime"/> so the
+    /// Gets the package's <see cref="Package.ScheduledStartTime"/> so the
     /// "Scheduled at" column can render on file rows too — scheduling itself is
     /// only meaningful at the package level, but every row in the same package
     /// shares the same value.
@@ -167,20 +169,18 @@ public class PackageFile : INotifyPropertyChanged
     /// </summary>
     public string? FileHash
     {
-        get => _fileHash;
+        get;
         internal set
         {
-            if (_fileHash == value)
+            if (field == value)
             {
                 return;
             }
 
-            _fileHash = value;
+            field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileHash)));
         }
     }
-
-    private string? _fileHash;
 
     /// <summary>
     /// Gets or sets the error string.
