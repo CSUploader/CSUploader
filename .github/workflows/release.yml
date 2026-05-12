@@ -71,7 +71,17 @@ jobs:
         shell: pwsh
         run: |
           $assets = Get-ChildItem releases | ForEach-Object { $_.FullName }
-          gh release create "${{ github.ref_name }}" $assets `
-            --repo "${{ github.repository }}" `
-            --title "${{ github.ref_name }}" `
-            --generate-notes
+          # Hand-written changelog at docs/release-notes/<tag>.md wins when present;
+          # otherwise fall back to auto-generated notes built from PR titles.
+          $notesFile = "docs/release-notes/${{ github.ref_name }}.md"
+          if (Test-Path $notesFile) {
+            gh release create "${{ github.ref_name }}" $assets `
+              --repo "${{ github.repository }}" `
+              --title "${{ github.ref_name }}" `
+              --notes-file $notesFile
+          } else {
+            gh release create "${{ github.ref_name }}" $assets `
+              --repo "${{ github.repository }}" `
+              --title "${{ github.ref_name }}" `
+              --generate-notes
+          }
