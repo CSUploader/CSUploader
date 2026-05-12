@@ -565,6 +565,57 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_RestoresStartedDateFinishedDateAndDuration()
+    {
+        // Regression: the loader used to leave StartedDate / FinishedDate / Duration
+        // unset on the in-memory PackageFile, so Completed files reloaded from a
+        // previous session showed a blank "Finished" column even though the DB had
+        // the timestamp.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            DateTime started = new(2026, 5, 12, 19, 17, 10, DateTimeKind.Local);
+            DateTime finished = new(2026, 5, 12, 19, 17, 25, DateTimeKind.Local);
+
+            UploadPackageDto pkg = new() { Name = "completed", CreatedDateTime = DateTime.Now, IsCompleted = true };
+            await _packageRepo.InsertAsync(pkg);
+            await _fileRepo.InsertAsync(new UploadPackageFileDto
+            {
+                FileName = "a.iso",
+                FileDirectory = tempDir,
+                FileSize = 1,
+                FileHoster = "Rapidgator",
+                FileHosterName = "Rapidgator",
+                State = FileState.Completed,
+                PackageId = pkg.Id,
+                StartDateTime = started,
+                FinishedDateTime = finished,
+            });
+
+            AppSettings settings = new();
+            DefaultFileHosterRegistry reg = new([]);
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+            await freshManager.LoadPersistedPackagesAsync();
+
+            Package loaded = Assert.Single(freshManager.Packages);
+            PackageFile file = loaded.Single();
+            Assert.Equal(started, file.StartedDate);
+            Assert.Equal(finished, file.FinishedDate);
+            Assert.Equal(finished - started, file.Duration);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task ResetPackage_ReregistersAndStartsScheduler()
     {
         // Repro: after a Failed file is right-click → Reset, the file transitioned to

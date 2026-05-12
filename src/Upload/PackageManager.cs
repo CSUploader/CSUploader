@@ -308,6 +308,8 @@ public class PackageManager
                 Priority = fileDto.Priority,
                 IsHashingComplete = fileDto.IsHashingComplete,
                 FileHash = fileDto.FileHash,
+                StartedDate = fileDto.StartDateTime > DateTime.MinValue ? fileDto.StartDateTime : null,
+                FinishedDate = fileDto.FinishedDateTime > DateTime.MinValue ? fileDto.FinishedDateTime : null,
             };
 
             // Source file may have been deleted between sessions for terminal-state
@@ -315,6 +317,13 @@ public class PackageManager
             if (pf.Size is null && fileDto.FileSize > 0)
             {
                 pf.Size = fileDto.FileSize;
+            }
+
+            // Restore Duration too — derived from Start/Finish so the column doesn't
+            // show 00s for completed rows that finished in a prior session.
+            if (pf.StartedDate is { } start && pf.FinishedDate is { } finish && finish > start)
+            {
+                pf.Duration = finish - start;
             }
 
             // Remap state: interrupted Hashing/Uploading -> re-queue.
