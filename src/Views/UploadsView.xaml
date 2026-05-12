@@ -364,7 +364,8 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False"
+                                        ClipboardContentBinding="{Binding Name}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <!-- Horizontal stack: collapsed elements take zero width, so the package
@@ -427,7 +428,8 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120"
+                                        ClipboardContentBinding="{Binding Size, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -442,7 +444,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hoster}" Width="120">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hoster}" Width="120"
+                                        ClipboardContentBinding="{Binding HosterDisplay}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -456,7 +459,8 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140"
+                                        ClipboardContentBinding="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -473,7 +477,8 @@
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_ETA}" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesLoaded}" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
 
-                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140">
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140"
+                                        ClipboardContentBinding="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Grid x:Name="PGrid" Margin="2,3">
