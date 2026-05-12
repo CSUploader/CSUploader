@@ -3,9 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using CSUploader.Lib.Localization;
@@ -42,6 +44,12 @@ public partial class UploadsView : UserControl
         {
             return;
         }
+
+        // Override the default Copy command so Package rows pull in their children. The
+        // built-in DataGrid TSV builder only serializes the rows in SelectedItems, so a
+        // user copying a single Package row otherwise gets just the package and none of
+        // its files. The custom handler expands the selection in-memory before formatting.
+        grid.CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (s, args) => OnCopyWithChildrenExecuted(grid, args)));
 
         // Capture XAML defaults *before* applying persisted overrides so "Reset columns"
         // can restore them later.
@@ -248,6 +256,89 @@ public partial class UploadsView : UserControl
         }
 
         return source as T;
+    }
+
+    /// <summary>
+    /// Copies selected rows as TSV (with header). For any selected Package, also copies
+    /// its child files immediately after the package row so the user gets the full
+    /// hierarchy in one paste instead of just the aggregate row.
+    /// </summary>
+    private static void OnCopyWithChildrenExecuted(DataGrid grid, ExecutedRoutedEventArgs e)
+    {
+        object[] selection = grid.SelectedItems.Cast<object>().ToArray();
+        if (selection.Length == 0)
+        {
+            return;
+        }
+
+        List<object> expanded = [];
+        HashSet<object> seen = [];
+        foreach (object item in selection)
+        {
+            if (!seen.Add(item))
+            {
+                continue;
+            }
+
+            expanded.Add(item);
+            if (item is Package pkg)
+            {
+                foreach (PackageFile child in pkg)
+                {
+                    if (seen.Add(child))
+                    {
+                        expanded.Add(child);
+                    }
+                }
+            }
+        }
+
+        DataGridColumn[] columns = [.. grid.Columns
+            .Where(c => c.Visibility == Visibility.Visible)
+            .OrderBy(c => c.DisplayIndex)];
+
+        StringBuilder sb = new();
+        if (grid.ClipboardCopyMode == DataGridClipboardCopyMode.IncludeHeader)
+        {
+            sb.AppendLine(string.Join("\t", columns.Select(c => c.Header?.ToString() ?? string.Empty)));
+        }
+
+        foreach (object item in expanded)
+        {
+            sb.AppendLine(string.Join("\t", columns.Select(c => EvaluateClipboardBinding(c.ClipboardContentBinding, item))));
+        }
+
+        try
+        {
+            Clipboard.SetText(sb.ToString());
+        }
+        catch
+        {
+            // Clipboard.SetText can throw under contention with another app — swallow
+            // rather than crash the UI thread for a copy operation.
+        }
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Evaluates a column's ClipboardContentBinding against a row item by routing the
+    /// binding through a throwaway TextBlock. The DataGrid's own copy implementation
+    /// uses the same binding pipeline; mirroring it here keeps converters / formatters
+    /// honoured without re-implementing them in code.
+    /// </summary>
+    private static string EvaluateClipboardBinding(BindingBase? binding, object item)
+    {
+        if (binding is null)
+        {
+            return string.Empty;
+        }
+
+        TextBlock tb = new() { DataContext = item };
+        tb.SetBinding(TextBlock.TextProperty, binding);
+        string result = tb.Text ?? string.Empty;
+        BindingOperations.ClearBinding(tb, TextBlock.TextProperty);
+        return result;
     }
 
     /// <summary>
