@@ -529,12 +529,12 @@ public class PackageManagerSoftRemoveTests : IDisposable
     }
 
     [Fact]
-    public async Task LoadPersistedPackagesAsync_AllFilesMissingNonTerminal_SoftRemovesPackage()
+    public async Task LoadPersistedPackagesAsync_NonTerminalFileWithMissingSource_StillLoadsThePackage()
     {
-        // Repro: a non-terminal package whose source files have all been deleted used
-        // to log a per-file Error and silently drop the package without removing the DB
-        // row — so the user kept seeing the same errors on every restart for a package
-        // not visible in either tab. Now it soft-removes from Uploads and logs once.
+        // We deliberately don't check File.Exists at load time. The runtime path
+        // (HashingService / HttpHandler.UploadFileAsync) will surface "file not found"
+        // as a real Failed state once the user actually starts the upload — duplicating
+        // that check at load time just spammed Errors for files the user hadn't acted on.
         FileHosterClient hoster = new("Rapidgator", Protocol.Http);
         UploadPackageDto pkg = new() { Name = "ghosted", CreatedDateTime = DateTime.Now };
         await _packageRepo.InsertAsync(pkg);
@@ -556,13 +556,12 @@ public class PackageManagerSoftRemoveTests : IDisposable
 
         await freshManager.LoadPersistedPackagesAsync();
 
-        Assert.Empty(freshManager.Packages);
-
-        // Underlying DB row should be flipped so future restarts skip it via the
-        // IsRemovedFromUploads guard at the top of LoadOnePersistedPackageAsync.
+        Package loaded = Assert.Single(freshManager.Packages);
+        Assert.Single(loaded);
+        // DB row stays visible — the user can decide whether to Remove or Retry it.
         UploadPackageDto? reloaded = (await _packageRepo.GetAllAsync()).FirstOrDefault(p => p.Id == pkg.Id);
         Assert.NotNull(reloaded);
-        Assert.True(reloaded!.IsRemovedFromUploads);
+        Assert.False(reloaded!.IsRemovedFromUploads);
     }
 
     [Fact]

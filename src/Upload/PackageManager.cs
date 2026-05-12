@@ -274,7 +274,6 @@ public class PackageManager
 
         // Reconstruct PackageFiles
         List<PackageFile> files = [];
-        List<string> missingFilePaths = [];
         foreach (UploadPackageFileDto fileDto in pkgDto.Files)
         {
             if (fileDto.State is FileState.Idle or FileState.HashQueued or FileState.Hashing
@@ -299,16 +298,10 @@ public class PackageManager
 
             string filePath = Path.Combine(fileDto.FileDirectory ?? string.Empty, fileDto.FileName ?? string.Empty);
 
-            // Terminal-state files only need their metadata (URL, size, status) for
-            // display — the source file may be long gone. Only require disk presence
-            // when we'd actually need to read the file again (re-hash or re-upload).
-            bool isTerminal = fileDto.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
-            if (!isTerminal && !File.Exists(filePath))
-            {
-                missingFilePaths.Add(filePath);
-                continue;
-            }
-
+            // No disk-existence check here: the runtime path (HashingService /
+            // HttpHandler.UploadFileAsync) already surfaces missing files as Failed with
+            // a real error message. Doing the same check at load time just produced
+            // duplicate noise on every restart for files the user hadn't started yet.
             PackageFile pf = new(package, filePath, client, login)
             {
                 DbId = fileDto.Id,
@@ -348,25 +341,7 @@ public class PackageManager
 
         if (files.Count == 0)
         {
-            // Every file's source is gone and none reached a terminal state. The package
-            // is invisible (no rows in either tab), so leaving it in the DB would just
-            // re-fire this branch on every restart. Soft-remove from Uploads and log a
-            // single Status (not Error — the user almost certainly deleted these files
-            // themselves) summarizing what was dropped.
-            if (missingFilePaths.Count > 0)
-            {
-                await _packageRepo.SoftRemoveFromUploadsAsync(pkgDto.Id);
-                _logger.Log(this, LogType.Status, $"Skipped persisted package '{pkgDto.Name}' — source files missing: {string.Join(", ", missingFilePaths)}");
-            }
-
             return;
-        }
-
-        // Some files survived. Mention the missing ones so the user knows the package is
-        // partial. Still Status — the visible package row already signals "something's up".
-        if (missingFilePaths.Count > 0)
-        {
-            _logger.Log(this, LogType.Status, $"Persisted package '{pkgDto.Name}' loaded with {missingFilePaths.Count} missing file(s): {string.Join(", ", missingFilePaths)}");
         }
 
         bool allTerminal = files.TrueForAll(f => f.State is FileState.Completed or FileState.Failed or FileState.Cancelled);
