@@ -108,8 +108,6 @@ Uploads_Toolbar_AddTip            = Thêm lượt tải lên mới
 Uploads_Toolbar_StartTip          = Bắt đầu tất cả các lượt tải lên
 Uploads_Toolbar_PauseTip          = Tạm dừng / Tiếp tục
 Uploads_Toolbar_StopTip           = Dừng tất cả các lượt tải lên
-Uploads_Toolbar_MoveUpTip         = Di chuyển gói lên
-Uploads_Toolbar_MoveDownTip       = Di chuyển gói xuống
 Uploads_Toolbar_RemoveTip         = Xóa mục đã chọn
 
 Uploads_Context_Start             = Bắt đầu
@@ -119,7 +117,15 @@ Uploads_Context_SkipUpload        = Bỏ qua tải lên
 Uploads_Context_Reset             = Đặt lại
 Uploads_Context_OpenSourceDir     = Mở thư mục nguồn
 Uploads_Context_SetSpeedLimit     = Đặt giới hạn tốc độ...
+Uploads_Context_Priority          = Ưu tiên
 Uploads_Context_Remove            = Xóa
+Uploads_Priority_Highest          = Cao nhất
+Uploads_Priority_High             = Cao
+Uploads_Priority_Normal           = Bình thường
+Uploads_Priority_Low              = Thấp
+Uploads_Priority_Lowest           = Thấp nhất
+Uploads_Tooltip_IncreasePriority  = Tăng ưu tiên
+Uploads_Tooltip_DecreasePriority  = Giảm ưu tiên
 
 Uploads_Col_Name                  = Tên
 Uploads_Col_Size                  = Kích thước

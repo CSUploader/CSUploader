@@ -9,6 +9,7 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:up="clr-namespace:CSUploader.Upload"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadsViewModel}"
@@ -21,6 +22,7 @@
         <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
         <conv:FileStateDisplayConverter x:Key="FileStateConverter" />
         <conv:FileStateIconConverter x:Key="FileStateIconConverter" />
+        <conv:PackagePriorityDisplayConverter x:Key="PackagePriorityConverter" />
         <conv:HosterIconConverter x:Key="HosterIconConverter" />
         <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
 
@@ -136,16 +138,16 @@
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
 
                 <Button Style="{StaticResource ToolbarButton}"
-                        Command="{Binding MoveUpCommand}"
+                        Command="{Binding IncreasePriorityCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="{loc:Loc Uploads_Toolbar_MoveUpTip}">
+                        ToolTip="{loc:Loc Uploads_Tooltip_IncreasePriority}">
                     <TextBlock Text="&#x25B2;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
                 <Button Style="{StaticResource ToolbarButton}"
-                        Command="{Binding MoveDownCommand}"
+                        Command="{Binding DecreasePriorityCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="{loc:Loc Uploads_Toolbar_MoveDownTip}">
+                        ToolTip="{loc:Loc Uploads_Tooltip_DecreasePriority}">
                     <TextBlock Text="&#x25BC;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
@@ -229,6 +231,15 @@
                     <MenuItem Header="{loc:Loc Uploads_Context_SetSpeedLimit}" Command="{Binding SetSpeedLimitCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
+                    <!-- Priority submenu. SetPriorityCommand reads SelectedRow off the VM
+                         so each subitem only needs the level as CommandParameter. -->
+                    <MenuItem Header="{loc:Loc Uploads_Context_Priority}">
+                        <MenuItem Header="{loc:Loc Uploads_Priority_Highest}" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Highest}" />
+                        <MenuItem Header="{loc:Loc Uploads_Priority_High}"    Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.High}" />
+                        <MenuItem Header="{loc:Loc Uploads_Priority_Normal}"  Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Normal}" />
+                        <MenuItem Header="{loc:Loc Uploads_Priority_Low}"     Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Low}" />
+                        <MenuItem Header="{loc:Loc Uploads_Priority_Lowest}"  Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Lowest}" />
                     </MenuItem>
                     <Separator />
                     <!-- Per-column copy submenu. Each item passes its column key (matching
@@ -520,8 +531,8 @@
                                     Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
                                     Width="80" Visibility="Collapsed" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_Priority}"
-                                    Binding="{Binding Priority, TargetNullValue=''}"
-                                    Width="70" Visibility="Collapsed" />
+                                    Binding="{Binding Priority, Converter={StaticResource PackagePriorityConverter}}"
+                                    Width="90" Visibility="Collapsed" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_SpeedLimit}"
                                     Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
                                     Width="90" Visibility="Collapsed" />

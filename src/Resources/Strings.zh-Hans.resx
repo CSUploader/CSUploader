@@ -213,12 +213,6 @@
   <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
     <value>停止所有上传</value>
   </data>
-  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
-    <value>上移包</value>
-  </data>
-  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
-    <value>下移包</value>
-  </data>
   <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
     <value>移除所选项</value>
   </data>
@@ -243,8 +237,32 @@
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>设置速度限制…</value>
   </data>
+  <data name="Uploads_Context_Priority" xml:space="preserve">
+    <value>优先级</value>
+  </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>移除</value>
+  </data>
+  <data name="Uploads_Priority_Highest" xml:space="preserve">
+    <value>最高</value>
+  </data>
+  <data name="Uploads_Priority_High" xml:space="preserve">
+    <value>高</value>
+  </data>
+  <data name="Uploads_Priority_Normal" xml:space="preserve">
+    <value>普通</value>
+  </data>
+  <data name="Uploads_Priority_Low" xml:space="preserve">
+    <value>低</value>
+  </data>
+  <data name="Uploads_Priority_Lowest" xml:space="preserve">
+    <value>最低</value>
+  </data>
+  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
+    <value>提高优先级</value>
+  </data>
+  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
+    <value>降低优先级</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>名称</value>

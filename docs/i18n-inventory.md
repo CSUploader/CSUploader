@@ -100,8 +100,6 @@ Uploads_Toolbar_AddTip            = Add new upload
 Uploads_Toolbar_StartTip          = Start all uploads
 Uploads_Toolbar_PauseTip          = Pause / Resume
 Uploads_Toolbar_StopTip           = Stop all uploads
-Uploads_Toolbar_MoveUpTip         = Move package up
-Uploads_Toolbar_MoveDownTip       = Move package down
 Uploads_Toolbar_RemoveTip         = Remove selected
 
 Uploads_Context_Start             = Start
@@ -111,7 +109,15 @@ Uploads_Context_SkipUpload        = Skip Upload
 Uploads_Context_Reset             = Reset
 Uploads_Context_OpenSourceDir     = Open Source Directory
 Uploads_Context_SetSpeedLimit     = Set Speed Limit...
+Uploads_Context_Priority          = Priority
 Uploads_Context_Remove            = Remove
+Uploads_Priority_Highest          = Highest
+Uploads_Priority_High             = High
+Uploads_Priority_Normal           = Normal
+Uploads_Priority_Low              = Low
+Uploads_Priority_Lowest           = Lowest
+Uploads_Tooltip_IncreasePriority  = Increase priority
+Uploads_Tooltip_DecreasePriority  = Decrease priority
 
 Uploads_Col_Name                  = Name
 Uploads_Col_Size                  = Size

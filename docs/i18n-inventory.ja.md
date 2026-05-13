@@ -99,8 +99,6 @@ Uploads_Toolbar_AddTip            = 新しいアップロードを追加
 Uploads_Toolbar_StartTip          = すべてのアップロードを開始
 Uploads_Toolbar_PauseTip          = 一時停止 / 再開
 Uploads_Toolbar_StopTip           = すべてのアップロードを停止
-Uploads_Toolbar_MoveUpTip         = パッケージを上へ移動
-Uploads_Toolbar_MoveDownTip       = パッケージを下へ移動
 Uploads_Toolbar_RemoveTip         = 選択項目を削除
 
 Uploads_Context_Start             = 開始
@@ -110,7 +108,15 @@ Uploads_Context_SkipUpload        = アップロードをスキップ
 Uploads_Context_Reset             = リセット
 Uploads_Context_OpenSourceDir     = ソースディレクトリを開く
 Uploads_Context_SetSpeedLimit     = 速度制限を設定…
+Uploads_Context_Priority          = 優先度
 Uploads_Context_Remove            = 削除
+Uploads_Priority_Highest          = 最高
+Uploads_Priority_High             = 高
+Uploads_Priority_Normal           = 普通
+Uploads_Priority_Low              = 低
+Uploads_Priority_Lowest           = 最低
+Uploads_Tooltip_IncreasePriority  = 優先度を上げる
+Uploads_Tooltip_DecreasePriority  = 優先度を下げる
 
 Uploads_Col_Name                  = 名前
 Uploads_Col_Size                  = サイズ

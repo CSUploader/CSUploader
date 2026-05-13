@@ -245,7 +245,10 @@ public class UploadScheduler : IDisposable
         PackageFile[] allFiles;
         lock (_packagesLock)
         {
-            allFiles = [.. _packages.SelectMany(p => p)];
+            // Higher package priority is picked first. OrderByDescending is a stable
+            // sort in LINQ-to-objects, so same-priority packages keep their insertion
+            // order — no explicit tiebreaker needed.
+            allFiles = [.. _packages.OrderByDescending(p => p.Priority).SelectMany(p => p)];
         }
 
         // Fill hashing slots

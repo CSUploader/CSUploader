@@ -23,6 +23,8 @@ public class UploadPackageDto
 
     public UploadStartMode StartMode { get; set; }
 
+    public PackagePriority Priority { get; set; } = PackagePriority.Normal;
+
     public bool IsRemovedFromUploads { get; set; }
 
     public ICollection<UploadPackageFileDto> Files { get; set; } = Array.Empty<UploadPackageFileDto>();

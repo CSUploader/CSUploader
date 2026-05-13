@@ -100,8 +100,6 @@ Uploads_Toolbar_AddTip            = 添加新上传
 Uploads_Toolbar_StartTip          = 开始所有上传
 Uploads_Toolbar_PauseTip          = 暂停 / 恢复
 Uploads_Toolbar_StopTip           = 停止所有上传
-Uploads_Toolbar_MoveUpTip         = 上移包
-Uploads_Toolbar_MoveDownTip       = 下移包
 Uploads_Toolbar_RemoveTip         = 移除所选项
 
 Uploads_Context_Start             = 开始
@@ -111,7 +109,15 @@ Uploads_Context_SkipUpload        = 跳过上传
 Uploads_Context_Reset             = 重置
 Uploads_Context_OpenSourceDir     = 打开源目录
 Uploads_Context_SetSpeedLimit     = 设置速度限制…
+Uploads_Context_Priority          = 优先级
 Uploads_Context_Remove            = 移除
+Uploads_Priority_Highest          = 最高
+Uploads_Priority_High             = 高
+Uploads_Priority_Normal           = 普通
+Uploads_Priority_Low              = 低
+Uploads_Priority_Lowest           = 最低
+Uploads_Tooltip_IncreasePriority  = 提高优先级
+Uploads_Tooltip_DecreasePriority  = 降低优先级
 
 Uploads_Col_Name                  = 名称
 Uploads_Col_Size                  = 大小

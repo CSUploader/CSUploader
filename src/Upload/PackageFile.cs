@@ -273,9 +273,19 @@ public class PackageFile : INotifyPropertyChanged
     public DateTime AddedDate { get; set; } = DateTime.Now;
 
     /// <summary>
-    /// Gets or sets the priority.
+    /// Gets the owning package's upload priority. Pass-through so the file-row's
+    /// Priority column shares the package-level value (priority is a per-package
+    /// concept; individual files don't carry their own).
     /// </summary>
-    public int Priority { get; set; }
+    public PackagePriority Priority => Package.Priority;
+
+    /// <summary>
+    /// Raises <see cref="PropertyChanged"/> for the given property name. Allows
+    /// <see cref="Upload.Package"/> to cascade aggregated-property changes into
+    /// child file rows (e.g. Priority) without exposing the event handler list.
+    /// </summary>
+    internal void RaisePropertyChanged(string propertyName) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     /// <summary>
     /// Consumes a single <see cref="Pipeline.UploadEvent"/> emitted by <see cref="Pipeline.AttemptRunner"/>.

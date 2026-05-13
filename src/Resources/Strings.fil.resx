@@ -213,12 +213,6 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
     <value>Itigil lahat ng uploads</value>
   </data>
-  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
-    <value>Ilipat ang package pataas</value>
-  </data>
-  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
-    <value>Ilipat ang package pababa</value>
-  </data>
   <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
     <value>Tanggalin ang napili</value>
   </data>
@@ -243,8 +237,32 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Itakda ang Speed Limit...</value>
   </data>
+  <data name="Uploads_Context_Priority" xml:space="preserve">
+    <value>Priyoridad</value>
+  </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Tanggalin</value>
+  </data>
+  <data name="Uploads_Priority_Highest" xml:space="preserve">
+    <value>Pinakamataas</value>
+  </data>
+  <data name="Uploads_Priority_High" xml:space="preserve">
+    <value>Mataas</value>
+  </data>
+  <data name="Uploads_Priority_Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Uploads_Priority_Low" xml:space="preserve">
+    <value>Mababa</value>
+  </data>
+  <data name="Uploads_Priority_Lowest" xml:space="preserve">
+    <value>Pinakamababa</value>
+  </data>
+  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
+    <value>Itaas ang priyoridad</value>
+  </data>
+  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
+    <value>Ibaba ang priyoridad</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Pangalan</value>

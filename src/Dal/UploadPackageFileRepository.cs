@@ -125,7 +125,6 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         IsHashingComplete = entity.IsHashingComplete,
         FileHash = entity.FileHash,
         FileHosterLoginId = entity.FileHosterLoginId,
-        Priority = entity.Priority,
         SortOrder = entity.SortOrder,
         PackageId = entity.PackageId,
         IsHidden = entity.IsHidden,
@@ -148,7 +147,6 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.IsHashingComplete = entity.IsHashingComplete;
         dto.FileHash = entity.FileHash;
         dto.FileHosterLoginId = entity.FileHosterLoginId;
-        dto.Priority = entity.Priority;
         dto.SortOrder = entity.SortOrder;
         dto.PackageId = entity.PackageId;
         dto.IsHidden = entity.IsHidden;
@@ -171,7 +169,6 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         IsHashingComplete = dto.IsHashingComplete,
         FileHash = dto.FileHash,
         FileHosterLoginId = dto.FileHosterLoginId,
-        Priority = dto.Priority,
         SortOrder = dto.SortOrder,
         PackageId = dto.PackageId,
         IsHidden = dto.IsHidden,

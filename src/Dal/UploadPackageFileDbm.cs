@@ -51,8 +51,6 @@ public class UploadPackageFileDbm
 
     public int FileHosterLoginId { get; set; }
 
-    public int Priority { get; set; }
-
     public int SortOrder { get; set; }
 
     public int PackageId { get; set; }

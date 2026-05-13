@@ -83,6 +83,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         IsCompleted = entity.IsCompleted,
         SpeedLimitKBps = entity.SpeedLimitKBps,
         StartMode = (UploadStartMode)entity.StartMode,
+        Priority = (PackagePriority)entity.Priority,
         IsRemovedFromUploads = entity.IsRemovedFromUploads,
         Files = entity.Files.Select(f => new UploadPackageFileDto
         {
@@ -100,7 +101,6 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             IsHashingComplete = f.IsHashingComplete,
             FileHash = f.FileHash,
             FileHosterLoginId = f.FileHosterLoginId,
-            Priority = f.Priority,
             SortOrder = f.SortOrder,
             PackageId = f.PackageId,
             IsHidden = f.IsHidden,
@@ -117,6 +117,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         dto.IsCompleted = entity.IsCompleted;
         dto.SpeedLimitKBps = entity.SpeedLimitKBps;
         dto.StartMode = (UploadStartMode)entity.StartMode;
+        dto.Priority = (PackagePriority)entity.Priority;
         dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
     }
 
@@ -129,6 +130,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         IsCompleted = dto.IsCompleted,
         SpeedLimitKBps = dto.SpeedLimitKBps,
         StartMode = (int)dto.StartMode,
+        Priority = (int)dto.Priority,
         IsRemovedFromUploads = dto.IsRemovedFromUploads,
     };
 
@@ -146,5 +148,18 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         await db.Set<UploadPackageFileDbm>()
             .Where(f => f.PackageId == packageId)
             .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsRemovedFromUploads, true), ct);
+    }
+
+    /// <summary>
+    /// Updates only the <see cref="UploadPackageDbm.Priority"/> column for a single
+    /// package row. Targeted so it doesn't touch the Files navigation property.
+    /// </summary>
+    public async Task UpdatePriorityAsync(int packageId, PackagePriority priority, CancellationToken ct = default)
+    {
+        int value = (int)priority;
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageDbm>()
+            .Where(p => p.Id == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Priority, value), ct);
     }
 }

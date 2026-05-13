@@ -5,6 +5,8 @@
 
 using System.Globalization;
 using System.Reflection;
+using CSUploader.Lib.Localization;
+using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
 
@@ -77,6 +79,15 @@ internal static class ColumnValueExtractor
         string s => string.IsNullOrEmpty(s) ? null : s,
         DateTime dt => dt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
         TimeSpan ts => ts.ToString("c", CultureInfo.InvariantCulture),
+        PackagePriority p => Localizer.Instance[p switch
+        {
+            PackagePriority.Highest => "Uploads_Priority_Highest",
+            PackagePriority.High => "Uploads_Priority_High",
+            PackagePriority.Normal => "Uploads_Priority_Normal",
+            PackagePriority.Low => "Uploads_Priority_Low",
+            PackagePriority.Lowest => "Uploads_Priority_Lowest",
+            _ => "Uploads_Priority_Normal",
+        }],
         IFormattable f => f.ToString(null, CultureInfo.CurrentCulture),
         _ => value.ToString(),
     };

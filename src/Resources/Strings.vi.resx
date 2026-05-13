@@ -213,12 +213,6 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
     <value>Dừng tất cả các lượt tải lên</value>
   </data>
-  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
-    <value>Di chuyển gói lên</value>
-  </data>
-  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
-    <value>Di chuyển gói xuống</value>
-  </data>
   <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
     <value>Xóa mục đã chọn</value>
   </data>
@@ -243,8 +237,32 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Đặt giới hạn tốc độ...</value>
   </data>
+  <data name="Uploads_Context_Priority" xml:space="preserve">
+    <value>Ưu tiên</value>
+  </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Xóa</value>
+  </data>
+  <data name="Uploads_Priority_Highest" xml:space="preserve">
+    <value>Cao nhất</value>
+  </data>
+  <data name="Uploads_Priority_High" xml:space="preserve">
+    <value>Cao</value>
+  </data>
+  <data name="Uploads_Priority_Normal" xml:space="preserve">
+    <value>Bình thường</value>
+  </data>
+  <data name="Uploads_Priority_Low" xml:space="preserve">
+    <value>Thấp</value>
+  </data>
+  <data name="Uploads_Priority_Lowest" xml:space="preserve">
+    <value>Thấp nhất</value>
+  </data>
+  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
+    <value>Tăng ưu tiên</value>
+  </data>
+  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
+    <value>Giảm ưu tiên</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Tên</value>

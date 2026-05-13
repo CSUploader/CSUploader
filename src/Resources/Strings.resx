@@ -213,12 +213,6 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Toolbar_StopTip" xml:space="preserve">
     <value>Stop all uploads</value>
   </data>
-  <data name="Uploads_Toolbar_MoveUpTip" xml:space="preserve">
-    <value>Move package up</value>
-  </data>
-  <data name="Uploads_Toolbar_MoveDownTip" xml:space="preserve">
-    <value>Move package down</value>
-  </data>
   <data name="Uploads_Toolbar_RemoveTip" xml:space="preserve">
     <value>Remove selected</value>
   </data>
@@ -243,8 +237,32 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Set Speed Limit...</value>
   </data>
+  <data name="Uploads_Context_Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="Uploads_Priority_Highest" xml:space="preserve">
+    <value>Highest</value>
+  </data>
+  <data name="Uploads_Priority_High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Uploads_Priority_Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Uploads_Priority_Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Uploads_Priority_Lowest" xml:space="preserve">
+    <value>Lowest</value>
+  </data>
+  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
+    <value>Increase priority</value>
+  </data>
+  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
+    <value>Decrease priority</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Name</value>

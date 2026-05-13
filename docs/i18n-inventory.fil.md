@@ -100,8 +100,6 @@ Uploads_Toolbar_AddTip            = Magdagdag ng bagong upload
 Uploads_Toolbar_StartTip          = Simulan lahat ng uploads
 Uploads_Toolbar_PauseTip          = I-pause / Ipagpatuloy
 Uploads_Toolbar_StopTip           = Itigil lahat ng uploads
-Uploads_Toolbar_MoveUpTip         = Ilipat ang package pataas
-Uploads_Toolbar_MoveDownTip       = Ilipat ang package pababa
 Uploads_Toolbar_RemoveTip         = Tanggalin ang napili
 
 Uploads_Context_Start             = Simulan
@@ -111,7 +109,15 @@ Uploads_Context_SkipUpload        = Laktawan ang Upload
 Uploads_Context_Reset             = I-reset
 Uploads_Context_OpenSourceDir     = Buksan ang Source Directory
 Uploads_Context_SetSpeedLimit     = Itakda ang Speed Limit...
+Uploads_Context_Priority          = Priyoridad
 Uploads_Context_Remove            = Tanggalin
+Uploads_Priority_Highest          = Pinakamataas
+Uploads_Priority_High             = Mataas
+Uploads_Priority_Normal           = Normal
+Uploads_Priority_Low              = Mababa
+Uploads_Priority_Lowest           = Pinakamababa
+Uploads_Tooltip_IncreasePriority  = Itaas ang priyoridad
+Uploads_Tooltip_DecreasePriority  = Ibaba ang priyoridad
 
 Uploads_Col_Name                  = Pangalan
 Uploads_Col_Size                  = Laki

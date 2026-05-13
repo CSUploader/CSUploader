@@ -24,7 +24,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 {
     private readonly PackageManager _packageManager;
     private readonly AppSettings _settings;
-    private readonly IDialogService _dialogService;
     private readonly DispatcherTimer _refreshTimer;
     private bool _disposed;
 
@@ -38,13 +37,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// Exposed to the view's code-behind so the "Reset columns" entry can prompt via
     /// the standard opt-out confirmation flow.
     /// </summary>
-    internal IDialogService DialogServiceForView => _dialogService;
+    internal IDialogService DialogServiceForView { get; }
 
     public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, SettingRepository? settingRepo = null)
     {
         _packageManager = packageManager;
         _settings = settings;
-        _dialogService = dialogService;
+        DialogServiceForView = dialogService;
         SettingRepo = settingRepo;
         _packageManager.PackageAdded += PackageManager_PackageAdded;
         _packageManager.FileCompleted += PackageManager_FileCompleted;
@@ -129,8 +128,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string filterText = string.Empty;
 
-    private ICollectionView? _filteredRowsView;
-
     /// <summary>
     /// Wraps <see cref="VisibleRows"/> with a name-filter applied on top of <see cref="FilterText"/>.
     /// Bound by the DataGrid as its ItemsSource.
@@ -139,13 +136,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     {
         get
         {
-            if (_filteredRowsView is null)
+            if (field is null)
             {
-                _filteredRowsView = CollectionViewSource.GetDefaultView(VisibleRows);
-                _filteredRowsView.Filter = MatchesFilter;
+                field = CollectionViewSource.GetDefaultView(VisibleRows);
+                field.Filter = MatchesFilter;
             }
 
-            return _filteredRowsView;
+            return field;
         }
     }
 
@@ -238,45 +235,45 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private void Stop() => _packageManager.StopPackages();
 
     /// <summary>
-    /// Moves the package owning the given row up in the list. No-op if the row is the
-    /// first package or no package can be derived from it.
+    /// Bumps the priority of the package owning the given row up one level
+    /// (capped at <see cref="PackagePriority.Highest"/>). Does not reorder the
+    /// visual list — only the scheduler's pick order is affected.
     /// </summary>
     [RelayCommand]
-    private void MoveUp(object? item)
+    private static void IncreasePriority(object? item)
     {
-        Package? target = ResolveOwningPackage(item);
-        if (target is null)
+        if (ResolveOwningPackage(item) is Package p && p.Priority < PackagePriority.Highest)
         {
-            return;
+            p.Priority = (PackagePriority)((int)p.Priority + 1);
         }
-
-        int index = Packages.IndexOf(target);
-        if (index <= 0)
-        {
-            return;
-        }
-
-        Packages.Move(index, index - 1);
-        RebuildVisibleRows();
     }
 
+    /// <summary>
+    /// Lowers the priority of the package owning the given row one level (capped
+    /// at <see cref="PackagePriority.Lowest"/>).
+    /// </summary>
     [RelayCommand]
-    private void MoveDown(object? item)
+    private static void DecreasePriority(object? item)
     {
-        Package? target = ResolveOwningPackage(item);
-        if (target is null)
+        if (ResolveOwningPackage(item) is Package p && p.Priority > PackagePriority.Lowest)
         {
-            return;
+            p.Priority = (PackagePriority)((int)p.Priority - 1);
         }
+    }
 
-        int index = Packages.IndexOf(target);
-        if (index < 0 || index >= Packages.Count - 1)
+    /// <summary>
+    /// Sets the priority of the currently-selected row's owning package to an
+    /// explicit level (right-click context-menu submenu). Uses
+    /// <see cref="SelectedRow"/> instead of taking the row as a parameter so the
+    /// MenuItem only needs to pass the <see cref="PackagePriority"/> enum value.
+    /// </summary>
+    [RelayCommand]
+    private void SetPriority(PackagePriority level)
+    {
+        if (ResolveOwningPackage(SelectedRow) is Package p)
         {
-            return;
+            p.Priority = level;
         }
-
-        Packages.Move(index, index + 1);
-        RebuildVisibleRows();
     }
 
     private static Package? ResolveOwningPackage(object? item) => item switch
@@ -415,7 +412,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_File_Format"], f.Name),
             _ => Localizer.Instance["Uploads_Remove_Generic"],
         };
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
+        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
         {
             return;
         }
@@ -470,7 +467,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             _ => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_PackagesAndFiles_Format"], packages.Length, looseFiles.Length, totalFiles),
         };
 
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
+        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
         {
             return;
         }

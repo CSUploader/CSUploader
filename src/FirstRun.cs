@@ -43,6 +43,8 @@ public static class FirstRun
             ("UploadPackage", "CompressionLevel"),
             ("UploadPackage", "CompressionSplitSize"),
             ("UploadPackage", "CompressionStatus"),
+            // PackageFile.Priority retired: priority is per-package now (Package.Priority).
+            ("UploadPackageFile", "Priority"),
         ];
 
         foreach ((string table, string column) in dropColumns)
@@ -86,13 +88,13 @@ public static class FirstRun
             ("UploadPackageFile", "Error", "ALTER TABLE UploadPackageFile ADD COLUMN Error TEXT"),
             ("UploadPackageFile", "IsHashingComplete", "ALTER TABLE UploadPackageFile ADD COLUMN IsHashingComplete INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "FileHosterLoginId", "ALTER TABLE UploadPackageFile ADD COLUMN FileHosterLoginId INTEGER NOT NULL DEFAULT 0"),
-            ("UploadPackageFile", "Priority", "ALTER TABLE UploadPackageFile ADD COLUMN Priority INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "SortOrder", "ALTER TABLE UploadPackageFile ADD COLUMN SortOrder INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "PackageId", "ALTER TABLE UploadPackageFile ADD COLUMN PackageId INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "IsHidden", "ALTER TABLE UploadPackageFile ADD COLUMN IsHidden INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "IsRemovedFromUploads", "ALTER TABLE UploadPackageFile ADD COLUMN IsRemovedFromUploads INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackage", "IsRemovedFromUploads", "ALTER TABLE UploadPackage ADD COLUMN IsRemovedFromUploads INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "FileHash", "ALTER TABLE UploadPackageFile ADD COLUMN FileHash TEXT"),
+            ("UploadPackage", "Priority", "ALTER TABLE UploadPackage ADD COLUMN Priority INTEGER NOT NULL DEFAULT 0"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)

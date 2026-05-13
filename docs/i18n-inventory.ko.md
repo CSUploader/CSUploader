@@ -100,8 +100,6 @@ Uploads_Toolbar_AddTip            = 새 업로드 추가
 Uploads_Toolbar_StartTip          = 모든 업로드 시작
 Uploads_Toolbar_PauseTip          = 일시 중지 / 재개
 Uploads_Toolbar_StopTip           = 모든 업로드 중지
-Uploads_Toolbar_MoveUpTip         = 패키지 위로 이동
-Uploads_Toolbar_MoveDownTip       = 패키지 아래로 이동
 Uploads_Toolbar_RemoveTip         = 선택 항목 제거
 
 Uploads_Context_Start             = 시작
@@ -111,7 +109,15 @@ Uploads_Context_SkipUpload        = 업로드 건너뛰기
 Uploads_Context_Reset             = 재설정
 Uploads_Context_OpenSourceDir     = 원본 디렉터리 열기
 Uploads_Context_SetSpeedLimit     = 속도 제한 설정…
+Uploads_Context_Priority          = 우선순위
 Uploads_Context_Remove            = 제거
+Uploads_Priority_Highest          = 최고
+Uploads_Priority_High             = 높음
+Uploads_Priority_Normal           = 보통
+Uploads_Priority_Low              = 낮음
+Uploads_Priority_Lowest           = 최저
+Uploads_Tooltip_IncreasePriority  = 우선순위 올리기
+Uploads_Tooltip_DecreasePriority  = 우선순위 낮추기
 
 Uploads_Col_Name                  = 이름
 Uploads_Col_Size                  = 크기

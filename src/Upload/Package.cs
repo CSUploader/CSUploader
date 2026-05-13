@@ -408,18 +408,34 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
-    /// Gets the highest priority across child files, or null if the package has no files.
+    /// Gets or sets the upload priority for this package. Defaults to
+    /// <see cref="PackagePriority.Normal"/>; the scheduler picks files from higher-
+    /// priority packages first. Child file rows pass through this value so the
+    /// Priority column shows the same level regardless of which row is displayed.
     /// </summary>
-    public int? Priority
+    public PackagePriority Priority
     {
-        get
+        get;
+        set
         {
-            PackageFile[] files;
-            lock (_filesLock)
-            { files = [.. PackageFiles]; }
-            return files.Length == 0 ? null : files.Max(f => f.Priority);
+            if (field == value)
+            {
+                return;
+            }
+
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
+
+            // Cascade into each child file so its pass-through Priority cell updates
+            // immediately instead of waiting on the 200ms RefreshTimer tick.
+            PackageFile[] snapshot;
+            lock (_filesLock) { snapshot = [.. PackageFiles]; }
+            foreach (PackageFile f in snapshot)
+            {
+                f.RaisePropertyChanged(nameof(PackageFile.Priority));
+            }
         }
-    }
+    } = PackagePriority.Normal;
 
     /// <summary>
     /// Gets the newline-joined URLs of child files that have finished uploading, or empty if none.
