@@ -23,8 +23,8 @@ public class AlfafilePipelineUploadTests
         {
             // login — Alfafile's login response doesn't include user.folder_id
             """{"response":{"token":"TOK","user":{"email":"u@example.com"}},"status":200,"details":null}""",
-            // folder/create — folder_id is a JSON string (matches the mock server)
-            """{"response":{"folder":{"folder_id":"100","mode":1,"mode_label":"Public","parent_folder_id":"0","name":"package1","url":"https://alfafile.net/folder/100","nb_folders":0,"nb_files":0,"created":1778221286}},"status":200,"details":null}""",
+            // folder/create — real Alfafile returns slug-style string IDs like "GCtX"
+            """{"response":{"folder":{"folder_id":"GCtX","mode":1,"mode_label":"Public","parent_folder_id":"0","name":"package1","url":"https://alfafile.net/folder/GCtX","nb_folders":0,"nb_files":0,"created":1778221286}},"status":200,"details":null}""",
             // file/upload — returns upload_url + upload_id
             """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post?uuid=U1","file":null,"state":0,"state_label":"Uploading"}},"status":200,"details":null}""",
             // file/upload_info — state=2 ("Done"), public file url
@@ -55,7 +55,7 @@ public class AlfafilePipelineUploadTests
         Queue<string> responses = new(new[]
         {
             """{"response":{"token":"TOK","user":{"email":"u@example.com"}},"status":200,"details":null}""",
-            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
             """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/dedup/x.zip"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
         });
         AlfafilePipeline pipeline = new(
@@ -85,7 +85,7 @@ public class AlfafilePipelineUploadTests
         Queue<string> responses = new(new[]
         {
             """{"response":{"token":"TOK"},"status":200,"details":null}""",
-            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
             """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
             // poll 1: still processing
             """{"response":{"upload":{"file":null,"state":1}},"status":200,"details":null}""",
@@ -114,7 +114,7 @@ public class AlfafilePipelineUploadTests
         Queue<string> responses = new(new[]
         {
             """{"response":{"token":"TOK"},"status":200,"details":null}""",
-            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
             """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
             """{"response":{"upload":{"file":null,"state":3}},"status":200,"details":"upload corrupt"}""",
         });
@@ -131,6 +131,41 @@ public class AlfafilePipelineUploadTests
         AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
         Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_FileAtDriveRoot_SendsSanitizedFolderName()
+    {
+        // Regression: uploading a file at D:\file.iso used to produce a folder name of
+        // "D:\" (Path.GetDirectoryName + DirectoryInfo.Name on a drive root). The hoster
+        // accepted it but the resulting folder was bizarre. Now drive-root paths fall
+        // back to "uploads".
+        string? folderCreateUrl = null;
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/dedup/x.iso"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url =>
+            {
+                if (url.Contains("/folder/create", StringComparison.Ordinal))
+                {
+                    folderCreateUrl = url;
+                }
+                return responses.Dequeue();
+            },
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        AttemptContext ctx = MakeContext() with { FilePath = @"D:\x.iso" };
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+        }
+
+        Assert.NotNull(folderCreateUrl);
+        Assert.Contains("name=uploads", folderCreateUrl, StringComparison.Ordinal);
+        Assert.DoesNotContain("D%3A", folderCreateUrl, StringComparison.Ordinal); // no URL-encoded colon
     }
 
     [Fact]

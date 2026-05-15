@@ -105,7 +105,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         {
             // === Folder ===
             string folderName = ResolveFolderName(ctx.FilePath);
-            int? folderId;
+            string? folderId;
             string? folderError;
             try
             {
@@ -130,7 +130,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             UploadUrlResult upload;
             try
             {
-                upload = await GetUploadUrlAsync(ctx, auth, folderId.Value);
+                upload = await GetUploadUrlAsync(ctx, auth, folderId);
             }
             catch (AuthExpiredException)
             {
@@ -285,27 +285,44 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             return (null, FormatApiError("login failed", env?.Details, env?.Status, body));
         }
 
-        // Alfafile has no per-account primary folder — uploads go to root (folder_id=0)
+        // Alfafile has no per-account primary folder — uploads go to root (folder_id="0")
         // unless an explicit folder is created.
-        return (new AlfafileAuthState(env.Response.Token, 0), null);
+        return (new AlfafileAuthState(env.Response.Token, "0"), null);
     }
 
+    /// <summary>
+    /// Picks a sensible folder name for the uploaded file. Falls back to "uploads" when
+    /// the file sits at a drive root (e.g. <c>D:\foo.iso</c>, where <c>DirectoryInfo</c>
+    /// would return <c>"D:\"</c>) or when the parent name contains characters that aren't
+    /// valid in a hoster folder name (colon, backslash, etc.).
+    /// </summary>
     private static string ResolveFolderName(string filePath)
     {
         string? dir = Path.GetDirectoryName(filePath);
-        return string.IsNullOrEmpty(dir) ? "uploads" : new DirectoryInfo(dir).Name;
+        if (string.IsNullOrEmpty(dir))
+        {
+            return "uploads";
+        }
+
+        string name = new DirectoryInfo(dir).Name;
+        if (string.IsNullOrEmpty(name) || name.AsSpan().IndexOfAny(':', '\\', '/') >= 0)
+        {
+            return "uploads";
+        }
+
+        return name;
     }
 
-    private async Task<(int? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string folderName)
+    private async Task<(string? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string folderName)
     {
         // Alfafile uses `folder_id` for the parent (Rapidgator uses `parent_folder_id`).
         string url = $"{ApiBase}/folder/create"
             + $"?name={Uri.EscapeDataString(folderName)}"
-            + $"&folder_id={auth.PrimaryFolderId}"
+            + $"&folder_id={Uri.EscapeDataString(auth.PrimaryFolderId)}"
             + $"&token={auth.Token}";
         string body = await GetAsync(ctx, url);
 
-        if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
+        if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder?.Id is not { Length: > 0 })
         {
             if (env?.Status == 401) throw new AuthExpiredException();
             return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
@@ -326,10 +343,10 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     private static readonly TimeSpan _uploadInfoPollMinDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan _uploadInfoPollMaxDelay = TimeSpan.FromSeconds(5);
 
-    private async Task<UploadUrlResult> GetUploadUrlAsync(AttemptContext ctx, AlfafileAuthState auth, int folderId)
+    private async Task<UploadUrlResult> GetUploadUrlAsync(AttemptContext ctx, AlfafileAuthState auth, string folderId)
     {
         string url = $"{ApiBase}/file/upload"
-            + $"?folder_id={folderId}"
+            + $"?folder_id={Uri.EscapeDataString(folderId)}"
             + $"&name={Uri.EscapeDataString(ctx.FileName)}"
             + $"&hash={ctx.FileHash}"
             + $"&size={ctx.FileSize}"
@@ -485,9 +502,9 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private sealed class FolderDetail
     {
-        // Alfafile returns folder_id as a JSON string; JsonHelpers' AllowReadingFromString
-        // option coerces it back into the int property.
-        [JsonPropertyName("folder_id")] public int Id { get; set; }
+        // Alfafile folder IDs are short slugs (e.g. "GCtX") — not integers, so they
+        // stay as strings end-to-end. The implicit root folder is "0".
+        [JsonPropertyName("folder_id")] public string? Id { get; set; }
     }
 
     private sealed class UploadUrlEnvelope
