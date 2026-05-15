@@ -51,7 +51,7 @@ public partial class App : Application
 
         // Eagerly resolve the notification listener so it subscribes to
         // UploadScheduler.FileStateChanged immediately at startup (singletons are lazy).
-        _ = _serviceProvider.GetRequiredService<Services.UploadNotificationListener>();
+        _ = _serviceProvider.GetRequiredService<UploadNotificationListener>();
 
         // Register the global Window.Loaded handler so every window picks up the
         // dark title bar automatically. MainViewModel.InitializeAsync sets the
@@ -106,6 +106,7 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterRegistry>(sp => new Upload.Pipeline.DefaultFileHosterRegistry(sp.GetServices<Upload.Pipeline.IFileHosterPipeline>()));
         services.AddSingleton<Upload.Pipeline.AttemptRunner>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.RapidgatorPipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.AlfafilePipeline>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
@@ -116,7 +117,7 @@ public partial class App : Application
             sp.GetRequiredService<AppSettings>(),
             sp.GetRequiredService<IToastWindowFactory>(),
             workAreaProvider: () => System.Windows.SystemParameters.WorkArea,
-            activate: () => sp.GetRequiredService<ViewModels.MainViewModel>().ActivateAndShowUploadedTab(),
+            activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
             dispatchToUi: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action)));
         services.AddSingleton<UploadNotificationListener>();
 

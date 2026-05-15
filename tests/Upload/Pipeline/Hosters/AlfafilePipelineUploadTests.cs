@@ -1,0 +1,170 @@
+// <copyright file="AlfafilePipelineUploadTests.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using System.Net.Http;
+using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
+using CSUploader.Upload.Pipeline;
+using CSUploader.Upload.Pipeline.Hosters;
+using Moq;
+
+namespace CSUploader.Tests.Upload.Pipeline.Hosters;
+
+public class AlfafilePipelineUploadTests
+{
+    [Fact]
+    public async Task RunAsync_HappyPath_EndsInTransferCompletedWithUrl()
+    {
+        Queue<string> responses = new(new[]
+        {
+            // login — Alfafile's login response doesn't include user.folder_id
+            """{"response":{"token":"TOK","user":{"email":"u@example.com"}},"status":200,"details":null}""",
+            // folder/create — folder_id is a JSON string (matches the mock server)
+            """{"response":{"folder":{"folder_id":"100","mode":1,"mode_label":"Public","parent_folder_id":"0","name":"package1","url":"https://alfafile.net/folder/100","nb_folders":0,"nb_files":0,"created":1778221286}},"status":200,"details":null}""",
+            // file/upload — returns upload_url + upload_id
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post?uuid=U1","file":null,"state":0,"state_label":"Uploading"}},"status":200,"details":null}""",
+            // file/upload_info — state=2 ("Done"), public file url
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/abc/x.zip"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        AttemptContext ctx = MakeContext();
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/abc/x.zip", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenServerHasFileAlready_SkipsBytesAndUsesDedupUrl()
+    {
+        // file/upload returns state=2 + populated file.url (hash dedup).
+        bool uploadInvoked = false;
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"email":"u@example.com"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/dedup/x.zip"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) =>
+            {
+                uploadInvoked = true;
+                return Task.CompletedTask;
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.False(uploadInvoked, "Bytes upload must be skipped on dedup hit");
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/dedup/x.zip", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUploadInfoStillProcessing_PollsUntilDone()
+    {
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
+            // poll 1: still processing
+            """{"response":{"upload":{"file":null,"state":1}},"status":200,"details":null}""",
+            // poll 2: done — surface the public URL
+            """{"response":{"upload":{"file":{"url":"https://alfafile.net/poll-ok/x.zip"},"state":2}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/poll-ok/x.zip", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUploadInfoStateIsFail_StopsPollingAndReportsAttemptFailed()
+    {
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"100"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"file":null,"state":3}},"status":200,"details":"upload corrupt"}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
+    {
+        Queue<string> responses = new(new[]
+        {
+            """{"response":null,"status":401,"details":"Unauthorized. Wrong login or password."}""",
+        });
+        AlfafilePipeline pipeline = new(url => responses.Dequeue());
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Contains(events, e => e is AuthFailed);
+        Assert.Contains(events, e => e is AttemptFailed);
+    }
+
+    private static AttemptContext MakeContext() => new()
+    {
+        AttemptId = Guid.NewGuid(),
+        FilePath = @"C:\nope\package1\x.zip",
+        FileName = "x.zip",
+        FileSize = 100,
+        FileHash = "deadbeef",
+        HosterName = "Alfafile",
+        Credentials = new FileHosterLoginDto { Id = 17, FileHosterName = "Alfafile", Username = "u@example.com", Password = "p" },
+        Proxy = ProxyChoice.Direct,
+        Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+        Logger = Mock.Of<IAppLogger>(),
+        SpeedLimitProvider = () => null,
+        Cancellation = default,
+    };
+}
