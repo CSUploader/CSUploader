@@ -747,6 +747,7 @@
             <DataGrid Grid.Row="1" Margin="20,0,20,0"
                       ItemsSource="{Binding Accounts}"
                       SelectedItem="{Binding SelectedAccount}"
+                      MouseDoubleClick="AccountsGrid_MouseDoubleClick"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserAddRows="False"

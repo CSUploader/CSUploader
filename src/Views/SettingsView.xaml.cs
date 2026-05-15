@@ -5,6 +5,8 @@
 
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using CSUploader.Dal;
 using CSUploader.ViewModels;
 
@@ -34,6 +36,26 @@ public partial class SettingsView : UserControl
             menu.PlacementTarget = button;
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
             menu.IsOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// Opens the Edit Account dialog when the user double-clicks a row in the
+    /// accounts grid. Walks up the visual tree from the click target so double-
+    /// clicks on column headers / scroll bars / empty space are ignored.
+    /// </summary>
+    private void AccountsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        DependencyObject? source = e.OriginalSource as DependencyObject;
+        while (source is not null and not DataGridRow)
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        if (source is DataGridRow && DataContext is SettingsViewModel vm && vm.EditAccountCommand.CanExecute(null))
+        {
+            vm.EditAccountCommand.Execute(null);
+            e.Handled = true;
         }
     }
 
