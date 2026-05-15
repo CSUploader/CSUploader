@@ -169,6 +169,49 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_SecondFileSameFolderName_ReusesCachedFolderId()
+    {
+        // Regression: Alfafile returns HTTP 409 "Folder with the same name already exists"
+        // on duplicate folder/create calls. Without caching, every file in a package after
+        // the first would fail because they all want the same folder name. The pipeline
+        // caches the folder_id per (credentialsId, parent, name) so subsequent files reuse
+        // it without re-calling /folder/create.
+        int folderCreateCalls = 0;
+        Queue<string> responses = new(new[]
+        {
+            // === File 1 ===
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/f1/x.iso"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+            // === File 2 — note: no folder/create response queued. If the pipeline calls
+            //     it again the test will throw Queue empty. ===
+            """{"response":{"upload":{"upload_id":"U2","url":null,"file":{"url":"https://alfafile.net/f2/y.iso"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url =>
+            {
+                if (url.Contains("/folder/create", StringComparison.Ordinal))
+                {
+                    folderCreateCalls++;
+                }
+                return responses.Dequeue();
+            },
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        FileHosterLoginDto creds = new() { Id = 17, FileHosterName = "Alfafile", Username = "u", Password = "p" };
+        AttemptContext ctx1 = MakeContext() with { Credentials = creds, FileName = "x.iso", FilePath = @"C:\pkg\x.iso" };
+        AttemptContext ctx2 = MakeContext() with { Credentials = creds, FileName = "y.iso", FilePath = @"C:\pkg\y.iso" };
+
+        // File 1
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx1, CancellationToken.None)) { }
+        // File 2 — must hit the folder cache, skip the folder/create round-trip
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx2, CancellationToken.None)) { }
+
+        Assert.Equal(1, folderCreateCalls);
+        Assert.Empty(responses);
+    }
+
+    [Fact]
     public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
     {
         Queue<string> responses = new(new[]

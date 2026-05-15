@@ -29,6 +29,15 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     // 100 parallel uploads against the same account should share one login round-trip.
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
 
+    // Folder-create cache keyed by (credentialsId, parent_folder_id, folder_name). Alfafile
+    // returns HTTP 409 "Folder with the same name already exists" if the same name is
+    // POSTed twice (unlike Rapidgator, which silently returns the existing folder), so
+    // every file in a package would otherwise fail to set up its destination folder after
+    // the first one succeeds. Caching the slug-style folder_id keeps subsequent files in
+    // the same session reusing the original folder.
+    private readonly ConcurrentDictionary<(int CredentialsId, string ParentFolderId, string FolderName), string> _foldersByName
+        = new();
+
     private readonly Func<string, Task<string>>? _httpOverride;
     private readonly Func<string, string, Func<long?>?, Task>? _uploadOverride;
 
@@ -315,6 +324,15 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private async Task<(string? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string folderName)
     {
+        // Reuse a folder we already created earlier in this session — Alfafile 409s on
+        // duplicate folder names so re-issuing the create for every file in a package
+        // would fail every file after the first.
+        (int, string, string) cacheKey = (ctx.Credentials.Id, auth.PrimaryFolderId, folderName);
+        if (_foldersByName.TryGetValue(cacheKey, out string? cachedId))
+        {
+            return (cachedId, null);
+        }
+
         // Alfafile uses `folder_id` for the parent (Rapidgator uses `parent_folder_id`).
         string url = $"{ApiBase}/folder/create"
             + $"?name={Uri.EscapeDataString(folderName)}"
@@ -328,6 +346,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
         }
 
+        _foldersByName[cacheKey] = env.Response.Folder.Id;
         return (env.Response.Folder.Id, null);
     }
 
