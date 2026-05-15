@@ -15,7 +15,7 @@
     <Window.Resources>
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,12,0" />
         </Style>
@@ -39,6 +39,7 @@
             <Setter Property="Width" Value="90" />
             <Setter Property="Height" Value="30" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -131,7 +132,7 @@
             <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
             <CheckBox Grid.Row="3" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
-                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
 
             <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
