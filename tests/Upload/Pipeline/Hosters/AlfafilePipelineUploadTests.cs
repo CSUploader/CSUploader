@@ -285,6 +285,75 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_FileUploadResponseHasEmptyArrayFile_ProceedsToBytesUpload()
+    {
+        // Real Alfafile returns `"file": []` (an empty PHP-serialized map) in the
+        // file/upload response while the upload is still pending — without a converter,
+        // System.Text.Json refuses to deserialize an array into a UploadUrlFile object
+        // and the whole envelope fails to parse, so the pipeline used to report the raw
+        // JSON body as the error.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCte"}},"status":200,"details":null}""",
+            // Verbatim from the user's report: file is the empty array []
+            """{"response":{"upload":{"upload_id":"8qqHd","url":"https://s8.alfafile.net/multipart-upload/92e58316","file":[],"state":0,"state_label":"Uploading"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"8qqHd","url":null,"file":{"url":"https://alfafile.net/ok/win10.iso"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        bool bytesUploaded = false;
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) =>
+            {
+                bytesUploaded = true;
+                return Task.CompletedTask;
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.True(bytesUploaded, "Bytes upload must run when file/upload returned `file: []` (no dedup hit)");
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/ok/win10.iso", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadInfoResponseHasEmptyArrayFile_PollsUntilObject()
+    {
+        // upload_info during state=Processing also returns `"file": []` — the poll loop
+        // must keep going until the file object materializes with a url.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCte"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
+            // Empty-array file, still processing
+            """{"response":{"upload":{"file":[],"state":1}},"status":200,"details":null}""",
+            // Done, real file object
+            """{"response":{"upload":{"file":{"url":"https://alfafile.net/poll/x.iso"},"state":2}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/poll/x.iso", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
     public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
     {
         Queue<string> responses = new(new[]

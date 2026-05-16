@@ -5,6 +5,7 @@
 
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using CSUploader.Lib.Extensions;
@@ -624,7 +625,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
         [JsonPropertyName("state")] public int State { get; set; }
 
-        [JsonPropertyName("file")] public UploadUrlFile? File { get; set; }
+        // PHP serializes empty maps as `[]` rather than `{}`, so Alfafile returns
+        // `"file": []` until the upload finishes. Map that to null via the converter.
+        [JsonPropertyName("file")]
+        [JsonConverter(typeof(EmptyArrayAsNullConverter<UploadUrlFile>))]
+        public UploadUrlFile? File { get; set; }
     }
 
     private sealed class UploadUrlFile
@@ -648,7 +653,9 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private sealed class UploadInfoUpload
     {
-        [JsonPropertyName("file")] public UploadInfoFile? File { get; set; }
+        [JsonPropertyName("file")]
+        [JsonConverter(typeof(EmptyArrayAsNullConverter<UploadInfoFile>))]
+        public UploadInfoFile? File { get; set; }
 
         [JsonPropertyName("state")] public int State { get; set; }
     }
@@ -656,5 +663,42 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     private sealed class UploadInfoFile
     {
         [JsonPropertyName("url")] public string? Url { get; set; }
+    }
+
+    /// <summary>
+    /// Deserializes a JSON property that is sometimes an object and sometimes an empty
+    /// array (a PHP quirk — empty associative arrays serialize as <c>[]</c> instead of
+    /// <c>{}</c>). Treats <c>[]</c> and <c>null</c> as a missing object, and reads object
+    /// values normally.
+    /// </summary>
+    private sealed class EmptyArrayAsNullConverter<T> : JsonConverter<T?>
+        where T : class
+    {
+        public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null)
+            {
+                return null;
+            }
+
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                reader.Skip();
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<T>(ref reader, options);
+        }
+
+        public override void Write(Utf8JsonWriter writer, T? value, JsonSerializerOptions options)
+        {
+            if (value is null)
+            {
+                writer.WriteNullValue();
+                return;
+            }
+
+            JsonSerializer.Serialize(writer, value, options);
+        }
     }
 }
