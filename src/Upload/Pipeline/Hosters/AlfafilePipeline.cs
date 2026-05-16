@@ -324,9 +324,8 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private async Task<(string? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string folderName)
     {
-        // Reuse a folder we already created earlier in this session — Alfafile 409s on
-        // duplicate folder names so re-issuing the create for every file in a package
-        // would fail every file after the first.
+        // Reuse a folder we already touched earlier in this session — saves a round-trip
+        // for every file in a package after the first.
         (int, string, string) cacheKey = (ctx.Credentials.Id, auth.PrimaryFolderId, folderName);
         if (_foldersByName.TryGetValue(cacheKey, out string? cachedId))
         {
@@ -340,14 +339,62 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             + $"&token={auth.Token}";
         string body = await GetAsync(ctx, url);
 
-        if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder?.Id is not { Length: > 0 })
+        if (JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) && env?.Status == 200 && env.Response?.Folder?.Id is { Length: > 0 } createdId)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
-            return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
+            _foldersByName[cacheKey] = createdId;
+            return (createdId, null);
         }
 
-        _foldersByName[cacheKey] = env.Response.Folder.Id;
-        return (env.Response.Folder.Id, null);
+        if (env?.Status == 401)
+        {
+            throw new AuthExpiredException();
+        }
+
+        // 409 → folder already exists from a previous session. Look it up on the server
+        // via /folder/info on the parent — that response includes a `folders` array of
+        // direct subfolder summaries. Match by name and cache.
+        if (env?.Status == 409)
+        {
+            (string? existingId, string? lookupError) = await LookupChildFolderAsync(ctx, auth, auth.PrimaryFolderId, folderName);
+            if (existingId is not null)
+            {
+                _foldersByName[cacheKey] = existingId;
+                return (existingId, null);
+            }
+
+            return (null, FormatApiError("folder/create returned 409 and folder/info lookup failed: " + (lookupError ?? "subfolder not present"), env.Details, env.Status, body));
+        }
+
+        return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
+    }
+
+    /// <summary>
+    /// Looks up a direct child folder by name under <paramref name="parentFolderId"/>
+    /// via <c>/folder/info</c>. Returns the slug-style folder_id when found.
+    /// </summary>
+    private async Task<(string? FolderId, string? Error)> LookupChildFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string parentFolderId, string folderName)
+    {
+        string url = $"{ApiBase}/folder/info"
+            + $"?folder_id={Uri.EscapeDataString(parentFolderId)}"
+            + $"&token={auth.Token}";
+        string body = await GetAsync(ctx, url);
+
+        if (!JsonHelpers.TryDeserializeObject(body, out FolderInfoEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
+        {
+            if (env?.Status == 401) throw new AuthExpiredException();
+            return (null, FormatApiError("folder/info failed", env?.Details, env?.Status, body));
+        }
+
+        FolderInfoSummary[] subfolders = env.Response.Folder.Subfolders ?? [];
+        foreach (FolderInfoSummary sf in subfolders)
+        {
+            if (string.Equals(sf.Name, folderName, StringComparison.Ordinal) && sf.Id is { Length: > 0 })
+            {
+                return (sf.Id, null);
+            }
+        }
+
+        return (null, $"no subfolder named '{folderName}' under parent {parentFolderId}");
     }
 
     private sealed record UploadUrlResult(string? UploadUrl, string? UploadId, string? CompletedFileUrl, string? Error);
@@ -524,6 +571,35 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         // Alfafile folder IDs are short slugs (e.g. "GCtX") — not integers, so they
         // stay as strings end-to-end. The implicit root folder is "0".
         [JsonPropertyName("folder_id")] public string? Id { get; set; }
+    }
+
+    private sealed class FolderInfoEnvelope
+    {
+        [JsonPropertyName("response")] public FolderInfoResponseBody? Response { get; set; }
+
+        [JsonPropertyName("status")] public int Status { get; set; }
+
+        [JsonPropertyName("details")] public string? Details { get; set; }
+    }
+
+    private sealed class FolderInfoResponseBody
+    {
+        [JsonPropertyName("folder")] public FolderInfoBody? Folder { get; set; }
+    }
+
+    private sealed class FolderInfoBody
+    {
+        [JsonPropertyName("folder_id")] public string? Id { get; set; }
+
+        /// <summary>Direct child folders of the queried folder.</summary>
+        [JsonPropertyName("folders")] public FolderInfoSummary[]? Subfolders { get; set; }
+    }
+
+    private sealed class FolderInfoSummary
+    {
+        [JsonPropertyName("folder_id")] public string? Id { get; set; }
+
+        [JsonPropertyName("name")] public string? Name { get; set; }
     }
 
     private sealed class UploadUrlEnvelope

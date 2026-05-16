@@ -212,6 +212,79 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_FolderCreate409_LooksUpExistingFolderViaInfoEndpoint()
+    {
+        // Cross-session case: a previous run already created the "package1" folder, so
+        // re-creating it returns HTTP 409. The pipeline must call /folder/info on the
+        // parent, scan the `folders` array for a matching name, and reuse that id.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            // folder/create — 409 conflict
+            """{"response":null,"status":409,"details":"Conflict. Folder with the same name already exists"}""",
+            // folder/info on the parent — returns folders[] with the existing one
+            """{"response":{"folder":{"folder_id":"0","folders":[{"folder_id":"OldX","name":"other"},{"folder_id":"GCtX","name":"package1"}]}},"status":200,"details":null}""",
+            // file/upload — dedup hit so the test stays compact
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/dedup/x.iso"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        string? fileUploadUrl = null;
+        AlfafilePipeline pipeline = new(
+            getOverride: url =>
+            {
+                if (url.Contains("/file/upload?", StringComparison.Ordinal))
+                {
+                    fileUploadUrl = url;
+                }
+                return responses.Dequeue();
+            },
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        AttemptContext ctx = MakeContext() with { FilePath = @"C:\package1\x.iso", FileName = "x.iso" };
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/dedup/x.iso", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses);
+        // file/upload should have been called with folder_id=GCtX (the existing one),
+        // not "0" or anything else.
+        Assert.NotNull(fileUploadUrl);
+        Assert.Contains("folder_id=GCtX", fileUploadUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_FolderCreate409_NoMatchingSubfolder_ReportsFailure()
+    {
+        // Sanity: if the lookup doesn't find the named folder (mismatched API response
+        // shape, stale cache server-side, etc.), the failure is surfaced clearly rather
+        // than silently swallowed.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":null,"status":409,"details":"Conflict. Folder with the same name already exists"}""",
+            // No matching name in folders[]
+            """{"response":{"folder":{"folder_id":"0","folders":[{"folder_id":"OldX","name":"other"}]}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("409", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
+    [Fact]
     public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
     {
         Queue<string> responses = new(new[]
