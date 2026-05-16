@@ -205,6 +205,11 @@ Uploads_Remove_Generic            = 이 항목을 제거하시겠습니까?
 Uploads_Remove_PackagesOnly_Format     = 패키지 {0}개(파일 {1}개)를 제거하시겠습니까?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = 업로드 목록에서 파일 {0}개를 제거하시겠습니까?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = 패키지 {0}개와 파일 {1}개(총 {2}개 항목)를 제거하시겠습니까?      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts
+Uploads_Reset_Title                  = 재설정
+Uploads_Reset_Package_Format         = 패키지 '{0}'을(를) 재설정하시겠습니까? 이 패키지의 완료된 파일 {1}개를 다시 해시하고 업로드합니다.  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = '{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.  # {0} = file name
 ```
 
 ---
@@ -587,6 +592,7 @@ Confirm_RemoveUploadPackageOrFile  = 업로드 탭에서 패키지 또는 파일
 Confirm_RemoveUploadedEntry        = 기록 탭에서 항목 제거
 Confirm_RemoveFileHosterAccount    = 파일 호스터 계정 제거
 Confirm_RemoveProxy                = 연결 관리자에서 프록시 제거
+Confirm_ResetCompletedUpload       = 완료된 업로드 재설정(다시 해시 및 업로드)
 Confirm_ResetColumns               = 업로드 / 기록 탭의 열을 기본값으로 재설정
 ```
 

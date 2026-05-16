@@ -205,6 +205,11 @@ Uploads_Remove_Generic            = Tanggalin ang item na ito?
 Uploads_Remove_PackagesOnly_Format     = Tanggalin ang {0} package(s) ({1} file(s))?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Tanggalin ang {0} file(s) sa upload list?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Tanggalin ang {0} package(s) at {1} file(s) ({2} item(s) lahat)?      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts
+Uploads_Reset_Title                  = I-reset
+Uploads_Reset_Package_Format         = I-reset ang package na '{0}'? Mag-re-rehash at muling i-aupload ang {1} natapos na file(s) sa package na ito.  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.  # {0} = file name
 ```
 
 ---
@@ -587,6 +592,7 @@ Confirm_RemoveUploadPackageOrFile  = Tanggalin ang package o file sa Uploads tab
 Confirm_RemoveUploadedEntry        = Tanggalin ang entries sa History tab
 Confirm_RemoveFileHosterAccount    = Tanggalin ang isang file hoster account
 Confirm_RemoveProxy                = Tanggalin ang isang proxy sa Connection Manager
+Confirm_ResetCompletedUpload       = I-reset ang tapos na upload (i-rehash at muling i-upload)
 Confirm_ResetColumns               = I-reset ang mga column sa default sa Uploads / History tab
 ```
 

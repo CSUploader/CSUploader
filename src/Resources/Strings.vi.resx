@@ -477,6 +477,15 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>Xóa {0} gói và {1} tệp (tổng {2} mục)?</value>
   </data>
+  <data name="Uploads_Reset_Title" xml:space="preserve">
+    <value>Đặt lại</value>
+  </data>
+  <data name="Uploads_Reset_Package_Format" xml:space="preserve">
+    <value>Đặt lại gói '{0}'? Việc này sẽ băm lại và tải lên lại {1} tệp đã hoàn tất trong gói.</value>
+  </data>
+  <data name="Uploads_Reset_File_Format" xml:space="preserve">
+    <value>Đặt lại '{0}'? Tệp này đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>Xuất ra JSON…</value>
   </data>
@@ -1261,6 +1270,9 @@ Vẫn thêm?</value>
   </data>
   <data name="Confirm_RemoveProxy" xml:space="preserve">
     <value>Xóa một proxy khỏi Trình quản lý kết nối</value>
+  </data>
+  <data name="Confirm_ResetCompletedUpload" xml:space="preserve">
+    <value>Đặt lại một lần tải lên đã hoàn tất (băm lại và tải lên lại)</value>
   </data>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử</value>

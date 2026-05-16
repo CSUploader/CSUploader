@@ -205,6 +205,12 @@ Uploads_Remove_Generic            = Remove this item?
 Uploads_Remove_PackagesOnly_Format     = Remove {0} package(s) ({1} file(s))?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Remove {0} file(s) from the upload list?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Remove {0} package(s) and {1} file(s) ({2} item(s) total)?      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts (UploadsViewModel) — only shown when a completed file would
+# be re-hashed and re-uploaded; resetting purely Failed/Cancelled files skips the prompt.
+Uploads_Reset_Title                  = Reset
+Uploads_Reset_Package_Format         = Reset package '{0}'? This will re-hash and re-upload {1} completed file(s) in this package.  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = Reset '{0}'? It already uploaded successfully — resetting will re-hash and re-upload it.  # {0} = file name
 ```
 
 ---
@@ -587,6 +593,7 @@ Confirm_RemoveUploadPackageOrFile  = Remove package or file from Uploads tab
 Confirm_RemoveUploadedEntry        = Remove entries from the History tab
 Confirm_RemoveFileHosterAccount    = Remove a file hoster account
 Confirm_RemoveProxy                = Remove a proxy from Connection Manager
+Confirm_ResetCompletedUpload       = Reset a completed upload (re-hash and re-upload)
 Confirm_ResetColumns               = Reset columns to their defaults on the Uploads / History tab
 ```
 

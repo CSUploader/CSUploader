@@ -392,10 +392,38 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ResetFile(object? item)
     {
-        if (item is not null)
+        if (item is null)
         {
-            _packageManager.ResetPackage(item);
+            return;
         }
+
+        // Resetting a Failed/Cancelled file is the cheap recovery path the user expects on
+        // right-click. Resetting a Completed file silently undoes a successful upload —
+        // it has to re-hash a (possibly multi-GB) file and re-upload it. Confirm before
+        // doing that, but skip the prompt entirely when no completed file is in scope.
+        int completedCount = item switch
+        {
+            Package p => p.Count(f => f.State == FileState.Completed),
+            PackageFile f => f.State == FileState.Completed ? 1 : 0,
+            _ => 0,
+        };
+
+        if (completedCount > 0)
+        {
+            string msg = item switch
+            {
+                Package p => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_Package_Format"], p.Name, completedCount),
+                PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_File_Format"], f.Name),
+                _ => string.Empty,
+            };
+
+            if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.ResetCompletedUpload, msg, Localizer.Instance["Uploads_Reset_Title"]))
+            {
+                return;
+            }
+        }
+
+        _packageManager.ResetPackage(item);
     }
 
     [RelayCommand]

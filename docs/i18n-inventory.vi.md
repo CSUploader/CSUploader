@@ -213,6 +213,11 @@ Uploads_Remove_Generic            = Xóa mục này?
 Uploads_Remove_PackagesOnly_Format     = Xóa {0} gói ({1} tệp)?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Xóa {0} tệp khỏi danh sách tải lên?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Xóa {0} gói và {1} tệp (tổng {2} mục)?      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts
+Uploads_Reset_Title                  = Đặt lại
+Uploads_Reset_Package_Format         = Đặt lại gói '{0}'? Việc này sẽ băm lại và tải lên lại {1} tệp đã hoàn tất trong gói.  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = Đặt lại '{0}'? Tệp này đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.  # {0} = file name
 ```
 
 ---
@@ -595,6 +600,7 @@ Confirm_RemoveUploadPackageOrFile  = Xóa gói hoặc tệp khỏi thẻ Đang t
 Confirm_RemoveUploadedEntry        = Xóa các mục khỏi thẻ Lịch sử
 Confirm_RemoveFileHosterAccount    = Xóa một tài khoản nhà lưu trữ tập tin
 Confirm_RemoveProxy                = Xóa một proxy khỏi Trình quản lý kết nối
+Confirm_ResetCompletedUpload       = Đặt lại một lần tải lên đã hoàn tất (băm lại và tải lên lại)
 Confirm_ResetColumns               = Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử
 ```
 

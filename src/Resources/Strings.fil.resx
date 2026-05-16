@@ -477,6 +477,15 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>Tanggalin ang {0} package(s) at {1} file(s) ({2} item(s) lahat)?</value>
   </data>
+  <data name="Uploads_Reset_Title" xml:space="preserve">
+    <value>I-reset</value>
+  </data>
+  <data name="Uploads_Reset_Package_Format" xml:space="preserve">
+    <value>I-reset ang package na '{0}'? Mag-re-rehash at muling i-aupload ang {1} natapos na file(s) sa package na ito.</value>
+  </data>
+  <data name="Uploads_Reset_File_Format" xml:space="preserve">
+    <value>I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>I-export sa JSON…</value>
   </data>
@@ -1261,6 +1270,9 @@ Idagdag pa rin?</value>
   </data>
   <data name="Confirm_RemoveProxy" xml:space="preserve">
     <value>Tanggalin ang isang proxy sa Connection Manager</value>
+  </data>
+  <data name="Confirm_ResetCompletedUpload" xml:space="preserve">
+    <value>I-reset ang tapos na upload (i-rehash at muling i-upload)</value>
   </data>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>I-reset ang mga column sa default sa Uploads / History tab</value>

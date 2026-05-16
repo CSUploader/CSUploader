@@ -477,6 +477,15 @@
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>是否移除 {0} 个包和 {1} 个文件（共 {2} 项）？</value>
   </data>
+  <data name="Uploads_Reset_Title" xml:space="preserve">
+    <value>重置</value>
+  </data>
+  <data name="Uploads_Reset_Package_Format" xml:space="preserve">
+    <value>是否重置包 '{0}'？这将重新哈希并重新上传该包中 {1} 个已完成的文件。</value>
+  </data>
+  <data name="Uploads_Reset_File_Format" xml:space="preserve">
+    <value>是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>导出为 JSON…</value>
   </data>
@@ -1261,6 +1270,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Confirm_RemoveProxy" xml:space="preserve">
     <value>从连接管理器移除代理</value>
+  </data>
+  <data name="Confirm_ResetCompletedUpload" xml:space="preserve">
+    <value>重置已完成的上传（重新哈希并重新上传）</value>
   </data>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>将"上传中"/"历史"标签页的列重置为默认设置</value>

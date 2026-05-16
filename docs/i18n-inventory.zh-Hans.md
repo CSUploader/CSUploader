@@ -205,6 +205,11 @@ Uploads_Remove_Generic            = 是否移除此项？
 Uploads_Remove_PackagesOnly_Format     = 是否移除 {0} 个包（共 {1} 个文件）？                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = 是否从上传列表中移除 {0} 个文件？                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = 是否移除 {0} 个包和 {1} 个文件（共 {2} 项）？      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts
+Uploads_Reset_Title                  = 重置
+Uploads_Reset_Package_Format         = 是否重置包 '{0}'？这将重新哈希并重新上传该包中 {1} 个已完成的文件。  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = 是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。  # {0} = file name
 ```
 
 ---
@@ -587,6 +592,7 @@ Confirm_RemoveUploadPackageOrFile  = 从"上传中"标签页移除包或文件
 Confirm_RemoveUploadedEntry        = 从"历史"标签页中移除条目
 Confirm_RemoveFileHosterAccount    = 移除文件托管商账户
 Confirm_RemoveProxy                = 从连接管理器移除代理
+Confirm_ResetCompletedUpload       = 重置已完成的上传（重新哈希并重新上传）
 Confirm_ResetColumns               = 将"上传中"/"历史"标签页的列重置为默认设置
 ```
 

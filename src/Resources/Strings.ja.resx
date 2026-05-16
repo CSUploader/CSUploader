@@ -477,6 +477,15 @@
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>パッケージを {0} 個とファイルを {1} 個 (合計 {2} 項目) 削除しますか?</value>
   </data>
+  <data name="Uploads_Reset_Title" xml:space="preserve">
+    <value>リセット</value>
+  </data>
+  <data name="Uploads_Reset_Package_Format" xml:space="preserve">
+    <value>パッケージ '{0}' をリセットしますか? このパッケージ内の完了済みファイル {1} 個が再ハッシュ・再アップロードされます。</value>
+  </data>
+  <data name="Uploads_Reset_File_Format" xml:space="preserve">
+    <value>'{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>JSON にエクスポート…</value>
   </data>
@@ -1261,6 +1270,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Confirm_RemoveProxy" xml:space="preserve">
     <value>接続マネージャーからプロキシを削除</value>
+  </data>
+  <data name="Confirm_ResetCompletedUpload" xml:space="preserve">
+    <value>完了したアップロードをリセット (再ハッシュ・再アップロード)</value>
   </data>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>アップロード / 履歴タブの列を既定値にリセット</value>

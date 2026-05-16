@@ -204,6 +204,11 @@ Uploads_Remove_Generic            = この項目を削除しますか?
 Uploads_Remove_PackagesOnly_Format     = パッケージを {0} 個 ({1} 個のファイル) 削除しますか?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = アップロードリストから {0} 個のファイルを削除しますか?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = パッケージを {0} 個とファイルを {1} 個 (合計 {2} 項目) 削除しますか?      # {0} = packages, {1} = loose files, {2} = total
+
+# Reset confirmation prompts
+Uploads_Reset_Title                  = リセット
+Uploads_Reset_Package_Format         = パッケージ '{0}' をリセットしますか? このパッケージ内の完了済みファイル {1} 個が再ハッシュ・再アップロードされます。  # {0} = package name, {1} = completed file count
+Uploads_Reset_File_Format            = '{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。  # {0} = file name
 ```
 
 ---
@@ -585,6 +590,7 @@ Confirm_RemoveUploadPackageOrFile  = アップロードタブからパッケー�
 Confirm_RemoveUploadedEntry        = 履歴タブからエントリを削除
 Confirm_RemoveFileHosterAccount    = ファイルホスターアカウントを削除
 Confirm_RemoveProxy                = 接続マネージャーからプロキシを削除
+Confirm_ResetCompletedUpload       = 完了したアップロードをリセット (再ハッシュ・再アップロード)
 Confirm_ResetColumns               = アップロード / 履歴タブの列を既定値にリセット
 ```
 
