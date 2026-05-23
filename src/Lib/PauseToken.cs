@@ -7,7 +7,12 @@ namespace CSUploader.Lib;
 
 public readonly struct PauseToken(PauseTokenSource source)
 {
-    private readonly PauseTokenSource _source = source;
+    // Nullable to match `default(PauseToken)` semantics: the struct can be
+    // zero-initialized without going through the constructor, in which case
+    // `_source` is null and the `?.` fallbacks below kick in. Without the
+    // nullable annotation the field looked non-null but was read defensively,
+    // producing a confusing NRT-vs-runtime mismatch.
+    private readonly PauseTokenSource? _source = source;
 
     public Task<bool> IsPaused() => _source?.IsPaused() ?? Task.FromResult(false);
 

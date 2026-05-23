@@ -29,8 +29,20 @@ public static class JsonHelpers
 
             return result != null;
         }
-        catch
+        catch (JsonException)
         {
+            // Malformed JSON / shape mismatch — the contract of TryDeserialize. Cancellation
+            // and other system exceptions are intentionally NOT swallowed here; the previous
+            // bare `catch` would have eaten OperationCanceledException and made hung cancels
+            // invisible to the caller.
+            result = null;
+
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            // Thrown for unsupported type shapes (e.g. interfaces without converters).
+            // Same "expected deserialization failure" category as JsonException.
             result = null;
 
             return false;
