@@ -40,6 +40,54 @@ public partial class SettingsView : UserControl
     }
 
     /// <summary>
+    /// Toggles which items appear in the proxy grid's context menu based on whether
+    /// the right-click landed on a row or on empty grid space. On empty space the
+    /// row-targeted Test/Remove items would have no meaningful selection to operate
+    /// on, so we collapse them and leave only Add/Import/Export — the same actions
+    /// available from the bottom button bar.
+    /// </summary>
+    private void ProxyGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        bool onRow = HitTestIsRow(e.OriginalSource as DependencyObject);
+        Visibility rowVis = onRow ? Visibility.Visible : Visibility.Collapsed;
+        ProxyContextTestItem.Visibility = rowVis;
+        ProxyContextRemoveItem.Visibility = rowVis;
+        ProxyContextRowSeparator.Visibility = rowVis;
+        ProxyContextExportSelectedSeparator.Visibility = rowVis;
+        ProxyContextExportSelectedToTextItem.Visibility = rowVis;
+        ProxyContextExportSelectedToFileItem.Visibility = rowVis;
+    }
+
+    private static bool HitTestIsRow(DependencyObject? source)
+    {
+        while (source is not null and not DataGridRow)
+        {
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return source is DataGridRow;
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="ProxyGrid_ContextMenuOpening"/>: collapses the row-targeted
+    /// items (Edit / Refresh / Enable / Disable / Delete) when the right-click landed
+    /// on empty grid space, leaving only the Add entry.
+    /// </summary>
+    private void AccountsGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        bool onRow = HitTestIsRow(e.OriginalSource as DependencyObject);
+        Visibility rowVis = onRow ? Visibility.Visible : Visibility.Collapsed;
+        AccountsContextEditItem.Visibility = rowVis;
+        AccountsContextRefreshItem.Visibility = rowVis;
+        AccountsContextRowSeparator1.Visibility = rowVis;
+        AccountsContextEnableItem.Visibility = rowVis;
+        AccountsContextDisableItem.Visibility = rowVis;
+        AccountsContextRowSeparator2.Visibility = rowVis;
+        AccountsContextDeleteItem.Visibility = rowVis;
+        AccountsContextRowSeparator3.Visibility = rowVis;
+    }
+
+    /// <summary>
     /// Opens the Edit Account dialog when the user double-clicks a row in the
     /// accounts grid. Walks up the visual tree from the click target so double-
     /// clicks on column headers / scroll bars / empty space are ignored.

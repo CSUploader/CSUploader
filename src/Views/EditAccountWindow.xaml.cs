@@ -3,7 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Windows;
+using System.Windows.Media.Imaging;
+using CSUploader.Converters;
 using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 
@@ -26,10 +29,13 @@ public partial class EditAccountWindow : Window
         }
         else
         {
-            // Lock hoster for existing accounts: show as read-only text
+            // Lock hoster for existing accounts: show as read-only text + icon, mirroring
+            // the ComboBox's templated row so the locked alternative doesn't look bare.
             HosterCombo.Visibility = Visibility.Collapsed;
             HosterLocked.Visibility = Visibility.Visible;
             HosterLockedText.Text = account.FileHosterName;
+            HosterLockedIcon.Source = new HosterIconConverter()
+                .Convert(account.FileHosterName ?? string.Empty, typeof(BitmapImage), null!, CultureInfo.CurrentCulture) as BitmapImage;
         }
 
         UsernameBox.Text = account.Username;

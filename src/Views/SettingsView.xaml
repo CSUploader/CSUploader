@@ -502,6 +502,7 @@
                       GridLinesVisibility="All"
                       RowHeaderWidth="0"
                       Tag="{Binding}"
+                      ContextMenuOpening="ProxyGrid_ContextMenuOpening"
                       Background="{DynamicResource SurfaceBrush}"
                       RowBackground="{DynamicResource SurfaceBrush}"
                       AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
@@ -526,16 +527,51 @@
                     <KeyBinding Key="Delete" Command="{Binding RemoveSelectedCommand}"
                                 CommandParameter="{Binding SelectedItems, ElementName=proxyGrid}" />
                 </DataGrid.InputBindings>
+                <!-- The Test/Remove items only make sense when the right-click landed on a
+                     row; on empty space we collapse them and just show Add/Import/Export.
+                     Visibility is flipped from code-behind in ProxyGrid_ContextMenuOpening. -->
                 <DataGrid.ContextMenu>
-                    <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                        <MenuItem Header="{loc:Loc Settings_Conn_Context_Test}"
+                    <ContextMenu x:Name="ProxyGridContextMenu"
+                                 DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                        <MenuItem x:Name="ProxyContextTestItem"
+                                  Header="{loc:Loc Settings_Conn_Context_Test}"
                                   Command="{Binding TestCommand}"
                                   CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                        <Separator />
-                        <MenuItem Header="{loc:Loc Settings_Conn_Context_Remove}"
+                        <MenuItem x:Name="ProxyContextRemoveItem"
+                                  Header="{loc:Loc Settings_Conn_Context_Remove}"
                                   InputGestureText="{loc:Loc Settings_Conn_Context_Remove_Gesture}"
                                   Command="{Binding RemoveSelectedCommand}"
                                   CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <Separator x:Name="ProxyContextRowSeparator" />
+                        <MenuItem Header="{loc:Loc Settings_Conn_Btn_Add}"
+                                  Command="{Binding AddCommand}" />
+                        <Separator />
+                        <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import}">
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromText}"
+                                      Command="{Binding ImportFromTextCommand}" />
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromFile}"
+                                      Command="{Binding ImportFromFileCommand}" />
+                        </MenuItem>
+                        <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export}">
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToText}"
+                                      Command="{Binding ExportAllToTextCommand}" />
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToFile}"
+                                      Command="{Binding ExportAllToFileCommand}" />
+                            <Separator />
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToText}"
+                                      Command="{Binding ExportOkToTextCommand}" />
+                            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToFile}"
+                                      Command="{Binding ExportOkToFileCommand}" />
+                            <Separator x:Name="ProxyContextExportSelectedSeparator" />
+                            <MenuItem x:Name="ProxyContextExportSelectedToTextItem"
+                                      Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToText}"
+                                      Command="{Binding ExportSelectedToTextCommand}"
+                                      CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                            <MenuItem x:Name="ProxyContextExportSelectedToFileItem"
+                                      Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToFile}"
+                                      Command="{Binding ExportSelectedToFileCommand}"
+                                      CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        </MenuItem>
                     </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
@@ -587,10 +623,22 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Host}" Binding="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Width="*" MinWidth="120" />
-                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Port}" Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_User}" Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Password}" Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}" Width="120" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Host}"
+                                        Binding="{Binding Host, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource DataGridEditingTextBoxStyle}"
+                                        Width="*" MinWidth="120" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Port}"
+                                        Binding="{Binding Port, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource DataGridEditingTextBoxStyle}"
+                                        Width="80" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_User}"
+                                        Binding="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource DataGridEditingTextBoxStyle}"
+                                        Width="120" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Password}"
+                                        Binding="{Binding Password, UpdateSourceTrigger=PropertyChanged}"
+                                        EditingElementStyle="{StaticResource DataGridEditingTextBoxStyle}"
+                                        Width="120" />
                     <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Test}" Width="60" SortMemberPath="TestOutcome" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -648,9 +696,13 @@
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
+                    <!-- Tag carries the live grid SelectedItems through to the ContextMenu (the
+                         menu lives in a separate visual tree and can't resolve ElementName
+                         bindings) so "Export selected" can target the current selection. -->
                     <Button x:Name="ExportProxiesButton"
                             Style="{StaticResource JD2Button}"
                             Click="ExportProxiesButton_Click"
+                            Tag="{Binding SelectedItems, ElementName=proxyGrid}"
                             Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{loc:Loc Settings_Conn_Btn_Export}" />
@@ -663,10 +715,16 @@
                                 <Separator />
                                 <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToText}" Command="{Binding ExportOkToTextCommand}" />
                                 <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToFile}" Command="{Binding ExportOkToFileCommand}" />
+                                <Separator />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToText}"
+                                          Command="{Binding ExportSelectedToTextCommand}"
+                                          CommandParameter="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToFile}"
+                                          Command="{Binding ExportSelectedToFileCommand}"
+                                          CommandParameter="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                             </ContextMenu>
                         </Button.ContextMenu>
                     </Button>
-                    <Button Content="{loc:Loc Settings_Conn_Btn_Save}" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButtonStyle}" Width="100" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                     <Button Style="{StaticResource JD2Button}" Command="{Binding AddCommand}" Margin="0,0,6,0">
@@ -744,10 +802,11 @@
             </StackPanel>
 
             <!-- DataGrid fills all remaining space -->
-            <DataGrid Grid.Row="1" Margin="20,0,20,0"
+            <DataGrid x:Name="accountsGrid" Grid.Row="1" Margin="20,0,20,0"
                       ItemsSource="{Binding Accounts}"
                       SelectedItem="{Binding SelectedAccount}"
                       MouseDoubleClick="AccountsGrid_MouseDoubleClick"
+                      ContextMenuOpening="AccountsGrid_ContextMenuOpening"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserAddRows="False"
@@ -839,15 +898,25 @@
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="*" />
                 </DataGrid.Columns>
 
+                <!-- The row-targeted items only make sense when the right-click landed
+                     on a row; on empty space we collapse them and just show Add.
+                     Visibility is flipped from code-behind in AccountsGrid_ContextMenuOpening. -->
                 <DataGrid.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Edit}" Command="{Binding EditAccountCommand}" />
-                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Refresh}" Command="{Binding RefreshAccountCommand}" />
-                        <Separator />
-                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Enable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
-                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Disable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
-                        <Separator />
-                        <MenuItem Header="{loc:Loc Settings_Accounts_Context_Delete}" Command="{Binding RemoveAccountCommand}" />
+                        <MenuItem x:Name="AccountsContextEditItem"
+                                  Header="{loc:Loc Settings_Accounts_Context_Edit}" Command="{Binding EditAccountCommand}" />
+                        <MenuItem x:Name="AccountsContextRefreshItem"
+                                  Header="{loc:Loc Settings_Accounts_Context_Refresh}" Command="{Binding RefreshAccountCommand}" />
+                        <Separator x:Name="AccountsContextRowSeparator1" />
+                        <MenuItem x:Name="AccountsContextEnableItem"
+                                  Header="{loc:Loc Settings_Accounts_Context_Enable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
+                        <MenuItem x:Name="AccountsContextDisableItem"
+                                  Header="{loc:Loc Settings_Accounts_Context_Disable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
+                        <Separator x:Name="AccountsContextRowSeparator2" />
+                        <MenuItem x:Name="AccountsContextDeleteItem"
+                                  Header="{loc:Loc Settings_Accounts_Context_Delete}" Command="{Binding RemoveAccountCommand}" />
+                        <Separator x:Name="AccountsContextRowSeparator3" />
+                        <MenuItem Header="{loc:Loc Settings_Accounts_Btn_Add}" Command="{Binding AddAccountDialogCommand}" />
                     </ContextMenu>
                 </DataGrid.ContextMenu>
             </DataGrid>

@@ -41,4 +41,11 @@ public interface IDialogService
     /// Save, or null if the dialog was cancelled.
     /// </summary>
     FileHosterLoginDto? ShowAddAccountDialog(string hosterName, string[] availableHosters, string? title = null);
+
+    /// <summary>
+    /// Opens the proxy editor dialog seeded with <paramref name="seed"/>. Pass a fresh
+    /// DTO (Id=0) for the add flow; pass an existing DTO for edit. Returns the populated
+    /// proxy when the user clicks Save, or null if cancelled.
+    /// </summary>
+    ProxySettingDto? ShowEditProxyDialog(ProxySettingDto seed, string? title = null);
 }

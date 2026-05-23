@@ -5,6 +5,8 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -22,7 +24,8 @@ namespace CSUploader.ViewModels;
 /// <summary>
 /// JD2-style Connection Manager. Lists configured proxies in priority order, exposes
 /// per-row enabled/priority/type/host/etc., and supports add/remove, move up/down,
-/// import/export (plain text), and save (which reloads the live <see cref="ProxyManager"/>).
+/// and import/export (plain text). Edits auto-persist via a debounced save that
+/// reloads the live <see cref="ProxyManager"/> when changes settle.
 /// </summary>
 public partial class ConnectionManagerViewModel : ObservableObject
 {
@@ -33,7 +36,30 @@ public partial class ConnectionManagerViewModel : ObservableObject
     /// </summary>
     private const int MaxConcurrentTests = 5;
 
+    /// <summary>
+    /// Quiet period after the last user edit before an auto-save fires. Long enough
+    /// that typing in a Host cell doesn't hit the DB on every keystroke, short enough
+    /// that closing the page right after a change still catches the persist.
+    /// </summary>
+    private const int AutoSaveDebounceMs = 750;
+
+    /// <summary>
+    /// Which row-level properties on a <see cref="ProxySettingItem"/> should trigger
+    /// an auto-save when they change. Transient fields (TestStatus, TestOutcome,
+    /// TestTransaction, IsTesting) are deliberately excluded.
+    /// </summary>
+    private static readonly HashSet<string> PersistedItemProperties = new(StringComparer.Ordinal)
+    {
+        nameof(ProxySettingItem.Enabled),
+        nameof(ProxySettingItem.Type),
+        nameof(ProxySettingItem.Host),
+        nameof(ProxySettingItem.Port),
+        nameof(ProxySettingItem.Username),
+        nameof(ProxySettingItem.Password),
+    };
+
     private readonly SemaphoreSlim _testSemaphore = new(MaxConcurrentTests, MaxConcurrentTests);
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
 
     private readonly ProxySettingRepository _repo;
     private readonly SettingRepository? _settingRepo;
@@ -41,6 +67,12 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
     private readonly AppSettings? _appSettings;
+
+    // Auto-save stays suppressed until LoadAsync has hydrated state from the DB,
+    // otherwise the initial Add()/property-set bursts during construction or test
+    // setup would each schedule a save against an unfinished VM.
+    private bool _suppressAutoSave = true;
+    private CancellationTokenSource? _autoSaveCts;
 
     public ConnectionManagerViewModel(
         ProxySettingRepository repo,
@@ -61,6 +93,11 @@ public partial class ConnectionManagerViewModel : ObservableObject
         // Marshal to UI thread when WPF is running so we can safely mutate the
         // ObservableCollection / row VM.
         _proxyManager.ProxyResultObserved += OnProxyResultObserved;
+
+        // Track structural changes on the proxy list so Add/Remove/Move all
+        // auto-persist, and so we can attach/detach per-item PropertyChanged
+        // handlers without leaking subscriptions.
+        Proxies.CollectionChanged += OnProxiesCollectionChanged;
     }
 
     public ObservableCollection<ProxySettingItem> Proxies { get; } = [];
@@ -93,20 +130,39 @@ public partial class ConnectionManagerViewModel : ObservableObject
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
-        ProxySettingDto[] all = await _repo.GetAllAsync(cancellationToken);
-        Proxies.Clear();
-        foreach (ProxySettingDto dto in all.OrderBy(p => p.Priority).ThenBy(p => p.Id))
+        // Auto-save fires on every observable change once enabled; we don't want the
+        // initial population of Proxies (or the checkbox hydration that follows) to
+        // round-trip through the DB. Suppress for the whole hydration body and turn
+        // it back on at the end so subsequent edits do persist.
+        _suppressAutoSave = true;
+        try
         {
-            Proxies.Add(new ProxySettingItem(dto));
-        }
+            // CollectionChanged.Reset (raised by Clear) doesn't surface the removed
+            // items, so detach handlers manually before clearing.
+            foreach (ProxySettingItem item in Proxies)
+            {
+                item.PropertyChanged -= OnProxyItemPropertyChanged;
+            }
 
-        // SettingsViewModel.LoadAsync runs first and hydrates AppSettings; mirror the
-        // current values into our bound properties so the checkboxes reflect the saved
-        // choices.
-        if (_appSettings is not null)
+            ProxySettingDto[] all = await _repo.GetAllAsync(cancellationToken);
+            Proxies.Clear();
+            foreach (ProxySettingDto dto in all.OrderBy(p => p.Priority).ThenBy(p => p.Id))
+            {
+                Proxies.Add(new ProxySettingItem(dto));
+            }
+
+            // SettingsViewModel.LoadAsync runs first and hydrates AppSettings; mirror
+            // the current values into our bound properties so the checkboxes reflect
+            // the saved choices.
+            if (_appSettings is not null)
+            {
+                AutoDisableFailingProxies = _appSettings.AutoDisableFailingProxies;
+                ProxiesEnabled = _appSettings.ProxiesEnabled;
+            }
+        }
+        finally
         {
-            AutoDisableFailingProxies = _appSettings.AutoDisableFailingProxies;
-            ProxiesEnabled = _appSettings.ProxiesEnabled;
+            _suppressAutoSave = false;
         }
     }
 
@@ -157,7 +213,11 @@ public partial class ConnectionManagerViewModel : ObservableObject
     [RelayCommand]
     private void Add()
     {
-        ProxySettingDto dto = new()
+        // Seed an empty DTO with sensible defaults and let the user fill it in via the
+        // modal editor. The grid row is only created when the dialog returns Save —
+        // cancelling no-ops, which is friendlier than the prior "add an empty row and
+        // hope the user knows to tab through every column" flow.
+        ProxySettingDto seed = new()
         {
             Type = ProxyType.Http,
             Host = string.Empty,
@@ -165,7 +225,15 @@ public partial class ConnectionManagerViewModel : ObservableObject
             Enabled = true,
             Priority = Proxies.Count,
         };
-        Proxies.Add(new ProxySettingItem(dto));
+
+        ProxySettingDto? edited = _dialogService.ShowEditProxyDialog(seed);
+        if (edited is null)
+        {
+            return;
+        }
+
+        edited.Priority = Proxies.Count;
+        Proxies.Add(new ProxySettingItem(edited));
     }
 
     [RelayCommand]
@@ -362,18 +430,33 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Explicit save entry point retained for tests and for any future callers that
+    /// need a synchronous persist. Cancels any pending debounced auto-save so the two
+    /// paths don't double up, then runs the same persist body the auto-save uses.
+    /// </summary>
     [RelayCommand]
     private async Task SaveAsync(CancellationToken cancellationToken = default)
     {
+        _autoSaveCts?.Cancel();
+        await PersistAsync(cancellationToken);
+    }
+
+    private async Task PersistAsync(CancellationToken cancellationToken)
+    {
+        await _saveLock.WaitAsync(cancellationToken).ConfigureAwait(true);
         try
         {
             ProxySettingDto[] existing = await _repo.GetAllAsync(cancellationToken);
             HashSet<int> keepIds = [];
 
-            // Re-number Priority based on current order
-            for (int i = 0; i < Proxies.Count; i++)
+            // Snapshot so a concurrent mutation (e.g. a ProxyResultObserved callback
+            // disabling a row mid-save) doesn't shift indices under us. Any change
+            // missed here just re-triggers its own auto-save.
+            ProxySettingItem[] snapshot = [.. Proxies];
+            for (int i = 0; i < snapshot.Length; i++)
             {
-                ProxySettingItem item = Proxies[i];
+                ProxySettingItem item = snapshot[i];
                 item.Dto.Priority = i;
 
                 if (item.Dto.Id == 0)
@@ -394,8 +477,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
                 await _repo.DeleteAsync(removed, cancellationToken);
             }
 
-            // Persist the page-level toggles alongside the proxy list so toggling them +
-            // clicking Save is the single committal action on this page.
+            // Persist the page-level toggles alongside the proxy list so they auto-save
+            // together with the grid edits.
             if (_appSettings is not null)
             {
                 _appSettings.AutoDisableFailingProxies = AutoDisableFailingProxies;
@@ -409,20 +492,86 @@ public partial class ConnectionManagerViewModel : ObservableObject
             }
 
             await _proxyManager.ReloadAsync(cancellationToken);
-
-            SaveStatus = Localizer.Instance["Settings_Conn_Status_Saved"];
-            try
-            {
-                await Task.Delay(1500, cancellationToken);
-            }
-            catch (TaskCanceledException) { }
-
-            SaveStatus = string.Empty;
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Failed to save proxies: {ex.Message}");
             SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_SaveFailed_Format"], ex.Message);
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
+    // Auto-save hooks. Every edit that should round-trip to the DB ultimately calls
+    // ScheduleAutoSave, which debounces so a burst of changes (typing, paste-import,
+    // multi-row remove) collapses into one persist.
+
+    private void OnProxiesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (object obj in e.NewItems)
+            {
+                if (obj is ProxySettingItem item)
+                {
+                    item.PropertyChanged += OnProxyItemPropertyChanged;
+                }
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (object obj in e.OldItems)
+            {
+                if (obj is ProxySettingItem item)
+                {
+                    item.PropertyChanged -= OnProxyItemPropertyChanged;
+                }
+            }
+        }
+
+        ScheduleAutoSave();
+    }
+
+    private void OnProxyItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not null && PersistedItemProperties.Contains(e.PropertyName))
+        {
+            ScheduleAutoSave();
+        }
+    }
+
+    partial void OnAutoDisableFailingProxiesChanged(bool value) => ScheduleAutoSave();
+
+    partial void OnProxiesEnabledChanged(bool value) => ScheduleAutoSave();
+
+    private void ScheduleAutoSave()
+    {
+        if (_suppressAutoSave)
+        {
+            return;
+        }
+
+        _autoSaveCts?.Cancel();
+        CancellationTokenSource cts = new();
+        _autoSaveCts = cts;
+        _ = AutoSaveAfterDelayAsync(cts.Token);
+    }
+
+    private async Task AutoSaveAfterDelayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(AutoSaveDebounceMs, cancellationToken).ConfigureAwait(true);
+            await PersistAsync(cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Auto-save failed: {ex.Message}");
         }
     }
 
@@ -463,7 +612,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         {
             string[] lines = await File.ReadAllLinesAsync(dialog.FileName);
             int added = AppendFromLines(lines);
-            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ImportedNeedsSave_Format"], added);
+            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Imported_Format"], added);
         }
         catch (Exception ex)
         {
@@ -490,20 +639,62 @@ public partial class ConnectionManagerViewModel : ObservableObject
         string[] lines = (dialog.ResultText ?? string.Empty)
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         int added = AppendFromLines(lines);
-        SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ImportedNeedsSave_Format"], added);
+        SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Imported_Format"], added);
     }
 
     [RelayCommand]
-    private async Task ExportAllToFile() => await ExportToFileAsync(okOnly: false);
+    private async Task ExportAllToFile()
+        => await ExportToFileAsync(Proxies, ProxyExportKind.All);
 
     [RelayCommand]
-    private async Task ExportOkToFile() => await ExportToFileAsync(okOnly: true);
+    private async Task ExportOkToFile()
+        => await ExportToFileAsync(Proxies.Where(p => p.TestOutcome == ProxyTestOutcome.Ok), ProxyExportKind.Ok);
 
     [RelayCommand]
-    private void ExportAllToText() => ShowExportDialog(okOnly: false);
+    private async Task ExportSelectedToFile(IList? selectedItems)
+    {
+        ProxySettingItem[] items = SelectedProxies(selectedItems);
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        await ExportToFileAsync(items, ProxyExportKind.Selected);
+    }
 
     [RelayCommand]
-    private void ExportOkToText() => ShowExportDialog(okOnly: true);
+    private void ExportAllToText()
+        => ShowExportDialog(Proxies, ProxyExportKind.All);
+
+    [RelayCommand]
+    private void ExportOkToText()
+        => ShowExportDialog(Proxies.Where(p => p.TestOutcome == ProxyTestOutcome.Ok), ProxyExportKind.Ok);
+
+    // CA1822 disabled: [RelayCommand] requires an instance method so the generator can
+    // expose ExportSelectedToTextCommand as an instance property.
+#pragma warning disable CA1822
+    [RelayCommand]
+    private void ExportSelectedToText(IList? selectedItems)
+    {
+        ProxySettingItem[] items = SelectedProxies(selectedItems);
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        ShowExportDialog(items, ProxyExportKind.Selected);
+    }
+#pragma warning restore CA1822
+
+    private static ProxySettingItem[] SelectedProxies(IList? selectedItems)
+        => selectedItems?.OfType<ProxySettingItem>().ToArray() ?? [];
+
+    private enum ProxyExportKind
+    {
+        All,
+        Ok,
+        Selected,
+    }
 
     private int AppendFromLines(IEnumerable<string> lines)
     {
@@ -531,18 +722,20 @@ public partial class ConnectionManagerViewModel : ObservableObject
         return added;
     }
 
-    private IEnumerable<string> BuildExportLines(bool okOnly) =>
-        Proxies
-            .Where(p => !okOnly || p.TestOutcome == ProxyTestOutcome.Ok)
-            .Select(FormatProxyLine);
+    private static IEnumerable<string> BuildExportLines(IEnumerable<ProxySettingItem> items) =>
+        items.Select(FormatProxyLine);
 
-    private async Task ExportToFileAsync(bool okOnly)
+    private async Task ExportToFileAsync(IEnumerable<ProxySettingItem> items, ProxyExportKind kind)
     {
+        string suffix = kind switch
+        {
+            ProxyExportKind.Ok => "-ok",
+            ProxyExportKind.Selected => "-selected",
+            _ => string.Empty,
+        };
         Microsoft.Win32.SaveFileDialog dialog = new()
         {
-            FileName = okOnly
-                ? $"csuploader-proxies-ok-{DateTime.Now:yyyyMMdd-HHmmss}.txt"
-                : $"csuploader-proxies-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+            FileName = $"csuploader-proxies{suffix}-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
             Filter = Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
             DefaultExt = ".txt",
             AddExtension = true,
@@ -554,7 +747,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
 
         try
         {
-            string[] lines = [.. BuildExportLines(okOnly)];
+            string[] lines = [.. BuildExportLines(items)];
             await File.WriteAllLinesAsync(dialog.FileName, lines);
             SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ExportedToFile_Format"], lines.Length, Path.GetFileName(dialog.FileName));
         }
@@ -564,15 +757,19 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
     }
 
-    private void ShowExportDialog(bool okOnly)
+    private static void ShowExportDialog(IEnumerable<ProxySettingItem> items, ProxyExportKind kind)
     {
-        string text = string.Join(Environment.NewLine, BuildExportLines(okOnly));
-        int count = text.Length == 0 ? 0 : text.Split('\n').Length;
+        string[] lines = [.. BuildExportLines(items)];
+        string text = string.Join(Environment.NewLine, lines);
+        (string titleKey, string descKey) = kind switch
+        {
+            ProxyExportKind.Ok => ("Settings_Conn_ExportOk_DialogTitle", "Settings_Conn_ExportOk_Desc_Format"),
+            ProxyExportKind.Selected => ("Settings_Conn_ExportSelected_DialogTitle", "Settings_Conn_ExportSelected_Desc_Format"),
+            _ => ("Settings_Conn_ExportAll_DialogTitle", "Settings_Conn_ExportAll_Desc_Format"),
+        };
         Views.ProxyTextDialog dialog = new(
-            okOnly ? Localizer.Instance["Settings_Conn_ExportOk_DialogTitle"] : Localizer.Instance["Settings_Conn_ExportAll_DialogTitle"],
-            okOnly
-                ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_ExportOk_Desc_Format"], count)
-                : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_ExportAll_Desc_Format"], count),
+            Localizer.Instance[titleKey],
+            string.Format(CultureInfo.CurrentCulture, Localizer.Instance[descKey], lines.Length),
             text,
             readOnly: true)
         {
