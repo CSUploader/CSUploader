@@ -3,469 +3,305 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace CSUploader.Lib;
 
+/// <summary>
+/// Immutable value-type representation of a byte quantity tagged with its preferred
+/// base (binary IEC 1024-based or decimal SI 1000-based). Used by the UI converters
+/// and JSON serialization to render sizes in the most appropriate unit.
+/// </summary>
 [JsonConverter(typeof(ByteUnitJsonConverter))]
-public class ByteUnit
+public readonly record struct ByteUnit(double Bytes, ByteBase Base)
 {
-    static ByteUnit()
-    {
-        // Make sure to set the static variables before the static dictionaries are used
-        // (Static variables are initialized on first use; if the dictionary is used before the variable, you'll get an empty dictionary)
-
-        // Both
-        B = CreateByteUnit(1, ByteBase.Binary | ByteBase.Decimal, ByteUnitPrefix.Byte, ByteUnitSymbol.B);
-
-        // Binary IEC
-        KiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Kibi, ByteUnitSymbol.KiB);
-        MiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Mebi, ByteUnitSymbol.MiB);
-        GiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Gibi, ByteUnitSymbol.GiB);
-        TiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Tebi, ByteUnitSymbol.TiB);
-        PiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Pebi, ByteUnitSymbol.PiB);
-        EiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Exbi, ByteUnitSymbol.EiB);
-        ZiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Zebi, ByteUnitSymbol.ZiB);
-        YiB = CreateByteUnit(1, ByteBase.Binary, ByteUnitPrefix.Yobi, ByteUnitSymbol.YiB);
-
-        // Decimal Metric
-        kB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Kilo, ByteUnitSymbol.kB);
-        MB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Mega, ByteUnitSymbol.MB);
-        GB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Giga, ByteUnitSymbol.GB);
-        TB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Tera, ByteUnitSymbol.TB);
-        PB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Pera, ByteUnitSymbol.PB);
-        EB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Exa, ByteUnitSymbol.EB);
-        ZB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Zetta, ByteUnitSymbol.ZB);
-        YB = CreateByteUnit(1, ByteBase.Decimal, ByteUnitPrefix.Yotta, ByteUnitSymbol.YB);
-    }
-
+    /// <summary>Defaults to decimal base when only a raw byte count is supplied.</summary>
     public ByteUnit(double bytes)
+        : this(bytes, ByteBase.Decimal)
     {
-        Bytes = bytes;
-        Base = ByteBase.Decimal;
     }
 
-    public ByteUnit(double bytes, ByteBase byteBase)
+    /// <summary>Constructs from a count of <paramref name="symbol"/> units (e.g. <c>new(3, ByteUnitSymbol.MiB)</c> ≡ 3 MiB).</summary>
+    public ByteUnit(double count, ByteUnitSymbol symbol)
+        : this(count * Tables.BySymbol[symbol].Bytes, Tables.BySymbol[symbol].Base)
     {
-        Bytes = bytes;
-        Base = byteBase;
     }
 
-    public ByteUnit(double count, ByteUnitSymbol byteUnitSymbol)
+    /// <summary>Constructs from a count of <paramref name="prefix"/> units.</summary>
+    public ByteUnit(double count, ByteUnitPrefix prefix)
+        : this(count * Tables.ByPrefix[prefix].Bytes, Tables.ByPrefix[prefix].Base)
     {
-        Bytes = GetBytes(count, byteUnitSymbol);
-        Base = ByteUnitSymbolTable[byteUnitSymbol].Base;
     }
 
-    public ByteUnit(double count, ByteUnitPrefix byteUnitPrefix)
-    {
-        Bytes = GetBytes(count, byteUnitPrefix);
-        Base = ByteUnitPrefixTable[byteUnitPrefix].Base;
-    }
+    // --- Static unit singletons. Kept as API ergonomics so callers can write
+    //     `ByteUnit.MiB` or `ByteUnit.kB` instead of constructing a transient. ---
 
-    private ByteUnit(double count, ByteBase byteBase, ByteUnitPrefix byteUnitPrefix, ByteUnitSymbol byteUnitSymbol)
-    {
-        double multiplier = GetMultiplier(byteBase, byteUnitPrefix);
-        Base = byteBase;
-        Bytes = count * multiplier;
-    }
+    /// <summary>1 byte — valid in both binary and decimal bases.</summary>
+    public static ByteUnit B => Tables.BySymbol[ByteUnitSymbol.B];
 
-    // Both
-    public static ByteUnit B { get; private set; }
+    public static ByteUnit KiB => Tables.BySymbol[ByteUnitSymbol.KiB];
 
-    // Binary IEC
-    public static ByteUnit KiB { get; private set; }
+    public static ByteUnit MiB => Tables.BySymbol[ByteUnitSymbol.MiB];
 
-    public static ByteUnit MiB { get; private set; }
+    public static ByteUnit GiB => Tables.BySymbol[ByteUnitSymbol.GiB];
 
-    public static ByteUnit GiB { get; private set; }
+    public static ByteUnit TiB => Tables.BySymbol[ByteUnitSymbol.TiB];
 
-    public static ByteUnit TiB { get; private set; }
+    public static ByteUnit PiB => Tables.BySymbol[ByteUnitSymbol.PiB];
 
-    public static ByteUnit PiB { get; private set; }
+    public static ByteUnit EiB => Tables.BySymbol[ByteUnitSymbol.EiB];
 
-    public static ByteUnit EiB { get; private set; }
+    public static ByteUnit ZiB => Tables.BySymbol[ByteUnitSymbol.ZiB];
 
-    public static ByteUnit ZiB { get; private set; }
+    public static ByteUnit YiB => Tables.BySymbol[ByteUnitSymbol.YiB];
 
-    public static ByteUnit YiB { get; private set; }
+#pragma warning disable SA1300 // Element should begin with upper-case letter — SI uses lowercase k by convention.
+    public static ByteUnit kB => Tables.BySymbol[ByteUnitSymbol.kB];
+#pragma warning restore SA1300
 
-    // Decimal Metric
-#pragma warning disable SA1300 // Element should begin with upper-case letter
-    public static ByteUnit kB { get; private set; }
-#pragma warning restore SA1300 // Element should begin with upper-case letter
+    public static ByteUnit MB => Tables.BySymbol[ByteUnitSymbol.MB];
 
-    public static ByteUnit MB { get; private set; }
+    public static ByteUnit GB => Tables.BySymbol[ByteUnitSymbol.GB];
 
-    public static ByteUnit GB { get; private set; }
+    public static ByteUnit TB => Tables.BySymbol[ByteUnitSymbol.TB];
 
-    public static ByteUnit TB { get; private set; }
+    public static ByteUnit PB => Tables.BySymbol[ByteUnitSymbol.PB];
 
-    public static ByteUnit PB { get; private set; }
+    public static ByteUnit EB => Tables.BySymbol[ByteUnitSymbol.EB];
 
-    public static ByteUnit EB { get; private set; }
+    public static ByteUnit ZB => Tables.BySymbol[ByteUnitSymbol.ZB];
 
-    public static ByteUnit ZB { get; private set; }
+    public static ByteUnit YB => Tables.BySymbol[ByteUnitSymbol.YB];
 
-    public static ByteUnit YB { get; private set; }
+    /// <summary>The largest applicable symbol at this byte count + base.</summary>
+    public ByteUnitSymbol Symbol => Tables.LargestApplicable(Bytes, Base).Symbol;
 
-    public ByteBase Base { get; set; }
+    /// <summary>The largest applicable prefix at this byte count + base.</summary>
+    public ByteUnitPrefix Prefix => Tables.LargestApplicable(Bytes, Base).Prefix;
 
-    public ByteUnitPrefix Prefix
-    {
-        get
-        {
-            KeyValuePair<ByteUnit, Tuple<ByteUnitPrefix, ByteUnitSymbol>> previousByteUnit = ByteUnits.First();
-            foreach (KeyValuePair<ByteUnit, Tuple<ByteUnitPrefix, ByteUnitSymbol>> byteUnit in ByteUnits.Where(b => b.Key.Base.HasFlag(Base)))
-            {
-                if (Bytes < byteUnit.Key.Bytes)
-                {
-                    break;
-                }
+    public static ByteUnit FromBytes(double bytes) => new(bytes, ByteBase.Decimal);
 
-                previousByteUnit = byteUnit;
-            }
+    public static ByteUnit FromBytes(double bytes, ByteBase byteBase) => new(bytes, byteBase);
 
-            return previousByteUnit.Value.Item1;
-        }
-    }
-
-    public ByteUnitSymbol Symbol
-    {
-        get
-        {
-            KeyValuePair<ByteUnit, Tuple<ByteUnitPrefix, ByteUnitSymbol>> previousByteUnit = ByteUnits.First();
-            foreach (KeyValuePair<ByteUnit, Tuple<ByteUnitPrefix, ByteUnitSymbol>> byteUnit in ByteUnits.Where(b => b.Key.Base.HasFlag(Base)))
-            {
-                if (Bytes < byteUnit.Key.Bytes)
-                {
-                    break;
-                }
-
-                previousByteUnit = byteUnit;
-            }
-
-            return previousByteUnit.Value.Item2;
-        }
-    }
-
-    public double Multiplier => GetMultiplier(Base, Prefix);
-
-    public double Count => Bytes / Multiplier;
-
-    public double Bytes { get; private set; }
-
-    public double KiloBytes => Bytes / kB.Bytes;
-
-    public double MegaBytes => Bytes / MB.Bytes;
-
-    public double GigaBytes => Bytes / GB.Bytes;
-
-    public double TeraBytes => Bytes / TB.Bytes;
-
-    public double PetaBytes => Bytes / PB.Bytes;
-
-    public double ExaBytes => Bytes / EB.Bytes;
-
-    public double ZettaBytes => Bytes / ZB.Bytes;
-
-    public double YottaBytes => Bytes / YB.Bytes;
-
-    public double KibiBytes => Bytes / KiB.Bytes;
-
-    public double MebiBytes => Bytes / MiB.Bytes;
-
-    public double GibiBytes => Bytes / GiB.Bytes;
-
-    public double TebiBytes => Bytes / TiB.Bytes;
-
-    public double PebiBytes => Bytes / PiB.Bytes;
-
-    public double ExiBytes => Bytes / EiB.Bytes;
-
-    public double ZebiBytes => Bytes / ZiB.Bytes;
-
-    public double YobiBytes => Bytes / YiB.Bytes;
-
-    private static Dictionary<ByteUnit, Tuple<ByteUnitPrefix, ByteUnitSymbol>> ByteUnits { get; } = [];
-
-    private static Dictionary<ByteUnitSymbol, ByteUnit> ByteUnitSymbolTable =>
-        ByteUnits.Select(b => new KeyValuePair<ByteUnitSymbol, ByteUnit>(b.Value.Item2, b.Key)).ToDictionary(k => k.Key, v => v.Value);
-
-    private static Dictionary<ByteUnitPrefix, ByteUnit> ByteUnitPrefixTable =>
-        ByteUnits.Select(b => new KeyValuePair<ByteUnitPrefix, ByteUnit>(b.Value.Item1, b.Key)).ToDictionary(k => k.Key, v => v.Value);
-
-    private static Dictionary<ByteUnitSymbol, Regex> ByteUnitSymbolRegices =>
-        ByteUnitSymbolTable.Select(b =>
-        {
-            string? symbol = Enum.GetName(typeof(ByteUnitSymbol), b.Key);
-            Regex regex = new($@"([\d\.,]+)\s*{symbol}{(b.Key is not ByteUnitSymbol.B and not ByteUnitSymbol.Byte ? "?" : string.Empty)}", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-            return new KeyValuePair<ByteUnitSymbol, Regex>(b.Key, regex);
-        }).ToDictionary(key => key.Key, value => value.Value);
-
-    public static implicit operator ByteUnit(int bytes)
-    {
-        return FromBytes(bytes, ByteBase.Decimal);
-    }
-
-    public static implicit operator ByteUnit(double bytes)
-    {
-        return FromBytes(bytes, ByteBase.Decimal);
-    }
-
-    public static ByteUnit operator +(ByteUnit byteUnit1, ByteUnit byteUnit2)
-    {
-        double bytes = byteUnit1.Bytes + byteUnit2.Bytes;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator +(ByteUnit byteUnit1, long bytes2)
-    {
-        double bytes = byteUnit1.Bytes + bytes2;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator -(ByteUnit byteUnit1, ByteUnit byteUnit2)
-    {
-        double bytes = byteUnit1.Bytes - byteUnit2.Bytes;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator -(ByteUnit byteUnit1, long bytes2)
-    {
-        double bytes = byteUnit1.Bytes - bytes2;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator /(ByteUnit byteUnit1, ByteUnit byteUnit2)
-    {
-        double bytes = byteUnit1.Bytes / byteUnit2.Bytes;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator /(ByteUnit byteUnit1, long bytes2)
-    {
-        double bytes = byteUnit1.Bytes / bytes2;
-        return FromBytes(bytes, byteUnit1.Base);
-    }
-
-    public static ByteUnit operator ++(ByteUnit byteUnit)
-    {
-        double bytes = byteUnit.Bytes + 1;
-        return FromBytes(bytes, byteUnit.Base);
-    }
-
-    public static ByteUnit operator --(ByteUnit byteUnit)
-    {
-        double bytes = byteUnit.Bytes - 1;
-        return FromBytes(bytes, byteUnit.Base);
-    }
-
-    public static double GetBytes(double unitCount, ByteUnitPrefix byteUnitPrefix)
-    {
-        double multiplier = GetMultiplier(byteUnitPrefix);
-        return unitCount * multiplier;
-    }
-
-    public static double GetBytes(double unitCount, ByteUnitSymbol byteUnitSymbol)
-    {
-        ByteUnit byteUnit = ByteUnitSymbolTable[byteUnitSymbol];
-        return unitCount * byteUnit.Bytes;
-    }
-
-    public static ByteUnit? ParseSize(string size)
-    {
-        foreach (KeyValuePair<ByteUnitSymbol, ByteUnit> byteUnit in ByteUnitSymbolTable)
-        {
-            if (TryParseSize(size, byteUnit.Key, out double unitCount))
-            {
-                return new ByteUnit(unitCount, byteUnit.Key);
-            }
-        }
-
-        // If no byte unit symbol specified, try to parse it as a number (of bytes)
-        if (long.TryParse(size, out long sizeBytes))
-        {
-            return new ByteUnit(sizeBytes);
-        }
-
-        return null;
-    }
-
+    /// <summary>
+    /// Attempts to parse text shapes like <c>"1.5 KiB"</c>, <c>"20MB"</c>, or a plain
+    /// integer (treated as bytes). Returns <c>true</c> and a populated
+    /// <paramref name="byteUnit"/> on success; <c>false</c> otherwise.
+    /// </summary>
     public static bool TryParseSize(string size, [NotNullWhen(true)] out ByteUnit? byteUnit)
     {
-        byteUnit = null;
-
-        foreach (KeyValuePair<ByteUnitSymbol, ByteUnit> byteUnitValue in ByteUnitSymbolTable)
+        foreach ((ByteUnitSymbol symbol, _) in Tables.BySymbol)
         {
-            if (TryParseSize(size, byteUnitValue.Key, out double unitCount))
+            if (TryParseSize(size, symbol, out double unitCount))
             {
-                byteUnit = new ByteUnit(unitCount, byteUnitValue.Key);
+                byteUnit = new ByteUnit(unitCount, symbol);
                 return true;
             }
         }
 
+        byteUnit = null;
         return false;
     }
 
-    public static ByteUnit FromBytes(double bytes) => new ByteUnit(bytes);
-
-    public static ByteUnit FromKiB(double count) => new ByteUnit(count, ByteUnitSymbol.KiB);
-
-    public static ByteUnit FromMiB(double count) => new ByteUnit(count, ByteUnitSymbol.MiB);
-
-    public static ByteUnit FromGiB(double count) => new ByteUnit(count, ByteUnitSymbol.GiB);
-
-    public static ByteUnit FromTiB(double count) => new ByteUnit(count, ByteUnitSymbol.TiB);
-
-    public static ByteUnit FromPiB(double count) => new ByteUnit(count, ByteUnitSymbol.PiB);
-
-    public static ByteUnit FromEiB(double count) => new ByteUnit(count, ByteUnitSymbol.EiB);
-
-    public static ByteUnit FromZiB(double count) => new ByteUnit(count, ByteUnitSymbol.ZiB);
-
-    public static ByteUnit FromYiB(double count) => new ByteUnit(count, ByteUnitSymbol.YiB);
-
-    public static ByteUnit FromKB(double count) => new ByteUnit(count, ByteUnitSymbol.kB);
-
-    public static ByteUnit FromMB(double count) => new ByteUnit(count, ByteUnitSymbol.MB);
-
-    public static ByteUnit FromGB(double count) => new ByteUnit(count, ByteUnitSymbol.GB);
-
-    public static ByteUnit FromTB(double count) => new ByteUnit(count, ByteUnitSymbol.TB);
-
-    public static ByteUnit FromPB(double count) => new ByteUnit(count, ByteUnitSymbol.PB);
-
-    public static ByteUnit FromEB(double count) => new ByteUnit(count, ByteUnitSymbol.EB);
-
-    public static ByteUnit FromZB(double count) => new ByteUnit(count, ByteUnitSymbol.ZB);
-
-    public static ByteUnit FromYB(double count) => new ByteUnit(count, ByteUnitSymbol.YB);
-
-    public static ByteUnit FromBytes(double bytes, ByteBase byteBase) => new ByteUnit(bytes, byteBase);
-
-    public static ByteUnitSymbol[] GetByteUnitSymbols(ByteBase byteBase) => [.. ByteUnitSymbolTable.Where(b => b.Value.Base.HasFlag(byteBase)).Select(b => b.Key)];
-
-    public static ByteUnit GetByteUnit(ByteUnitSymbol symbol) => ByteUnitSymbolTable[symbol];
-
-    public double GetBytes(double count) => Bytes * count;
-
+    /// <summary>
+    /// Formats as the largest applicable unit at the instance's base, e.g.
+    /// <c>"1.5 MiB"</c> for 1,572,864 bytes in binary base. Always renders with
+    /// at most two fractional digits.
+    /// </summary>
     public string ToFriendlyString()
     {
-        ByteUnit previousByteUnit = this;
-
-        foreach (KeyValuePair<ByteUnitSymbol, ByteUnit> byteUnit in ByteUnitSymbolTable.Where(b => Base.HasFlag(b.Value.Base)))
-        {
-            if (Bytes < byteUnit.Value.Bytes)
-            {
-                break;
-            }
-
-            previousByteUnit = byteUnit.Value;
-        }
-
-        string? unit = Enum.GetName(typeof(ByteUnitSymbol), previousByteUnit.Symbol);
-        double bytes = (previousByteUnit.Bytes == 0) ? 0 : Bytes / previousByteUnit.Bytes;
-        return $"{bytes:0.##} {unit}";
+        (ByteUnit picked, ByteUnitSymbol symbol, _) = Tables.LargestApplicableUnit(Bytes, Base);
+        string? unit = Enum.GetName(symbol);
+        double count = picked.Bytes == 0 ? 0 : Bytes / picked.Bytes;
+        return $"{count:0.##} {unit}";
     }
 
-    public override string ToString()
-    {
-        string? unit = Enum.GetName(typeof(ByteUnitSymbol), Symbol);
-        return $"{Count:0.##} {unit}";
-    }
-
-    private static double GetMultiplier(ByteBase byteBase, ByteUnitPrefix byteUnitPrefix)
-    {
-        return byteUnitPrefix == ByteUnitPrefix.Byte
-            ? 1
-            : Math.Pow((double)byteBase, (double)byteUnitPrefix - (double)byteBase);
-    }
-
-    private static double GetMultiplier(ByteUnitPrefix byteUnitPrefix)
-    {
-        ByteUnit byteUnit = ByteUnitPrefixTable[byteUnitPrefix];
-        return GetMultiplier(byteUnit.Base, byteUnitPrefix);
-    }
+    public override string ToString() => ToFriendlyString();
 
     private static bool TryParseSize(string size, ByteUnitSymbol symbol, out double unitCount)
     {
-        Regex regex = ByteUnitSymbolRegices[symbol];
-        Match match = regex.Match(size);
-        if (match.Success)
+        Match match = Tables.Regexes[symbol].Match(size);
+        if (!match.Success)
         {
-            string sizeMatchValue = match.Groups[1].Value;
-            string parsedSize = ParseNumber(sizeMatchValue);
-
-            if (double.TryParse(parsedSize, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double parsedUnitCount))
-            {
-                unitCount = parsedUnitCount;
-                return true;
-            }
-
-            throw new FormatException($"Parsed value {parsedSize} could not be parsed as a number");
+            unitCount = 0;
+            return false;
         }
 
-        unitCount = 0;
-        return false;
+        string parsedSize = NormalizeNumber(match.Groups[1].Value);
+        if (double.TryParse(parsedSize, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed))
+        {
+            unitCount = parsed;
+            return true;
+        }
+
+        throw new FormatException($"Parsed value {parsedSize} could not be parsed as a number");
     }
 
-    private static string ParseNumber(string number)
+    /// <summary>
+    /// Folds locale-mixed numeric forms — "1.234,56" (eu) vs "1,234.56" (us) vs
+    /// "123.45" / "123,45" — into a canonical en-US "decimal-dot" string the
+    /// <see cref="double.TryParse(string, NumberStyles, IFormatProvider, out double)"/>
+    /// call can handle invariantly.
+    /// </summary>
+    private static string NormalizeNumber(string number)
     {
-        int firstCommaIndex = number.LastIndexOf(',');
-        int firstDotIndex = number.IndexOf('.', StringComparison.Ordinal);
-        if (firstCommaIndex >= 0 && firstDotIndex >= 0)
-        {
-            char fractionSeperator = (firstCommaIndex > firstDotIndex) ? ',' : '.';
-            char groupSeperator = fractionSeperator == ',' ? '.' : ',';
+        int lastComma = number.LastIndexOf(',');
+        int firstDot = number.IndexOf('.', StringComparison.Ordinal);
 
-            // 123.568.567,99 -or- 123,568,567.99
-            // 123.45,1234512 -or- 123,45.1234512
-            // 2.214512,12532523 -or- 2,214512.12532523
-            // etc.
-            string[] values = number.Replace(groupSeperator.ToString(), string.Empty, StringComparison.Ordinal).Split([fractionSeperator]);
-            string decimals = string.IsNullOrEmpty(values[0]) ? "0" : values[0];
-            string fraction = string.IsNullOrEmpty(values[1]) ? "0" : string.Join(string.Empty, values.Skip(1));
-            return string.IsNullOrEmpty(fraction) ? $"{decimals}" : $"{decimals}.{fraction}";
+        // Both separators present → the rightmost one is the fraction separator,
+        // the other is a grouping separator we strip.
+        if (lastComma >= 0 && firstDot >= 0)
+        {
+            char fractionSep = lastComma > firstDot ? ',' : '.';
+            char groupSep = fractionSep == ',' ? '.' : ',';
+
+            string[] parts = number.Replace(groupSep.ToString(), string.Empty, StringComparison.Ordinal).Split(fractionSep);
+            string whole = string.IsNullOrEmpty(parts[0]) ? "0" : parts[0];
+            string fraction = string.IsNullOrEmpty(parts[1]) ? "0" : string.Join(string.Empty, parts.Skip(1));
+            return string.IsNullOrEmpty(fraction) ? whole : $"{whole}.{fraction}";
         }
 
-        if (firstCommaIndex >= 0 || firstDotIndex >= 0)
+        // Only one separator present.
+        if (lastComma >= 0 || firstDot >= 0)
         {
-            char seperator = firstCommaIndex >= 0 ? ',' : '.';
-            string regexSeperator = seperator == ',' ? "," : "\\.";
+            char sep = lastComma >= 0 ? ',' : '.';
+            string escapedSep = sep == ',' ? "," : "\\.";
 
-            Regex regex = new("\\s*\\d*\\s*" + regexSeperator + "{0,2}", RegexOptions.Singleline);
+            Regex regex = new("\\s*\\d*\\s*" + escapedSep + "{0,2}", RegexOptions.Singleline);
             if (regex.IsMatch(number))
             {
-                // 123,45 -or- 123.45
-                // 1234,5 -or- 1234.5
-                // ,5 -or .5
-                // 5, -or- 5.
-                string[] values = number.Split([seperator]);
-                string decimals = string.IsNullOrEmpty(values[0]) ? "0" : values[0];
-                string fraction = string.IsNullOrEmpty(values[1]) ? "0" : values[1];
-                return $"{decimals}.{fraction}";
+                // Decimal form: "123,45", "123.45", ",5", ".5", "5,", "5.".
+                string[] parts = number.Split(sep);
+                string whole = string.IsNullOrEmpty(parts[0]) ? "0" : parts[0];
+                string fraction = string.IsNullOrEmpty(parts[1]) ? "0" : parts[1];
+                return $"{whole}.{fraction}";
             }
 
-            // 121,152 -or- 121.152
-            return number.Replace(regexSeperator.ToString(), string.Empty, StringComparison.Ordinal);
+            // Grouping form: "121,152" / "121.152" — strip the separator.
+            return number.Replace(escapedSep, string.Empty, StringComparison.Ordinal);
         }
 
-        // 123456
-        // 1234
-        // 1
+        // Plain integer.
         return number;
     }
 
-    private static ByteUnit CreateByteUnit(double count, ByteBase byteBase, ByteUnitPrefix byteUnitPrefix, ByteUnitSymbol byteUnitSymbol)
-    {
-        ByteUnit byteUnit = new(count, byteBase, byteUnitPrefix, byteUnitSymbol);
+    /// <summary>Holds a unit and its associated metadata in the precomputed lookup arrays.</summary>
+    private readonly record struct UnitMeta(ByteUnit Unit, ByteUnitPrefix Prefix, ByteUnitSymbol Symbol);
 
-        Tuple<ByteUnitPrefix, ByteUnitSymbol> value = new(byteUnitPrefix, byteUnitSymbol);
-        ByteUnits.Add(byteUnit, value);
-        return byteUnit;
+    /// <summary>
+    /// Lookup tables built once at type-init time and frozen for cheap reads. Keeps
+    /// the hot path of <see cref="Symbol"/> / <see cref="Prefix"/> / <see cref="ToFriendlyString"/>
+    /// out of LINQ.
+    /// </summary>
+    private static class Tables
+    {
+        public static readonly FrozenDictionary<ByteUnitSymbol, ByteUnit> BySymbol;
+        public static readonly FrozenDictionary<ByteUnitPrefix, ByteUnit> ByPrefix;
+        public static readonly FrozenDictionary<ByteUnitSymbol, Regex> Regexes;
+
+        // Per-instance-base, ascending-Bytes ordered list. Hot path for ToFriendlyString
+        // / Symbol / Prefix — replaces the original "re-run a Where on every call".
+        private static readonly FrozenDictionary<ByteBase, UnitMeta[]> ByBase;
+
+        static Tables()
+        {
+            (ByteBase Base, ByteUnitPrefix Prefix, ByteUnitSymbol Symbol)[] defs =
+            [
+                (ByteBase.Binary | ByteBase.Decimal, ByteUnitPrefix.Byte, ByteUnitSymbol.B),
+                (ByteBase.Binary, ByteUnitPrefix.Kibi, ByteUnitSymbol.KiB),
+                (ByteBase.Binary, ByteUnitPrefix.Mebi, ByteUnitSymbol.MiB),
+                (ByteBase.Binary, ByteUnitPrefix.Gibi, ByteUnitSymbol.GiB),
+                (ByteBase.Binary, ByteUnitPrefix.Tebi, ByteUnitSymbol.TiB),
+                (ByteBase.Binary, ByteUnitPrefix.Pebi, ByteUnitSymbol.PiB),
+                (ByteBase.Binary, ByteUnitPrefix.Exbi, ByteUnitSymbol.EiB),
+                (ByteBase.Binary, ByteUnitPrefix.Zebi, ByteUnitSymbol.ZiB),
+                (ByteBase.Binary, ByteUnitPrefix.Yobi, ByteUnitSymbol.YiB),
+                (ByteBase.Decimal, ByteUnitPrefix.Kilo, ByteUnitSymbol.kB),
+                (ByteBase.Decimal, ByteUnitPrefix.Mega, ByteUnitSymbol.MB),
+                (ByteBase.Decimal, ByteUnitPrefix.Giga, ByteUnitSymbol.GB),
+                (ByteBase.Decimal, ByteUnitPrefix.Tera, ByteUnitSymbol.TB),
+                (ByteBase.Decimal, ByteUnitPrefix.Pera, ByteUnitSymbol.PB),
+                (ByteBase.Decimal, ByteUnitPrefix.Exa, ByteUnitSymbol.EB),
+                (ByteBase.Decimal, ByteUnitPrefix.Zetta, ByteUnitSymbol.ZB),
+                (ByteBase.Decimal, ByteUnitPrefix.Yotta, ByteUnitSymbol.YB),
+            ];
+
+            Dictionary<ByteUnitSymbol, ByteUnit> bySymbol = new(defs.Length);
+            Dictionary<ByteUnitPrefix, ByteUnit> byPrefix = new(defs.Length);
+            List<UnitMeta> metas = new(defs.Length);
+            foreach ((ByteBase b, ByteUnitPrefix p, ByteUnitSymbol s) in defs)
+            {
+                ByteUnit u = new(MultiplierFor(b, p), b);
+                bySymbol[s] = u;
+                byPrefix[p] = u;
+                metas.Add(new UnitMeta(u, p, s));
+            }
+
+            BySymbol = bySymbol.ToFrozenDictionary();
+            ByPrefix = byPrefix.ToFrozenDictionary();
+
+            // Index by every ByteBase value that can appear as instance.Base:
+            // pure Binary, pure Decimal, and the Binary|Decimal combo carried by B.
+            ByteBase[] queryBases = [ByteBase.Binary, ByteBase.Decimal, ByteBase.Binary | ByteBase.Decimal];
+            ByBase = queryBases
+                .Select(qb => KeyValuePair.Create(
+                    qb,
+                    metas.Where(m => m.Unit.Base.HasFlag(qb)).OrderBy(m => m.Unit.Bytes).ToArray()))
+                .ToFrozenDictionary();
+
+            // Regex per symbol — compiled once. "B" / "Byte" symbols don't get the
+            // "?" trailer (the symbol must be present); every other symbol is
+            // optional so "1.5 KiB" and "1.5KiB" both parse.
+            Dictionary<ByteUnitSymbol, Regex> regexes = new(defs.Length);
+            foreach ((_, _, ByteUnitSymbol s) in defs)
+            {
+                string symbolName = Enum.GetName(s) ?? string.Empty;
+                string optional = s is ByteUnitSymbol.B or ByteUnitSymbol.Byte ? string.Empty : "?";
+                regexes[s] = new Regex(
+                    $@"([\d\.,]+)\s*{symbolName}{optional}",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+            }
+
+            Regexes = regexes.ToFrozenDictionary();
+        }
+
+        public static (ByteUnit Unit, ByteUnitSymbol Symbol, ByteUnitPrefix Prefix) LargestApplicableUnit(double bytes, ByteBase b)
+        {
+            // Fall back to the Decimal table if we ever see an out-of-band ByteBase
+            // (e.g. default(ByteUnit) where Base is 0) — better to render something
+            // sensible than throw on a binding-time read.
+            if (!ByBase.TryGetValue(b, out UnitMeta[]? arr))
+            {
+                arr = ByBase[ByteBase.Decimal];
+            }
+
+            UnitMeta pick = arr[0];
+            foreach (UnitMeta m in arr)
+            {
+                if (bytes < m.Unit.Bytes)
+                {
+                    break;
+                }
+
+                pick = m;
+            }
+
+            return (pick.Unit, pick.Symbol, pick.Prefix);
+        }
+
+        public static (ByteUnitPrefix Prefix, ByteUnitSymbol Symbol) LargestApplicable(double bytes, ByteBase b)
+        {
+            (_, ByteUnitSymbol s, ByteUnitPrefix p) = LargestApplicableUnit(bytes, b);
+            return (p, s);
+        }
+
+        private static double MultiplierFor(ByteBase byteBase, ByteUnitPrefix prefix) =>
+            prefix == ByteUnitPrefix.Byte
+                ? 1
+                : Math.Pow((double)byteBase, (double)prefix - (double)byteBase);
     }
 }

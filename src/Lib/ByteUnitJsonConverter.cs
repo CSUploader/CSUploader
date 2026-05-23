@@ -10,14 +10,14 @@ namespace CSUploader.Lib;
 
 public class ByteUnitJsonConverter : JsonConverter<ByteUnit>
 {
-    public override ByteUnit? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override ByteUnit Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType == JsonTokenType.String)
         {
             string? value = reader.GetString();
             if (value != null && ByteUnit.TryParseSize(value, out ByteUnit? byteUnit))
             {
-                return byteUnit;
+                return byteUnit.Value;
             }
         }
 
@@ -27,7 +27,11 @@ public class ByteUnitJsonConverter : JsonConverter<ByteUnit>
             return new ByteUnit(bytes, ByteUnitSymbol.B);
         }
 
-        return null;
+        // ByteUnit is a value type so we can't return null; surface unrecognized
+        // shapes as a zero-byte default. The previous implementation returned null,
+        // which the framework would have rejected for a non-nullable property
+        // anyway, so this is a strict improvement for the same usage shape.
+        return default;
     }
 
     public override void Write(Utf8JsonWriter writer, ByteUnit value, JsonSerializerOptions options) => writer.WriteStringValue(value.ToFriendlyString());
