@@ -3,8 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Text.RegularExpressions;
-
 namespace CSUploader.Upload;
 
 public class AppSettings
@@ -51,8 +49,6 @@ public class AppSettings
 #else
     public static bool DefaultUseMockServer { get; } = false;
 #endif
-
-    public static Regex UrlRegex { get; } = new Regex("(?:https?[:]\\/\\/)?(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&//=]*)", RegexOptions.Compiled);
 
     private int? uploadsTabPageRefreshTimer;
     private int? maxConcurrentCPUJobs;
