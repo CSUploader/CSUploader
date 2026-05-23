@@ -26,7 +26,8 @@ public partial class SettingsViewModel(
     TrayIconManager? trayIconManager = null,
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
-    LogsViewModel? logsViewModel = null) : ObservableObject
+    LogsViewModel? logsViewModel = null,
+    IAccountVerifier? accountVerifier = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -34,6 +35,10 @@ public partial class SettingsViewModel(
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
     private readonly TrayIconManager? _trayIconManager = trayIconManager;
+    // Optional so existing test fixtures that don't exercise the account-check flow can
+    // construct the VM with minimal dependencies. When null, CheckAccountAsync returns
+    // the legacy "not implemented" message — preserving pre-pipeline behaviour.
+    private readonly IAccountVerifier? _accountVerifier = accountVerifier;
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.
     private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
@@ -720,6 +725,23 @@ public partial class SettingsViewModel(
         }
     }
 
+    /// <summary>
+    /// Routes credential verification through the injected <see cref="IAccountVerifier"/>
+    /// when present, otherwise returns the legacy "not implemented" message. The five
+    /// call sites in this VM all pre-gate on <see cref="FileHosterClient.FindByHost"/>,
+    /// so reaching the null branch in production means the verifier was simply not wired
+    /// (test fixture, unit test) — not that a known hoster is unsupported.
+    /// </summary>
+    private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, CancellationToken cancellationToken = default)
+    {
+        if (_accountVerifier is null)
+        {
+            return Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
+        }
+
+        return _accountVerifier.CheckAsync(hosterName, username, password, cancellationToken);
+    }
+
     private async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
     {
         // Auto-check if implementation exists
@@ -731,7 +753,8 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(
+                AccountCheckResult result = await VerifyCredentialsAsync(
+                    dto.FileHosterName ?? string.Empty,
                     dto.Username ?? string.Empty,
                     dto.Password ?? string.Empty);
 
@@ -807,7 +830,8 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(
+                AccountCheckResult result = await VerifyCredentialsAsync(
+                    account.FileHosterName ?? string.Empty,
                     account.Username ?? string.Empty,
                     account.Password ?? string.Empty,
                     cancellationToken);
@@ -864,7 +888,7 @@ public partial class SettingsViewModel(
                 return;
             }
 
-            AccountCheckResult result = await FileHosterClient.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, cancellationToken);
 
             if (result.IsValid)
             {
@@ -906,7 +930,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await FileHosterClient.CheckAccountAsync(NewAccountUsername, NewAccountPassword, cancellationToken);
+                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, cancellationToken);
                 if (result.IsValid)
                 {
                     NewAccountType = result.AccountType;
@@ -1036,7 +1060,7 @@ public partial class SettingsViewModel(
 
         try
         {
-            AccountCheckResult result = await FileHosterClient.CheckAccountAsync(username, password, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, cancellationToken);
 
             string statusMsg;
             if (result.IsValid)

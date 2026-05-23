@@ -107,6 +107,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.AttemptRunner>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.RapidgatorPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.AlfafilePipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BRuploadPipeline>();
+        services.AddSingleton<Upload.IAccountVerifier, Upload.AccountVerifier>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
