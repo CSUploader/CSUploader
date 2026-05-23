@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Globalization;
 using System.Resources;
@@ -92,6 +93,25 @@ public sealed class Localizer : INotifyPropertyChanged
     public static IReadOnlyList<string> SupportedLanguages { get; } = ["en", "zh-Hans", "ko", "ja", "vi", "fil"];
 
     /// <summary>
+    /// Two-letter language prefix → shipped satellite. Keyed on the leading lowercase
+    /// short-name segment of the culture (e.g. "zh-CN" → "zh", "fil-PH" → "fil") so
+    /// every fallback in the OS parent-chain walk resolves with one dictionary hit
+    /// instead of a chain of <c>StartsWith</c> branches. "tl" is the historic ISO 639-1
+    /// code Windows/CLDR still emit for Philippine locales; "fil" is the modern form —
+    /// both fold into the same satellite.
+    /// </summary>
+    private static readonly FrozenDictionary<string, string> PrefixToSatellite =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "zh", "zh-Hans" },
+            { "ja", "ja" },
+            { "ko", "ko" },
+            { "vi", "vi" },
+            { "fil", "fil" },
+            { "tl", "fil" },
+        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Maps a saved language tag (or the auto-detected OS culture) to the closest
     /// shipped language. Returns "en" as the baseline when nothing matches.
     /// </summary>
@@ -102,45 +122,30 @@ public sealed class Localizer : INotifyPropertyChanged
             return SupportedLanguages.First(l => string.Equals(l, saved, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Auto-detect: walk the OS culture's parent chain, matching by short name.
-        // zh-CN / zh-Hans-CN / zh → "zh-Hans" (we only ship Simplified). ja-JP → "ja".
-        // ko-KR → "ko". vi-VN → "vi". fil-PH / tl-PH → "fil". Anything else → "en".
+        // Auto-detect: walk the OS culture's parent chain, matching by leading short
+        // name. Falls back to "en" when nothing matches.
         CultureInfo? culture = osCulture ?? CultureInfo.CurrentUICulture;
         while (culture is not null && !culture.Equals(CultureInfo.InvariantCulture))
         {
-            string name = culture.Name;
-            if (name.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+            string prefix = LeadingPrefix(culture.Name);
+            if (PrefixToSatellite.TryGetValue(prefix, out string? satellite))
             {
-                return "zh-Hans";
-            }
-
-            if (name.StartsWith("ja", StringComparison.OrdinalIgnoreCase))
-            {
-                return "ja";
-            }
-
-            if (name.StartsWith("ko", StringComparison.OrdinalIgnoreCase))
-            {
-                return "ko";
-            }
-
-            if (name.StartsWith("vi", StringComparison.OrdinalIgnoreCase))
-            {
-                return "vi";
-            }
-
-            // "tl" (Tagalog) is the historic ISO 639-1 code that Windows/CLDR still emit
-            // for Philippine locales; "fil" is the modern preferred form. Fold both into
-            // the "fil" satellite assembly we ship.
-            if (name.StartsWith("fil", StringComparison.OrdinalIgnoreCase)
-                || name.StartsWith("tl", StringComparison.OrdinalIgnoreCase))
-            {
-                return "fil";
+                return satellite;
             }
 
             culture = culture.Parent;
         }
 
         return "en";
+    }
+
+    /// <summary>
+    /// Returns the leading segment before the first dash, e.g. "zh-Hans-CN" → "zh",
+    /// "fil-PH" → "fil", "ja" → "ja". Empty string for empty input.
+    /// </summary>
+    private static string LeadingPrefix(string cultureName)
+    {
+        int dash = cultureName.IndexOf('-', StringComparison.Ordinal);
+        return dash < 0 ? cultureName : cultureName[..dash];
     }
 }
