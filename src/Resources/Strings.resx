@@ -285,6 +285,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
     <value>Bytes Loaded</value>
   </data>
+  <data name="Uploads_Col_BytesRemaining" xml:space="preserve">
+    <value>Bytes Remaining</value>
+  </data>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>Progress</value>
   </data>
@@ -749,10 +752,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection.</value>
   </data>
   <data name="Settings_Conn_UseProxies" xml:space="preserve">
-    <value>Use proxies for uploads</value>
+    <value>Use proxies</value>
   </data>
   <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
-    <value>Master switch for the rotation. When off, uploads connect directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.</value>
+    <value>Master switch for the rotation. When off, all traffic (uploads and account checks) connects directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.</value>
   </data>
   <data name="Settings_Conn_AutoDisable" xml:space="preserve">
     <value>Automatically uncheck failing proxies</value>
@@ -826,6 +829,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
     <value>Export tested-OK proxies to file…</value>
   </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToText" xml:space="preserve">
+    <value>Export selected proxies to text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToFile" xml:space="preserve">
+    <value>Export selected proxies to file…</value>
+  </data>
   <data name="Settings_Conn_Btn_Save" xml:space="preserve">
     <value>Save</value>
   </data>
@@ -874,6 +883,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
     <value>{0} proxy(s) with a successful last test:</value>
   </data>
+  <data name="Settings_Conn_ExportSelected_DialogTitle" xml:space="preserve">
+    <value>Export Selected Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportSelected_Desc_Format" xml:space="preserve">
+    <value>{0} selected proxy(s):</value>
+  </data>
   <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
     <value>Remove proxy</value>
   </data>
@@ -916,8 +931,8 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
     <value>Save failed: {0}</value>
   </data>
-  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
-    <value>Imported {0} proxy(s) — click Save to persist</value>
+  <data name="Settings_Conn_Status_Imported_Format" xml:space="preserve">
+    <value>Imported {0} proxy(s)</value>
   </data>
   <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
     <value>Exported {0} proxy(s) to {1}</value>
@@ -1196,6 +1211,16 @@ Add anyway?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>This hoster requires an account. Click "Add account…" to add one.</value>
   </data>
+  <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
+    <value>This hoster's limits would be exceeded:</value>
+  </data>
+  <data name="Wizard_Hoster_FileTooLarge_Format" xml:space="preserve">
+    <value>{0}: The following files exceed the per-file limit of {1} and won't be uploaded:
+{2}</value>
+  </data>
+  <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
+    <value>{0}: {1} files selected, but the per-package limit is {2}.</value>
+  </data>
   <data name="Wizard_Step3_Title" xml:space="preserve">
     <value>When to Start</value>
   </data>
@@ -1372,6 +1397,42 @@ Add anyway?</value>
   </data>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>Please enter both a username and a password.</value>
+  </data>
+  <data name="EditProxy_AddTitle" xml:space="preserve">
+    <value>Add Proxy</value>
+  </data>
+  <data name="EditProxy_EditTitle" xml:space="preserve">
+    <value>Edit Proxy</value>
+  </data>
+  <data name="EditProxy_EnabledLabel" xml:space="preserve">
+    <value>Proxy enabled</value>
+  </data>
+  <data name="EditProxy_BtnSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="EditProxy_BtnCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="EditProxy_BtnTest" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="EditProxy_Validation_HostRequired" xml:space="preserve">
+    <value>Please enter a host or IP address.</value>
+  </data>
+  <data name="EditProxy_Validation_PortInvalid" xml:space="preserve">
+    <value>Please enter a valid port between 1 and 65535.</value>
+  </data>
+  <data name="EditProxy_Status_Testing" xml:space="preserve">
+    <value>Testing…</value>
+  </data>
+  <data name="EditProxy_Status_OkLatency_Format" xml:space="preserve">
+    <value>OK {0}ms (unexpected response)</value>
+  </data>
+  <data name="EditProxy_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
+    <value>Failed: {0}</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP Transaction Details</value>

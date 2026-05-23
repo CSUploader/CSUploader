@@ -285,6 +285,9 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
     <value>Bytes Na-load</value>
   </data>
+  <data name="Uploads_Col_BytesRemaining" xml:space="preserve">
+    <value>Natitirang Bytes</value>
+  </data>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>Progreso</value>
   </data>
@@ -749,10 +752,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Kung kailangan ng proxy para makapunta sa internet, i-configure mo sila dito. Ang maraming proxies ay iniikot para sa bagong uploads. Ang default na behavior na walang naka-enable na proxies ay direct connection.</value>
   </data>
   <data name="Settings_Conn_UseProxies" xml:space="preserve">
-    <value>Gumamit ng proxies para sa uploads</value>
+    <value>Gumamit ng proxies</value>
   </data>
   <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
-    <value>Master switch para sa rotation. Kapag naka-off, ang uploads ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.</value>
+    <value>Master switch para sa rotation. Kapag naka-off, ang lahat ng trapiko (uploads at account checks) ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.</value>
   </data>
   <data name="Settings_Conn_AutoDisable" xml:space="preserve">
     <value>Awtomatikong i-uncheck ang failing na proxies</value>
@@ -826,6 +829,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
     <value>I-export ang tested-OK na proxies sa file…</value>
   </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToText" xml:space="preserve">
+    <value>I-export ang napiling proxies sa text…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToFile" xml:space="preserve">
+    <value>I-export ang napiling proxies sa file…</value>
+  </data>
   <data name="Settings_Conn_Btn_Save" xml:space="preserve">
     <value>I-save</value>
   </data>
@@ -874,6 +883,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
     <value>{0} proxy(s) na may successful na huling test:</value>
   </data>
+  <data name="Settings_Conn_ExportSelected_DialogTitle" xml:space="preserve">
+    <value>I-export ang Napiling Proxies</value>
+  </data>
+  <data name="Settings_Conn_ExportSelected_Desc_Format" xml:space="preserve">
+    <value>{0} napiling proxy(s):</value>
+  </data>
   <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
     <value>Tanggalin ang proxy</value>
   </data>
@@ -916,8 +931,8 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
     <value>Hindi na-save: {0}</value>
   </data>
-  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
-    <value>Na-import ang {0} proxy(s) — i-click ang Save para i-persist</value>
+  <data name="Settings_Conn_Status_Imported_Format" xml:space="preserve">
+    <value>Na-import ang {0} proxy(s)</value>
   </data>
   <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
     <value>Na-export ang {0} proxy(s) sa {1}</value>
@@ -1196,6 +1211,16 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
   </data>
+  <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
+    <value>Lalampasan ang mga limitasyon ng hoster na ito:</value>
+  </data>
+  <data name="Wizard_Hoster_FileTooLarge_Format" xml:space="preserve">
+    <value>{0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:
+{2}</value>
+  </data>
+  <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
+    <value>{0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.</value>
+  </data>
   <data name="Wizard_Step3_Title" xml:space="preserve">
     <value>Kailan Magsisimula</value>
   </data>
@@ -1372,6 +1397,42 @@ Idagdag pa rin?</value>
   </data>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>Mangyaring ipasok ang username at password.</value>
+  </data>
+  <data name="EditProxy_AddTitle" xml:space="preserve">
+    <value>Magdagdag ng Proxy</value>
+  </data>
+  <data name="EditProxy_EditTitle" xml:space="preserve">
+    <value>I-edit ang Proxy</value>
+  </data>
+  <data name="EditProxy_EnabledLabel" xml:space="preserve">
+    <value>Pinagana ang proxy</value>
+  </data>
+  <data name="EditProxy_BtnSave" xml:space="preserve">
+    <value>I-save</value>
+  </data>
+  <data name="EditProxy_BtnCancel" xml:space="preserve">
+    <value>Kanselahin</value>
+  </data>
+  <data name="EditProxy_BtnTest" xml:space="preserve">
+    <value>Subukan</value>
+  </data>
+  <data name="EditProxy_Validation_HostRequired" xml:space="preserve">
+    <value>Mangyaring ipasok ang host o IP address.</value>
+  </data>
+  <data name="EditProxy_Validation_PortInvalid" xml:space="preserve">
+    <value>Mangyaring ipasok ang wastong port sa pagitan ng 1 at 65535.</value>
+  </data>
+  <data name="EditProxy_Status_Testing" xml:space="preserve">
+    <value>Sinusubukan…</value>
+  </data>
+  <data name="EditProxy_Status_OkLatency_Format" xml:space="preserve">
+    <value>OK {0}ms (hindi inaasahang tugon)</value>
+  </data>
+  <data name="EditProxy_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
+    <value>Nabigo: {0}</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP Transaction Details</value>

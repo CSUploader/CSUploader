@@ -285,6 +285,9 @@
   <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
     <value>처리된 바이트</value>
   </data>
+  <data name="Uploads_Col_BytesRemaining" xml:space="preserve">
+    <value>남은 바이트</value>
+  </data>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>진행률</value>
   </data>
@@ -749,10 +752,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>인터넷 접속에 프록시가 필요한 경우 여기서 구성하세요. 여러 프록시는 새 업로드에 대해 순환 사용됩니다. 활성화된 프록시가 없으면 기본 동작은 직접 연결입니다.</value>
   </data>
   <data name="Settings_Conn_UseProxies" xml:space="preserve">
-    <value>업로드에 프록시 사용</value>
+    <value>프록시 사용</value>
   </data>
   <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
-    <value>순환 사용의 마스터 스위치입니다. 꺼져 있으면 표에 프록시가 있어도 업로드는 직접 연결됩니다 — 사용을 확정하지 않고 프록시를 추가하고 테스트할 때 유용합니다.</value>
+    <value>순환 사용의 마스터 스위치입니다. 꺼져 있으면 표에 프록시가 있어도 모든 트래픽(업로드 및 계정 확인)이 직접 연결됩니다 — 사용을 확정하지 않고 프록시를 추가하고 테스트할 때 유용합니다.</value>
   </data>
   <data name="Settings_Conn_AutoDisable" xml:space="preserve">
     <value>실패한 프록시 자동으로 선택 해제</value>
@@ -826,6 +829,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
     <value>테스트 성공한 프록시를 파일로 내보내기…</value>
   </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToText" xml:space="preserve">
+    <value>선택한 프록시를 텍스트로 내보내기…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToFile" xml:space="preserve">
+    <value>선택한 프록시를 파일로 내보내기…</value>
+  </data>
   <data name="Settings_Conn_Btn_Save" xml:space="preserve">
     <value>저장</value>
   </data>
@@ -874,6 +883,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
     <value>마지막 테스트가 성공한 프록시 {0}개:</value>
   </data>
+  <data name="Settings_Conn_ExportSelected_DialogTitle" xml:space="preserve">
+    <value>선택한 프록시 내보내기</value>
+  </data>
+  <data name="Settings_Conn_ExportSelected_Desc_Format" xml:space="preserve">
+    <value>선택한 프록시 {0}개:</value>
+  </data>
   <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
     <value>프록시 제거</value>
   </data>
@@ -916,8 +931,8 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
     <value>저장 실패: {0}</value>
   </data>
-  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
-    <value>프록시 {0}개를 가져왔습니다 — 저장하려면 저장을 클릭하세요</value>
+  <data name="Settings_Conn_Status_Imported_Format" xml:space="preserve">
+    <value>프록시 {0}개를 가져왔습니다</value>
   </data>
   <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
     <value>프록시 {0}개를 {1}(으)로 내보냈습니다</value>
@@ -1196,6 +1211,16 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.</value>
   </data>
+  <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
+    <value>이 호스터의 제한이 초과됩니다:</value>
+  </data>
+  <data name="Wizard_Hoster_FileTooLarge_Format" xml:space="preserve">
+    <value>{0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:
+{2}</value>
+  </data>
+  <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
+    <value>{0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.</value>
+  </data>
   <data name="Wizard_Step3_Title" xml:space="preserve">
     <value>시작 시점</value>
   </data>
@@ -1372,6 +1397,42 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>사용자 이름과 비밀번호를 모두 입력해 주십시오.</value>
+  </data>
+  <data name="EditProxy_AddTitle" xml:space="preserve">
+    <value>프록시 추가</value>
+  </data>
+  <data name="EditProxy_EditTitle" xml:space="preserve">
+    <value>프록시 편집</value>
+  </data>
+  <data name="EditProxy_EnabledLabel" xml:space="preserve">
+    <value>프록시 사용</value>
+  </data>
+  <data name="EditProxy_BtnSave" xml:space="preserve">
+    <value>저장</value>
+  </data>
+  <data name="EditProxy_BtnCancel" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="EditProxy_BtnTest" xml:space="preserve">
+    <value>테스트</value>
+  </data>
+  <data name="EditProxy_Validation_HostRequired" xml:space="preserve">
+    <value>호스트 또는 IP 주소를 입력하세요.</value>
+  </data>
+  <data name="EditProxy_Validation_PortInvalid" xml:space="preserve">
+    <value>1에서 65535 사이의 유효한 포트를 입력하세요.</value>
+  </data>
+  <data name="EditProxy_Status_Testing" xml:space="preserve">
+    <value>테스트 중…</value>
+  </data>
+  <data name="EditProxy_Status_OkLatency_Format" xml:space="preserve">
+    <value>정상 {0}ms (예기치 않은 응답)</value>
+  </data>
+  <data name="EditProxy_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>정상 {0}ms ({1})</value>
+  </data>
+  <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
+    <value>실패: {0}</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP 트랜잭션 세부 정보</value>

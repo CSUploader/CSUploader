@@ -285,6 +285,9 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
     <value>Byte đã tải</value>
   </data>
+  <data name="Uploads_Col_BytesRemaining" xml:space="preserve">
+    <value>Byte còn lại</value>
+  </data>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>Tiến độ</value>
   </data>
@@ -749,10 +752,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Nếu cần dùng proxy để truy cập internet, hãy cấu hình tại đây. Nhiều proxy sẽ được luân phiên cho các lượt tải lên mới. Hành vi mặc định khi không có proxy nào được bật là kết nối trực tiếp.</value>
   </data>
   <data name="Settings_Conn_UseProxies" xml:space="preserve">
-    <value>Dùng proxy cho các lượt tải lên</value>
+    <value>Dùng proxy</value>
   </data>
   <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
-    <value>Công tắc tổng cho việc luân phiên. Khi tắt, các lượt tải lên sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.</value>
+    <value>Công tắc tổng cho việc luân phiên. Khi tắt, toàn bộ lưu lượng (các lượt tải lên và kiểm tra tài khoản) sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.</value>
   </data>
   <data name="Settings_Conn_AutoDisable" xml:space="preserve">
     <value>Tự động bỏ chọn các proxy bị lỗi</value>
@@ -826,6 +829,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
     <value>Xuất các proxy đã kiểm tra OK ra tệp…</value>
   </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToText" xml:space="preserve">
+    <value>Xuất các proxy đã chọn ra văn bản…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToFile" xml:space="preserve">
+    <value>Xuất các proxy đã chọn ra tệp…</value>
+  </data>
   <data name="Settings_Conn_Btn_Save" xml:space="preserve">
     <value>Lưu</value>
   </data>
@@ -874,6 +883,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
     <value>{0} proxy có lần kiểm tra cuối thành công:</value>
   </data>
+  <data name="Settings_Conn_ExportSelected_DialogTitle" xml:space="preserve">
+    <value>Xuất các proxy đã chọn</value>
+  </data>
+  <data name="Settings_Conn_ExportSelected_Desc_Format" xml:space="preserve">
+    <value>{0} proxy đã chọn:</value>
+  </data>
   <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
     <value>Xóa proxy</value>
   </data>
@@ -916,8 +931,8 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
     <value>Lưu thất bại: {0}</value>
   </data>
-  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
-    <value>Đã nhập {0} proxy — nhấn Lưu để lưu lại</value>
+  <data name="Settings_Conn_Status_Imported_Format" xml:space="preserve">
+    <value>Đã nhập {0} proxy</value>
   </data>
   <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
     <value>Đã xuất {0} proxy ra {1}</value>
@@ -1196,6 +1211,16 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
   </data>
+  <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
+    <value>Giới hạn của nhà lưu trữ này sẽ bị vượt quá:</value>
+  </data>
+  <data name="Wizard_Hoster_FileTooLarge_Format" xml:space="preserve">
+    <value>{0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:
+{2}</value>
+  </data>
+  <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
+    <value>{0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.</value>
+  </data>
   <data name="Wizard_Step3_Title" xml:space="preserve">
     <value>Khi nào bắt đầu</value>
   </data>
@@ -1372,6 +1397,42 @@ Vẫn thêm?</value>
   </data>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>Vui lòng nhập cả tên đăng nhập và mật khẩu.</value>
+  </data>
+  <data name="EditProxy_AddTitle" xml:space="preserve">
+    <value>Thêm proxy</value>
+  </data>
+  <data name="EditProxy_EditTitle" xml:space="preserve">
+    <value>Chỉnh sửa proxy</value>
+  </data>
+  <data name="EditProxy_EnabledLabel" xml:space="preserve">
+    <value>Bật proxy</value>
+  </data>
+  <data name="EditProxy_BtnSave" xml:space="preserve">
+    <value>Lưu</value>
+  </data>
+  <data name="EditProxy_BtnCancel" xml:space="preserve">
+    <value>Hủy</value>
+  </data>
+  <data name="EditProxy_BtnTest" xml:space="preserve">
+    <value>Kiểm tra</value>
+  </data>
+  <data name="EditProxy_Validation_HostRequired" xml:space="preserve">
+    <value>Vui lòng nhập máy chủ hoặc địa chỉ IP.</value>
+  </data>
+  <data name="EditProxy_Validation_PortInvalid" xml:space="preserve">
+    <value>Vui lòng nhập một cổng hợp lệ từ 1 đến 65535.</value>
+  </data>
+  <data name="EditProxy_Status_Testing" xml:space="preserve">
+    <value>Đang kiểm tra…</value>
+  </data>
+  <data name="EditProxy_Status_OkLatency_Format" xml:space="preserve">
+    <value>OK {0}ms (phản hồi bất thường)</value>
+  </data>
+  <data name="EditProxy_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
+    <value>Thất bại: {0}</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>Chi tiết giao dịch HTTP</value>

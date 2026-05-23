@@ -285,6 +285,9 @@
   <data name="Uploads_Col_BytesLoaded" xml:space="preserve">
     <value>読み込み済みバイト数</value>
   </data>
+  <data name="Uploads_Col_BytesRemaining" xml:space="preserve">
+    <value>残りバイト数</value>
+  </data>
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>進捗</value>
   </data>
@@ -749,10 +752,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>インターネットへのアクセスにプロキシが必要な場合は、ここで設定します。複数のプロキシは新しいアップロードごとにローテーションされます。有効なプロキシがない場合の既定動作は直接接続です。</value>
   </data>
   <data name="Settings_Conn_UseProxies" xml:space="preserve">
-    <value>アップロードでプロキシを使用</value>
+    <value>プロキシを使用</value>
   </data>
   <data name="Settings_Conn_UseProxiesTip" xml:space="preserve">
-    <value>ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあっても直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。</value>
+    <value>ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあってもすべてのトラフィック（アップロードおよびアカウントチェック）が直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。</value>
   </data>
   <data name="Settings_Conn_AutoDisable" xml:space="preserve">
     <value>失敗したプロキシのチェックを自動的に外す</value>
@@ -826,6 +829,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Btn_Export_OkToFile" xml:space="preserve">
     <value>テスト成功のプロキシをファイルにエクスポート…</value>
   </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToText" xml:space="preserve">
+    <value>選択したプロキシをテキストにエクスポート…</value>
+  </data>
+  <data name="Settings_Conn_Btn_Export_SelectedToFile" xml:space="preserve">
+    <value>選択したプロキシをファイルにエクスポート…</value>
+  </data>
   <data name="Settings_Conn_Btn_Save" xml:space="preserve">
     <value>保存</value>
   </data>
@@ -874,6 +883,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_ExportOk_Desc_Format" xml:space="preserve">
     <value>直近のテストに成功したプロキシ {0} 個:</value>
   </data>
+  <data name="Settings_Conn_ExportSelected_DialogTitle" xml:space="preserve">
+    <value>選択したプロキシをエクスポート</value>
+  </data>
+  <data name="Settings_Conn_ExportSelected_Desc_Format" xml:space="preserve">
+    <value>選択したプロキシ {0} 個:</value>
+  </data>
   <data name="Settings_Conn_RemoveProxy_Title" xml:space="preserve">
     <value>プロキシを削除</value>
   </data>
@@ -916,8 +931,8 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_Status_SaveFailed_Format" xml:space="preserve">
     <value>保存に失敗しました: {0}</value>
   </data>
-  <data name="Settings_Conn_Status_ImportedNeedsSave_Format" xml:space="preserve">
-    <value>プロキシを {0} 個インポートしました — 保存をクリックして反映してください</value>
+  <data name="Settings_Conn_Status_Imported_Format" xml:space="preserve">
+    <value>プロキシを {0} 個インポートしました</value>
   </data>
   <data name="Settings_Conn_Status_ExportedToFile_Format" xml:space="preserve">
     <value>プロキシ {0} 個を {1} にエクスポートしました</value>
@@ -1196,6 +1211,16 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。</value>
   </data>
+  <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
+    <value>このホスターの制限を超過します:</value>
+  </data>
+  <data name="Wizard_Hoster_FileTooLarge_Format" xml:space="preserve">
+    <value>{0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:
+{2}</value>
+  </data>
+  <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
+    <value>{0}: {1} 個のファイルが選択されていますが、パッケージあたりの上限は {2} 個です。</value>
+  </data>
   <data name="Wizard_Step3_Title" xml:space="preserve">
     <value>開始タイミング</value>
   </data>
@@ -1372,6 +1397,42 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>ユーザー名とパスワードの両方を入力してください。</value>
+  </data>
+  <data name="EditProxy_AddTitle" xml:space="preserve">
+    <value>プロキシを追加</value>
+  </data>
+  <data name="EditProxy_EditTitle" xml:space="preserve">
+    <value>プロキシを編集</value>
+  </data>
+  <data name="EditProxy_EnabledLabel" xml:space="preserve">
+    <value>プロキシを有効にする</value>
+  </data>
+  <data name="EditProxy_BtnSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="EditProxy_BtnCancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="EditProxy_BtnTest" xml:space="preserve">
+    <value>テスト</value>
+  </data>
+  <data name="EditProxy_Validation_HostRequired" xml:space="preserve">
+    <value>ホストまたは IP アドレスを入力してください。</value>
+  </data>
+  <data name="EditProxy_Validation_PortInvalid" xml:space="preserve">
+    <value>1 から 65535 までの有効なポートを入力してください。</value>
+  </data>
+  <data name="EditProxy_Status_Testing" xml:space="preserve">
+    <value>テスト中…</value>
+  </data>
+  <data name="EditProxy_Status_OkLatency_Format" xml:space="preserve">
+    <value>OK {0}ms (予期しない応答)</value>
+  </data>
+  <data name="EditProxy_Status_OkLatencyIp_Format" xml:space="preserve">
+    <value>OK {0}ms ({1})</value>
+  </data>
+  <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
+    <value>失敗: {0}</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP トランザクションの詳細</value>
