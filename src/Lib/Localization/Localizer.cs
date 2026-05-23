@@ -26,7 +26,6 @@ public sealed class Localizer : INotifyPropertyChanged
     public static Localizer Instance { get; } = new();
 
     private readonly ResourceManager _resourceManager;
-    private CultureInfo _culture = CultureInfo.CurrentUICulture;
 
     private Localizer()
     {
@@ -42,21 +41,21 @@ public sealed class Localizer : INotifyPropertyChanged
     /// </summary>
     public CultureInfo Culture
     {
-        get => _culture;
+        get;
         set
         {
-            if (Equals(_culture, value))
+            if (Equals(field, value))
             {
                 return;
             }
 
-            _culture = value;
+            field = value;
             // PropertyChanged with empty / "Item[]" tells every binding "anything could
             // have changed" — WPF re-evaluates indexer-based bindings on this signal.
             PropertyChanged?.Invoke(this, AllItemsChanged);
             PropertyChanged?.Invoke(this, AllPropertiesChanged);
         }
-    }
+    } = CultureInfo.CurrentUICulture;
 
     /// <summary>
     /// Looks up a string by its ResX key. Returns the English neutral value when the
@@ -69,7 +68,7 @@ public sealed class Localizer : INotifyPropertyChanged
         {
             try
             {
-                return _resourceManager.GetString(key, _culture) ?? key;
+                return _resourceManager.GetString(key, Culture) ?? key;
             }
             catch (MissingManifestResourceException)
             {

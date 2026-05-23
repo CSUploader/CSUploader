@@ -29,7 +29,6 @@ public partial class UploadedViewModel : ObservableObject
 
     private readonly UploadPackageRepository _uploadPackageRepository;
     private readonly UploadPackageFileRepository _uploadPackageFileRepository;
-    private readonly IDialogService _dialogService;
     private readonly IAppLogger _logger;
 
     /// <summary>
@@ -42,7 +41,7 @@ public partial class UploadedViewModel : ObservableObject
     /// Exposed to the view's code-behind so the "Reset columns" entry can prompt via
     /// the standard opt-out confirmation flow.
     /// </summary>
-    internal IDialogService DialogServiceForView => _dialogService;
+    internal IDialogService DialogServiceForView { get; }
 
     public UploadedViewModel(
         UploadPackageRepository uploadPackageRepository,
@@ -54,7 +53,7 @@ public partial class UploadedViewModel : ObservableObject
     {
         _uploadPackageRepository = uploadPackageRepository;
         _uploadPackageFileRepository = uploadPackageFileRepository;
-        _dialogService = dialogService;
+        DialogServiceForView = dialogService;
         _logger = logger;
         SettingRepo = settingRepo;
         packageManager.PackageCompleted += OnPackageCompleted;
@@ -198,7 +197,7 @@ public partial class UploadedViewModel : ObservableObject
         string msg = rows.Length == 1
             ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Single_Format"], rows[0].FileName)
             : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Many_Format"], rows.Length);
-        if (!_dialogService.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadedEntry, msg, Localizer.Instance["Uploaded_Remove_Title"]))
+        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadedEntry, msg, Localizer.Instance["Uploaded_Remove_Title"]))
         {
             return;
         }

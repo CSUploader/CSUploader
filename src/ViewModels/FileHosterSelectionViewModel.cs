@@ -11,8 +11,6 @@ namespace CSUploader.ViewModels;
 
 public partial class FileHosterSelectionViewModel : ObservableObject
 {
-    private FileHosterLoginDto[] _accounts;
-
     [ObservableProperty]
     private bool use;
 
@@ -22,7 +20,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     public FileHosterSelectionViewModel(string fileHosterName, FileHosterLoginDto[] accounts)
     {
         FileHosterName = fileHosterName;
-        _accounts = accounts;
+        Accounts = accounts;
 
         if (accounts.Length > 0)
         {
@@ -32,9 +30,9 @@ public partial class FileHosterSelectionViewModel : ObservableObject
 
     public string FileHosterName { get; }
 
-    public FileHosterLoginDto[] Accounts => _accounts;
+    public FileHosterLoginDto[] Accounts { get; private set; }
 
-    public bool HasAccounts => _accounts.Length > 0;
+    public bool HasAccounts => Accounts.Length > 0;
 
     public string AccountDisplayText => HasAccounts
         ? (SelectedAccount?.Username ?? Localizer.Instance["Wizard_Step2_AccountSelect"])
@@ -48,7 +46,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     /// </summary>
     public void SetAccounts(FileHosterLoginDto[] accounts)
     {
-        _accounts = accounts;
+        Accounts = accounts;
         OnPropertyChanged(nameof(Accounts));
         OnPropertyChanged(nameof(HasAccounts));
 
