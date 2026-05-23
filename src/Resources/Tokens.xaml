@@ -160,6 +160,56 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+        <!-- Text-selection: use the classic translucent overlay (Opacity < 1) so the
+             SelectionBrush tints the selection rectangle but the original light
+             foreground text shows through. The newer SelectionTextBrush path
+             (Opacity=1) doesn't repaint the text reliably on .NET 10 / Win11,
+             leaving selected text invisible (black on dark blue). The same setters
+             are mirrored on DataGridEditingTextBoxStyle below for DataGrid editors. -->
+        <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBrush}" />
+        <Setter Property="SelectionOpacity" Value="0.4" />
+    </Style>
+
+    <!-- DataGridTextColumn editing element. DataGridTextColumn creates its TextBox
+         editor with the runtime Aero2/Win11 default style, which forces a light
+         background + black foreground and ignores our implicit TextBox style. Set
+         this as the explicit EditingElementStyle on every editable DataGridTextColumn
+         so cells stay readable in dark mode.
+         The TextBox template is replaced (not just restyled) because the default
+         template ignores SelectionBrush / SelectionTextBrush set via Style setters —
+         it draws a hard-coded selection layer on top. With a custom template we
+         control the visual tree and the selection brushes resolve normally. -->
+    <Style x:Key="DataGridEditingTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource SelectionBrush}" />
+        <!-- Opacity < 1 makes WPF use the classic selection painter: a translucent
+             SelectionBrush rectangle overlaid on top of the original text. With the
+             cell foreground bound to TextPrimaryBrush (light in dark mode), the text
+             remains readable through the tint. The newer SelectionTextBrush path
+             (Opacity=1) doesn't repaint the text reliably inside DataGrid editing
+             elements on .NET 10 / Win11, leaving the selected text invisible. -->
+        <Setter Property="SelectionOpacity" Value="0.4" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- DatePicker — default WPF template hard-codes the inner DatePickerTextBox foreground

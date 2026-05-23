@@ -133,6 +133,7 @@
     <!-- Colors - Misc -->
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32" />
     <SolidColorBrush x:Key="ErrorBrush" Color="#C62828" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#B45309" />
     <SolidColorBrush x:Key="OverviewCloseBrush" Color="#808080" />
     <SolidColorBrush x:Key="OverviewArrowBrush" Color="#4CAF50" />
     <SolidColorBrush x:Key="InputFieldBorderBrush" Color="#C0C8D0" />
