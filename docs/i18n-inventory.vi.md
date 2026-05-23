@@ -134,6 +134,7 @@ Uploads_Col_Status                = Trạng thái
 Uploads_Col_Speed                 = Tốc độ
 Uploads_Col_ETA                   = ETA
 Uploads_Col_BytesLoaded           = Byte đã tải
+Uploads_Col_BytesRemaining        = Byte còn lại
 Uploads_Col_Progress              = Tiến độ
 Uploads_Col_SaveTo                = Lưu vào
 Uploads_Col_Added                 = Đã thêm
@@ -357,8 +358,8 @@ Settings_Upload_Autostart_Never                   = Không bao giờ
 ```
 Settings_Conn_Title                = Trình quản lý kết nối
 Settings_Conn_Desc                 = Nếu cần dùng proxy để truy cập internet, hãy cấu hình tại đây. Nhiều proxy sẽ được luân phiên cho các lượt tải lên mới. Hành vi mặc định khi không có proxy nào được bật là kết nối trực tiếp.
-Settings_Conn_UseProxies           = Dùng proxy cho các lượt tải lên
-Settings_Conn_UseProxiesTip        = Công tắc tổng cho việc luân phiên. Khi tắt, các lượt tải lên sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.
+Settings_Conn_UseProxies           = Dùng proxy
+Settings_Conn_UseProxiesTip        = Công tắc tổng cho việc luân phiên. Khi tắt, toàn bộ lưu lượng (các lượt tải lên và kiểm tra tài khoản) sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.
 Settings_Conn_AutoDisable          = Tự động bỏ chọn các proxy bị lỗi
 Settings_Conn_AutoDisableTip       = Khi bật, một proxy thất bại trong kiểm tra thủ công hoặc khi tải lên sẽ bị bỏ chọn để vòng luân phiên bỏ qua nó. Biểu tượng trạng thái sẽ luôn cập nhật dù bật hay tắt.
 
@@ -387,6 +388,8 @@ Settings_Conn_Btn_Export_AllToText = Xuất tất cả proxy ra văn bản…
 Settings_Conn_Btn_Export_AllToFile = Xuất tất cả proxy ra tệp…
 Settings_Conn_Btn_Export_OkToText  = Xuất các proxy đã kiểm tra OK ra văn bản…
 Settings_Conn_Btn_Export_OkToFile  = Xuất các proxy đã kiểm tra OK ra tệp…
+Settings_Conn_Btn_Export_SelectedToText = Xuất các proxy đã chọn ra văn bản…
+Settings_Conn_Btn_Export_SelectedToFile = Xuất các proxy đã chọn ra tệp…
 Settings_Conn_Btn_Save             = Lưu
 Settings_Conn_Btn_Add              = Thêm
 Settings_Conn_Btn_Remove           = Xóa
@@ -405,6 +408,8 @@ Settings_Conn_ExportAll_DialogTitle         = Xuất tất cả proxy
 Settings_Conn_ExportOk_DialogTitle          = Xuất các proxy đã kiểm tra OK
 Settings_Conn_ExportAll_Desc_Format         = {0} proxy:                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = {0} proxy có lần kiểm tra cuối thành công:      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = Xuất các proxy đã chọn
+Settings_Conn_ExportSelected_Desc_Format    = {0} proxy đã chọn:                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = Xóa proxy
@@ -423,7 +428,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = OK {0}ms (phản hồi không nh�
 Settings_Conn_Status_Failed_Format          = Thất bại: {0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = Đã lưu
 Settings_Conn_Status_SaveFailed_Format      = Lưu thất bại: {0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = Đã nhập {0} proxy — nhấn Lưu để lưu lại  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = Đã nhập {0} proxy                              # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = Đã xuất {0} proxy ra {1}                   # {0} = count, {1} = file name
 ```
 
@@ -557,6 +562,9 @@ Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…
 Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.
+Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này sẽ bị vượt quá:
+Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.
 
 Wizard_Step3_Title                 = Khi nào bắt đầu
 Wizard_Step3_Desc                  = Chọn khi nào lượt tải lên sẽ bắt đầu.
@@ -658,6 +666,19 @@ EditAccount_AccountEnabled         = Tài khoản đã bật
 EditAccount_BtnSave                = Lưu
 EditAccount_BtnCancel              = Hủy
 EditAccount_Validation_RequireUsernameAndPassword = Vui lòng nhập cả tên đăng nhập và mật khẩu.
+
+EditProxy_AddTitle                 = Thêm proxy
+EditProxy_EditTitle                = Chỉnh sửa proxy
+EditProxy_EnabledLabel             = Bật proxy
+EditProxy_BtnSave                  = Lưu
+EditProxy_BtnCancel                = Hủy
+EditProxy_BtnTest                  = Kiểm tra
+EditProxy_Validation_HostRequired  = Vui lòng nhập máy chủ hoặc địa chỉ IP.
+EditProxy_Validation_PortInvalid   = Vui lòng nhập một cổng hợp lệ từ 1 đến 65535.
+EditProxy_Status_Testing           = Đang kiểm tra…
+EditProxy_Status_OkLatency_Format  = OK {0}ms (phản hồi bất thường)
+EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
+EditProxy_Status_Failed_Format     = Thất bại: {0}
 ```
 
 ### HttpDetails window

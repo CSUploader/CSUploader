@@ -126,6 +126,7 @@ Uploads_Col_Status                = 상태
 Uploads_Col_Speed                 = 속도
 Uploads_Col_ETA                   = 남은 시간
 Uploads_Col_BytesLoaded           = 처리된 바이트
+Uploads_Col_BytesRemaining        = 남은 바이트
 Uploads_Col_Progress              = 진행률
 Uploads_Col_SaveTo                = 저장 위치
 Uploads_Col_Added                 = 추가됨
@@ -349,8 +350,8 @@ Settings_Upload_Autostart_Never                   = 안 함
 ```
 Settings_Conn_Title                = 연결 관리자
 Settings_Conn_Desc                 = 인터넷 접속에 프록시가 필요한 경우 여기서 구성하세요. 여러 프록시는 새 업로드에 대해 순환 사용됩니다. 활성화된 프록시가 없으면 기본 동작은 직접 연결입니다.
-Settings_Conn_UseProxies           = 업로드에 프록시 사용
-Settings_Conn_UseProxiesTip        = 순환 사용의 마스터 스위치입니다. 꺼져 있으면 표에 프록시가 있어도 업로드는 직접 연결됩니다 — 사용을 확정하지 않고 프록시를 추가하고 테스트할 때 유용합니다.
+Settings_Conn_UseProxies           = 프록시 사용
+Settings_Conn_UseProxiesTip        = 순환 사용의 마스터 스위치입니다. 꺼져 있으면 표에 프록시가 있어도 모든 트래픽(업로드 및 계정 확인)이 직접 연결됩니다 — 사용을 확정하지 않고 프록시를 추가하고 테스트할 때 유용합니다.
 Settings_Conn_AutoDisable          = 실패한 프록시 자동으로 선택 해제
 Settings_Conn_AutoDisableTip       = 켜져 있으면 수동 테스트 또는 업로드에 실패한 프록시는 선택 해제되어 순환에서 제외됩니다. 어떤 경우에도 상태 아이콘은 갱신됩니다.
 
@@ -379,6 +380,8 @@ Settings_Conn_Btn_Export_AllToText = 모든 프록시를 텍스트로 내보내�
 Settings_Conn_Btn_Export_AllToFile = 모든 프록시를 파일로 내보내기…
 Settings_Conn_Btn_Export_OkToText  = 테스트 성공한 프록시를 텍스트로 내보내기…
 Settings_Conn_Btn_Export_OkToFile  = 테스트 성공한 프록시를 파일로 내보내기…
+Settings_Conn_Btn_Export_SelectedToText = 선택한 프록시를 텍스트로 내보내기…
+Settings_Conn_Btn_Export_SelectedToFile = 선택한 프록시를 파일로 내보내기…
 Settings_Conn_Btn_Save             = 저장
 Settings_Conn_Btn_Add              = 추가
 Settings_Conn_Btn_Remove           = 제거
@@ -397,6 +400,8 @@ Settings_Conn_ExportAll_DialogTitle         = 모든 프록시 내보내기
 Settings_Conn_ExportOk_DialogTitle          = 테스트 성공한 프록시 내보내기
 Settings_Conn_ExportAll_Desc_Format         = 프록시 {0}개:                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = 마지막 테스트가 성공한 프록시 {0}개:      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = 선택한 프록시 내보내기
+Settings_Conn_ExportSelected_Desc_Format    = 선택한 프록시 {0}개:                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = 프록시 제거
@@ -415,7 +420,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = 정상 {0}ms (예상치 못한 �
 Settings_Conn_Status_Failed_Format          = 실패: {0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = 저장됨
 Settings_Conn_Status_SaveFailed_Format      = 저장 실패: {0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = 프록시 {0}개를 가져왔습니다 — 저장하려면 저장을 클릭하세요  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = 프록시 {0}개를 가져왔습니다                    # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = 프록시 {0}개를 {1}(으)로 내보냈습니다                   # {0} = count, {1} = file name
 ```
 
@@ -549,6 +554,9 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
+Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.
 
 Wizard_Step3_Title                 = 시작 시점
 Wizard_Step3_Desc                  = 업로드를 시작할 시점을 선택하세요.
@@ -650,6 +658,19 @@ EditAccount_AccountEnabled         = 계정 사용
 EditAccount_BtnSave                = 저장
 EditAccount_BtnCancel              = 취소
 EditAccount_Validation_RequireUsernameAndPassword = 사용자 이름과 비밀번호를 모두 입력해 주십시오.
+
+EditProxy_AddTitle                 = 프록시 추가
+EditProxy_EditTitle                = 프록시 편집
+EditProxy_EnabledLabel             = 프록시 사용
+EditProxy_BtnSave                  = 저장
+EditProxy_BtnCancel                = 취소
+EditProxy_BtnTest                  = 테스트
+EditProxy_Validation_HostRequired  = 호스트 또는 IP 주소를 입력하세요.
+EditProxy_Validation_PortInvalid   = 1에서 65535 사이의 유효한 포트를 입력하세요.
+EditProxy_Status_Testing           = 테스트 중…
+EditProxy_Status_OkLatency_Format  = 정상 {0}ms (예기치 않은 응답)
+EditProxy_Status_OkLatencyIp_Format = 정상 {0}ms ({1})
+EditProxy_Status_Failed_Format     = 실패: {0}
 ```
 
 ### HttpDetails window

@@ -125,6 +125,7 @@ Uploads_Col_Status                = ステータス
 Uploads_Col_Speed                 = 速度
 Uploads_Col_ETA                   = 残り時間
 Uploads_Col_BytesLoaded           = 読み込み済みバイト数
+Uploads_Col_BytesRemaining        = 残りバイト数
 Uploads_Col_Progress              = 進捗
 Uploads_Col_SaveTo                = 保存先
 Uploads_Col_Added                 = 追加日時
@@ -348,8 +349,8 @@ Settings_Upload_Autostart_Never                   = しない
 ```
 Settings_Conn_Title                = 接続マネージャー
 Settings_Conn_Desc                 = インターネットへのアクセスにプロキシが必要な場合は、ここで設定します。複数のプロキシは新しいアップロードごとにローテーションされます。有効なプロキシがない場合の既定動作は直接接続です。
-Settings_Conn_UseProxies           = アップロードでプロキシを使用
-Settings_Conn_UseProxiesTip        = ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあっても直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。
+Settings_Conn_UseProxies           = プロキシを使用
+Settings_Conn_UseProxiesTip        = ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあってもすべてのトラフィック（アップロードおよびアカウントチェック）が直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。
 Settings_Conn_AutoDisable          = 失敗したプロキシのチェックを自動的に外す
 Settings_Conn_AutoDisableTip       = オンにすると、手動テストやアップロードに失敗したプロキシのチェックが外され、ローテーションでスキップされます。ステータスアイコンはどちらの場合でも更新されます。
 
@@ -378,6 +379,8 @@ Settings_Conn_Btn_Export_AllToText = すべてのプロキシをテキストに�
 Settings_Conn_Btn_Export_AllToFile = すべてのプロキシをファイルにエクスポート…
 Settings_Conn_Btn_Export_OkToText  = テスト成功のプロキシをテキストにエクスポート…
 Settings_Conn_Btn_Export_OkToFile  = テスト成功のプロキシをファイルにエクスポート…
+Settings_Conn_Btn_Export_SelectedToText = 選択したプロキシをテキストにエクスポート…
+Settings_Conn_Btn_Export_SelectedToFile = 選択したプロキシをファイルにエクスポート…
 Settings_Conn_Btn_Save             = 保存
 Settings_Conn_Btn_Add              = 追加
 Settings_Conn_Btn_Remove           = 削除
@@ -396,6 +399,8 @@ Settings_Conn_ExportAll_DialogTitle         = すべてのプロキシをエク�
 Settings_Conn_ExportOk_DialogTitle          = テスト成功のプロキシをエクスポート
 Settings_Conn_ExportAll_Desc_Format         = プロキシ {0} 個:                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = 直近のテストに成功したプロキシ {0} 個:      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = 選択したプロキシをエクスポート
+Settings_Conn_ExportSelected_Desc_Format    = 選択したプロキシ {0} 個:                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = プロキシを削除
@@ -414,7 +419,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = OK {0}ms (予期しない応答) 
 Settings_Conn_Status_Failed_Format          = 失敗: {0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = 保存しました
 Settings_Conn_Status_SaveFailed_Format      = 保存に失敗しました: {0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = プロキシを {0} 個インポートしました — 保存をクリックして反映してください  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = プロキシを {0} 個インポートしました              # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = プロキシ {0} 個を {1} にエクスポートしました                   # {0} = count, {1} = file name
 ```
 
@@ -548,6 +553,9 @@ Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…
 Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。
+Wizard_Hoster_LimitsHeader         = このホスターの制限を超過します:
+Wizard_Hoster_FileTooLarge_Format  = {0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}: {1} 個のファイルが選択されていますが、パッケージあたりの上限は {2} 個です。
 
 Wizard_Step3_Title                 = 開始タイミング
 Wizard_Step3_Desc                  = アップロードを開始するタイミングを選択してください。
@@ -648,6 +656,19 @@ EditAccount_AccountEnabled         = アカウントを有効化
 EditAccount_BtnSave                = 保存
 EditAccount_BtnCancel              = キャンセル
 EditAccount_Validation_RequireUsernameAndPassword = ユーザー名とパスワードの両方を入力してください。
+
+EditProxy_AddTitle                 = プロキシを追加
+EditProxy_EditTitle                = プロキシを編集
+EditProxy_EnabledLabel             = プロキシを有効にする
+EditProxy_BtnSave                  = 保存
+EditProxy_BtnCancel                = キャンセル
+EditProxy_BtnTest                  = テスト
+EditProxy_Validation_HostRequired  = ホストまたは IP アドレスを入力してください。
+EditProxy_Validation_PortInvalid   = 1 から 65535 までの有効なポートを入力してください。
+EditProxy_Status_Testing           = テスト中…
+EditProxy_Status_OkLatency_Format  = OK {0}ms (予期しない応答)
+EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
+EditProxy_Status_Failed_Format     = 失敗: {0}
 ```
 
 ### HttpDetails ウィンドウ

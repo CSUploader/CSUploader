@@ -126,6 +126,7 @@ Uploads_Col_Status                = Status
 Uploads_Col_Speed                 = Speed
 Uploads_Col_ETA                   = ETA
 Uploads_Col_BytesLoaded           = Bytes Loaded
+Uploads_Col_BytesRemaining        = Bytes Remaining
 Uploads_Col_Progress              = Progress
 Uploads_Col_SaveTo                = Save to
 Uploads_Col_Added                 = Added
@@ -350,8 +351,8 @@ Settings_Upload_Autostart_Never                   = Never
 ```
 Settings_Conn_Title                = Connection Manager
 Settings_Conn_Desc                 = If a proxy is required to access the internet, configure them here. Multiple proxies are rotated for new uploads. Default behaviour with no enabled proxies is direct connection.
-Settings_Conn_UseProxies           = Use proxies for uploads
-Settings_Conn_UseProxiesTip        = Master switch for the rotation. When off, uploads connect directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.
+Settings_Conn_UseProxies           = Use proxies
+Settings_Conn_UseProxiesTip        = Master switch for the rotation. When off, all traffic (uploads and account checks) connects directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.
 Settings_Conn_AutoDisable          = Automatically uncheck failing proxies
 Settings_Conn_AutoDisableTip       = When on, a proxy that fails a manual test or an upload is unchecked so the rotation skips it. The status icon updates either way.
 
@@ -380,6 +381,8 @@ Settings_Conn_Btn_Export_AllToText = Export all proxies to text…
 Settings_Conn_Btn_Export_AllToFile = Export all proxies to file…
 Settings_Conn_Btn_Export_OkToText  = Export tested-OK proxies to text…
 Settings_Conn_Btn_Export_OkToFile  = Export tested-OK proxies to file…
+Settings_Conn_Btn_Export_SelectedToText = Export selected proxies to text…
+Settings_Conn_Btn_Export_SelectedToFile = Export selected proxies to file…
 Settings_Conn_Btn_Save             = Save
 Settings_Conn_Btn_Add              = Add
 Settings_Conn_Btn_Remove           = Remove
@@ -398,6 +401,8 @@ Settings_Conn_ExportAll_DialogTitle         = Export All Proxies
 Settings_Conn_ExportOk_DialogTitle          = Export Tested-OK Proxies
 Settings_Conn_ExportAll_Desc_Format         = {0} proxy(s):                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = {0} proxy(s) with a successful last test:      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = Export Selected Proxies
+Settings_Conn_ExportSelected_Desc_Format    = {0} selected proxy(s):                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = Remove proxy
@@ -416,7 +421,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = OK {0}ms (unexpected response)   
 Settings_Conn_Status_Failed_Format          = Failed: {0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = Saved
 Settings_Conn_Status_SaveFailed_Format      = Save failed: {0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = Imported {0} proxy(s) — click Save to persist  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = Imported {0} proxy(s)                          # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = Exported {0} proxy(s) to {1}                   # {0} = count, {1} = file name
 ```
 
@@ -550,6 +555,9 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)
 Wizard_Step2_AddAccountLink        = Add account…
 Wizard_Step2_AccountRequiredTooltip = This hoster requires an account. Click "Add account…" to add one.
+Wizard_Hoster_LimitsHeader         = This hoster's limits would be exceeded:
+Wizard_Hoster_FileTooLarge_Format  = {0}: The following files exceed the per-file limit of {1} and won't be uploaded:\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}: {1} files selected, but the per-package limit is {2}.
 
 Wizard_Step3_Title                 = When to Start
 Wizard_Step3_Desc                  = Choose when the upload should begin.
@@ -651,6 +659,19 @@ EditAccount_AccountEnabled         = Account enabled
 EditAccount_BtnSave                = Save
 EditAccount_BtnCancel              = Cancel
 EditAccount_Validation_RequireUsernameAndPassword = Please enter both a username and a password.
+
+EditProxy_AddTitle                 = Add Proxy
+EditProxy_EditTitle                = Edit Proxy
+EditProxy_EnabledLabel             = Proxy enabled
+EditProxy_BtnSave                  = Save
+EditProxy_BtnCancel                = Cancel
+EditProxy_BtnTest                  = Test
+EditProxy_Validation_HostRequired  = Please enter a host or IP address.
+EditProxy_Validation_PortInvalid   = Please enter a valid port between 1 and 65535.
+EditProxy_Status_Testing           = Testing…
+EditProxy_Status_OkLatency_Format  = OK {0}ms (unexpected response)
+EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
+EditProxy_Status_Failed_Format     = Failed: {0}
 ```
 
 ### HttpDetails window

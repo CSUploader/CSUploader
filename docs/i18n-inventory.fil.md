@@ -126,6 +126,7 @@ Uploads_Col_Status                = Status
 Uploads_Col_Speed                 = Bilis
 Uploads_Col_ETA                   = ETA
 Uploads_Col_BytesLoaded           = Bytes Na-load
+Uploads_Col_BytesRemaining        = Natitirang Bytes
 Uploads_Col_Progress              = Progreso
 Uploads_Col_SaveTo                = I-save sa
 Uploads_Col_Added                 = Idinagdag
@@ -349,8 +350,8 @@ Settings_Upload_Autostart_Never                   = Hinding-hindi
 ```
 Settings_Conn_Title                = Connection Manager
 Settings_Conn_Desc                 = Kung kailangan ng proxy para makapunta sa internet, i-configure mo sila dito. Ang maraming proxies ay iniikot para sa bagong uploads. Ang default na behavior na walang naka-enable na proxies ay direct connection.
-Settings_Conn_UseProxies           = Gumamit ng proxies para sa uploads
-Settings_Conn_UseProxiesTip        = Master switch para sa rotation. Kapag naka-off, ang uploads ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.
+Settings_Conn_UseProxies           = Gumamit ng proxies
+Settings_Conn_UseProxiesTip        = Master switch para sa rotation. Kapag naka-off, ang lahat ng trapiko (uploads at account checks) ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.
 Settings_Conn_AutoDisable          = Awtomatikong i-uncheck ang failing na proxies
 Settings_Conn_AutoDisableTip       = Kapag naka-on, ang isang proxy na nag-fail sa manual test o sa upload ay ina-uncheck para laktawan ng rotation. Ang status icon ay nag-a-update kahit anong mangyari.
 
@@ -379,6 +380,8 @@ Settings_Conn_Btn_Export_AllToText = I-export lahat ng proxies sa text…
 Settings_Conn_Btn_Export_AllToFile = I-export lahat ng proxies sa file…
 Settings_Conn_Btn_Export_OkToText  = I-export ang tested-OK na proxies sa text…
 Settings_Conn_Btn_Export_OkToFile  = I-export ang tested-OK na proxies sa file…
+Settings_Conn_Btn_Export_SelectedToText = I-export ang napiling proxies sa text…
+Settings_Conn_Btn_Export_SelectedToFile = I-export ang napiling proxies sa file…
 Settings_Conn_Btn_Save             = I-save
 Settings_Conn_Btn_Add              = Idagdag
 Settings_Conn_Btn_Remove           = Tanggalin
@@ -397,6 +400,8 @@ Settings_Conn_ExportAll_DialogTitle         = I-export Lahat ng Proxies
 Settings_Conn_ExportOk_DialogTitle          = I-export ang Tested-OK na Proxies
 Settings_Conn_ExportAll_Desc_Format         = {0} proxy(s):                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = {0} proxy(s) na may successful na huling test:      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = I-export ang Napiling Proxies
+Settings_Conn_ExportSelected_Desc_Format    = {0} napiling proxy(s):                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = Tanggalin ang proxy
@@ -415,7 +420,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = OK {0}ms (hindi inaasahang respon
 Settings_Conn_Status_Failed_Format          = Failed: {0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = Na-save
 Settings_Conn_Status_SaveFailed_Format      = Hindi na-save: {0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = Na-import ang {0} proxy(s) — i-click ang Save para i-persist  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = Na-import ang {0} proxy(s)                     # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = Na-export ang {0} proxy(s) sa {1}                   # {0} = count, {1} = file name
 ```
 
@@ -549,6 +554,9 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…
 Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.
+Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na ito:
+Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.
 
 Wizard_Step3_Title                 = Kailan Magsisimula
 Wizard_Step3_Desc                  = Pumili kung kailan magsisimula ang upload.
@@ -650,6 +658,19 @@ EditAccount_AccountEnabled         = Naka-enable ang account
 EditAccount_BtnSave                = I-save
 EditAccount_BtnCancel              = Kanselahin
 EditAccount_Validation_RequireUsernameAndPassword = Mangyaring ipasok ang username at password.
+
+EditProxy_AddTitle                 = Magdagdag ng Proxy
+EditProxy_EditTitle                = I-edit ang Proxy
+EditProxy_EnabledLabel             = Pinagana ang proxy
+EditProxy_BtnSave                  = I-save
+EditProxy_BtnCancel                = Kanselahin
+EditProxy_BtnTest                  = Subukan
+EditProxy_Validation_HostRequired  = Mangyaring ipasok ang host o IP address.
+EditProxy_Validation_PortInvalid   = Mangyaring ipasok ang wastong port sa pagitan ng 1 at 65535.
+EditProxy_Status_Testing           = Sinusubukan…
+EditProxy_Status_OkLatency_Format  = OK {0}ms (hindi inaasahang tugon)
+EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
+EditProxy_Status_Failed_Format     = Nabigo: {0}
 ```
 
 ### HttpDetails window

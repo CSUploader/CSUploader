@@ -126,6 +126,7 @@ Uploads_Col_Status                = 状态
 Uploads_Col_Speed                 = 速度
 Uploads_Col_ETA                   = 剩余时间
 Uploads_Col_BytesLoaded           = 已传字节
+Uploads_Col_BytesRemaining        = 剩余字节
 Uploads_Col_Progress              = 进度
 Uploads_Col_SaveTo                = 保存至
 Uploads_Col_Added                 = 添加时间
@@ -349,8 +350,8 @@ Settings_Upload_Autostart_Never                   = 从不
 ```
 Settings_Conn_Title                = 连接管理器
 Settings_Conn_Desc                 = 如果访问互联网需要代理，请在此处配置。多个代理将在新上传中轮换使用。在没有启用任何代理时，默认行为是直接连接。
-Settings_Conn_UseProxies           = 上传时使用代理
-Settings_Conn_UseProxiesTip        = 轮换的总开关。关闭后，即使列表中存在代理，上传也将直接连接 — 便于在尚未正式启用前添加和测试代理。
+Settings_Conn_UseProxies           = 使用代理
+Settings_Conn_UseProxiesTip        = 轮换的总开关。关闭后，即使列表中存在代理，所有流量（上传和账户检查）也将直接连接 — 便于在尚未正式启用前添加和测试代理。
 Settings_Conn_AutoDisable          = 自动取消勾选失败的代理
 Settings_Conn_AutoDisableTip       = 启用后，手动测试或上传失败的代理将被取消勾选，从而在轮换中跳过该代理。无论如何状态图标都会更新。
 
@@ -379,6 +380,8 @@ Settings_Conn_Btn_Export_AllToText = 将所有代理导出到文本…
 Settings_Conn_Btn_Export_AllToFile = 将所有代理导出到文件…
 Settings_Conn_Btn_Export_OkToText  = 将测试通过的代理导出到文本…
 Settings_Conn_Btn_Export_OkToFile  = 将测试通过的代理导出到文件…
+Settings_Conn_Btn_Export_SelectedToText = 将选定的代理导出到文本…
+Settings_Conn_Btn_Export_SelectedToFile = 将选定的代理导出到文件…
 Settings_Conn_Btn_Save             = 保存
 Settings_Conn_Btn_Add              = 添加
 Settings_Conn_Btn_Remove           = 移除
@@ -397,6 +400,8 @@ Settings_Conn_ExportAll_DialogTitle         = 导出所有代理
 Settings_Conn_ExportOk_DialogTitle          = 导出测试通过的代理
 Settings_Conn_ExportAll_Desc_Format         = 共 {0} 个代理：                                  # {0} = count of all proxies
 Settings_Conn_ExportOk_Desc_Format          = 共 {0} 个最近一次测试成功的代理：      # {0} = count of OK proxies
+Settings_Conn_ExportSelected_DialogTitle    = 导出选定的代理
+Settings_Conn_ExportSelected_Desc_Format    = 共 {0} 个选定的代理：                         # {0} = count of selected proxies
 
 # Proxy remove confirmations (ConnectionManagerViewModel)
 Settings_Conn_RemoveProxy_Title             = 移除代理
@@ -415,7 +420,7 @@ Settings_Conn_Status_OkLatencyUnknown_Format = 正常 {0}ms（响应异常）   
 Settings_Conn_Status_Failed_Format          = 失败：{0}                                    # {0} = error first line / message
 Settings_Conn_Status_Saved                  = 已保存
 Settings_Conn_Status_SaveFailed_Format      = 保存失败：{0}                               # {0} = error message
-Settings_Conn_Status_ImportedNeedsSave_Format = 已导入 {0} 个代理 — 请点击"保存"以持久化  # {0} = proxy count
+Settings_Conn_Status_Imported_Format        = 已导入 {0} 个代理                              # {0} = proxy count
 Settings_Conn_Status_ExportedToFile_Format  = 已将 {0} 个代理导出到 {1}                   # {0} = count, {1} = file name
 ```
 
@@ -549,6 +554,9 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Hoster_LimitsHeader         = 该托管商的限制将被超出：
+Wizard_Hoster_FileTooLarge_Format  = {0}：以下文件超过单文件 {1} 上限，将不会上传：\n{2}
+Wizard_Hoster_TooManyFiles_Format  = {0}：已选 {1} 个文件，但每包上限为 {2} 个。
 
 Wizard_Step3_Title                 = 何时开始
 Wizard_Step3_Desc                  = 选择上传应何时开始。
@@ -650,6 +658,19 @@ EditAccount_AccountEnabled         = 账户已启用
 EditAccount_BtnSave                = 保存
 EditAccount_BtnCancel              = 取消
 EditAccount_Validation_RequireUsernameAndPassword = 请输入用户名和密码。
+
+EditProxy_AddTitle                 = 添加代理
+EditProxy_EditTitle                = 编辑代理
+EditProxy_EnabledLabel             = 启用代理
+EditProxy_BtnSave                  = 保存
+EditProxy_BtnCancel                = 取消
+EditProxy_BtnTest                  = 测试
+EditProxy_Validation_HostRequired  = 请输入主机或 IP 地址。
+EditProxy_Validation_PortInvalid   = 请输入 1 到 65535 之间的有效端口。
+EditProxy_Status_Testing           = 正在测试…
+EditProxy_Status_OkLatency_Format  = 正常 {0}ms（响应异常）
+EditProxy_Status_OkLatencyIp_Format = 正常 {0}ms（{1}）
+EditProxy_Status_Failed_Format     = 失败：{0}
 ```
 
 ### HttpDetails window
