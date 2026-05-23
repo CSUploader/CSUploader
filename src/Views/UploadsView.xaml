@@ -17,6 +17,7 @@
 
     <UserControl.Resources>
         <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
+        <conv:SingleLineConverter x:Key="SingleLineConverter" />
         <conv:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
         <conv:DateTimeFormatConverter x:Key="DateTimeConverter" />
         <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
@@ -261,6 +262,7 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_Speed}" Command="{Binding CopyColumnCommand}" CommandParameter="Speed" />
                         <MenuItem Header="{loc:Loc Uploads_Col_ETA}" Command="{Binding CopyColumnCommand}" CommandParameter="ETA" />
                         <MenuItem Header="{loc:Loc Uploads_Col_BytesLoaded}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesLoaded" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_BytesRemaining}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesRemaining" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Progress}" Command="{Binding CopyColumnCommand}" CommandParameter="Progress" />
                         <MenuItem Header="{loc:Loc Uploads_Col_SaveTo}" Command="{Binding CopyColumnCommand}" CommandParameter="SaveTo" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Added}" Command="{Binding CopyColumnCommand}" CommandParameter="Added" />
@@ -487,6 +489,7 @@
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_Speed}" Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="90" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_ETA}" Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}" Width="80" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesLoaded}" Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="100" />
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesRemaining}" Binding="{Binding BytesRemaining, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" Width="110" />
 
                 <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140"
                                         ClipboardContentBinding="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}">
@@ -585,7 +588,15 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Error}" Binding="{Binding Error}" Width="220" MinWidth="60">
+                <!-- Display binding goes through SingleLineConverter so embedded newlines
+                     (BRupload's HTML 500 page, etc.) don't blow up the row height. The
+                     ClipboardContentBinding stays on the raw Error so Ctrl+C copies the
+                     full multi-line server message verbatim — useful when triaging a
+                     hoster-side failure. -->
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Error}"
+                                    Binding="{Binding Error, Converter={StaticResource SingleLineConverter}}"
+                                    ClipboardContentBinding="{Binding Error}"
+                                    Width="220" MinWidth="60">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="Foreground" Value="Red" />

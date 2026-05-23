@@ -38,7 +38,6 @@
 
     <!-- File Hoster Images -->
     <BitmapImage x:Key="FileHosterAlfafileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_alfafile.png" />
-    <BitmapImage x:Key="FileHosterAndroidfilehostImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_androidfilehost.png" />
     <BitmapImage x:Key="FileHosterBruploadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_brupload.png" />
     <BitmapImage x:Key="FileHosterExloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_exload.png" />
     <BitmapImage x:Key="FileHosterExtmatrixImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_extmatrix.png" />

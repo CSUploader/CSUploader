@@ -4,11 +4,13 @@
 // </copyright>
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using CSUploader.Lib.Extensions;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Upload.Pipeline.Hosters;
 
@@ -68,6 +70,10 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     public bool RequiresHashingBeforeUpload => true;
 
     public bool RequiresHashingAfterUpload => false;
+
+    public long? MaxFileSize => null;
+
+    public int? MaxFilesPerPackage => null;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -285,9 +291,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private async Task<(AlfafileAuthState?, string?)> LoginAsync(AttemptContext ctx)
     {
-        string url = $"{ApiBase}/user/login"
-            + $"?login={Uri.EscapeDataString(ctx.Credentials.Username ?? string.Empty)}"
-            + $"&password={Uri.EscapeDataString(ctx.Credentials.Password ?? string.Empty)}";
+        string url = BuildLoginUrl(ctx.Credentials.Username, ctx.Credentials.Password);
         string body = await GetAsync(ctx, url);
 
         if (!JsonHelpers.TryDeserializeObject(body, out LoginEnvelope? env) || env?.Status != 200 || env.Response is null)
@@ -299,6 +303,47 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         // unless an explicit folder is created.
         return (new AlfafileAuthState(env.Response.Token, "0"), null);
     }
+
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct)
+    {
+        string url = BuildLoginUrl(username, password);
+
+        string body;
+        try
+        {
+            body = _httpOverride is not null ? await _httpOverride(url) : await handler.GetStringAsync(url, ct);
+        }
+        catch (Exception ex)
+        {
+            return new AccountCheckResult(false, AccountType.Free, ex.Message);
+        }
+
+        if (!JsonHelpers.TryDeserializeObject(body, out LoginEnvelope? env) || env is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, "login: unexpected response");
+        }
+
+        if (env.Status != 200 || env.Response is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, env.Details ?? $"login failed (HTTP {env.Status})");
+        }
+
+        LoginUser? user = env.Response.User;
+        DateTime? expiry = user?.PremiumEndTime is { } ts and > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime
+            : null;
+        AccountType type = user?.IsPremium == true ? AccountType.Premium : AccountType.Free;
+        string message = type == AccountType.Premium
+            ? (expiry is { } e ? string.Format(CultureInfo.InvariantCulture, "Premium until {0:yyyy-MM-dd}", e) : "Premium")
+            : "Free";
+
+        return new AccountCheckResult(true, type, message, expiry);
+    }
+
+    private static string BuildLoginUrl(string? username, string? password)
+        => $"{ApiBase}/user/login"
+            + $"?login={Uri.EscapeDataString(username ?? string.Empty)}"
+            + $"&password={Uri.EscapeDataString(password ?? string.Empty)}";
 
     /// <summary>
     /// Picks a sensible folder name for the uploaded file. Falls back to "uploads" when
@@ -551,6 +596,17 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     private sealed class LoginResponse
     {
         [JsonPropertyName("token")] public string Token { get; set; } = string.Empty;
+
+        [JsonPropertyName("user")] public LoginUser? User { get; set; }
+    }
+
+    private sealed class LoginUser
+    {
+        [JsonPropertyName("email")] public string? Email { get; set; }
+
+        [JsonPropertyName("is_premium")] public bool IsPremium { get; set; }
+
+        [JsonPropertyName("premium_end_time")] public long? PremiumEndTime { get; set; }
     }
 
     private sealed class FolderEnvelope

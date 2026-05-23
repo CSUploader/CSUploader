@@ -50,6 +50,20 @@ public class PackageFilePipelineEventsTests
     }
 
     [Fact]
+    public void ApplyEvent_AttemptFailed_StoresErrorVerbatim()
+    {
+        // Multi-line error payloads (e.g. BRupload's HTML 500 page) are kept verbatim
+        // on the model so copy-to-clipboard surfaces the original message — the
+        // Uploads grid uses SingleLineConverter to keep the display row to one line.
+        PackageFile file = MakeFile(out _);
+
+        const string raw = "upload.cgi: file_status=failed\r\n<HEAD>\n<TITLE>500</TITLE>\n</HEAD>";
+        file.ApplyEvent(new AttemptFailed(raw, null));
+
+        Assert.Equal(raw, file.Error);
+    }
+
+    [Fact]
     public void ApplyEvent_TransferProgress_ComputesTimeRemainingFromSpeed()
     {
         PackageFile file = MakeFile(out _);

@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Lib.Net.Http;
+
 namespace CSUploader.Upload.Pipeline;
 
 /// <summary>
@@ -49,10 +51,37 @@ public interface IFileHosterPipeline
     bool RequiresHashingAfterUpload { get; }
 
     /// <summary>
+    /// Maximum file size (in bytes) the hoster accepts, or null when no hard limit is
+    /// declared. Used by the wizard to warn before a package is queued and by
+    /// <see cref="RunAsync"/> to fail-fast oversized files before any bytes are sent.
+    /// Free vs. premium splits aren't modelled here — the most restrictive (free-tier)
+    /// limit is what callers should treat as authoritative.
+    /// </summary>
+    long? MaxFileSize { get; }
+
+    /// <summary>
+    /// Maximum number of files per package the hoster's upload session accepts, or null
+    /// when no limit applies. Enforced at wizard time; the runner doesn't know the
+    /// package shape so this is purely a UX-side guard.
+    /// </summary>
+    int? MaxFilesPerPackage { get; }
+
+    /// <summary>
     /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
     /// and outcomes. Must terminate with no more than one of <see cref="TransferCompleted"/>,
     /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the
     /// <see cref="AttemptCompleted"/> envelope itself.
     /// </summary>
     IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, CancellationToken ct);
+
+    /// <summary>
+    /// Verifies a set of credentials against the hoster. Used by the Settings UI to confirm
+    /// an account works before it's saved (and on Refresh to detect expired premium / kicked
+    /// sessions). Implementations should perform a real round-trip — typically a login —
+    /// and surface premium state, expiry, and a short human-readable message. The supplied
+    /// <paramref name="handler"/> is created with the next proxy from the rotation (or
+    /// <see cref="Lib.Net.ProxyChoice.Direct"/> when proxies are disabled) and disposed by
+    /// the caller.
+    /// </summary>
+    Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct);
 }

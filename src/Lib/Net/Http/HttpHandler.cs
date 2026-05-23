@@ -84,7 +84,16 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         GC.SuppressFinalize(this);
     }
 
-    public async Task<string> GetStringAsync(string url, CancellationToken cancellationToken = default)
+    public Task<string> GetStringAsync(string url, CancellationToken cancellationToken = default)
+        => GetStringAsync(url, headers: null, cancellationToken);
+
+    /// <summary>
+    /// GET overload that lets the caller attach per-request headers (e.g. <c>Cookie</c>
+    /// for hoster pipelines that authenticate via session cookies). Header values are
+    /// added with <see cref="System.Net.Http.Headers.HttpHeaders.TryAddWithoutValidation(string, string?)"/>
+    /// so non-standard cookie values aren't rejected by the framework.
+    /// </summary>
+    public async Task<string> GetStringAsync(string url, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -100,10 +109,18 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            // Capture request headers
+            using HttpRequestMessage request = new(HttpMethod.Get, url);
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
             CaptureRequestHeaders(transaction, null);
 
-            using HttpResponseMessage response = await HttpClient.GetAsync(url, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
             string result = await response.Content.ReadAsStringAsync(cancellationToken);
 
             // Capture response
@@ -126,6 +143,163 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             LogTransaction(transaction);
             throw;
         }
+    }
+
+    /// <summary>
+    /// POSTs a form-urlencoded body and returns the response status, body, and any
+    /// <c>Set-Cookie</c> headers. Unlike <see cref="GetStringAsync"/>, this does not
+    /// throw on non-2xx — callers handle their own status (e.g. BRupload's login flow
+    /// returns 302 on success).
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        url = MaybeRewriteToMockServer(url);
+
+        using FormUrlEncodedContent content = new(form);
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = await content.ReadAsStringAsync(cancellationToken),
+        };
+
+        try
+        {
+            CaptureRequestHeaders(transaction, content);
+
+            using HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Multipart POST that supports extra form fields and a custom file field name, and
+    /// returns the response body. The existing <see cref="UploadFileAsync"/> is fixed to
+    /// a <c>"file"</c> part with no peers and discards the response, which is fine for
+    /// Rapidgator/Alfafile (their bytes upload is opaque and a separate <c>upload_info</c>
+    /// call returns the result) but doesn't work for hosters like BRupload where the
+    /// multipart response IS the upload result.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> UploadMultipartAsync(
+        string filePath,
+        string endpoint,
+        string fileFieldName,
+        IReadOnlyDictionary<string, string>? extraFields = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime dateTimeStarted = DateTime.Now;
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = dateTimeStarted,
+            RequestBody = $"[Multipart file upload: {Path.GetFileName(filePath)}]",
+        };
+
+        try
+        {
+            using MultipartFormDataContent multipartContent = new($"---------------------{DateTime.Now.Ticks:x}");
+
+            if (extraFields is not null)
+            {
+                foreach (KeyValuePair<string, string> field in extraFields)
+                {
+                    multipartContent.Add(new StringContent(field.Value), field.Key);
+                }
+            }
+
+            FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
+            Stream fileStream = getBytesPerSecond is not null
+                ? new ThrottledStream(rawStream, getBytesPerSecond)
+                : rawStream;
+            using Stream disposeFileStream = fileStream;
+            ProgressStreamContent progressContent = new(
+                fileStream,
+                (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
+                cancellationToken);
+            progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            multipartContent.Add(progressContent, fileFieldName, Path.GetFileName(filePath));
+
+            using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipartContent);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(response.IsSuccessStatusCode, body, dateTimeStarted));
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.Message;
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+            throw;
+        }
+    }
+
+    private static IReadOnlyList<string> ReadSetCookies(HttpResponseMessage response)
+    {
+        if (response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values))
+        {
+            return [.. values];
+        }
+
+        return [];
     }
 
     public async Task UploadFileAsync(string filePath, string endpoint, Func<long?>? getBytesPerSecond = null, CancellationToken cancellationToken = default)

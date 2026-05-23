@@ -24,7 +24,6 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     public static ReadOnlyDictionary<string, string> FileHosters { get; } = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
     {
         { "Alfafile", "www.alfafile.net" },
-        { "AndroidFileHost", "www.androidfilehost.com" },
         { "BRupload", "www.brupload.net" },
         { "ExLoad", "www.ex-load.com" },
         { "ExtMatrix", "www.extmatrix.com" },
@@ -64,18 +63,6 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     /// Gets the protocol used for uploading by the file hoster.
     /// </summary>
     public Protocol Protocol { get; } = protocol;
-
-    /// <summary>
-    /// Checks the account credentials and returns the account type.
-    /// Returns a "not implemented" result for hosters that have not yet migrated their
-    /// account-check logic to an <see cref="Pipeline.IFileHosterPipeline"/> implementation.
-    /// </summary>
-    /// <param name="username">The username.</param>
-    /// <param name="password">The password.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The result of the account check.</returns>
-    public static Task<AccountCheckResult> CheckAccountAsync(string username, string password, CancellationToken cancellationToken = default)
-        => Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
 
     /// <summary>
     /// Returns metadata for the named hoster, or null if it isn't in <see cref="FileHosters"/>.

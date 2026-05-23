@@ -183,7 +183,11 @@ public class PackageFile : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Gets or sets the error string.
+    /// Gets or sets the error string. Stored verbatim — newlines and all — so that
+    /// copy-to-clipboard surfaces the original error in its raw form. Display-side
+    /// flattening is handled by <see cref="Converters.SingleLineConverter"/> on the
+    /// Uploads grid; without that the DataGrid would expand the row height for every
+    /// embedded newline (BRupload's HTML 500-error path is the worst offender).
     /// </summary>
     public string? Error { get; set; }
 

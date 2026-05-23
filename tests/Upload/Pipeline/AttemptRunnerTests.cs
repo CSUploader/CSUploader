@@ -9,6 +9,7 @@ using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using Moq;
 
@@ -83,6 +84,13 @@ public class AttemptRunnerTests
         public string Name => "Rapidgator";
         public bool RequiresHashingBeforeUpload => false;
         public bool RequiresHashingAfterUpload => false;
+
+        public long? MaxFileSize => null;
+
+        public int? MaxFilesPerPackage => null;
+
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct)
+            => Task.FromResult(new AccountCheckResult(true, AccountType.Free, "Login OK"));
 
         public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
         {

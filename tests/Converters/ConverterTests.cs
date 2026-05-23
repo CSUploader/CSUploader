@@ -251,3 +251,23 @@ public class BoolToVisibilityConverterTests
         Assert.Equal(false, result);
     }
 }
+
+public class SingleLineConverterTests
+{
+    private readonly SingleLineConverter _converter = new();
+
+    [Fact]
+    public void Convert_StringWithCrLf_ReturnsSpacesInsteadOfLineBreaks()
+    {
+        object result = _converter.Convert("a\r\nb\nc\rd", typeof(string), null!, CultureInfo.InvariantCulture);
+
+        Assert.Equal("a b c d", result);
+    }
+
+    [Fact]
+    public void Convert_NullOrEmpty_ReturnsValueUnchanged()
+    {
+        Assert.Null(_converter.Convert(null!, typeof(string), null!, CultureInfo.InvariantCulture));
+        Assert.Equal(string.Empty, _converter.Convert(string.Empty, typeof(string), null!, CultureInfo.InvariantCulture));
+    }
+}
