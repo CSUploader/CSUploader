@@ -4,6 +4,8 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -12,17 +14,95 @@ using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
 
 namespace CSUploader.ViewModels;
 
-public partial class UploadWizardViewModel(
-    PackageManager packageManager,
-    FileHosterLoginRepository fileHosterLoginRepository,
-    IDialogService dialogService,
-    IAppLogger logger,
-    AppSettings settings) : ObservableObject
+public partial class UploadWizardViewModel : ObservableObject
 {
+    private readonly PackageManager packageManager;
+    private readonly FileHosterLoginRepository fileHosterLoginRepository;
+    private readonly IDialogService dialogService;
+    private readonly IAppLogger logger;
+    private readonly AppSettings settings;
+
+    // Pipeline registry is optional so existing test fixtures that exercise non-validation
+    // flows don't need to construct one. When null, no per-hoster limit validation runs
+    // — the pipeline still pre-checks file size at upload time as the safety net.
+    private readonly IFileHosterRegistry? _fileHosterRegistry;
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
+
+    public UploadWizardViewModel(
+        PackageManager packageManager,
+        FileHosterLoginRepository fileHosterLoginRepository,
+        IDialogService dialogService,
+        IAppLogger logger,
+        AppSettings settings,
+        IFileHosterRegistry? fileHosterRegistry = null)
+    {
+        this.packageManager = packageManager;
+        this.fileHosterLoginRepository = fileHosterLoginRepository;
+        this.dialogService = dialogService;
+        this.logger = logger;
+        this.settings = settings;
+        _fileHosterRegistry = fileHosterRegistry;
+
+        // Hook collection-changed once: any new entry into Files / FileHosters has its
+        // PropertyChanged subscribed so validation auto-refreshes on selection toggles,
+        // regardless of which code path added it.
+        Files.CollectionChanged += Files_CollectionChanged;
+        FileHosters.CollectionChanged += FileHosters_CollectionChanged;
+    }
+
+    private void Files_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (object? item in e.NewItems)
+            {
+                if (item is FileEntry entry)
+                {
+                    entry.PropertyChanged += FileEntry_PropertyChanged;
+                }
+            }
+        }
+        if (e.OldItems is not null)
+        {
+            foreach (object? item in e.OldItems)
+            {
+                if (item is FileEntry entry)
+                {
+                    entry.PropertyChanged -= FileEntry_PropertyChanged;
+                }
+            }
+        }
+        RecomputeHosterValidation();
+    }
+
+    private void FileHosters_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (object? item in e.NewItems)
+            {
+                if (item is FileHosterSelectionViewModel h)
+                {
+                    h.PropertyChanged += Hoster_PropertyChanged;
+                }
+            }
+        }
+        if (e.OldItems is not null)
+        {
+            foreach (object? item in e.OldItems)
+            {
+                if (item is FileHosterSelectionViewModel h)
+                {
+                    h.PropertyChanged -= Hoster_PropertyChanged;
+                }
+            }
+        }
+        RecomputeHosterValidation();
+    }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDirectoryMode))]
     [NotifyPropertyChangedFor(nameof(IsFilesMode))]
@@ -66,9 +146,148 @@ public partial class UploadWizardViewModel(
 
     public bool CanGoBack => CurrentStep > 0;
 
-    public bool CanGoNext => CurrentStep <= 2;
+    /// <summary>
+    /// Disables the Next button on the hoster-selection step (CurrentStep==1) when a
+    /// hoster's declared limits are violated in a way the user must resolve manually —
+    /// either too many files for the package, or every used hoster has zero files within
+    /// its size limit. Size warnings on their own are informational (oversized files are
+    /// dropped at upload time) and don't block.
+    /// </summary>
+    public bool CanGoNext => CurrentStep != 1 || !_hasHardBlock;
 
     public bool IsLastStep => CurrentStep == 2;
+
+    /// <summary>
+    /// Human-readable list of currently-violated hoster limits (e.g. "BRupload: 35 files
+    /// selected, limit is 30"). Bound to the wizard's step-1 warning panel; empty when
+    /// no constraints are violated. Always-empty if no <see cref="IFileHosterRegistry"/>
+    /// was injected.
+    /// </summary>
+    public ObservableCollection<string> HosterValidationWarnings { get; } = [];
+
+    public bool HasHosterValidationWarnings => HosterValidationWarnings.Count > 0;
+
+    /// <summary>
+    /// True when validation found a violation the user must resolve manually before
+    /// proceeding (e.g. count over limit, or every used hoster has zero eligible files).
+    /// Size violations are normally informational — oversized files are silently skipped
+    /// at upload time — so they don't set this flag unless they'd leave the package
+    /// completely empty.
+    /// </summary>
+    private bool _hasHardBlock;
+
+    /// <summary>
+    /// Recomputes <see cref="HosterValidationWarnings"/> by walking each enabled hoster's
+    /// declared limits and comparing against the current file selection. Size violations
+    /// are reported with a filename list so the user knows exactly which files will be
+    /// skipped; they only block Next when there's nothing left to upload anywhere. Count
+    /// violations always block — the user has to decide which files to drop. Idempotent.
+    /// No-op when no registry was injected (test fixtures).
+    /// </summary>
+    private void RecomputeHosterValidation()
+    {
+        HosterValidationWarnings.Clear();
+        _hasHardBlock = false;
+
+        if (_fileHosterRegistry is null)
+        {
+            OnPropertyChanged(nameof(HasHosterValidationWarnings));
+            OnPropertyChanged(nameof(CanGoNext));
+            return;
+        }
+
+        FileEntry[] selected = [.. Files.Where(f => f.IsSelected)];
+        bool anyUsedHoster = false;
+        bool anyHosterCanUploadSomething = false;
+
+        foreach (FileHosterSelectionViewModel hoster in FileHosters)
+        {
+            if (!hoster.Use)
+            {
+                continue;
+            }
+
+            anyUsedHoster = true;
+            IFileHosterPipeline? pipeline = _fileHosterRegistry.Find(hoster.FileHosterName);
+
+            // Unknown hoster — no declared limits, so it accepts every selected file.
+            if (pipeline is null)
+            {
+                if (selected.Length > 0) anyHosterCanUploadSomething = true;
+                continue;
+            }
+
+            int eligibleForThisHoster = selected.Length;
+
+            if (pipeline.MaxFileSize is long maxBytes)
+            {
+                List<string> oversizedNames = [];
+                foreach (FileEntry f in selected)
+                {
+                    if (f.Size > maxBytes) oversizedNames.Add(f.FileName);
+                }
+                if (oversizedNames.Count > 0)
+                {
+                    string sizeStr = ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString();
+                    // Render the file list one per line so the warning panel can scroll
+                    // when the user has many oversized files. The resx string already
+                    // ends with a newline after the colon (see Wizard_Hoster_FileTooLarge_Format).
+                    string fileList = string.Join("\n", oversizedNames);
+                    HosterValidationWarnings.Add(string.Format(
+                        CultureInfo.CurrentCulture,
+                        Localizer.Instance["Wizard_Hoster_FileTooLarge_Format"],
+                        hoster.FileHosterName,
+                        sizeStr,
+                        fileList));
+                    eligibleForThisHoster -= oversizedNames.Count;
+                }
+            }
+
+            if (eligibleForThisHoster > 0)
+            {
+                anyHosterCanUploadSomething = true;
+            }
+
+            // Count limit is checked against eligible (post-size-filter) files: if size
+            // already drops the package below the cap, no need to complain about count.
+            if (pipeline.MaxFilesPerPackage is int maxCount && eligibleForThisHoster > maxCount)
+            {
+                HosterValidationWarnings.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Hoster_TooManyFiles_Format"],
+                    hoster.FileHosterName,
+                    eligibleForThisHoster,
+                    maxCount));
+                _hasHardBlock = true;
+            }
+        }
+
+        // Block Next when files+hosters were chosen but nothing would actually upload —
+        // the all-too-big case the user called out explicitly.
+        if (selected.Length > 0 && anyUsedHoster && !anyHosterCanUploadSomething)
+        {
+            _hasHardBlock = true;
+        }
+
+        OnPropertyChanged(nameof(HasHosterValidationWarnings));
+        OnPropertyChanged(nameof(CanGoNext));
+    }
+
+    private void FileEntry_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileEntry.IsSelected))
+        {
+            RecomputeHosterValidation();
+        }
+    }
+
+    private void Hoster_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileHosterSelectionViewModel.Use))
+        {
+            RecomputeHosterValidation();
+        }
+    }
 
     public string NextButtonText => IsLastStep
         ? Localizer.Instance["Wizard_Btn_Add"]
@@ -146,7 +365,7 @@ public partial class UploadWizardViewModel(
                     folderName);
             }
 
-            Files.Add(new FileEntry
+            FileEntry entry = new()
             {
                 FullPath = filePath,
                 RelativePath = display,
@@ -154,7 +373,8 @@ public partial class UploadWizardViewModel(
                 Size = fi.Length,
                 IsSelected = true,
                 IsVisible = true,
-            });
+            };
+            Files.Add(entry);
             existing.Add(filePath);
         }
     }
@@ -304,7 +524,7 @@ public partial class UploadWizardViewModel(
         {
             string relativePath = Path.GetRelativePath(DirectoryPath, filePath);
             FileInfo fi = new(filePath);
-            Files.Add(new FileEntry
+            FileEntry entry = new()
             {
                 FullPath = filePath,
                 RelativePath = relativePath,
@@ -312,7 +532,8 @@ public partial class UploadWizardViewModel(
                 Size = fi.Length,
                 IsSelected = true,
                 IsVisible = true,
-            });
+            };
+            Files.Add(entry);
         }
     }
 

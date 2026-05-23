@@ -9,6 +9,7 @@ using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,7 +29,8 @@ public partial class UploadWizardWindow : Window
             sp.GetRequiredService<FileHosterLoginRepository>(),
             sp.GetRequiredService<IDialogService>(),
             sp.GetRequiredService<IAppLogger>(),
-            sp.GetRequiredService<AppSettings>());
+            sp.GetRequiredService<AppSettings>(),
+            sp.GetRequiredService<IFileHosterRegistry>());
 
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;

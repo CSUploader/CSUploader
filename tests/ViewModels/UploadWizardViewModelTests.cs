@@ -332,6 +332,78 @@ public class UploadWizardViewModelTests : IDisposable
     private UploadWizardViewModel CreateVm(IDialogService dialog) =>
         new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
 
+    [Fact]
+    public void HosterValidation_OversizedFile_ListsFilenameAndDoesNotBlockNext()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+
+        FileEntry small = new() { FullPath = "small.iso", FileName = "small.iso", Size = 100, IsSelected = true };
+        FileEntry huge = new() { FullPath = "huge.iso", FileName = "huge.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true };
+        vm.Files.Add(small);
+        vm.Files.Add(huge);
+
+        Assert.Empty(vm.HosterValidationWarnings);
+
+        brupload.Use = true;
+
+        // Warning must name the oversized file and say it won't be uploaded.
+        string warning = Assert.Single(vm.HosterValidationWarnings);
+        Assert.Contains("huge.iso", warning, StringComparison.Ordinal);
+        Assert.Contains("won't be uploaded", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("small.iso", warning, StringComparison.Ordinal);
+
+        // Next stays enabled because small.iso is still eligible.
+        vm.CurrentStep = 1;
+        Assert.True(vm.CanGoNext);
+
+        // Deselecting the oversized file clears the warning entirely.
+        huge.IsSelected = false;
+        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void HosterValidation_AllFilesTooBig_BlocksNextEvenWithSingleHoster()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+
+        vm.Files.Add(new FileEntry { FullPath = "a.iso", FileName = "a.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.iso", FileName = "b.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 1;
+
+        Assert.NotEmpty(vm.HosterValidationWarnings);
+        Assert.False(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void HosterValidation_FlagsTooManyFilesPerPackage()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+
+        for (int i = 0; i < 31; i++)
+        {
+            vm.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
+        }
+
+        brupload.Use = true;
+
+        Assert.Contains(vm.HosterValidationWarnings, w => w.Contains("31", StringComparison.Ordinal) && w.Contains("30", StringComparison.Ordinal));
+    }
+
     private static AttemptRunner BuildAttemptRunner()
     {
         DefaultFileHosterRegistry registry = new([]);

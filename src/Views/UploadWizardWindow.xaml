@@ -222,6 +222,7 @@
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
+          <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
@@ -359,6 +360,39 @@
             </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
+
+        <!-- Hoster-limit violations: surfaces in-place rather than as a dialog so the
+             user can see which constraints fail while toggling hosters and files. Next
+             is disabled (via CanGoNext) until this list empties. -->
+        <Border Grid.Row="3" Margin="0,8,0,0" Padding="8,6"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="1"
+                CornerRadius="3"
+                Visibility="{Binding HasHosterValidationWarnings, Converter={StaticResource BoolToVisibility}}">
+          <StackPanel>
+            <TextBlock Text="{loc:Loc Wizard_Hoster_LimitsHeader}"
+                       FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource ErrorBrush}"
+                       Margin="0,0,0,4" />
+            <!-- Cap the inner height so a package with many oversized files doesn't
+                 push the wizard buttons off-screen. The ItemsControl renders each
+                 warning string as a TextBlock; embedded newlines (from the resx
+                 format string) make the file list render one-per-line. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          MaxHeight="120">
+              <ItemsControl ItemsSource="{Binding HosterValidationWarnings}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" Margin="0,1" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
       </Grid>
 
       <!-- Step 2: When to start -->
@@ -401,6 +435,7 @@
         <Button Content="{loc:Loc Wizard_Btn_Cancel}" Width="80" Height="30" IsCancel="True" Margin="0,0,8,0" />
         <Button Content="{Binding NextButtonText}" Width="100" Height="30"
                 Command="{Binding GoNextCommand}"
+                IsEnabled="{Binding CanGoNext}"
                 Style="{StaticResource PrimaryButtonStyle}" />
       </StackPanel>
     </Border>

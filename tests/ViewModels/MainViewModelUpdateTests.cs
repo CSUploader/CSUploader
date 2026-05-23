@@ -49,14 +49,14 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<UploadPackageRepository>();
         sc.AddSingleton<UploadPackageFileRepository>();
         sc.AddSingleton<ProxySettingRepository>();
-        sc.AddSingleton<IProxySource>(sp => sp.GetRequiredService<CSUploader.Lib.Net.ProxyManager>());
+        sc.AddSingleton<IProxySource>(sp => sp.GetRequiredService<ProxyManager>());
         sc.AddSingleton<IHttpHandlerFactory>(sp => new DefaultHttpHandlerFactory(sp.GetRequiredService<AppSettings>()));
         sc.AddSingleton<IFileHosterRegistry>(new DefaultFileHosterRegistry([]));
         sc.AddSingleton<AttemptRunner>();
         sc.AddSingleton<CSUploader.Lib.Crypto.IHashingService, CSUploader.Lib.Crypto.HashingService>();
         sc.AddSingleton<UploadScheduler>();
         sc.AddSingleton<PackageManager>();
-        sc.AddSingleton<CSUploader.Lib.Net.ProxyManager>();
+        sc.AddSingleton<ProxyManager>();
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
@@ -168,7 +168,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<ProxySettingRepository>());
         sc.AddSingleton(_services.GetRequiredService<UploadScheduler>());
         sc.AddSingleton(_services.GetRequiredService<PackageManager>());
-        sc.AddSingleton(_services.GetRequiredService<CSUploader.Lib.Net.ProxyManager>());
+        sc.AddSingleton(_services.GetRequiredService<ProxyManager>());
         sc.AddSingleton(_services.GetRequiredService<IDialogService>());
         sc.AddSingleton(_services.GetRequiredService<UploadsViewModel>());
         sc.AddSingleton(_services.GetRequiredService<UploadedViewModel>());
