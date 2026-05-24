@@ -15,6 +15,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <summary>Test-observable snapshot of the mock config locked in at construction.</summary>
     internal MockServerConfig MockServerSnapshot => mockServer;
 
+    /// <summary>Test-only accessor — lets unit tests assert default headers (e.g. UA) configured by the factory.</summary>
+    internal HttpClient ClientForTesting => HttpClient;
+
     private string MaybeRewriteToMockServer(string url)
     {
         if (bypassMockServer)
@@ -226,13 +229,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            using MultipartFormDataContent multipartContent = new($"---------------------{DateTime.Now.Ticks:x}");
+            MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
 
             if (extraFields is not null)
             {
                 foreach (KeyValuePair<string, string> field in extraFields)
                 {
-                    multipartContent.Add(new StringContent(field.Value), field.Key);
+                    AddBareStringPart(multipartContent, field.Key, field.Value);
                 }
             }
 
@@ -245,9 +248,10 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 fileStream,
                 (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
                 cancellationToken);
-            progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            multipartContent.Add(progressContent, fileFieldName, Path.GetFileName(filePath));
+            AddFilePart(multipartContent, progressContent, fileFieldName, filePath);
 
+            // HttpRequestMessage.Dispose() disposes its Content for us, so we don't keep a
+            // separate `using` on multipartContent — that'd double-dispose.
             using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
             if (headers is not null)
             {
@@ -319,7 +323,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            using var multipartContent = new MultipartFormDataContent($"---------------------{DateTime.Now.Ticks:x}");
+            using MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
             Stream fileStream = getBytesPerSecond is not null
                 ? new ThrottledStream(rawStream, getBytesPerSecond)
@@ -327,8 +331,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             using var disposeFileStream = fileStream;
             var progressContent = new ProgressStreamContent(fileStream, (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)), cancellationToken);
 
-            progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            multipartContent.Add(progressContent, "file", Path.GetFileName(filePath));
+            AddFilePart(multipartContent, progressContent, "file", filePath);
 
             CaptureRequestHeaders(transaction, multipartContent);
 
@@ -361,6 +364,75 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
         }
+    }
+
+    /// <summary>
+    /// Builds a <see cref="MultipartFormDataContent"/> whose Content-Type emits the boundary
+    /// <em>without</em> the surrounding double quotes .NET adds by default. RFC 2046 allows
+    /// quoted boundaries, but some XFileSharing-family PHP/Perl backends (notably BRupload's
+    /// fs.cgi) treat the literal <c>"…"</c> as part of the delimiter and fail to find the
+    /// file-part terminator. Mirrors the browser (WebKit/Chromium) which always emits the
+    /// boundary unquoted.
+    /// </summary>
+    /// <param name="boundary">The boundary value placed in the Content-Type header (also
+    /// reused as the literal multipart separator written by .NET).</param>
+    private static MultipartFormDataContent BuildBrowserShapedMultipart(out string boundary)
+    {
+        // Use a token-only boundary (alphanumerics + dashes), browser-style four-dash prefix.
+        // The ticks suffix keeps each request unique. .NET will still quote-wrap on
+        // construction; we strip the quotes below.
+        boundary = $"----CSUploaderBoundary{DateTime.Now.Ticks:x}";
+        MultipartFormDataContent content = new(boundary);
+
+        // Re-add the boundary parameter unquoted. NameValueHeaderValue only quotes values
+        // that contain non-token characters, so a token-only boundary stays bare.
+        MediaTypeHeaderValue ct = content.Headers.ContentType!;
+        NameValueHeaderValue? quoted = ct.Parameters.FirstOrDefault(
+            p => string.Equals(p.Name, "boundary", StringComparison.OrdinalIgnoreCase));
+        if (quoted is not null)
+        {
+            ct.Parameters.Remove(quoted);
+        }
+
+        ct.Parameters.Add(new NameValueHeaderValue("boundary", boundary));
+        return content;
+    }
+
+    /// <summary>
+    /// Adds a string form field with <em>no</em> <c>Content-Type</c> header on the part —
+    /// browsers don't emit one for plain form fields and some servers reject the parts
+    /// when <c>text/plain; charset=utf-8</c> is present.
+    /// </summary>
+    private static void AddBareStringPart(MultipartFormDataContent multipart, string name, string value)
+    {
+        StringContent part = new(value);
+        part.Headers.ContentType = null;
+        multipart.Add(part, name);
+    }
+
+    /// <summary>
+    /// Attaches the file part with a <em>browser-shaped</em> <c>Content-Disposition</c>:
+    /// only emits <c>filename*=utf-8''…</c> when the filename actually contains non-ASCII
+    /// bytes. .NET's default <see cref="MultipartFormDataContent.Add(HttpContent, string, string)"/>
+    /// adds the RFC 5987 <c>filename*</c> parameter unconditionally, and some Perl multipart
+    /// parsers (XFileSharing's <c>fs.cgi</c>) misinterpret the duplicate filename and 500
+    /// out. Also stamps the part with a real MIME type guessed from the extension instead
+    /// of the generic <c>application/octet-stream</c>.
+    /// </summary>
+    private static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
+    {
+        string fileName = Path.GetFileName(filePath);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeGuesser.Guess(filePath));
+
+        // Add first with the (content, name) overload so .NET sets a baseline
+        // Content-Disposition; then overwrite it with our cleaner version.
+        multipart.Add(fileContent, fieldName);
+        fileContent.Headers.ContentDisposition = null;
+
+        string cdValue = System.Text.Ascii.IsValid(fileName)
+            ? $"form-data; name=\"{fieldName}\"; filename=\"{fileName}\""
+            : $"form-data; name=\"{fieldName}\"; filename=\"{fileName}\"; filename*=utf-8''{Uri.EscapeDataString(fileName)}";
+        fileContent.Headers.TryAddWithoutValidation("Content-Disposition", cdValue);
     }
 
     private void LogTransaction(HttpTransaction transaction) => logger.Log(null, LogType.Http, transaction.Summary, httpTransaction: transaction);

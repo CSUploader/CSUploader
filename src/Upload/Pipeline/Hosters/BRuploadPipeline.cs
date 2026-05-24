@@ -450,12 +450,18 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
             return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, ctx.SpeedLimitProvider);
         }
 
+        // Deliberately do NOT pass the xfss cookie here: the cookie was scoped to
+        // www.brupload.net and the upload subdomain is a different host. The browser
+        // doesn't send it on this POST either (verified in the Fiddler capture) — auth
+        // on this request rides on the sess_id form field, not on the cookie. Sending
+        // it anyway was harmless on the upload.cgi edge but is the kind of mismatch a
+        // WAF could legitimately reject.
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             auth.UploadActionUrl,
             fileFieldName: "file_0",
             extraFields: extraFields,
-            headers: BuildCookieHeader(auth.XfssCookie),
+            headers: null,
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }

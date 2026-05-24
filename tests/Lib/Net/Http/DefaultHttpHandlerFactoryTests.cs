@@ -35,4 +35,20 @@ public class DefaultHttpHandlerFactoryTests
         Assert.True(handler.MockServerSnapshot.Enabled);
         Assert.Equal("http://mock:9000", handler.MockServerSnapshot.BaseUrl);
     }
+
+    [Fact]
+    public void Create_AttachesABrowserShapedUserAgentByDefault()
+    {
+        // Some XFileSharing-family backends silently drop traffic with no UA and Cloudflare
+        // serves a JS challenge page. The factory is the only place to add the UA so every
+        // HttpHandler instance picks it up — regressing this would break uploads silently.
+        AppSettings settings = new();
+        DefaultHttpHandlerFactory factory = new(settings);
+
+        HttpHandler handler = factory.Create(ProxyChoice.Direct, Mock.Of<IAppLogger>());
+
+        string ua = string.Join(" ", handler.ClientForTesting.DefaultRequestHeaders.UserAgent);
+        Assert.Contains("Mozilla/5.0", ua, StringComparison.Ordinal);
+        Assert.Contains("Chrome/", ua, StringComparison.Ordinal);
+    }
 }

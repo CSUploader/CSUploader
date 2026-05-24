@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Net;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Upload;
@@ -11,11 +12,26 @@ namespace CSUploader.Lib.Net.Http;
 
 public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandlerFactory
 {
+    // Static Chrome/Edge User-Agent. Some XFileSharing-family backends and CDN/WAF layers
+    // (Cloudflare, Sucuri) silently drop or challenge clients with no UA — sending a
+    // realistic one keeps requests indistinguishable from a logged-in browser. The string
+    // is intentionally non-current-to-the-day so we don't have to chase Chrome's release
+    // cadence; backends only key on "is it a recognisable browser", not the exact version.
+    internal const string DefaultUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0";
+
     public HttpHandler Create(ProxyChoice proxy, IAppLogger logger)
     {
         HttpClientHandler clientHandler = new()
         {
             AllowAutoRedirect = false,
+
+            // Browsers send Accept-Encoding: gzip, deflate, br, zstd and expect to receive
+            // compressed responses. Hosters increasingly only send compressed bodies; without
+            // decompression enabled we'd either get garbled HTML or fall through to the WAF's
+            // "client looks suspicious" challenge page.
+            AutomaticDecompression = DecompressionMethods.All,
         };
 
         if (proxy.WebProxy is not null)
@@ -34,6 +50,14 @@ public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandl
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };
+
+        // Apply the UA once at HttpClient level so every request out of this handler carries it.
+        // TryParseAdd handles the multi-token form correctly; falling back to a literal
+        // assignment via TryAddWithoutValidation if .NET rejects the parse keeps boot resilient.
+        if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd(DefaultUserAgent))
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
+        }
 
         MockServerConfig snap = MockServerConfig.FromAppSettings(settings);
         return new HttpHandler(client, logger, proxy.Description, snap);

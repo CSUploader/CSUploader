@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using CSUploader.Lib;
@@ -72,6 +73,175 @@ public class HttpHandlerTests
 
         Assert.NotNull(capture.Transaction);
         Assert.Equal("http://1.2.3.4:8080", capture.Transaction!.Proxy);
+    }
+
+    // ---- Multipart shape: locks in the browser-like body produced by UploadMultipartAsync ----
+    //
+    // These tests exist because the previous implementation produced an XFileSharing-incompatible
+    // body (quoted boundary, dual `filename` + `filename*`, `text/plain; charset=utf-8` on every
+    // string part, generic `application/octet-stream` for the file). BRupload's fs.cgi 500'd on
+    // that shape even though the multipart was technically RFC-valid. If any of these regress,
+    // BRupload uploads will break first.
+
+    [Fact]
+    public async Task UploadMultipartAsync_ContentTypeBoundaryIsNotQuoted()
+    {
+        // RFC 2046 allows `boundary="..."` but XFileSharing's Perl multipart parser treats the
+        // quotes as part of the delimiter. The browser never emits the quoted form, so we don't either.
+        using TempFile temp = TempFile.With("hello-bytes");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+
+        string? ct = capture.RequestContentType;
+        Assert.NotNull(ct);
+        // Should be: multipart/form-data; boundary=----CSUploaderBoundary<hex>  — no quotes around the value.
+        Assert.Contains("boundary=----CSUploaderBoundary", ct, StringComparison.Ordinal);
+        Assert.DoesNotContain("boundary=\"", ct, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UploadMultipartAsync_AsciiFilename_OmitsFilenameStarParameter()
+    {
+        // Browsers only emit filename*=utf-8''... when the filename contains non-ASCII bytes.
+        // .NET's MultipartFormDataContent adds it unconditionally and that confused fs.cgi.
+        using TempFile temp = TempFile.With("hello-bytes", "ascii-name.mp4");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+
+        string body = capture.RequestBody ?? string.Empty;
+        Assert.Contains("name=\"file_0\"; filename=\"ascii-name.mp4\"", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("filename*=", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UploadMultipartAsync_NonAsciiFilename_EmitsFilenameStarFallback()
+    {
+        // For names that genuinely need RFC 5987, we still emit filename* as the fallback so
+        // the server can recover the original bytes. Mirrors what a browser sends for the same case.
+        using TempFile temp = TempFile.With("bytes", "résumé.pdf");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file");
+
+        string body = capture.RequestBody ?? string.Empty;
+        Assert.Contains("filename*=utf-8''", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UploadMultipartAsync_FilePart_UsesMimeTypeGuessedFromExtension()
+    {
+        // application/octet-stream is the lowest-information answer and lets a server
+        // confuse the upload with an unrecognised binary. Match what the browser sends.
+        using TempFile temp = TempFile.With("bytes", "movie.mp4");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+
+        string body = capture.RequestBody ?? string.Empty;
+        // The file part's Content-Type line should reflect the real MIME for .mp4.
+        Assert.Contains("Content-Type: video/mp4", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UploadMultipartAsync_StringParts_HaveNoContentTypeHeader()
+    {
+        // Browsers send form-field parts bare; XFileSharing parsers sometimes confuse a
+        // "text/plain; charset=utf-8" subpart with the actual file part.
+        using TempFile temp = TempFile.With("bytes", "x.mp4");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        Dictionary<string, string> extras = new(StringComparer.Ordinal)
+        {
+            ["sess_id"] = "abc",
+            ["utype"] = "reg",
+        };
+
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u",
+            fileFieldName: "file_0",
+            extraFields: extras);
+
+        string body = capture.RequestBody ?? string.Empty;
+
+        // The sess_id part's disposition is present but no Content-Type follows it before the value.
+        // Pattern: `Content-Disposition: form-data; name=sess_id\r\n\r\nabc` (no Content-Type line).
+        int sessIdx = body.IndexOf("name=sess_id", StringComparison.Ordinal);
+        Assert.True(sessIdx >= 0, $"sess_id part missing. Body:\n{body}");
+        // Slice from the disposition to the value boundary — about 60 chars is enough to capture
+        // any intervening Content-Type if it were emitted.
+        int valueIdx = body.IndexOf("abc", sessIdx, StringComparison.Ordinal);
+        Assert.True(valueIdx > sessIdx, "sess_id value missing");
+        string between = body[sessIdx..valueIdx];
+        Assert.DoesNotContain("Content-Type:", between, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Captures the first outbound request — its Content-Type and a fully-buffered copy of
+    /// the body — so tests can assert on the on-the-wire shape. Returns 200 to keep the
+    /// caller's code path uneventful.
+    /// </summary>
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public string? RequestContentType { get; private set; }
+
+        public string? RequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Content is not null)
+            {
+                RequestContentType = request.Content.Headers.ContentType?.ToString();
+
+                // ReadAsByteArrayAsync buffers the entire body (including the streamed file
+                // part). Files used in tests are tiny so this is fine.
+                byte[] bytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+                RequestBody = System.Text.Encoding.UTF8.GetString(bytes);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("ok"),
+            };
+        }
+    }
+
+    /// <summary>Temporary on-disk file with arbitrary content; deleted on dispose.</summary>
+    private sealed class TempFile : IDisposable
+    {
+        public string Path { get; }
+
+        private TempFile(string path) => Path = path;
+
+        public static TempFile With(string content, string? fileName = null)
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "csu-tests-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, fileName ?? "file.bin");
+            File.WriteAllText(path, content);
+            return new TempFile(path);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                string? dir = System.IO.Path.GetDirectoryName(Path);
+                if (dir is not null && Directory.Exists(dir))
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup — TEMP gets emptied eventually anyway.
+            }
+        }
     }
 
     private static HttpClient StubClient(HttpStatusCode status, string body) =>
