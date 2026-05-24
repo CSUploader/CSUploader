@@ -58,8 +58,8 @@ public class SettingsViewModelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private SettingsViewModel CreateVm(IDialogService? dialog = null, LogEntryRepository? logRepo = null) =>
-        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), logEntryRepository: logRepo);
+    private SettingsViewModel CreateVm(IDialogService? dialog = null, LogEntryRepository? logRepo = null, IAccountVerifier? verifier = null) =>
+        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), logEntryRepository: logRepo, accountVerifier: verifier);
 
     // Polls the DB briefly because each property's auto-save is fire-and-forget.
     private async Task<string?> WaitForSettingValueAsync(string key)
@@ -266,6 +266,98 @@ public class SettingsViewModelTests : IDisposable
 
         Assert.Equal("2048", await WaitForSettingValueAsync(SettingKey.SpeedLimit));
         Assert.Equal(2048, _appSettings.SpeedLimit);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_ShowsRowWithCheckingStatusBeforeVerifierReturns()
+    {
+        // Regression: the dialog flow used to await the verifier (~3s) BEFORE inserting,
+        // so the new account appeared in the grid only after verification finished. The
+        // fix inserts first with StatusMessage = "Checking..." then updates the row once
+        // the verifier returns. This test gates the verifier on a TCS so we can observe
+        // the in-flight state.
+        TaskCompletionSource<AccountCheckResult> gate = new();
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .Returns(gate.Task);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        FileHosterLoginDto dto = new()
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+            AccountType = AccountType.Free,
+        };
+
+        // Don't await — we want to observe the state while the verifier is still pending.
+        Task addTask = vm.AddAccountFromDialogAsync(dto);
+
+        // Phase 1: row visible with "Checking..." before verification completes.
+        await WaitForAsync(() => vm.Accounts.Count == 1 && vm.IsCheckingAccount);
+        FileHosterLoginDto inFlight = Assert.Single(vm.Accounts);
+        Assert.Equal("u", inFlight.Username);
+        Assert.Equal(Localizer.Instance["Settings_Accounts_Status_CheckingShort"], inFlight.StatusMessage);
+        Assert.True(vm.IsCheckingAccount);
+
+        // Phase 2: release the verifier — the row's status flips to the verifier's
+        // message, the type is updated, and the in-flight flag clears.
+        gate.SetResult(new AccountCheckResult(true, AccountType.Premium, "Premium until 2099"));
+        await addTask;
+
+        FileHosterLoginDto settled = Assert.Single(vm.Accounts);
+        Assert.Equal("Premium until 2099", settled.StatusMessage);
+        Assert.Equal(AccountType.Premium, settled.AccountType);
+        Assert.False(vm.IsCheckingAccount);
+
+        // Persisted account type matches what the verifier returned. StatusMessage is
+        // UI-only (not in the schema), so the DB-loaded copy always reads "Not checked"
+        // — the live VM collection carries the transient verification message.
+        FileHosterLoginDto[] persisted = await _loginRepo.FindAsync("Rapidgator");
+        FileHosterLoginDto row = Assert.Single(persisted);
+        Assert.Equal(AccountType.Premium, row.AccountType);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierFailure_PropagatesErrorToRowStatus()
+    {
+        // Pre-refactor the row was left with an empty StatusMessage when the verifier
+        // threw — only the global status bar carried the error. Now the row's status
+        // reflects the failure inline so the user sees it next to the account.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DNS failure"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Contains("DNS failure", row.StatusMessage, StringComparison.Ordinal);
+        Assert.False(vm.IsCheckingAccount);
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)
+    {
+        for (int i = 0; i < timeoutMs / 10; i++)
+        {
+            if (condition())
+            {
+                return;
+            }
+            await Task.Delay(10);
+        }
+        Assert.Fail("Condition was not met within timeout");
     }
 
     private class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)

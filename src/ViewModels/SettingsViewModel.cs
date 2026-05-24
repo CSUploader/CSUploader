@@ -742,61 +742,94 @@ public partial class SettingsViewModel(
         return _accountVerifier.CheckAsync(hosterName, username, password, cancellationToken);
     }
 
-    private async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
+    /// <summary>
+    /// Called by <see cref="AddAccountDialog"/> after the dialog returns Save. Exposed as
+    /// internal (not private) so the unit test can drive it without a real WPF window —
+    /// the dialog wiring is the only WPF dependency in this whole flow.
+    /// </summary>
+    internal async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
     {
-        // Auto-check if implementation exists
+        // Two-phase add so the grid isn't blank for the ~3s the verifier takes:
+        //   1. Insert the row up front with StatusMessage = "Checking..." and reload
+        //      the Accounts collection so it shows in the DataGrid immediately.
+        //   2. Run the verifier, then UPDATE the row with the real result.
+        // Hosters we don't have a pipeline for skip phase 2 entirely — the inserted
+        // row carries whatever StatusMessage the dialog left on the DTO.
         var client = FileHosterClient.FindByHost(dto.FileHosterName ?? string.Empty, Protocol.Http, _logger);
-        if (client is not null)
-        {
-            IsCheckingAccount = true;
-            CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
+        bool willCheck = client is not null;
 
-            try
-            {
-                AccountCheckResult result = await VerifyCredentialsAsync(
-                    dto.FileHosterName ?? string.Empty,
-                    dto.Username ?? string.Empty,
-                    dto.Password ?? string.Empty);
-
-                if (result.IsValid)
-                {
-                    dto.AccountType = result.AccountType;
-                    dto.StatusMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
-                    CheckAccountStatus = LocF("Settings_Accounts_Status_Verified_Format", result.Message);
-                }
-                else
-                {
-                    dto.StatusMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
-                    CheckAccountStatus = LocF("Settings_Accounts_Status_Warning_Format", result.Message);
-                }
-            }
-            catch (Exception ex)
-            {
-                CheckAccountStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
-            }
-            finally
-            {
-                IsCheckingAccount = false;
-            }
-        }
-
+        // Snapshot existing in-memory statuses, insert, reload, restore — same dance
+        // RefreshAllAccountsAsync uses so other accounts' transient statuses survive
+        // the round-trip through LoadAccountsAsync.
         Dictionary<int, string> statuses = BuildStatusMap();
-        string newStatus = dto.StatusMessage;
-
         await _accountRepository.InsertAsync(dto);
-        CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", dto.FileHosterName);
         await LoadAccountsAsync();
         ApplyStatusMap(statuses);
 
-        // Set status on the newly added account
-        foreach (FileHosterLoginDto a in Accounts)
+        if (!willCheck)
         {
-            if (a.FileHosterName == dto.FileHosterName && a.Username == dto.Username && !statuses.ContainsKey(a.Id))
+            CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", dto.FileHosterName);
+            return;
+        }
+
+        // StatusMessage is a UI-only DTO field (not in the schema), so the freshly
+        // reloaded row defaults to "Not checked". Stamp "Checking..." onto it so the
+        // user sees the in-flight status next to the new row while the verifier runs.
+        string checkingStatus = Loc("Settings_Accounts_Status_CheckingShort");
+        dto.StatusMessage = checkingStatus;
+        UpdateAccountStatus(dto.Id, checkingStatus);
+
+        IsCheckingAccount = true;
+        CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
+
+        string finalRowStatus;
+        try
+        {
+            AccountCheckResult result = await VerifyCredentialsAsync(
+                dto.FileHosterName ?? string.Empty,
+                dto.Username ?? string.Empty,
+                dto.Password ?? string.Empty);
+
+            if (result.IsValid)
             {
-                a.StatusMessage = newStatus;
-                UpdateAccountStatus(a.Id, newStatus);
+                dto.AccountType = result.AccountType;
+                finalRowStatus = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+            }
+            else
+            {
+                finalRowStatus = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
             }
         }
+        catch (Exception ex)
+        {
+            // Pre-refactor this only updated the global status bar and left the row's
+            // StatusMessage stuck on whatever it was before — now it propagates to the
+            // row too so the user sees the error inline next to the account.
+            finalRowStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
+        }
+        finally
+        {
+            IsCheckingAccount = false;
+        }
+
+        dto.StatusMessage = finalRowStatus;
+        await _accountRepository.UpdateAsync(dto);
+
+        // Replace the in-memory row with the verified DTO so AccountType (which a
+        // successful Premium check may have flipped from Free) and StatusMessage both
+        // reflect the verifier's result. UpdateAccountStatus alone only carries
+        // StatusMessage — it'd leave AccountType stuck at whatever LoadAccountsAsync
+        // saw before the verify completed.
+        for (int i = 0; i < Accounts.Count; i++)
+        {
+            if (Accounts[i].Id == dto.Id)
+            {
+                Accounts[i] = dto;
+                break;
+            }
+        }
+
+        CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", dto.FileHosterName);
     }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
