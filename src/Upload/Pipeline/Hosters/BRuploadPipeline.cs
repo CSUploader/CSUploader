@@ -349,7 +349,17 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
         string? csrf = ExtractHiddenInput(_csrfTokenRegex, loginPage);
         if (csrf is null)
         {
-            return (null, "login.html did not contain a CSRF token");
+            // The token IS present on the real login.html (verified against the live page
+            // serving `<input type="hidden" name="token" value="...">`). When this branch
+            // fires it means we got DIFFERENT HTML than the real page — typically the
+            // mock-server URL rewrite (DEBUG default; UseMockServer in Settings/General)
+            // intercepting and returning a stub page. Surface enough context that the
+            // user can tell from the error which case they're in.
+            string snippet = Snippet(loginPage);
+            string lengthInfo = $"body length: {loginPage.Length}";
+            return (null, $"login.html did not contain a CSRF token ({lengthInfo}). " +
+                $"If you have the mock server enabled in Settings → General, disable it. " +
+                $"Body starts with: {snippet}");
         }
 
         Dictionary<string, string> form = new(StringComparer.Ordinal)
