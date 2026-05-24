@@ -149,10 +149,15 @@ public class HttpHandlerTests
     }
 
     [Fact]
-    public async Task UploadMultipartAsync_StringParts_HaveNoContentTypeHeader()
+    public async Task UploadMultipartAsync_StringParts_HaveQuotedNameAndNoContentTypeHeader()
     {
-        // Browsers send form-field parts bare; XFileSharing parsers sometimes confuse a
-        // "text/plain; charset=utf-8" subpart with the actual file part.
+        // Two browser-parity properties bundled into one test because they live in the same
+        // section of the part:
+        //   1. name="sess_id" (quoted) — XFileSharing's Perl parser regex-extracts
+        //      `name="(...)"` and drops unquoted parts, so an unquoted name means
+        //      upload.cgi never sees sess_id → user looks anonymous → "uploads not enabled".
+        //   2. No `Content-Type: text/plain; charset=utf-8` on the part — browsers send
+        //      form-field parts bare and .NET's default added one.
         using TempFile temp = TempFile.With("bytes", "x.mp4");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
@@ -169,14 +174,18 @@ public class HttpHandlerTests
 
         string body = capture.RequestBody ?? string.Empty;
 
-        // The sess_id part's disposition is present but no Content-Type follows it before the value.
-        // Pattern: `Content-Disposition: form-data; name=sess_id\r\n\r\nabc` (no Content-Type line).
-        int sessIdx = body.IndexOf("name=sess_id", StringComparison.Ordinal);
-        Assert.True(sessIdx >= 0, $"sess_id part missing. Body:\n{body}");
-        // Slice from the disposition to the value boundary — about 60 chars is enough to capture
-        // any intervening Content-Type if it were emitted.
+        // 1. Quoted name in Content-Disposition (browser-style).
+        Assert.Contains("name=\"sess_id\"", body, StringComparison.Ordinal);
+        Assert.Contains("name=\"utype\"", body, StringComparison.Ordinal);
+        // Regression: the unquoted form must NOT appear (it'd mean we left .NET's default,
+        // which XFileSharing silently drops).
+        Assert.DoesNotContain("name=sess_id\r\n", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("name=sess_id\n", body, StringComparison.Ordinal);
+
+        // 2. No Content-Type between the quoted-name disposition and the value.
+        int sessIdx = body.IndexOf("name=\"sess_id\"", StringComparison.Ordinal);
         int valueIdx = body.IndexOf("abc", sessIdx, StringComparison.Ordinal);
-        Assert.True(valueIdx > sessIdx, "sess_id value missing");
+        Assert.True(sessIdx >= 0 && valueIdx > sessIdx, $"sess_id part malformed. Body:\n{body}");
         string between = body[sessIdx..valueIdx];
         Assert.DoesNotContain("Content-Type:", between, StringComparison.Ordinal);
     }

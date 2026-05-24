@@ -399,15 +399,32 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
-    /// Adds a string form field with <em>no</em> <c>Content-Type</c> header on the part —
-    /// browsers don't emit one for plain form fields and some servers reject the parts
-    /// when <c>text/plain; charset=utf-8</c> is present.
+    /// Adds a string form field with <em>no</em> <c>Content-Type</c> header on the part and
+    /// a <em>quoted</em> name in the <c>Content-Disposition</c> header.
     /// </summary>
+    /// <remarks>
+    /// Two reasons the disposition is rewritten by hand instead of leaving .NET's default:
+    /// <list type="bullet">
+    ///   <item>Browsers always emit <c>name="..."</c> with quotes. .NET only quotes when the
+    ///   name contains a non-token character, so token names like <c>sess_id</c> go out
+    ///   unquoted. XFileSharing's Perl multipart parser regex-extracts <c>name="(...)"</c>
+    ///   and silently drops parts whose names aren't quoted — meaning <c>sess_id</c> never
+    ///   reaches <c>upload.cgi</c>, the user is treated as anonymous, and the upload is
+    ///   rejected with the generic "uploads are not enabled for your account type" error.</item>
+    ///   <item>Some servers reject string parts that carry <c>Content-Type: text/plain;
+    ///   charset=utf-8</c> (.NET's default). Browsers send these parts bare.</item>
+    /// </list>
+    /// </remarks>
     private static void AddBareStringPart(MultipartFormDataContent multipart, string name, string value)
     {
         StringContent part = new(value);
         part.Headers.ContentType = null;
+
+        // .NET sets a Content-Disposition with the unquoted name. Replace it with the
+        // browser-shaped, quoted version.
         multipart.Add(part, name);
+        part.Headers.ContentDisposition = null;
+        part.Headers.TryAddWithoutValidation("Content-Disposition", $"form-data; name=\"{name}\"");
     }
 
     /// <summary>
