@@ -750,21 +750,36 @@ public partial class SettingsViewModel(
     internal async Task AddAccountFromDialogAsync(FileHosterLoginDto dto)
     {
         // Two-phase add so the grid isn't blank for the ~3s the verifier takes:
-        //   1. Insert the row up front with StatusMessage = "Checking..." and reload
-        //      the Accounts collection so it shows in the DataGrid immediately.
+        //   1. Insert the row up front with CheckStatus = Checking and reload the
+        //      Accounts collection so it shows in the DataGrid immediately.
         //   2. Run the verifier, then UPDATE the row with the real result.
         // Hosters we don't have a pipeline for skip phase 2 entirely — the inserted
-        // row carries whatever StatusMessage the dialog left on the DTO.
+        // row gets CheckStatus = Unsupported so the colour converter paints it grey.
         var client = FileHosterClient.FindByHost(dto.FileHosterName ?? string.Empty, Protocol.Http, _logger);
         bool willCheck = client is not null;
 
-        // Snapshot existing in-memory statuses, insert, reload, restore — same dance
-        // RefreshAllAccountsAsync uses so other accounts' transient statuses survive
-        // the round-trip through LoadAccountsAsync.
-        Dictionary<int, string> statuses = BuildStatusMap();
+        if (willCheck)
+        {
+            dto.SetCheckStatus(AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
+        }
+        else
+        {
+            dto.SetCheckStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
+        }
+
+        // Snapshot existing in-memory (status, message) pairs, insert, reload, restore.
+        // Same dance RefreshAllAccountsAsync uses so other accounts' transient verify
+        // state survives the round-trip through LoadAccountsAsync (both fields are
+        // UI-only — reloading from the DB would otherwise reset them).
+        Dictionary<int, RowStatus> statuses = BuildStatusMap();
         await _accountRepository.InsertAsync(dto);
         await LoadAccountsAsync();
         ApplyStatusMap(statuses);
+
+        // The freshly-reloaded row for the new account picked up the DB defaults
+        // (NotChecked / "Not checked") since neither field is persisted — stamp our
+        // intended (Checking | Unsupported, message) onto it so the colour matches.
+        UpdateAccountStatus(dto.Id, dto.CheckStatus, dto.StatusMessage);
 
         if (!willCheck)
         {
@@ -772,17 +787,11 @@ public partial class SettingsViewModel(
             return;
         }
 
-        // StatusMessage is a UI-only DTO field (not in the schema), so the freshly
-        // reloaded row defaults to "Not checked". Stamp "Checking..." onto it so the
-        // user sees the in-flight status next to the new row while the verifier runs.
-        string checkingStatus = Loc("Settings_Accounts_Status_CheckingShort");
-        dto.StatusMessage = checkingStatus;
-        UpdateAccountStatus(dto.Id, checkingStatus);
-
         IsCheckingAccount = true;
         CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
 
-        string finalRowStatus;
+        AccountCheckStatus finalStatus;
+        string finalMessage;
         try
         {
             AccountCheckResult result = await VerifyCredentialsAsync(
@@ -793,42 +802,39 @@ public partial class SettingsViewModel(
             if (result.IsValid)
             {
                 dto.AccountType = result.AccountType;
-                finalRowStatus = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+                finalStatus = AccountCheckStatus.Valid;
+                finalMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
             }
             else
             {
-                // Prefix with "Failed: " so StatusToColorConverter's StartsWith("Failed")
-                // rule paints the cell red — raw exception messages from the verifier
-                // (e.g. "The SSL connection could not be established...") don't trip any
-                // colour rule on their own.
-                finalRowStatus = LocF(
-                    "Settings_Accounts_Status_Failed_Format",
-                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
+                // No "Failed: " prefix — CheckStatus drives the cell colour now, so the
+                // row text is just the verifier's message (e.g. "Wrong password",
+                // "The SSL connection could not be established...").
+                finalStatus = AccountCheckStatus.Failed;
+                finalMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
             }
         }
         catch (Exception ex)
         {
-            // Pre-refactor this only updated the global status bar and left the row's
-            // StatusMessage stuck on whatever it was before — now it propagates to the
-            // row too so the user sees the error inline next to the account. Use the
-            // "Error: " prefix (also recognised by the colour converter) since this
-            // catch is for unexpected exceptions, distinct from the verifier returning
-            // IsValid=false above.
-            finalRowStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+            // Transport/exception failures land in the same Failed bucket as verifier
+            // IsValid=false — both are red cells to the user, and the message text
+            // explains which.
+            finalStatus = AccountCheckStatus.Failed;
+            finalMessage = ex.Message;
         }
         finally
         {
             IsCheckingAccount = false;
         }
 
-        dto.StatusMessage = finalRowStatus;
+        dto.SetCheckStatus(finalStatus, finalMessage);
         await _accountRepository.UpdateAsync(dto);
 
         // Replace the in-memory row with the verified DTO so AccountType (which a
-        // successful Premium check may have flipped from Free) and StatusMessage both
-        // reflect the verifier's result. UpdateAccountStatus alone only carries
-        // StatusMessage — it'd leave AccountType stuck at whatever LoadAccountsAsync
-        // saw before the verify completed.
+        // successful Premium check may have flipped from Free), CheckStatus and
+        // StatusMessage all reflect the verifier's result. UpdateAccountStatus alone
+        // would leave AccountType stuck at whatever LoadAccountsAsync saw before the
+        // verify completed.
         for (int i = 0; i < Accounts.Count; i++)
         {
             if (Accounts[i].Id == dto.Id)
@@ -854,19 +860,19 @@ public partial class SettingsViewModel(
         int checked_ = 0;
         int updated = 0;
 
-        Dictionary<int, string> statuses = BuildStatusMap();
+        Dictionary<int, RowStatus> statuses = BuildStatusMap();
 
         foreach (FileHosterLoginDto account in Accounts.ToArray())
         {
             CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", account.Username, account.FileHosterName, ++checked_, Accounts.Count);
-            UpdateAccountStatus(account.Id, Loc("Settings_Accounts_Status_CheckingShort"));
+            UpdateAccountStatus(account.Id, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
             await Task.Yield();
 
             var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
             {
-                statuses[account.Id] = Loc("Settings_Accounts_Status_NoImpl");
-                UpdateAccountStatus(account.Id, Loc("Settings_Accounts_Status_NoImpl"));
+                statuses[account.Id] = new RowStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
+                UpdateAccountStatus(account.Id, AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
                 continue;
             }
 
@@ -880,7 +886,9 @@ public partial class SettingsViewModel(
 
                 if (result.IsValid)
                 {
-                    statuses[account.Id] = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+                    statuses[account.Id] = new RowStatus(
+                        AccountCheckStatus.Valid,
+                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"));
                     if (account.AccountType != result.AccountType)
                     {
                         account.AccountType = result.AccountType;
@@ -889,9 +897,10 @@ public partial class SettingsViewModel(
                 }
                 else
                 {
-                    // "Failed: ..." prefix tells StatusToColorConverter to paint red.
-                    statuses[account.Id] = LocF(
-                        "Settings_Accounts_Status_Failed_Format",
+                    // CheckStatus drives the cell colour now — row text is just the
+                    // verifier's message, no "Failed: " prefix needed.
+                    statuses[account.Id] = new RowStatus(
+                        AccountCheckStatus.Failed,
                         result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
                 }
 
@@ -899,10 +908,14 @@ public partial class SettingsViewModel(
             }
             catch (Exception ex)
             {
-                statuses[account.Id] = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+                // Transport exceptions and verifier IsValid=false both bucket as Failed
+                // (red cell). The user sees the message text to distinguish; we don't
+                // need a separate "Error" colour.
+                statuses[account.Id] = new RowStatus(AccountCheckStatus.Failed, ex.Message);
             }
 
-            UpdateAccountStatus(account.Id, statuses[account.Id]);
+            RowStatus settled = statuses[account.Id];
+            UpdateAccountStatus(account.Id, settled.Status, settled.Message);
         }
 
         IsCheckingAccount = false;
@@ -1099,47 +1112,50 @@ public partial class SettingsViewModel(
         IsCheckingAccount = true;
         CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", username, account.FileHosterName, 1, 1);
 
-        // Show "Checking..." in the DataGrid immediately and yield to let UI render
-        UpdateAccountStatus(accountId, Loc("Settings_Accounts_Status_CheckingShort"));
+        // Show "Checking..." in the DataGrid immediately and yield to let UI render.
+        UpdateAccountStatus(accountId, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
         await Task.Yield();
 
         try
         {
             AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, cancellationToken);
 
-            string statusMsg;
+            RowStatus settled;
             if (result.IsValid)
             {
                 account.AccountType = result.AccountType;
-                statusMsg = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
+                settled = new RowStatus(
+                    AccountCheckStatus.Valid,
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"));
                 CheckAccountStatus = LocF("Settings_Accounts_Status_Valid_Format", result.Message);
             }
             else
             {
-                // Row gets the same "Failed: ..." prefix the global bar uses, so
-                // StatusToColorConverter's StartsWith("Failed") rule paints the cell red.
-                statusMsg = LocF(
-                    "Settings_Accounts_Status_Failed_Format",
+                // CheckStatus drives the cell colour now — the row text is just the
+                // verifier's message. The global status bar (CheckAccountStatus) keeps
+                // its "Failed: " prefix because it has no colour and needs the prefix
+                // to convey outcome.
+                settled = new RowStatus(
+                    AccountCheckStatus.Failed,
                     result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
                 CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
             }
 
             await _accountRepository.UpdateAsync(account, cancellationToken);
 
-            // Reload and preserve status messages
-            Dictionary<int, string> statuses = BuildStatusMap();
-            statuses[accountId] = statusMsg;
+            // Reload and preserve check-status pairs (both fields are UI-only).
+            Dictionary<int, RowStatus> statuses = BuildStatusMap();
+            statuses[accountId] = settled;
             await LoadAccountsAsync(cancellationToken);
             ApplyStatusMap(statuses);
         }
         catch (Exception ex)
         {
             // Pre-fix this only updated the global status bar; the row was left stuck on
-            // "Checking..." with no indication of failure. Now both surfaces carry the
-            // "Error: " prefix so the colour converter paints the cell red too.
-            string errorStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
-            CheckAccountStatus = errorStatus;
-            UpdateAccountStatus(accountId, errorStatus);
+            // "Checking..." with no indication of failure. Now the row also turns red
+            // via CheckStatus = Failed.
+            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+            UpdateAccountStatus(accountId, AccountCheckStatus.Failed, ex.Message);
         }
         finally
         {
@@ -1160,7 +1176,7 @@ public partial class SettingsViewModel(
         SelectedAccount.Disabled = disable;
         await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
 
-        Dictionary<int, string> statuses = BuildStatusMap();
+        Dictionary<int, RowStatus> statuses = BuildStatusMap();
         await LoadAccountsAsync(cancellationToken);
         ApplyStatusMap(statuses);
 
@@ -1169,35 +1185,40 @@ public partial class SettingsViewModel(
             : LocF("Settings_Accounts_Status_AccountEnabled_Format", username);
     }
 
-    // ── Helpers for preserving StatusMessage across reloads ──
+    // ── Helpers for preserving check status across reloads ──
 
-    private Dictionary<int, string> BuildStatusMap()
-        => Accounts.ToDictionary(a => a.Id, a => a.StatusMessage);
+    /// <summary>(CheckStatus, StatusMessage) pair preserved across a LoadAccountsAsync
+    /// round-trip — both fields are UI-only so they'd otherwise reset to
+    /// (NotChecked, "Not checked") whenever the collection is reloaded from the DB.</summary>
+    private readonly record struct RowStatus(AccountCheckStatus Status, string Message);
 
-    private void ApplyStatusMap(Dictionary<int, string> statuses)
+    private Dictionary<int, RowStatus> BuildStatusMap()
+        => Accounts.ToDictionary(a => a.Id, a => new RowStatus(a.CheckStatus, a.StatusMessage));
+
+    private void ApplyStatusMap(Dictionary<int, RowStatus> statuses)
     {
         foreach (FileHosterLoginDto a in Accounts)
         {
-            if (statuses.TryGetValue(a.Id, out string? msg))
+            if (statuses.TryGetValue(a.Id, out RowStatus row))
             {
-                a.StatusMessage = msg;
+                a.SetCheckStatus(row.Status, row.Message);
             }
         }
     }
 
     /// <summary>
-    /// Updates the StatusMessage on an account in the collection and replaces
-    /// the item to trigger the ObservableCollection change notification
-    /// (since FileHosterLoginDto doesn't implement INotifyPropertyChanged).
+    /// Updates an account's <see cref="FileHosterLoginDto.CheckStatus"/> and
+    /// <see cref="FileHosterLoginDto.StatusMessage"/> together, replacing the item in
+    /// <see cref="Accounts"/> to trigger ObservableCollection change notification
+    /// (FileHosterLoginDto doesn't implement INotifyPropertyChanged, and same-reference
+    /// assignment is optimised away by the framework).
     /// </summary>
-    private void UpdateAccountStatus(int accountId, string status)
+    private void UpdateAccountStatus(int accountId, AccountCheckStatus status, string message)
     {
         for (int i = 0; i < Accounts.Count; i++)
         {
             if (Accounts[i].Id == accountId)
             {
-                // Create a shallow copy so ObservableCollection sees a different reference
-                // and fires CollectionChanged (same-reference assignment is optimized away)
                 FileHosterLoginDto copy = new()
                 {
                     Id = Accounts[i].Id,
@@ -1206,8 +1227,8 @@ public partial class SettingsViewModel(
                     Password = Accounts[i].Password,
                     AccountType = Accounts[i].AccountType,
                     Disabled = Accounts[i].Disabled,
-                    StatusMessage = status,
                 };
+                copy.SetCheckStatus(status, message);
                 Accounts[i] = copy;
                 return;
             }

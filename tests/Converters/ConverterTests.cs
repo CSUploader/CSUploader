@@ -252,50 +252,47 @@ public class BoolToVisibilityConverterTests
     }
 }
 
-public class StatusToColorConverterTests
+public class AccountCheckStatusToColorConverterTests
 {
     // Theme resources aren't loaded in unit tests, so the converter returns its fallback
     // SolidColorBrush directly. We compare on the underlying Color to assert the bucket
     // chosen — Success (green), Error (red), Warning (yellow), or Disabled (grey).
     private static readonly System.Windows.Media.Color SuccessColor = System.Windows.Media.Color.FromRgb(0x4A, 0xDE, 0x80);
     private static readonly System.Windows.Media.Color ErrorColor = System.Windows.Media.Color.FromRgb(0xF8, 0x71, 0x71);
+    private static readonly System.Windows.Media.Color WarningColor = System.Windows.Media.Color.FromRgb(0xFB, 0xBF, 0x24);
     private static readonly System.Windows.Media.Color DisabledColor = System.Windows.Media.Color.FromRgb(0xA8, 0xAA, 0xC0);
 
-    private readonly StatusToColorConverter _converter = new();
+    private readonly AccountCheckStatusToColorConverter _converter = new();
 
-    private System.Windows.Media.Color ConvertToColor(string status) =>
-        ((System.Windows.Media.SolidColorBrush)_converter.Convert(status, typeof(System.Windows.Media.Brush), null!, CultureInfo.InvariantCulture)).Color;
+    private System.Windows.Media.Color ConvertToColor(object value) =>
+        ((System.Windows.Media.SolidColorBrush)_converter.Convert(value, typeof(System.Windows.Media.Brush), null!, CultureInfo.InvariantCulture)).Color;
 
-    [Fact]
-    public void Convert_FailedPrefix_PicksError()
-    {
-        // Regression: raw exception messages like "The SSL connection could not be
-        // established..." used to paint green because no rule matched and the default
-        // was Success. The VM now prefixes failure rows with "Failed: " — assert that
-        // trips the red rule.
-        Assert.Equal(ErrorColor, ConvertToColor("Failed: The SSL connection could not be established, see inner exception."));
-    }
+    [Theory]
+    [InlineData(CSUploader.Dal.AccountCheckStatus.Valid)]
+    public void Convert_Valid_PicksSuccess(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(SuccessColor, ConvertToColor(s));
 
-    [Fact]
-    public void Convert_ErrorPrefix_PicksError()
-    {
-        Assert.Equal(ErrorColor, ConvertToColor("Error: socket closed"));
-    }
+    [Theory]
+    [InlineData(CSUploader.Dal.AccountCheckStatus.Failed)]
+    public void Convert_Failed_PicksError(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(ErrorColor, ConvertToColor(s));
 
-    [Fact]
-    public void Convert_PremiumStatus_PicksSuccess()
-    {
-        Assert.Equal(SuccessColor, ConvertToColor("Premium until 2099-01-01"));
-    }
+    [Theory]
+    [InlineData(CSUploader.Dal.AccountCheckStatus.Checking)]
+    public void Convert_Checking_PicksWarning(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(WarningColor, ConvertToColor(s));
+
+    [Theory]
+    [InlineData(CSUploader.Dal.AccountCheckStatus.NotChecked)]
+    [InlineData(CSUploader.Dal.AccountCheckStatus.Unsupported)]
+    public void Convert_NeutralStates_PickDisabled(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(DisabledColor, ConvertToColor(s));
 
     [Fact]
-    public void Convert_UnknownText_FallsBackToDisabledGreyNotGreen()
+    public void Convert_NonEnumInput_FallsBackToDisabledGreyInsteadOfThrowing()
     {
-        // The original bug: any status string the converter didn't recognise was painted
-        // green (default fallback = SuccessBrush), silently lying about failure. The
-        // fix changed the fallback to the neutral disabled colour — better honest grey
-        // than misleading green.
-        Assert.Equal(DisabledColor, ConvertToColor("Some untranslated novel status string"));
+        // Regression: the previous string-sniffing converter painted any unrecognised
+        // text green because its catch-all fallback was SuccessBrush. The enum-based
+        // replacement defaults non-enum input (null at design-time, wrong binding type)
+        // to grey — better an honest "no opinion" than a misleading "OK".
+        Assert.Equal(DisabledColor, ConvertToColor("not an enum value"));
+        Assert.Equal(DisabledColor, ConvertToColor(null!));
     }
 }
 

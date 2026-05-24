@@ -296,19 +296,21 @@ public class SettingsViewModelTests : IDisposable
         // Don't await — we want to observe the state while the verifier is still pending.
         Task addTask = vm.AddAccountFromDialogAsync(dto);
 
-        // Phase 1: row visible with "Checking..." before verification completes.
+        // Phase 1: row visible with CheckStatus=Checking before verification completes.
         await WaitForAsync(() => vm.Accounts.Count == 1 && vm.IsCheckingAccount);
         FileHosterLoginDto inFlight = Assert.Single(vm.Accounts);
         Assert.Equal("u", inFlight.Username);
+        Assert.Equal(AccountCheckStatus.Checking, inFlight.CheckStatus);
         Assert.Equal(Localizer.Instance["Settings_Accounts_Status_CheckingShort"], inFlight.StatusMessage);
         Assert.True(vm.IsCheckingAccount);
 
-        // Phase 2: release the verifier — the row's status flips to the verifier's
-        // message, the type is updated, and the in-flight flag clears.
+        // Phase 2: release the verifier — the row's status flips to Valid with the
+        // verifier's message, the type is updated, and the in-flight flag clears.
         gate.SetResult(new AccountCheckResult(true, AccountType.Premium, "Premium until 2099"));
         await addTask;
 
         FileHosterLoginDto settled = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Valid, settled.CheckStatus);
         Assert.Equal("Premium until 2099", settled.StatusMessage);
         Assert.Equal(AccountType.Premium, settled.AccountType);
         Assert.False(vm.IsCheckingAccount);
@@ -322,11 +324,11 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task AddAccountFromDialogAsync_VerifierFailure_PropagatesErrorToRowStatus()
+    public async Task AddAccountFromDialogAsync_VerifierFailure_SetsFailedStatusOnRow()
     {
         // Pre-refactor the row was left with an empty StatusMessage when the verifier
-        // threw — only the global status bar carried the error. Now the row's status
-        // reflects the failure inline so the user sees it next to the account.
+        // threw — only the global status bar carried the error. Now the row carries
+        // CheckStatus=Failed (drives red cell) and the exception message.
         Mock<IAccountVerifier> verifier = new();
         verifier
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
@@ -343,8 +345,62 @@ public class SettingsViewModelTests : IDisposable
         });
 
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Failed, row.CheckStatus);
         Assert.Contains("DNS failure", row.StatusMessage, StringComparison.Ordinal);
         Assert.False(vm.IsCheckingAccount);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierReturnsInvalid_SetsFailedStatusOnRow()
+    {
+        // Verifier IsValid=false (e.g. wrong password) buckets into Failed — same red
+        // cell as a transport exception. The user-visible difference is the message.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Failed, row.CheckStatus);
+        Assert.Equal("Wrong password", row.StatusMessage);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_UnsupportedHoster_SkipsVerifierAndMarksUnsupported()
+    {
+        // FileHosterClient.FindByHost only returns non-null for hosters in the master
+        // FileHosters dictionary. "TotallyMadeUpHoster" isn't there, so willCheck=false
+        // — the verifier is never invoked and the row lands as Unsupported (grey).
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("verifier should never be called"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "TotallyMadeUpHoster",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Unsupported, row.CheckStatus);
+        verifier.Verify(
+            v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)

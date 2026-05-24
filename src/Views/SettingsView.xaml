@@ -16,7 +16,7 @@
 
     <UserControl.Resources>
         <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
-        <conv:StatusToColorConverter x:Key="StatusToColorConverter" />
+        <conv:AccountCheckStatusToColorConverter x:Key="AccountCheckStatusToColor" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
 
@@ -885,7 +885,7 @@
                                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTip="{Binding StatusMessage}"
-                                           Foreground="{Binding StatusMessage, Converter={StaticResource StatusToColorConverter}}" />
+                                           Foreground="{Binding CheckStatus, Converter={StaticResource AccountCheckStatusToColor}}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
