@@ -271,14 +271,25 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
             // Step 2: GET /?op=upload_form with the xfss cookie to discover the per-user
             // upload server hostname (XFileSharing routes uploads through a sharded
             // subdomain that the main www host won't accept).
-            (string? sessionId, string? actionUrl, string? formError) = await FetchUploadFormAsync(
-                xfss,
-                url => GetAsync(ctx, url, BuildCookieHeader(xfss)));
+            (string? sessionId, string? actionUrl, string? formError, bool sessIdFromForm, int htmlLength) =
+                await FetchUploadFormAsync(
+                    xfss,
+                    url => GetAsync(ctx, url, BuildCookieHeader(xfss)));
 
             if (sessionId is null || actionUrl is null)
             {
                 return (null, true, formError ?? "upload_form parse failed");
             }
+
+            // One-shot diagnostic: confirms on a live trace whether _sessIdRegex actually
+            // picks up the hidden input the real backend renders, or whether we silently
+            // fell back to using xfss as sess_id (which fs.cgi may reject). Logged at
+            // Status so it shows up in the Logs tab without needing a debug build.
+            ctx.Logger.Log(
+                this,
+                LogType.Status,
+                $"BRupload upload_form: action={actionUrl}, sess_id source={(sessIdFromForm ? "form" : "xfss-fallback")}, " +
+                $"sess_id={sessionId}, xfss={xfss}, html_length={htmlLength}");
 
             BRuploadAuthState newAuth = new(xfss, sessionId, actionUrl);
             _authByCredentialsId[ctx.Credentials.Id] = newAuth;
@@ -364,8 +375,10 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     /// <summary>
     /// Step 3 of auth: fetch the upload-form HTML (authenticated via the <c>xfss</c>
     /// cookie) and parse out the upload action URL and the <c>sess_id</c> hidden field.
+    /// Returns <paramref name="SessIdFromForm"/> = false when the regex didn't match and
+    /// we fell back to the xfss cookie value — surfaced for diagnostic logging.
     /// </summary>
-    private static async Task<(string? SessionId, string? ActionUrl, string? Error)> FetchUploadFormAsync(
+    private static async Task<(string? SessionId, string? ActionUrl, string? Error, bool SessIdFromForm, int HtmlLength)> FetchUploadFormAsync(
         string xfss,
         Func<string, Task<string>> get)
     {
@@ -376,13 +389,13 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
         }
         catch (Exception ex)
         {
-            return (null, null, "upload_form fetch failed: " + ex.Message);
+            return (null, null, "upload_form fetch failed: " + ex.Message, false, 0);
         }
 
         Match actionMatch = _uploadFormActionRegex.Match(html);
         if (!actionMatch.Success)
         {
-            return (null, null, "upload_form HTML did not contain a usable upload action URL");
+            return (null, null, "upload_form HTML did not contain a usable upload action URL", false, html.Length);
         }
 
         string actionUrl = actionMatch.Groups[1].Value;
@@ -390,31 +403,35 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
         // sess_id can equal xfss on the mock, but on the real backend the form may render
         // a different value (e.g. CSRF-bound or short-lived). Always use the form value.
         string? sessId = ExtractHiddenInput(_sessIdRegex, html);
-        if (string.IsNullOrEmpty(sessId))
+        bool fromForm = !string.IsNullOrEmpty(sessId);
+        if (!fromForm)
         {
             // Fall back to the cookie value — the mock form does use it as sess_id, so this
             // keeps test fixtures that omit the sess_id input working.
             sessId = xfss;
         }
 
-        return (sessId, actionUrl, null);
+        return (sessId, actionUrl, null, fromForm, html.Length);
     }
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, BRuploadAuthState auth)
     {
-        // Mirror exactly what BRupload's own upload.js sends: the upload form's hidden
-        // inputs + an empty advanced_opts table (link_rcpt / link_pass / to_folder) +
-        // the `keepalive` flag the JS appends after serializeForm. Sending extras like
-        // file_public, file_descr, or `upload=Start upload` (which aren't part of the
-        // file form at all — they belong to the URL-upload form) makes fs.cgi 500 with
-        // "failed while requesting fs.cgi".
+        // Mirror exactly what BRupload's upload form posts via the browser. A previous
+        // iteration omitted file_descr / file_public / upload on the theory they belonged
+        // to the URL-upload form, but a captured Fiddler trace of a successful browser
+        // upload shows all three are present and that fs.cgi 500s ("failed while
+        // requesting fs.cgi") when they're missing — fs.cgi reads file_public to register
+        // the file's visibility and chokes on the unset value.
         Dictionary<string, string> extraFields = new(StringComparer.Ordinal)
         {
             ["sess_id"] = auth.SessionId,
             ["utype"] = "reg",
+            ["file_descr"] = string.Empty,
+            ["file_public"] = "1",
             ["link_rcpt"] = string.Empty,
             ["link_pass"] = string.Empty,
             ["to_folder"] = string.Empty,
+            ["upload"] = "Start upload",
             ["keepalive"] = "1",
         };
 

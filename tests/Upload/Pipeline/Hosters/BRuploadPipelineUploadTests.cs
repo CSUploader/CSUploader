@@ -78,21 +78,21 @@ public class BRuploadPipelineUploadTests
         // sess_id should be the value scraped from the form, NOT the xfss cookie value.
         Assert.Equal("formSess77", call.ExtraFields["sess_id"]);
 
-        // Exactly mirror what brupload's upload.js sends: the file form's hidden
-        // inputs (sess_id, utype) + the advanced_opts table inputs (link_rcpt,
-        // link_pass, to_folder, all empty) + keepalive=1 appended by formToXHR.
+        // Exactly mirror what the BRupload upload form posts via the browser (verified
+        // against a Fiddler capture of a successful browser upload): the file form's
+        // hidden inputs (sess_id, utype, file_descr, file_public) + the advanced_opts
+        // table inputs (link_rcpt, link_pass, to_folder, all empty) + the upload submit
+        // value + keepalive=1 appended by formToXHR. Omitting file_public/file_descr/
+        // upload causes fs.cgi to 500 with "failed while requesting fs.cgi" because
+        // fs.cgi reads file_public to register the file's visibility.
         Assert.Equal("reg", call.ExtraFields["utype"]);
         Assert.Equal("1", call.ExtraFields["keepalive"]);
+        Assert.Equal(string.Empty, call.ExtraFields["file_descr"]);
+        Assert.Equal("1", call.ExtraFields["file_public"]);
         Assert.Equal(string.Empty, call.ExtraFields["link_rcpt"]);
         Assert.Equal(string.Empty, call.ExtraFields["link_pass"]);
         Assert.Equal(string.Empty, call.ExtraFields["to_folder"]);
-
-        // Sending these makes fs.cgi 500 — they belong to the URL-upload form
-        // or aren't form fields at all (upload=Start upload was a submit-button
-        // pair, never POSTed by an XHR).
-        Assert.False(call.ExtraFields.ContainsKey("file_public"));
-        Assert.False(call.ExtraFields.ContainsKey("file_descr"));
-        Assert.False(call.ExtraFields.ContainsKey("upload"));
+        Assert.Equal("Start upload", call.ExtraFields["upload"]);
     }
 
     [Fact]
