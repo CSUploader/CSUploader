@@ -61,6 +61,16 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>
+    /// Hoster display names sorted case-insensitively for UI lists (Add Account dialog,
+    /// upload wizard grid). The underlying <see cref="FileHosters"/> dictionary is
+    /// authored in arbitrary order and <see cref="FrozenDictionary{TKey,TValue}.Keys"/>
+    /// does not promise a stable enumeration order — sort once here so every consumer
+    /// gets the same alphabetical view.
+    /// </summary>
+    public static IReadOnlyList<string> NamesAlphabetical { get; } =
+        [.. FileHosters.Keys.OrderBy(static n => n, StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>
     /// Gets the name of the file hoster.
     /// </summary>
     public string Name { get; } = name;

@@ -560,7 +560,7 @@ public partial class UploadWizardViewModel : ObservableObject
             return;
         }
 
-        foreach (string fileHosterName in FileHosterClient.FileHosters.Keys)
+        foreach (string fileHosterName in FileHosterClient.NamesAlphabetical)
         {
             FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(fileHosterName);
 

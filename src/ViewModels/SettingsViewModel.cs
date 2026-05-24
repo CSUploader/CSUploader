@@ -206,7 +206,7 @@ public partial class SettingsViewModel(
 
     public ObservableCollection<SuppressedConfirmationItem> ConfirmationPrompts { get; } = [];
 
-    public static string[] AvailableHosters => [.. FileHosterClient.FileHosters.Keys];
+    public static string[] AvailableHosters => [.. FileHosterClient.NamesAlphabetical];
 
 #pragma warning disable CA1822
     public AccountType[] AccountTypes => [AccountType.Free, AccountType.Premium];
