@@ -96,6 +96,41 @@ public class BRuploadPipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_UploadCall_IncludesOriginAndSecFetchHeadersForBrowserParity()
+    {
+        // Without Origin: https://www.brupload.net the BRupload backend replies with
+        // `[{"file_status":"uploads are not enabled for your account type"}]` even though
+        // the account itself works fine in the browser — XFileSharing keys on Origin to
+        // decide whether the request came from its own web UI. Sec-Fetch-* are sent
+        // because the browser does, and pinning the full set keeps a refactor from
+        // dropping any one of them silently.
+        Queue<string> gets = new(new[] { LoginHtml, UploadFormHtml });
+        Queue<HttpResponseSnapshot> postForms = new(new[]
+        {
+            new HttpResponseSnapshot(302, string.Empty, new[] { "xfss=ok; Path=/" }),
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+        BRuploadPipeline pipeline = MakePipeline(gets, postForms, uploads, out List<UploadCall> uploadCalls);
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        UploadCall call = Assert.Single(uploadCalls);
+        Assert.NotNull(call.Headers);
+        Assert.Equal("https://www.brupload.net", call.Headers!["Origin"]);
+        Assert.Equal("same-site", call.Headers["Sec-Fetch-Site"]);
+        Assert.Equal("cors", call.Headers["Sec-Fetch-Mode"]);
+        Assert.Equal("empty", call.Headers["Sec-Fetch-Dest"]);
+
+        // Cookie deliberately NOT sent: the xfss cookie is scoped to www.brupload.net,
+        // not the server*.brupload.net upload subdomain. The browser doesn't send it here
+        // either; auth on this POST rides on the sess_id form field.
+        Assert.False(call.Headers.ContainsKey("Cookie"));
+    }
+
+    [Fact]
     public async Task RunAsync_UploadFormMissingAction_YieldsAuthFailed()
     {
         Queue<string> gets = new(new[] { LoginHtml, "<html>no form</html>" });
@@ -331,14 +366,22 @@ public class BRuploadPipelineUploadTests
         return new BRuploadPipeline(
             getOverride: _ => gets.Dequeue(),
             postFormOverride: (_, _) => postForms.Dequeue(),
-            uploadOverride: (filePath, endpoint, extraFields, _) =>
+            uploadOverride: (filePath, endpoint, extraFields, headers, _) =>
             {
-                captured.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extraFields)));
+                captured.Add(new UploadCall(
+                    filePath,
+                    endpoint,
+                    new Dictionary<string, string>(extraFields),
+                    headers is null ? null : new Dictionary<string, string>(headers)));
                 return Task.FromResult(uploads.Dequeue());
             });
     }
 
-    private sealed record UploadCall(string FilePath, string Endpoint, IReadOnlyDictionary<string, string> ExtraFields);
+    private sealed record UploadCall(
+        string FilePath,
+        string Endpoint,
+        IReadOnlyDictionary<string, string> ExtraFields,
+        IReadOnlyDictionary<string, string>? Headers);
 
     private static AttemptContext MakeContext() => new()
     {

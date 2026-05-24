@@ -50,7 +50,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
 
     private readonly Func<string, Task<string>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     // Matches `name="X" value="Y"` or `value="Y" name="X"` for a given input name — used
     // both for the CSRF `token` field on login.html and `sess_id` on upload_form.html.
@@ -78,7 +78,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     internal BRuploadPipeline(
         Func<string, string> getOverride,
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getOverride = url => Task.FromResult(getOverride(url));
         _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
@@ -445,23 +445,38 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
             ["keepalive"] = "1",
         };
 
+        // Stash for both code paths (override + real).
+        Dictionary<string, string> uploadHeaders = new(StringComparer.Ordinal)
+        {
+            ["Origin"] = Host,
+            ["Sec-Fetch-Site"] = "same-site",
+            ["Sec-Fetch-Mode"] = "cors",
+            ["Sec-Fetch-Dest"] = "empty",
+        };
+
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, uploadHeaders, ctx.SpeedLimitProvider);
         }
 
-        // Deliberately do NOT pass the xfss cookie here: the cookie was scoped to
-        // www.brupload.net and the upload subdomain is a different host. The browser
-        // doesn't send it on this POST either (verified in the Fiddler capture) — auth
-        // on this request rides on the sess_id form field, not on the cookie. Sending
-        // it anyway was harmless on the upload.cgi edge but is the kind of mismatch a
-        // WAF could legitimately reject.
+        // The header set (uploadHeaders, built above) the browser sends on this exact
+        // request, per a captured Fiddler trace:
+        //   - Origin: https://www.brupload.net — XFileSharing's upload.cgi reads this to
+        //     decide whether the request originated from its own web UI. Without it the
+        //     request looks like an external API call and the server replies with the
+        //     opaque "uploads are not enabled for your account type" (NOT a real account
+        //     issue — the same account uploads fine through the browser).
+        //   - Sec-Fetch-Site / -Mode / -Dest — Chrome client hints. Cheap to send, brings
+        //     the request closer to the browser's fingerprint for any WAF that scores on them.
+        // Deliberately NOT sent (matches the browser):
+        //   - Cookie: xfss=… — scoped to www.brupload.net, not the upload subdomain.
+        //   - Referer — Chrome's cross-origin policy strips it here.
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             auth.UploadActionUrl,
             fileFieldName: "file_0",
             extraFields: extraFields,
-            headers: null,
+            headers: uploadHeaders,
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
