@@ -26,7 +26,23 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptInputs inputs, [EnumeratorCancellation] CancellationToken ct)
     {
-        ProxyChoice proxy = proxySource.Next();
+        ProxyChoice? proxy = proxySource.Next();
+        if (proxy is null)
+        {
+            // Use Proxies is enabled but no usable proxy is available. Refuse the upload
+            // rather than silently fall through to a direct connection — the user enabled
+            // proxies expecting their real IP to be hidden from the hoster, and shipping
+            // bytes direct would violate that expectation.
+            const string reason =
+                "Upload blocked: Use Proxies is enabled but no usable proxy is available. "
+                + "Add or enable a proxy in Connection Manager, or turn off Use Proxies in Settings.";
+            yield return new AttemptFailed(reason, null);
+            AttemptCompleted noProxy = new(Success: false, ProxyId: 0, FileUrl: null);
+            yield return noProxy;
+            this.AttemptCompleted?.Invoke(this, noProxy);
+            yield break;
+        }
+
         yield return new ProxyPicked(proxy);
 
         HttpHandler handler = handlerFactory.Create(proxy, inputs.Logger);

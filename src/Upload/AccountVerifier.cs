@@ -32,10 +32,19 @@ public sealed class AccountVerifier(
             return new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster.");
         }
 
-        // Honour the "Use proxies for uploads" toggle and the configured rotation —
-        // ProxyManager.Next() already returns ProxyChoice.Direct when the toggle is
-        // off or no enabled proxies exist, so this is safe even on a fresh install.
-        ProxyChoice proxy = proxySource.Next();
+        // Honour the "Use Proxies" toggle. ProxyManager returns Direct when the toggle
+        // is off (legitimate direct case), but returns null when the toggle is on yet no
+        // usable proxy exists — in that case we refuse the check rather than leak the
+        // user's real IP to the hoster's login endpoint.
+        ProxyChoice? proxy = proxySource.Next();
+        if (proxy is null)
+        {
+            return new AccountCheckResult(
+                false,
+                AccountType.Free,
+                "Use Proxies is enabled but no usable proxy is available. Add or enable a proxy in Connection Manager, or turn off Use Proxies in Settings.");
+        }
+
         using HttpHandler handler = handlerFactory.Create(proxy, logger);
         try
         {

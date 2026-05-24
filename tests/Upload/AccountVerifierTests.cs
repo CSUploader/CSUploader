@@ -91,6 +91,36 @@ public class AccountVerifierTests
     }
 
     [Fact]
+    public async Task CheckAsync_ProxySourceReturnsNull_RefusesCheckAndDoesNotInvokePipeline()
+    {
+        // Use Proxies is on but the rotation is empty — account check must NOT silently
+        // go direct (would leak the user's IP to the login endpoint). Asserts the pipeline
+        // never gets called.
+        Mock<IFileHosterPipeline> pipeline = new();
+        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "should never run"));
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("Rapidgator")).Returns(pipeline.Object);
+
+        Mock<IProxySource> proxySource = new();
+        proxySource.Setup(s => s.Next()).Returns((ProxyChoice?)null);
+
+        Mock<IHttpHandlerFactory> factory = new();
+
+        AccountVerifier verifier = new(registry.Object, factory.Object, proxySource.Object, Mock.Of<IAppLogger>());
+
+        AccountCheckResult result = await verifier.CheckAsync("Rapidgator", "u", "p");
+
+        Assert.False(result.IsValid);
+        Assert.Contains("Use Proxies is enabled", result.Message, StringComparison.Ordinal);
+        pipeline.Verify(
+            p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        factory.Verify(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CheckAsync_ProxySourceReturnsDirect_HandlerBuiltDirect()
     {
         // ProxyManager.Next() returns ProxyChoice.Direct when "Use proxies for uploads"

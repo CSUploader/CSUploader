@@ -231,14 +231,39 @@ public class ProxyManager : IProxySource
     }
 
     /// <summary>
-    /// <see cref="IProxySource"/> implementation. Adapts the existing nullable rotation
-    /// to the non-null <see cref="ProxyChoice"/> world: null becomes <see cref="ProxyChoice.Direct"/>.
+    /// <see cref="IProxySource"/> implementation. Distinguishes "user wants direct" (returns
+    /// <see cref="ProxyChoice.Direct"/>) from "user wants a proxy but none is available"
+    /// (returns <c>null</c>). The latter is the load-bearing case: we previously silently
+    /// fell through to direct, which leaks the user's real IP when they enabled Use Proxies
+    /// precisely to avoid that.
     /// </summary>
-    ProxyChoice IProxySource.Next()
+    ProxyChoice? IProxySource.Next()
     {
-        ProxySettingDto? next = NextProxy();
-        if (next is null)
+        // ProxiesEnabled off → the user is opting into direct on purpose; preserve that.
+        if (!_settings.ProxiesEnabled)
         {
+            return ProxyChoice.Direct;
+        }
+
+        ProxySettingDto? next;
+        lock (_lock)
+        {
+            if (_proxies.Count == 0)
+            {
+                // Use Proxies is on but no enabled proxies exist. Don't silently fall
+                // through — caller must refuse the operation.
+                return null;
+            }
+
+            ProxySettingDto candidate = _proxies[_rotationIndex];
+            _rotationIndex = (_rotationIndex + 1) % _proxies.Count;
+            next = candidate;
+        }
+
+        if (next.Type == ProxyType.None)
+        {
+            // The user explicitly added a "No Proxy" slot to the rotation — treat that
+            // rotation tick as a deliberate direct connection, NOT a "couldn't get a proxy".
             return ProxyChoice.Direct;
         }
 

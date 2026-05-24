@@ -57,14 +57,49 @@ public class AttemptRunnerTests
     }
 
     private static AttemptRunner BuildRunner(params IFileHosterPipeline[] pipelines)
+        => BuildRunnerWithProxy(ProxyChoice.Direct, pipelines);
+
+    private static AttemptRunner BuildRunnerWithProxy(ProxyChoice? proxy, params IFileHosterPipeline[] pipelines)
     {
         DefaultFileHosterRegistry registry = new(pipelines);
         Mock<IProxySource> proxySource = new();
-        proxySource.Setup(s => s.Next()).Returns(ProxyChoice.Direct);
+        proxySource.Setup(s => s.Next()).Returns(proxy);
         Mock<IHttpHandlerFactory> handlerFactory = new();
         handlerFactory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
             .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
         return new AttemptRunner(registry, proxySource.Object, handlerFactory.Object);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenProxySourceReturnsNull_RefusesUploadInsteadOfFallingBackToDirect()
+    {
+        // Use Proxies is on but no proxy is usable. The runner must NOT build a handler
+        // and run the pipeline — that would silently ship bytes over a direct connection,
+        // defeating the user's "use proxies" intent. Asserts both the failure event and
+        // that no ProxyPicked / HandlerBuilt / TransferStarted slipped through.
+        FakeHosterPipeline pipeline = new(success: true, fileUrl: "https://x/y");
+        AttemptRunner runner = BuildRunnerWithProxy(proxy: null, pipeline);
+
+        List<UploadEvent> events = [];
+        AttemptCompleted? terminal = null;
+        runner.AttemptCompleted += (_, e) => terminal = e;
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.DoesNotContain(events, e => e is ProxyPicked);
+        Assert.DoesNotContain(events, e => e is HandlerBuilt);
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("Use Proxies is enabled", fail.Reason, StringComparison.Ordinal);
+
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
+        Assert.Equal(0, last.ProxyId);
+        Assert.NotNull(terminal); // event subscribers (ProxyManager UI) get the terminal too
+        Assert.False(terminal!.Success);
     }
 
     private static AttemptInputs MakeInputs() => new()
