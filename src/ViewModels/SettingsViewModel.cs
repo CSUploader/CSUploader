@@ -797,15 +797,24 @@ public partial class SettingsViewModel(
             }
             else
             {
-                finalRowStatus = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
+                // Prefix with "Failed: " so StatusToColorConverter's StartsWith("Failed")
+                // rule paints the cell red — raw exception messages from the verifier
+                // (e.g. "The SSL connection could not be established...") don't trip any
+                // colour rule on their own.
+                finalRowStatus = LocF(
+                    "Settings_Accounts_Status_Failed_Format",
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
             }
         }
         catch (Exception ex)
         {
             // Pre-refactor this only updated the global status bar and left the row's
             // StatusMessage stuck on whatever it was before — now it propagates to the
-            // row too so the user sees the error inline next to the account.
-            finalRowStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
+            // row too so the user sees the error inline next to the account. Use the
+            // "Error: " prefix (also recognised by the colour converter) since this
+            // catch is for unexpected exceptions, distinct from the verifier returning
+            // IsValid=false above.
+            finalRowStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
         }
         finally
         {
@@ -880,7 +889,10 @@ public partial class SettingsViewModel(
                 }
                 else
                 {
-                    statuses[account.Id] = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
+                    // "Failed: ..." prefix tells StatusToColorConverter to paint red.
+                    statuses[account.Id] = LocF(
+                        "Settings_Accounts_Status_Failed_Format",
+                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
                 }
 
                 await _accountRepository.UpdateAsync(account, cancellationToken);
@@ -1104,7 +1116,11 @@ public partial class SettingsViewModel(
             }
             else
             {
-                statusMsg = result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed");
+                // Row gets the same "Failed: ..." prefix the global bar uses, so
+                // StatusToColorConverter's StartsWith("Failed") rule paints the cell red.
+                statusMsg = LocF(
+                    "Settings_Accounts_Status_Failed_Format",
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
                 CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
             }
 
@@ -1118,7 +1134,12 @@ public partial class SettingsViewModel(
         }
         catch (Exception ex)
         {
-            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+            // Pre-fix this only updated the global status bar; the row was left stuck on
+            // "Checking..." with no indication of failure. Now both surfaces carry the
+            // "Error: " prefix so the colour converter paints the cell red too.
+            string errorStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+            CheckAccountStatus = errorStatus;
+            UpdateAccountStatus(accountId, errorStatus);
         }
         finally
         {

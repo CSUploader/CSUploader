@@ -61,7 +61,12 @@ public class StatusToColorConverter : IValueConverter
             return Resolve("WarningBrush", FallbackWarning);
         }
 
-        return Resolve("SuccessBrush", FallbackSuccess);
+        // Unknown text — fall back to neutral grey rather than green. The old default of
+        // SuccessBrush would silently paint any failure the converter didn't recognise
+        // (e.g. raw network exception messages like "The SSL connection could not be
+        // established...") as if the account were valid. Callers that want success
+        // colouring must produce text that hits one of the positive rules above.
+        return Resolve("TextDisabledBrush", FallbackUnchecked);
     }
 
     private static Brush Resolve(string resourceKey, Brush fallback)

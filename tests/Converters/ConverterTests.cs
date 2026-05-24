@@ -252,6 +252,53 @@ public class BoolToVisibilityConverterTests
     }
 }
 
+public class StatusToColorConverterTests
+{
+    // Theme resources aren't loaded in unit tests, so the converter returns its fallback
+    // SolidColorBrush directly. We compare on the underlying Color to assert the bucket
+    // chosen — Success (green), Error (red), Warning (yellow), or Disabled (grey).
+    private static readonly System.Windows.Media.Color SuccessColor = System.Windows.Media.Color.FromRgb(0x4A, 0xDE, 0x80);
+    private static readonly System.Windows.Media.Color ErrorColor = System.Windows.Media.Color.FromRgb(0xF8, 0x71, 0x71);
+    private static readonly System.Windows.Media.Color DisabledColor = System.Windows.Media.Color.FromRgb(0xA8, 0xAA, 0xC0);
+
+    private readonly StatusToColorConverter _converter = new();
+
+    private System.Windows.Media.Color ConvertToColor(string status) =>
+        ((System.Windows.Media.SolidColorBrush)_converter.Convert(status, typeof(System.Windows.Media.Brush), null!, CultureInfo.InvariantCulture)).Color;
+
+    [Fact]
+    public void Convert_FailedPrefix_PicksError()
+    {
+        // Regression: raw exception messages like "The SSL connection could not be
+        // established..." used to paint green because no rule matched and the default
+        // was Success. The VM now prefixes failure rows with "Failed: " — assert that
+        // trips the red rule.
+        Assert.Equal(ErrorColor, ConvertToColor("Failed: The SSL connection could not be established, see inner exception."));
+    }
+
+    [Fact]
+    public void Convert_ErrorPrefix_PicksError()
+    {
+        Assert.Equal(ErrorColor, ConvertToColor("Error: socket closed"));
+    }
+
+    [Fact]
+    public void Convert_PremiumStatus_PicksSuccess()
+    {
+        Assert.Equal(SuccessColor, ConvertToColor("Premium until 2099-01-01"));
+    }
+
+    [Fact]
+    public void Convert_UnknownText_FallsBackToDisabledGreyNotGreen()
+    {
+        // The original bug: any status string the converter didn't recognise was painted
+        // green (default fallback = SuccessBrush), silently lying about failure. The
+        // fix changed the fallback to the neutral disabled colour — better honest grey
+        // than misleading green.
+        Assert.Equal(DisabledColor, ConvertToColor("Some untranslated novel status string"));
+    }
+}
+
 public class SingleLineConverterTests
 {
     private readonly SingleLineConverter _converter = new();
