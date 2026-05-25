@@ -121,7 +121,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 }
             }
 
-            CaptureRequestHeaders(transaction, null);
+            CaptureRequestHeaders(transaction, content: null, requestHeaders: request.Headers);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
             string result = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -261,7 +261,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 }
             }
 
-            CaptureRequestHeaders(transaction, multipartContent);
+            CaptureRequestHeaders(transaction, multipartContent, requestHeaders: request.Headers);
 
             using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -454,11 +454,25 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
     private void LogTransaction(HttpTransaction transaction) => logger.Log(null, LogType.Http, transaction.Summary, httpTransaction: transaction);
 
-    private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content)
+    private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content, System.Net.Http.Headers.HttpRequestHeaders? requestHeaders = null)
     {
+        // Capture in three passes so per-request headers override client-default headers
+        // (matches what actually goes on the wire — request.Headers wins for any header
+        // that's also on DefaultRequestHeaders).
         foreach (KeyValuePair<string, IEnumerable<string>> header in HttpClient.DefaultRequestHeaders)
         {
             transaction.RequestHeaders[header.Key] = [.. header.Value];
+        }
+
+        if (requestHeaders is not null)
+        {
+            // Per-request headers from HttpRequestMessage.Headers (Cookie, Origin,
+            // Sec-Fetch-*, custom auth bearers, etc.). Previously omitted — meant the
+            // Logs tab silently misrepresented what we actually sent.
+            foreach (KeyValuePair<string, IEnumerable<string>> header in requestHeaders)
+            {
+                transaction.RequestHeaders[header.Key] = [.. header.Value];
+            }
         }
 
         if (content?.Headers is not null)
