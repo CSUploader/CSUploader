@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
     <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
     <PackageReference Include="SharpVectors.Reloaded" Version="1.8.5" />
     <PackageReference Include="Velopack" Version="0.0.1298" />

@@ -40,7 +40,7 @@ public class AccountVerifierTests
     public async Task CheckAsync_PipelineThrows_ReturnsInvalidWithErrorMessage()
     {
         Mock<IFileHosterPipeline> pipeline = new();
-        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()))
+        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("network down"));
 
         Mock<IFileHosterRegistry> registry = new();
@@ -66,7 +66,7 @@ public class AccountVerifierTests
         // hands back must reach the HttpHandlerFactory unchanged.
         AccountCheckResult expected = new(true, AccountType.Premium, "Premium until 2030-06-01");
         Mock<IFileHosterPipeline> pipeline = new();
-        pipeline.Setup(p => p.CheckAccountAsync("u", "p", It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()))
+        pipeline.Setup(p => p.CheckAccountAsync("u", "p", It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         Mock<IFileHosterRegistry> registry = new();
@@ -97,7 +97,7 @@ public class AccountVerifierTests
         // go direct (would leak the user's IP to the login endpoint). Asserts the pipeline
         // never gets called.
         Mock<IFileHosterPipeline> pipeline = new();
-        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()))
+        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "should never run"));
 
         Mock<IFileHosterRegistry> registry = new();
@@ -115,7 +115,7 @@ public class AccountVerifierTests
         Assert.False(result.IsValid);
         Assert.Contains("Use Proxies is enabled", result.Message, StringComparison.Ordinal);
         pipeline.Verify(
-            p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()),
+            p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()),
             Times.Never);
         factory.Verify(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()), Times.Never);
     }
@@ -127,7 +127,7 @@ public class AccountVerifierTests
         // is off or no enabled proxies exist — account check must respect that.
         AccountCheckResult expected = new(true, AccountType.Free, "Free");
         Mock<IFileHosterPipeline> pipeline = new();
-        pipeline.Setup(p => p.CheckAccountAsync("u", "p", It.IsAny<HttpHandler>(), It.IsAny<CancellationToken>()))
+        pipeline.Setup(p => p.CheckAccountAsync("u", "p", It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         Mock<IFileHosterRegistry> registry = new();

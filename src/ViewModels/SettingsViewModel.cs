@@ -743,6 +743,25 @@ public partial class SettingsViewModel(
     }
 
     /// <summary>
+    /// Copies any session cookie returned by the verifier onto the credentials DTO so the
+    /// next persist round-trip carries it. Currently only Ex-Load populates these fields —
+    /// the WebView captures a cookie at credential-check time and we hand it forward so
+    /// the first real upload doesn't have to re-pop the WebView. No-op for hosters whose
+    /// verifier doesn't supply a cookie.
+    /// </summary>
+    private static void ApplySessionCookieIfPresent(FileHosterLoginDto target, AccountCheckResult result)
+    {
+        if (result.SessionCookie is null)
+        {
+            return;
+        }
+
+        target.SessionCookie = result.SessionCookie;
+        target.SessionCookieExpiresUtc = result.SessionCookieExpiresUtc;
+        target.PinnedProxyId = result.PinnedProxyId;
+    }
+
+    /// <summary>
     /// Called by <see cref="AddAccountDialog"/> after the dialog returns Save. Exposed as
     /// internal (not private) so the unit test can drive it without a real WPF window —
     /// the dialog wiring is the only WPF dependency in this whole flow.
@@ -802,6 +821,7 @@ public partial class SettingsViewModel(
             if (result.IsValid)
             {
                 dto.AccountType = result.AccountType;
+                ApplySessionCookieIfPresent(dto, result);
                 finalStatus = AccountCheckStatus.Valid;
                 finalMessage = result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK");
             }
@@ -894,6 +914,7 @@ public partial class SettingsViewModel(
                         account.AccountType = result.AccountType;
                         updated++;
                     }
+                    ApplySessionCookieIfPresent(account, result);
                 }
                 else
                 {
@@ -981,6 +1002,10 @@ public partial class SettingsViewModel(
 
         // Auto-check if a client implementation exists
         var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
+        // Captured from the verifier when a captcha-gated hoster (Ex-Load) returns a
+        // session cookie alongside IsValid. Stamped onto the DTO below so the first
+        // upload doesn't re-pop the WebView.
+        AccountCheckResult? verifyResult = null;
         if (client is not null)
         {
             IsCheckingAccount = true;
@@ -989,6 +1014,7 @@ public partial class SettingsViewModel(
             try
             {
                 AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, cancellationToken);
+                verifyResult = result;
                 if (result.IsValid)
                 {
                     NewAccountType = result.AccountType;
@@ -1026,6 +1052,10 @@ public partial class SettingsViewModel(
             Password = NewAccountPassword,
             AccountType = NewAccountType,
         };
+        if (verifyResult is not null)
+        {
+            ApplySessionCookieIfPresent(dto, verifyResult);
+        }
 
         await _accountRepository.InsertAsync(dto, cancellationToken);
 
@@ -1124,6 +1154,7 @@ public partial class SettingsViewModel(
             if (result.IsValid)
             {
                 account.AccountType = result.AccountType;
+                ApplySessionCookieIfPresent(account, result);
                 settled = new RowStatus(
                     AccountCheckStatus.Valid,
                     result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"));

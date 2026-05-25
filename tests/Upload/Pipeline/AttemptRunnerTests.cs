@@ -102,6 +102,115 @@ public class AttemptRunnerTests
         Assert.False(terminal!.Success);
     }
 
+    [Fact]
+    public async Task RunAsync_WhenCredentialsHavePinnedProxyId_UsesPinnedProxyInsteadOfRotation()
+    {
+        // Captcha-gated hosters pin a proxy per cookie lifetime to prevent XFileSharing
+        // from invalidating the cookie on IP-mismatch. AttemptRunner must look up the
+        // pinned proxy by id (no rotation tick) when one is set on the credentials.
+        FakeHosterPipeline pipeline = new(success: true, fileUrl: "https://x/y");
+        DefaultFileHosterRegistry registry = new([pipeline]);
+        ProxyChoice rotated = new(99, null, "rotated");
+        ProxyChoice pinned = new(42, null, "pinned");
+        Mock<IProxySource> proxySource = new();
+        proxySource.Setup(s => s.Next()).Returns(rotated);
+        proxySource.Setup(s => s.GetById(42)).Returns(pinned);
+        Mock<IHttpHandlerFactory> handlerFactory = new();
+        ProxyChoice? handlerProxy = null;
+        handlerFactory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Callback<ProxyChoice, IAppLogger>((p, _) => handlerProxy = p)
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+        AttemptRunner runner = new(registry, proxySource.Object, handlerFactory.Object);
+
+        AttemptInputs inputs = MakeInputs() with
+        {
+            Credentials = new FileHosterLoginDto { Id = 1, FileHosterName = "Rapidgator", Username = "u", Password = "p", PinnedProxyId = 42 },
+        };
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(inputs, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Same(pinned, handlerProxy);
+        ProxyPicked picked = Assert.Single(events.OfType<ProxyPicked>());
+        Assert.Equal(42, picked.Proxy.Id);
+        // Rotation must NOT have been consumed.
+        proxySource.Verify(s => s.Next(), Times.Never);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenPinnedProxyGone_RecoversByRotatingAndLetsPipelineReauth()
+    {
+        // Pinned proxy was disabled / deleted between sign-in and this attempt. The
+        // runner falls back to the rotation so the pipeline can react to the proxy/pin
+        // mismatch by re-signing in through the new proxy (the cookie was bound to the
+        // pinned proxy's IP, so it's dead anyway). This is the "self-healing" path —
+        // no user intervention required.
+        FakeHosterPipeline pipeline = new(success: true, fileUrl: "https://x/y");
+        DefaultFileHosterRegistry registry = new([pipeline]);
+        ProxyChoice rotated = new(7, null, "rotated");
+        Mock<IProxySource> proxySource = new();
+        proxySource.Setup(s => s.GetById(42)).Returns((ProxyChoice?)null);
+        proxySource.Setup(s => s.Next()).Returns(rotated);
+        ProxyChoice? handlerProxy = null;
+        Mock<IHttpHandlerFactory> handlerFactory = new();
+        handlerFactory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Callback<ProxyChoice, IAppLogger>((p, _) => handlerProxy = p)
+            .Returns(new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+        AttemptRunner runner = new(registry, proxySource.Object, handlerFactory.Object);
+
+        AttemptInputs inputs = MakeInputs() with
+        {
+            Credentials = new FileHosterLoginDto { Id = 1, FileHosterName = "Rapidgator", Username = "u", Password = "p", PinnedProxyId = 42 },
+        };
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(inputs, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Same(rotated, handlerProxy);
+        ProxyPicked picked = Assert.Single(events.OfType<ProxyPicked>());
+        Assert.Equal(7, picked.Proxy.Id);
+        Assert.DoesNotContain(events, e => e is AttemptFailed);
+        proxySource.Verify(s => s.GetById(42), Times.Once);
+        proxySource.Verify(s => s.Next(), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenPinnedProxyGoneAndRotationEmpty_FailsFastWithNoProxyMessage()
+    {
+        // Recovery falls back to rotation. If rotation is also empty (Use Proxies on
+        // but no usable proxy), we still refuse — same path as a no-pin upload with an
+        // empty rotation. Surfacing the standard "no usable proxy" reason rather than
+        // a pin-specific one keeps the user's mental model consistent.
+        FakeHosterPipeline pipeline = new(success: true, fileUrl: "https://x/y");
+        DefaultFileHosterRegistry registry = new([pipeline]);
+        Mock<IProxySource> proxySource = new();
+        proxySource.Setup(s => s.GetById(42)).Returns((ProxyChoice?)null);
+        proxySource.Setup(s => s.Next()).Returns((ProxyChoice?)null);
+        Mock<IHttpHandlerFactory> handlerFactory = new();
+        AttemptRunner runner = new(registry, proxySource.Object, handlerFactory.Object);
+
+        AttemptInputs inputs = MakeInputs() with
+        {
+            Credentials = new FileHosterLoginDto { Id = 1, FileHosterName = "Rapidgator", Username = "u", Password = "p", PinnedProxyId = 42 },
+        };
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(inputs, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("Use Proxies is enabled", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(events, e => e is HandlerBuilt);
+    }
+
     private static AttemptInputs MakeInputs() => new()
     {
         FilePath = @"C:\does-not-matter\x.zip",
@@ -124,7 +233,7 @@ public class AttemptRunnerTests
 
         public int? MaxFilesPerPackage => null;
 
-        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct)
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
             => Task.FromResult(new AccountCheckResult(true, AccountType.Free, "Login OK"));
 
         public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)

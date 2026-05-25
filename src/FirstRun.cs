@@ -95,6 +95,13 @@ public static class FirstRun
             ("UploadPackage", "IsRemovedFromUploads", "ALTER TABLE UploadPackage ADD COLUMN IsRemovedFromUploads INTEGER NOT NULL DEFAULT 0"),
             ("UploadPackageFile", "FileHash", "ALTER TABLE UploadPackageFile ADD COLUMN FileHash TEXT"),
             ("UploadPackage", "Priority", "ALTER TABLE UploadPackage ADD COLUMN Priority INTEGER NOT NULL DEFAULT 0"),
+            // Session-cookie cache for captcha-gated hosters (ex-load.com). Nullable on
+            // existing DBs so accounts on POST-login hosters carry NULLs without breaking.
+            ("FileHosterLogin", "SessionCookie", "ALTER TABLE FileHosterLogin ADD COLUMN SessionCookie TEXT"),
+            ("FileHosterLogin", "SessionCookieExpiresUtc", "ALTER TABLE FileHosterLogin ADD COLUMN SessionCookieExpiresUtc TEXT"),
+            // Pinned proxy per captcha-gated account. Nullable so non-pinned accounts on
+            // existing DBs carry NULL. See FileHosterLoginDbm.PinnedProxyId for semantics.
+            ("FileHosterLogin", "PinnedProxyId", "ALTER TABLE FileHosterLogin ADD COLUMN PinnedProxyId INTEGER"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)

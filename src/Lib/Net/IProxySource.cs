@@ -23,4 +23,17 @@ namespace CSUploader.Lib.Net;
 public interface IProxySource
 {
     ProxyChoice? Next();
+
+    /// <summary>
+    /// Looks up a specific proxy by its DB id. Used to honour per-account proxy pinning
+    /// for captcha-gated hosters whose session cookies are bound to the issuing IP
+    /// (see <see cref="Dal.FileHosterLoginDbm.PinnedProxyId"/>).
+    /// </summary>
+    /// <param name="id">Proxy row id, or <c>0</c> for a pin to direct connection.</param>
+    /// <returns>The resolved <see cref="ProxyChoice"/>, or <c>null</c> when the pinned
+    /// proxy no longer exists (e.g. deleted or disabled in Connection Manager since the
+    /// pin was set). Caller must decide whether to fall back to rotation or fail —
+    /// <see cref="Upload.Pipeline.AttemptRunner"/> chooses to fail rather than rotate
+    /// off-pin and burn the session cookie.</returns>
+    ProxyChoice? GetById(int id);
 }

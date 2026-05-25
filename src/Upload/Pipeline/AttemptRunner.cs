@@ -26,7 +26,27 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptInputs inputs, [EnumeratorCancellation] CancellationToken ct)
     {
-        ProxyChoice? proxy = proxySource.Next();
+        // Captcha-gated hosters pin a proxy to the credentials at sign-in time so every
+        // request through the cookie's lifetime shares the issuing IP (XFileSharing binds
+        // session cookies to the issuing IP). Honour the pin when set; when the pinned
+        // proxy is gone (disabled or deleted in Connection Manager), fall back to the
+        // rotation so the pipeline can recover by triggering a fresh sign-in through the
+        // newly-picked proxy — the pipeline detects the proxy-id mismatch against the
+        // stale pin and invalidates its cached cookie, popping the WebView again.
+        ProxyChoice? proxy;
+        if (inputs.Credentials.PinnedProxyId is int pinnedId)
+        {
+            proxy = proxySource.GetById(pinnedId)
+                ?? proxySource.Next();
+
+            // If both lookups failed, we drop through to the null-check below which fails
+            // fast with the standard "Use Proxies on but no usable proxy" reason.
+        }
+        else
+        {
+            proxy = proxySource.Next();
+        }
+
         if (proxy is null)
         {
             // Use Proxies is enabled but no usable proxy is available. Refuse the upload

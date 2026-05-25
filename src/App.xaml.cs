@@ -108,10 +108,12 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.RapidgatorPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.AlfafilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BRuploadPipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ExLoadPipeline>();
         services.AddSingleton<Upload.IAccountVerifier, Upload.AccountVerifier>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IInteractiveAuthService, WebViewInteractiveAuthService>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<TrayIconManager>();
         services.AddSingleton<IToastWindowFactory, DefaultToastWindowFactory>();

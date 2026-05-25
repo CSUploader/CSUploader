@@ -43,6 +43,9 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         Password = entity.Password,
         Disabled = entity.Disabled,
         AccountType = entity.AccountType,
+        SessionCookie = entity.SessionCookie,
+        SessionCookieExpiresUtc = entity.SessionCookieExpiresUtc,
+        PinnedProxyId = entity.PinnedProxyId,
     };
 
     protected override void MapToDto(FileHosterLoginDbm entity, FileHosterLoginDto dto)
@@ -53,6 +56,9 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         dto.Password = entity.Password;
         dto.Disabled = entity.Disabled;
         dto.AccountType = entity.AccountType;
+        dto.SessionCookie = entity.SessionCookie;
+        dto.SessionCookieExpiresUtc = entity.SessionCookieExpiresUtc;
+        dto.PinnedProxyId = entity.PinnedProxyId;
     }
 
     protected override FileHosterLoginDbm MapToDbm(FileHosterLoginDto dto) => new()
@@ -63,5 +69,8 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         Password = dto.Password ?? string.Empty,
         Disabled = dto.Disabled,
         AccountType = dto.AccountType,
+        SessionCookie = dto.SessionCookie,
+        SessionCookieExpiresUtc = dto.SessionCookieExpiresUtc,
+        PinnedProxyId = dto.PinnedProxyId,
     };
 }

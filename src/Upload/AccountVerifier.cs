@@ -48,7 +48,7 @@ public sealed class AccountVerifier(
         using HttpHandler handler = handlerFactory.Create(proxy, logger);
         try
         {
-            return await pipeline.CheckAccountAsync(username, password, handler, ct);
+            return await pipeline.CheckAccountAsync(username, password, handler, proxy, ct);
         }
         catch (OperationCanceledException)
         {

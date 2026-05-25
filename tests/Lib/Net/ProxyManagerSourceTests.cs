@@ -100,6 +100,59 @@ public class ProxyManagerSourceTests : IDisposable
         Assert.Contains("10.0.0.1:3128", choice!.Description, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void GetById_ZeroReturnsDirect_ForPinnedToDirectSentinel()
+    {
+        // A pinned-proxy id of 0 is the sentinel for "this account was signed in over a
+        // direct connection — keep using direct." GetById must surface ProxyChoice.Direct
+        // for that case without touching the rotation list.
+        AppSettings settings = new() { ProxiesEnabled = true };
+        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
+
+        ProxyChoice? choice = ((IProxySource)manager).GetById(0);
+
+        Assert.Same(ProxyChoice.Direct, choice);
+    }
+
+    [Fact]
+    public async Task GetById_ExistingEnabledProxy_ReturnsResolvedChoice()
+    {
+        await SeedProxyAsync(new ProxySettingDto
+        {
+            Type = ProxyType.Http, Host = "10.0.0.5", Port = 3128, Enabled = true, Priority = 0,
+        });
+        AppSettings settings = new() { ProxiesEnabled = true };
+        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
+        await manager.ReloadAsync();
+
+        ProxySettingDto seeded = (await new ProxySettingRepository(_factory).GetAllAsync()).Single();
+        ProxyChoice? choice = ((IProxySource)manager).GetById(seeded.Id);
+
+        Assert.NotNull(choice);
+        Assert.Equal(seeded.Id, choice!.Id);
+        Assert.Contains("10.0.0.5:3128", choice.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetById_DisabledOrMissingProxy_ReturnsNullSoCallerCanFailFast()
+    {
+        // Pinned proxy was disabled in Connection Manager since the pin was set. AttemptRunner
+        // relies on null here to refuse the upload rather than silently rotating off-pin
+        // (which would invalidate the IP-bound session cookie).
+        await SeedProxyAsync(new ProxySettingDto
+        {
+            Type = ProxyType.Http, Host = "10.0.0.5", Port = 3128, Enabled = false, Priority = 0,
+        });
+        AppSettings settings = new() { ProxiesEnabled = true };
+        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
+        await manager.ReloadAsync();
+
+        // GetById on a missing-from-rotation id (the disabled proxy never makes it into _proxies).
+        ProxyChoice? choice = ((IProxySource)manager).GetById(9999);
+
+        Assert.Null(choice);
+    }
+
     private async Task SeedProxyAsync(ProxySettingDto dto)
     {
         // Go through the repo so the DTO → Dbm mapping stays the responsibility of one place.

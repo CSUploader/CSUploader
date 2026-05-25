@@ -273,6 +273,38 @@ public class ProxyManager : IProxySource
     }
 
     /// <summary>
+    /// <see cref="IProxySource.GetById"/> implementation. Honours per-account proxy pinning
+    /// without consuming a rotation tick. Returns <see cref="ProxyChoice.Direct"/> for
+    /// <paramref name="id"/> = 0 (the sentinel for "pinned to direct connection") and
+    /// <c>null</c> for any id that isn't in the current enabled-proxy list.
+    /// </summary>
+    ProxyChoice? IProxySource.GetById(int id)
+    {
+        if (id == 0)
+        {
+            return ProxyChoice.Direct;
+        }
+
+        ProxySettingDto? match;
+        lock (_lock)
+        {
+            // Only consult enabled proxies. If the user disabled the pinned proxy in
+            // Connection Manager, treat it as gone so callers can fail-fast — they don't
+            // want to silently use a different IP for an IP-bound session.
+            match = _proxies.FirstOrDefault(p => p.Id == id);
+        }
+
+        if (match is null || match.Type == ProxyType.None)
+        {
+            return null;
+        }
+
+        IWebProxy? webProxy = BuildWebProxy(match);
+        string description = $"{match.Type.ToString().ToLowerInvariant()}://{match.Host}:{match.Port}";
+        return new ProxyChoice(match.Id, webProxy, description);
+    }
+
+    /// <summary>
     /// Lightweight IAppLogger decorator that forwards every log call to an inner logger
     /// (so the Logs tab still gets the entry) while snapping the first HttpTransaction
     /// it sees, used by <see cref="TestProxyAsync"/> to surface request/response details.

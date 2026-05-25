@@ -81,7 +81,9 @@ public interface IFileHosterPipeline
     /// and surface premium state, expiry, and a short human-readable message. The supplied
     /// <paramref name="handler"/> is created with the next proxy from the rotation (or
     /// <see cref="Lib.Net.ProxyChoice.Direct"/> when proxies are disabled) and disposed by
-    /// the caller.
+    /// the caller. <paramref name="proxy"/> is the same proxy choice the handler was built
+    /// from, surfaced separately for pipelines that need the raw selection (e.g. to route
+    /// an embedded browser through the same proxy for captcha-gated sign-ins).
     /// </summary>
-    Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct);
+    Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct);
 }

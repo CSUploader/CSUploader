@@ -60,7 +60,7 @@ public class AttemptRunnerIntegrationTests
 
         public int? MaxFilesPerPackage => null;
 
-        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, CancellationToken ct)
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
             => Task.FromResult(new AccountCheckResult(true, AccountType.Free, "Login OK"));
 
         public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)

@@ -22,6 +22,24 @@ public class FileHosterLoginDto
     public AccountType AccountType { get; set; }
 
     /// <summary>
+    /// Cached session cookie value for captcha-gated hosters (currently ex-load.com).
+    /// Null for hosters whose login is a plain credential POST. Persisted across app
+    /// restarts so the user only re-runs the WebView captcha flow once per cookie lifetime.
+    /// </summary>
+    public string? SessionCookie { get; set; }
+
+    /// <summary>
+    /// UTC timestamp the cached <see cref="SessionCookie"/> should be considered expired.
+    /// </summary>
+    public DateTime? SessionCookieExpiresUtc { get; set; }
+
+    /// <summary>
+    /// Proxy pinned to this account for the lifetime of <see cref="SessionCookie"/>. See
+    /// <see cref="FileHosterLoginDbm.PinnedProxyId"/> for semantics.
+    /// </summary>
+    public int? PinnedProxyId { get; set; }
+
+    /// <summary>
     /// Outcome category for the last verification, used by the Account Manager grid to
     /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
     /// together via <see cref="SetCheckStatus"/> so they can't drift.
