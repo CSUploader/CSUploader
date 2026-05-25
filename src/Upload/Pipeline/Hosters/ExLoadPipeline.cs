@@ -76,8 +76,17 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         """name=["']sess_id["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']sess_id["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Identify the file-upload form by its enctype rather than its action URL — the
+    // BRupload-style /cgi-bin/upload.cgi assumption doesn't hold for every XFileSharing
+    // variant (newer PHP rebuilds use upload.php / up.php / per-site custom paths).
+    // multipart/form-data is the unique fingerprint: the my-files / search / URL-upload
+    // forms on the same page all use application/x-www-form-urlencoded.
+    //
+    // Two alternatives because XFileSharing templates render attribute order
+    // inconsistently (action-first vs enctype-first). The capture is in group 1 or 2 —
+    // whichever matched.
     private static readonly Regex _uploadFormActionRegex = new(
-        """<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""",
+        """<form\b[^>]*?(?:\baction=["']([^"']+)["'][^>]*?\benctype=["']multipart/form-data["']|\benctype=["']multipart/form-data["'][^>]*?\baction=["']([^"']+)["'])""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>DI ctor. Both dependencies are optional so existing-style tests that
@@ -335,9 +344,11 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
                 expiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
                 acquiredFresh = true;
 
-                // Pin the proxy used for this sign-in so every subsequent upload on this
-                // account reuses it. PersistSessionAsync writes both fields atomically.
-                await PersistSessionAsync(ctx.Credentials, xfss, expiresUtc, ctx.Proxy.Id, ct).ConfigureAwait(false);
+                // Deliberately NOT persisting yet — wait until the upload_form scrape
+                // below confirms the cookie actually authenticates. Otherwise a parse
+                // failure here would leave a "valid-looking" cookie in the DB and the
+                // next attempt would skip the WebView and re-hit the same error in a
+                // loop. The cookie is held in `xfss` locally until step 2 succeeds.
             }
 
             // Step 2: scrape the per-user upload subdomain + sess_id from upload_form.
@@ -348,6 +359,13 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
             if (sessionId is null || actionUrl is null)
             {
                 return (null, acquiredFresh, formError ?? "upload_form parse failed");
+            }
+
+            // Form parsed → cookie is good. Now safe to persist (only for fresh sign-ins;
+            // a re-use of an already-persisted cookie doesn't need a re-write).
+            if (acquiredFresh)
+            {
+                await PersistSessionAsync(ctx.Credentials, xfss, expiresUtc, ctx.Proxy.Id, ct).ConfigureAwait(false);
             }
 
             ctx.Logger.Log(
@@ -436,10 +454,23 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         Match actionMatch = _uploadFormActionRegex.Match(html);
         if (!actionMatch.Success)
         {
-            return (null, null, "upload_form HTML did not contain a usable upload action URL");
+            // Diagnostic: tell the user what we got back so we can tell apart "bounced
+            // back to login" (cookie not accepted) from "form shape doesn't match our
+            // regex" (XFileSharing variant we don't know about). The snippet is the
+            // first <form ...> tag we can find, or a head-of-body fallback.
+            string formsFound = ExtractFormOpeningTags(html);
+            string bodySnippet = Snippet(html);
+            string bounce = LooksLikeLoginPage(html) ? " (looks like the server bounced back to the login/registration page — the captured cookie may not be authenticating)" : string.Empty;
+            return (null, null,
+                $"upload_form HTML did not contain a multipart upload form{bounce}. " +
+                $"Forms found: {formsFound}. Body starts: {bodySnippet}");
         }
 
-        string actionUrl = actionMatch.Groups[1].Value;
+        // The capture is in group 1 (action-before-enctype) or group 2 (enctype-before-action),
+        // depending on which alternative matched. Pick the non-empty one.
+        string actionUrl = actionMatch.Groups[1].Success && actionMatch.Groups[1].Length > 0
+            ? actionMatch.Groups[1].Value
+            : actionMatch.Groups[2].Value;
 
         Match sessMatch = _sessIdRegex.Match(html);
         string? sessId = sessMatch.Success
@@ -452,6 +483,44 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         }
 
         return (sessId, actionUrl, null);
+    }
+
+    /// <summary>
+    /// Walks the HTML and returns a compact list of every <c>&lt;form&gt;</c> opening tag
+    /// found, truncated to keep the diagnostic short. Used when the upload-form regex
+    /// misses so we can see at a glance what forms WERE present and what their action /
+    /// enctype attributes look like.
+    /// </summary>
+    private static string ExtractFormOpeningTags(string html)
+    {
+        MatchCollection matches = Regex.Matches(html, "<form\\b[^>]*>", RegexOptions.IgnoreCase);
+        if (matches.Count == 0)
+        {
+            return "(none)";
+        }
+
+        const int MaxTagLen = 240;
+        IEnumerable<string> trimmed = matches.Cast<Match>().Take(4).Select(m =>
+        {
+            string tag = m.Value.Replace('\n', ' ').Replace('\r', ' ');
+            return tag.Length > MaxTagLen ? tag[..MaxTagLen] + "…" : tag;
+        });
+        string joined = string.Join(" | ", trimmed);
+        return matches.Count > 4 ? joined + $" (+{matches.Count - 4} more)" : joined;
+    }
+
+    /// <summary>
+    /// Heuristic: returns true if the body looks like the login or registration page
+    /// rather than a logged-in page. Used to give the user a clearer error than "regex
+    /// missed" when the real cause is that the captured cookie didn't authenticate.
+    /// </summary>
+    private static bool LooksLikeLoginPage(string html)
+    {
+        // The login page contains the hCaptcha widget OR an op=login form. Either is a
+        // strong signal we're not authenticated.
+        return html.Contains("h-captcha", StringComparison.OrdinalIgnoreCase)
+            || html.Contains("op=login", StringComparison.OrdinalIgnoreCase)
+            || html.Contains("name=\"op\" value=\"login\"", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, ExLoadAuthState auth)
