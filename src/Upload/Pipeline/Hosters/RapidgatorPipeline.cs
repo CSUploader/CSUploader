@@ -316,9 +316,10 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         return (new RapidgatorAuthState(env.Response.Token, env.Response.User?.FolderId ?? 0), null);
     }
 
-    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
         _ = proxy; // Rapidgator's REST login doesn't need the proxy choice separately — the handler already routes through it.
+        _ = apiKey; // Rapidgator doesn't support API keys.
         string url = BuildLoginUrl(username, password);
 
         string body;

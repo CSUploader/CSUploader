@@ -279,7 +279,7 @@ public class SettingsViewModelTests : IDisposable
         TaskCompletionSource<AccountCheckResult> gate = new();
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(gate.Task);
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -331,7 +331,7 @@ public class SettingsViewModelTests : IDisposable
         // CheckStatus=Failed (drives red cell) and the exception message.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DNS failure"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -357,7 +357,7 @@ public class SettingsViewModelTests : IDisposable
         // cell as a transport exception. The user-visible difference is the message.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -383,7 +383,7 @@ public class SettingsViewModelTests : IDisposable
         // — the verifier is never invoked and the row lands as Unsupported (grey).
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("verifier should never be called"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -399,7 +399,7 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
         Assert.Equal(AccountCheckStatus.Unsupported, row.CheckStatus);
         verifier.Verify(
-            v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

@@ -26,7 +26,7 @@ public class AlfafilePipelineCheckAccountTests
         Queue<string> responses = new(new[] { body });
         AlfafilePipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal(AccountType.Premium, result.AccountType);
@@ -42,7 +42,7 @@ public class AlfafilePipelineCheckAccountTests
         });
         AlfafilePipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal(AccountType.Free, result.AccountType);
@@ -58,7 +58,7 @@ public class AlfafilePipelineCheckAccountTests
         });
         AlfafilePipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "wrong", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "wrong", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Contains("Wrong login", result.Message, StringComparison.OrdinalIgnoreCase);

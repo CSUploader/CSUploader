@@ -26,7 +26,7 @@ public class RapidgatorPipelineCheckAccountTests
         Queue<string> responses = new(new[] { body });
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal(AccountType.Premium, result.AccountType);
@@ -44,7 +44,7 @@ public class RapidgatorPipelineCheckAccountTests
         });
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal(AccountType.Free, result.AccountType);
@@ -60,7 +60,7 @@ public class RapidgatorPipelineCheckAccountTests
         });
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "wrong", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "wrong", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Contains("incorrect", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -72,7 +72,7 @@ public class RapidgatorPipelineCheckAccountTests
         Queue<string> responses = new(new[] { "<html>nope</html>" });
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
     }

@@ -732,14 +732,14 @@ public partial class SettingsViewModel(
     /// so reaching the null branch in production means the verifier was simply not wired
     /// (test fixture, unit test) — not that a known hoster is unsupported.
     /// </summary>
-    private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, CancellationToken cancellationToken = default)
+    private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken cancellationToken = default)
     {
         if (_accountVerifier is null)
         {
             return Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
         }
 
-        return _accountVerifier.CheckAsync(hosterName, username, password, cancellationToken);
+        return _accountVerifier.CheckAsync(hosterName, username, password, apiKey, cancellationToken);
     }
 
     /// <summary>
@@ -751,14 +751,21 @@ public partial class SettingsViewModel(
     /// </summary>
     private static void ApplySessionCookieIfPresent(FileHosterLoginDto target, AccountCheckResult result)
     {
-        if (result.SessionCookie is null)
+        if (result.SessionCookie is not null)
         {
-            return;
+            target.SessionCookie = result.SessionCookie;
+            target.SessionCookieExpiresUtc = result.SessionCookieExpiresUtc;
+            target.PinnedProxyId = result.PinnedProxyId;
         }
 
-        target.SessionCookie = result.SessionCookie;
-        target.SessionCookieExpiresUtc = result.SessionCookieExpiresUtc;
-        target.PinnedProxyId = result.PinnedProxyId;
+        // ApiKey is propagated separately from cookies — Ex-Load's verify path returns
+        // the API key on the result without setting cookie/pin (it clears them once the
+        // key is in hand). Apply unconditionally when present so the U/P → ApiKey
+        // upgrade lands on the DTO right after the verifier returns it.
+        if (result.ApiKey is not null)
+        {
+            target.ApiKey = result.ApiKey;
+        }
     }
 
     /// <summary>
@@ -816,7 +823,8 @@ public partial class SettingsViewModel(
             AccountCheckResult result = await VerifyCredentialsAsync(
                 dto.FileHosterName ?? string.Empty,
                 dto.Username ?? string.Empty,
-                dto.Password ?? string.Empty);
+                dto.Password ?? string.Empty,
+                dto.ApiKey);
 
             if (result.IsValid)
             {
@@ -902,6 +910,7 @@ public partial class SettingsViewModel(
                     account.FileHosterName ?? string.Empty,
                     account.Username ?? string.Empty,
                     account.Password ?? string.Empty,
+                    account.ApiKey,
                     cancellationToken);
 
                 if (result.IsValid)
@@ -967,7 +976,7 @@ public partial class SettingsViewModel(
                 return;
             }
 
-            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken);
 
             if (result.IsValid)
             {
@@ -1013,7 +1022,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, cancellationToken);
+                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken);
                 verifyResult = result;
                 if (result.IsValid)
                 {
@@ -1148,7 +1157,7 @@ public partial class SettingsViewModel(
 
         try
         {
-            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, account.ApiKey, cancellationToken);
 
             RowStatus settled;
             if (result.IsValid)

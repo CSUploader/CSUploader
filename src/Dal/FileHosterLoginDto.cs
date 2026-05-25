@@ -40,6 +40,12 @@ public class FileHosterLoginDto
     public int? PinnedProxyId { get; set; }
 
     /// <summary>
+    /// API key for key-based REST APIs (currently Ex-Load). See
+    /// <see cref="FileHosterLoginDbm.ApiKey"/> for semantics.
+    /// </summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>
     /// Outcome category for the last verification, used by the Account Manager grid to
     /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
     /// together via <see cref="SetCheckStatus"/> so they can't drift.

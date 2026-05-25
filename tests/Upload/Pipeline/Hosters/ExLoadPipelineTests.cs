@@ -17,179 +17,99 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Pipeline tests for <see cref="ExLoadPipeline"/>. Ex-Load's login is captcha-gated, so
-/// the only fixture difference from <see cref="BRuploadPipelineUploadTests"/> is that the
-/// "login" round-trip is replaced by a fake <see cref="IInteractiveAuthService"/> that
-/// returns a canned cookie. Upload-shape assertions (Origin, Sec-Fetch-*, scraped action
-/// URL, sess_id selection) are mirrored from the BRupload tests because the upload-CGI
-/// backend is the same XFileSharing template.
+/// Pipeline tests for the API-centric <see cref="ExLoadPipeline"/>. Two credential paths
+/// converge on the same API-key upload flow:
+/// <list type="bullet">
+///   <item><b>API-key direct</b>: <see cref="FileHosterLoginDto.ApiKey"/> already set →
+///   no WebView, no cookie, just the two API calls.</item>
+///   <item><b>U/P bootstrap</b>: cookie captured via the fake auth service, my_account
+///   scrape extracts (or generates) the API key, persists onto the DTO.</item>
+/// </list>
+/// Upload itself is exercised through a captured-call <c>uploadOverride</c> so we can
+/// assert request shape without touching the network.
 /// </summary>
 public class ExLoadPipelineTests
 {
-    // The upload form HTML deliberately points at a per-user upload subdomain to confirm
-    // the pipeline uses the scraped URL rather than the main host. Same shape as BRupload.
-    private const string UploadFormHtml = """
-        <!DOCTYPE html><html><body>
-        <form id="uploadfile" method="POST" enctype="multipart/form-data" action="https://s5.ex-load.com/cgi-bin/upload.cgi?upload_type=file&utype=reg">
-          <input type="hidden" name="sess_id" value="formSessExload">
-          <input type="hidden" name="utype" value="reg">
-          <input type="file" name="file_0">
-          <input type="submit" name="upload" value="Start upload">
+    /// <summary>Realistic minimal my_account page with an existing api-url input.</summary>
+    private const string MyAccountWithApiKeyHtml = """
+        <!doctype html><html><body>
+        <form method="POST">
+          <input type="hidden" name="op" value="my_account">
+          <input type="hidden" name="token" value="csrftokenabc123">
+          <input type="text" readonly name="api-url" value="https://ex-load.com/api/account/info?key=key_existing_one">
         </form>
         </body></html>
         """;
 
+    /// <summary>my_account page WITHOUT an api-url input — used to drive the generate path.</summary>
+    private const string MyAccountWithoutApiKeyHtml = """
+        <!doctype html><html><body>
+        <form method="POST">
+          <input type="hidden" name="op" value="my_account">
+          <input type="hidden" name="token" value="csrftokenneedsgenerate">
+        </form>
+        </body></html>
+        """;
+
+    private const string UploadServerOkJson = """{"msg":"OK","server_time":"2026-05-25 16:14:57","status":200,"sess_id":"sess_abc","result":"http://fs40.ex-load.com/cgi-bin/upload.cgi"}""";
+
+    private const string AccountInfoOkJson = """{"msg":"OK","server_time":"2026-05-25 16:13:59","status":200,"result":{"email":"u@example.com","premium_expire":"2027-12-31 00:00:00","balance":"0.00000"}}""";
+
+    private const string AccountInfoExpiredJson = """{"msg":"OK","server_time":"2026-05-25 16:13:59","status":200,"result":{"email":"u@example.com","premium_expire":"2024-01-01 00:00:00","balance":"0.00000"}}""";
+
+    private const string UploadOkJson = """[{"file_code":"xyz789","file_status":"OK"}]""";
+
     [Fact]
-    public async Task RunAsync_FirstUse_RequestsCookieFromAuthServiceAndUploadsThroughScrapedUrl()
+    public async Task RunAsync_WithPersistedApiKey_SkipsBootstrapAndUploadsViaApi()
     {
-        Queue<string> gets = new(new[] { UploadFormHtml });
+        Queue<(string Url, IReadOnlyDictionary<string, string>? Headers)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson });
         Queue<HttpResponseSnapshot> uploads = new(new[]
         {
-            new HttpResponseSnapshot(200, """[{"file_code":"abc123","file_status":"OK"}]""", Array.Empty<string>()),
+            new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()),
         });
-        FakeAuthService auth = new("cookieFromWebView");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out List<UploadCall> uploadCalls);
+        FakeAuthService auth = new(null);
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
 
-        FileHosterLoginDto credentials = new() { Id = 7, FileHosterName = "ExLoad", Username = "u@example.com" };
+        FileHosterLoginDto credentials = new()
+        {
+            Id = 1,
+            FileHosterName = "ExLoad",
+            Username = string.Empty,
+            ApiKey = "key_pasted_by_user",
+        };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
         TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
-        Assert.Equal("https://ex-load.com/abc123", tc.FileUrl);
-        Assert.Contains(events, e => e is AuthStarted);
-        Assert.Contains(events, e => e is AuthSucceeded);
+        Assert.Equal("https://ex-load.com/xyz789", tc.FileUrl);
+        Assert.Equal(0, auth.CallCount); // No WebView!
+        Assert.DoesNotContain(events, e => e is AuthStarted);
 
-        // The WebView dialog should have been opened exactly once.
-        Assert.Equal(1, auth.CallCount);
+        // Single API GET to /api/upload/server with the API key as a query param.
+        (string Url, IReadOnlyDictionary<string, string>? Headers) serverCall = Assert.Single(getCalls);
+        Assert.StartsWith("https://ex-load.com/api/upload/server?key=key_pasted_by_user", serverCall.Url, StringComparison.Ordinal);
 
-        // The session cookie + an expiry timestamp should now be written back to the
-        // credentials DTO so the caller can persist them.
-        Assert.Equal("cookieFromWebView", credentials.SessionCookie);
-        Assert.True(credentials.SessionCookieExpiresUtc > DateTime.UtcNow.AddDays(6));
-
-        // PinnedProxyId is set from the runner-supplied proxy so AttemptRunner can route
-        // subsequent uploads through the same IP the cookie was issued from.
-        // MakeContext() defaults to ProxyChoice.Direct (Id=0), so the pin is 0 here.
-        Assert.Equal(0, credentials.PinnedProxyId);
-
-        // Upload must POST to the scraped subdomain (not the main ex-load.com host) and
-        // must use the sess_id from the form, not the cookie value.
-        UploadCall call = Assert.Single(uploadCalls);
-        Assert.Equal("https://s5.ex-load.com/cgi-bin/upload.cgi?upload_type=file&utype=reg", call.Endpoint);
-        Assert.Equal("formSessExload", call.ExtraFields["sess_id"]);
-    }
-
-    [Fact]
-    public async Task RunAsync_FirstUseWithProxy_PinsProxyIdAndPassesProxyToAuthService()
-    {
-        // The cornerstone of XFileSharing IP-binding mitigation: the proxy the runner
-        // picked must (a) be passed to the WebView so the cookie is issued from that IP,
-        // and (b) be pinned onto the credentials so subsequent uploads reuse it.
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
-        });
-        FakeAuthService auth = new("cookie");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
-
-        FileHosterLoginDto credentials = new() { Id = 13, FileHosterName = "ExLoad", Username = "u@example.com" };
-        ProxyChoice pickedProxy = new(99, new System.Net.WebProxy("http://proxy.example:8080"), "http://proxy.example:8080");
-        AttemptContext ctx = MakeContext(credentials) with { Proxy = pickedProxy };
-
-        await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
-
-        Assert.Same(pickedProxy, auth.LastProxy);
-        Assert.Equal(99, credentials.PinnedProxyId);
-    }
-
-    [Fact]
-    public async Task RunAsync_ProxyDiffersFromPin_InvalidatesPersistedCookieAndReSignsInThroughNewProxy()
-    {
-        // Self-healing flow: the original pinned proxy was disabled, AttemptRunner rotated
-        // off-pin and handed us a different proxy. Pipeline must detect the mismatch,
-        // throw away the (now IP-mismatched) cookie, and pop the WebView again through
-        // the new proxy. The new pin must point at the new proxy.
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
-        });
-        FakeAuthService auth = new("freshCookieAfterRecovery");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
-
-        FileHosterLoginDto credentials = new()
-        {
-            Id = 15,
-            FileHosterName = "ExLoad",
-            Username = "u@example.com",
-            SessionCookie = "deadCookieBoundToOldProxy",
-            SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1), // not time-expired
-            PinnedProxyId = 1, // old pin
-        };
-        ProxyChoice rotatedProxy = new(2, new System.Net.WebProxy("http://newproxy:8080"), "http://newproxy:8080");
-        AttemptContext ctx = MakeContext(credentials) with { Proxy = rotatedProxy };
-
-        await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
-
-        // The WebView must have been opened despite the cookie being non-expired —
-        // mismatch trumps freshness.
-        Assert.Equal(1, auth.CallCount);
-        Assert.Same(rotatedProxy, auth.LastProxy);
-
-        // New cookie and new pin pointing at the recovery proxy.
-        Assert.Equal("freshCookieAfterRecovery", credentials.SessionCookie);
-        Assert.Equal(2, credentials.PinnedProxyId);
-    }
-
-    [Fact]
-    public async Task RunAsync_PersistedCookieReusedWithoutWebView_LeavesPinnedProxyIdUntouched()
-    {
-        // Sanity check that an upload through an account whose pin matches the runner's
-        // proxy doesn't overwrite the pin or pop the WebView. The cached-cookie + matching-
-        // pin path is the steady-state for repeated uploads on the same account.
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
-        });
-        FakeAuthService auth = new("shouldNeverBeUsed");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
-
-        FileHosterLoginDto credentials = new()
-        {
-            Id = 14,
-            FileHosterName = "ExLoad",
-            Username = "u@example.com",
-            SessionCookie = "validCookie",
-            SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1),
-            PinnedProxyId = 77,
-        };
-        // Pin (77) matches the runner-supplied proxy id (77) — no mismatch, cookie stays.
-        ProxyChoice pinnedProxy = new(77, null, "http://pinned:8080");
-        AttemptContext ctx = MakeContext(credentials) with { Proxy = pinnedProxy };
-
-        await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
-
-        Assert.Equal(0, auth.CallCount);
-        Assert.Equal(77, credentials.PinnedProxyId);
+        // Upload landed on the per-user subdomain returned by the API, with sess_id passed through.
+        UploadCall up = Assert.Single(uploadCalls);
+        Assert.Equal("http://fs40.ex-load.com/cgi-bin/upload.cgi", up.Endpoint);
+        Assert.Equal("sess_abc", up.ExtraFields["sess_id"]);
     }
 
     [Fact]
     public async Task RunAsync_UploadCall_IncludesOriginAndSecFetchHeadersForBrowserParity()
     {
-        // Same reasoning as BRupload: XFileSharing's upload.cgi routes requests without
-        // Origin to the anonymous-upload path, which surfaces as the misleading "uploads
-        // are not enabled for your account type" error. Pin the full header set so a
-        // refactor can't drop any one of them.
-        Queue<string> gets = new(new[] { UploadFormHtml });
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson });
         Queue<HttpResponseSnapshot> uploads = new(new[]
         {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+            new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()),
         });
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, new FakeAuthService("ck"), out List<UploadCall> uploadCalls);
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
 
-        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "key_x" };
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
         UploadCall call = Assert.Single(uploadCalls);
         Assert.NotNull(call.Headers);
@@ -197,220 +117,266 @@ public class ExLoadPipelineTests
         Assert.Equal("same-site", call.Headers["Sec-Fetch-Site"]);
         Assert.Equal("cors", call.Headers["Sec-Fetch-Mode"]);
         Assert.Equal("empty", call.Headers["Sec-Fetch-Dest"]);
-        // Cookie deliberately NOT sent on the upload subdomain — same scoping reason as BRupload.
-        Assert.False(call.Headers.ContainsKey("Cookie"));
     }
 
     [Fact]
-    public async Task RunAsync_PersistedCookieStillValid_SkipsAuthServiceAndGoesStraightToUploadForm()
+    public async Task RunAsync_UploadServer403_TreatedAsAuthExpiredAndClearsApiKey()
     {
-        // Credentials already carry a valid persisted cookie → the WebView must NOT pop.
-        Queue<string> gets = new(new[] { UploadFormHtml });
+        const string Forbidden = """{"msg":"forbidden","status":403,"sess_id":"","result":""}""";
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { Forbidden });
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "dead_key" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Contains(events, e => e is AuthFailed);
+        Assert.Contains(events, e => e is AttemptFailed);
+        Assert.Null(credentials.ApiKey); // cleared so next attempt re-bootstraps
+    }
+
+    [Fact]
+    public async Task RunAsync_NoApiKeyAndNoUsername_FailsWithoutPoppingWebView()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new();
+        Queue<HttpResponseSnapshot> uploads = new();
+        FakeAuthService auth = new(null);
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", Username = string.Empty, ApiKey = null };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Contains(events, e => e is AttemptFailed);
+        Assert.Equal(0, auth.CallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_UPBootstrap_PopsWebViewScrapesMyAccountAndPersistsApiKey()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[]
+        {
+            MyAccountWithApiKeyHtml, // 1. my_account scrape returns the existing key
+            UploadServerOkJson,      // 2. /api/upload/server with the freshly-derived key
+        });
         Queue<HttpResponseSnapshot> uploads = new(new[]
         {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+            new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()),
         });
-        FakeAuthService auth = new("shouldNeverBeUsed");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
+        FakeAuthService auth = new("xfss_from_webview");
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
 
         FileHosterLoginDto credentials = new()
         {
-            Id = 11,
+            Id = 1,
             FileHosterName = "ExLoad",
             Username = "u@example.com",
-            SessionCookie = "persistedCookie",
-            SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1),
+            Password = "p",
         };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
         Assert.Single(events.OfType<TransferCompleted>());
-        // No interactive sign-in should have happened — the persisted cookie was honoured.
-        Assert.Equal(0, auth.CallCount);
-        Assert.DoesNotContain(events, e => e is AuthStarted);
+        Assert.Equal(1, auth.CallCount);
+        Assert.Contains(events, e => e is AuthStarted);
+        Assert.Contains(events, e => e is AuthSucceeded);
+
+        // The derived API key landed on the credentials AND the cookie/pin got cleared
+        // (the API key is IP-agnostic so we don't need them anymore).
+        Assert.Equal("key_existing_one", credentials.ApiKey);
+        Assert.Null(credentials.SessionCookie);
+        Assert.Null(credentials.SessionCookieExpiresUtc);
+        Assert.Null(credentials.PinnedProxyId);
+
+        // First GET: my_account (with cookie header). Second GET: /api/upload/server (no cookie needed).
+        Assert.Equal(2, getCalls.Count);
+        (string firstUrl, IReadOnlyDictionary<string, string>? firstHeaders) = getCalls.Dequeue();
+        Assert.Contains("op=my_account", firstUrl, StringComparison.Ordinal);
+        Assert.NotNull(firstHeaders);
+        Assert.Contains("xfss=xfss_from_webview", firstHeaders!["Cookie"], StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task RunAsync_PersistedCookieExpired_FallsBackToAuthService()
+    public async Task RunAsync_UPBootstrap_MissingKeyTriggersGenerateThenRescrape()
     {
-        Queue<string> gets = new(new[] { UploadFormHtml });
+        Queue<(string Url, IReadOnlyDictionary<string, string>? Headers)> getCalls = new();
+        Queue<string> getResponses = new(new[]
+        {
+            MyAccountWithoutApiKeyHtml,   // 1. initial scrape — no api-url input
+            "ignored",                    // 2. generate request — body unused
+            MyAccountWithApiKeyHtml,      // 3. re-scrape after generate — now has key
+            UploadServerOkJson,           // 4. /api/upload/server
+        });
         Queue<HttpResponseSnapshot> uploads = new(new[]
         {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+            new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()),
         });
-        FakeAuthService auth = new("freshFromWebView");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
+        FakeAuthService auth = new("xfss_fresh");
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
 
         FileHosterLoginDto credentials = new()
         {
-            Id = 22,
+            Id = 1,
             FileHosterName = "ExLoad",
             Username = "u@example.com",
-            SessionCookie = "ancient",
-            SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(-1),
+            Password = "p",
         };
 
         await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
-        Assert.Equal(1, auth.CallCount);
-        Assert.Equal("freshFromWebView", credentials.SessionCookie);
+        Assert.Equal("key_existing_one", credentials.ApiKey);
+
+        // Verify the generate URL was actually hit with the CSRF token from the page.
+        List<(string Url, IReadOnlyDictionary<string, string>? Headers)> calls = [.. getCalls];
+        Assert.Equal(4, calls.Count);
+        Assert.Contains("generate_api_key=1", calls[1].Url, StringComparison.Ordinal);
+        Assert.Contains("token=csrftokenneedsgenerate", calls[1].Url, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task RunAsync_AuthServiceReturnsNull_YieldsAuthFailedAndAttemptFailed()
+    public async Task RunAsync_UPBootstrap_UserCancelsWebView_FailsWithoutPersisting()
     {
-        // User cancelled the WebView. Pipeline must surface both AuthFailed and AttemptFailed
-        // without attempting any uploads.
-        Queue<string> gets = new();
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new();
         Queue<HttpResponseSnapshot> uploads = new();
-        FakeAuthService auth = new(null);
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out List<UploadCall> uploadCalls);
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-
-        Assert.Contains(events, e => e is AuthFailed);
-        Assert.Contains(events, e => e is AttemptFailed);
-        Assert.DoesNotContain(events, e => e is TransferStarted);
-        Assert.Empty(uploadCalls);
-    }
-
-    [Fact]
-    public async Task RunAsync_UploadReturnsUnauthorized_DropsCachedAuthAndClearsPersistedCookie()
-    {
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"","file_status":"Unauthorized"}]""", Array.Empty<string>()),
-        });
-        FakeAuthService auth = new("stale");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
+        FakeAuthService auth = new(null); // user cancels
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
 
         FileHosterLoginDto credentials = new()
         {
-            Id = 33,
+            Id = 1,
             FileHosterName = "ExLoad",
             Username = "u@example.com",
-            SessionCookie = "stale",
-            SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1),
+            Password = "p",
         };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
         Assert.Contains(events, e => e is AuthFailed);
         Assert.Contains(events, e => e is AttemptFailed);
-        // Persisted cookie should be cleared so the next attempt won't re-load the dead cookie.
-        Assert.Null(credentials.SessionCookie);
-        Assert.Null(credentials.SessionCookieExpiresUtc);
+        Assert.Null(credentials.ApiKey);
     }
 
     [Fact]
-    public async Task RunAsync_UploadFormMissingAction_YieldsAuthFailed()
+    public async Task RunAsync_UploadReturnsUnauthorized_ClearsApiKey()
     {
-        Queue<string> gets = new(new[] { "<html>no form</html>" });
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads: new(), new FakeAuthService("ck"), out _);
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"","file_status":"Unauthorized"}]""", Array.Empty<string>()),
+        });
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "expired_key" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
         Assert.Contains(events, e => e is AuthFailed);
         Assert.Contains(events, e => e is AttemptFailed);
+        Assert.Null(credentials.ApiKey);
     }
 
     [Fact]
-    public async Task RunAsync_UploadFormWithoutSessId_FallsBackToCookieValue()
+    public async Task CheckAccountAsync_WithApiKey_HitsAccountInfoAndClassifiesPremium()
     {
-        const string formWithoutSessId = """
-            <form id="uploadfile" method="POST" enctype="multipart/form-data" action="https://srv.ex-load.com/cgi-bin/upload.cgi">
-              <input type="file" name="file_0">
-            </form>
-            """;
-        Queue<string> gets = new(new[] { formWithoutSessId });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
-        });
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, new FakeAuthService("xfssFallback"), out List<UploadCall> uploadCalls);
-
-        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-
-        UploadCall call = Assert.Single(uploadCalls);
-        Assert.Equal("xfssFallback", call.ExtraFields["sess_id"]);
-    }
-
-    [Fact]
-    public async Task RunAsync_SecondAttemptReusesCachedSession_SkipsAuthServiceAndUploadForm()
-    {
-        // First attempt warms the in-memory cache; second attempt must not touch either
-        // the auth service or the upload_form endpoint.
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        Queue<HttpResponseSnapshot> uploads = new(new[]
-        {
-            new HttpResponseSnapshot(200, """[{"file_code":"first","file_status":"OK"}]""", Array.Empty<string>()),
-            new HttpResponseSnapshot(200, """[{"file_code":"second","file_status":"OK"}]""", Array.Empty<string>()),
-        });
-        FakeAuthService auth = new("ck");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
-
-        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-        List<UploadEvent> second = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-
-        Assert.DoesNotContain(second, e => e is AuthStarted);
-        TransferCompleted tc = Assert.Single(second.OfType<TransferCompleted>());
-        Assert.Equal("https://ex-load.com/second", tc.FileUrl);
-        Assert.Equal(1, auth.CallCount);
-        Assert.Empty(gets);
-        Assert.Empty(uploads);
-    }
-
-    [Fact]
-    public async Task RunAsync_FileExceedsMaxFileSize_YieldsAttemptFailedWithoutAnyHttp()
-    {
-        // Pre-check must short-circuit before either the auth service or the network.
-        Queue<string> gets = new();
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoOkJson });
         Queue<HttpResponseSnapshot> uploads = new();
-        FakeAuthService auth = new("ck");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads, auth, out _);
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        AttemptContext ctx = MakeContextWithSize(2L * 1024 * 1024 * 1024);
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            username: string.Empty,
+            password: string.Empty,
+            apiKey: "key_premium",
+            handler: handler,
+            proxy: ProxyChoice.Direct,
+            ct: CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(AccountType.Premium, result.AccountType);
+        Assert.Equal("key_premium", result.ApiKey); // echoed back so SettingsVM can persist it
+        Assert.NotNull(result.PremiumExpiry);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WithApiKey_PremiumExpiredClassifiesAsFree()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoExpiredJson });
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            string.Empty, string.Empty, "key_with_expired_premium", handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(AccountType.Free, result.AccountType);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_NoApiKey_PopsWebViewAndDerivesKeyFromMyAccount()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[]
+        {
+            MyAccountWithApiKeyHtml,
+            AccountInfoOkJson,
+        });
+        Queue<HttpResponseSnapshot> uploads = new();
+        FakeAuthService auth = new("xfss_from_webview");
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("key_existing_one", result.ApiKey); // returned so SettingsVM persists
+        Assert.Equal(1, auth.CallCount);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_NoApiKey_UserCancelsWebView_ReturnsInvalid()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new();
+        Queue<HttpResponseSnapshot> uploads = new();
+        FakeAuthService auth = new(null);
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Null(result.ApiKey);
+    }
+
+    [Fact]
+    public async Task RunAsync_FileExceedsMaxFileSize_FailsWithoutTouchingApiOrWebView()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new();
+        Queue<HttpResponseSnapshot> uploads = new();
+        FakeAuthService auth = new(null);
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "k" };
+        AttemptContext ctx = MakeContext(credentials) with { FileSize = 2L * 1024 * 1024 * 1024 };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("Ex-Load", fail.Reason, StringComparison.Ordinal);
         Assert.Equal(0, auth.CallCount);
-    }
-
-    [Fact]
-    public async Task CheckAccountAsync_HappyPath_ReturnsCapturedCookieAndExpiryOnResult()
-    {
-        // Settings VM stamps these onto the credentials DTO so the first real upload
-        // can reuse the cookie without re-popping the WebView. This pins the round-trip.
-        Queue<string> gets = new(new[] { UploadFormHtml });
-        FakeAuthService auth = new("cookieFromCheck");
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads: new(), auth, out _);
-        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
-
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "ignored", handler, ProxyChoice.Direct, CancellationToken.None);
-
-        Assert.True(result.IsValid);
-        Assert.Equal("cookieFromCheck", result.SessionCookie);
-        Assert.NotNull(result.SessionCookieExpiresUtc);
-        Assert.True(result.SessionCookieExpiresUtc!.Value > DateTime.UtcNow.AddDays(6));
-        Assert.Equal(1, auth.CallCount);
-    }
-
-    [Fact]
-    public async Task CheckAccountAsync_UserCancelled_ReturnsInvalidWithoutCookie()
-    {
-        Queue<string> gets = new();
-        FakeAuthService auth = new(null);
-        ExLoadPipeline pipeline = MakePipeline(gets, uploads: new(), auth, out _);
-        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
-
-        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "ignored", handler, ProxyChoice.Direct, CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Null(result.SessionCookie);
-        Assert.Null(result.SessionCookieExpiresUtc);
+        Assert.Empty(getCalls);
     }
 
     [Fact]
@@ -433,9 +399,10 @@ public class ExLoadPipelineTests
     }
 
     private static ExLoadPipeline MakePipeline(
-        Queue<string> gets,
-        Queue<HttpResponseSnapshot> uploads,
         FakeAuthService auth,
+        Queue<(string Url, IReadOnlyDictionary<string, string>? Headers)> getCalls,
+        Queue<string> getResponses,
+        Queue<HttpResponseSnapshot> uploads,
         out List<UploadCall> uploadCalls)
     {
         List<UploadCall> captured = [];
@@ -444,7 +411,11 @@ public class ExLoadPipelineTests
         return new ExLoadPipeline(
             authService: auth,
             loginRepository: null,
-            getOverride: _ => gets.Dequeue(),
+            getOverride: (url, headers) =>
+            {
+                getCalls.Enqueue((url, headers));
+                return Task.FromResult(getResponses.Dequeue());
+            },
             uploadOverride: (filePath, endpoint, extraFields, headers, _) =>
             {
                 captured.Add(new UploadCall(
@@ -463,22 +434,7 @@ public class ExLoadPipelineTests
         FileName = "x.zip",
         FileSize = 100,
         HosterName = "ExLoad",
-        Credentials = credentials ?? new FileHosterLoginDto { Id = 42, FileHosterName = "ExLoad", Username = "u@example.com" },
-        Proxy = ProxyChoice.Direct,
-        Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
-        Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
-        Cancellation = default,
-    };
-
-    private static AttemptContext MakeContextWithSize(long size) => new()
-    {
-        AttemptId = Guid.NewGuid(),
-        FilePath = @"C:\nope\package1\big.iso",
-        FileName = "big.iso",
-        FileSize = size,
-        HosterName = "ExLoad",
-        Credentials = new FileHosterLoginDto { Id = 42, FileHosterName = "ExLoad", Username = "u@example.com" },
+        Credentials = credentials ?? new FileHosterLoginDto { Id = 42, FileHosterName = "ExLoad", ApiKey = "default_key" },
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
@@ -493,22 +449,16 @@ public class ExLoadPipelineTests
         IReadOnlyDictionary<string, string>? Headers);
 
     /// <summary>
-    /// Fake <see cref="IInteractiveAuthService"/> returning a canned cookie (or null to
-    /// simulate user cancellation). Tracks how many times it was called so tests can
-    /// assert the persisted-cookie path skipped it entirely. Also records the proxy each
-    /// call received so tests can pin the pipeline's "route through the upload proxy"
-    /// behaviour.
+    /// Fake auth service returning a canned xfss cookie (or null for user-cancel). Counts
+    /// invocations so tests can assert the API-key direct path doesn't pop the WebView.
     /// </summary>
     private sealed class FakeAuthService(string? cannedCookie) : IInteractiveAuthService
     {
         public int CallCount { get; private set; }
 
-        public ProxyChoice? LastProxy { get; private set; }
-
         public Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
         {
             CallCount++;
-            LastProxy = proxy;
             return Task.FromResult(cannedCookie);
         }
     }

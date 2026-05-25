@@ -102,6 +102,9 @@ public static class FirstRun
             // Pinned proxy per captcha-gated account. Nullable so non-pinned accounts on
             // existing DBs carry NULL. See FileHosterLoginDbm.PinnedProxyId for semantics.
             ("FileHosterLogin", "PinnedProxyId", "ALTER TABLE FileHosterLogin ADD COLUMN PinnedProxyId INTEGER"),
+            // API key for key-based REST APIs (Ex-Load). Either supplied directly by the
+            // user, OR auto-derived from a username/password sign-in plus a my_account scrape.
+            ("FileHosterLogin", "ApiKey", "ALTER TABLE FileHosterLogin ADD COLUMN ApiKey TEXT"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)

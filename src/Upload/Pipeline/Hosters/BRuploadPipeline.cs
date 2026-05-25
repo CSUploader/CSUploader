@@ -301,9 +301,10 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
         }
     }
 
-    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
         _ = proxy; // BRupload's HTML-form login doesn't need the proxy choice separately — the handler already routes through it.
+        _ = apiKey; // BRupload doesn't support API keys.
         // Account verification only needs the login round-trip — we deliberately skip the
         // upload_form fetch since CheckAccount doesn't care about the upload subdomain
         // and the form GET adds a round-trip the Settings UI doesn't need.

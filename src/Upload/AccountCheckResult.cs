@@ -34,4 +34,5 @@ public record AccountCheckResult(
     DateTime? PremiumExpiry = null,
     string? SessionCookie = null,
     DateTime? SessionCookieExpiresUtc = null,
-    int? PinnedProxyId = null);
+    int? PinnedProxyId = null,
+    string? ApiKey = null);

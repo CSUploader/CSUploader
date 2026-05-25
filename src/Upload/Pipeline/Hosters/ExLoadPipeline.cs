@@ -17,103 +17,107 @@ using CSUploader.Services;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Ex-Load upload pipeline. Mechanically identical to <see cref="BRuploadPipeline"/>
-/// (same XFileSharing-family backend: <c>?op=upload_form</c> scrape, multipart POST,
-/// <c>{file_code, file_status}</c> JSON response), with one critical difference:
-/// the login is gated by hCaptcha, so the credential POST path doesn't work. Instead,
-/// the pipeline asks <see cref="IInteractiveAuthService"/> to pop a WebView2 window in
-/// which the user completes the captcha flow; the resulting <c>xfss</c> cookie is then
-/// used and persisted to the DB so the user only re-runs the WebView dance once per
-/// cookie lifetime.
+/// Ex-Load upload pipeline. Ex-Load exposes a REST API with a per-account key, so the
+/// primary credential is an <see cref="FileHosterLoginDto.ApiKey"/>. Two ways to acquire
+/// one:
+/// <list type="bullet">
+///   <item><b>API-key direct</b>: the user pastes their key into the Add Account dialog.
+///   No WebView, no cookie, no captcha — verification is a single
+///   <c>/api/account/info?key=...</c> round-trip and uploads use <c>/api/upload/server</c>
+///   directly.</item>
+///   <item><b>Username/password bootstrap</b>: the user types credentials. The pipeline
+///   pops <see cref="IInteractiveAuthService"/> to capture an <c>xfss</c> cookie past the
+///   hCaptcha login, GETs <c>/?op=my_account</c>, scrapes the <c>api-url</c> input for
+///   the existing API key, or follows the <c>generate_api_key</c> link if none exists,
+///   then persists the key onto the credentials DTO. The cookie + pinned proxy are
+///   discarded after this one-shot — subsequent uploads are pure API.</item>
+/// </list>
 /// </summary>
 /// <remarks>
 /// <para>
-/// Per-credentials session caching mirrors BRupload: in-memory <see cref="ConcurrentDictionary{TKey, TValue}"/>
-/// keyed by <see cref="FileHosterLoginDto.Id"/>, hydrated on first use from the DB-cached
-/// cookie + <c>?op=upload_form</c> scrape, invalidated on auth-expired upload response.
+/// Upload itself: <c>GET /api/upload/server?key=...</c> returns
+/// <c>{sess_id, result: "http://fsNN.ex-load.com/cgi-bin/upload.cgi"}</c>. We POST a
+/// multipart body to that URL with <c>sess_id</c> + <c>file_0</c>; the response is the
+/// standard XFileSharing <c>[{file_code, file_status}]</c> JSON array, same shape
+/// BRupload returns.
 /// </para>
 /// <para>
-/// Upload-shape parity with BRupload (boundary unquoting, name= quoting, real MIME,
-/// Origin + Sec-Fetch-* headers) is handled by the shared
-/// <see cref="HttpHandler.UploadMultipartAsync"/> code path — we just supply the
-/// hoster-specific extra fields and headers.
+/// Because the API key is the credential (not a session cookie bound to an IP), uploads
+/// can rotate proxies freely. The <see cref="FileHosterLoginDto.PinnedProxyId"/> is only
+/// used during the bootstrap window and cleared once we have the API key.
 /// </para>
 /// </remarks>
 public sealed class ExLoadPipeline : IFileHosterPipeline
 {
     private const string Host = "https://ex-load.com";
     private const string LoginUrl = Host + "/login.html";
-    private const string UploadFormUrl = Host + "/?op=upload_form";
+    private const string MyAccountUrl = Host + "/?op=my_account";
     private const string PublicUrlPrefix = Host + "/";
     private const string CookieName = "xfss";
     private const string CookieDomain = ".ex-load.com";
     private const string LoginPagePath = "/login.html";
 
+    // API endpoints. Ex-Load follows the same XFileSharing API convention as several other
+    // hosters in this family — key as a query parameter, JSON responses with
+    // {msg, status, server_time, result, ...}.
+    private const string ApiAccountInfoUrl = Host + "/api/account/info";
+    private const string ApiUploadServerUrl = Host + "/api/upload/server";
+
     /// <summary>
-    /// Conservative default cookie lifetime applied at capture. XFileSharing rarely
-    /// returns a real <c>Max-Age</c> on its session cookie, so we set a fixed window
-    /// here and re-trigger the WebView once it elapses (or sooner, if the upload
-    /// response says <c>file_status=Unauthorized</c>). Seven days matches what most
-    /// XFileSharing "remember me" implementations honour on the server side.
+    /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
+    /// returns a real <c>Max-Age</c>; seven days is the standard "remember me" honour
+    /// horizon on the server side. Once the bootstrap completes we throw the cookie
+    /// away anyway, so this only matters when a user signs in via U/P but cancels the
+    /// my_account scrape — the next attempt can re-use the cookie within this window.
     /// </summary>
     private static readonly TimeSpan DefaultCookieLifetime = TimeSpan.FromDays(7);
 
-    private readonly ConcurrentDictionary<int, ExLoadAuthState> _authByCredentialsId = new();
-
-    // One login at a time per credentials id — see BRuploadPipeline for the rationale.
-    // Without this, kicking off N parallel uploads from the same Ex-Load account would
-    // each fire its own WebView prompt.
-    private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
+    /// <summary>
+    /// One bootstrap at a time per credentials id — prevents N parallel uploads on a
+    /// brand-new account from all popping their own WebView.
+    /// </summary>
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _bootstrapGates = new();
 
     private readonly IInteractiveAuthService? _authService;
     private readonly FileHosterLoginRepository? _loginRepository;
 
-    private readonly Func<string, Task<string>>? _getOverride;
+    private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<string>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
-    // Same upload-action regex BRupload uses — XFileSharing renders the same template here.
-    private static readonly Regex _sessIdRegex = new(
-        """name=["']sess_id["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']sess_id["']""",
+    // Hidden-input regex for the CSRF token on the my_account page. Same shape XFileSharing
+    // renders for any of its `token` fields — handles attribute order variation.
+    private static readonly Regex _csrfTokenRegex = new(
+        """name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // Identify the file-upload form by its enctype rather than its action URL — the
-    // BRupload-style /cgi-bin/upload.cgi assumption doesn't hold for every XFileSharing
-    // variant (newer PHP rebuilds use upload.php / up.php / per-site custom paths).
-    // multipart/form-data is the unique fingerprint: the my-files / search / URL-upload
-    // forms on the same page all use application/x-www-form-urlencoded.
-    //
-    // Two alternatives because XFileSharing templates render attribute order
-    // inconsistently (action-first vs enctype-first). The capture is in group 1 or 2 —
-    // whichever matched.
-    private static readonly Regex _uploadFormActionRegex = new(
-        """<form\b[^>]*?(?:\baction=["']([^"']+)["'][^>]*?\benctype=["']multipart/form-data["']|\benctype=["']multipart/form-data["'][^>]*?\baction=["']([^"']+)["'])""",
+    // The API key is embedded inside the value of a read-only input named "api-url":
+    //   <input type="text" readonly name="api-url" value="https://ex-load.com/api/account/info?key=10159312numt5ftnc6m47a6g">
+    // We extract the `key=` query parameter from the value attribute. Tolerant of
+    // attribute-order variation (api-url could come before or after the value attribute).
+    private static readonly Regex _apiKeyRegex = new(
+        """name=["']api-url["'][^>]*?value=["'][^"']*[?&]key=([^"'&]+)["']|value=["'][^"']*[?&]key=([^"'&]+)["'][^>]*?name=["']api-url["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    /// <summary>DI ctor. Both dependencies are optional so existing-style tests that
-    /// drive the pipeline through overrides can construct it without a real service or
-    /// repo — the production paths still require both.</summary>
+    /// <summary>DI ctor.</summary>
     public ExLoadPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
     {
         _authService = authService;
         _loginRepository = loginRepository;
     }
 
-    /// <summary>Test ctor mirroring <see cref="BRuploadPipeline"/>'s pattern — supplies
-    /// the auth service + repo plus HTTP overrides so the pipeline can be exercised
-    /// against a captured response transcript.</summary>
+    /// <summary>Test ctor — supplies overrides for the GET (my_account, generate, /api/account/info,
+    /// /api/upload/server) and upload calls so the pipeline can be driven against canned responses.</summary>
     internal ExLoadPipeline(
-        IInteractiveAuthService authService,
+        IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
-        Func<string, string> getOverride,
+        Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _authService = authService;
         _loginRepository = loginRepository;
-        _getOverride = url => Task.FromResult(getOverride(url));
+        _getOverride = getOverride;
         _uploadOverride = uploadOverride;
     }
-
-    private sealed class AuthExpiredException : Exception { }
 
     public string Name => "ExLoad";
 
@@ -121,8 +125,7 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
 
     public bool RequiresHashingAfterUpload => false;
 
-    /// <summary>1 GiB free-tier cap — Ex-Load shares the XFileSharing
-    /// silently-closes-mid-stream behaviour. Same safety net as BRupload.</summary>
+    /// <summary>1 GiB free-tier cap — same XFileSharing mid-stream-close behaviour as BRupload.</summary>
     public long? MaxFileSize => 1L * 1024 * 1024 * 1024;
 
     /// <summary>Same per-session file limit XFileSharing enforces across the family.</summary>
@@ -139,41 +142,51 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
             yield break;
         }
 
-        // === Auth ===
-        ExLoadAuthState auth;
-        if (_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out ExLoadAuthState? cached) && cached.ExpiresUtc > DateTime.UtcNow)
+        // === Ensure we have an API key ===
+        (string? apiKey, bool didBootstrap, string? authError) = await EnsureApiKeyAsync(ctx, ct);
+
+        if (didBootstrap)
         {
-            auth = cached;
-        }
-        else
-        {
-            (ExLoadAuthState? gated, bool didAcquireCookie, string? error) = await EnsureAuthAsync(ctx, ct);
-
-            if (didAcquireCookie)
-            {
-                yield return new AuthStarted();
-            }
-
-            if (gated is null)
-            {
-                if (didAcquireCookie)
-                {
-                    yield return new AuthFailed(error ?? "sign-in cancelled");
-                }
-                yield return new AttemptFailed(error ?? "sign-in cancelled", null);
-                yield break;
-            }
-
-            if (didAcquireCookie)
-            {
-                yield return new AuthSucceeded();
-            }
-
-            auth = gated;
+            yield return new AuthStarted();
         }
 
-        // === Upload === (mirrors BRupload bridge pattern exactly)
-        bool authExpired = false;
+        if (apiKey is null)
+        {
+            if (didBootstrap)
+            {
+                yield return new AuthFailed(authError ?? "could not obtain API key");
+            }
+            yield return new AttemptFailed(authError ?? "no API key available", null);
+            yield break;
+        }
+
+        if (didBootstrap)
+        {
+            yield return new AuthSucceeded();
+        }
+
+        // === Resolve upload server ===
+        (string? sessId, string? uploadUrl, string? serverError, bool serverAuthExpired) =
+            await GetUploadServerAsync(apiKey, ctx, ct);
+
+        if (serverAuthExpired)
+        {
+            // The API key the server gave us was rejected (e.g. user regenerated it).
+            // Clear and force a re-bootstrap on the next attempt.
+            await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+            yield return new AuthFailed("API key rejected — re-authenticate from Settings → Accounts");
+            yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+            yield break;
+        }
+
+        if (sessId is null || uploadUrl is null)
+        {
+            yield return new AttemptFailed(serverError ?? "could not resolve upload server", null);
+            yield break;
+        }
+
+        // === Upload ===
+        bool authExpiredDuringUpload = false;
         string? attemptFailure = null;
         bool attemptCancelled = false;
         Exception? attemptException = null;
@@ -186,7 +199,7 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, auth);
+        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
 
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
@@ -220,11 +233,8 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
             (string? Url, string? Error, bool AuthExpired) parsed = ParseUploadResponse(uploadResponse);
             if (parsed.AuthExpired)
             {
-                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
-                // Also clear the persisted cookie so the next attempt does a fresh
-                // WebView sign-in rather than re-loading the dead cookie from the DB.
-                await ClearPersistedSessionAsync(ctx.Credentials, ct).ConfigureAwait(false);
-                authExpired = true;
+                await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                authExpiredDuringUpload = true;
             }
             else if (parsed.Error is not null)
             {
@@ -236,10 +246,10 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
             }
         }
 
-        if (authExpired)
+        if (authExpiredDuringUpload)
         {
-            yield return new AuthFailed("session expired");
-            yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+            yield return new AuthFailed("API key rejected mid-upload");
+            yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
             yield break;
         }
 
@@ -267,115 +277,37 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         }
     }
 
-    private async Task<(ExLoadAuthState? Auth, bool DidAcquireCookie, string? Error)> EnsureAuthAsync(AttemptContext ctx, CancellationToken ct)
+    /// <summary>
+    /// Returns the API key for this account, performing a U/P-mode bootstrap (WebView +
+    /// my_account scrape) if necessary. <paramref name="DidBootstrap"/> is true when this
+    /// call ran the bootstrap path so callers can emit Auth* events appropriately.
+    /// </summary>
+    private async Task<(string? ApiKey, bool DidBootstrap, string? Error)> EnsureApiKeyAsync(AttemptContext ctx, CancellationToken ct)
     {
-        SemaphoreSlim gate = _loginGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
+        // Fast path: API key already on credentials. No bootstrap, no cookie, no WebView.
+        if (!string.IsNullOrEmpty(ctx.Credentials.ApiKey))
+        {
+            return (ctx.Credentials.ApiKey, false, null);
+        }
+
+        // No API key yet — we need to bootstrap one from the U/P credentials. Gate so
+        // concurrent attempts on the same brand-new account share a single bootstrap.
+        SemaphoreSlim gate = _bootstrapGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
         try
         {
-            // Re-check in-memory cache under the gate — another caller may have refreshed
-            // it while we were waiting.
-            if (_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out ExLoadAuthState? cached) && cached.ExpiresUtc > DateTime.UtcNow)
+            // Re-check under the gate.
+            if (!string.IsNullOrEmpty(ctx.Credentials.ApiKey))
             {
-                return (cached, false, null);
+                return (ctx.Credentials.ApiKey, false, null);
             }
 
-            // Detect proxy/pin mismatch — AttemptRunner rotates off-pin when the pinned
-            // proxy is gone, which means the persisted cookie was issued from a different
-            // IP than we're about to use. Invalidate it and force a fresh WebView through
-            // the new proxy so the new cookie + new pin match. Also drop the in-memory
-            // cache so the new auth state is rebuilt.
-            if (ctx.Credentials.PinnedProxyId is int existingPin && existingPin != ctx.Proxy.Id)
+            if (string.IsNullOrEmpty(ctx.Credentials.Username))
             {
-                ctx.Logger.Log(
-                    this,
-                    LogType.Status,
-                    $"Ex-Load: pinned proxy {existingPin} unavailable, recovering through proxy {ctx.Proxy.Id} ({ctx.Proxy.Description}). Re-signing in.");
-                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
-                await ClearPersistedSessionAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                return (null, false, "no API key set and no username supplied — open Settings → Accounts and either paste an API key or sign in with username/password");
             }
 
-            // Step 1: prefer the DB-persisted cookie if it's still inside its lifetime.
-            // Avoids opening the WebView on every app start.
-            string? xfss;
-            DateTime expiresUtc;
-            bool acquiredFresh;
-
-            if (!string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
-                && ctx.Credentials.SessionCookieExpiresUtc is DateTime persistedExpiry
-                && persistedExpiry > DateTime.UtcNow)
-            {
-                xfss = ctx.Credentials.SessionCookie;
-                expiresUtc = persistedExpiry;
-                acquiredFresh = false;
-            }
-            else
-            {
-                if (_authService is null)
-                {
-                    return (null, false, "no interactive auth service available — cannot prompt for sign-in");
-                }
-
-                InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName, LoginPagePath);
-                string? captured;
-                try
-                {
-                    // Route the WebView through the same proxy the runner picked for this
-                    // attempt so the cookie is issued from the same IP it will be used
-                    // from. XFileSharing binds sessions to the issuing IP — mismatched IPs
-                    // would invalidate the cookie on the next request.
-                    captured = await _authService.AcquireSessionCookieAsync(
-                        spec,
-                        ctx.Credentials.Username ?? string.Empty,
-                        ctx.Proxy,
-                        ct);
-                }
-                catch (Exception ex)
-                {
-                    return (null, true, "sign-in failed: " + ex.Message);
-                }
-
-                if (string.IsNullOrEmpty(captured))
-                {
-                    return (null, true, "sign-in cancelled");
-                }
-
-                xfss = captured;
-                expiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
-                acquiredFresh = true;
-
-                // Deliberately NOT persisting yet — wait until the upload_form scrape
-                // below confirms the cookie actually authenticates. Otherwise a parse
-                // failure here would leave a "valid-looking" cookie in the DB and the
-                // next attempt would skip the WebView and re-hit the same error in a
-                // loop. The cookie is held in `xfss` locally until step 2 succeeds.
-            }
-
-            // Step 2: scrape the per-user upload subdomain + sess_id from upload_form.
-            (string? sessionId, string? actionUrl, string? formError) = await FetchUploadFormAsync(
-                xfss,
-                url => GetAsync(ctx, url, BuildCookieHeader(xfss)));
-
-            if (sessionId is null || actionUrl is null)
-            {
-                return (null, acquiredFresh, formError ?? "upload_form parse failed");
-            }
-
-            // Form parsed → cookie is good. Now safe to persist (only for fresh sign-ins;
-            // a re-use of an already-persisted cookie doesn't need a re-write).
-            if (acquiredFresh)
-            {
-                await PersistSessionAsync(ctx.Credentials, xfss, expiresUtc, ctx.Proxy.Id, ct).ConfigureAwait(false);
-            }
-
-            ctx.Logger.Log(
-                this,
-                LogType.Status,
-                $"Ex-Load upload_form: action={actionUrl}, sess_id={sessionId}, xfss={xfss}, expires={expiresUtc:O}");
-
-            ExLoadAuthState newAuth = new(xfss, sessionId, actionUrl, expiresUtc);
-            _authByCredentialsId[ctx.Credentials.Id] = newAuth;
-            return (newAuth, acquiredFresh, null);
+            return await BootstrapApiKeyAsync(ctx, ct);
         }
         finally
         {
@@ -383,154 +315,326 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         }
     }
 
-    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    /// <summary>
+    /// The U/P-mode bootstrap: capture an <c>xfss</c> cookie via WebView (or reuse a
+    /// non-expired persisted one), GET my_account, scrape the API key — generating one
+    /// if the account doesn't have one yet — then persist the key and clear the now-
+    /// unnecessary cookie/pin.
+    /// </summary>
+    private async Task<(string? ApiKey, bool DidBootstrap, string? Error)> BootstrapApiKeyAsync(AttemptContext ctx, CancellationToken ct)
     {
-        // Ex-Load's "check" pops the WebView so the user signs in + solves the captcha
-        // once. The cookie we capture is returned on the result so the Settings VM can
-        // persist it (along with the pinned proxy id) onto the credentials DTO — that
-        // way the first real upload doesn't pop a second WebView and uploads share the
-        // sign-in's IP (XFileSharing binds sessions to the issuing IP).
+        // Step 1: get an xfss cookie. Prefer the persisted one if still valid; otherwise
+        // pop the WebView through the runner-supplied proxy (so the cookie is issued
+        // from the same IP we'd use for the my_account GET below — XFileSharing binds
+        // session cookies to the issuing IP).
+        string? xfss = await GetOrAcquireXfssCookieAsync(ctx, ct);
+        if (xfss is null)
+        {
+            return (null, true, "sign-in cancelled or no usable proxy available");
+        }
+
+        // Step 2: GET my_account. Read it once, try to extract the existing API key.
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(xfss);
+        string html;
+        try
+        {
+            html = await GetAsync(ctx, MyAccountUrl, cookieHeader, ct);
+        }
+        catch (Exception ex)
+        {
+            return (null, true, "my_account fetch failed: " + ex.Message);
+        }
+
+        string? apiKey = ExtractApiKey(html);
+
+        // Step 3: if the page doesn't render an api-url input yet, follow the generate
+        // link to create one, then re-fetch and re-scrape.
+        if (apiKey is null)
+        {
+            string? csrf = ExtractCsrfToken(html);
+            if (csrf is null)
+            {
+                return (null, true, "my_account did not contain an API key OR a CSRF token to generate one. " + Snippet(html));
+            }
+
+            string generateUrl = $"{MyAccountUrl}&generate_api_key=1&token={Uri.EscapeDataString(csrf)}";
+            try
+            {
+                // The generate endpoint replies with a 302 + a "msg=New API key generated"
+                // cookie and redirects back to my_account. We don't care about the body
+                // of the redirect — we re-fetch my_account ourselves and look for the key.
+                _ = await GetAsync(ctx, generateUrl, cookieHeader, ct);
+            }
+            catch (Exception ex)
+            {
+                return (null, true, "generate_api_key request failed: " + ex.Message);
+            }
+
+            try
+            {
+                html = await GetAsync(ctx, MyAccountUrl, cookieHeader, ct);
+            }
+            catch (Exception ex)
+            {
+                return (null, true, "my_account re-fetch failed after generate: " + ex.Message);
+            }
+
+            apiKey = ExtractApiKey(html);
+            if (apiKey is null)
+            {
+                return (null, true, "my_account did not contain an api-url input after generate. " + Snippet(html));
+            }
+        }
+
+        // Step 4: persist the API key and clear the now-unnecessary cookie + pin (the
+        // API key is IP-agnostic, no need to keep the rotation locked).
+        await PersistApiKeyAsync(ctx.Credentials, apiKey, ct).ConfigureAwait(false);
+
+        ctx.Logger.Log(this, LogType.Status, $"Ex-Load: bootstrapped API key for {ctx.Credentials.Username}");
+        return (apiKey, true, null);
+    }
+
+    /// <summary>
+    /// Returns a usable <c>xfss</c> cookie for the U/P bootstrap. Prefers the DB-cached
+    /// cookie when it's non-expired and was issued from the same proxy we're using
+    /// now; otherwise pops the WebView.
+    /// </summary>
+    private async Task<string?> GetOrAcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
+    {
+        bool pinMatches = ctx.Credentials.PinnedProxyId is null || ctx.Credentials.PinnedProxyId == ctx.Proxy.Id;
+
+        if (pinMatches
+            && !string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
+            && ctx.Credentials.SessionCookieExpiresUtc is DateTime expiresUtc
+            && expiresUtc > DateTime.UtcNow)
+        {
+            return ctx.Credentials.SessionCookie;
+        }
+
         if (_authService is null)
         {
-            return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
+            return null;
         }
 
         InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName, LoginPagePath);
         string? captured;
         try
         {
-            captured = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
+            captured = await _authService.AcquireSessionCookieAsync(
+                spec,
+                ctx.Credentials.Username ?? string.Empty,
+                ctx.Proxy,
+                ct);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (string.IsNullOrEmpty(captured))
+        {
+            return null;
+        }
+
+        // Stash on the DTO so a bootstrap failure mid-flow doesn't force a second WebView
+        // on the very next retry. Pin to the current proxy for the same IP-binding reason.
+        ctx.Credentials.SessionCookie = captured;
+        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
+        ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
+
+        if (_loginRepository is not null)
+        {
+            try { await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false); }
+            catch { /* best-effort */ }
+        }
+
+        return captured;
+    }
+
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = password; // Ex-Load doesn't validate the password field — sign-in goes through the WebView captcha.
+
+        // API-key-direct path: validate via /api/account/info and surface premium expiry.
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            AccountInfo? info = await TryGetAccountInfoAsync(apiKey, handler, ct);
+            if (info is null)
+            {
+                return new AccountCheckResult(false, AccountType.Free, "API key was rejected by /api/account/info or the response was unreadable.");
+            }
+
+            (AccountType accountType, DateTime? expiry) = ClassifyPremium(info);
+            string message = expiry is DateTime e && accountType == AccountType.Premium
+                ? $"Premium until {e:yyyy-MM-dd}"
+                : "Free account";
+
+            return new AccountCheckResult(
+                IsValid: true,
+                AccountType: accountType,
+                Message: message,
+                PremiumExpiry: expiry,
+                ApiKey: apiKey);
+        }
+
+        // Otherwise we're in U/P mode — bootstrap an API key via WebView + my_account scrape.
+        if (_authService is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
+        }
+
+        string? xfss;
+        try
+        {
+            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName, LoginPagePath);
+            xfss = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
         }
         catch (Exception ex)
         {
             return new AccountCheckResult(false, AccountType.Free, ex.Message);
         }
 
-        if (string.IsNullOrEmpty(captured))
+        if (string.IsNullOrEmpty(xfss))
         {
             return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
         }
 
-        // Verify the cookie actually works by pulling /?op=upload_form and confirming
-        // the form HTML parses. A cookie that doesn't authenticate redirects us back
-        // to login.html, where the regex won't match. Route through _getOverride when
-        // present so unit tests can stub the form response without touching the network.
-        Func<string, Task<string>> get = _getOverride is not null
-            ? _getOverride
-            : url => handler.GetStringAsync(url, BuildCookieHeader(captured), ct);
-
-        (string? sessionId, string? actionUrl, string? error) = await FetchUploadFormAsync(captured, get);
-
-        if (sessionId is null || actionUrl is null)
-        {
-            return new AccountCheckResult(false, AccountType.Free, error ?? "Captured cookie was not accepted by Ex-Load.");
-        }
-
-        DateTime expiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
-        return new AccountCheckResult(
-            IsValid: true,
-            AccountType: AccountType.Free,
-            Message: "Signed in (Ex-Load doesn't expose premium state on this endpoint)",
-            PremiumExpiry: null,
-            SessionCookie: captured,
-            SessionCookieExpiresUtc: expiresUtc,
-            PinnedProxyId: proxy.Id);
-    }
-
-    private static async Task<(string? SessionId, string? ActionUrl, string? Error)> FetchUploadFormAsync(
-        string xfss,
-        Func<string, Task<string>> get)
-    {
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(xfss);
         string html;
         try
         {
-            html = await get(UploadFormUrl);
+            html = _getOverride is not null
+                ? await _getOverride(MyAccountUrl, cookieHeader)
+                : await handler.GetStringAsync(MyAccountUrl, cookieHeader, ct);
         }
         catch (Exception ex)
         {
-            return (null, null, "upload_form fetch failed: " + ex.Message);
+            return new AccountCheckResult(false, AccountType.Free, "my_account fetch failed: " + ex.Message);
         }
 
-        Match actionMatch = _uploadFormActionRegex.Match(html);
-        if (!actionMatch.Success)
+        // Local rename to avoid shadowing the apiKey parameter (which is null here in
+        // the U/P branch but in scope for the whole method).
+        string? derivedKey = ExtractApiKey(html);
+        if (derivedKey is null)
         {
-            // Diagnostic: tell the user what we got back so we can tell apart "bounced
-            // back to login" (cookie not accepted) from "form shape doesn't match our
-            // regex" (XFileSharing variant we don't know about). The snippet is the
-            // first <form ...> tag we can find, or a head-of-body fallback.
-            string formsFound = ExtractFormOpeningTags(html);
-            string bodySnippet = Snippet(html);
-            string bounce = LooksLikeLoginPage(html) ? " (looks like the server bounced back to the login/registration page — the captured cookie may not be authenticating)" : string.Empty;
-            return (null, null,
-                $"upload_form HTML did not contain a multipart upload form{bounce}. " +
-                $"Forms found: {formsFound}. Body starts: {bodySnippet}");
+            string? csrf = ExtractCsrfToken(html);
+            if (csrf is null)
+            {
+                return new AccountCheckResult(false, AccountType.Free,
+                    "my_account did not contain an API key OR a CSRF token. The sign-in may not have worked. " + Snippet(html));
+            }
+
+            string generateUrl = $"{MyAccountUrl}&generate_api_key=1&token={Uri.EscapeDataString(csrf)}";
+            try
+            {
+                _ = _getOverride is not null
+                    ? await _getOverride(generateUrl, cookieHeader)
+                    : await handler.GetStringAsync(generateUrl, cookieHeader, ct);
+            }
+            catch (Exception ex)
+            {
+                return new AccountCheckResult(false, AccountType.Free, "generate_api_key request failed: " + ex.Message);
+            }
+
+            try
+            {
+                html = _getOverride is not null
+                    ? await _getOverride(MyAccountUrl, cookieHeader)
+                    : await handler.GetStringAsync(MyAccountUrl, cookieHeader, ct);
+            }
+            catch (Exception ex)
+            {
+                return new AccountCheckResult(false, AccountType.Free, "my_account re-fetch failed: " + ex.Message);
+            }
+
+            derivedKey = ExtractApiKey(html);
+            if (derivedKey is null)
+            {
+                return new AccountCheckResult(false, AccountType.Free,
+                    "my_account did not contain an api-url input after generate. " + Snippet(html));
+            }
         }
 
-        // The capture is in group 1 (action-before-enctype) or group 2 (enctype-before-action),
-        // depending on which alternative matched. Pick the non-empty one.
-        string actionUrl = actionMatch.Groups[1].Success && actionMatch.Groups[1].Length > 0
-            ? actionMatch.Groups[1].Value
-            : actionMatch.Groups[2].Value;
-
-        Match sessMatch = _sessIdRegex.Match(html);
-        string? sessId = sessMatch.Success
-            ? (sessMatch.Groups[1].Success ? sessMatch.Groups[1].Value : sessMatch.Groups[2].Value)
-            : null;
-        if (string.IsNullOrEmpty(sessId))
+        // Verify the key actually works by hitting account/info — gives us premium
+        // expiry as a bonus. (Locals named derivedInfo / derivedType / derivedMessage
+        // to avoid shadowing the corresponding API-key-path locals above.)
+        AccountInfo? derivedInfo = await TryGetAccountInfoAsync(derivedKey, handler, ct);
+        AccountType derivedType = AccountType.Free;
+        string derivedMessage;
+        if (derivedInfo is null)
         {
-            // Fall back to the cookie value when the form omits sess_id (mock/test fixtures).
-            sessId = xfss;
+            derivedMessage = "API key obtained but account/info verification failed.";
+        }
+        else
+        {
+            (derivedType, DateTime? expiry) = ClassifyPremium(derivedInfo);
+            derivedMessage = expiry is DateTime e && derivedType == AccountType.Premium
+                ? $"Premium until {e:yyyy-MM-dd}"
+                : "Signed in (Free)";
         }
 
-        return (sessId, actionUrl, null);
+        return new AccountCheckResult(
+            IsValid: true,
+            AccountType: derivedType,
+            Message: derivedMessage,
+            PremiumExpiry: derivedInfo is null ? null : ClassifyPremium(derivedInfo).Expiry,
+            ApiKey: derivedKey);
     }
 
     /// <summary>
-    /// Walks the HTML and returns a compact list of every <c>&lt;form&gt;</c> opening tag
-    /// found, truncated to keep the diagnostic short. Used when the upload-form regex
-    /// misses so we can see at a glance what forms WERE present and what their action /
-    /// enctype attributes look like.
+    /// GET <c>/api/upload/server?key=...</c> and parse the per-upload sess_id + upload
+    /// subdomain URL. Returns <c>AuthExpired=true</c> when the API rejects the key.
     /// </summary>
-    private static string ExtractFormOpeningTags(string html)
+    private async Task<(string? SessId, string? UploadUrl, string? Error, bool AuthExpired)> GetUploadServerAsync(string apiKey, AttemptContext ctx, CancellationToken ct)
     {
-        MatchCollection matches = Regex.Matches(html, "<form\\b[^>]*>", RegexOptions.IgnoreCase);
-        if (matches.Count == 0)
+        string url = $"{ApiUploadServerUrl}?key={Uri.EscapeDataString(apiKey)}";
+        string body;
+        try
         {
-            return "(none)";
+            body = await GetAsync(ctx, url, headers: null, ct);
+        }
+        catch (Exception ex)
+        {
+            return (null, null, "upload/server request failed: " + ex.Message, false);
         }
 
-        const int MaxTagLen = 240;
-        IEnumerable<string> trimmed = matches.Cast<Match>().Take(4).Select(m =>
+        UploadServerResponse? response;
+        try
         {
-            string tag = m.Value.Replace('\n', ' ').Replace('\r', ' ');
-            return tag.Length > MaxTagLen ? tag[..MaxTagLen] + "…" : tag;
-        });
-        string joined = string.Join(" | ", trimmed);
-        return matches.Count > 4 ? joined + $" (+{matches.Count - 4} more)" : joined;
+            response = JsonSerializer.Deserialize<UploadServerResponse>(body);
+        }
+        catch
+        {
+            return (null, null, $"upload/server: response was not valid JSON: {Snippet(body)}", false);
+        }
+
+        if (response is null)
+        {
+            return (null, null, $"upload/server: empty response: {Snippet(body)}", false);
+        }
+
+        if (response.Status == 403 || response.Status == 401)
+        {
+            return (null, null, response.Msg ?? "API key rejected", true);
+        }
+
+        if (response.Status != 200 || string.IsNullOrEmpty(response.Result) || string.IsNullOrEmpty(response.SessId))
+        {
+            return (null, null, $"upload/server: status={response.Status} msg={response.Msg}", false);
+        }
+
+        return (response.SessId, response.Result, null, false);
     }
 
-    /// <summary>
-    /// Heuristic: returns true if the body looks like the login or registration page
-    /// rather than a logged-in page. Used to give the user a clearer error than "regex
-    /// missed" when the real cause is that the captured cookie didn't authenticate.
-    /// </summary>
-    private static bool LooksLikeLoginPage(string html)
+    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadUrl, string sessId)
     {
-        // The login page contains the hCaptcha widget OR an op=login form. Either is a
-        // strong signal we're not authenticated.
-        return html.Contains("h-captcha", StringComparison.OrdinalIgnoreCase)
-            || html.Contains("op=login", StringComparison.OrdinalIgnoreCase)
-            || html.Contains("name=\"op\" value=\"login\"", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, ExLoadAuthState auth)
-    {
-        // Mirror the browser's request shape, just like BRupload — same XFileSharing
-        // upload.cgi backend, same field set, same Origin + Sec-Fetch-* trio required
-        // to dodge the "uploads not enabled for your account type" misdirection.
+        // Same multipart shape BRupload uses — XFileSharing's upload.cgi reads the same
+        // fields whether we got there via the web form (BRupload) or the API
+        // (Ex-Load). Origin + Sec-Fetch-* are kept for symmetry; the API path may not
+        // need them but they're cheap and shouldn't hurt.
         Dictionary<string, string> extraFields = new(StringComparer.Ordinal)
         {
-            ["sess_id"] = auth.SessionId,
+            ["sess_id"] = sessId,
             ["utype"] = "reg",
             ["file_descr"] = string.Empty,
             ["file_public"] = "1",
@@ -551,12 +655,12 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, uploadHeaders, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, uploadHeaders, ctx.SpeedLimitProvider);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
-            auth.UploadActionUrl,
+            uploadUrl,
             fileFieldName: "file_0",
             extraFields: extraFields,
             headers: uploadHeaders,
@@ -608,6 +712,26 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         return (PublicUrlPrefix + first.Code, null, false);
     }
 
+    private static string? ExtractApiKey(string html)
+    {
+        Match m = _apiKeyRegex.Match(html);
+        if (!m.Success) return null;
+        string captured = m.Groups[1].Success && m.Groups[1].Length > 0
+            ? m.Groups[1].Value
+            : m.Groups[2].Value;
+        return string.IsNullOrEmpty(captured) ? null : captured;
+    }
+
+    private static string? ExtractCsrfToken(string html)
+    {
+        Match m = _csrfTokenRegex.Match(html);
+        if (!m.Success) return null;
+        string captured = m.Groups[1].Success && m.Groups[1].Length > 0
+            ? m.Groups[1].Value
+            : m.Groups[2].Value;
+        return string.IsNullOrEmpty(captured) ? null : captured;
+    }
+
     private static string Snippet(string body)
     {
         if (string.IsNullOrWhiteSpace(body)) return string.Empty;
@@ -619,47 +743,64 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
 
-    private Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers = null)
+    private Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
         => _getOverride is not null
-            ? _getOverride(url)
-            : ctx.Handler.GetStringAsync(url, headers, ctx.Cancellation);
+            ? _getOverride(url, headers)
+            : ctx.Handler.GetStringAsync(url, headers, ct);
 
-    private async Task PersistSessionAsync(FileHosterLoginDto credentials, string cookieValue, DateTime expiresUtc, int pinnedProxyId, CancellationToken ct)
+    private async Task<AccountInfo?> TryGetAccountInfoAsync(string apiKey, HttpHandler handler, CancellationToken ct)
     {
-        // Mutate the live DTO so callers holding a reference see the new state, then
-        // round-trip through the repo so the cookie + pinned proxy survive restarts.
-        // The repo handles its own DbContext lifetime; we don't need to coordinate
-        // transactions here.
-        credentials.SessionCookie = cookieValue;
-        credentials.SessionCookieExpiresUtc = expiresUtc;
-        credentials.PinnedProxyId = pinnedProxyId;
-
-        if (_loginRepository is null)
+        string url = $"{ApiAccountInfoUrl}?key={Uri.EscapeDataString(apiKey)}";
+        string body;
+        try
         {
-            return;
+            body = _getOverride is not null
+                ? await _getOverride(url, null)
+                : await handler.GetStringAsync(url, ct);
+        }
+        catch
+        {
+            return null;
         }
 
         try
         {
-            await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
+            AccountInfoResponse? response = JsonSerializer.Deserialize<AccountInfoResponse>(body);
+            return response is null || response.Status != 200 ? null : response.Result;
         }
         catch
         {
-            // Persistence is best-effort — a transient DB write failure shouldn't fail
-            // the upload. The in-memory cache still has the cookie and the user will
-            // simply re-sign-in on app restart.
+            return null;
         }
     }
 
-    private async Task ClearPersistedSessionAsync(FileHosterLoginDto credentials, CancellationToken ct)
+    /// <summary>Maps account/info's premium-expire string into the app's AccountType
+    /// taxonomy. Returns Premium when the expiry is in the future, Free otherwise.</summary>
+    private static (AccountType Type, DateTime? Expiry) ClassifyPremium(AccountInfo info)
     {
+        if (string.IsNullOrEmpty(info.PremiumExpire))
+        {
+            return (AccountType.Free, null);
+        }
+
+        if (!DateTime.TryParse(info.PremiumExpire, System.Globalization.CultureInfo.InvariantCulture, out DateTime expiry))
+        {
+            return (AccountType.Free, null);
+        }
+
+        return expiry > DateTime.UtcNow
+            ? (AccountType.Premium, expiry)
+            : (AccountType.Free, expiry);
+    }
+
+    private async Task PersistApiKeyAsync(FileHosterLoginDto credentials, string apiKey, CancellationToken ct)
+    {
+        // Save the key onto the live DTO and clear the cookie/pin (we no longer need
+        // either — the API key works from any IP and doesn't expire on a short timer).
+        credentials.ApiKey = apiKey;
         credentials.SessionCookie = null;
         credentials.SessionCookieExpiresUtc = null;
-        // Deliberately leave PinnedProxyId in place — the cookie is dead but the proxy
-        // selection might still be the right one for the next sign-in. The next
-        // EnsureAuthAsync will pop the WebView, capture a fresh cookie through the
-        // currently-pinned proxy (because AttemptRunner picked it via the pin), and
-        // PersistSessionAsync re-writes the pin to the same value.
+        credentials.PinnedProxyId = null;
 
         if (_loginRepository is null)
         {
@@ -672,14 +813,57 @@ public sealed class ExLoadPipeline : IFileHosterPipeline
         }
         catch
         {
-            // Same best-effort rationale as PersistSessionAsync.
+            // Best-effort persist — the in-memory DTO mutation still keeps the key
+            // available for the rest of this session.
         }
+    }
+
+    private async Task ClearApiKeyAsync(FileHosterLoginDto credentials, CancellationToken ct)
+    {
+        credentials.ApiKey = null;
+
+        if (_loginRepository is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort.
+        }
+    }
+
+    // ---- JSON wire types ----
+
+    private sealed class AccountInfoResponse
+    {
+        [JsonPropertyName("status")] public int Status { get; set; }
+        [JsonPropertyName("msg")] public string? Msg { get; set; }
+        [JsonPropertyName("result")] public AccountInfo? Result { get; set; }
+    }
+
+    private sealed class AccountInfo
+    {
+        [JsonPropertyName("email")] public string? Email { get; set; }
+        [JsonPropertyName("premium_expire")] public string? PremiumExpire { get; set; }
+        [JsonPropertyName("balance")] public string? Balance { get; set; }
+    }
+
+    private sealed class UploadServerResponse
+    {
+        [JsonPropertyName("status")] public int Status { get; set; }
+        [JsonPropertyName("msg")] public string? Msg { get; set; }
+        [JsonPropertyName("sess_id")] public string? SessId { get; set; }
+        [JsonPropertyName("result")] public string? Result { get; set; }
     }
 
     private sealed class UploadResult
     {
         [JsonPropertyName("file_code")] public string? Code { get; set; }
-
         [JsonPropertyName("file_status")] public string? Status { get; set; }
     }
 }

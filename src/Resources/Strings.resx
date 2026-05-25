@@ -1409,6 +1409,15 @@ Continue with the sign-in?</value>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>Please enter both a username and a password.</value>
   </data>
+  <data name="EditAccount_OrLabel" xml:space="preserve">
+    <value>— or —</value>
+  </data>
+  <data name="EditAccount_ApiKeyLabel" xml:space="preserve">
+    <value>API Key:</value>
+  </data>
+  <data name="EditAccount_Validation_RequireUpOrApiKey" xml:space="preserve">
+    <value>Please enter either a username + password, or an API key — not both.</value>
+  </data>
   <data name="WebViewLogin_WindowTitle" xml:space="preserve">
     <value>Sign in</value>
   </data>

@@ -85,5 +85,11 @@ public interface IFileHosterPipeline
     /// from, surfaced separately for pipelines that need the raw selection (e.g. to route
     /// an embedded browser through the same proxy for captcha-gated sign-ins).
     /// </summary>
-    Task<AccountCheckResult> CheckAccountAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct);
+    /// <param name="apiKey">Optional API key for hosters that support key-based REST APIs
+    /// (currently Ex-Load). When non-null the pipeline should verify via the API and
+    /// skip any cookie/WebView paths. When null the pipeline uses
+    /// <paramref name="username"/>/<paramref name="password"/> and may derive an API key
+    /// from them — when it does, the resulting key is surfaced on
+    /// <see cref="AccountCheckResult.ApiKey"/> so the caller can persist it onto the DTO.</param>
+    Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct);
 }

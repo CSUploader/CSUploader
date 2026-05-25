@@ -57,4 +57,15 @@ public class FileHosterLoginDbm
     /// value = <see cref="ProxySettingDbm.Id"/> of the pinned proxy row.
     /// </remarks>
     public int? PinnedProxyId { get; set; }
+
+    /// <summary>
+    /// API key for hosters that expose a key-based REST API (currently Ex-Load).
+    /// When non-empty the pipeline uses it directly for account verification and uploads,
+    /// skipping any cookie / WebView dance. For Ex-Load specifically the key can either
+    /// be supplied directly by the user OR derived from a username/password sign-in plus
+    /// a one-time scrape of the my_account page — once we have it, the
+    /// <see cref="Username"/>/<see cref="Password"/> remain on the row but are no longer
+    /// used.
+    /// </summary>
+    public string? ApiKey { get; set; }
 }

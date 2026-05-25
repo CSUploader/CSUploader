@@ -24,7 +24,7 @@ public sealed class AccountVerifier(
     IProxySource proxySource,
     IAppLogger logger) : IAccountVerifier
 {
-    public async Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, CancellationToken ct = default)
+    public async Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken ct = default)
     {
         IFileHosterPipeline? pipeline = registry.Find(hosterName);
         if (pipeline is null)
@@ -48,7 +48,7 @@ public sealed class AccountVerifier(
         using HttpHandler handler = handlerFactory.Create(proxy, logger);
         try
         {
-            return await pipeline.CheckAccountAsync(username, password, handler, proxy, ct);
+            return await pipeline.CheckAccountAsync(username, password, apiKey, handler, proxy, ct);
         }
         catch (OperationCanceledException)
         {

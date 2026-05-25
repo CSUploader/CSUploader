@@ -7,7 +7,7 @@
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         xmlns:conv="clr-namespace:CSUploader.Converters"
         Title="{loc:Loc EditAccount_WindowTitle}"
-        Width="420" Height="280"
+        Width="420" Height="360"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource SurfaceMutedBrush}"
@@ -113,6 +113,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -158,10 +160,31 @@
             <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc EditAccount_PasswordLabel}" Style="{StaticResource FieldLabel}" />
             <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
-            <CheckBox Grid.Row="3" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
+            <!-- "or" separator between credential modes — visible only when the chosen hoster
+                 supports both U/P and API-key credentials (currently only ExLoad). The
+                 EditAccountWindow code-behind toggles ApiKeyRow.Visibility based on the
+                 selected hoster. -->
+            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="OrSeparator"
+                       Text="{loc:Loc EditAccount_OrLabel}"
+                       FontSize="11"
+                       FontStyle="Italic"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="0,0,0,6"
+                       Visibility="Collapsed" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0" x:Name="ApiKeyLabel"
+                       Text="{loc:Loc EditAccount_ApiKeyLabel}"
+                       Style="{StaticResource FieldLabel}"
+                       Visibility="Collapsed" />
+            <TextBox Grid.Row="4" Grid.Column="1" x:Name="ApiKeyBox"
+                     Style="{StaticResource FieldInput}"
+                     Margin="0,0,0,10"
+                     Visibility="Collapsed" />
+
+            <CheckBox Grid.Row="5" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
                        FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
 
-            <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+            <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button Content="{loc:Loc EditAccount_BtnSave}" Style="{StaticResource SaveButton}" Click="SaveButton_Click" Margin="0,0,8,0" />
                 <Button Content="{loc:Loc EditAccount_BtnCancel}" Style="{StaticResource DialogButton}" IsCancel="True" />

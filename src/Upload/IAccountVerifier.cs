@@ -18,5 +18,13 @@ namespace CSUploader.Upload;
 /// </remarks>
 public interface IAccountVerifier
 {
-    Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, CancellationToken ct = default);
+    /// <summary>
+    /// Verifies credentials against a hoster. <paramref name="apiKey"/> takes precedence
+    /// when supplied — for hosters with key-based APIs (currently Ex-Load) the verifier
+    /// will validate via the API and skip any cookie/WebView paths. When
+    /// <paramref name="apiKey"/> is null, <paramref name="username"/>/<paramref name="password"/>
+    /// are used; pipelines that can derive an API key from those credentials (Ex-Load's
+    /// my_account scrape) will surface it on <see cref="AccountCheckResult.ApiKey"/>.
+    /// </summary>
+    Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken ct = default);
 }
