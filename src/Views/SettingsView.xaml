@@ -19,6 +19,7 @@
         <conv:AccountCheckStatusToColorConverter x:Key="AccountCheckStatusToColor" />
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
+        <conv:HosterIconConverter x:Key="HosterIconConverter" />
 
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
@@ -878,7 +879,21 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Hoster}" Binding="{Binding FileHosterName}" Width="180" />
+                    <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Hoster}" Width="180"
+                                            SortMemberPath="FileHosterName"
+                                            ClipboardContentBinding="{Binding FileHosterName}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
+                                           Width="18" Height="18" Margin="0,0,6,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <TextBlock Text="{Binding FileHosterName, FallbackValue=''}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
