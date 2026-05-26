@@ -374,7 +374,9 @@ public class ExLoadPipelineTests
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Contains("Ex-Load", fail.Reason, StringComparison.Ordinal);
+        // The base XFileSharingApiPipeline interpolates the Name property — for this
+        // pipeline that's "ExLoad" (no hyphen, matching the FileHosters registry key).
+        Assert.Contains("ExLoad", fail.Reason, StringComparison.Ordinal);
         Assert.Equal(0, auth.CallCount);
         Assert.Empty(getCalls);
     }

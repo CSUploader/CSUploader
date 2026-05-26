@@ -766,6 +766,14 @@ public partial class SettingsViewModel(
         {
             target.ApiKey = result.ApiKey;
         }
+
+        // Fill an empty Username field from whatever the verifier learned (typically the
+        // email from /api/account/info). Skip when the user already typed one — they
+        // win over the auto-discovery so e.g. an alias they prefer isn't clobbered.
+        if (!string.IsNullOrEmpty(result.DerivedUsername) && string.IsNullOrEmpty(target.Username))
+        {
+            target.Username = result.DerivedUsername;
+        }
     }
 
     /// <summary>

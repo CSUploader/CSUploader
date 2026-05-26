@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 # Claude Code runtime state (per-session lock)
 .claude/scheduled_tasks.lock
+
+# Playwright MCP server's per-session artifact captures (snapshots, console logs)
+.playwright-mcp/

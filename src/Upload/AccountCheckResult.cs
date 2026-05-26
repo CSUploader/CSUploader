@@ -27,6 +27,11 @@ namespace CSUploader.Upload;
 /// (XFileSharing binds session cookies to the issuing IP, and rotating per-attempt would
 /// invalidate the cookie). Use <c>0</c> for "pinned to direct" when Use Proxies was off
 /// at sign-in time.</param>
+/// <param name="DerivedUsername">Username discovered by the verifier (e.g. the email
+/// field on an API-key-validated account). Settings VM applies this to the credentials
+/// DTO when the user-supplied username is empty — useful for API-key-direct accounts
+/// where the user pasted only a key and the grid would otherwise show a blank Username
+/// cell. Null when the verifier didn't learn one.</param>
 public record AccountCheckResult(
     bool IsValid,
     AccountType AccountType,
@@ -35,4 +40,5 @@ public record AccountCheckResult(
     string? SessionCookie = null,
     DateTime? SessionCookieExpiresUtc = null,
     int? PinnedProxyId = null,
-    string? ApiKey = null);
+    string? ApiKey = null,
+    string? DerivedUsername = null);
