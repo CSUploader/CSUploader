@@ -103,6 +103,69 @@ public class XFileSharingApiPipelineSubclassTests
     }
 
     [Fact]
+    public async Task UPBootstrap_KatFileSpanVariantOfApiUrl_ExtractsKeyFromTextContent()
+    {
+        // KatFile renders the API URL inside a span's text content, not as a value
+        // attribute on an input (as Ex-Load does). This fixture is the exact shape
+        // observed on the live my_account page on 2026-05-26 — preserve it verbatim so
+        // any future regex tightening can't accidentally regress this case.
+        const string KatFileMyAccountHtml = """
+            <Form method="POST">
+            <input type="hidden" name="op" value="my_account">
+            <input type="hidden" name="token" value="cb3dfe945b0d5168843daa1282800fef">
+            <Table>
+              <tr>
+                <td>API URL</td>
+                <td>
+                  <span name="api-url">https://test-xfs.example/api/account/info?key=katfileSpanKey99</span>
+                  <br>
+                  <a href="?op=my_account&generate_api_key=1&token=cb3dfe945b0d5168843daa1282800fef" name="regen-api-key">change key</a>
+                </td>
+              </tr>
+            </Table>
+            </Form>
+            """;
+
+        Queue<string> getResponses = new(new[]
+        {
+            KatFileMyAccountHtml,                                                              // my_account → key already present
+            """{"msg":"OK","status":200,"sess_id":"sess_kf","result":"http://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"kfCode","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+
+        // U/P-bootstrap path: no ApiKey on the DTO, a fake auth service supplies a cookie.
+        FakeAuthService auth = new("xfss_katfile_like");
+        TestXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (filePath, endpoint, extra, headers, _) =>
+                Task.FromResult(uploads.Dequeue()));
+
+        FileHosterLoginDto credentials = new()
+        {
+            Id = 99,
+            FileHosterName = "TestXfsHost",
+            Username = "u@example.com",
+            Password = "p",
+        };
+        AttemptContext ctx = MakeContext(credentials);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        // The span-embedded key landed on the DTO without needing a regenerate call.
+        Assert.Equal("katfileSpanKey99", credentials.ApiKey);
+    }
+
+    [Fact]
     public async Task SubclassMaxFileSizeMessage_UsesSubclassNameNotExLoad()
     {
         TestXfsHostPipeline pipeline = new(
@@ -145,4 +208,11 @@ public class XFileSharingApiPipelineSubclassTests
         string Endpoint,
         IReadOnlyDictionary<string, string> ExtraFields,
         IReadOnlyDictionary<string, string>? Headers);
+
+    /// <summary>Minimal <see cref="IInteractiveAuthService"/> for the U/P-bootstrap test.</summary>
+    private sealed class FakeAuthService(string? cannedCookie) : IInteractiveAuthService
+    {
+        public Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+            => Task.FromResult(cannedCookie);
+    }
 }

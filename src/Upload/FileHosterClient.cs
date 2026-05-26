@@ -53,7 +53,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         { "Rapidu", "www.rapidu.net" },
         { "RareFile", "www.rarefile.net" },
         { "ShareOnline", "www.share-online.biz" },
-        { "TakeFile", "www.takefile.link" },
+        // Live host is the apex domain (takefile.link); www. redirects.
+        { "TakeFile", "takefile.link" },
         { "TezFiles", "tezfiles.com" },
         { "UbiqFile", "www.ubiqfile.com" },
         { "Uploaded", "www.uploaded.net" },

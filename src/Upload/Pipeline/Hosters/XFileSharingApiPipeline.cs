@@ -115,12 +115,20 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         """name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // The API key is embedded inside the value of a read-only input named "api-url":
-    //   <input type="text" readonly name="api-url" value="https://HOST/api/account/info?key=KEY">
-    // We extract the `key=` query parameter from the value attribute. Tolerant of
-    // attribute-order variation.
+    // The API key is rendered in one of three shapes across the XFileSharing family —
+    // we accept all three:
+    //   1. <input ... name="api-url" value="https://HOST/api/account/info?key=KEY">  (Ex-Load)
+    //   2. <input value="...?key=KEY" ... name="api-url" ...>                         (reversed attr order)
+    //   3. <span name="api-url">https://HOST/api/account/info?key=KEY</span>          (KatFile — key in text content, not an attribute)
+    // The third branch is the trickiest: anchor on `name="api-url"` followed by the
+    // closing `>` of the element, then read up to the next `<` as the text node, and
+    // pluck `?key=...` out of it. The character class for the key intentionally
+    // excludes whitespace, &, ", ', <, and # so we stop at the first delimiter the
+    // server would have escaped anyway.
     private static readonly Regex _apiKeyRegex = new(
-        """name=["']api-url["'][^>]*?value=["'][^"']*[?&]key=([^"'&]+)["']|value=["'][^"']*[?&]key=([^"'&]+)["'][^>]*?name=["']api-url["']""",
+        """name=["']api-url["'][^>]*?value=["'][^"']*[?&]key=([^"'&]+)["']""" +
+        """|value=["'][^"']*[?&]key=([^"'&]+)["'][^>]*?name=["']api-url["']""" +
+        """|name=["']api-url["'][^>]*>[^<]*?[?&]key=([^"'&<\s#]+)""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Production ctor — supplied by DI with optional auth + repo.</summary>
@@ -692,10 +700,16 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     {
         Match m = _apiKeyRegex.Match(html);
         if (!m.Success) return null;
-        string captured = m.Groups[1].Success && m.Groups[1].Length > 0
-            ? m.Groups[1].Value
-            : m.Groups[2].Value;
-        return string.IsNullOrEmpty(captured) ? null : captured;
+        // One of three groups captures depending on which branch matched (see the regex
+        // definition for the three shapes). Pick the non-empty one.
+        for (int i = 1; i <= 3; i++)
+        {
+            if (m.Groups[i].Success && m.Groups[i].Length > 0)
+            {
+                return m.Groups[i].Value;
+            }
+        }
+        return null;
     }
 
     private static string? ExtractCsrfToken(string html)

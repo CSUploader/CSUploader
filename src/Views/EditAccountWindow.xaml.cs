@@ -26,7 +26,7 @@ public partial class EditAccountWindow : Window
     /// hosters and treats the two credential modes as mutually exclusive.
     /// </summary>
     private static readonly HashSet<string> HostersWithApiKeyMode =
-        new(System.StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile" };
+        new(System.StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "FlashBit", "TakeFile" };
 
     private readonly FileHosterLoginDto _original;
     private bool _suppressMutualExclusion;
