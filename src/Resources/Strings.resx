@@ -1302,17 +1302,6 @@ Add anyway?</value>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>Reset columns to their defaults on the Uploads / History tab</value>
   </data>
-  <data name="Confirm_WebViewProxyBypass" xml:space="preserve">
-    <value>Warn that the in-app sign-in browser bypasses the proxy rotation</value>
-  </data>
-  <data name="WebViewLogin_ProxyBypass_Warning" xml:space="preserve">
-    <value>The in-app sign-in browser does not use the proxy rotation. The hoster's login servers will see your real IP address during this sign-in only — uploads themselves still go through proxies as configured.
-
-Continue with the sign-in?</value>
-  </data>
-  <data name="WebViewLogin_ProxyBypass_Title" xml:space="preserve">
-    <value>Sign-in browser uses direct connection</value>
-  </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>About CSUploader</value>
   </data>
@@ -1442,33 +1431,6 @@ Continue with the sign-in?</value>
   <data name="EditAccount_Validation_RequireLoginOrApiKey" xml:space="preserve">
     <value>Click Sign in to authenticate, or paste an API key.</value>
   </data>
-  <data name="WebViewLogin_WindowTitle" xml:space="preserve">
-    <value>Sign in</value>
-  </data>
-  <data name="WebViewLogin_Header_Format" xml:space="preserve">
-    <value>Sign in to {0}</value>
-  </data>
-  <data name="WebViewLogin_Instructions" xml:space="preserve">
-    <value>Complete the sign-in (including any captcha) in the browser below. This window will close automatically once your session is captured.</value>
-  </data>
-  <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
-    <value>Initializing browser...</value>
-  </data>
-  <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
-    <value>Loading {0}...</value>
-  </data>
-  <data name="WebViewLogin_Status_CookieReadFailed_Format" xml:space="preserve">
-    <value>Cookie read failed: {0}</value>
-  </data>
-  <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
-    <value>Could not initialize the WebView2 browser. The WebView2 runtime may not be installed. Details: {0}</value>
-  </data>
-  <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
-    <value>Proxy not supported for sign-in</value>
-  </data>
-  <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
-    <value>The sign-in browser cannot use a SOCKS proxy that requires a username and password ({0}). Use a SOCKS proxy without credentials, or use an HTTP/HTTPS proxy instead.</value>
-  </data>
   <data name="EditProxy_AddTitle" xml:space="preserve">
     <value>Add Proxy</value>
   </data>
@@ -1504,6 +1466,33 @@ Continue with the sign-in?</value>
   </data>
   <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
     <value>Failed: {0}</value>
+  </data>
+  <data name="WebViewLogin_WindowTitle" xml:space="preserve">
+    <value>Sign in</value>
+  </data>
+  <data name="WebViewLogin_Header_Format" xml:space="preserve">
+    <value>Sign in to {0}</value>
+  </data>
+  <data name="WebViewLogin_Instructions" xml:space="preserve">
+    <value>Complete the sign-in (including any captcha) in the browser below. This window will close automatically once your session is captured.</value>
+  </data>
+  <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
+    <value>Initializing browser...</value>
+  </data>
+  <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
+    <value>Loading {0}...</value>
+  </data>
+  <data name="WebViewLogin_Status_CookieReadFailed_Format" xml:space="preserve">
+    <value>Cookie read failed: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
+    <value>Could not initialize the WebView2 browser. The WebView2 runtime may not be installed. Details: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
+    <value>Proxy not supported for sign-in</value>
+  </data>
+  <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
+    <value>The sign-in browser cannot use a SOCKS proxy that requires a username and password ({0}). Use a SOCKS proxy without credentials, or use an HTTP/HTTPS proxy instead.</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP Transaction Details</value>

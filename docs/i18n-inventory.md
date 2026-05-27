@@ -683,6 +683,18 @@ EditProxy_Status_Testing           = Testing…
 EditProxy_Status_OkLatency_Format  = OK {0}ms (unexpected response)
 EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
 EditProxy_Status_Failed_Format     = Failed: {0}
+
+# WebView sign-in window (WebViewLoginWindow) — the captcha sign-in for XFileSharing-API
+# hosters (Ex-Load, KatFile, FlashBit, TakeFile). {0} placeholders as noted.
+WebViewLogin_WindowTitle                  = Sign in
+WebViewLogin_Header_Format                = Sign in to {0}                                  # {0} = hoster name
+WebViewLogin_Instructions                 = Complete the sign-in (including any captcha) in the browser below. This window will close automatically once your session is captured.
+WebViewLogin_Status_Initializing          = Initializing browser...
+WebViewLogin_Status_Loading_Format        = Loading {0}...                                  # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = Cookie read failed: {0}                       # {0} = error detail
+WebViewLogin_Error_InitFailed_Format      = Could not initialize the WebView2 browser. The WebView2 runtime may not be installed. Details: {0}
+WebViewLogin_Error_UnsupportedProxy_Title = Proxy not supported for sign-in
+WebViewLogin_Error_SocksAuthUnsupported_Format = The sign-in browser cannot use a SOCKS proxy that requires a username and password ({0}). Use a SOCKS proxy without credentials, or use an HTTP/HTTPS proxy instead.
 ```
 
 ### HttpDetails window
