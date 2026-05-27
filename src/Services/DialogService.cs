@@ -12,7 +12,7 @@ using Ookii.Dialogs.Wpf;
 
 namespace CSUploader.Services;
 
-public class DialogService(AppSettings settings, SettingRepository settingRepository) : IDialogService
+public class DialogService(AppSettings settings, SettingRepository settingRepository, IAccountVerifier accountVerifier) : IDialogService
 {
     public void ShowError(string message, string? title = null) =>
         MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
@@ -91,7 +91,13 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             AccountType = AccountType.Free,
         };
 
-        EditAccountWindow dialog = new(seed, availableHosters)
+        EditAccountWindow dialog = new(
+            seed,
+            availableHosters,
+            // Interactive sign-in for XFileSharing-API hosters: runs the no-API-key verify
+            // flow (captcha WebView → my_account scrape → derive key). Same call the
+            // Settings VM wires in for its own add/edit dialogs.
+            hoster => accountVerifier.CheckAsync(hoster, string.Empty, string.Empty, null))
         {
             Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
             Owner = Application.Current.MainWindow,

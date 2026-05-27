@@ -659,6 +659,17 @@ EditAccount_AccountEnabled         = Account enabled
 EditAccount_BtnSave                = Save
 EditAccount_BtnCancel              = Cancel
 EditAccount_Validation_RequireUsernameAndPassword = Please enter both a username and a password.
+EditAccount_OrLabel                = — or —                                                  # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel            = API Key:
+EditAccount_SignInLabel            = Account:
+EditAccount_SignInButton           = Sign in…                                                # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress      = Opening sign-in…
+EditAccount_SignIn_Success         = ✓ Signed in
+EditAccount_SignIn_SuccessAs_Format = ✓ Signed in as {0}
+EditAccount_SignIn_Failed_Format   = ✗ {0}
+EditAccount_SignIn_FailedGeneric   = Sign-in failed.
+EditAccount_SignIn_Unavailable     = Sign-in is unavailable in this context.
+EditAccount_Validation_RequireLoginOrApiKey = Click Sign in to authenticate, or paste an API key.
 
 EditProxy_AddTitle                 = Add Proxy
 EditProxy_EditTitle                = Edit Proxy

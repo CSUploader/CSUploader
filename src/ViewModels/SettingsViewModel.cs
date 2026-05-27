@@ -713,7 +713,7 @@ public partial class SettingsViewModel(
             AccountType = AccountType.Free,
         };
 
-        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters)
+        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters, InteractiveLoginAsync)
         {
             Title = Loc("EditAccount_AddTitle"),
             Owner = System.Windows.Application.Current.MainWindow,
@@ -741,6 +741,15 @@ public partial class SettingsViewModel(
 
         return _accountVerifier.CheckAsync(hosterName, username, password, apiKey, cancellationToken);
     }
+
+    /// <summary>
+    /// Drives the interactive (WebView) sign-in for an XFileSharing-API hoster from the
+    /// EditAccountWindow's "Sign in" button. Runs the same verify flow as a no-API-key
+    /// account check: pops the captcha WebView, scrapes my_account, derives the API key.
+    /// Returned to the dialog so it can store the key + show the result.
+    /// </summary>
+    private Task<AccountCheckResult> InteractiveLoginAsync(string hosterName)
+        => VerifyCredentialsAsync(hosterName, username: string.Empty, password: string.Empty, apiKey: null);
 
     /// <summary>
     /// Copies any session cookie returned by the verifier onto the credentials DTO so the
@@ -1112,7 +1121,7 @@ public partial class SettingsViewModel(
         }
 
         // Open edit dialog
-        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters)
+        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters, InteractiveLoginAsync)
         {
             Owner = System.Windows.Application.Current.MainWindow
         };

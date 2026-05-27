@@ -1415,8 +1415,32 @@ Continue with the sign-in?</value>
   <data name="EditAccount_ApiKeyLabel" xml:space="preserve">
     <value>API Key:</value>
   </data>
-  <data name="EditAccount_Validation_RequireUpOrApiKey" xml:space="preserve">
-    <value>Please enter either a username + password, or an API key — not both.</value>
+  <data name="EditAccount_SignInLabel" xml:space="preserve">
+    <value>Account:</value>
+  </data>
+  <data name="EditAccount_SignInButton" xml:space="preserve">
+    <value>Sign in…</value>
+  </data>
+  <data name="EditAccount_SignIn_InProgress" xml:space="preserve">
+    <value>Opening sign-in…</value>
+  </data>
+  <data name="EditAccount_SignIn_Success" xml:space="preserve">
+    <value>✓ Signed in</value>
+  </data>
+  <data name="EditAccount_SignIn_SuccessAs_Format" xml:space="preserve">
+    <value>✓ Signed in as {0}</value>
+  </data>
+  <data name="EditAccount_SignIn_Failed_Format" xml:space="preserve">
+    <value>✗ {0}</value>
+  </data>
+  <data name="EditAccount_SignIn_FailedGeneric" xml:space="preserve">
+    <value>Sign-in failed.</value>
+  </data>
+  <data name="EditAccount_SignIn_Unavailable" xml:space="preserve">
+    <value>Sign-in is unavailable in this context.</value>
+  </data>
+  <data name="EditAccount_Validation_RequireLoginOrApiKey" xml:space="preserve">
+    <value>Click Sign in to authenticate, or paste an API key.</value>
   </data>
   <data name="WebViewLogin_WindowTitle" xml:space="preserve">
     <value>Sign in</value>

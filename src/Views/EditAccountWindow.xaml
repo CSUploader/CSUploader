@@ -109,14 +109,15 @@
             Padding="20,16">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />   <!-- 0: hoster -->
+                <RowDefinition Height="Auto" />   <!-- 1: username (non-XFS) -->
+                <RowDefinition Height="Auto" />   <!-- 2: password (non-XFS) -->
+                <RowDefinition Height="Auto" />   <!-- 3: sign-in button + status (XFS) -->
+                <RowDefinition Height="Auto" />   <!-- 4: "or" separator (XFS) -->
+                <RowDefinition Height="Auto" />   <!-- 5: api key (XFS) -->
+                <RowDefinition Height="Auto" />   <!-- 6: enabled check -->
+                <RowDefinition Height="*" />      <!-- 7: spacer -->
+                <RowDefinition Height="Auto" />   <!-- 8: buttons -->
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="95" />
@@ -154,17 +155,31 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc EditAccount_UsernameLabel}" Style="{StaticResource FieldLabel}" />
+            <!-- Username / Password: shown for classic U/P hosters (Rapidgator, Alfafile,
+                 BRupload). Hidden for XFileSharing-API hosters, whose sign-in is a captcha
+                 WebView (the "Sign in" button below) — the app never needs the credentials. -->
+            <TextBlock Grid.Row="1" Grid.Column="0" x:Name="UsernameLabel" Text="{loc:Loc EditAccount_UsernameLabel}" Style="{StaticResource FieldLabel}" />
             <TextBox Grid.Row="1" Grid.Column="1" x:Name="UsernameBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc EditAccount_PasswordLabel}" Style="{StaticResource FieldLabel}" />
+            <TextBlock Grid.Row="2" Grid.Column="0" x:Name="PasswordLabel" Text="{loc:Loc EditAccount_PasswordLabel}" Style="{StaticResource FieldLabel}" />
             <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
-            <!-- "or" separator between credential modes — visible only when the chosen hoster
-                 supports both U/P and API-key credentials (currently only ExLoad). The
-                 EditAccountWindow code-behind toggles ApiKeyRow.Visibility based on the
-                 selected hoster. -->
-            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="OrSeparator"
+            <!-- Sign-in button + status: shown only for XFileSharing-API hosters. Clicking it
+                 opens the captcha WebView; on success we derive (and silently store) the
+                 account's API key from its my_account page. -->
+            <TextBlock Grid.Row="3" Grid.Column="0" x:Name="SignInLabel" Text="{loc:Loc EditAccount_SignInLabel}"
+                       Style="{StaticResource FieldLabel}" Visibility="Collapsed" />
+            <StackPanel Grid.Row="3" Grid.Column="1" x:Name="SignInRow" Orientation="Horizontal"
+                        Margin="0,0,0,10" Visibility="Collapsed">
+                <Button x:Name="SignInButton" Content="{loc:Loc EditAccount_SignInButton}"
+                        Style="{StaticResource DialogButton}" Click="SignInButton_Click" />
+                <TextBlock x:Name="SignInStatus" VerticalAlignment="Center" Margin="10,0,0,0"
+                           FontSize="12" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+
+            <!-- "or" separator between Sign-in and the manual API-key entry. -->
+            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="OrSeparator"
                        Text="{loc:Loc EditAccount_OrLabel}"
                        FontSize="11"
                        FontStyle="Italic"
@@ -172,19 +187,19 @@
                        Margin="0,0,0,6"
                        Visibility="Collapsed" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" x:Name="ApiKeyLabel"
+            <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ApiKeyLabel"
                        Text="{loc:Loc EditAccount_ApiKeyLabel}"
                        Style="{StaticResource FieldLabel}"
                        Visibility="Collapsed" />
-            <TextBox Grid.Row="4" Grid.Column="1" x:Name="ApiKeyBox"
+            <TextBox Grid.Row="5" Grid.Column="1" x:Name="ApiKeyBox"
                      Style="{StaticResource FieldInput}"
                      Margin="0,0,0,10"
                      Visibility="Collapsed" />
 
-            <CheckBox Grid.Row="5" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
+            <CheckBox Grid.Row="6" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
                        FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
 
-            <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
+            <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
                 <Button Content="{loc:Loc EditAccount_BtnSave}" Style="{StaticResource SaveButton}" Click="SaveButton_Click" Margin="0,0,8,0" />
                 <Button Content="{loc:Loc EditAccount_BtnCancel}" Style="{StaticResource DialogButton}" IsCancel="True" />
