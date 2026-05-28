@@ -62,6 +62,75 @@ public class XFileSharingApiPipelineSubclassTests
     }
 
     [Fact]
+    public async Task GetUploadServer_StorageSubdomainReturnedAsHttps_DowngradedToHttp()
+    {
+        // FlashBit-shape regression: the API returns https://fsN.host/… for a storage
+        // subdomain that only properly serves HTTP (the :443 cert is self-signed for an
+        // unrelated CN). We downgrade so the upload actually completes.
+        Queue<string> getResponses = new(new[]
+        {
+            """{"msg":"OK","status":200,"sess_id":"sess_x","result":"https://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+        List<UploadCall> calls = [];
+
+        TestXfsHostPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (filePath, endpoint, extra, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra),
+                    headers is null ? null : new Dictionary<string, string>(headers)));
+                return Task.FromResult(uploads.Dequeue());
+            });
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "TestXfsHost", ApiKey = "k" };
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+
+        UploadCall call = Assert.Single(calls);
+        // Storage subdomain (host differs from API host test-xfs.example) → downgraded.
+        Assert.Equal("http://fs1.test-xfs.example/cgi-bin/upload.cgi", call.Endpoint);
+    }
+
+    [Fact]
+    public async Task GetUploadServer_UploadOnApiHost_KeepsHttps()
+    {
+        // A defensive check on the other branch: if the API ever returns an upload URL
+        // pointing at the API host itself, we leave the scheme alone — the apex has
+        // proven-good TLS (we just reached /api/upload/server over it). Only storage
+        // subdomains get the downgrade.
+        Queue<string> getResponses = new(new[]
+        {
+            """{"msg":"OK","status":200,"sess_id":"sess_x","result":"https://test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+        List<UploadCall> calls = [];
+
+        TestXfsHostPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (filePath, endpoint, extra, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra),
+                    headers is null ? null : new Dictionary<string, string>(headers)));
+                return Task.FromResult(uploads.Dequeue());
+            });
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "TestXfsHost", ApiKey = "k" };
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+
+        Assert.Equal("https://test-xfs.example/cgi-bin/upload.cgi", Assert.Single(calls).Endpoint);
+    }
+
+    [Fact]
     public async Task SubclassWithJustNameAndHost_CompletesFullApiKeyDirectUploadFlow()
     {
         Queue<string> getResponses = new(new[] { UploadServerOkJson });

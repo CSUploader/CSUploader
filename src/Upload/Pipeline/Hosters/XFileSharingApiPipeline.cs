@@ -608,7 +608,59 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return (null, null, $"upload/server: status={response.Status} msg={response.Msg}", false);
         }
 
-        return (response.SessId, response.Result, null, false);
+        return (response.SessId, NormaliseUploadUrlScheme(response.Result), null, false);
+    }
+
+    /// <summary>
+    /// Normalises the upload-server URL the API hands us. Specifically: when the API
+    /// returns <c>https://fsNN.HOST/…</c> for a host that <i>differs</i> from our API
+    /// host, downgrade the scheme to <c>http</c>.
+    /// </summary>
+    /// <remarks>
+    /// XFileSharingPro hosters routinely serve their per-user storage subdomains on
+    /// shared infrastructure that listens on :443 but with a junk certificate. Observed
+    /// in the wild on FlashBit's <c>fs1.flashbit.cc</c>, where :443 presents a
+    /// self-signed cert issued for <c>srv1.pusula.co</c> — TLS handshake fails before
+    /// the first byte of the upload body is written. The same subdomain answers HTTP
+    /// /1.1 on :80 cleanly, and the API key (sess_id, in the request body) is the only
+    /// credential in play — there's no cookie or auth header riding the transport that
+    /// TLS would protect. Ex-Load already returns <c>http://fs40.ex-load.com/…</c>
+    /// directly, and that's the spec-correct shape; FlashBit just returns the wrong
+    /// scheme for its own storage.
+    /// <para>
+    /// We only downgrade when the upload host differs from the API host (Host property).
+    /// A URL pointing back at the API host stays HTTPS — the proven-good cert is on the
+    /// apex; if a hoster ever exposes upload.cgi at the apex (rare), we want to use it
+    /// as-given.
+    /// </para>
+    /// </remarks>
+    private string NormaliseUploadUrlScheme(string uploadUrl)
+    {
+        if (!Uri.TryCreate(uploadUrl, UriKind.Absolute, out Uri? uploadUri))
+        {
+            return uploadUrl;
+        }
+        if (uploadUri.Scheme != Uri.UriSchemeHttps)
+        {
+            return uploadUrl;
+        }
+        if (!Uri.TryCreate(Host, UriKind.Absolute, out Uri? apiUri))
+        {
+            return uploadUrl;
+        }
+        if (string.Equals(uploadUri.Host, apiUri.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            return uploadUrl;
+        }
+        UriBuilder b = new(uploadUri) { Scheme = Uri.UriSchemeHttp };
+        // UriBuilder defaults the port to the new scheme's default (80) only when the
+        // original URL didn't carry an explicit port — that's exactly the behaviour
+        // we want here. If the API ever returns an explicit port we preserve it.
+        if (uploadUri.IsDefaultPort)
+        {
+            b.Port = -1;
+        }
+        return b.Uri.ToString();
     }
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadUrl, string sessId)

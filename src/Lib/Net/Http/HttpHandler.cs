@@ -289,7 +289,14 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         {
             transaction.EndTime = DateTime.Now;
             transaction.StatusReason = "Error";
-            transaction.ResponseBody = ex.Message;
+            // ex.ToString() preserves the inner-exception chain (e.g. an
+            // HttpRequestException whose Message is "SSL connection could not be
+            // established, see inner exception." is useless without that chain — the
+            // real cause is in the AuthenticationException or IOException underneath).
+            // ex.Message goes to the UploadFinished event arg below because that's the
+            // brief summary surfaced in the per-row status, where a stack trace would
+            // be noise.
+            transaction.ResponseBody = ex.ToString();
             LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
             throw;
@@ -360,7 +367,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         {
             transaction.EndTime = DateTime.Now;
             transaction.StatusReason = "Error";
-            transaction.ResponseBody = ex.Message;
+            // ex.ToString() preserves the inner-exception chain — see the matching catch
+            // in UploadMultipartAsync above for the rationale.
+            transaction.ResponseBody = ex.ToString();
             LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
         }
