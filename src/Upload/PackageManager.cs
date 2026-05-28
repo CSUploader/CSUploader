@@ -573,6 +573,20 @@ public class PackageManager
     }
 
     /// <summary>
+    /// Test/shutdown helper: waits until any in-flight fire-and-forget persistence callback
+    /// (queued by <see cref="OnFileStateChanged"/> or <see cref="RemovePackage"/>) has
+    /// finished. Callers should stop the source of new state-change events first (e.g.
+    /// <c>scheduler.Dispose()</c>); this only drains what is currently in flight, not what
+    /// arrives next. Used by xUnit test fixtures to keep lingering writes from racing into
+    /// the next test against a disposed <c>SqliteConnection</c>.
+    /// </summary>
+    internal async Task DrainPendingPersistenceAsync()
+    {
+        await _persistLock.WaitAsync();
+        _persistLock.Release();
+    }
+
+    /// <summary>
     /// Resumes all packages. Ensures every known package is registered with the scheduler
     /// first, so packages loaded in an Idle state (e.g. "Start Later") get picked up.
     /// </summary>

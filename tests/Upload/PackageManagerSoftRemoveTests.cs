@@ -23,7 +23,16 @@ namespace CSUploader.Tests.Upload;
 /// database (for the Uploaded tab) with their <c>IsRemovedFromUploads</c> flag flipped,
 /// and a subsequent <see cref="PackageManager.LoadPersistedPackagesAsync"/> must skip them.
 /// </summary>
-public class PackageManagerSoftRemoveTests : IDisposable
+// Uses IAsyncLifetime rather than IDisposable so DisposeAsync can drain PackageManager's
+// in-flight fire-and-forget persistence callbacks BEFORE closing the SqliteConnection.
+// The callbacks (queued from OnFileStateChanged / RemovePackage as `_ = Task.Run(...)`)
+// capture this instance's _fileRepo → _factory → _connection. If the connection closes
+// while a callback is mid-write, the EF Core call throws, gets swallowed by the mocked
+// IAppLogger, but congests the thread pool enough to time out the *next* test's
+// WaitForAsync polling (50×50ms). Draining via PackageManager.DrainPendingPersistenceAsync
+// (which takes + releases the same _persistLock those callbacks use) makes the teardown
+// deterministic. See the dotnet-concurrency-specialist analysis for the full chain.
+public class PackageManagerSoftRemoveTests : IAsyncLifetime
 {
     private readonly SqliteConnection _connection;
     private readonly IDbContextFactory<CSUploaderDbContext> _factory;
@@ -57,11 +66,19 @@ public class PackageManagerSoftRemoveTests : IDisposable
         _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), registry);
     }
 
-    public void Dispose()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
+        // Stop the source of new FileStateChanged events first — the scheduler's channel
+        // consumer is what raises those, and disposing it drains the consumer loop.
         _scheduler.Dispose();
+        // Wait for any callback already past the FileStateChanged dispatch (the
+        // `_ = Task.Run(...)` in OnFileStateChanged / RemovePackage) to finish its
+        // EF Core write. Without this, the write races against the connection dispose
+        // below and the failure leaks into the NEXT test as thread-pool congestion.
+        await _packageManager.DrainPendingPersistenceAsync();
         _connection.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     [Fact]
