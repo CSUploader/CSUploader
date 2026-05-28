@@ -24,6 +24,18 @@ Conventions for writing tests in this project. Inherits everything from the root
 - Use Arrange / Act / Assert. Comments are optional, but the visual flow should be obvious.
 - Keep tests independent — no shared mutable state between test methods.
 - Each test class implements `IDisposable` if it owns a `SqliteConnection` or `UploadScheduler`.
+  - **Use `IAsyncLifetime` instead** when teardown needs to `await` (e.g. draining fire-and-forget
+    `Task.Run` callbacks before closing the SQLite connection — see
+    `PackageManagerSoftRemoveTests` for the canonical pattern, and
+    `PackageManager.DrainPendingPersistenceAsync` for the SUT-side hook that makes the drain
+    deterministic). The SUT exposes such drain helpers as `internal` and reaches the test
+    project through `InternalsVisibleTo`. Implement `Task InitializeAsync() => Task.CompletedTask;`
+    when there's no async setup work.
+  - The cross-test failure mode this prevents: a fire-and-forget continuation from test N
+    that captures test N's repos / `DbContextFactory` keeps running after test N's
+    `Dispose()` closes the connection. The continuation throws (silently — `Mock.Of<IAppLogger>()`
+    swallows it) but congests the thread pool enough that test N+1's polling assertions
+    intermittently time out. Symptom: full-suite flakes that vanish in isolation and on re-run.
 
 ## Repository tests
 
