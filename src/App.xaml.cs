@@ -68,7 +68,10 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    private static void ConfigureServices(IServiceCollection services, string baseDirectory)
+    // internal so StartupDISmokeTests can build the same provider the app does at startup
+    // and verify the graph resolves without hanging (catches DI cycles like the one in
+    // commit 2474cd1 that loop through sp.GetServices<T>() inside a factory).
+    internal static void ConfigureServices(IServiceCollection services, string baseDirectory)
     {
         // Logging
         Logger logger = new();
