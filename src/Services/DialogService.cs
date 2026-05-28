@@ -8,11 +8,21 @@ using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Upload;
 using CSUploader.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Ookii.Dialogs.Wpf;
 
 namespace CSUploader.Services;
 
-public class DialogService(AppSettings settings, SettingRepository settingRepository, IAccountVerifier accountVerifier) : IDialogService
+// IAccountVerifier is resolved lazily via IServiceProvider rather than constructor-injected.
+// Direct injection would close a DI cycle: DialogService → IAccountVerifier → IFileHosterRegistry
+// → IFileHosterPipeline[] → ExLoadPipeline → IInteractiveAuthService → WebViewInteractiveAuthService
+// → IDialogService. MS.Extensions.DependencyInjection's cycle detector only sees constructor-arg
+// edges; the cycle here closes through `sp.GetServices<IFileHosterPipeline>()` inside the
+// IFileHosterRegistry factory, which the detector treats as opaque — so instead of throwing on
+// startup it loops infinitely (no main window, process pegs CPU). Resolving the verifier at
+// click-time (the Sign-in button) breaks the cycle: by then the graph is fully built and the
+// lookup is a simple lazy fetch.
+public class DialogService(AppSettings settings, SettingRepository settingRepository, IServiceProvider services) : IDialogService
 {
     public void ShowError(string message, string? title = null) =>
         MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
@@ -96,8 +106,9 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             availableHosters,
             // Interactive sign-in for XFileSharing-API hosters: runs the no-API-key verify
             // flow (captcha WebView → my_account scrape → derive key). Same call the
-            // Settings VM wires in for its own add/edit dialogs.
-            hoster => accountVerifier.CheckAsync(hoster, string.Empty, string.Empty, null))
+            // Settings VM wires in for its own add/edit dialogs. Resolved lazily — see
+            // the class comment for why direct ctor injection would deadlock startup.
+            hoster => services.GetRequiredService<IAccountVerifier>().CheckAsync(hoster, string.Empty, string.Empty, null))
         {
             Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
             Owner = Application.Current.MainWindow,
