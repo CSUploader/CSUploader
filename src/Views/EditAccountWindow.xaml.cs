@@ -25,7 +25,7 @@ public partial class EditAccountWindow : Window
     /// my_account page. The user can alternatively paste an API key directly.
     /// </summary>
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "FlashBit", "TakeFile" };
+        new(StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "FlashBit", "TakeFile", "Hexload", "Hxfile", "Hotlink" };
 
     private readonly FileHosterLoginDto _original;
 

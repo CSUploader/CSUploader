@@ -38,7 +38,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         { "FilesMonster", "www.filesmonster.com" },
         { "FlashBit", "flashbit.cc" },
         { "GigaPeta", "gigapeta.com" },
+        // Hexload + hexupload.net (alias) — both API and web 301 from .net → .com,
+        // so a single Hexload entry covers traffic addressed to either domain.
+        { "Hexload", "hexload.com" },
         { "HitFile", "www.hitfile.net" },
+        { "Hotlink", "hotlink.cc" },
+        { "Hxfile", "hxfile.co" },
         { "IcerBox", "www.icerbox.com" },
         { "IsraCloud", "www.isra.cloud" },
         // Marketed at katfile.com historically; the live web UI + API both serve from
