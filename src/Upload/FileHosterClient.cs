@@ -36,7 +36,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         { "FileBoom", "www.fileboom.me" },
         { "Filecloud", "filecloud.io" },
         { "FilesMonster", "www.filesmonster.com" },
-        { "FlashBit", "flashbit.cc" },
+        // FlashBit intentionally not listed — disabled while the storage-subdomain TLS
+        // issue + mid-upload connection drop are unresolved. The pipeline class
+        // (FlashBitPipeline.cs) is kept for the eventual re-enable; both the DI
+        // registration and this registry entry are commented out together so a future
+        // re-enable touches the same two-line context. See FlashBitPipeline.cs class
+        // comment for the diagnosis chain.
         { "GigaPeta", "gigapeta.com" },
         // Hexload + hexupload.net (alias) — both API and web 301 from .net → .com,
         // so a single Hexload entry covers traffic addressed to either domain.
