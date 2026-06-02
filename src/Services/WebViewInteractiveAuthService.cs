@@ -89,7 +89,6 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
             spec.LoginUrl,
             spec.CookieDomain,
             spec.CookieName,
-            spec.LoginPagePath,
             proxy: proxy,
             proxyCredentials: proxyCredentials)
         {

@@ -22,15 +22,11 @@ namespace CSUploader.Services;
 /// origin, not domain — but kept on the spec so a future implementation can validate
 /// the captured cookie's domain.</param>
 /// <param name="CookieName">Name of the session cookie to capture (e.g. <c>xfss</c>).</param>
-/// <param name="LoginPagePath">Absolute path of the login page (e.g.
-/// <c>/login.html</c>). Used to detect when the user has been bounced past it onto a
-/// logged-in page, the signal that the cookie can be trusted.</param>
 public readonly record struct InteractiveAuthSpec(
     string HosterName,
     string LoginUrl,
     string CookieDomain,
-    string CookieName,
-    string LoginPagePath);
+    string CookieName);
 
 /// <summary>
 /// Abstraction for prompting the user to complete an interactive sign-in (currently a

@@ -16,9 +16,8 @@ namespace CSUploader.Views;
 /// <summary>
 /// Modal browser window used to capture a session cookie from a hoster whose login is
 /// gated behind a captcha (currently ex-load.com / hCaptcha). Hosts a WebView2 navigated
-/// to <see cref="_loginUrl"/>; once the named cookie appears in the cookie store and we
-/// observe a navigation away from the login page, the window closes with
-/// <see cref="CapturedCookieValue"/> populated.
+/// to <see cref="_loginUrl"/>; once the named cookie appears in the cookie store the
+/// window closes with <see cref="CapturedCookieValue"/> populated.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,10 +29,12 @@ namespace CSUploader.Views;
 /// </para>
 /// <para>
 /// Detection logic: after every <see cref="CoreWebView2.NavigationCompleted"/>, we read
-/// the cookies for the login origin and look for the named one. We require BOTH the cookie
-/// to be present AND the current URL to NOT be the login page itself — the login form
-/// can set transient cookies before the credential round-trip, so we wait until the user
-/// has been bounced onto a logged-in page before treating the cookie as authoritative.
+/// the cookies for the login origin and close the window when the named cookie appears
+/// with a non-empty value. Across the XFileSharing family the session cookie (typically
+/// <c>xfss</c>) is only set after credentials validate — the login page itself does NOT
+/// set it. Hxfile in particular redirects post-login back to <c>/login.html</c> (with
+/// the cookie set), so the URL alone can't be used as the "logged in" signal — the
+/// cookie is.
 /// </para>
 /// <para>
 /// Proxy routing: when <see cref="_proxy"/> is non-null and not direct, the embedded
@@ -50,7 +51,6 @@ public partial class WebViewLoginWindow : Window
     private readonly string _loginUrl;
     private readonly string _cookieDomain;
     private readonly string _cookieName;
-    private readonly string _loginPagePath;
     private readonly ProxyChoice? _proxy;
     private readonly ProxyCredentials? _proxyCredentials;
     private bool _initialized;
@@ -60,7 +60,6 @@ public partial class WebViewLoginWindow : Window
         string loginUrl,
         string cookieDomain,
         string cookieName,
-        string loginPagePath,
         ProxyChoice? proxy = null,
         ProxyCredentials? proxyCredentials = null)
     {
@@ -68,7 +67,6 @@ public partial class WebViewLoginWindow : Window
         _loginUrl = loginUrl;
         _cookieDomain = cookieDomain;
         _cookieName = cookieName;
-        _loginPagePath = loginPagePath;
         _proxy = proxy;
         _proxyCredentials = proxyCredentials;
 
@@ -194,7 +192,6 @@ public partial class WebViewLoginWindow : Window
             // Cookies are scoped per origin; ask for the cookies the host can see. The
             // CookieManager returns ALL cookies that would be sent on a request to this URL,
             // so subdomain cookies (set on `.ex-load.com`) and host-only cookies both appear.
-            string currentUrl = WebView.CoreWebView2.Source ?? string.Empty;
             System.Collections.Generic.IReadOnlyList<CoreWebView2Cookie> cookies =
                 await WebView.CoreWebView2.CookieManager.GetCookiesAsync(_loginUrl);
 
@@ -213,14 +210,6 @@ public partial class WebViewLoginWindow : Window
                 return;
             }
 
-            // Wait for the user to have been bounced past the login page. XFileSharing's
-            // login form may set tracking cookies before credentials are validated; only
-            // treat the cookie as authoritative once we're somewhere that requires auth.
-            if (IsLoginPage(currentUrl))
-            {
-                return;
-            }
-
             CapturedCookieValue = sessionCookie.Value;
             DialogResult = true;
             Close();
@@ -234,25 +223,6 @@ public partial class WebViewLoginWindow : Window
                 Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"],
                 ex.Message);
         }
-    }
-
-    private bool IsLoginPage(string url)
-    {
-        if (string.IsNullOrEmpty(url))
-        {
-            return true;
-        }
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
-        {
-            return true;
-        }
-
-        // Match the login-page path case-insensitively. We trim the leading slash to make
-        // comparison against a stored "/login.html"-style path forgiving of formatting.
-        string path = uri.AbsolutePath.TrimStart('/');
-        string loginPath = _loginPagePath.TrimStart('/');
-        return string.Equals(path, loginPath, StringComparison.OrdinalIgnoreCase);
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)

@@ -406,7 +406,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName, LoginPagePath);
+        InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
         string? captured;
         try
         {
@@ -478,7 +478,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         string? xfss;
         try
         {
-            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName, LoginPagePath);
+            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
             xfss = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
         }
         catch (Exception ex)
