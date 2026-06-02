@@ -402,3 +402,7 @@ FodyWeavers.xsd
 
 # Playwright MCP server's per-session artifact captures (snapshots, console logs)
 .playwright-mcp/
+
+# Mock webserver's per-hoster upload directories — accidentally created here when
+# the webserver is started from CSUploader's working directory by mistake.
+/uploads/

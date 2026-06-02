@@ -303,6 +303,129 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         }
     }
 
+    /// <summary>
+    /// POSTs a single chunk of a file as a multipart body to <paramref name="endpoint"/>.
+    /// Body shape (matches the modern XFileSharing CDN protocol, captured from hxfile.co
+    /// on 2026-06-01):
+    /// <code>
+    /// multipart/form-data
+    ///   name="sid"   → sid
+    ///   name="file"; filename="file_{chunkIndex}"; Content-Type: application/octet-stream → chunk bytes
+    /// </code>
+    /// Progress is reported via the same <see cref="UploadProgress"/> event the legacy
+    /// path uses, but with <em>file-cumulative</em> values: <paramref name="basePosition"/>
+    /// is added to bytes-read-from-the-chunk so multiple chunks emit a single contiguous
+    /// progress stream from 0 to <paramref name="totalFileSize"/>.
+    /// </summary>
+    /// <remarks>
+    /// The caller is responsible for slicing the file (see <see cref="ChunkSliceStream"/>)
+    /// and for tracking the chunk index. Each chunk is a separate HTTP transaction with
+    /// its own entry in the Logs tab — the per-chunk overhead is the network round-trip,
+    /// not anything inside this method.
+    /// </remarks>
+    public async Task<HttpResponseSnapshot> PostChunkAsync(
+        string endpoint,
+        string sid,
+        Stream chunkData,
+        long chunkLength,
+        int chunkIndex,
+        long basePosition,
+        long totalFileSize,
+        DateTime dateTimeStarted,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = $"[Chunk {chunkIndex}: {chunkLength} bytes, sid={sid}]",
+        };
+
+        try
+        {
+            MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
+            AddBareStringPart(multipartContent, "sid", sid);
+
+            Stream chunkStream = getBytesPerSecond is not null
+                ? new ThrottledStream(chunkData, getBytesPerSecond)
+                : chunkData;
+            ProgressStreamContent chunkPart = new(
+                chunkStream,
+                // Translate per-chunk progress to file-cumulative progress so the
+                // consumer (pipeline → UI) sees one monotonically-increasing stream
+                // across all chunks rather than ten short 0-to-80MB cycles.
+                (_, bytesInThisChunk) => UploadProgress?.Invoke(
+                    this,
+                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                cancellationToken);
+            AddChunkFilePart(multipartContent, chunkPart, chunkIndex);
+
+            using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipartContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Chunk-specific file-part shape: field name is always <c>file</c>, filename is
+    /// <c>file_&lt;chunkIndex&gt;</c> (matches the hxfile.co browser capture), MIME is
+    /// always <c>application/octet-stream</c> regardless of the source file's extension.
+    /// Mirrors <see cref="AddFilePart"/>'s browser-quoted Content-Disposition shape.
+    /// </summary>
+    private static void AddChunkFilePart(MultipartFormDataContent multipart, HttpContent chunkContent, int chunkIndex)
+    {
+        string fileName = $"file_{chunkIndex}";
+        chunkContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+
+        multipart.Add(chunkContent, "file");
+        chunkContent.Headers.ContentDisposition = null;
+        chunkContent.Headers.TryAddWithoutValidation(
+            "Content-Disposition",
+            $"form-data; name=\"file\"; filename=\"{fileName}\"");
+    }
+
     private static IReadOnlyList<string> ReadSetCookies(HttpResponseMessage response)
     {
         if (response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values))

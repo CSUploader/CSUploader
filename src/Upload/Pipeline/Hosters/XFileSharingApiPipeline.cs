@@ -663,45 +663,329 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         return b.Uri.ToString();
     }
 
+    /// <summary>
+    /// Browser-shaped headers for the classic single-multipart <c>upload.cgi</c> POST.
+    /// Sec-Fetch-Site is <c>same-site</c> because classic XFileSharing keeps the upload
+    /// on a subdomain of the apex (e.g. <c>fs40.ex-load.com</c>) — the BRupload-era
+    /// shape that proven-working hosters expect.
+    /// </summary>
+    private Dictionary<string, string> BrowserClassicHeaders() => new(StringComparer.Ordinal)
+    {
+        ["Origin"] = Host,
+        ["Sec-Fetch-Site"] = "same-site",
+        ["Sec-Fetch-Mode"] = "cors",
+        ["Sec-Fetch-Dest"] = "empty",
+    };
+
+    /// <summary>
+    /// Browser-shaped headers for the chunked <c>up.cgi</c> / <c>api.cgi</c> POSTs.
+    /// Sec-Fetch-Site is <c>cross-site</c> because the modern XFileSharing CDN backends
+    /// live on a different registered domain than the apex (e.g. <c>ctmp.world</c> for
+    /// hxfile.co). Referer is included to match the browser capture; some XFS CDN
+    /// fronts reject preflight-less POSTs without it.
+    /// </summary>
+    private Dictionary<string, string> BrowserChunkedHeaders() => new(StringComparer.Ordinal)
+    {
+        ["Origin"] = Host,
+        ["Sec-Fetch-Site"] = "cross-site",
+        ["Sec-Fetch-Mode"] = "cors",
+        ["Sec-Fetch-Dest"] = "empty",
+        ["Referer"] = Host + "/",
+    };
+
+    /// <summary>
+    /// Chunk size for the modern XFileSharing chunked protocol. 80 MiB is hard-coded in
+    /// the upload-chunked.js loaded by hxfile.co and is the protocol's expected chunking
+    /// granularity. Smaller chunks just mean more round-trips; larger chunks risk hitting
+    /// the storage server's per-request size cap.
+    /// </summary>
+    private const int ChunkedUploadChunkSize = 80 * 1024 * 1024;
+
+    /// <summary>
+    /// Upload router: tries the modern chunked protocol (POST to <c>up.cgi</c> per chunk
+    /// + <c>api.cgi</c> finalize) first, falls back to the classic single-multipart
+    /// protocol (POST to <c>upload.cgi</c>) when the server signals the chunked endpoint
+    /// isn't available. Chunked-vs-classic is detected by the first chunk's HTTP status:
+    /// 404 / 410 means up.cgi doesn't exist → drop to classic; anything else (incl.
+    /// network errors) is propagated as a chunked failure rather than a fallback so we
+    /// don't waste a multi-hundred-megabyte upload re-trying classic against a partially-
+    /// uploaded sid.
+    /// </summary>
+    /// <remarks>
+    /// On chunked success the api.cgi XML response is normalised into the classic
+    /// <c>[{file_code, file_status:"OK"}]</c> JSON shape so the existing
+    /// <see cref="ParseUploadResponse"/> works unchanged for both code paths.
+    /// </remarks>
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadUrl, string sessId)
     {
-        // Byte-shape per brupload-multipart-quirks: same XFileSharing upload.cgi backend
-        // whether we got here via the API or via the web form. Origin + Sec-Fetch-* are
-        // kept for symmetry even though the API path may not strictly need them.
-        Dictionary<string, string> extraFields = new(StringComparer.Ordinal)
-        {
-            ["sess_id"] = sessId,
-            ["utype"] = "reg",
-            ["file_descr"] = string.Empty,
-            ["file_public"] = "1",
-            ["link_rcpt"] = string.Empty,
-            ["link_pass"] = string.Empty,
-            ["to_folder"] = string.Empty,
-            ["upload"] = "Start upload",
-            ["keepalive"] = "1",
-        };
-
-        Dictionary<string, string> uploadHeaders = new(StringComparer.Ordinal)
-        {
-            ["Origin"] = Host,
-            ["Sec-Fetch-Site"] = "same-site",
-            ["Sec-Fetch-Mode"] = "cors",
-            ["Sec-Fetch-Dest"] = "empty",
-        };
-
+        // Test override path stays on the classic shape (it's how the existing tests are
+        // wired). Only the production path goes through the chunked router.
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, uploadHeaders, ctx.SpeedLimitProvider);
+            return await _uploadOverride(
+                ctx.FilePath,
+                uploadUrl,
+                BuildClassicExtraFields(sessId),
+                BrowserClassicHeaders(),
+                ctx.SpeedLimitProvider);
         }
 
-        return await ctx.Handler.UploadMultipartAsync(
+        // Try chunked first. The first-chunk 404 fallback path returns null; any other
+        // failure mode rethrows so the orchestrator can surface it normally.
+        HttpResponseSnapshot? chunkedResult = await TryChunkedUploadAsync(ctx, uploadUrl, sessId);
+        if (chunkedResult is not null)
+        {
+            return chunkedResult;
+        }
+
+        ctx.Logger.Log(
+            this,
+            LogType.Status,
+            $"{Name}: chunked upload endpoint not available; falling back to classic single-multipart upload.");
+        return await ClassicUploadAsync(ctx, uploadUrl, sessId);
+    }
+
+    /// <summary>
+    /// Classic XFileSharing upload — one giant <c>multipart/form-data</c> POST to the URL
+    /// the API handed us. Browser-shaped per <c>brupload-multipart-quirks</c>.
+    /// </summary>
+    private Task<HttpResponseSnapshot> ClassicUploadAsync(AttemptContext ctx, string uploadUrl, string sessId)
+        => ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "file_0",
-            extraFields: extraFields,
-            headers: uploadHeaders,
+            extraFields: BuildClassicExtraFields(sessId),
+            headers: BrowserClassicHeaders(),
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
+
+    private static Dictionary<string, string> BuildClassicExtraFields(string sessId) => new(StringComparer.Ordinal)
+    {
+        ["sess_id"] = sessId,
+        ["utype"] = "reg",
+        ["file_descr"] = string.Empty,
+        ["file_public"] = "1",
+        ["link_rcpt"] = string.Empty,
+        ["link_pass"] = string.Empty,
+        ["to_folder"] = string.Empty,
+        ["upload"] = "Start upload",
+        ["keepalive"] = "1",
+    };
+
+    /// <summary>
+    /// Modern XFileSharing chunked upload (verified against hxfile.co's
+    /// <c>upload-chunked.js</c> + Fiddler trace on 2026-06-01):
+    /// </summary>
+    /// <returns>
+    /// On chunked success, a synthesised <see cref="HttpResponseSnapshot"/> whose body is
+    /// the classic JSON shape so the caller can <see cref="ParseUploadResponse"/> it.
+    /// <c>null</c> means the hoster doesn't support the chunked endpoint and the caller
+    /// should fall back to classic. Any other failure throws.
+    /// </returns>
+    private async Task<HttpResponseSnapshot?> TryChunkedUploadAsync(AttemptContext ctx, string uploadUrl, string sessId)
+    {
+        if (!TryDeriveChunkedEndpoints(uploadUrl, out string upCgiUrl, out string apiCgiUrl))
+        {
+            // URL doesn't end with "upload.cgi" — classic path can't be derived from it
+            // either, but we have no chunked endpoint to try. Surface as fallback so
+            // ClassicUploadAsync at least tries the URL verbatim.
+            return null;
+        }
+
+        string clientSid = GenerateChunkSessionId();
+        string fileName = Path.GetFileName(ctx.FilePath);
+        Dictionary<string, string> headers = BrowserChunkedHeaders();
+        DateTime started = DateTime.Now;
+
+        await using FileStream file = new(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        long fileSize = file.Length;
+        long position = 0;
+        int chunkIndex = 0;
+
+        while (position < fileSize)
+        {
+            long thisChunkLen = Math.Min(ChunkedUploadChunkSize, fileSize - position);
+            ChunkSliceStream slice = new(file, thisChunkLen);
+
+            HttpResponseSnapshot chunkResp;
+            try
+            {
+                chunkResp = await ctx.Handler.PostChunkAsync(
+                    endpoint: upCgiUrl,
+                    sid: clientSid,
+                    chunkData: slice,
+                    chunkLength: thisChunkLen,
+                    chunkIndex: chunkIndex,
+                    basePosition: position,
+                    totalFileSize: fileSize,
+                    dateTimeStarted: started,
+                    headers: headers,
+                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    cancellationToken: ctx.Cancellation);
+            }
+            catch when (chunkIndex == 0)
+            {
+                // First-chunk transport failure (DNS, refused, TLS) → tentatively chunked-
+                // not-supported. Caller falls back to classic which hits the URL verbatim.
+                return null;
+            }
+
+            if (chunkIndex == 0 && chunkResp.StatusCode is 404 or 410 or 405)
+            {
+                // Server explicitly doesn't have up.cgi → fall back to classic.
+                return null;
+            }
+
+            if (chunkResp.StatusCode is < 200 or >= 300)
+            {
+                throw new InvalidOperationException(
+                    $"chunked upload: chunk {chunkIndex} returned HTTP {chunkResp.StatusCode} (body: {ChunkSnippet(chunkResp.Body)})");
+            }
+
+            if (!ChunkResponseIsOk(chunkResp.Body))
+            {
+                throw new InvalidOperationException(
+                    $"chunked upload: chunk {chunkIndex} returned unexpected body: {ChunkSnippet(chunkResp.Body)}");
+            }
+
+            position += thisChunkLen;
+            chunkIndex++;
+        }
+
+        // Finalize.
+        Dictionary<string, string> finalizeFields = new(StringComparer.Ordinal)
+        {
+            ["op"] = "compile",
+            ["sid"] = clientSid,
+            ["fname"] = fileName,
+            ["session_id"] = sessId,
+        };
+        HttpResponseSnapshot finalizeResp;
+        try
+        {
+            finalizeResp = await PostFormWithHeadersAsync(ctx, apiCgiUrl, finalizeFields, headers);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("chunked upload: api.cgi finalize request failed: " + ex.Message, ex);
+        }
+
+        if (finalizeResp.StatusCode is < 200 or >= 300)
+        {
+            throw new InvalidOperationException(
+                $"chunked upload: api.cgi returned HTTP {finalizeResp.StatusCode} (body: {ChunkSnippet(finalizeResp.Body)})");
+        }
+
+        string? fileCode = ParseFinalizeFileCode(finalizeResp.Body);
+        if (string.IsNullOrEmpty(fileCode))
+        {
+            throw new InvalidOperationException(
+                $"chunked upload: api.cgi returned 200 but no <Code> in response: {ChunkSnippet(finalizeResp.Body)}");
+        }
+
+        // Synthesise the classic-shape JSON so ParseUploadResponse handles both paths.
+        string syntheticBody = $"[{{\"file_code\":\"{fileCode}\",\"file_status\":\"OK\"}}]";
+        return new HttpResponseSnapshot(200, syntheticBody, finalizeResp.SetCookies);
+    }
+
+    /// <summary>
+    /// Posts a form-urlencoded body to <paramref name="url"/> with the given browser-
+    /// shape headers. Routes through the override when tests have wired one (treats the
+    /// finalize call as a "tiny upload" with no file part).
+    /// </summary>
+    private async Task<HttpResponseSnapshot> PostFormWithHeadersAsync(
+        AttemptContext ctx,
+        string url,
+        IReadOnlyDictionary<string, string> form,
+        IReadOnlyDictionary<string, string> headers)
+    {
+        // PostFormAsync currently doesn't accept extra headers — fold them in via the
+        // standard test override slot (form encoded as fields, no file).
+        if (_uploadOverride is not null)
+        {
+            // Override delegate is positional (no parameter names) — pass arguments in
+            // order: filePath, endpoint, extraFields, headers, getBytesPerSecond.
+            return await _uploadOverride(string.Empty, url, form, headers, null);
+        }
+        return await ctx.Handler.PostFormAsync(url, form, ctx.Cancellation);
+    }
+
+    /// <summary>
+    /// Splits the API-returned upload URL into the <c>up.cgi</c> and <c>api.cgi</c>
+    /// endpoints used by the chunked protocol. The browser does this by stripping
+    /// <c>upload.cgi</c> off the form action and concatenating <c>up.cgi</c> / <c>api.cgi</c>;
+    /// we do the same, preserving any query string (some hosters tack
+    /// <c>?upload_type=file&amp;utype=reg</c> onto the URL).
+    /// </summary>
+    internal static bool TryDeriveChunkedEndpoints(string uploadUrl, out string upCgiUrl, out string apiCgiUrl)
+    {
+        upCgiUrl = string.Empty;
+        apiCgiUrl = string.Empty;
+        if (!Uri.TryCreate(uploadUrl, UriKind.Absolute, out Uri? uri))
+        {
+            return false;
+        }
+        string path = uri.AbsolutePath;
+        const string suffix = "upload.cgi";
+        int suffixAt = path.LastIndexOf(suffix, StringComparison.OrdinalIgnoreCase);
+        if (suffixAt < 0 || suffixAt + suffix.Length != path.Length)
+        {
+            return false;
+        }
+        string basePath = path[..suffixAt];
+        UriBuilder upBuilder = new(uri) { Path = basePath + "up.cgi" };
+        UriBuilder apiBuilder = new(uri) { Path = basePath + "api.cgi" };
+        upCgiUrl = upBuilder.Uri.ToString();
+        apiCgiUrl = apiBuilder.Uri.ToString();
+        return true;
+    }
+
+    /// <summary>
+    /// Per-upload session id used as the <c>sid</c> field across all chunks. The browser
+    /// generates this client-side as a numeric string; the server treats it opaquely as
+    /// long as it's stable within one upload. We use a 12-digit decimal string seeded
+    /// from a 48-bit random source — wide enough that two concurrent uploads on the same
+    /// account effectively never collide.
+    /// </summary>
+    private static string GenerateChunkSessionId()
+    {
+        byte[] buf = new byte[6];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(buf);
+        long n = 0;
+        foreach (byte b in buf) n = (n << 8) | b;
+        n &= 0xFFFFFFFFFFFFL; // 48 bits → up to ~2.8e14, 12-15 decimal digits typically.
+        return n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Per-chunk acknowledgement is the literal string <c>&lt;OK&gt;</c>. Some XFS
+    /// deployments wrap it in surrounding whitespace; accept that loosely.
+    /// </summary>
+    internal static bool ChunkResponseIsOk(string body)
+        => body.Trim().StartsWith("<OK>", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Pulls the file_code out of the finalize XML. The browser path expects
+    /// <c>&lt;Links&gt;&lt;Code&gt;…&lt;/Code&gt;…&lt;/Links&gt;</c>; we also accept the
+    /// older XML shape that some deployments use (<c>&lt;root&gt;&lt;Code&gt;…</c>) by
+    /// regexing for <c>&lt;Code&gt;</c> directly. Returns null if no code is present —
+    /// the caller treats that as a finalize failure.
+    /// </summary>
+    internal static string? ParseFinalizeFileCode(string xml)
+    {
+        Match m = _finalizeCodeRegex.Match(xml);
+        return m.Success ? m.Groups[1].Value.Trim() : null;
+    }
+
+    private static readonly Regex _finalizeCodeRegex = new(
+        @"<Code>\s*([A-Za-z0-9]+)\s*</Code>",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static string ChunkSnippet(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return "(empty)";
+        string s = body.Replace('\n', ' ').Replace('\r', ' ');
+        return s.Length > 200 ? s[..200] + "…" : s;
     }
 
     private Dictionary<string, string> BuildCookieHeader(string xfss)

@@ -24,12 +24,8 @@ public partial class EditAccountWindow : Window
     /// behind the "Sign in" button, after which we derive the account's API key from its
     /// my_account page. The user can alternatively paste an API key directly.
     /// </summary>
-    // FlashBit deliberately absent — disabled at the registry level too. Listing it here
-    // would have no effect (the dropdown filters on what's in FileHosters), but
-    // re-introduction should touch this set together with App.xaml.cs DI + the
-    // FileHosters entry, so removing it here keeps the three call sites in lockstep.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "TakeFile", "Hexload", "Hxfile", "Hotlink" };
+        new(StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "FlashBit", "TakeFile", "Hexload", "Hxfile", "Hotlink" };
 
     private readonly FileHosterLoginDto _original;
 
