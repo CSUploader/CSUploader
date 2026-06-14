@@ -18,4 +18,9 @@ namespace CSUploader.Lib.Net.Http;
 /// <param name="SetCookies">All <c>Set-Cookie</c> header values, one per cookie, in
 /// server order. Empty when none were sent. Values are the raw cookie strings
 /// (<c>name=value; Path=/; HttpOnly</c>) — pipelines parse what they need.</param>
-public sealed record HttpResponseSnapshot(int StatusCode, string Body, IReadOnlyList<string> SetCookies);
+/// <param name="LocationHeader">The <c>Location</c> response header, when present.
+/// Surfaces the redirect target on 3xx responses so callers can follow them manually
+/// (the global handler is configured with <c>AllowAutoRedirect=false</c> because some
+/// hosters branch on the 302 itself — BRupload's login). Null when the server didn't
+/// send a Location header.</param>
+public sealed record HttpResponseSnapshot(int StatusCode, string Body, IReadOnlyList<string> SetCookies, string? LocationHeader = null);

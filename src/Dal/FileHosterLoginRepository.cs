@@ -47,6 +47,9 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         SessionCookieExpiresUtc = entity.SessionCookieExpiresUtc,
         PinnedProxyId = entity.PinnedProxyId,
         ApiKey = entity.ApiKey,
+        StorageUsedBytes = entity.StorageUsedBytes,
+        StorageQuotaBytes = entity.StorageQuotaBytes,
+        LastRefreshedDateTime = entity.LastRefreshedDateTime,
     };
 
     protected override void MapToDto(FileHosterLoginDbm entity, FileHosterLoginDto dto)
@@ -61,6 +64,9 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         dto.SessionCookieExpiresUtc = entity.SessionCookieExpiresUtc;
         dto.PinnedProxyId = entity.PinnedProxyId;
         dto.ApiKey = entity.ApiKey;
+        dto.StorageUsedBytes = entity.StorageUsedBytes;
+        dto.StorageQuotaBytes = entity.StorageQuotaBytes;
+        dto.LastRefreshedDateTime = entity.LastRefreshedDateTime;
     }
 
     protected override FileHosterLoginDbm MapToDbm(FileHosterLoginDto dto) => new()
@@ -75,5 +81,8 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         SessionCookieExpiresUtc = dto.SessionCookieExpiresUtc,
         PinnedProxyId = dto.PinnedProxyId,
         ApiKey = dto.ApiKey,
+        StorageUsedBytes = dto.StorageUsedBytes,
+        StorageQuotaBytes = dto.StorageQuotaBytes,
+        LastRefreshedDateTime = dto.LastRefreshedDateTime,
     };
 }

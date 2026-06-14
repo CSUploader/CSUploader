@@ -59,7 +59,7 @@ public class SettingsViewModelTests : IDisposable
     }
 
     private SettingsViewModel CreateVm(IDialogService? dialog = null, LogEntryRepository? logRepo = null, IAccountVerifier? verifier = null) =>
-        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), logEntryRepository: logRepo, accountVerifier: verifier);
+        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), verifier ?? Mock.Of<IAccountVerifier>(), logEntryRepository: logRepo);
 
     // Polls the DB briefly because each property's auto-save is fire-and-forget.
     private async Task<string?> WaitForSettingValueAsync(string key)
@@ -401,6 +401,93 @@ public class SettingsViewModelTests : IDisposable
         verifier.Verify(
             v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
+
+        // No verifier round-trip happened → LastRefreshedDateTime stays null.
+        Assert.Null(row.LastRefreshedDateTime);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierSuccess_StampsLastRefreshedDateTime()
+    {
+        // Verifier round-trip completed (even though it succeeded) — the row's
+        // LastRefreshedDateTime should be stamped close to DateTime.Now and persisted.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "Logged in"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        DateTime before = DateTime.Now;
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.NotNull(row.LastRefreshedDateTime);
+        Assert.InRange(row.LastRefreshedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
+
+        // And it survived the persist → mapper round-trip.
+        FileHosterLoginDto persisted = (await _loginRepo.FindAsync(row.Id))!;
+        Assert.NotNull(persisted.LastRefreshedDateTime);
+        Assert.InRange(persisted.LastRefreshedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierFailure_StillStampsLastRefreshedDateTime()
+    {
+        // "We tried" — not "we succeeded". Failed verify still records the attempt
+        // timestamp so the user sees freshness regardless of outcome.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        DateTime before = DateTime.Now;
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Failed, row.CheckStatus);
+        Assert.NotNull(row.LastRefreshedDateTime);
+        Assert.InRange(row.LastRefreshedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task RefreshSelectedAccounts_VerifierFailure_StampsLastRefreshedDateTime()
+    {
+        // Refresh-Selected (context menu) wires through RefreshSingleAccountAsync. Both
+        // the IsValid and !IsValid branches now stamp LastRefreshedDateTime on the DTO
+        // and persist; this test exercises the !IsValid branch.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
+        await _loginRepo.InsertAsync(seed);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        DateTime before = DateTime.Now;
+
+        FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
+        await vm.RefreshSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
+
+        FileHosterLoginDto persisted = (await _loginRepo.FindAsync(seed.Id))!;
+        Assert.NotNull(persisted.LastRefreshedDateTime);
+        Assert.InRange(persisted.LastRefreshedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
     }
 
     private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)

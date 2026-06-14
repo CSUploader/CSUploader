@@ -61,12 +61,67 @@ public class XFileSharingApiPipelineSubclassTests
         protected override string Host => "https://test-xfs.example";
     }
 
-    [Fact]
-    public async Task GetUploadServer_StorageSubdomainReturnedAsHttps_DowngradedToHttp()
+    /// <summary>Like <see cref="TestXfsHostPipeline"/> but opts INTO the https→http upload-URL
+    /// downgrade (the FlashBit-shape bad-cert workaround). Proves the opt-in still works.</summary>
+    private sealed class DowngradingXfsHostPipeline : XFileSharingApiPipeline
     {
-        // FlashBit-shape regression: the API returns https://fsN.host/… for a storage
-        // subdomain that only properly serves HTTP (the :443 cert is self-signed for an
-        // unrelated CN). We downgrade so the upload actually completes.
+        public DowngradingXfsHostPipeline(
+            IInteractiveAuthService? authService,
+            FileHosterLoginRepository? loginRepository,
+            Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
+            Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+            : base(authService, loginRepository, getOverride, uploadOverride)
+        {
+        }
+
+        public override string Name => "DowngradingXfsHost";
+
+        protected override string Host => "https://test-xfs.example";
+
+        protected override bool DowngradeUploadServerToHttp => true;
+    }
+
+    [Fact]
+    public async Task GetUploadServer_StorageSubdomainHttps_WhenDowngradeOptedIn_DowngradedToHttp()
+    {
+        // FlashBit-shape: the API returns https://fsN.host/… for a storage subdomain whose
+        // :443 cert is junk (self-signed for an unrelated CN) but serves HTTP cleanly. A hoster
+        // that overrides DowngradeUploadServerToHttp=true downgrades so the upload completes.
+        Queue<string> getResponses = new(new[]
+        {
+            """{"msg":"OK","status":200,"sess_id":"sess_x","result":"https://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+        List<UploadCall> calls = [];
+
+        DowngradingXfsHostPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (filePath, endpoint, extra, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra),
+                    headers is null ? null : new Dictionary<string, string>(headers)));
+                return Task.FromResult(uploads.Dequeue());
+            });
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "DowngradingXfsHost", ApiKey = "k" };
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+
+        UploadCall call = Assert.Single(calls);
+        // Opt-in + host differs from API host test-xfs.example → downgraded.
+        Assert.Equal("http://fs1.test-xfs.example/cgi-bin/upload.cgi", call.Endpoint);
+    }
+
+    [Fact]
+    public async Task GetUploadServer_StorageSubdomainHttps_DefaultRespectsHttps()
+    {
+        // Hexload-shape: the API returns https://<rand>.host/… for a storage subdomain that
+        // REQUIRES https (valid Let's Encrypt cert; over http nginx 301s mid-body → reset). The
+        // base default must NOT downgrade — POST verbatim over https, like the anonymous path.
         Queue<string> getResponses = new(new[]
         {
             """{"msg":"OK","status":200,"sess_id":"sess_x","result":"https://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
@@ -91,9 +146,8 @@ public class XFileSharingApiPipelineSubclassTests
         FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "TestXfsHost", ApiKey = "k" };
         await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
 
-        UploadCall call = Assert.Single(calls);
-        // Storage subdomain (host differs from API host test-xfs.example) → downgraded.
-        Assert.Equal("http://fs1.test-xfs.example/cgi-bin/upload.cgi", call.Endpoint);
+        // Host differs from the API host, but the default respects the API's scheme → stays https.
+        Assert.Equal("https://fs1.test-xfs.example/cgi-bin/upload.cgi", Assert.Single(calls).Endpoint);
     }
 
     [Fact]
@@ -235,6 +289,61 @@ public class XFileSharingApiPipelineSubclassTests
     }
 
     [Fact]
+    public async Task UPBootstrap_HexloadNamelessValueVariantOfApiUrl_ExtractsKeyFromValueAttribute()
+    {
+        // Hexload renders the API URL as a bare input value with NO name="api-url" attribute
+        // (unlike Ex-Load/KatFile). Captured from the live my_account page 2026-06-13 — the
+        // key only appears after a generate, in an input the original three regex branches
+        // (all anchored on name="api-url") couldn't match.
+        const string HexloadMyAccountHtml = """
+            <form method="POST">
+            <input type="hidden" name="op" value="my_account">
+            <input type="hidden" name="token" value="f7e391c89a1dbcc1fe8fbe53432a7ccd">
+            <div class="form-group"><label><strong>API KEY</strong></label>
+              <input type="text" size="60" readonly class="form-control-plaintext"
+                     value="https://test-xfs.example/api/account/info?key=hexloadNamelessKey42">
+            </div>
+            </form>
+            """;
+
+        Queue<string> getResponses = new(new[]
+        {
+            HexloadMyAccountHtml,                                                              // my_account → key already present
+            """{"msg":"OK","status":200,"sess_id":"sess_hx","result":"http://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"hxCode","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+
+        FakeAuthService auth = new("xfss_hexload_like");
+        TestXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (filePath, endpoint, extra, headers, _) => Task.FromResult(uploads.Dequeue()));
+
+        FileHosterLoginDto credentials = new()
+        {
+            Id = 77,
+            FileHosterName = "TestXfsHost",
+            Username = "u@example.com",
+            Password = "p",
+        };
+        AttemptContext ctx = MakeContext(credentials);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        // The bare-value key landed on the DTO via the new name-less regex branch.
+        Assert.Equal("hexloadNamelessKey42", credentials.ApiKey);
+    }
+
+    [Fact]
     public async Task SubclassMaxFileSizeMessage_UsesSubclassNameNotExLoad()
     {
         TestXfsHostPipeline pipeline = new(
@@ -254,7 +363,7 @@ public class XFileSharingApiPipelineSubclassTests
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("TestXfsHost", fail.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain("ExLoad", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ex-Load", fail.Reason, StringComparison.Ordinal);
     }
 
     private static AttemptContext MakeContext(FileHosterLoginDto credentials) => new()
@@ -281,7 +390,12 @@ public class XFileSharingApiPipelineSubclassTests
     /// <summary>Minimal <see cref="IInteractiveAuthService"/> for the U/P-bootstrap test.</summary>
     private sealed class FakeAuthService(string? cannedCookie) : IInteractiveAuthService
     {
-        public Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
-            => Task.FromResult(cannedCookie);
+        public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+        {
+            InteractiveAuthResult? result = cannedCookie is null
+                ? null
+                : new InteractiveAuthResult(cannedCookie, CapturedUsername: null);
+            return Task.FromResult(result);
+        }
     }
 }

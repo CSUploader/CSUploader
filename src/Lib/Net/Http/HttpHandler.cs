@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Net.Http.Headers;
+using System.Text;
 
 namespace CSUploader.Lib.Net.Http;
 
@@ -149,6 +150,63 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
+    /// GETs a URL and returns the full response snapshot (status code, body, cookies)
+    /// instead of just the body string. Use when the caller needs to branch on the
+    /// HTTP status (e.g. FileBoom's <c>/v1/files/upload-url</c> returns 401 when the
+    /// JWT cookie has expired and the pipeline needs to invalidate its cached token).
+    /// </summary>
+    public async Task<HttpResponseSnapshot> GetSnapshotAsync(string url, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        url = MaybeRewriteToMockServer(url);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "GET",
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+        };
+
+        try
+        {
+            using HttpRequestMessage request = new(HttpMethod.Get, url);
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, content: null, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// POSTs a form-urlencoded body and returns the response status, body, and any
     /// <c>Set-Cookie</c> headers. Unlike <see cref="GetStringAsync"/>, this does not
     /// throw on non-2xx — callers handle their own status (e.g. BRupload's login flow
@@ -185,7 +243,57 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
-            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// POSTs a JSON body and returns the response status, body, and any <c>Set-Cookie</c>
+    /// headers. Like <see cref="PostFormAsync"/>, does not throw on non-2xx — REST-style
+    /// APIs (FileBoom/Keep2Share) return error envelopes with HTTP 200 alongside non-200
+    /// auth-expired responses, and callers handle both shapes themselves.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostJsonAsync(string url, string jsonBody, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        url = MaybeRewriteToMockServer(url);
+
+        using StringContent content = new(jsonBody, Encoding.UTF8, "application/json");
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = jsonBody,
+        };
+
+        try
+        {
+            CaptureRequestHeaders(transaction, content);
+
+            using HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
         }
         catch (Exception ex)
         {
@@ -276,7 +384,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(response.IsSuccessStatusCode, body, dateTimeStarted));
 
-            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
         }
         catch (OperationCanceledException)
         {
@@ -389,7 +497,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
             LogTransaction(transaction);
 
-            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response));
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
         }
         catch (OperationCanceledException)
         {

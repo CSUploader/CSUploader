@@ -155,9 +155,9 @@
                 </StackPanel>
             </Border>
 
-            <!-- Username / Password: shown for classic U/P hosters (Rapidgator, Alfafile,
-                 BRupload). Hidden for XFileSharing-API hosters, whose sign-in is a captcha
-                 WebView (the "Sign in" button below) — the app never needs the credentials. -->
+            <!-- Username / Password: classic U/P hosters only. API-key hosters surface
+                 the captured identity in the SignInStatus text below ("✓ Signed in as X")
+                 rather than a dedicated row. -->
             <TextBlock Grid.Row="1" Grid.Column="0" x:Name="UsernameLabel" Text="{loc:Loc EditAccount_UsernameLabel}" Style="{StaticResource FieldLabel}" />
             <TextBox Grid.Row="1" Grid.Column="1" x:Name="UsernameBox" Style="{StaticResource FieldInput}" Margin="0,0,0,10" />
 
@@ -169,14 +169,23 @@
                  account's API key from its my_account page. -->
             <TextBlock Grid.Row="3" Grid.Column="0" x:Name="SignInLabel" Text="{loc:Loc EditAccount_SignInLabel}"
                        Style="{StaticResource FieldLabel}" Visibility="Collapsed" />
-            <StackPanel Grid.Row="3" Grid.Column="1" x:Name="SignInRow" Orientation="Horizontal"
-                        Margin="0,0,0,10" Visibility="Collapsed">
-                <Button x:Name="SignInButton" Content="{loc:Loc EditAccount_SignInButton}"
-                        Style="{StaticResource DialogButton}" Click="SignInButton_Click" />
-                <TextBlock x:Name="SignInStatus" VerticalAlignment="Center" Margin="10,0,0,0"
-                           FontSize="12" TextTrimming="CharacterEllipsis"
+            <!-- Two-column inner Grid (was a Horizontal StackPanel, but that left the
+                 status TextBlock unbounded and the CharacterEllipsis trim hid messages
+                 like "Use Proxies is enabled but no usable proxy is available"). The
+                 Auto column hugs the button; the * column gives the status text a real
+                 width to wrap into. -->
+            <Grid Grid.Row="3" Grid.Column="1" x:Name="SignInRow" Margin="0,0,0,10" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" x:Name="SignInButton" Content="{loc:Loc EditAccount_SignInButton}"
+                        Style="{StaticResource DialogButton}" Click="SignInButton_Click"
+                        VerticalAlignment="Top" />
+                <TextBlock Grid.Column="1" x:Name="SignInStatus" VerticalAlignment="Center"
+                           Margin="10,0,0,0" FontSize="12" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
-            </StackPanel>
+            </Grid>
 
             <!-- "or" separator between Sign-in and the manual API-key entry. -->
             <TextBlock Grid.Row="4" Grid.Column="1" x:Name="OrSeparator"

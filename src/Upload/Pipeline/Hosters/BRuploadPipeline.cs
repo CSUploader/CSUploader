@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -40,6 +41,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     private const string LoginPageUrl = Host + "/login.html";
     private const string LoginPostUrl = Host + "/";
     private const string UploadFormUrl = Host + "/?op=upload_form";
+    private const string MyFilesUrl = Host + "/?op=my_files";
     private const string PublicUrlPrefix = Host + "/";
 
     private readonly ConcurrentDictionary<int, BRuploadAuthState> _authByCredentialsId = new();
@@ -65,6 +67,16 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     private static readonly Regex _uploadFormActionRegex = new(
         """<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Matches BRupload's storage-quota line on the /?op=my_files page:
+    //   "Espaço utilizado:\n<strong>0.74 de 100 GB</strong>"
+    // (Portuguese template only — BRupload is Brazil-only.) Anchored on "utilizado:" so
+    // an unrelated "<strong>X de Y GB</strong>" elsewhere on the page can't false-match.
+    // Groups: (1) used number, (2) total number, (3) unit (KB/MB/GB/TB).
+    // s-flag so the \s* between "utilizado:" and the strong tag spans newlines.
+    private static readonly Regex _storageUsageRegex = new(
+        @"utilizado\s*:\s*<strong>\s*([\d.,]+)\s+de\s+([\d.,]+)\s+([KMGTP]B)\s*</strong>",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     private static Regex BuildHiddenInputRegex(string fieldName)
         => new(
@@ -98,7 +110,21 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     /// multipart bodies mid-stream).</summary>
     public long? MaxFileSize => 1L * 1024 * 1024 * 1024;
 
-    /// <summary>BRupload rate-limits to 30 files per upload session.</summary>
+    /// <summary>
+    /// BRupload rate-limits to 30 files per upload session. Unlike the XFileSharing-API
+    /// pipelines (which fetch a fresh <c>sess_id</c> per file via <c>/api/upload/server</c>
+    /// and so don't hit any session cap), BRupload's auth flow caches one
+    /// <c>(xfss, sess_id, actionUrl)</c> tuple per credentials in <c>_authByCredentialsId</c>
+    /// and reuses it across every file in the package. So this cap genuinely binds at
+    /// the protocol level today.
+    /// </summary>
+    /// <remarks>
+    /// To lift the cap, the auth-cache design would need to change so each file gets a
+    /// fresh <c>sess_id</c>: either re-fetch <c>/?op=upload_form</c> per file (cheap —
+    /// one extra round-trip per file, xfss stays cached) or full re-login per file
+    /// (expensive). Worth doing if real users start hitting the limit; until then the
+    /// existing wizard truncation surfaces the cap clearly enough.
+    /// </remarks>
     public int? MaxFilesPerPackage => 30;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
@@ -331,9 +357,91 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, error ?? "login failed");
         }
 
+        // Fetch storage usage opportunistically. Failure here is non-fatal — the Accounts
+        // grid's Used/Available columns just stay blank for that refresh. Reuses the same
+        // get-override the login flow used so tests can stub by URL.
+        (long? storageUsed, long? storageTotal) = await TryFetchStorageStatsAsync(
+            xfss,
+            url => get(url, BuildCookieHeader(xfss)));
+
         // BRupload doesn't expose premium state in the login response (it lives on the
         // /?op=my_account HTML page). Verifying the login is the most we can confirm here.
-        return new AccountCheckResult(true, AccountType.Free, "Login OK");
+        return new AccountCheckResult(
+            true,
+            AccountType.Free,
+            "Login OK",
+            StorageUsedBytes: storageUsed,
+            StorageQuotaBytes: storageTotal);
+    }
+
+#pragma warning disable SA1202 // Elements should be ordered by access — TryFetchStorageStatsAsync is internal but used here from CheckAccountAsync (public).
+
+    /// <summary>
+    /// Calls <c>GET /?op=my_files</c> with the <c>xfss</c> cookie and scrapes the
+    /// storage-usage line ("Espaço utilizado: &lt;strong&gt;X de Y GB&lt;/strong&gt;") out
+    /// of the returned HTML. Returns (null, null) on any failure — caller treats that as
+    /// "unknown", not a hard error. Internal so tests can drive it with canned HTML.
+    /// </summary>
+    internal static async Task<(long? Used, long? Total)> TryFetchStorageStatsAsync(
+        string xfss,
+        Func<string, Task<string>> get)
+    {
+        _ = xfss; // future use — currently the get override carries the cookie header
+
+        try
+        {
+            string html = await get(MyFilesUrl).ConfigureAwait(false);
+            return TryParseStorageFromHtml(html);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    /// <summary>
+    /// Pure parser for the BRupload my_files storage line. The page renders
+    /// <c>&lt;strong&gt;0.74 de 100 GB&lt;/strong&gt;</c> as the only "X de Y UNIT"
+    /// occurrence (anchored on the preceding "utilizado:" word in the regex). Returns
+    /// decimal-base bytes — BRupload's "100 GB" is treated as 100 × 10^9, not 100 × 2^30,
+    /// because consumer file hosters advertise capacity in decimal GB and the user
+    /// expects their pricing-page number to match what shows in the grid.
+    /// </summary>
+    internal static (long? Used, long? Total) TryParseStorageFromHtml(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+        {
+            return (null, null);
+        }
+
+        Match m = _storageUsageRegex.Match(html);
+        if (!m.Success)
+        {
+            return (null, null);
+        }
+
+        if (!double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double used)
+            || !double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double total))
+        {
+            return (null, null);
+        }
+
+        long multiplier = m.Groups[3].Value.ToUpperInvariant() switch
+        {
+            "KB" => 1_000L,
+            "MB" => 1_000_000L,
+            "GB" => 1_000_000_000L,
+            "TB" => 1_000_000_000_000L,
+            "PB" => 1_000_000_000_000_000L,
+            _ => 0L,
+        };
+
+        if (multiplier == 0)
+        {
+            return (null, null);
+        }
+
+        return ((long)(used * multiplier), (long)(total * multiplier));
     }
 
     /// <summary>

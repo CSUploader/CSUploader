@@ -123,6 +123,18 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private bool proxiesEnabled = AppSettings.DefaultProxiesEnabled;
 
     /// <summary>
+    /// Bound to the "Accept invalid server certificates" checkbox. When ticked, the
+    /// upload pipeline's <see cref="System.Net.Http.HttpClient"/> accepts ANY server cert
+    /// without validating the name or chain. Opt-in workaround for hosters whose storage
+    /// CDN edges (e.g. FileBoom's <c>cmb-*.filestore.app</c>) ship certs that fail
+    /// standard validation. Mirrored into <see cref="AppSettings.AllowInvalidServerCertificates"/>
+    /// on Save. Disabled by default — turning it on disables MITM protection on every
+    /// outbound request.
+    /// </summary>
+    [ObservableProperty]
+    private bool allowInvalidServerCertificates = AppSettings.DefaultAllowInvalidServerCertificates;
+
+    /// <summary>
     /// Drop-down options shown in the Type column.
     /// </summary>
     public static ProxyType[] ProxyTypeOptions { get; } =
@@ -158,6 +170,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
             {
                 AutoDisableFailingProxies = _appSettings.AutoDisableFailingProxies;
                 ProxiesEnabled = _appSettings.ProxiesEnabled;
+                AllowInvalidServerCertificates = _appSettings.AllowInvalidServerCertificates;
             }
         }
         finally
@@ -384,7 +397,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
         try
         {
             item.TestStatus = Localizer.Instance["Settings_Conn_Status_Testing"];
-            ProxyTestResult result = await ProxyManager.TestProxyAsync(item.Dto, _logger).ConfigureAwait(true);
+            bool acceptInvalidCerts = _appSettings?.AllowInvalidServerCertificates ?? AllowInvalidServerCertificates;
+            ProxyTestResult result = await ProxyManager.TestProxyAsync(item.Dto, _logger, acceptInvalidCertificates: acceptInvalidCerts).ConfigureAwait(true);
 
             // Status line stays compact — full request+response lives in TestTransaction
             // behind the Details button so multi-KB error pages from misbehaving proxies
@@ -483,12 +497,14 @@ public partial class ConnectionManagerViewModel : ObservableObject
             {
                 _appSettings.AutoDisableFailingProxies = AutoDisableFailingProxies;
                 _appSettings.ProxiesEnabled = ProxiesEnabled;
+                _appSettings.AllowInvalidServerCertificates = AllowInvalidServerCertificates;
             }
 
             if (_settingRepo is not null)
             {
                 await UpsertSettingAsync(SettingKey.AutoDisableFailingProxies, AutoDisableFailingProxies ? "true" : "false", cancellationToken);
                 await UpsertSettingAsync(SettingKey.ProxiesEnabled, ProxiesEnabled ? "true" : "false", cancellationToken);
+                await UpsertSettingAsync(SettingKey.AllowInvalidServerCertificates, AllowInvalidServerCertificates ? "true" : "false", cancellationToken);
             }
 
             await _proxyManager.ReloadAsync(cancellationToken);
@@ -547,6 +563,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
     partial void OnAutoDisableFailingProxiesChanged(bool value) => ScheduleAutoSave();
 
     partial void OnProxiesEnabledChanged(bool value) => ScheduleAutoSave();
+
+    partial void OnAllowInvalidServerCertificatesChanged(bool value) => ScheduleAutoSave();
 
     private void ScheduleAutoSave()
     {

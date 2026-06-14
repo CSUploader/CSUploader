@@ -148,7 +148,7 @@ public class ProxyManager : IProxySource
     /// <see cref="HttpHandler"/> so the request lands in the Logs tab alongside upload
     /// traffic.
     /// </summary>
-    public static async Task<ProxyTestResult> TestProxyAsync(ProxySettingDto proxy, IAppLogger logger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public static async Task<ProxyTestResult> TestProxyAsync(ProxySettingDto proxy, IAppLogger logger, TimeSpan? timeout = null, CancellationToken cancellationToken = default, bool acceptInvalidCertificates = false)
     {
         if (proxy.Type == ProxyType.None)
         {
@@ -172,6 +172,17 @@ public class ProxyManager : IProxySource
             UseProxy = true,
             AllowAutoRedirect = false,
         };
+
+        if (acceptInvalidCertificates)
+        {
+            // Honour the "Accept invalid server certificates" setting (Connection tab) for
+            // the connectivity test too — some proxies present a chain the OS can't fully
+            // validate (PartialChain), which would otherwise fail the test even though the
+            // proxy works fine for uploads when the same setting is on. Mirrors the bypass
+            // DefaultHttpHandlerFactory applies to upload traffic.
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
         using HttpClient client = new(handler, disposeHandler: true)
         {
             Timeout = timeout ?? TimeSpan.FromSeconds(10),

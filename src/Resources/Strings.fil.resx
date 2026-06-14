@@ -763,6 +763,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
     <value>Kapag naka-on, ang isang proxy na nag-fail sa manual test o sa upload ay ina-uncheck para laktawan ng rotation. Ang status icon ay nag-a-update kahit anong mangyari.</value>
   </data>
+  <data name="Settings_Conn_AllowInvalidCert" xml:space="preserve">
+    <value>Tanggapin ang mga invalid na server certificate (hindi inirerekomenda)</value>
+  </data>
+  <data name="Settings_Conn_AllowInvalidCertTip" xml:space="preserve">
+    <value>Laktawan ang TLS certificate validation sa bawat outbound request. Kailangan para sa ilang hoster na ang storage CDN nodes nito (hal. FileBoom's cmb-*.filestore.app edges) ay gumagamit ng mga certificate na hindi pumapasa sa standard validation. Mawawalan ng proteksyon laban sa mga MITM attack — i-enable lamang kapag ang pag-upload ay nabigo dahil sa SSL error.</value>
+  </data>
   <data name="Settings_Conn_Col_On" xml:space="preserve">
     <value>On</value>
   </data>
@@ -961,6 +967,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Type" xml:space="preserve">
     <value>Type</value>
   </data>
+  <data name="Settings_Accounts_Col_Used" xml:space="preserve">
+    <value>Nagamit</value>
+  </data>
+  <data name="Settings_Accounts_Col_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
+    <value>Na-refresh noong</value>
+  </data>
+  <data name="Settings_Accounts_Storage_Unlimited" xml:space="preserve">
+    <value>Walang limitasyon</value>
+  </data>
   <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
     <value>I-edit ang Account...</value>
   </data>
@@ -990,6 +1008,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
     <value>Tanggalin ang account na '{0}' para sa {1}?</value>
+  </data>
+  <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
+    <value>Tanggalin ang {0} napiling account?</value>
   </data>
   <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
     <value>Mangyaring punan ang file hoster, username, at password.</value>
@@ -1064,6 +1085,12 @@ Idagdag pa rin?</value>
   <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
     <value>Naka-enable ang account na '{0}'.</value>
   </data>
+  <data name="Settings_Accounts_Status_AccountsBulkDisabled_Format" xml:space="preserve">
+    <value>Naka-disable ang {0} accounts.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountsBulkEnabled_Format" xml:space="preserve">
+    <value>Naka-enable ang {0} accounts.</value>
+  </data>
   <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
     <value>OK</value>
   </data>
@@ -1133,8 +1160,26 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. File Hosters</value>
   </data>
+  <data name="Wizard_Step_Summary" xml:space="preserve">
+    <value>3. Buod</value>
+  </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>3. Simulan</value>
+    <value>4. Simulan</value>
+  </data>
+  <data name="Wizard_Summary_Title" xml:space="preserve">
+    <value>Buod ng Upload</value>
+  </data>
+  <data name="Wizard_Summary_Desc" xml:space="preserve">
+    <value>Suriin kung ano ang mai-upload sa bawat hoster. Ang mga hoster na walang kwalipikadong file ay tinatanggal.</value>
+  </data>
+  <data name="Wizard_Summary_FileCount_Suffix" xml:space="preserve">
+    <value>na file</value>
+  </data>
+  <data name="Wizard_Summary_OrphanWarning_Suffix" xml:space="preserve">
+    <value>na file ay hindi mai-upload sa anumang hoster:</value>
+  </data>
+  <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
+    <value>hanggang {0} bawat file</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Mga File</value>
@@ -1171,6 +1216,9 @@ Idagdag pa rin?</value>
   </data>
   <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
     <value>Alisin sa pagpili lahat</value>
+  </data>
+  <data name="Wizard_Step1_BtnRemove" xml:space="preserve">
+    <value>Tanggalin</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>File</value>

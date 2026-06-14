@@ -67,6 +67,24 @@ public interface IFileHosterPipeline
     int? MaxFilesPerPackage { get; }
 
     /// <summary>
+    /// True when the hoster accepts uploads with no account/login. The upload wizard offers
+    /// such hosters a built-in "Anonymous" option that needs no Accounts/Settings entry — the
+    /// runner passes a blank <see cref="Dal.FileHosterLoginDto"/> (no username) and the
+    /// pipeline takes its anonymous path. Defaults to false; only hosters that genuinely
+    /// support unauthenticated upload (currently GigaPeta) override it.
+    /// </summary>
+    bool SupportsAnonymousUpload => false;
+
+    /// <summary>
+    /// Per-file size cap (bytes, null = none) for a specific selected account. Defaults to the
+    /// account-independent <see cref="MaxFileSize"/>; pipelines whose cap varies by tier
+    /// override this. The wizard's oversize guard and <see cref="RunAsync"/>'s fail-fast both
+    /// consult it with the attempt's credentials — e.g. Hexload's anonymous tier allows 2 GiB
+    /// where its API tier uses the smaller default.
+    /// </summary>
+    long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => MaxFileSize;
+
+    /// <summary>
     /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
     /// and outcomes. Must terminate with no more than one of <see cref="TransferCompleted"/>,
     /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the

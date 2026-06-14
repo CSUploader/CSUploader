@@ -763,6 +763,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
     <value>켜져 있으면 수동 테스트 또는 업로드에 실패한 프록시는 선택 해제되어 순환에서 제외됩니다. 어떤 경우에도 상태 아이콘은 갱신됩니다.</value>
   </data>
+  <data name="Settings_Conn_AllowInvalidCert" xml:space="preserve">
+    <value>잘못된 서버 인증서 허용(권장하지 않음)</value>
+  </data>
+  <data name="Settings_Conn_AllowInvalidCertTip" xml:space="preserve">
+    <value>모든 아웃바운드 요청에서 TLS 인증서 유효성 검사를 건너뜁니다. 일부 호스터의 스토리지 CDN 노드(예: FileBoom의 cmb-*.filestore.app 에지)가 표준 검증에 실패하는 인증서를 사용하는 경우 필요합니다. MITM 공격에 대한 보호가 비활성화됩니다 — 업로드가 SSL 오류로 실패하는 경우에만 활성화하십시오.</value>
+  </data>
   <data name="Settings_Conn_Col_On" xml:space="preserve">
     <value>사용</value>
   </data>
@@ -961,6 +967,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Type" xml:space="preserve">
     <value>유형</value>
   </data>
+  <data name="Settings_Accounts_Col_Used" xml:space="preserve">
+    <value>사용 중</value>
+  </data>
+  <data name="Settings_Accounts_Col_Available" xml:space="preserve">
+    <value>남은 용량</value>
+  </data>
+  <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
+    <value>새로 고침 시각</value>
+  </data>
+  <data name="Settings_Accounts_Storage_Unlimited" xml:space="preserve">
+    <value>무제한</value>
+  </data>
   <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
     <value>계정 편집…</value>
   </data>
@@ -990,6 +1008,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
     <value>{1}의 계정 '{0}'을(를) 제거하시겠습니까?</value>
+  </data>
+  <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
+    <value>선택한 {0}개의 계정을 제거하시겠습니까?</value>
   </data>
   <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
     <value>파일 호스터, 사용자 이름, 비밀번호를 입력해 주십시오.</value>
@@ -1064,6 +1085,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
     <value>계정 '{0}'이(가) 활성화되었습니다.</value>
   </data>
+  <data name="Settings_Accounts_Status_AccountsBulkDisabled_Format" xml:space="preserve">
+    <value>{0}개의 계정이 비활성화되었습니다.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountsBulkEnabled_Format" xml:space="preserve">
+    <value>{0}개의 계정이 활성화되었습니다.</value>
+  </data>
   <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
     <value>정상</value>
   </data>
@@ -1133,8 +1160,26 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. 파일 호스터</value>
   </data>
+  <data name="Wizard_Step_Summary" xml:space="preserve">
+    <value>3. 요약</value>
+  </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>3. 시작</value>
+    <value>4. 시작</value>
+  </data>
+  <data name="Wizard_Summary_Title" xml:space="preserve">
+    <value>업로드 요약</value>
+  </data>
+  <data name="Wizard_Summary_Desc" xml:space="preserve">
+    <value>각 호스터에 업로드될 내용을 확인하세요. 적합한 파일이 없는 호스터는 제외됩니다.</value>
+  </data>
+  <data name="Wizard_Summary_FileCount_Suffix" xml:space="preserve">
+    <value>개 파일</value>
+  </data>
+  <data name="Wizard_Summary_OrphanWarning_Suffix" xml:space="preserve">
+    <value>개 파일은 어떤 호스터에도 업로드되지 않습니다:</value>
+  </data>
+  <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
+    <value>파일당 최대 {0}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 파일</value>
@@ -1171,6 +1216,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
     <value>모두 선택 해제</value>
+  </data>
+  <data name="Wizard_Step1_BtnRemove" xml:space="preserve">
+    <value>제거</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>파일</value>

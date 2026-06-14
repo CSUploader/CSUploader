@@ -50,6 +50,42 @@ public class AlfafilePipelineCheckAccountTests
     }
 
     [Fact]
+    public async Task CheckAccountAsync_WithStorageObject_SurfacesUsedAndQuota()
+    {
+        // Verbatim shape from the live login response: user.storage = {total, left} in bytes.
+        // Used = total − left, Quota = total, so the grid's computed Available = left.
+        const long Total = 3_298_534_883_328L;
+        const long Left = 3_265_906_731_855L;
+        const string Body = """{"response":{"token":"TOK","user":{"email":"u@example.com","is_premium":false,"premium_end_time":null,"storage":{"total":3298534883328,"left":3265906731855}}},"status":200,"details":null}""";
+        Queue<string> responses = new(new[] { Body });
+        AlfafilePipeline pipeline = new(url => responses.Dequeue());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(Total - Left, result.StorageUsedBytes);
+        Assert.Equal(Total, result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_NoStorageObject_LeavesStorageNull()
+    {
+        // Older login responses (or a shape without the storage block) must not throw —
+        // storage stays null and the grid renders blank Used/Available cells.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"email":"u@example.com","is_premium":false,"premium_end_time":null}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(url => responses.Dequeue());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+    }
+
+    [Fact]
     public async Task CheckAccountAsync_WrongCredentials_ReturnsInvalid()
     {
         Queue<string> responses = new(new[]

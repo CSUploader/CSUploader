@@ -53,11 +53,9 @@ public sealed record ProxyTestResult
     public static ProxyTestResult Failed(string message) =>
         new() { Success = false, Message = message, Body = message };
 
-    private static bool LooksLikeIpAddress(string? value)
-    {
+    private static bool LooksLikeIpAddress(string? value) =>
         // Restrictive on purpose: the upstream test endpoint (api.ipify.org) returns a
         // bare IPv4/IPv6, anything else is a misbehaving proxy and shouldn't be shown
         // as the "detected IP".
-        return !string.IsNullOrWhiteSpace(value) && System.Net.IPAddress.TryParse(value, out _);
-    }
+        !string.IsNullOrWhiteSpace(value) && System.Net.IPAddress.TryParse(value, out _);
 }

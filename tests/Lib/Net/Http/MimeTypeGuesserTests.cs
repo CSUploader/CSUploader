@@ -16,19 +16,14 @@ public class MimeTypeGuesserTests
     [InlineData("archive.rar", "application/vnd.rar")]
     [InlineData("subtitles.srt", "application/x-subrip")]
     [InlineData("photo.JPG", "image/jpeg")]
-    public void Guess_KnownExtension_ReturnsSpecificType(string filePath, string expectedMime)
-    {
-        Assert.Equal(expectedMime, MimeTypeGuesser.Guess(filePath));
-    }
+    public void Guess_KnownExtension_ReturnsSpecificType(string filePath, string expectedMime) => Assert.Equal(expectedMime, MimeTypeGuesser.Guess(filePath));
 
     [Theory]
     [InlineData("no-extension")]
     [InlineData("something.xyzunknown")]
     [InlineData("")]
-    public void Guess_UnknownOrMissingExtension_FallsBackToOctetStream(string filePath)
-    {
+    public void Guess_UnknownOrMissingExtension_FallsBackToOctetStream(string filePath) =>
         // The fallback preserves the pre-refactor behaviour — no regression for callers that
         // upload exotic file types.
         Assert.Equal("application/octet-stream", MimeTypeGuesser.Guess(filePath));
-    }
 }

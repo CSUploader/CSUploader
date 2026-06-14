@@ -447,6 +447,27 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveCommand_PersistsAllowInvalidServerCertificatesFlagToDatabase()
+    {
+        AppSettings settings = new();
+        ConnectionManagerViewModel vm = new(
+            _repo, _manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
+            new SettingRepository(_factory), settings);
+
+        await vm.LoadAsync();
+        Assert.False(vm.AllowInvalidServerCertificates); // default
+
+        vm.AllowInvalidServerCertificates = true;
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.True(settings.AllowInvalidServerCertificates);
+        SettingRepository repo = new(_factory);
+        SettingDto? row = await repo.FindByKeyAsync(SettingKey.AllowInvalidServerCertificates);
+        Assert.NotNull(row);
+        Assert.Equal("true", row!.Value);
+    }
+
+    [Fact]
     public void TestOutcome_FreshItem_IsUntested()
     {
         ProxySettingItem item = new(new ProxySettingDto());

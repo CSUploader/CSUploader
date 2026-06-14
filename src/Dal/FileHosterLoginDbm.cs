@@ -68,4 +68,32 @@ public class FileHosterLoginDbm
     /// used.
     /// </summary>
     public string? ApiKey { get; set; }
+
+    /// <summary>
+    /// Bytes the account is currently consuming on the hoster's storage. Populated by
+    /// pipelines whose API surfaces a usage endpoint (FileBoom's <c>/v1/users/me/statistic</c>
+    /// returns <c>storageSpace.used</c>). Null when not known / not exposed by the hoster.
+    /// Used by the wizard to filter (file, hoster) pairs that would push the account past
+    /// its quota.
+    /// </summary>
+    public long? StorageUsedBytes { get; set; }
+
+    /// <summary>
+    /// Total storage quota the account is allowed (free-tier hosters typically expose a
+    /// hard cap, e.g. FileBoom's free tier is 10 GiB via <c>storageSpace.total</c>). Null
+    /// when not known. Paired with <see cref="StorageUsedBytes"/> for the queue-time filter
+    /// and the grid status display.
+    /// </summary>
+    public long? StorageQuotaBytes { get; set; }
+
+    /// <summary>
+    /// Local-time stamp of the last verifier round-trip for this account, regardless of
+    /// whether it succeeded — written on EVERY <c>IAccountVerifier.CheckAsync</c> completion
+    /// so the Account Manager grid's "Refreshed at" column reflects when we last
+    /// <em>tried</em>, not just when we last succeeded. Null when the account has never
+    /// been refreshed. Stored as local time (not UTC) to match the convention used by
+    /// the other displayed timestamps on this DTO family
+    /// (<see cref="StartDateTime"/>-style fields elsewhere).
+    /// </summary>
+    public DateTime? LastRefreshedDateTime { get; set; }
 }

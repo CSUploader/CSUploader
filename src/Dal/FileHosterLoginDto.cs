@@ -22,6 +22,15 @@ public class FileHosterLoginDto
     public AccountType AccountType { get; set; }
 
     /// <summary>
+    /// Marks a synthetic, non-persisted "Anonymous" selection — the built-in no-login option
+    /// the upload wizard offers for hosters whose pipeline sets
+    /// <see cref="Upload.Pipeline.IFileHosterPipeline.SupportsAnonymousUpload"/> (GigaPeta,
+    /// Hexload). Never written to the DB; the pipeline branches to its anonymous upload path
+    /// when this is true instead of using <see cref="Username"/>/<see cref="ApiKey"/>.
+    /// </summary>
+    public bool IsAnonymous { get; set; }
+
+    /// <summary>
     /// Cached session cookie value for captcha-gated hosters (currently ex-load.com).
     /// Null for hosters whose login is a plain credential POST. Persisted across app
     /// restarts so the user only re-runs the WebView captcha flow once per cookie lifetime.
@@ -45,6 +54,32 @@ public class FileHosterLoginDto
     /// </summary>
     public string? ApiKey { get; set; }
 
+    /// <summary>Bytes the account is currently consuming on the hoster (FileBoom's
+    /// <c>storageSpace.used</c>). Null when not known.</summary>
+    public long? StorageUsedBytes { get; set; }
+
+    /// <summary>Total storage quota the account is allowed (FileBoom's
+    /// <c>storageSpace.total</c>). Null when not known.</summary>
+    public long? StorageQuotaBytes { get; set; }
+
+    /// <summary>Computed remaining storage = <see cref="StorageQuotaBytes"/> − <see cref="StorageUsedBytes"/>,
+    /// floored at 0 (handles the over-quota case some hosters allow transiently). Null
+    /// when either operand is null — bound by the Accounts grid's "Available" column,
+    /// which renders blank for hosters that don't expose a quota.</summary>
+    public long? StorageAvailableBytes => StorageQuotaBytes is { } total && StorageUsedBytes is { } used
+        ? Math.Max(0L, total - used)
+        : null;
+
+    /// <summary>
+    /// Local-time stamp of the last verifier round-trip for this account, regardless of
+    /// whether it succeeded. Drives the Account Manager grid's "Refreshed at" column.
+    /// Null when the account has never been refreshed. Always set via
+    /// <see cref="MarkRefreshed"/> from real verification moments — NOT via
+    /// <see cref="SetCheckStatus"/>, which is reserved for in-flight markers ("Checking…")
+    /// and snapshot restores that must NOT touch the timestamp.
+    /// </summary>
+    public DateTime? LastRefreshedDateTime { get; set; }
+
     /// <summary>
     /// Outcome category for the last verification, used by the Account Manager grid to
     /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
@@ -57,18 +92,37 @@ public class FileHosterLoginDto
     /// 2099", "Wrong password", "The SSL connection could not be established..."). The
     /// row's cell colour comes from <see cref="CheckStatus"/>, not from sniffing this
     /// text — so the message can be anything the verifier returned without breaking
-    /// the colour scheme.
+    /// the colour scheme. Empty by default; the colour-coded cell carries the
+    /// NotChecked signal on its own.
     /// </summary>
-    public string StatusMessage { get; set; } = "Not checked";
+    public string StatusMessage { get; set; } = string.Empty;
 
     /// <summary>
     /// Sets <see cref="CheckStatus"/> and <see cref="StatusMessage"/> together — the only
     /// supported way to update either, so the two fields never drift out of sync (e.g.
-    /// red cell with a "Premium until X" message).
+    /// red cell with a "Premium until X" message). Reserved for in-flight markers
+    /// ("Checking…") and snapshot restores that must NOT touch
+    /// <see cref="LastRefreshedDateTime"/>; for completion of a real verifier round-trip,
+    /// call <see cref="MarkRefreshed"/> instead.
     /// </summary>
     public void SetCheckStatus(AccountCheckStatus status, string message)
     {
         CheckStatus = status;
         StatusMessage = message;
+    }
+
+    /// <summary>
+    /// Records the outcome of a verifier round-trip: stamps <see cref="CheckStatus"/>,
+    /// <see cref="StatusMessage"/> AND <see cref="LastRefreshedDateTime"/> in one shot.
+    /// Call this — NOT <see cref="SetCheckStatus"/> — from every place that finishes a
+    /// real <c>IAccountVerifier.CheckAsync</c> attempt (success OR failure), so the
+    /// Accounts grid's "Refreshed at" column updates. See <see cref="SetCheckStatus"/>
+    /// for the in-flight / snapshot-restore path.
+    /// </summary>
+    public void MarkRefreshed(AccountCheckStatus status, string message, DateTime refreshedAt)
+    {
+        CheckStatus = status;
+        StatusMessage = message;
+        LastRefreshedDateTime = refreshedAt;
     }
 }

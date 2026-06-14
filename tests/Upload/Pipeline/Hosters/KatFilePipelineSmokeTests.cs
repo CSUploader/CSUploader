@@ -25,7 +25,7 @@ public class KatFilePipelineSmokeTests
         Assert.Equal("KatFile", pipeline.Name);
         // Inherits the standard XFileSharing free-tier defaults from the base.
         Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize);
-        Assert.Equal(30, pipeline.MaxFilesPerPackage);
+        Assert.Null(pipeline.MaxFilesPerPackage);
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.False(pipeline.RequiresHashingAfterUpload);
     }

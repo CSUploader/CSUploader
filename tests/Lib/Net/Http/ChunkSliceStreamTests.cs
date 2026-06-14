@@ -86,7 +86,7 @@ public class ChunkSliceStreamTests
         Assert.Equal(0, slice.Position);
 
         byte[] buf = new byte[50];
-        slice.Read(buf, 0, 50);
+        slice.ReadExactly(buf, 0, 50);
         Assert.Equal(50, slice.Position);
     }
 

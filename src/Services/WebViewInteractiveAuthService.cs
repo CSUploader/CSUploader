@@ -31,7 +31,7 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
     // only for the SOCKS-with-auth refusal message.
     private readonly IDialogService _dialogService = dialogService;
 
-    public async Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+    public async Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
     {
         // Null proxy = "Use Proxies is on but no usable proxy is available". The caller
         // (typically AccountVerifier or ExLoadPipeline) has already decided we shouldn't
@@ -71,7 +71,7 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
         }
     }
 
-    private string? ShowLoginWindow(InteractiveAuthSpec spec, ProxyChoice proxy)
+    private InteractiveAuthResult? ShowLoginWindow(InteractiveAuthSpec spec, ProxyChoice proxy)
     {
         ProxyCredentials? proxyCredentials = ResolveProxyCredentials(proxy, out string? refusalReason);
         if (refusalReason is not null)
@@ -89,8 +89,11 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
             spec.LoginUrl,
             spec.CookieDomain,
             spec.CookieName,
+            usernameCookieName: spec.UsernameCookieName,
             proxy: proxy,
-            proxyCredentials: proxyCredentials)
+            proxyCredentials: proxyCredentials,
+            cookieValueValidator: spec.CookieValueValidator,
+            additionalCookieNames: spec.AdditionalCookieNames)
         {
             // Parent the modal on the main window when one exists so it inherits owner/
             // modal semantics (centred on owner, doesn't appear in the taskbar
@@ -99,7 +102,14 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
         };
 
         bool? result = window.ShowDialog();
-        return result == true ? window.CapturedCookieValue : null;
+        if (result != true || window.CapturedCookieValue is null)
+        {
+            return null;
+        }
+        return new InteractiveAuthResult(
+            window.CapturedCookieValue,
+            window.CapturedUsernameCookieValue,
+            window.CapturedAdditionalCookies);
     }
 
     /// <summary>

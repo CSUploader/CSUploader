@@ -31,12 +31,26 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     {
         { "Alfafile", "www.alfafile.net" },
         { "BRupload", "www.brupload.net" },
-        { "ExLoad", "www.ex-load.com" },
-        { "ExtMatrix", "www.extmatrix.com" },
+        { "Ex-Load", "www.ex-load.com" },
+        // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
+        // the web UI's chunked protocol can't be captured (UI also failing). Pipeline
+        // DI registration in App.xaml.cs and the EditAccount API-key flag are both
+        // commented out alongside this. Do NOT uncomment without re-validating the
+        // upload endpoint and walking the re-enable checklist in ExtMatrixPipeline.cs.
+        // { "ExtMatrix", "www.extmatrix.com" },
         { "FileBoom", "www.fileboom.me" },
-        { "Filecloud", "filecloud.io" },
-        { "FilesMonster", "www.filesmonster.com" },
-        { "FlashBit", "flashbit.cc" },
+        // Filecloud REMOVED 2026-06-10 — filecloud.io is dead (site down, no live upload
+        // endpoint). Never had a pipeline; was metadata-only. Do NOT re-add without
+        // confirming the host is back and which protocol family it belongs to.
+        // FilesMonster REMOVED 2026-06-12 — filesmonster.com only lets *paid* members
+        // upload; free accounts have no upload path, so there's nothing usable to wire up.
+        // Never had a pipeline; was metadata-only. Do NOT re-add unless free upload returns.
+        // FlashBit DISABLED 2026-06-05 — invalid SSL on fs*.flashbit.cc + IIS chunk-size
+        // cap on the storage backend rejects every upload shape we have. Pipeline DI
+        // registration in App.xaml.cs and the EditAccount API-key flag are both commented
+        // out alongside this. Do NOT uncomment without re-validating both issues are
+        // resolved. See FlashBitPipeline.cs class-level remarks for the full chain.
+        // { "FlashBit", "flashbit.cc" },
         { "GigaPeta", "gigapeta.com" },
         // Hexload + hexupload.net (alias) — both API and web 301 from .net → .com,
         // so a single Hexload entry covers traffic addressed to either domain.
@@ -97,8 +111,5 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     /// <param name="protocol">The protocol the file hoster should use to upload.</param>
     /// <param name="_">The application logger (unused; retained for call-site compatibility).</param>
     /// <returns>A metadata instance if the hoster is known; otherwise, null.</returns>
-    public static FileHosterClient? FindByHost(string name, Protocol protocol, IAppLogger _)
-    {
-        return FileHosters.ContainsKey(name) ? new FileHosterClient(name, protocol) : null;
-    }
+    public static FileHosterClient? FindByHost(string name, Protocol protocol, IAppLogger _) => FileHosters.ContainsKey(name) ? new FileHosterClient(name, protocol) : null;
 }

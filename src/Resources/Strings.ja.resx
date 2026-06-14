@@ -763,6 +763,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
     <value>オンにすると、手動テストやアップロードに失敗したプロキシのチェックが外され、ローテーションでスキップされます。ステータスアイコンはどちらの場合でも更新されます。</value>
   </data>
+  <data name="Settings_Conn_AllowInvalidCert" xml:space="preserve">
+    <value>無効なサーバー証明書を受け入れる（推奨されません）</value>
+  </data>
+  <data name="Settings_Conn_AllowInvalidCertTip" xml:space="preserve">
+    <value>すべての送信要求で TLS 証明書の検証をスキップします。一部のホスター（例: FileBoom の cmb-*.filestore.app エッジ）のストレージ CDN ノードが標準検証に失敗する証明書を使用している場合に必要です。MITM 攻撃に対する保護が無効になります — SSL エラーでアップロードが失敗する場合にのみ有効にしてください。</value>
+  </data>
   <data name="Settings_Conn_Col_On" xml:space="preserve">
     <value>有効</value>
   </data>
@@ -961,6 +967,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Type" xml:space="preserve">
     <value>種類</value>
   </data>
+  <data name="Settings_Accounts_Col_Used" xml:space="preserve">
+    <value>使用中</value>
+  </data>
+  <data name="Settings_Accounts_Col_Available" xml:space="preserve">
+    <value>使用可能</value>
+  </data>
+  <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
+    <value>更新日時</value>
+  </data>
+  <data name="Settings_Accounts_Storage_Unlimited" xml:space="preserve">
+    <value>無制限</value>
+  </data>
   <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
     <value>アカウントを編集…</value>
   </data>
@@ -990,6 +1008,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
     <value>{1} のアカウント「{0}」を削除しますか?</value>
+  </data>
+  <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
+    <value>選択した {0} 件のアカウントを削除しますか?</value>
   </data>
   <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
     <value>ファイルホスター、ユーザー名、パスワードを入力してください。</value>
@@ -1064,6 +1085,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
     <value>アカウント「{0}」を有効化しました。</value>
   </data>
+  <data name="Settings_Accounts_Status_AccountsBulkDisabled_Format" xml:space="preserve">
+    <value>{0} 件のアカウントを無効化しました。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountsBulkEnabled_Format" xml:space="preserve">
+    <value>{0} 件のアカウントを有効化しました。</value>
+  </data>
   <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
     <value>OK</value>
   </data>
@@ -1133,8 +1160,26 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. ファイルホスター</value>
   </data>
+  <data name="Wizard_Step_Summary" xml:space="preserve">
+    <value>3. サマリー</value>
+  </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>3. 開始</value>
+    <value>4. 開始</value>
+  </data>
+  <data name="Wizard_Summary_Title" xml:space="preserve">
+    <value>アップロードサマリー</value>
+  </data>
+  <data name="Wizard_Summary_Desc" xml:space="preserve">
+    <value>各ホスターへアップロードされる内容を確認します。対象ファイルがないホスターは除外されます。</value>
+  </data>
+  <data name="Wizard_Summary_FileCount_Suffix" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="Wizard_Summary_OrphanWarning_Suffix" xml:space="preserve">
+    <value>件のファイルはどのホスターにもアップロードされません:</value>
+  </data>
+  <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
+    <value>1ファイルあたり最大 {0}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. ファイル</value>
@@ -1171,6 +1216,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
     <value>選択を解除</value>
+  </data>
+  <data name="Wizard_Step1_BtnRemove" xml:space="preserve">
+    <value>削除</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>ファイル</value>

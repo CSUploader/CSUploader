@@ -22,13 +22,15 @@ namespace CSUploader.Views;
 public partial class EditProxyWindow : Window
 {
     private readonly ProxySettingDto _original;
+    private readonly bool _acceptInvalidCertificates;
     private HttpTransaction? _lastTestTransaction;
 
-    public EditProxyWindow(ProxySettingDto proxy)
+    public EditProxyWindow(ProxySettingDto proxy, bool acceptInvalidCertificates = false)
     {
         InitializeComponent();
 
         _original = proxy;
+        _acceptInvalidCertificates = acceptInvalidCertificates;
 
         TypeCombo.ItemsSource = ConnectionManagerProxyTypes;
         TypeCombo.SelectedItem = proxy.Type;
@@ -78,7 +80,7 @@ public partial class EditProxyWindow : Window
 
         try
         {
-            ProxyTestResult result = await ProxyManager.TestProxyAsync(dto!, Logger.Current).ConfigureAwait(true);
+            ProxyTestResult result = await ProxyManager.TestProxyAsync(dto!, Logger.Current, acceptInvalidCertificates: _acceptInvalidCertificates).ConfigureAwait(true);
 
             if (result.Success)
             {

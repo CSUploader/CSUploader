@@ -23,8 +23,14 @@ public class HosterIconConverter : IValueConverter
             return null;
         }
 
-        // Normalise: drop spaces, lowercase, then look up "FileHoster<Name>Image".
-        string key = "FileHoster" + char.ToUpperInvariant(name[0]) + name[1..].ToLowerInvariant().Replace(" ", string.Empty, StringComparison.Ordinal) + "Image";
+        // Normalise: drop spaces AND hyphens, lowercase, then look up "FileHoster<Name>Image".
+        // Hyphens are stripped so "Ex-Load" resolves to the FileHosterExloadImage resource —
+        // the asset names are alphanumeric-only.
+        string normalized = name[1..]
+            .ToLowerInvariant()
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+        string key = "FileHoster" + char.ToUpperInvariant(name[0]) + normalized + "Image";
         return Application.Current?.TryFindResource(key) as BitmapImage;
     }
 

@@ -763,6 +763,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
     <value>Khi bật, một proxy thất bại trong kiểm tra thủ công hoặc khi tải lên sẽ bị bỏ chọn để vòng luân phiên bỏ qua nó. Biểu tượng trạng thái sẽ luôn cập nhật dù bật hay tắt.</value>
   </data>
+  <data name="Settings_Conn_AllowInvalidCert" xml:space="preserve">
+    <value>Chấp nhận chứng chỉ máy chủ không hợp lệ (không khuyến nghị)</value>
+  </data>
+  <data name="Settings_Conn_AllowInvalidCertTip" xml:space="preserve">
+    <value>Bỏ qua xác thực chứng chỉ TLS trên mọi yêu cầu đi ra. Cần thiết cho một số dịch vụ lưu trữ có các nút CDN sử dụng chứng chỉ không vượt qua xác thực tiêu chuẩn (ví dụ các nút biên cmb-*.filestore.app của FileBoom). Vô hiệu hóa bảo vệ chống tấn công MITM — chỉ bật khi tải lên thất bại với lỗi SSL.</value>
+  </data>
   <data name="Settings_Conn_Col_On" xml:space="preserve">
     <value>Bật</value>
   </data>
@@ -961,6 +967,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Type" xml:space="preserve">
     <value>Loại</value>
   </data>
+  <data name="Settings_Accounts_Col_Used" xml:space="preserve">
+    <value>Đã dùng</value>
+  </data>
+  <data name="Settings_Accounts_Col_Available" xml:space="preserve">
+    <value>Còn lại</value>
+  </data>
+  <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
+    <value>Đã làm mới lúc</value>
+  </data>
+  <data name="Settings_Accounts_Storage_Unlimited" xml:space="preserve">
+    <value>Không giới hạn</value>
+  </data>
   <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
     <value>Sửa tài khoản...</value>
   </data>
@@ -990,6 +1008,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
     <value>Xóa tài khoản '{0}' của {1}?</value>
+  </data>
+  <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
+    <value>Xóa {0} tài khoản đã chọn?</value>
   </data>
   <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
     <value>Vui lòng điền nhà lưu trữ tập tin, tên đăng nhập và mật khẩu.</value>
@@ -1064,6 +1085,12 @@ Vẫn thêm?</value>
   <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
     <value>Đã bật tài khoản '{0}'.</value>
   </data>
+  <data name="Settings_Accounts_Status_AccountsBulkDisabled_Format" xml:space="preserve">
+    <value>Đã tắt {0} tài khoản.</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountsBulkEnabled_Format" xml:space="preserve">
+    <value>Đã bật {0} tài khoản.</value>
+  </data>
   <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
     <value>OK</value>
   </data>
@@ -1133,8 +1160,26 @@ Vẫn thêm?</value>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. Nhà lưu trữ tập tin</value>
   </data>
+  <data name="Wizard_Step_Summary" xml:space="preserve">
+    <value>3. Tóm tắt</value>
+  </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>3. Bắt đầu</value>
+    <value>4. Bắt đầu</value>
+  </data>
+  <data name="Wizard_Summary_Title" xml:space="preserve">
+    <value>Tóm tắt tải lên</value>
+  </data>
+  <data name="Wizard_Summary_Desc" xml:space="preserve">
+    <value>Xem lại nội dung sẽ được tải lên mỗi nhà lưu trữ. Bỏ qua các nhà lưu trữ không có tập tin đủ điều kiện.</value>
+  </data>
+  <data name="Wizard_Summary_FileCount_Suffix" xml:space="preserve">
+    <value>tập tin</value>
+  </data>
+  <data name="Wizard_Summary_OrphanWarning_Suffix" xml:space="preserve">
+    <value>tập tin sẽ không được tải lên bất kỳ nhà lưu trữ nào:</value>
+  </data>
+  <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
+    <value>tối đa {0} mỗi tập tin</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Tệp</value>
@@ -1171,6 +1216,9 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
     <value>Bỏ chọn tất cả</value>
+  </data>
+  <data name="Wizard_Step1_BtnRemove" xml:space="preserve">
+    <value>Xóa</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>Tệp</value>

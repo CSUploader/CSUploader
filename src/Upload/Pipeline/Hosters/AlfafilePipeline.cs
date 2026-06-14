@@ -306,6 +306,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
+
         _ = proxy; // Alfafile's REST login doesn't need the proxy choice separately — the handler already routes through it.
         _ = apiKey; // Alfafile doesn't support API keys.
         string url = BuildLoginUrl(username, password);
@@ -339,7 +340,23 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             ? (expiry is { } e ? string.Format(CultureInfo.InvariantCulture, "Premium until {0:yyyy-MM-dd}", e) : "Premium")
             : "Free";
 
-        return new AccountCheckResult(true, type, message, expiry);
+        // Storage: the login response carries a {total, left} byte pair. Used = total − left,
+        // Quota = total, so the grid's computed Available = total − used = left.
+        long? storageUsed = null;
+        long? storageQuota = null;
+        if (user?.Storage is { Total: long total, Left: long left } && total >= 0 && left >= 0 && left <= total)
+        {
+            storageUsed = total - left;
+            storageQuota = total;
+        }
+
+        return new AccountCheckResult(
+            true,
+            type,
+            message,
+            expiry,
+            StorageUsedBytes: storageUsed,
+            StorageQuotaBytes: storageQuota);
     }
 
     private static string BuildLoginUrl(string? username, string? password)
@@ -609,6 +626,17 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         [JsonPropertyName("is_premium")] public bool IsPremium { get; set; }
 
         [JsonPropertyName("premium_end_time")] public long? PremiumEndTime { get; set; }
+
+        /// <summary>Storage allowance — <c>{total, left}</c> in bytes. Used drives the
+        /// Account Manager's Used/Available columns (Used = total − left, Quota = total).</summary>
+        [JsonPropertyName("storage")] public StorageInfo? Storage { get; set; }
+    }
+
+    private sealed class StorageInfo
+    {
+        [JsonPropertyName("total")] public long? Total { get; set; }
+
+        [JsonPropertyName("left")] public long? Left { get; set; }
     }
 
     private sealed class FolderEnvelope

@@ -66,6 +66,32 @@ public class FileHosterLoginRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Roundtrip_PreservesLastRefreshedDateTime()
+    {
+        // Cheap insurance against forgetting one of the three mapper overrides
+        // (MapToDto x2 + MapToDbm) when extending FileHosterLoginDto with new fields.
+        // SQLite stores DateTime as ISO-8601 TEXT — millisecond precision survives;
+        // ticks below the millisecond can be lost, so compare with TimeSpan tolerance.
+        FileHosterLoginRepository repo = new(_factory);
+        DateTime stamp = new(2026, 6, 9, 14, 23, 47, DateTimeKind.Local);
+        FileHosterLoginDto inserted = new()
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+            LastRefreshedDateTime = stamp,
+        };
+        await repo.InsertAsync(inserted);
+
+        FileHosterLoginDto? reloaded = await repo.FindAsync(inserted.Id);
+        Assert.NotNull(reloaded);
+        Assert.NotNull(reloaded!.LastRefreshedDateTime);
+        Assert.True(
+            (reloaded.LastRefreshedDateTime!.Value - stamp).Duration() < TimeSpan.FromSeconds(1),
+            $"Expected ~{stamp:O} but got {reloaded.LastRefreshedDateTime:O}");
+    }
+
+    [Fact]
     public async Task InsertAsync_InsertsLoginWithGeneratedId()
     {
         // Arrange

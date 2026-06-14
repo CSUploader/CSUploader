@@ -763,6 +763,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Conn_AutoDisableTip" xml:space="preserve">
     <value>启用后，手动测试或上传失败的代理将被取消勾选，从而在轮换中跳过该代理。无论如何状态图标都会更新。</value>
   </data>
+  <data name="Settings_Conn_AllowInvalidCert" xml:space="preserve">
+    <value>接受无效的服务器证书（不推荐）</value>
+  </data>
+  <data name="Settings_Conn_AllowInvalidCertTip" xml:space="preserve">
+    <value>跳过所有出站请求的 TLS 证书验证。某些托管服务的存储 CDN 节点（例如 FileBoom 的 cmb-*.filestore.app 边缘）使用的证书无法通过标准验证时需要。这会禁用对 MITM 攻击的保护 — 仅在上传因 SSL 错误而失败时才启用。</value>
+  </data>
   <data name="Settings_Conn_Col_On" xml:space="preserve">
     <value>启用</value>
   </data>
@@ -961,6 +967,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Type" xml:space="preserve">
     <value>类型</value>
   </data>
+  <data name="Settings_Accounts_Col_Used" xml:space="preserve">
+    <value>已用</value>
+  </data>
+  <data name="Settings_Accounts_Col_Available" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
+    <value>刷新时间</value>
+  </data>
+  <data name="Settings_Accounts_Storage_Unlimited" xml:space="preserve">
+    <value>无限制</value>
+  </data>
   <data name="Settings_Accounts_Context_Edit" xml:space="preserve">
     <value>编辑账户…</value>
   </data>
@@ -990,6 +1008,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Remove_Message_Format" xml:space="preserve">
     <value>是否移除 {1} 的账户"{0}"？</value>
+  </data>
+  <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
+    <value>是否移除 {0} 个所选账户？</value>
   </data>
   <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
     <value>请填写文件托管商、用户名和密码。</value>
@@ -1064,6 +1085,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Status_AccountEnabled_Format" xml:space="preserve">
     <value>账户"{0}"已启用。</value>
   </data>
+  <data name="Settings_Accounts_Status_AccountsBulkDisabled_Format" xml:space="preserve">
+    <value>已禁用 {0} 个账户。</value>
+  </data>
+  <data name="Settings_Accounts_Status_AccountsBulkEnabled_Format" xml:space="preserve">
+    <value>已启用 {0} 个账户。</value>
+  </data>
   <data name="Settings_Accounts_DefaultStatus_OK" xml:space="preserve">
     <value>正常</value>
   </data>
@@ -1133,8 +1160,26 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. 文件托管商</value>
   </data>
+  <data name="Wizard_Step_Summary" xml:space="preserve">
+    <value>3. 摘要</value>
+  </data>
   <data name="Wizard_Step_Start" xml:space="preserve">
-    <value>3. 开始</value>
+    <value>4. 开始</value>
+  </data>
+  <data name="Wizard_Summary_Title" xml:space="preserve">
+    <value>上传摘要</value>
+  </data>
+  <data name="Wizard_Summary_Desc" xml:space="preserve">
+    <value>查看将上传到每个托管商的内容。无可上传文件的托管商将被忽略。</value>
+  </data>
+  <data name="Wizard_Summary_FileCount_Suffix" xml:space="preserve">
+    <value>个文件</value>
+  </data>
+  <data name="Wizard_Summary_OrphanWarning_Suffix" xml:space="preserve">
+    <value>个文件无法上传到任何托管商：</value>
+  </data>
+  <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
+    <value>每个文件最多 {0}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 文件</value>
@@ -1171,6 +1216,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step1_BtnDeselectAll" xml:space="preserve">
     <value>取消全选</value>
+  </data>
+  <data name="Wizard_Step1_BtnRemove" xml:space="preserve">
+    <value>移除</value>
   </data>
   <data name="Wizard_Step1_Col_File" xml:space="preserve">
     <value>文件</value>

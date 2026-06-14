@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}"
@@ -20,6 +21,9 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
         <conv:HosterIconConverter x:Key="HosterIconConverter" />
+        <conv:ByteUnitConverter x:Key="ByteUnit" />
+        <conv:DateTimeFormatConverter x:Key="DateTimeFormat" />
+        <conv:StorageAvailableDisplayConverter x:Key="StorageAvailableDisplay" />
 
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
@@ -302,12 +306,16 @@
                 <TextBlock Style="{StaticResource SectionDesc}"
                            Text="{loc:Loc Settings_General_ConfirmationPrompts_Desc}" />
 
-                <ItemsControl ItemsSource="{Binding ConfirmationPrompts}" Margin="40,4,0,0">
+                <ItemsControl ItemsSource="{Binding ConfirmationPrompts}" Margin="0,4,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding AskAgain}"
-                                      Content="{Binding Label}"
-                                      Margin="0,2,0,2" />
+                            <!-- SettingRow gives each prompt the same full-width hover highlight
+                                 as the other settings (and the 40px indent). -->
+                            <Grid Style="{StaticResource SettingRow}">
+                                <CheckBox IsChecked="{Binding AskAgain}"
+                                          Content="{Binding Label}"
+                                          VerticalAlignment="Center" />
+                            </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -325,7 +333,7 @@
                 <TextBlock Style="{StaticResource SectionDesc}"
                            Text="{loc:Loc Settings_General_Database_Desc}" />
 
-                <Grid Style="{StaticResource SettingRow}" Margin="40,4,0,0">
+                <Grid Margin="40,4,0,0">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                         <Button Width="120" Height="28"
                                 Command="{Binding ClearDatabaseCommand}"
@@ -490,8 +498,16 @@
                           IsChecked="{Binding AutoDisableFailingProxies}"
                           ToolTip="{loc:Loc Settings_Conn_AutoDisableTip}"
                           Margin="0,4,0,0" />
+                <CheckBox Content="{loc:Loc Settings_Conn_AllowInvalidCert}"
+                          IsChecked="{Binding AllowInvalidServerCertificates}"
+                          ToolTip="{loc:Loc Settings_Conn_AllowInvalidCertTip}"
+                          Margin="0,4,0,0" />
             </StackPanel>
 
+            <!-- Opacity drop (NOT IsEnabled=false) when Use Proxies is off: makes the
+                 inactive-feature state obvious at a glance while keeping the grid fully
+                 interactive (edit/test/reorder still work) so the user can curate proxies
+                 before flipping the master switch back on. -->
             <DataGrid x:Name="proxyGrid" Grid.Row="1" Margin="20,8,20,8"
                       ItemsSource="{Binding Proxies}"
                       AutoGenerateColumns="False"
@@ -503,12 +519,24 @@
                       GridLinesVisibility="All"
                       RowHeaderWidth="0"
                       Tag="{Binding}"
+                      beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                      beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                       ContextMenuOpening="ProxyGrid_ContextMenuOpening"
                       Background="{DynamicResource SurfaceBrush}"
                       RowBackground="{DynamicResource SurfaceBrush}"
                       AlternatingRowBackground="{DynamicResource DataGridAltRowBrush}"
                       HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
                       VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}">
+                <DataGrid.Style>
+                    <Style TargetType="DataGrid">
+                        <Setter Property="Opacity" Value="1.0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ProxiesEnabled}" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.Style>
                 <DataGrid.CellStyle>
                     <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
                         <Setter Property="BorderThickness" Value="0" />
@@ -807,14 +835,18 @@
                       ItemsSource="{Binding Accounts}"
                       SelectedItem="{Binding SelectedAccount}"
                       MouseDoubleClick="AccountsGrid_MouseDoubleClick"
+                      beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                      beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                       ContextMenuOpening="AccountsGrid_ContextMenuOpening"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserAddRows="False"
                       CanUserDeleteRows="False"
-                      SelectionMode="Single"
+                      SelectionMode="Extended"
                       SelectionUnit="FullRow"
                       RowHeaderWidth="0"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
                       GridLinesVisibility="All"
                       HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                       VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
@@ -888,7 +920,7 @@
                                     <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
                                            Width="18" Height="18" Margin="0,0,6,0"
                                            RenderOptions.BitmapScalingMode="HighQuality" />
-                                    <TextBlock Text="{Binding FileHosterName, FallbackValue=''}"
+                                    <TextBlock Text="{Binding FileHosterName}"
                                                VerticalAlignment="Center" />
                                 </StackPanel>
                             </DataTemplate>
@@ -910,26 +942,68 @@
                             <Style TargetType="TextBlock"><Setter Property="Text" Value="******" /></Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="*" />
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="80" />
+                    <!-- Storage usage columns. Bound to StorageUsedBytes / StorageAvailableBytes
+                         (both long?) via ByteUnitConverter which yields formatted strings like
+                         "663 MiB" or "9.4 GiB", and renders blank for hosters that don't report
+                         quota (FileBoom does; XFS family currently doesn't). -->
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Used}"
+                                        Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}}"
+                                        Width="90" IsReadOnly="True" />
+                    <!-- Fixed width on Available (not Width="*") so the grid's total
+                         column width can exceed the viewport and the horizontal
+                         scrollbar actually has something to scroll over. The * setting
+                         used to shrink Available to whatever space was left, which made
+                         the cell unreadable on narrow windows without surfacing a scrollbar.
+                         Bound to the whole row (not a single property) via
+                         StorageAvailableDisplay so it can render "Unlimited" when the hoster
+                         reports usage but no cap (Ex-Load), formatted bytes when the cap is
+                         known, or blank when there's no storage info at all. -->
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}"
+                                        Binding="{Binding Converter={StaticResource StorageAvailableDisplay}}"
+                                        Width="110" IsReadOnly="True" />
+                    <!-- Wall-clock of the last verifier round-trip (success OR failure).
+                         Bound to FileHosterLoginDto.LastRefreshedDateTime; renders blank
+                         when null via the shared DateTimeFormatConverter. Monospace font
+                         keeps timestamps visually aligned column-wise. -->
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_RefreshedAt}"
+                                        Binding="{Binding LastRefreshedDateTime, Converter={StaticResource DateTimeFormat}}"
+                                        Width="140" IsReadOnly="True"
+                                        FontFamily="Consolas, Segoe UI" />
                 </DataGrid.Columns>
 
+                <DataGrid.InputBindings>
+                    <KeyBinding Key="Delete" Command="{Binding RemoveSelectedAccountsCommand}"
+                                CommandParameter="{Binding SelectedItems, ElementName=accountsGrid}" />
+                </DataGrid.InputBindings>
                 <!-- The row-targeted items only make sense when the right-click landed
                      on a row; on empty space we collapse them and just show Add.
-                     Visibility is flipped from code-behind in AccountsGrid_ContextMenuOpening. -->
+                     Visibility is flipped from code-behind in AccountsGrid_ContextMenuOpening.
+                     CommandParameter on the multi-aware items walks the visual tree from
+                     the ContextMenu up to the DataGrid (PlacementTarget) and reads
+                     SelectedItems live — same pattern as the proxy grid's bulk actions. -->
                 <DataGrid.ContextMenu>
                     <ContextMenu>
                         <MenuItem x:Name="AccountsContextEditItem"
                                   Header="{loc:Loc Settings_Accounts_Context_Edit}" Command="{Binding EditAccountCommand}" />
                         <MenuItem x:Name="AccountsContextRefreshItem"
-                                  Header="{loc:Loc Settings_Accounts_Context_Refresh}" Command="{Binding RefreshAccountCommand}" />
+                                  Header="{loc:Loc Settings_Accounts_Context_Refresh}"
+                                  Command="{Binding RefreshSelectedAccountsCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <Separator x:Name="AccountsContextRowSeparator1" />
                         <MenuItem x:Name="AccountsContextEnableItem"
-                                  Header="{loc:Loc Settings_Accounts_Context_Enable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Enable" />
+                                  Header="{loc:Loc Settings_Accounts_Context_Enable}"
+                                  Command="{Binding EnableSelectedAccountsCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <MenuItem x:Name="AccountsContextDisableItem"
-                                  Header="{loc:Loc Settings_Accounts_Context_Disable}" Command="{Binding ToggleAccountCommand}" CommandParameter="Disable" />
+                                  Header="{loc:Loc Settings_Accounts_Context_Disable}"
+                                  Command="{Binding DisableSelectedAccountsCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <Separator x:Name="AccountsContextRowSeparator2" />
                         <MenuItem x:Name="AccountsContextDeleteItem"
-                                  Header="{loc:Loc Settings_Accounts_Context_Delete}" Command="{Binding RemoveAccountCommand}" />
+                                  Header="{loc:Loc Settings_Accounts_Context_Delete}"
+                                  Command="{Binding RemoveSelectedAccountsCommand}"
+                                  CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                         <Separator x:Name="AccountsContextRowSeparator3" />
                         <MenuItem Header="{loc:Loc Settings_Accounts_Btn_Add}" Command="{Binding AddAccountDialogCommand}" />
                     </ContextMenu>
@@ -947,7 +1021,10 @@
                             <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Add}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource JD2Button}" Command="{Binding RemoveAccountCommand}" Margin="0,0,4,0">
+                    <Button Style="{StaticResource JD2Button}"
+                            Command="{Binding RemoveSelectedAccountsCommand}"
+                            CommandParameter="{Binding SelectedItems, ElementName=accountsGrid}"
+                            Margin="0,0,4,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="-" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Remove}" VerticalAlignment="Center" />

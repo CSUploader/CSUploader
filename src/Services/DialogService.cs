@@ -119,7 +119,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
 
     public ProxySettingDto? ShowEditProxyDialog(ProxySettingDto seed, string? title = null)
     {
-        EditProxyWindow dialog = new(seed)
+        EditProxyWindow dialog = new(seed, settings.AllowInvalidServerCertificates)
         {
             Title = title ?? Localizer.Instance[seed.Id == 0 ? "EditProxy_AddTitle" : "EditProxy_EditTitle"],
             Owner = Application.Current.MainWindow,

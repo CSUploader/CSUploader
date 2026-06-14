@@ -132,6 +132,27 @@ public partial class UploadWizardViewModel : ObservableObject
 
     public ObservableCollection<FileHosterSelectionViewModel> FileHosters { get; } = [];
 
+    /// <summary>
+    /// Populated when the user advances to the Summary step (CurrentStep==2) from the
+    /// File Hosters step. Each entry is one hoster that will receive at least one file;
+    /// hosters that were checked on step 2 but turned out to have zero eligible files
+    /// (every selected file too big, no usable account, etc.) are omitted entirely so
+    /// the page only shows what will actually upload.
+    /// </summary>
+    public ObservableCollection<HosterUploadSummary> Summaries { get; } = [];
+
+    /// <summary>
+    /// Selected files that won't be uploaded to ANY hoster — every chosen hoster
+    /// rejected them via a size cap, count cap, or account-state filter. Surfaces in
+    /// the Summary page's warning banner so the user can decide whether to go back
+    /// and adjust, or accept the partial coverage and proceed.
+    /// </summary>
+    public ObservableCollection<FileEntry> OrphanFiles { get; } = [];
+
+    public int OrphanFilesCount => OrphanFiles.Count;
+
+    public bool HasOrphanFiles => OrphanFiles.Count > 0;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsScheduledMode))]
     private UploadStartMode startMode = UploadStartMode.Immediately;
@@ -151,11 +172,13 @@ public partial class UploadWizardViewModel : ObservableObject
     /// hoster's declared limits are violated in a way the user must resolve manually —
     /// either too many files for the package, or every used hoster has zero files within
     /// its size limit. Size warnings on their own are informational (oversized files are
-    /// dropped at upload time) and don't block.
+    /// dropped at upload time) and don't block. The Summary step (CurrentStep==2) never
+    /// blocks Next: orphan files surface a warning banner but the user is allowed to
+    /// proceed and accept the partial coverage.
     /// </summary>
     public bool CanGoNext => CurrentStep != 1 || !_hasHardBlock;
 
-    public bool IsLastStep => CurrentStep == 2;
+    public bool IsLastStep => CurrentStep == 3;
 
     /// <summary>
     /// Human-readable list of currently-violated hoster limits (e.g. "BRupload: 35 files
@@ -219,7 +242,12 @@ public partial class UploadWizardViewModel : ObservableObject
 
             int eligibleForThisHoster = selected.Length;
 
-            if (pipeline.MaxFileSize is long maxBytes)
+            // The per-file size cap can vary by the selected account (e.g. Hexload's anonymous
+            // tier allows a larger file than its API tier).
+            FileHosterLoginDto? account = hoster.SelectedAccount;
+            long? hosterMaxFileSize = account is not null ? pipeline.MaxFileSizeFor(account) : pipeline.MaxFileSize;
+
+            if (hosterMaxFileSize is long maxBytes)
             {
                 List<string> oversizedNames = [];
                 foreach (FileEntry f in selected)
@@ -283,9 +311,106 @@ public partial class UploadWizardViewModel : ObservableObject
 
     private void Hoster_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FileHosterSelectionViewModel.Use))
+        // The Use toggle and switching account both affect eligibility — anonymous ⇄ a login
+        // can change the per-file size and per-batch count caps (e.g. Hexload).
+        if (e.PropertyName is nameof(FileHosterSelectionViewModel.Use)
+            or nameof(FileHosterSelectionViewModel.SelectedAccount))
         {
             RecomputeHosterValidation();
+        }
+    }
+
+    /// <summary>
+    /// Builds <see cref="Summaries"/> and <see cref="OrphanFiles"/> from the current
+    /// file selection + checked hosters. A hoster makes it into the summary only when
+    /// (a) it's checked on step 2, (b) it has a selected account whose CheckStatus
+    /// isn't Failed and that isn't Disabled, and (c) at least one selected file passes
+    /// the hoster's per-file size cap (oversized files are silently dropped). Within
+    /// each surviving hoster's row, the file list is then truncated to its declared
+    /// MaxFilesPerPackage cap — same per-file-with-position rule the upload pipeline
+    /// would apply. Files that don't make it into ANY hoster's row become orphans and
+    /// drive the warning banner.
+    /// </summary>
+    private void RecomputeSummary()
+    {
+        Summaries.Clear();
+        OrphanFiles.Clear();
+
+        FileEntry[] selected = [.. Files.Where(f => f.IsSelected)];
+        HashSet<FileEntry> withDestination = [];
+
+        foreach (FileHosterSelectionViewModel hoster in FileHosters)
+        {
+            if (!hoster.Use || hoster.SelectedAccount is not FileHosterLoginDto account)
+            {
+                continue;
+            }
+
+            // Account state filter: a disabled account or one whose last verification failed
+            // has no chance of accepting an upload, so the hoster gets dropped from the summary
+            // (same effect as unchecking it). The synthetic Anonymous selection has no such
+            // state, so it's never filtered here.
+            if (!account.IsAnonymous && (account.Disabled || account.CheckStatus == AccountCheckStatus.Failed))
+            {
+                continue;
+            }
+
+            IFileHosterPipeline? pipeline = _fileHosterRegistry?.Find(hoster.FileHosterName);
+            long? maxFileSize = pipeline?.MaxFileSizeFor(account);
+            int? maxFilesPerPackage = pipeline?.MaxFilesPerPackage;
+
+            List<FileEntry> eligible = [];
+            foreach (FileEntry file in selected)
+            {
+                if (maxFileSize is long cap && file.Size > cap)
+                {
+                    continue;
+                }
+                eligible.Add(file);
+                if (maxFilesPerPackage is int limit && eligible.Count >= limit)
+                {
+                    break;
+                }
+            }
+
+            if (eligible.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (FileEntry file in eligible)
+            {
+                withDestination.Add(file);
+            }
+
+            Summaries.Add(new HosterUploadSummary(
+                HosterName: hoster.FileHosterName,
+                AccountUsername: account.Username ?? string.Empty,
+                Files: eligible)
+            {
+                MaxFileSize = maxFileSize,
+            });
+        }
+
+        foreach (FileEntry file in selected)
+        {
+            if (!withDestination.Contains(file))
+            {
+                OrphanFiles.Add(file);
+            }
+        }
+
+        OnPropertyChanged(nameof(OrphanFilesCount));
+        OnPropertyChanged(nameof(HasOrphanFiles));
+    }
+
+    partial void OnCurrentStepChanged(int value)
+    {
+        // Lazy-populate the summary the moment the user advances to it — avoids paying
+        // the iteration cost on every selection toggle back on step 1.
+        if (value == 2)
+        {
+            RecomputeSummary();
         }
     }
 
@@ -426,9 +551,15 @@ public partial class UploadWizardViewModel : ObservableObject
         }
         else if (CurrentStep == 1)
         {
+            // Advance to the new Summary step. OnCurrentStepChanged populates Summaries.
             CurrentStep = 2;
         }
         else if (CurrentStep == 2)
+        {
+            // Summary → Start/Schedule.
+            CurrentStep = 3;
+        }
+        else if (CurrentStep == 3)
         {
             if (await StartUploadAsync())
             {
@@ -511,6 +642,28 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Removes the rows the user picked in the Files DataGrid. Bound from the Remove
+    /// button and from the Delete keyboard shortcut on the grid. <paramref name="selectedItems"/>
+    /// is the non-generic <see cref="System.Collections.IList"/> exposed by
+    /// <c>DataGrid.SelectedItems</c>; we snapshot it before mutating <see cref="Files"/>
+    /// because removing from the source collection invalidates the live SelectedItems view.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveSelectedFiles(System.Collections.IList? selectedItems)
+    {
+        if (selectedItems is null || selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        FileEntry[] toRemove = [.. selectedItems.OfType<FileEntry>()];
+        foreach (FileEntry file in toRemove)
+        {
+            Files.Remove(file);
+        }
+    }
+
     private void LoadFiles()
     {
         Files.Clear();
@@ -563,11 +716,12 @@ public partial class UploadWizardViewModel : ObservableObject
         foreach (string fileHosterName in FileHosterClient.NamesAlphabetical)
         {
             FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(fileHosterName);
+            bool supportsAnonymous = _fileHosterRegistry?.Find(fileHosterName)?.SupportsAnonymousUpload ?? false;
 
             FileHosterSelectionViewModel? sticky = _stickyHosters.Find(
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
 
-            FileHosterSelectionViewModel vm = new(fileHosterName, accounts);
+            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous);
             if (sticky is not null)
             {
                 vm.Use = sticky.Use;
@@ -604,6 +758,7 @@ public partial class UploadWizardViewModel : ObservableObject
                 FileHosterLoginDto account = hoster.SelectedAccount ?? new FileHosterLoginDto
                 {
                     FileHosterName = hoster.FileHosterName,
+                    IsAnonymous = hoster.SupportsAnonymous,
                 };
                 options.FileHosters[client] = account;
             }
@@ -677,4 +832,57 @@ public partial class FileEntry : ObservableObject
     public string FileName { get; set; } = string.Empty;
 
     public long Size { get; set; }
+}
+
+/// <summary>
+/// One row on the Upload Wizard's summary step: one hoster, the account chosen for it,
+/// and the files that will actually be uploaded to that hoster after applying its
+/// declared per-file size cap and per-package count cap. Hosters that end up with
+/// zero eligible files don't get a <see cref="HosterUploadSummary"/> at all — they're
+/// omitted from <see cref="UploadWizardViewModel.Summaries"/> entirely.
+/// </summary>
+/// <param name="HosterName">Display name, e.g. <c>"KatFile"</c>.</param>
+/// <param name="AccountUsername">Username of the selected account (may be the email
+/// for API-key-direct accounts where the verifier surfaced one). Empty when no
+/// account has surfaced an identity yet — the row is still shown.</param>
+/// <param name="Files">Files going to this hoster in the order they'd upload, already
+/// truncated to the hoster's MaxFilesPerPackage cap and filtered by MaxFileSize.</param>
+public sealed record HosterUploadSummary(
+    string HosterName,
+    string AccountUsername,
+    IReadOnlyList<FileEntry> Files)
+{
+    public int FileCount => Files.Count;
+
+    /// <summary>Sum of <see cref="FileEntry.Size"/> across <see cref="Files"/>. Surfaced
+    /// in the hoster's expander header so the user can see the total bytes going to
+    /// each hoster alongside the file count.</summary>
+    public long TotalSize => Files.Sum(f => f.Size);
+
+    /// <summary>Per-file size cap the hoster's pipeline declares, or null when the
+    /// pipeline doesn't declare one. Used to render the "max X per file" hint in the
+    /// summary header so the user knows why oversized files are landing as orphans
+    /// instead of going to this hoster.</summary>
+    public long? MaxFileSize { get; init; }
+
+    /// <summary>Pre-formatted "  •  max X per file" suffix for the summary header, or
+    /// the empty string when <see cref="MaxFileSize"/> is null. Built here (not in
+    /// XAML) so the leading bullet separator collapses cleanly with the rest of the
+    /// header line when the hoster has no declared cap.</summary>
+    public string MaxFileSizeDisplay
+    {
+        get
+        {
+            if (MaxFileSize is not long bytes)
+            {
+                return string.Empty;
+            }
+
+            string size = ByteUnit.FromBytes(bytes, ByteBase.Binary).ToFriendlyString();
+            return "  •  " + string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Summary_MaxFileSize_Format"],
+                size);
+        }
+    }
 }

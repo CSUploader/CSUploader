@@ -118,10 +118,7 @@ public class PackageManager
     /// <summary>
     /// Schedules a previously-added package for upload.
     /// </summary>
-    public void SchedulePackage(Package package)
-    {
-        _scheduler.AddPackage(package);
-    }
+    public void SchedulePackage(Package package) => _scheduler.AddPackage(package);
 
     /// <summary>
     /// Schedules a delayed start for a package at the specified time.
@@ -230,15 +227,16 @@ public class PackageManager
                 login = await _loginRepo.FindAsync(fileDto.FileHosterLoginId);
                 if (login is null)
                 {
-                    _logger.Log(this, LogType.Error, $"Persisted FileHosterLoginId={fileDto.FileHosterLoginId} for {hosterName} could not be found in the accounts table; using anonymous login (uploads will likely fail).");
+                    _logger.Log(this, LogType.Error, $"Persisted FileHosterLoginId={fileDto.FileHosterLoginId} for {hosterName} could not be found in the accounts table; the account may have been deleted (uploads will fail).");
                 }
             }
-            else
-            {
-                _logger.Log(this, LogType.Error, $"Persisted file for {hosterName} has FileHosterLoginId=0; the package was saved without a login bound. Edit the package's hoster account and retry.");
-            }
 
-            login ??= new FileHosterLoginDto { FileHosterName = hosterName };
+            // FileHosterLoginId == 0 is the wizard's built-in Anonymous selection — it has no
+            // saved account row, so reconstitute it as an anonymous credential and the pipeline
+            // takes its no-login upload path (otherwise an anonymous package reloaded after a
+            // restart fails with "no API key / username"). A positive id that simply wasn't
+            // found (account deleted) stays non-anonymous and fails, which is correct.
+            login ??= new FileHosterLoginDto { FileHosterName = hosterName, IsAnonymous = fileDto.FileHosterLoginId == 0 };
 
             fileHosterLogins[client] = login;
             resolvedLogins[hosterName] = login;
@@ -410,7 +408,13 @@ public class PackageManager
     {
         Package package = new(options);
 
-        package.AddPackageFiles();
+        // Filter (file, hoster) pairs at queue time when the file would exceed the
+        // hoster's declared per-file size cap. Without this, the pipeline's pre-check
+        // would still fail those attempts at runtime — but each one would first show
+        // up as a row in the Uploads grid, transition to Failed, and force the user
+        // to manually clean them up. Surface the registry to AddPackageFiles so the
+        // filter can apply.
+        package.AddPackageFiles(_registry, _logger);
 
         lock (_lock)
         {
@@ -744,17 +748,25 @@ public class PackageManager
 
             // Idempotent: registers the package with the scheduler if it hasn't
             // been added yet (e.g. user clicked Start before a future-scheduled
-            // delay elapsed) and transitions any remaining Idle files.
+            // delay elapsed). FillAvailableSlots — NOT StartAll — so only the files
+            // we just queued above begin; other idle packages/files stay idle.
             _scheduler.AddPackage(package);
-            _scheduler.StartAll();
+            _scheduler.FillAvailableSlots();
         }
         else if (item is PackageFile packageFile)
         {
             packageFile.Package.ScheduledStartTime = null;
-            _scheduler.AddPackage(packageFile.Package);
+
+            // scheduleIdleFiles:false — register the package WITHOUT auto-queuing its other
+            // idle files. If the package wasn't registered yet (e.g. loaded with autostart
+            // off), a plain AddPackage would SchedulePackageFiles → queue every idle file
+            // in the package, so starting one row would start the whole package.
+            _scheduler.AddPackage(packageFile.Package, scheduleIdleFiles: false);
 
             ForceQueueIfStartable(packageFile);
-            _scheduler.StartAll();
+            // FillAvailableSlots so only this file starts — StartAll would requeue every
+            // idle file across all packages (the bug where one row's Start ran everything).
+            _scheduler.FillAvailableSlots();
         }
     }
 
@@ -808,6 +820,9 @@ public class PackageManager
     /// </summary>
     public void ResetPackage(object item)
     {
+        // ResetFile already transitions each file to HashQueued, so we only need to fill
+        // slots — NOT StartAll, which would also requeue every idle/failed file in OTHER
+        // packages (same over-reach bug as the per-row Start).
         if (item is Package package)
         {
             foreach (PackageFile file in package)
@@ -815,14 +830,14 @@ public class PackageManager
                 ResetFile(file);
             }
 
-            _scheduler.AddPackage(package);
-            _scheduler.StartAll();
+            _scheduler.AddPackage(package, scheduleIdleFiles: false);
+            _scheduler.FillAvailableSlots();
         }
         else if (item is PackageFile packageFile)
         {
             ResetFile(packageFile);
-            _scheduler.AddPackage(packageFile.Package);
-            _scheduler.StartAll();
+            _scheduler.AddPackage(packageFile.Package, scheduleIdleFiles: false);
+            _scheduler.FillAvailableSlots();
         }
     }
 

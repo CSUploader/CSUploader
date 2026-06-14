@@ -105,6 +105,15 @@ public static class FirstRun
             // API key for key-based REST APIs (Ex-Load). Either supplied directly by the
             // user, OR auto-derived from a username/password sign-in plus a my_account scrape.
             ("FileHosterLogin", "ApiKey", "ALTER TABLE FileHosterLogin ADD COLUMN ApiKey TEXT"),
+            // Storage quota tracking. Populated by pipelines whose API exposes usage stats
+            // (FileBoom's /v1/users/me/statistic). Nullable so non-quota-aware hosters
+            // carry NULL.
+            ("FileHosterLogin", "StorageUsedBytes", "ALTER TABLE FileHosterLogin ADD COLUMN StorageUsedBytes INTEGER"),
+            ("FileHosterLogin", "StorageQuotaBytes", "ALTER TABLE FileHosterLogin ADD COLUMN StorageQuotaBytes INTEGER"),
+            // Wall-clock of the last verifier round-trip (success OR failure). Drives the
+            // Account Manager's "Refreshed at" column. TEXT (ISO-8601) matches the existing
+            // DateTime column convention on this table (SessionCookieExpiresUtc).
+            ("FileHosterLogin", "LastRefreshedDateTime", "ALTER TABLE FileHosterLogin ADD COLUMN LastRefreshedDateTime TEXT"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)
@@ -122,6 +131,44 @@ public static class FirstRun
             catch (Exception ex)
             {
                 logger.Log(null, LogType.Error, $"Schema migration failed for {table}.{column}: {ex.Message}");
+            }
+        }
+
+        // Data migrations — rename persisted hoster identities when a display name changes.
+        // "ExLoad" → "Ex-Load" (2026-06-10). Idempotent: UPDATE … WHERE name = old affects
+        // zero rows on subsequent startups, so it's safe to run every launch. Covers the
+        // account row (FileHosterLogin) and any upload history (UploadPackageFile) so the
+        // renamed hoster still resolves through the registry and shows the new name.
+        (string Table, string Column, string OldValue, string NewValue)[] renames =
+        [
+            ("FileHosterLogin", "FileHosterName", "ExLoad", "Ex-Load"),
+            ("UploadPackageFile", "FileHosterName", "ExLoad", "Ex-Load"),
+            ("UploadPackageFile", "FileHoster", "ExLoad", "Ex-Load"),
+        ];
+
+        foreach ((string table, string column, string oldValue, string newValue) in renames)
+        {
+            if (!ColumnExists(ctx, table, column))
+            {
+                continue;
+            }
+
+            try
+            {
+                // Table/column come from the hard-coded `renames` array, not user input;
+                // the VALUES are passed as parameters ({0}/{1}) so they're injection-safe.
+#pragma warning disable EF1002
+                int affected = ctx.Database.ExecuteSqlRaw(
+                    $"UPDATE {table} SET {column} = {{0}} WHERE {column} = {{1}}", newValue, oldValue);
+#pragma warning restore EF1002
+                if (affected > 0)
+                {
+                    logger.Log(null, LogType.Status, $"Data migration: renamed {affected} {table}.{column} '{oldValue}' → '{newValue}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Log(null, LogType.Error, $"Data migration failed for {table}.{column}: {ex.Message}");
             }
         }
 

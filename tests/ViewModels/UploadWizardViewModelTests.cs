@@ -333,6 +333,42 @@ public class UploadWizardViewModelTests : IDisposable
         new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
 
     [Fact]
+    public void RemoveSelectedFiles_DropsSelectedRows_LeavesUnselected()
+    {
+        // Mirror what the XAML wires up: pass an IList of FileEntry (DataGrid.SelectedItems
+        // is a non-generic IList in WPF). After Remove, the Files collection must contain
+        // only the entries the user DIDN'T have selected in the grid.
+        UploadWizardViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        FileEntry a = new() { FullPath = "a.bin", FileName = "a.bin", Size = 10, IsSelected = true };
+        FileEntry b = new() { FullPath = "b.bin", FileName = "b.bin", Size = 20, IsSelected = true };
+        FileEntry c = new() { FullPath = "c.bin", FileName = "c.bin", Size = 30, IsSelected = true };
+        vm.Files.Add(a);
+        vm.Files.Add(b);
+        vm.Files.Add(c);
+
+        // Grid selects a + c only.
+        System.Collections.IList selected = new System.Collections.ArrayList { a, c };
+        vm.RemoveSelectedFilesCommand.Execute(selected);
+
+        FileEntry only = Assert.Single(vm.Files);
+        Assert.Same(b, only);
+    }
+
+    [Fact]
+    public void RemoveSelectedFiles_NullOrEmptySelection_IsNoOp()
+    {
+        UploadWizardViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 10 });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 20 });
+
+        vm.RemoveSelectedFilesCommand.Execute(null);
+        Assert.Equal(2, vm.Files.Count);
+
+        vm.RemoveSelectedFilesCommand.Execute(new System.Collections.ArrayList());
+        Assert.Equal(2, vm.Files.Count);
+    }
+
+    [Fact]
     public void HosterValidation_OversizedFile_ListsFilenameAndDoesNotBlockNext()
     {
         DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
@@ -402,6 +438,173 @@ public class UploadWizardViewModelTests : IDisposable
         brupload.Use = true;
 
         Assert.Contains(vm.HosterValidationWarnings, w => w.Contains("31", StringComparison.Ordinal) && w.Contains("30", StringComparison.Ordinal));
+    }
+
+    // ── Summary step (CurrentStep == 2) ──
+
+    [Fact]
+    public void Summary_PopulatesOnStep2Transition_AndIncludesAcceptingHoster()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "testuser" }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 2048, IsSelected = true });
+
+        brupload.Use = true;
+
+        // Summary is empty before entering step 2 — it's lazy-populated.
+        Assert.Empty(vm.Summaries);
+
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.Equal("BRupload", entry.HosterName);
+        Assert.Equal("testuser", entry.AccountUsername);
+        Assert.Equal(2, entry.FileCount);
+        // TotalSize sums Files[].Size — surfaces in the expander header alongside count.
+        Assert.Equal(1024 + 2048, entry.TotalSize);
+        // MaxFileSize flows through from the pipeline so the header can render the cap.
+        Assert.Equal(1L * 1024 * 1024 * 1024, entry.MaxFileSize);
+        Assert.Empty(vm.OrphanFiles);
+        Assert.False(vm.HasOrphanFiles);
+    }
+
+    [Fact]
+    public void Summary_HosterWithAllFilesOversize_IsOmittedAndFilesBecomeOrphans()
+    {
+        // BRupload's MaxFileSize is 1 GiB; we feed two 2 GiB files. Hoster has 0 eligible
+        // files, so it must NOT appear in Summaries and both files become orphans.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "big1.iso", FileName = "big1.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "big2.iso", FileName = "big2.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.Empty(vm.Summaries);
+        Assert.Equal(2, vm.OrphanFilesCount);
+        Assert.True(vm.HasOrphanFiles);
+    }
+
+    [Fact]
+    public void Summary_HosterWithSomeOversizeFiles_OmitsThemFromItsFileList()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "ok.bin", FileName = "ok.bin", Size = 1024, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "huge.bin", FileName = "huge.bin", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        FileEntry only = Assert.Single(entry.Files);
+        Assert.Equal("ok.bin", only.FileName);
+        // huge.bin had nowhere to go — it's an orphan even though BRupload appeared.
+        FileEntry orphan = Assert.Single(vm.OrphanFiles);
+        Assert.Equal("huge.bin", orphan.FileName);
+    }
+
+    [Fact]
+    public void Summary_HosterCountLimit_TruncatesFileListToTheCap()
+    {
+        // BRupload's MaxFilesPerPackage is 30; feed 32 selected files. The summary should
+        // list the first 30, and the remaining 2 should be orphans (no other hoster can
+        // pick them up in this fixture).
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        for (int i = 0; i < 32; i++)
+        {
+            vm.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
+        }
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.Equal(30, entry.FileCount);
+        Assert.Equal(2, vm.OrphanFilesCount);
+    }
+
+    [Fact]
+    public void Summary_DisabledAccount_OmitsHosterEntirely()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterLoginDto disabledAccount = new() { Id = 1, FileHosterName = "BRupload", Username = "u", Disabled = true };
+        FileHosterSelectionViewModel brupload = new("BRupload", [disabledAccount]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.Empty(vm.Summaries);
+        Assert.Single(vm.OrphanFiles);
+    }
+
+    [Fact]
+    public void Summary_FailedAccount_OmitsHosterEntirely()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterLoginDto failedAccount = new() { Id = 1, FileHosterName = "BRupload", Username = "u" };
+        failedAccount.SetCheckStatus(AccountCheckStatus.Failed, "Auth failed");
+        FileHosterSelectionViewModel brupload = new("BRupload", [failedAccount]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.Empty(vm.Summaries);
+        Assert.Single(vm.OrphanFiles);
+    }
+
+    [Fact]
+    public void Summary_CanGoNext_OnStep2_AlwaysTrue()
+    {
+        // Step 2 is the summary; we always allow Next even with orphans — the user
+        // accepts the partial coverage and the orphans simply don't upload.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "big.iso", FileName = "big.iso", Size = 5L * 1024 * 1024 * 1024, IsSelected = true });
+
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.True(vm.HasOrphanFiles);
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void IsLastStep_OnSummary_IsFalse_OnStartStep_IsTrue()
+    {
+        UploadWizardViewModel vm = CreateVm(Mock.Of<IDialogService>());
+
+        vm.CurrentStep = 2;
+        Assert.False(vm.IsLastStep);
+
+        vm.CurrentStep = 3;
+        Assert.True(vm.IsLastStep);
     }
 
     private static AttemptRunner BuildAttemptRunner()

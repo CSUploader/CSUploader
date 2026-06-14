@@ -74,15 +74,14 @@ public class XFileSharingChunkedHelpersTests
     [Fact]
     public void TryDeriveChunkedEndpoints_NonHttpAbsoluteUrl_StillDerives()
     {
-        // Deliberately permissive on the scheme — we don't filter ftp:// etc. because
+        // Deliberately permissive on the scheme — we don't filter ftp:// etc. because10
         // the actual HttpClient POST would fail unambiguously if a hoster ever returns
         // a non-http scheme. Silent fallback to classic in that case is fine; this just
         // documents that we don't pre-filter at the URL-derivation layer.
-        bool ok = XFileSharingApiPipeline.TryDeriveChunkedEndpoints(
-            "ftp://example/cgi-bin/upload.cgi", out string up, out string api);
+        bool ok = XFileSharingApiPipeline.TryDeriveChunkedEndpoints("ftp://example/cgi-bin/upload.cgi", out string up, out string api);
         Assert.True(ok);
-        Assert.EndsWith("/cgi-bin/up.cgi", up);
-        Assert.EndsWith("/cgi-bin/api.cgi", api);
+        Assert.EndsWith("/cgi-bin/up.cgi", up, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("/cgi-bin/api.cgi", api, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- ChunkResponseIsOk ----
@@ -92,20 +91,16 @@ public class XFileSharingChunkedHelpersTests
     [InlineData("<OK>\n")]
     [InlineData("  <OK>  ")]
     [InlineData("<OK>extra noise")]   // accept the prefix — server sometimes appends a newline-separated detail
-    public void ChunkResponseIsOk_AcceptsExpectedShapes(string body)
-    {
+    public void ChunkResponseIsOk_AcceptsExpectedShapes(string body) =>
         Assert.True(XFileSharingApiPipeline.ChunkResponseIsOk(body));
-    }
 
     [Theory]
     [InlineData("")]
     [InlineData("FAIL")]
     [InlineData("<Error>...")]
     [InlineData("OK")]                // no angle brackets — not the protocol shape
-    public void ChunkResponseIsOk_RejectsOtherBodies(string body)
-    {
+    public void ChunkResponseIsOk_RejectsOtherBodies(string body) =>
         Assert.False(XFileSharingApiPipeline.ChunkResponseIsOk(body));
-    }
 
     // ---- ParseFinalizeFileCode ----
 
@@ -123,10 +118,8 @@ public class XFileSharingChunkedHelpersTests
     }
 
     [Fact]
-    public void ParseFinalizeFileCode_ToleratesWhitespaceInsideCodeElement()
-    {
+    public void ParseFinalizeFileCode_ToleratesWhitespaceInsideCodeElement() =>
         Assert.Equal("abc123", XFileSharingApiPipeline.ParseFinalizeFileCode("<Code>  abc123  </Code>"));
-    }
 
     [Fact]
     public void ParseFinalizeFileCode_NoCodeElement_ReturnsNull()

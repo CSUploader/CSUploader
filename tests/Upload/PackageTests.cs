@@ -7,6 +7,7 @@ using System.IO;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
 using CSUploader.Upload;
 using Moq;
 
@@ -81,6 +82,188 @@ public class PackageTests
         package.AddPackageFiles();
 
         Assert.Empty(package);
+    }
+
+    [Fact]
+    public void AddPackageFiles_RegistryWithMaxFileSize_SkipsOversizePairs()
+    {
+        // Two hosters in the cross-product:
+        //   * "Tiny"  — pipeline says MaxFileSize=0 (every byte exceeds it),
+        //   * "Big"   — pipeline says null MaxFileSize (no cap).
+        // The file is 5 bytes on disk. The user's complaint was that 38 (file, ExtMatrix)
+        // pairs were getting queued just to fail at the pipeline's pre-check; this test
+        // proves the filter now drops the (file, Tiny) pair at queue time while keeping
+        // (file, Big) intact.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-filtertest-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(temp, "hello");
+        try
+        {
+            FileHosterClient tiny = new("Rapidgator", Protocol.Http);  // any registered name; pipeline below maps "Tiny"
+            FileHosterClient big = new("BRupload", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new()
+                {
+                    { tiny, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                    { big,  new FileHosterLoginDto { FileHosterName = "BRupload"   } },
+                },
+            };
+            Package package = new(options);
+
+            StubRegistry registry = new(new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Rapidgator"] = 0,    // any non-empty file is over the cap → filtered out
+                ["BRupload"]   = null, // no cap declared → kept
+            });
+            Mock<IAppLogger> logger = new();
+
+            package.AddPackageFiles(registry, logger.Object);
+
+            // Only one PackageFile survives — the (file, BRupload) pair.
+            PackageFile only = Assert.Single(package);
+            Assert.Equal("BRupload", only.FileHoster.Name);
+
+            // And the skip was logged at Status level so it's traceable in the Logs tab.
+            logger.Verify(
+                l => l.Log(
+                    package,
+                    LogType.Status,
+                    It.Is<string>(s => s.Contains("Skipping queueing", StringComparison.Ordinal)
+                                       && s.Contains("Rapidgator", StringComparison.Ordinal)),
+                    It.IsAny<HttpTransaction?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>()),
+                Times.Once);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
+    public void AddPackageFiles_AccountAtQuota_SkipsFile()
+    {
+        // The (file, hoster) pair is skipped when the account's persisted storage usage
+        // (StorageUsedBytes + StorageQuotaBytes on the DTO) would be exceeded by the new
+        // file. Mirrors the per-file-size filter just above this test — the wizard now
+        // doesn't queue work that would obviously fail at the hoster.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-quota-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(temp, "hello world!"); // 12 bytes
+        try
+        {
+            FileHosterClient full = new("Rapidgator", Protocol.Http); // 11 of 20 bytes used → 12-byte file overflows
+            FileHosterClient room = new("BRupload", Protocol.Http);   // 0 of 100 bytes used → fits
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new()
+                {
+                    {
+                        full,
+                        new FileHosterLoginDto { FileHosterName = "Rapidgator", StorageUsedBytes = 11L, StorageQuotaBytes = 20L }
+                    },
+                    {
+                        room,
+                        new FileHosterLoginDto { FileHosterName = "BRupload", StorageUsedBytes = 0L, StorageQuotaBytes = 100L }
+                    },
+                },
+            };
+            Package package = new(options);
+
+            // No MaxFileSize cap on either hoster — only the quota filter should fire.
+            StubRegistry registry = new(new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Rapidgator"] = null,
+                ["BRupload"] = null,
+            });
+            Mock<IAppLogger> logger = new();
+
+            package.AddPackageFiles(registry, logger.Object);
+
+            PackageFile only = Assert.Single(package);
+            Assert.Equal("BRupload", only.FileHoster.Name);
+
+            // And the skip is logged with a "quota" hint so a user reading the Logs
+            // tab can tell quota-skip apart from size-skip.
+            logger.Verify(
+                l => l.Log(
+                    package,
+                    LogType.Status,
+                    It.Is<string>(s => s.Contains("Skipping queueing", StringComparison.Ordinal)
+                                       && s.Contains("Rapidgator", StringComparison.Ordinal)
+                                       && s.Contains("quota", StringComparison.OrdinalIgnoreCase)),
+                    It.IsAny<HttpTransaction?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>()),
+                Times.Once);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
+    public void AddPackageFiles_NoRegistryArg_BehavesLikeBefore()
+    {
+        // Parameterless call must still create the full cross-product — guarantees existing
+        // tests / callers that don't know about the filter aren't quietly broken.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-noarg-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(temp, "x");
+        try
+        {
+            FileHosterClient a = new("Rapidgator", Protocol.Http);
+            FileHosterClient b = new("BRupload", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new()
+                {
+                    { a, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                    { b, new FileHosterLoginDto { FileHosterName = "BRupload"   } },
+                },
+            };
+            Package package = new(options);
+
+            package.AddPackageFiles();  // legacy parameterless
+
+            Assert.Equal(2, package.Count());
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    /// <summary>Tiny IFileHosterRegistry stub backed by a name-to-cap map; the only
+    /// pipeline surface the filter consults is <c>MaxFileSize</c>.</summary>
+    private sealed class StubRegistry(Dictionary<string, long?> capsByName) : CSUploader.Upload.Pipeline.IFileHosterRegistry
+    {
+        public CSUploader.Upload.Pipeline.IFileHosterPipeline? Find(string hosterName)
+            => capsByName.TryGetValue(hosterName, out long? cap)
+                ? new StubPipeline(hosterName, cap)
+                : null;
+
+        private sealed class StubPipeline(string name, long? maxFileSize) : CSUploader.Upload.Pipeline.IFileHosterPipeline
+        {
+            public string Name => name;
+            public bool RequiresHashingBeforeUpload => false;
+            public bool RequiresHashingAfterUpload => false;
+            public long? MaxFileSize => maxFileSize;
+            public int? MaxFilesPerPackage => null;
+            public IAsyncEnumerable<CSUploader.Upload.Pipeline.UploadEvent> RunAsync(CSUploader.Upload.Pipeline.AttemptContext ctx, CancellationToken ct) => throw new NotImplementedException();
+            public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, CSUploader.Lib.Net.Http.HttpHandler handler, ProxyChoice proxy, CancellationToken ct) => throw new NotImplementedException();
+        }
     }
 
     [Fact]
@@ -226,8 +409,5 @@ public class PackageTests
     [InlineData(new string?[] { @"C:\X\Y", null }, @"C:\X\Y")]
     [InlineData(new string?[] { null, null }, null)]
     [InlineData(new string?[] { }, null)]
-    public void LongestCommonDirectory_Cases(string?[] inputs, string? expected)
-    {
-        Assert.Equal(expected, Package.LongestCommonDirectory(inputs));
-    }
+    public void LongestCommonDirectory_Cases(string?[] inputs, string? expected) => Assert.Equal(expected, Package.LongestCommonDirectory(inputs));
 }

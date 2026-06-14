@@ -42,11 +42,12 @@
     <BitmapImage x:Key="FileHosterExloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_exload.png" />
     <BitmapImage x:Key="FileHosterExtmatrixImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_extmatrix.png" />
     <BitmapImage x:Key="FileHosterFileboomImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_fileboom.png" />
-    <BitmapImage x:Key="FileHosterFilecloudImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_filecloud.png" />
-    <BitmapImage x:Key="FileHosterFilesmonsterImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_filesmonster.png" />
     <BitmapImage x:Key="FileHosterFlashbitImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_flashbit.png" />
     <BitmapImage x:Key="FileHosterGigapetaImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_gigapeta.png" />
+    <BitmapImage x:Key="FileHosterHexloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hexload.png" />
     <BitmapImage x:Key="FileHosterHitfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hitfile.png" />
+    <BitmapImage x:Key="FileHosterHotlinkImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hotlink.png" />
+    <BitmapImage x:Key="FileHosterHxfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hxfile.png" />
     <BitmapImage x:Key="FileHosterIcerboxImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_icerbox.png" />
     <BitmapImage x:Key="FileHosterIsracloudImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_isracloud.png" />
     <BitmapImage x:Key="FileHosterKatfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_katfile.png" />

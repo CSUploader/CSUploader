@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Windows;
+using System.Windows.Threading;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using Microsoft.Web.WebView2.Core;
@@ -51,22 +52,41 @@ public partial class WebViewLoginWindow : Window
     private readonly string _loginUrl;
     private readonly string _cookieDomain;
     private readonly string _cookieName;
+    private readonly string? _usernameCookieName;
+    private readonly Func<string, bool>? _cookieValueValidator;
+    private readonly IReadOnlyList<string>? _additionalCookieNames;
     private readonly ProxyChoice? _proxy;
     private readonly ProxyCredentials? _proxyCredentials;
     private bool _initialized;
+    private bool _completed;
+    private DispatcherTimer? _pollTimer;
+
+    /// <summary>How often the cookie poll fires. The XFileSharing-family hosters complete
+    /// sign-in via a full POST→302 round-trip so <see cref="CoreWebView2.NavigationCompleted"/>
+    /// already catches the cookie within a couple of seconds — the poll is just a safety
+    /// net there. FileBoom and other SPA-shaped hosters log in via XHR + history.pushState
+    /// (no NavigationCompleted fires), so the poll is the ONLY signal we get. 1 s strikes a
+    /// reasonable balance between perceived UI latency and cookie-store read pressure.</summary>
+    private static readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(1);
 
     public WebViewLoginWindow(
         string hosterName,
         string loginUrl,
         string cookieDomain,
         string cookieName,
+        string? usernameCookieName = null,
         ProxyChoice? proxy = null,
-        ProxyCredentials? proxyCredentials = null)
+        ProxyCredentials? proxyCredentials = null,
+        Func<string, bool>? cookieValueValidator = null,
+        IReadOnlyList<string>? additionalCookieNames = null)
     {
         _hosterName = hosterName;
         _loginUrl = loginUrl;
         _cookieDomain = cookieDomain;
         _cookieName = cookieName;
+        _usernameCookieName = usernameCookieName;
+        _cookieValueValidator = cookieValueValidator;
+        _additionalCookieNames = additionalCookieNames;
         _proxy = proxy;
         _proxyCredentials = proxyCredentials;
 
@@ -87,6 +107,23 @@ public partial class WebViewLoginWindow : Window
     /// completed. Set immediately before <see cref="Window.DialogResult"/> flips to true.
     /// </summary>
     public string? CapturedCookieValue { get; private set; }
+
+    /// <summary>
+    /// Value of the captured identity cookie (the one named by the optional
+    /// <c>usernameCookieName</c> ctor parameter), or null when the spec didn't request
+    /// one or the cookie wasn't present in the WebView2 cookie jar. Set in the same
+    /// NavigationCompleted pass as <see cref="CapturedCookieValue"/>.
+    /// </summary>
+    public string? CapturedUsernameCookieValue { get; private set; }
+
+    /// <summary>
+    /// Name→value map of the supplementary cookies named by <c>additionalCookieNames</c>
+    /// (e.g. FileBoom's <c>pcId</c>), populated alongside <see cref="CapturedCookieValue"/>
+    /// during the NavigationCompleted that closes the window. Null when the ctor didn't
+    /// request any. Missing names (cookie absent from the jar) are simply not present in
+    /// the map.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? CapturedAdditionalCookies { get; private set; }
 
     private async void WebViewLoginWindow_Loaded(object sender, RoutedEventArgs e)
     {
@@ -121,6 +158,14 @@ public partial class WebViewLoginWindow : Window
 
             WebView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
             WebView.CoreWebView2.SourceChanged += CoreWebView2_SourceChanged;
+
+            // Cookie poll loop. Fires alongside NavigationCompleted because SPA-shaped
+            // hosters (FileBoom and friends) log in via XHR with no full-page navigation —
+            // their post-login cookie update is invisible to the navigation event. Polling
+            // catches it within _pollInterval. Idempotent via _completed.
+            _pollTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = _pollInterval };
+            _pollTimer.Tick += async (_, _) => await TryCaptureCookiesAsync();
+            _pollTimer.Start();
 
             // Wire proxy authentication. The 407 challenge from the proxy fires
             // BasicAuthenticationRequested; we answer with the proxy's credentials so
@@ -181,8 +226,17 @@ public partial class WebViewLoginWindow : Window
     }
 
     private async void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        => await TryCaptureCookiesAsync();
+
+    /// <summary>
+    /// Reads the cookie jar, applies the validator, and closes the window with the
+    /// captured value on first match. Called from BOTH <see cref="CoreWebView2.NavigationCompleted"/>
+    /// and the cookie poll timer; the <see cref="_completed"/> guard ensures only the first
+    /// caller flips <see cref="Window.DialogResult"/>.
+    /// </summary>
+    private async Task TryCaptureCookiesAsync()
     {
-        if (WebView.CoreWebView2 is null)
+        if (_completed || WebView.CoreWebView2 is null)
         {
             return;
         }
@@ -192,16 +246,41 @@ public partial class WebViewLoginWindow : Window
             // Cookies are scoped per origin; ask for the cookies the host can see. The
             // CookieManager returns ALL cookies that would be sent on a request to this URL,
             // so subdomain cookies (set on `.ex-load.com`) and host-only cookies both appear.
+            // Critically, HttpOnly cookies (FileBoom's accessToken) are included — the
+            // HttpOnly flag is a document.cookie restriction, not a CookieManager one.
             System.Collections.Generic.IReadOnlyList<CoreWebView2Cookie> cookies =
                 await WebView.CoreWebView2.CookieManager.GetCookiesAsync(_loginUrl);
 
             CoreWebView2Cookie? sessionCookie = null;
+            CoreWebView2Cookie? usernameCookie = null;
+            Dictionary<string, string>? additionalCookies = null;
             foreach (CoreWebView2Cookie c in cookies)
             {
-                if (string.Equals(c.Name, _cookieName, StringComparison.Ordinal) && !string.IsNullOrEmpty(c.Value))
+                if (string.IsNullOrEmpty(c.Value))
+                {
+                    continue;
+                }
+                if (sessionCookie is null && string.Equals(c.Name, _cookieName, StringComparison.Ordinal))
                 {
                     sessionCookie = c;
-                    break;
+                }
+                else if (_usernameCookieName is not null
+                    && usernameCookie is null
+                    && string.Equals(c.Name, _usernameCookieName, StringComparison.Ordinal))
+                {
+                    usernameCookie = c;
+                }
+                else if (_additionalCookieNames is not null)
+                {
+                    foreach (string name in _additionalCookieNames)
+                    {
+                        if (string.Equals(c.Name, name, StringComparison.Ordinal))
+                        {
+                            additionalCookies ??= new(StringComparer.Ordinal);
+                            additionalCookies.TryAdd(c.Name, c.Value);
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -210,14 +289,36 @@ public partial class WebViewLoginWindow : Window
                 return;
             }
 
+            // Validator opt-in: when set, only close the window if the captured cookie
+            // value passes the predicate. Used by hosters whose session cookie is also
+            // set in a pre-login bootstrap state (FileBoom issues a client-scoped JWT on
+            // first page load and re-issues it user-scoped after password validation —
+            // closing on the first sighting would hand back the wrong token).
+            if (_cookieValueValidator is not null && !_cookieValueValidator(sessionCookie.Value))
+            {
+                return;
+            }
+
+            if (_completed)
+            {
+                // Lost the race against another caller — bail without re-flipping
+                // DialogResult (which throws once the window has started closing).
+                return;
+            }
+            _completed = true;
+            _pollTimer?.Stop();
+
             CapturedCookieValue = sessionCookie.Value;
+            CapturedUsernameCookieValue = usernameCookie?.Value;
+            CapturedAdditionalCookies = additionalCookies;
             DialogResult = true;
             Close();
         }
         catch (Exception ex)
         {
             // Don't tear down the window on a transient cookie-read failure — the next
-            // navigation will retry. Just surface the diagnostic in the status strip.
+            // navigation or poll tick will retry. Just surface the diagnostic in the
+            // status strip.
             StatusText.Text = string.Format(
                 CultureInfo.CurrentCulture,
                 Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"],
@@ -233,6 +334,10 @@ public partial class WebViewLoginWindow : Window
 
     private void WebViewLoginWindow_Closed(object? sender, EventArgs e)
     {
+        // Stop the poll first so no more ticks fire after handlers are detached.
+        _pollTimer?.Stop();
+        _pollTimer = null;
+
         // Detach handlers and dispose the WebView so the user-data folder lock is released —
         // otherwise the same hoster's user-data folder stays locked until process exit and
         // a re-open of this window from the same process fails with "the data directory is

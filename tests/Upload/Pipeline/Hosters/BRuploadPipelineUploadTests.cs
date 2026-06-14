@@ -8,6 +8,7 @@ using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.Upload.Pipeline.Hosters;
 using Moq;
@@ -307,6 +308,103 @@ public class BRuploadPipelineUploadTests
         BRuploadPipeline pipeline = new();
         Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize);
         Assert.Equal(30, pipeline.MaxFilesPerPackage);
+    }
+
+    [Fact]
+    public void TryParseStorageFromHtml_CapturedLivePage_ExtractsUsedAndTotalAsDecimalBytes()
+    {
+        // Captured verbatim from /?op=my_files on the live www.brupload.net page
+        // (Portuguese template, only locale BRupload publishes). 0.74 of 100 GB.
+        string html = """
+            <div class="UserHead"><span>&#9776;</span>
+                Balanço:
+                <strong>R$0</strong>,
+
+                Espaço utilizado:
+                <strong>0.74 de 100 GB</strong>,
+
+                Trafego disponível hoje:
+                <strong>4096 Mb</strong>
+            </div>
+            """;
+
+        (long? used, long? total) = BRuploadPipeline.TryParseStorageFromHtml(html);
+
+        // Decimal-base: BRupload's "100 GB" pricing-page wording is treated as 100 × 10^9,
+        // so a user comparing the grid to the BRupload UI sees matching numbers.
+        Assert.Equal(740_000_000L, used);
+        Assert.Equal(100_000_000_000L, total);
+    }
+
+    [Fact]
+    public void TryParseStorageFromHtml_MissingPattern_ReturnsNulls()
+    {
+        // A page that doesn't contain "utilizado: <strong>X de Y UNIT</strong>" (e.g.
+        // BRupload swaps templates, or we got an error page back) must NOT throw and must
+        // surface nulls so CheckAccountAsync renders blank Used/Available cells.
+        Assert.Equal((null, null), BRuploadPipeline.TryParseStorageFromHtml("<html>logout please</html>"));
+        Assert.Equal((null, null), BRuploadPipeline.TryParseStorageFromHtml(string.Empty));
+        Assert.Equal((null, null), BRuploadPipeline.TryParseStorageFromHtml("utilizado: <strong>NotANumber de NotANumber GB</strong>"));
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_SuccessfulLogin_SurfacesStorageFromMyFilesPage()
+    {
+        // The CheckAccountAsync flow: GET login.html → POST / → GET /?op=my_files.
+        // Verifies the third request is wired up and its scraped values flow through to
+        // AccountCheckResult.StorageUsedBytes / StorageQuotaBytes.
+        const string MyFilesHtml = """
+            <html><body><div class="UserHead">
+                Espaço utilizado:
+                <strong>3.21 de 100 GB</strong>,
+            </div></body></html>
+            """;
+        Queue<string> gets = new(new[] { LoginHtml, MyFilesHtml });
+        Queue<HttpResponseSnapshot> postForms = new(new[]
+        {
+            new HttpResponseSnapshot(302, string.Empty, new[] { "xfss=goodSession; Path=/" }),
+        });
+
+        BRuploadPipeline pipeline = new(
+            getOverride: _ => gets.Dequeue(),
+            postFormOverride: (_, _) => postForms.Dequeue(),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("CheckAccountAsync must not run an upload"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user", "pass", apiKey: null,
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(3_210_000_000L, result.StorageUsedBytes);
+        Assert.Equal(100_000_000_000L, result.StorageQuotaBytes);
+        Assert.Empty(gets); // login.html + my_files both consumed
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_MyFilesScrapeFails_StillReturnsValidWithoutStorage()
+    {
+        // Storage scrape is opportunistic — a 5xx / wrong HTML / empty body on the
+        // my_files page must NOT fail the verification. Grid shows blank Used/Available.
+        Queue<string> gets = new(new[] { LoginHtml, "<html>maintenance</html>" });
+        Queue<HttpResponseSnapshot> postForms = new(new[]
+        {
+            new HttpResponseSnapshot(302, string.Empty, new[] { "xfss=goodSession; Path=/" }),
+        });
+
+        BRuploadPipeline pipeline = new(
+            getOverride: _ => gets.Dequeue(),
+            postFormOverride: (_, _) => postForms.Dequeue(),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("CheckAccountAsync must not run an upload"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user", "pass", apiKey: null,
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
     }
 
     private static AttemptContext MakeContextWithSize(long size) => new()

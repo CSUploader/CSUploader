@@ -68,12 +68,46 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// <summary>Override for hosters whose login page lives at a non-standard path.</summary>
     protected virtual string LoginPagePath => "/login.html";
 
+    /// <summary>
+    /// Declares which XFileSharing upload protocol the hoster speaks. Defaults to the
+    /// classic single-multipart POST to <c>upload.cgi</c>; override to <c>true</c> on
+    /// subclasses that use the modern chunked protocol (per-chunk POST to <c>up.cgi</c>
+    /// + finalize via <c>api.cgi</c>, like hxfile.co's CDN frontend). NO auto-probe /
+    /// fallback — if the declaration is wrong the upload fails fast (no wasted bytes
+    /// on the wrong endpoint), and the fix is a one-line override here once a Fiddler
+    /// trace of the live web UI confirms which protocol the hoster actually expects.
+    /// </summary>
+    protected virtual bool UsesChunkedUpload => false;
+
+    /// <summary>
+    /// Whether the hoster accepts anonymous (not-logged-in) uploads via its web upload form.
+    /// Defaults to false; subclasses override to true once verified (currently Hexload, whose
+    /// homepage renders an <c>id="uploadfile"</c> form posting to a per-session
+    /// <c>…/cgi-bin/upload.cgi?…&amp;utype=anon</c> server with an empty <c>sess_id</c>). When
+    /// true and the attempt's credentials are anonymous, <see cref="RunAsync"/> routes to the
+    /// no-auth web-form path (<see cref="RunAnonymousAsync"/>) instead of the API-key flow.
+    /// Surfaced on the interface so the upload wizard can offer an Anonymous option alongside
+    /// any saved accounts.
+    /// </summary>
+    public virtual bool SupportsAnonymousUpload => false;
+
     /// <summary>Maximum file size — defaults to the standard 1 GiB free-tier cap. Override
     /// for hosters with different free-tier limits.</summary>
     public virtual long? MaxFileSize => 1L * 1024 * 1024 * 1024;
 
-    /// <summary>Files per upload session — defaults to the standard XFileSharing 30.</summary>
-    public virtual int? MaxFilesPerPackage => 30;
+    /// <summary>
+    /// No per-package count cap. The XFileSharing protocol's documented "30 files per
+    /// session" applies to a single <c>sess_id</c> obtained from
+    /// <c>/api/upload/server</c>, but our upload flow fetches a fresh <c>sess_id</c>
+    /// for every file (each <see cref="RunAsync"/> call handles one file and starts
+    /// with its own <c>GetUploadServerAsync</c> call). So an N-file package against an
+    /// XFS hoster issues N independent sessions and the documented cap never applies.
+    /// Returning <c>null</c> lifts the wizard's per-hoster truncation accordingly.
+    /// </summary>
+    public virtual int? MaxFilesPerPackage => null;
+
+    /// <inheritdoc/>
+    public virtual long? MaxFileSizeFor(FileHosterLoginDto credentials) => MaxFileSize;
 
     /// <inheritdoc/>
     public bool RequiresHashingBeforeUpload => false;
@@ -115,20 +149,32 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         """name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // The API key is rendered in one of three shapes across the XFileSharing family —
-    // we accept all three:
+    // The API key is rendered in one of four shapes across the XFileSharing family —
+    // we accept all four:
     //   1. <input ... name="api-url" value="https://HOST/api/account/info?key=KEY">  (Ex-Load)
     //   2. <input value="...?key=KEY" ... name="api-url" ...>                         (reversed attr order)
     //   3. <span name="api-url">https://HOST/api/account/info?key=KEY</span>          (KatFile — key in text content, not an attribute)
-    // The third branch is the trickiest: anchor on `name="api-url"` followed by the
-    // closing `>` of the element, then read up to the next `<` as the text node, and
-    // pluck `?key=...` out of it. The character class for the key intentionally
-    // excludes whitespace, &, ", ', <, and # so we stop at the first delimiter the
-    // server would have escaped anyway.
+    //   4. <input ... value="https://HOST/api/account/info?key=KEY">                 (Hexload — no name= attribute at all)
+    // Branch 3 is the trickiest: anchor on `name="api-url"` followed by the closing `>`
+    // of the element, then read up to the next `<` as the text node, and pluck `?key=...`
+    // out of it. Branch 4 has no `name` to anchor on, so it anchors on the API-info URL
+    // path (`/api/account/info?key=`) instead — specific enough not to match an unrelated
+    // `?key=` value. The key character class excludes whitespace, &, ", ', <, and # so we
+    // stop at the first delimiter the server would have escaped anyway.
     private static readonly Regex _apiKeyRegex = new(
         """name=["']api-url["'][^>]*?value=["'][^"']*[?&]key=([^"'&]+)["']""" +
         """|value=["'][^"']*[?&]key=([^"'&]+)["'][^>]*?name=["']api-url["']""" +
-        """|name=["']api-url["'][^>]*>[^<]*?[?&]key=([^"'&<\s#]+)""",
+        """|name=["']api-url["'][^>]*>[^<]*?[?&]key=([^"'&<\s#]+)""" +
+        """|value=["'][^"']*/api/account/info\?key=([^"'&]+)["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Anonymous web upload (Hexload, captured 2026-06-13): the homepage renders
+    //   <form id="uploadfile" action="https://<rand>.droply.top/cgi-bin/upload.cgi?upload_type=file&utype=anon">
+    // The action host rotates per page load. Anchor on the upload.cgi action (the only form on
+    // the page posting there) and capture it verbatim — query string included, since it carries
+    // the upload_type/utype the backend expects.
+    private static readonly Regex _anonUploadActionRegex = new(
+        """<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Production ctor — supplied by DI with optional auth + repo.</summary>
@@ -155,12 +201,25 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
-        if (MaxFileSize is long maxBytes && ctx.FileSize > maxBytes)
+        if (MaxFileSizeFor(ctx.Credentials) is long maxBytes && ctx.FileSize > maxBytes)
         {
             yield return new AttemptFailed(
                 $"File exceeds {Name}'s {ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString()} per-file limit "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Binary).ToFriendlyString()})",
                 null);
+            yield break;
+        }
+
+        // === Anonymous (not-logged-in) upload ===
+        // When the hoster supports it and the attempt carries the wizard's anonymous
+        // selection, skip the entire API-key flow and post to the web form's per-session
+        // server. Other hosters / credentialed attempts fall through to the API path below.
+        if (SupportsAnonymousUpload && ctx.Credentials.IsAnonymous)
+        {
+            await foreach (UploadEvent ev in RunAnonymousAsync(ctx, ct))
+            {
+                yield return ev;
+            }
             yield break;
         }
 
@@ -299,6 +358,228 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         }
     }
 
+    /// <summary>
+    /// Anonymous upload path for hosters that set <see cref="SupportsAnonymousUpload"/>. No
+    /// API, no login: GET the web upload form to discover the per-session upload server, POST
+    /// the file exactly as the browser's anonymous form does (empty <c>sess_id</c>,
+    /// <c>utype=anon</c>), then parse the same <c>[{file_code, file_status}]</c> JSON the API
+    /// path returns. Mirrors <see cref="RunAsync"/>'s upload/progress/parse machinery.
+    /// </summary>
+    /// <remarks>
+    /// The homepage hands out a rotating upload server and some assignments resolve to dead CDN
+    /// domains (observed: hexload.com served an unresolvable <c>*.drewimplemnt.top</c> while a
+    /// retry got a live <c>*.droply.top</c>). On a connection/DNS failure — which happens before
+    /// any bytes are sent, so nothing is wasted — we re-fetch a fresh server and retry, bounded
+    /// by <see cref="AnonymousServerAttempts"/>.
+    /// </remarks>
+    private async IAsyncEnumerable<UploadEvent> RunAnonymousAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new TransferStarted(ctx.FileSize);
+
+        System.Net.Http.HttpRequestException? lastUnreachable = null;
+
+        for (int attempt = 0; attempt < AnonymousServerAttempts; attempt++)
+        {
+            (string? uploadUrl, string? discoverError) = await DiscoverAnonymousServerAsync(ctx, ct);
+            if (uploadUrl is null)
+            {
+                yield return new AttemptFailed(discoverError!, null);
+                yield break;
+            }
+
+            // Progress bridge (same pattern as the API path).
+            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
+
+            Task<HttpResponseSnapshot> uploadTask = AnonymousUploadAsync(ctx, uploadUrl);
+
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+            {
+                yield return progressEv;
+            }
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            bool cancelled = false;
+            bool unreachable = false;
+            Exception? exception = null;
+            HttpResponseSnapshot? response = null;
+            try
+            {
+                response = await uploadTask;
+            }
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+            {
+                cancelled = true;
+            }
+            catch (System.Net.Http.HttpRequestException hre) when (IsServerUnreachable(hre))
+            {
+                // The assigned upload server didn't resolve/connect — no bytes were sent, so
+                // grabbing a fresh server and retrying wastes nothing.
+                lastUnreachable = hre;
+                unreachable = true;
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+
+            if (cancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (unreachable)
+            {
+                if (attempt < AnonymousServerAttempts - 1)
+                {
+                    ctx.Logger.Log(this, LogType.Status, $"{Name}: anonymous upload server unreachable ({lastUnreachable!.Message}); retrying with a fresh server.");
+                    continue;
+                }
+
+                yield return new AttemptFailed(
+                    $"{Name}: anonymous upload servers were unreachable after {AnonymousServerAttempts} attempts (last: {lastUnreachable!.Message}). "
+                    + "The hoster rotates upload servers and handed out unresolvable ones — try again.",
+                    lastUnreachable);
+                yield break;
+            }
+
+            if (exception is not null)
+            {
+                yield return new AttemptFailed(exception.Message, exception);
+                yield break;
+            }
+
+            (string? url, string? error, bool _) = ParseUploadResponse(response!);
+            if (url is not null)
+            {
+                yield return new TransferCompleted(url);
+            }
+            else
+            {
+                yield return new AttemptFailed(error ?? $"{Name}: anonymous upload returned no download link", null);
+            }
+
+            yield break;
+        }
+    }
+
+    /// <summary>
+    /// Fresh-server attempts for an anonymous upload before giving up. The homepage rotates the
+    /// assigned upload server and a large share are dead (resolve to 0.0.0.0 / NODATA — observed
+    /// ~half on hexload.com), so each attempt re-fetches a cache-busted homepage for a different
+    /// server. Five tries makes hitting a live one near-certain while wasting nothing — dead
+    /// servers fail at DNS/connect, before any bytes are sent.
+    /// </summary>
+    private const int AnonymousServerAttempts = 5;
+
+    /// <summary>Sent on the homepage GET alongside the cache-buster query — belt-and-suspenders
+    /// against any intermediary that honours request no-cache.</summary>
+    private static readonly Dictionary<string, string> NoCacheHeaders = new(StringComparer.Ordinal)
+    {
+        ["Cache-Control"] = "no-cache",
+        ["Pragma"] = "no-cache",
+    };
+
+    /// <summary>
+    /// GETs the web upload form and scrapes the per-session upload server's <c>action</c> URL
+    /// (the rotating <c>…/cgi-bin/upload.cgi?…</c>). Returns (null, error) when the homepage
+    /// fetch fails or no upload form is present.
+    /// </summary>
+    private async Task<(string? UploadUrl, string? Error)> DiscoverAnonymousServerAsync(AttemptContext ctx, CancellationToken ct)
+    {
+        // Cache-bust the homepage: it's cached per-connection/edge, so a plain re-GET of "/"
+        // hands back the SAME (often dead) upload server — defeating the retry. A unique query
+        // param forces a fresh assignment so each attempt actually tries a different server.
+        string url = $"{Host}/?_={Guid.NewGuid():N}";
+
+        string html;
+        try
+        {
+            html = await GetAsync(ctx, url, NoCacheHeaders, ct);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"{Name}: anonymous upload form fetch failed: {ex.Message}");
+        }
+
+        Match m = _anonUploadActionRegex.Match(html);
+        return m.Success
+            ? (m.Groups[1].Value, null)
+            : (null, $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found on the homepage");
+    }
+
+    /// <summary>
+    /// True when an upload POST failed because the server couldn't be reached at all — DNS
+    /// resolution or TCP connect failed, i.e. before any bytes were sent. Safe to retry against
+    /// a freshly-assigned server. A mid-stream failure (bytes already in flight) is NOT this and
+    /// is surfaced as a normal failure so a partially-uploaded file is never re-sent.
+    /// </summary>
+    private static bool IsServerUnreachable(System.Net.Http.HttpRequestException ex)
+        => ex.HttpRequestError is System.Net.Http.HttpRequestError.NameResolutionError or System.Net.Http.HttpRequestError.ConnectionError
+           || ex.InnerException is System.Net.Sockets.SocketException;
+
+    private Task<HttpResponseSnapshot> AnonymousUploadAsync(AttemptContext ctx, string uploadUrl)
+    {
+        Dictionary<string, string> fields = BuildAnonymousExtraFields();
+        Dictionary<string, string> headers = BrowserAnonymousHeaders();
+
+        if (_uploadOverride is not null)
+        {
+            return _uploadOverride(ctx.FilePath, uploadUrl, fields, headers, ctx.SpeedLimitProvider);
+        }
+
+        return ctx.Handler.UploadMultipartAsync(
+            ctx.FilePath,
+            uploadUrl,
+            fileFieldName: "file_0",
+            extraFields: fields,
+            headers: headers,
+            getBytesPerSecond: ctx.SpeedLimitProvider,
+            cancellationToken: ctx.Cancellation);
+    }
+
+    /// <summary>
+    /// Exact field set the browser posts for an anonymous upload (captured from hexload.com
+    /// 2026-06-13, in this order): <c>utype=anon</c> + an empty <c>sess_id</c> are what
+    /// distinguish it from the logged-in classic POST. The empties must be present — the
+    /// XFileSharing multipart parser is field-presence sensitive (see brupload-multipart-quirks).
+    /// </summary>
+    private static Dictionary<string, string> BuildAnonymousExtraFields() => new(StringComparer.Ordinal)
+    {
+        ["sess_id"] = string.Empty,
+        ["utype"] = "anon",
+        ["mode"] = string.Empty,
+        ["file_public"] = string.Empty,
+        ["link_rcpt"] = string.Empty,
+        ["link_pass"] = string.Empty,
+        ["to_folder"] = string.Empty,
+        ["keepalive"] = "1",
+    };
+
+    /// <summary>
+    /// Headers for the anonymous upload POST. Cross-site (the upload server is a different
+    /// registered domain than the apex — e.g. <c>droply.top</c> for <c>hexload.com</c>), with
+    /// Referer, matching the browser capture. No Cookie: the anonymous POST carries no session.
+    /// </summary>
+    private Dictionary<string, string> BrowserAnonymousHeaders() => new(StringComparer.Ordinal)
+    {
+        ["Origin"] = Host,
+        ["Referer"] = Host + "/",
+        ["Sec-Fetch-Site"] = "cross-site",
+        ["Sec-Fetch-Mode"] = "cors",
+        ["Sec-Fetch-Dest"] = "empty",
+    };
+
     private async Task<(string? ApiKey, bool DidBootstrap, string? Error)> EnsureApiKeyAsync(AttemptContext ctx, CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(ctx.Credentials.ApiKey))
@@ -406,8 +687,10 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
+        // UsernameCookieName: null — XFileSharing-family hosters don't put the identity
+        // in the cookie jar; their /api/account/info endpoint returns the email instead.
         InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
-        string? captured;
+        InteractiveAuthResult? captured;
         try
         {
             captured = await _authService.AcquireSessionCookieAsync(
@@ -421,22 +704,21 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        if (string.IsNullOrEmpty(captured))
+        if (captured is not InteractiveAuthResult result)
         {
             return null;
         }
 
-        ctx.Credentials.SessionCookie = captured;
+        ctx.Credentials.SessionCookie = result.SessionCookieValue;
         ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
         ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
 
         if (_loginRepository is not null)
         {
-            try { await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false); }
-            catch { /* best-effort */ }
+            await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false);
         }
 
-        return captured;
+        return result.SessionCookieValue;
     }
 
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
@@ -457,6 +739,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 ? $"Premium until {e:yyyy-MM-dd}"
                 : "Free account";
 
+            // Storage comes straight from the /api/account/info JSON (storage_used +
+            // storage_left), so the api-key path needs no cookie / HTML scrape. "inf"
+            // storage_left → quota null → grid's Available cell renders blank.
+            (long? apiUsed, long? apiQuota) = ParseStorageFromAccountInfo(info);
+
             return new AccountCheckResult(
                 IsValid: true,
                 AccountType: accountType,
@@ -466,7 +753,9 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 // Surface the email so Settings VM can fill an empty Username column on
                 // API-key-direct accounts (the user pasted a key with no email; the grid
                 // would otherwise show a blank cell).
-                DerivedUsername: info.Email);
+                DerivedUsername: info.Email,
+                StorageUsedBytes: apiUsed,
+                StorageQuotaBytes: apiQuota);
         }
 
         // U/P mode — bootstrap an API key via WebView + my_account scrape.
@@ -475,29 +764,30 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
         }
 
-        string? xfss;
+        InteractiveAuthResult? captured;
         try
         {
+            // UsernameCookieName: null — XFS identity comes from /api/account/info, not a cookie.
             InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
-            xfss = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
+            captured = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
         }
         catch (Exception ex)
         {
             return new AccountCheckResult(false, AccountType.Free, ex.Message);
         }
 
-        if (string.IsNullOrEmpty(xfss))
+        if (captured is not InteractiveAuthResult auth)
         {
             return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
         }
 
-        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(xfss);
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(auth.SessionCookieValue);
         string html;
+        string finalUrl;
+        int hops;
         try
         {
-            html = _getOverride is not null
-                ? await _getOverride(MyAccountUrl, cookieHeader)
-                : await handler.GetStringAsync(MyAccountUrl, cookieHeader, ct);
+            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
         }
         catch (Exception ex)
         {
@@ -511,16 +801,19 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             string? csrf = ExtractCsrfToken(html);
             if (csrf is null)
             {
+                // Surface the redirect trail so a future failure of this shape points
+                // at "we landed somewhere wrong" vs. "the live HTML changed shape".
+                // ex-load.com's 302→login interstitial is the classic case (was caught
+                // by adding the redirect-follow here in the first place).
+                string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
                 return new AccountCheckResult(false, AccountType.Free,
-                    "my_account did not contain an API key OR a CSRF token. The sign-in may not have worked. " + Snippet(html));
+                    $"my_account did not contain an API key OR a CSRF token{trail}. The sign-in may not have worked. " + Snippet(html));
             }
 
             string generateUrl = $"{MyAccountUrl}&generate_api_key=1&token={Uri.EscapeDataString(csrf)}";
             try
             {
-                _ = _getOverride is not null
-                    ? await _getOverride(generateUrl, cookieHeader)
-                    : await handler.GetStringAsync(generateUrl, cookieHeader, ct);
+                _ = await FetchMyAccountAsync(handler, generateUrl, cookieHeader, ct);
             }
             catch (Exception ex)
             {
@@ -529,9 +822,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
             try
             {
-                html = _getOverride is not null
-                    ? await _getOverride(MyAccountUrl, cookieHeader)
-                    : await handler.GetStringAsync(MyAccountUrl, cookieHeader, ct);
+                (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
             }
             catch (Exception ex)
             {
@@ -541,8 +832,9 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             derivedKey = ExtractApiKey(html);
             if (derivedKey is null)
             {
+                string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
                 return new AccountCheckResult(false, AccountType.Free,
-                    "my_account did not contain an api-url input after generate. " + Snippet(html));
+                    $"my_account did not contain an api-url input after generate{trail}. " + Snippet(html));
             }
         }
 
@@ -561,13 +853,27 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 : "Signed in (Free)";
         }
 
+        // Storage comes from the same /api/account/info JSON we already fetched to derive
+        // the key — storage_used + storage_left. "inf" → quota null → Available blank.
+        (long? storageUsed, long? storageQuota) = derivedInfo is null
+            ? (null, null)
+            : ParseStorageFromAccountInfo(derivedInfo);
+
         return new AccountCheckResult(
             IsValid: true,
             AccountType: derivedType,
             Message: derivedMessage,
             PremiumExpiry: derivedInfo is null ? null : ClassifyPremium(derivedInfo).Expiry,
+            // Persist the freshly captured xfss cookie too — RunAsync's upload path reuses
+            // it, and a refresh can reuse it without re-popping the WebView. The base
+            // 7-day expiry matches RunAsync's auth-cache lifetime.
+            SessionCookie: auth.SessionCookieValue,
+            SessionCookieExpiresUtc: DateTime.UtcNow + DefaultCookieLifetime,
+            PinnedProxyId: proxy.Id,
             ApiKey: derivedKey,
-            DerivedUsername: derivedInfo?.Email);
+            DerivedUsername: derivedInfo?.Email,
+            StorageUsedBytes: storageUsed,
+            StorageQuotaBytes: storageQuota);
     }
 
     private async Task<(string? SessId, string? UploadUrl, string? Error, bool AuthExpired)> GetUploadServerAsync(string apiKey, AttemptContext ctx, CancellationToken ct)
@@ -612,30 +918,41 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// Normalises the upload-server URL the API hands us. Specifically: when the API
-    /// returns <c>https://fsNN.HOST/…</c> for a host that <i>differs</i> from our API
-    /// host, downgrade the scheme to <c>http</c>.
+    /// Whether to downgrade an <c>https://</c> upload-server URL (whose host differs from the
+    /// API host) to <c>http</c>. Default <c>false</c> — RESPECT the scheme the API returned.
+    /// Only hosters whose storage subdomain serves a broken cert on :443 (but HTTP/1.1 cleanly
+    /// on :80) opt in by overriding this to <c>true</c>.
     /// </summary>
     /// <remarks>
-    /// XFileSharingPro hosters routinely serve their per-user storage subdomains on
-    /// shared infrastructure that listens on :443 but with a junk certificate. Observed
-    /// in the wild on FlashBit's <c>fs1.flashbit.cc</c>, where :443 presents a
-    /// self-signed cert issued for <c>srv1.pusula.co</c> — TLS handshake fails before
-    /// the first byte of the upload body is written. The same subdomain answers HTTP
-    /// /1.1 on :80 cleanly, and the API key (sess_id, in the request body) is the only
-    /// credential in play — there's no cookie or auth header riding the transport that
-    /// TLS would protect. Ex-Load already returns <c>http://fs40.ex-load.com/…</c>
-    /// directly, and that's the spec-correct shape; FlashBit just returns the wrong
-    /// scheme for its own storage.
+    /// Some XFileSharingPro hosters serve per-user storage subdomains on shared infra that
+    /// listens on :443 with a junk certificate — observed on FlashBit's <c>fs1.flashbit.cc</c>,
+    /// where :443 presents a self-signed cert for <c>srv1.pusula.co</c> so the TLS handshake
+    /// fails before the first body byte; the same subdomain answers HTTP/1.1 on :80 cleanly,
+    /// and the only credential is the sess_id in the request body (nothing rides the transport
+    /// that TLS protects), so HTTP is safe THERE. Such hosters set this true.
     /// <para>
-    /// We only downgrade when the upload host differs from the API host (Host property).
-    /// A URL pointing back at the API host stays HTTPS — the proven-good cert is on the
-    /// apex; if a hoster ever exposes upload.cgi at the apex (rare), we want to use it
-    /// as-given.
+    /// The default is the opposite — respect the API's scheme — because the upload server tells
+    /// us which scheme it serves and overriding that is usually WRONG. Hexload's rotating
+    /// <c>*.droply.top</c>/<c>*.drewimplemnt.top</c> servers carry a valid Let's Encrypt cert
+    /// and REQUIRE https: over http they 301 to https, and for bodies past ~1 KB they emit that
+    /// 301 before reading the body, half-closing the socket on a streaming client mid-upload
+    /// (SocketException 10054). So we never downgrade unless a subclass explicitly opts in.
     /// </para>
     /// </remarks>
+    protected virtual bool DowngradeUploadServerToHttp => false;
+
+    /// <summary>
+    /// Honours <see cref="DowngradeUploadServerToHttp"/>: when set, rewrites an <c>https://</c>
+    /// upload URL whose host differs from the API host to <c>http</c>; otherwise returns the URL
+    /// unchanged. A URL pointing back at the API host always stays as-given.
+    /// </summary>
     private string NormaliseUploadUrlScheme(string uploadUrl)
     {
+        if (!DowngradeUploadServerToHttp)
+        {
+            return uploadUrl;
+        }
+
         if (!Uri.TryCreate(uploadUrl, UriKind.Absolute, out Uri? uploadUri))
         {
             return uploadUrl;
@@ -694,22 +1011,28 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     };
 
     /// <summary>
-    /// Chunk size for the modern XFileSharing chunked protocol. 80 MiB is hard-coded in
-    /// the upload-chunked.js loaded by hxfile.co and is the protocol's expected chunking
-    /// granularity. Smaller chunks just mean more round-trips; larger chunks risk hitting
-    /// the storage server's per-request size cap.
+    /// Initial chunk size for the modern XFileSharing chunked protocol. 80 MiB is hard-
+    /// coded in the upload-chunked.js loaded by hxfile.co (and is what their CDN
+    /// frontends expect). We start here for maximum throughput; if chunk 0 returns 413
+    /// we shrink to <see cref="ChunkedUploadFallbackChunkSize"/> and retry once.
     /// </summary>
-    private const int ChunkedUploadChunkSize = 80 * 1024 * 1024;
+    private const int ChunkedUploadInitialChunkSize = 80 * 1024 * 1024;
 
     /// <summary>
-    /// Upload router: tries the modern chunked protocol (POST to <c>up.cgi</c> per chunk
-    /// + <c>api.cgi</c> finalize) first, falls back to the classic single-multipart
-    /// protocol (POST to <c>upload.cgi</c>) when the server signals the chunked endpoint
-    /// isn't available. Chunked-vs-classic is detected by the first chunk's HTTP status:
-    /// 404 / 410 means up.cgi doesn't exist → drop to classic; anything else (incl.
-    /// network errors) is propagated as a chunked failure rather than a fallback so we
-    /// don't waste a multi-hundred-megabyte upload re-trying classic against a partially-
-    /// uploaded sid.
+    /// Fallback chunk size used after a chunk-0 413 from the storage backend. 20 MiB
+    /// sits comfortably under the IIS default <c>maxAllowedContentLength</c> of
+    /// ~28.6 MiB (FlashBit's storage tier is Microsoft-IIS/10.0, observed 2026-06-03).
+    /// If 20 MiB also gets 413 we give up on chunked and fall back to classic — a third
+    /// tier of guesses would just delay the inevitable.
+    /// </summary>
+    private const int ChunkedUploadFallbackChunkSize = 20 * 1024 * 1024;
+
+    /// <summary>
+    /// Upload router: dispatches to the chunked or classic protocol based on the
+    /// subclass's <see cref="UsesChunkedUpload"/> declaration. No probe-then-fallback —
+    /// the declaration is the single source of truth, so misdeclarations fail fast
+    /// (visible AttemptFailed with the server's actual response) and the user pays
+    /// zero wasted bytes for a probe that just confirms what we already know.
     /// </summary>
     /// <remarks>
     /// On chunked success the api.cgi XML response is normalised into the classic
@@ -719,7 +1042,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadUrl, string sessId)
     {
         // Test override path stays on the classic shape (it's how the existing tests are
-        // wired). Only the production path goes through the chunked router.
+        // wired). Only the production path goes through the router.
         if (_uploadOverride is not null)
         {
             return await _uploadOverride(
@@ -730,18 +1053,23 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 ctx.SpeedLimitProvider);
         }
 
-        // Try chunked first. The first-chunk 404 fallback path returns null; any other
-        // failure mode rethrows so the orchestrator can surface it normally.
-        HttpResponseSnapshot? chunkedResult = await TryChunkedUploadAsync(ctx, uploadUrl, sessId);
-        if (chunkedResult is not null)
+        if (UsesChunkedUpload)
         {
+            HttpResponseSnapshot? chunkedResult = await TryChunkedUploadAsync(ctx, uploadUrl, sessId);
+            if (chunkedResult is null)
+            {
+                // Subclass declared chunked but the hoster's up.cgi rejected the probe.
+                // No fallback — fail loudly so the misdeclaration gets fixed at its source
+                // (override UsesChunkedUpload to false) instead of silently masking the
+                // real protocol with classic.
+                throw new InvalidOperationException(
+                    $"{Name}: declared UsesChunkedUpload=true but up.cgi did not accept chunk 0. "
+                    + $"Either the hoster removed chunked support (override UsesChunkedUpload to false) "
+                    + $"or the API-supplied upload URL ({uploadUrl}) isn't a chunked endpoint.");
+            }
             return chunkedResult;
         }
 
-        ctx.Logger.Log(
-            this,
-            LogType.Status,
-            $"{Name}: chunked upload endpoint not available; falling back to classic single-multipart upload.");
         return await ClassicUploadAsync(ctx, uploadUrl, sessId);
     }
 
@@ -801,10 +1129,12 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         long fileSize = file.Length;
         long position = 0;
         int chunkIndex = 0;
+        int currentChunkSize = ChunkedUploadInitialChunkSize;
+        bool shrinkAttempted = false;
 
         while (position < fileSize)
         {
-            long thisChunkLen = Math.Min(ChunkedUploadChunkSize, fileSize - position);
+            long thisChunkLen = Math.Min(currentChunkSize, fileSize - position);
             ChunkSliceStream slice = new(file, thisChunkLen);
 
             HttpResponseSnapshot chunkResp;
@@ -830,9 +1160,44 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 return null;
             }
 
-            if (chunkIndex == 0 && chunkResp.StatusCode is 404 or 410 or 405)
+            // Chunk-0 413 → endpoint exists but rejects our chunk size. Probe-and-shrink:
+            // retry chunk 0 once at the smaller fallback size. Storage backends with
+            // tight IIS defaults (FlashBit: Microsoft-IIS/10.0, ~28.6 MiB cap, observed
+            // 2026-06-03) accept the 20 MiB fallback while still letting hxfile-style
+            // CDN frontends use the full 80 MiB on the first try. Rewind the file stream
+            // and rotate the sid so any server-side state from the rejected attempt
+            // doesn't poison the retry.
+            if (chunkIndex == 0 && chunkResp.StatusCode == 413 && !shrinkAttempted)
             {
-                // Server explicitly doesn't have up.cgi → fall back to classic.
+                ctx.Logger.Log(
+                    this,
+                    LogType.Status,
+                    $"{Name}: chunked up.cgi rejected the {currentChunkSize / (1024 * 1024)} MiB "
+                    + $"first chunk with HTTP 413 — retrying at {ChunkedUploadFallbackChunkSize / (1024 * 1024)} MiB.");
+                shrinkAttempted = true;
+                currentChunkSize = ChunkedUploadFallbackChunkSize;
+                file.Position = 0;
+                clientSid = GenerateChunkSessionId();
+                continue;
+            }
+
+            // Chunk-0 fallback gate: ANY non-2xx response on the first chunk drops to
+            // classic (or, after a shrink attempt, a second 413 also drops here).
+            // Reasons we've actually observed in the wild:
+            //   • 404 / 410 / 405 — up.cgi doesn't exist on the storage backend.
+            //   • 413 (after shrink) — even the fallback chunk size is too big; give up
+            //     on chunked and let the classic path try the original URL.
+            //   • Other 4xx (411, 400) — endpoint disagrees with our request shape;
+            //     falling back is cheaper than throwing.
+            // Later-chunk failures still throw — retrying classic against a partially
+            // populated server-side sid would waste the bytes already uploaded.
+            if (chunkIndex == 0 && chunkResp.StatusCode is < 200 or >= 300)
+            {
+                ctx.Logger.Log(
+                    this,
+                    LogType.Status,
+                    $"{Name}: chunked up.cgi rejected chunk 0 with HTTP {chunkResp.StatusCode} "
+                    + $"({ChunkSnippet(chunkResp.Body)}) — falling back to classic single-multipart upload.");
                 return null;
             }
 
@@ -844,6 +1209,17 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
             if (!ChunkResponseIsOk(chunkResp.Body))
             {
+                if (chunkIndex == 0)
+                {
+                    // Unexpected non-<OK> body on chunk 0 — same diagnosis as a 4xx: this
+                    // backend doesn't speak the chunked protocol we expect. Fall back.
+                    ctx.Logger.Log(
+                        this,
+                        LogType.Status,
+                        $"{Name}: chunked up.cgi returned unexpected body on chunk 0 "
+                        + $"({ChunkSnippet(chunkResp.Body)}) — falling back to classic single-multipart upload.");
+                    return null;
+                }
                 throw new InvalidOperationException(
                     $"chunked upload: chunk {chunkIndex} returned unexpected body: {ChunkSnippet(chunkResp.Body)}");
             }
@@ -1036,9 +1412,9 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     {
         Match m = _apiKeyRegex.Match(html);
         if (!m.Success) return null;
-        // One of three groups captures depending on which branch matched (see the regex
-        // definition for the three shapes). Pick the non-empty one.
-        for (int i = 1; i <= 3; i++)
+        // One of four groups captures depending on which branch matched (see the regex
+        // definition for the four shapes). Pick the non-empty one.
+        for (int i = 1; i <= 4; i++)
         {
             if (m.Groups[i].Success && m.Groups[i].Length > 0)
             {
@@ -1069,10 +1445,168 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
 
-    private Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
-        => _getOverride is not null
-            ? _getOverride(url, headers)
-            : ctx.Handler.GetStringAsync(url, headers, ct);
+    private async Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
+    {
+        if (_getOverride is not null)
+        {
+            return await _getOverride(url, headers);
+        }
+
+        // Production: follow redirects manually. The global HttpHandler runs with
+        // AllowAutoRedirect=false (BRupload's login branches on 302), so without this
+        // ex-load.com's first /?op=my_account hit (which 302s when the session jar is
+        // missing companion cookies like `lang`) lands us on a sub-200-byte stub instead
+        // of the logged-in HTML, breaking ApiKey extraction.
+        (string body, string _, int _) = await FetchFollowingRedirectsAsync(
+            url,
+            headers,
+            (u, h, t) => ctx.Handler.GetSnapshotAsync(u, h, t),
+            ct).ConfigureAwait(false);
+        return body;
+    }
+
+    /// <summary>
+    /// CheckAccountAsync's my_account fetch (also reused for the post-generate refetch and
+    /// the generate_api_key side-call). When the test override is set we keep the existing
+    /// no-redirect semantics so canned-HTML fixtures don't need rewriting; in production
+    /// we drive through <see cref="FetchFollowingRedirectsAsync"/> to dodge the
+    /// 302-on-first-hit problem ex-load.com exhibits. Returns the final body, the URL we
+    /// last hit, and the hop count so the caller can include a useful diagnostic when
+    /// extraction fails.
+    /// </summary>
+    private async Task<(string Body, string FinalUrl, int Hops)> FetchMyAccountAsync(
+        HttpHandler handler, string url, IReadOnlyDictionary<string, string> cookieHeader, CancellationToken ct)
+    {
+        if (_getOverride is not null)
+        {
+            return (await _getOverride(url, cookieHeader), url, 0);
+        }
+
+        return await FetchFollowingRedirectsAsync(
+            url,
+            cookieHeader,
+            (u, h, t) => handler.GetSnapshotAsync(u, h, t),
+            ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// GETs <paramref name="url"/> and follows 3xx redirects (resolving relative Location
+    /// targets against the previous URL), bounded by <paramref name="maxHops"/> — which
+    /// is the TOTAL request budget, NOT redirects-after-the-initial. Returns the final
+    /// body, the URL we last hit, and the redirect count taken. Static so callers can
+    /// stub via the snapshot factory in tests without needing a real HttpHandler. Stops
+    /// on the first non-redirect response, on a redirect with no usable Location, or
+    /// when the request budget is exhausted (in which case Hops == maxHops and Body is
+    /// the last 3xx body for diagnostics).
+    /// </summary>
+    internal static async Task<(string Body, string FinalUrl, int Hops)> FetchFollowingRedirectsAsync(
+        string url,
+        IReadOnlyDictionary<string, string>? headers,
+        Func<string, IReadOnlyDictionary<string, string>?, CancellationToken, Task<HttpResponseSnapshot>> get,
+        CancellationToken ct,
+        int maxHops = 5)
+    {
+        string current = url;
+        HttpResponseSnapshot? lastSnap = null;
+
+        // Cookie jar accumulated across redirect hops. ex-load.com's first /?op=my_account
+        // hit responds 302 + Set-Cookie: lang=english and redirects back to the SAME URL,
+        // expecting the freshly-set cookie on the follow-up (confirmed via browser capture).
+        // A plain re-request with the original header alone never sends `lang`, so the
+        // server keeps returning a degraded page with no api-url. Seed the jar from the
+        // caller's Cookie header, then merge each hop's Set-Cookie — exactly what a browser
+        // does — and rebuild the header for the next request.
+        Dictionary<string, string> cookieJar = ParseCookieHeader(headers);
+        IReadOnlyDictionary<string, string>? currentHeaders = headers;
+
+        for (int attempt = 0; attempt < maxHops; attempt++)
+        {
+            lastSnap = await get(current, currentHeaders, ct).ConfigureAwait(false);
+            bool isRedirect = lastSnap.StatusCode is >= 300 and < 400 && !string.IsNullOrEmpty(lastSnap.LocationHeader);
+
+            // Merge any Set-Cookie values this hop returned into the jar so they ride the
+            // next request. Applies on non-redirects too (harmless), but only matters on 3xx.
+            if (MergeSetCookies(cookieJar, lastSnap.SetCookies) && headers is not null)
+            {
+                currentHeaders = RebuildHeadersWithCookies(headers, cookieJar);
+            }
+
+            if (!isRedirect)
+            {
+                // attempt == number of redirects actually followed (0 on a straight 200).
+                return (lastSnap.Body, current, attempt);
+            }
+
+            // Resolve Location against the current URL so relative paths work
+            // (XFS hosters frequently emit "Location: /?op=login" with no scheme).
+            current = new Uri(new Uri(current), lastSnap.LocationHeader!).AbsoluteUri;
+        }
+
+        // Request budget exhausted — every call within the budget came back 3xx. Return
+        // the LAST 3xx body so the caller's diagnostic reflects "we kept getting bounced",
+        // and `current` reflects the URL we would have tried next.
+        return (lastSnap?.Body ?? string.Empty, current, maxHops);
+    }
+
+    /// <summary>Parses a <c>Cookie</c> request header value ("a=1; b=2") into a name→value
+    /// map. Returns an empty map when the header dict has no Cookie entry.</summary>
+    private static Dictionary<string, string> ParseCookieHeader(IReadOnlyDictionary<string, string>? headers)
+    {
+        Dictionary<string, string> jar = new(StringComparer.Ordinal);
+        if (headers is null || !headers.TryGetValue("Cookie", out string? cookie) || string.IsNullOrEmpty(cookie))
+        {
+            return jar;
+        }
+
+        foreach (string pair in cookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            int eq = pair.IndexOf('=', StringComparison.Ordinal);
+            if (eq > 0)
+            {
+                jar[pair[..eq]] = pair[(eq + 1)..];
+            }
+        }
+
+        return jar;
+    }
+
+    /// <summary>Merges raw <c>Set-Cookie</c> header values (each "name=value; Path=/; …")
+    /// into <paramref name="jar"/>, keeping only the name=value before the first ';'.
+    /// Returns true when at least one cookie was added or changed.</summary>
+    private static bool MergeSetCookies(Dictionary<string, string> jar, IReadOnlyList<string> setCookies)
+    {
+        bool changed = false;
+        foreach (string raw in setCookies)
+        {
+            int semi = raw.IndexOf(';', StringComparison.Ordinal);
+            string nameValue = (semi < 0 ? raw : raw[..semi]).Trim();
+            int eq = nameValue.IndexOf('=', StringComparison.Ordinal);
+            if (eq <= 0)
+            {
+                continue;
+            }
+
+            string name = nameValue[..eq];
+            string value = nameValue[(eq + 1)..];
+            if (!jar.TryGetValue(name, out string? existing) || !string.Equals(existing, value, StringComparison.Ordinal))
+            {
+                jar[name] = value;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Clones <paramref name="baseHeaders"/> and replaces the <c>Cookie</c> entry
+    /// with one serialized from <paramref name="jar"/> ("a=1; b=2"), preserving every
+    /// other header the caller set (Origin, etc.).</summary>
+    private static Dictionary<string, string> RebuildHeadersWithCookies(IReadOnlyDictionary<string, string> baseHeaders, Dictionary<string, string> jar)
+    {
+        Dictionary<string, string> rebuilt = new(baseHeaders, StringComparer.Ordinal);
+        rebuilt["Cookie"] = string.Join("; ", jar.Select(kv => kv.Key + "=" + kv.Value));
+        return rebuilt;
+    }
 
     private async Task<AccountInfo?> TryGetAccountInfoAsync(string apiKey, HttpHandler handler, CancellationToken ct)
     {
@@ -1119,6 +1653,60 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             : (AccountType.Free, expiry);
     }
 
+    /// <summary>
+    /// Extracts storage usage from the <c>/api/account/info</c> result. Both
+    /// <c>storage_used</c> and <c>storage_left</c> arrive as EITHER a JSON string or a JSON
+    /// number depending on the hoster — ex-load renders <c>storage_used:"415593052"</c> /
+    /// <c>storage_left:"inf"</c> (strings) while KatFile renders
+    /// <c>storage_used:"991247477"</c> / <c>storage_left:2198032008075</c> (number). The
+    /// fields are typed <see cref="JsonElement"/> so deserialization tolerates both shapes.
+    /// Returns (used, quota) where quota = used + left when left is a real number, or null
+    /// when left is <c>"inf"</c>/missing/unparseable (the grid's Available cell then renders
+    /// "Unlimited"). Used is null only when its field is absent or unparseable.
+    /// </summary>
+    private static (long? Used, long? Quota) ParseStorageFromAccountInfo(AccountInfo info)
+    {
+        long? used = TryReadStorageLong(info.StorageUsed);
+
+        // Hexload reports an EMPTY account's storage_used as JSON null (its own dashboard shows
+        // "0.00 GB") rather than "0". System.Text.Json maps a JSON null into a JsonElement?
+        // property as C# null — indistinguishable from the field being absent — so use
+        // storage_left's PRESENCE as the signal that the response carried storage info at all:
+        // when storage_left is present but storage_used didn't parse, the account is simply
+        // empty → 0 used. Older XFS hosters that omit BOTH fields leave used null/blank.
+        if (used is null && info.StorageLeft is not null)
+        {
+            used = 0L;
+        }
+
+        long? quota = null;
+        if (used is long usedBytes && TryReadStorageLong(info.StorageLeft) is long left)
+        {
+            // Real numeric left → cap. "inf" / non-numeric / absent → unlimited (quota null).
+            quota = usedBytes + left;
+        }
+
+        return (used, quota);
+    }
+
+    /// <summary>Reads a byte count out of a storage field that may be a JSON string
+    /// (e.g. <c>"991247477"</c>) or a JSON number (e.g. <c>2198032008075</c>). Returns null
+    /// for absent fields, the literal <c>"inf"</c>, or anything non-numeric.</summary>
+    private static long? TryReadStorageLong(JsonElement? element)
+    {
+        if (element is not JsonElement e)
+        {
+            return null;
+        }
+
+        return e.ValueKind switch
+        {
+            JsonValueKind.Number when e.TryGetInt64(out long n) => n,
+            JsonValueKind.String when long.TryParse(e.GetString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long s) => s,
+            _ => null,
+        };
+    }
+
     private async Task PersistApiKeyAsync(FileHosterLoginDto credentials, string apiKey, CancellationToken ct)
     {
         credentials.ApiKey = apiKey;
@@ -1131,14 +1719,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return;
         }
 
-        try
-        {
-            await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            // Best-effort persist.
-        }
+        await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
     }
 
     private async Task ClearApiKeyAsync(FileHosterLoginDto credentials, CancellationToken ct)
@@ -1150,14 +1731,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return;
         }
 
-        try
-        {
-            await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            // Best-effort.
-        }
+        await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
     }
 
     // ---- JSON wire types ----
@@ -1174,6 +1748,18 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         [JsonPropertyName("email")] public string? Email { get; set; }
         [JsonPropertyName("premium_expire")] public string? PremiumExpire { get; set; }
         [JsonPropertyName("balance")] public string? Balance { get; set; }
+
+        /// <summary>Bytes currently consumed. Arrives as a JSON string (ex-load,
+        /// "415593052") OR a JSON number depending on the hoster — typed
+        /// <see cref="JsonElement"/> so deserialization accepts either. Parsed via
+        /// <c>TryReadStorageLong</c>.</summary>
+        [JsonPropertyName("storage_used")] public JsonElement? StorageUsed { get; set; }
+
+        /// <summary>Remaining storage. A byte count rendered as EITHER a JSON string or a
+        /// JSON number (KatFile: <c>2198032008075</c>), or the literal string <c>"inf"</c>
+        /// for unlimited (ex-load). Typed <see cref="JsonElement"/> so deserialization
+        /// tolerates all three; "inf"/non-numeric → quota null → grid shows "Unlimited".</summary>
+        [JsonPropertyName("storage_left")] public JsonElement? StorageLeft { get; set; }
     }
 
     private sealed class UploadServerResponse

@@ -18,7 +18,7 @@ public class HexloadPipelineSmokeTests
         HexloadPipeline pipeline = new();
         Assert.Equal("Hexload", pipeline.Name);
         Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize);
-        Assert.Equal(30, pipeline.MaxFilesPerPackage);
+        Assert.Null(pipeline.MaxFilesPerPackage);
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.False(pipeline.RequiresHashingAfterUpload);
     }

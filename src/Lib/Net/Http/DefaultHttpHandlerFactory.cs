@@ -34,6 +34,17 @@ public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandl
             AutomaticDecompression = DecompressionMethods.All,
         };
 
+        if (settings.AllowInvalidServerCertificates)
+        {
+            // User opted in (Connection tab) — accept any cert. Required for hosters whose
+            // storage CDN nodes ship certs that fail standard validation (FileBoom's
+            // cmb-*.filestore.app edges return RemoteCertificateNameMismatch). Applies to
+            // every request through this handler — login AND upload — so the user is
+            // explicitly accepting the MITM exposure when they tick this.
+            clientHandler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+
         if (proxy.WebProxy is not null)
         {
             clientHandler.Proxy = proxy.WebProxy;

@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -107,16 +108,28 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private async void AccountEnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    private void AccountEnabledCheckBox_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox checkBox
-            && checkBox.DataContext is FileHosterLoginDto account
-            && DataContext is SettingsViewModel vm)
+        if (sender is not CheckBox checkBox
+            || checkBox.DataContext is not FileHosterLoginDto account
+            || DataContext is not SettingsViewModel vm)
         {
-            // Disabled is the inverse of checked
-            account.Disabled = checkBox.IsChecked != true;
-            vm.SelectedAccount = account;
-            vm.ToggleAccountCommand.Execute(account.Disabled ? "Disable" : "Enable");
+            return;
         }
+
+        // Disabled is the inverse of checked.
+        bool disable = checkBox.IsChecked != true;
+
+        // If the clicked row is one of the multi-selected rows, fan the toggle out to all
+        // of them. Otherwise act only on the clicked row — selecting via WPF's
+        // DataGridCell isn't toggled by a click that lands inside a Cell's CheckBox, so
+        // a click on a row outside the current selection genuinely targets that row alone.
+        IList selectedItems = accountsGrid.SelectedItems;
+        List<FileHosterLoginDto> targets = selectedItems.Contains(account)
+            ? [.. selectedItems.OfType<FileHosterLoginDto>()]
+            : [account];
+
+        ICommand command = disable ? vm.DisableSelectedAccountsCommand : vm.EnableSelectedAccountsCommand;
+        command.Execute(targets);
     }
 }

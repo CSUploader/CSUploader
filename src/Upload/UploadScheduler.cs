@@ -95,7 +95,17 @@ public class UploadScheduler : IDisposable
     /// Adds a package and schedules its files. Idempotent — re-adding an existing package is a no-op.
     /// </summary>
     /// <param name="package">The package to add.</param>
-    public void AddPackage(Package package)
+    public void AddPackage(Package package) => AddPackage(package, scheduleIdleFiles: true);
+
+    /// <summary>
+    /// Registers a package with the scheduler. When <paramref name="scheduleIdleFiles"/>
+    /// is true (the default), every Idle file in the package is queued and slots are
+    /// filled — the right behaviour for bulk start / package load. Pass false when the
+    /// caller wants to queue only a SPECIFIC file itself (the Uploads tab's per-row
+    /// "Start"): the package is registered so the scheduler knows about it, but its other
+    /// idle files are left untouched.
+    /// </summary>
+    public void AddPackage(Package package, bool scheduleIdleFiles)
     {
         lock (_packagesLock)
         {
@@ -108,11 +118,17 @@ public class UploadScheduler : IDisposable
         }
 
         PackageAdded?.Invoke(this, package);
-        Post(() => SchedulePackageFiles(package));
+        if (scheduleIdleFiles)
+        {
+            Post(() => SchedulePackageFiles(package));
+        }
     }
 
     /// <summary>
-    /// Resumes scheduling and fills available slots.
+    /// Resumes scheduling and fills available slots. Requeues EVERY startable file across
+    /// all packages — use for the global Start-all / resume actions. To start only a
+    /// specific file/package that was already queued by the caller, use
+    /// <see cref="FillAvailableSlots"/> instead so other idle files stay idle.
     /// </summary>
     public void StartAll()
     {
@@ -120,6 +136,26 @@ public class UploadScheduler : IDisposable
         {
             IsPaused = false;
             RequeueStartableFiles();
+            FillSlots();
+        });
+    }
+
+    /// <summary>
+    /// Resumes scheduling (clears a global pause) and fills available hash/upload slots
+    /// from files that are ALREADY in a queued state. Crucially, it does NOT requeue idle
+    /// files — unlike <see cref="StartAll"/>, which pulls every idle/failed file across all
+    /// packages into the queue. Use after manually transitioning a SPECIFIC package/file
+    /// into a queued state (the Uploads tab's per-row Start / Reset) so only that work
+    /// begins while every other idle file stays idle.
+    /// </summary>
+    public void FillAvailableSlots()
+    {
+        Post(() =>
+        {
+            // Un-pause so the just-queued file actually runs (matches the per-row Reset
+            // behaviour), but skip RequeueStartableFiles so we don't sweep other idle
+            // files into the queue.
+            IsPaused = false;
             FillSlots();
         });
     }
@@ -139,19 +175,13 @@ public class UploadScheduler : IDisposable
     /// <summary>
     /// Stops all files by cancelling their tokens and resetting state.
     /// </summary>
-    public void StopAll()
-    {
-        Post(StopAllFiles);
-    }
+    public void StopAll() => Post(StopAllFiles);
 
     /// <summary>
     /// Removes a package from the scheduler.
     /// </summary>
     /// <param name="package">The package to remove.</param>
-    public void RemovePackage(Package package)
-    {
-        Post(() => DoRemovePackage(package));
-    }
+    public void RemovePackage(Package package) => Post(() => DoRemovePackage(package));
 
     /// <inheritdoc/>
     public void Dispose()

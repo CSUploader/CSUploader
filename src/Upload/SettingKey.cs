@@ -48,4 +48,6 @@ public static class SettingKey
     public static string Language { get; } = "language";
 
     public static string ShowCompletionToasts { get; } = "showCompletionToasts";
+
+    public static string AllowInvalidServerCertificates { get; } = "allowInvalidServerCertificates";
 }

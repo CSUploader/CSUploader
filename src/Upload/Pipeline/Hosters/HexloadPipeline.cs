@@ -40,4 +40,21 @@ public sealed class HexloadPipeline : XFileSharingApiPipeline
     public override string Name => "Hexload";
 
     protected override string Host => "https://hexload.com";
+
+    /// <summary>
+    /// Hexload accepts anonymous uploads alongside account/API uploads. The homepage renders an
+    /// <c>id="uploadfile"</c> form posting to a per-session <c>&lt;rand&gt;.droply.top/cgi-bin/upload.cgi?
+    /// upload_type=file&amp;utype=anon</c> server (verified from a Fiddler capture 2026-06-13).
+    /// The base <see cref="XFileSharingApiPipeline.RunAnonymousAsync"/> drives it.
+    /// </summary>
+    public override bool SupportsAnonymousUpload => true;
+
+    // Anonymous per-file cap read off hexload.com's upload form (max_upload_filesize: 2048 MB).
+    // The account/API path keeps the XFS base cap. No per-batch file-count cap: the site's
+    // "20 files at once" is a web-form UI constraint — we upload one file per request (a fresh
+    // upload server is scraped per file), so it never binds here.
+    private const long AnonymousMaxFileSizeBytes = 2048L * 1024 * 1024;
+
+    public override long? MaxFileSizeFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? AnonymousMaxFileSizeBytes : base.MaxFileSizeFor(credentials);
 }

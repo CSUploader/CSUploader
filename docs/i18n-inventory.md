@@ -355,6 +355,8 @@ Settings_Conn_UseProxies           = Use proxies
 Settings_Conn_UseProxiesTip        = Master switch for the rotation. When off, all traffic (uploads and account checks) connects directly even with proxies in the grid — handy for adding and testing proxies without committing to using them yet.
 Settings_Conn_AutoDisable          = Automatically uncheck failing proxies
 Settings_Conn_AutoDisableTip       = When on, a proxy that fails a manual test or an upload is unchecked so the rotation skips it. The status icon updates either way.
+Settings_Conn_AllowInvalidCert     = Accept invalid server certificates (not recommended)
+Settings_Conn_AllowInvalidCertTip  = Skip TLS certificate validation on every outbound request. Required for some hosters whose storage CDN nodes ship certificates that fail standard validation (e.g. FileBoom's cmb-*.filestore.app edges). Disables protection against MITM attacks — only enable when uploads otherwise fail with an SSL error.
 
 Settings_Conn_Col_On               = On
 Settings_Conn_Col_Priority         = Priority
@@ -439,6 +441,10 @@ Settings_Accounts_Col_Status       = Status
 Settings_Accounts_Col_Username     = Username
 Settings_Accounts_Col_Password     = Password
 Settings_Accounts_Col_Type         = Type
+Settings_Accounts_Col_Used         = Used
+Settings_Accounts_Col_Available    = Available
+Settings_Accounts_Col_RefreshedAt  = Refreshed at
+Settings_Accounts_Storage_Unlimited = Unlimited
 
 Settings_Accounts_Context_Edit     = Edit Account...
 Settings_Accounts_Context_Refresh  = Check / Refresh
@@ -453,6 +459,7 @@ Settings_Accounts_Btn_Refresh      = Refresh
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Remove Account
 Settings_Accounts_Remove_Message_Format    = Remove account '{0}' for {1}?                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format = Remove {0} selected accounts?                  # {0} = count
 
 Settings_Accounts_Validation_FillHosterUser = Please fill in the file hoster, username, and password.
 Settings_Accounts_Check_DialogTitle         = Account Check
@@ -479,6 +486,8 @@ Settings_Accounts_Status_NoImpl             = No implementation
 Settings_Accounts_Status_RefreshSummary_Format = Refreshed {0} accounts. {1} updated.        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = Account '{0}' disabled.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Account '{0}' enabled.                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format = {0} accounts disabled.                 # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format  = {0} accounts enabled.                  # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -525,7 +534,13 @@ Wizard_Title                       = Upload Wizard
 
 Wizard_Step_DirectorySource        = 1. Directory
 Wizard_Step_FileHosters            = 2. File Hosters
-Wizard_Step_Start                  = 3. Start
+Wizard_Step_Summary                = 3. Summary
+Wizard_Step_Start                  = 4. Start
+Wizard_Summary_Title               = Upload Summary
+Wizard_Summary_Desc                = Review what will be uploaded to each hoster. Hosters with no eligible files are omitted.
+Wizard_Summary_FileCount_Suffix    = files
+Wizard_Summary_OrphanWarning_Suffix = files won't be uploaded to any hoster:
+Wizard_Summary_MaxFileSize_Format  = max {0} per file                          # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Mode_Directory        = Upload directory
@@ -541,6 +556,7 @@ Wizard_Step1_PackageTitleLabel     = Package title:
 Wizard_Step1_FilterLabel           = Filter:
 Wizard_Step1_BtnSelectAll          = Select all
 Wizard_Step1_BtnDeselectAll        = Deselect all
+Wizard_Step1_BtnRemove             = Remove
 Wizard_Step1_Col_File              = File
 Wizard_Step1_Col_Size              = Size
 Wizard_Step1_SelectedLabel         = Selected:

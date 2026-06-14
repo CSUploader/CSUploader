@@ -35,4 +35,12 @@ public sealed class HxfilePipeline : XFileSharingApiPipeline
     public override string Name => "Hxfile";
 
     protected override string Host => "https://hxfile.co";
+
+    /// <summary>
+    /// Hxfile's CDN frontend (<c>ctmp.world</c> per the 2026-06-01 Fiddler trace) uses
+    /// the modern chunked upload protocol — per-chunk POSTs to <c>up.cgi</c> followed
+    /// by a finalize call to <c>api.cgi</c>. The classic <c>upload.cgi</c> endpoint
+    /// returns 404 on this hoster.
+    /// </summary>
+    protected override bool UsesChunkedUpload => true;
 }

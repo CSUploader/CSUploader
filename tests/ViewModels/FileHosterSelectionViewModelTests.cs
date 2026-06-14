@@ -93,6 +93,76 @@ public class FileHosterSelectionViewModelTests
         Assert.Null(vm.SelectedAccount);
     }
 
+    [Fact]
+    public void Ctor_NoAccountsButSupportsAnonymous_IsUsableAndAllowsUse()
+    {
+        FileHosterSelectionViewModel vm = new("GigaPeta", [], supportsAnonymous: true);
+
+        Assert.False(vm.HasAccounts);
+        Assert.True(vm.SupportsAnonymous);
+        Assert.True(vm.CanUse);
+
+        vm.Use = true;
+        Assert.True(vm.Use); // anonymous-capable rows can be checked with no account
+    }
+
+    [Fact]
+    public void Ctor_NoAccountsNoAnonymous_IsNotUsable()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", []);
+
+        Assert.False(vm.CanUse);
+
+        vm.Use = true;
+        Assert.False(vm.Use);
+    }
+
+    [Fact]
+    public void SetAccounts_RemovingAllAccountsButAnonymousSupported_KeepsUse()
+    {
+        FileHosterSelectionViewModel vm = new("GigaPeta", [Login(1, "alice")], supportsAnonymous: true);
+        vm.Use = true;
+
+        vm.SetAccounts([]);
+
+        Assert.False(vm.HasAccounts);
+        Assert.True(vm.CanUse);                          // still usable anonymously
+        Assert.True(vm.Use);                             // so Use is NOT coerced off
+        Assert.True(vm.SelectedAccount?.IsAnonymous == true);    // falls back to the Anonymous option
+    }
+
+    [Fact]
+    public void AccountOptions_AnonymousCapableWithAccounts_AppendsAnonymousAndDefaultsToRealAccount()
+    {
+        FileHosterLoginDto[] accounts = [Login(1, "alice")];
+
+        FileHosterSelectionViewModel vm = new("Hexload", accounts, supportsAnonymous: true);
+
+        Assert.Equal(2, vm.AccountOptions.Count);
+        Assert.Same(accounts[0], vm.AccountOptions[0]);     // real account first
+        Assert.True(vm.AccountOptions[1].IsAnonymous);      // Anonymous appended
+        Assert.Same(accounts[0], vm.SelectedAccount);       // prefers the real account by default
+    }
+
+    [Fact]
+    public void AccountOptions_AnonymousCapableNoAccounts_IsAnonymousOnly()
+    {
+        FileHosterSelectionViewModel vm = new("GigaPeta", [], supportsAnonymous: true);
+
+        FileHosterLoginDto only = Assert.Single(vm.AccountOptions);
+        Assert.True(only.IsAnonymous);
+        Assert.Same(only, vm.SelectedAccount);
+    }
+
+    [Fact]
+    public void AccountOptions_NotAnonymousCapable_HasNoAnonymousEntry()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", [Login(1, "alice")]);
+
+        FileHosterLoginDto only = Assert.Single(vm.AccountOptions);
+        Assert.False(only.IsAnonymous);
+    }
+
     private static FileHosterLoginDto Login(int id, string username) => new()
     {
         Id = id,

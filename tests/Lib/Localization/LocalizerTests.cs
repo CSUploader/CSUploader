@@ -106,16 +106,10 @@ public class LocalizerTests : IDisposable
     [InlineData("ja")]
     [InlineData("vi")]
     [InlineData("fil")]
-    public void PickSupportedLanguage_PassesThroughExactSavedValue(string saved)
-    {
-        Assert.Equal(saved, Localizer.PickSupportedLanguage(saved));
-    }
+    public void PickSupportedLanguage_PassesThroughExactSavedValue(string saved) => Assert.Equal(saved, Localizer.PickSupportedLanguage(saved));
 
     [Fact]
-    public void PickSupportedLanguage_IsCaseInsensitive()
-    {
-        Assert.Equal("zh-Hans", Localizer.PickSupportedLanguage("ZH-hans"));
-    }
+    public void PickSupportedLanguage_IsCaseInsensitive() => Assert.Equal("zh-Hans", Localizer.PickSupportedLanguage("ZH-hans"));
 
     [Theory]
     [InlineData("zh-CN", "zh-Hans")]
@@ -129,21 +123,13 @@ public class LocalizerTests : IDisposable
     [InlineData("en-US", "en")]
     [InlineData("fr-FR", "en")] // Unsupported → English baseline.
     [InlineData("de", "en")]
-    public void PickSupportedLanguage_AutoDetectsFromOSCulture(string osTag, string expected)
-    {
-        Assert.Equal(expected, Localizer.PickSupportedLanguage(saved: null, osCulture: new CultureInfo(osTag)));
-    }
+    public void PickSupportedLanguage_AutoDetectsFromOSCulture(string osTag, string expected) => Assert.Equal(expected, Localizer.PickSupportedLanguage(saved: null, osCulture: new CultureInfo(osTag)));
 
     [Fact]
-    public void PickSupportedLanguage_BlankSaved_FallsThroughToOSCulture()
-    {
-        Assert.Equal("ko", Localizer.PickSupportedLanguage(saved: "   ", osCulture: new CultureInfo("ko-KR")));
-    }
+    public void PickSupportedLanguage_BlankSaved_FallsThroughToOSCulture() => Assert.Equal("ko", Localizer.PickSupportedLanguage(saved: "   ", osCulture: new CultureInfo("ko-KR")));
 
     [Fact]
-    public void PickSupportedLanguage_UnknownSaved_FallsThroughToOSCulture()
-    {
+    public void PickSupportedLanguage_UnknownSaved_FallsThroughToOSCulture() =>
         // Saved value isn't in SupportedLanguages → treat like blank.
         Assert.Equal("ja", Localizer.PickSupportedLanguage(saved: "xx-YY", osCulture: new CultureInfo("ja-JP")));
-    }
 }

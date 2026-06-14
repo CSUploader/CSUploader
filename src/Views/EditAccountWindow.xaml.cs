@@ -24,8 +24,16 @@ public partial class EditAccountWindow : Window
     /// behind the "Sign in" button, after which we derive the account's API key from its
     /// my_account page. The user can alternatively paste an API key directly.
     /// </summary>
+    // "FlashBit" intentionally absent — DISABLED 2026-06-05 (invalid SSL on
+    // fs*.flashbit.cc + IIS chunk-size cap). Pipeline DI + FileHosters registry are
+    // both commented out alongside this; see FlashBitPipeline.cs class-level remarks
+    // for the diagnosis chain. Do NOT re-add without re-enabling those first.
+    // "ExtMatrix" intentionally absent — DISABLED 2026-06-07. /api/upload.php gets
+    // 413 below ~27 MiB and we can't capture their web UI's chunked protocol because
+    // the web UI is also failing for our test user. See ExtMatrixPipeline.cs class-
+    // level remarks for the diagnosis chain and the re-enable checklist.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "ExLoad", "KatFile", "FlashBit", "TakeFile", "Hexload", "Hxfile", "Hotlink" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "Hotlink", "FileBoom" };
 
     private readonly FileHosterLoginDto _original;
 
@@ -88,21 +96,23 @@ public partial class EditAccountWindow : Window
     }
 
     /// <summary>
-    /// Toggles the two credential modes by hoster type. API-key hosters show the Sign-in
-    /// button + manual API-key field and hide username/password; everyone else shows the
-    /// classic username/password and hides the API-key controls. Collapsed Auto rows take
-    /// zero height, so the dialog tightens up either way.
+    /// Toggles the two credential modes by hoster type. Classic U/P hosters show
+    /// editable Username + Password boxes; API-key hosters hide both rows and surface
+    /// the Sign-in button + API key textbox instead. The captured identity for API-key
+    /// hosters is shown in the SignInStatus text below the button ("✓ Signed in as X")
+    /// — no dedicated username row needed. Collapsed Auto rows take zero height, so
+    /// the dialog tightens up regardless of state.
     /// </summary>
     private void RefreshCredentialMode()
     {
         bool api = IsApiKeyHoster();
-        Visibility up = api ? Visibility.Collapsed : Visibility.Visible;
+        Visibility classic = api ? Visibility.Collapsed : Visibility.Visible;
         Visibility key = api ? Visibility.Visible : Visibility.Collapsed;
 
-        UsernameLabel.Visibility = up;
-        UsernameBox.Visibility = up;
-        PasswordLabel.Visibility = up;
-        PasswordBox.Visibility = up;
+        UsernameLabel.Visibility = classic;
+        UsernameBox.Visibility = classic;
+        PasswordLabel.Visibility = classic;
+        PasswordBox.Visibility = classic;
 
         SignInLabel.Visibility = key;
         SignInRow.Visibility = key;
@@ -191,13 +201,18 @@ public partial class EditAccountWindow : Window
                 return;
             }
 
+            // Username for API-key accounts comes exclusively from the WebView2 sign-in
+            // scrape (held in _derivedUsername). No manual entry path — paste-only
+            // accounts persist a null Username until the user signs in, at which point
+            // the captured identity is written here.
+            //
+            // CurrentHoster() is non-null whenever IsApiKeyHoster() returned true (the
+            // set lookup at line ~91 can't succeed on null).
             Result = new FileHosterLoginDto
             {
                 Id = _original.Id,
-                FileHosterName = hoster ?? _original.FileHosterName,
-                // Username is informational for API-key accounts — the discovered email if
-                // we have one. Password stays empty; these hosters don't use it.
-                Username = _derivedUsername ?? string.Empty,
+                FileHosterName = hoster!,
+                Username = _derivedUsername,
                 Password = string.Empty,
                 ApiKey = apiKey,
                 AccountType = _original.AccountType,
@@ -225,7 +240,7 @@ public partial class EditAccountWindow : Window
         Result = new FileHosterLoginDto
         {
             Id = _original.Id,
-            FileHosterName = hoster ?? _original.FileHosterName,
+            FileHosterName = hoster!,
             Username = username,
             Password = password,
             ApiKey = null,

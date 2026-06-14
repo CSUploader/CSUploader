@@ -112,12 +112,37 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.AlfafilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BRuploadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ExLoadPipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.FileBoomPipeline(
+                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<FileHosterLoginRepository>()));
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.KatFilePipeline>();
-        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FlashBitPipeline>();
+        // FlashBit DISABLED 2026-06-05. The storage subdomain (fs1.flashbit.cc) ships
+        // an invalid/expired SSL cert; the HTTPS→HTTP scheme-downgrade workaround in
+        // commit 725ffba got past the TLS handshake, but then their Microsoft-IIS/10.0
+        // backend rejects both our chunked and classic upload bodies via its tight
+        // maxAllowedContentLength cap (even the 20 MiB probe-and-shrink retry 413s in
+        // some cases). Re-enable ONLY after verifying both (a) FlashBit reissues a
+        // valid cert for fs*.flashbit.cc AND (b) their backend accepts the XFS upload
+        // protocol shapes we already implement. See FlashBitPipeline.cs class-level
+        // remarks for the full diagnosis chain.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FlashBitPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HxfilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
+        // ExtMatrix DISABLED 2026-06-07. Their /api/upload.php endpoint hits the origin
+        // nginx's client_max_body_size cap below ~27 MiB (clean 413 Payload Too Large
+        // back from nginx, fronted by Cloudflare). Their web UI works around this with a
+        // chunked upload protocol, but: (a) the protocol is undocumented (the public
+        // /api/docs.php only describes the simple single-POST endpoint), and (b) the
+        // live web UI is currently also failing so we can't capture the chunked wire
+        // shape to reverse-engineer it. Re-enable only after ExtMatrix either raises
+        // the API endpoint's body cap or after we capture a successful web-UI upload
+        // and land a chunked protocol implementation. See ExtMatrixPipeline.cs
+        // class-level remarks for the full re-enable checklist.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ExtMatrixPipeline>();
         services.AddSingleton<Upload.IAccountVerifier, Upload.AccountVerifier>();
 
         // Services

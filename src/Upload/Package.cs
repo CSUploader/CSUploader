@@ -6,6 +6,8 @@
 using System.Collections;
 using System.ComponentModel;
 using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Upload.Pipeline;
 
 namespace CSUploader.Upload;
 
@@ -261,9 +263,10 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     public FileState State => Status;
 
     /// <summary>
-    /// Display name of the hoster(s). Uses the first hoster; empty when none.
+    /// Display name of the hoster(s). Uses the first hoster — packages always have at
+    /// least one (PackageManager refuses to construct an empty package).
     /// </summary>
-    public string HosterDisplay => FileHosters.Length > 0 ? FileHosters[0].Name : string.Empty;
+    public string HosterDisplay => FileHosters[0].Name;
 
     /// <summary>
     /// True — marks this row as a package row for XAML template selection.
@@ -578,10 +581,17 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
-    /// Adds one <see cref="PackageFile"/> per (selected file x configured hoster)
-    /// using paths from <see cref="PackageOptions.SelectedFiles"/>.
+    /// Adds one <see cref="PackageFile"/> per (selected file × configured hoster)
+    /// using paths from <see cref="PackageOptions.SelectedFiles"/>. When
+    /// <paramref name="registry"/> is non-null, (file, hoster) pairs whose file
+    /// exceeds the registered pipeline's per-file cap for that account
+    /// (<c>MaxFileSizeFor</c>, which can vary by tier — e.g. Hexload anonymous) are skipped —
+    /// otherwise they'd be queued, fail at the pipeline's pre-check at attempt time,
+    /// and clutter the Uploads grid with rows that never had a chance. Pairs with no
+    /// registered pipeline, no declared cap, or a file whose on-disk size can't be
+    /// read are kept (let the runtime decide).
     /// </summary>
-    public void AddPackageFiles()
+    public void AddPackageFiles(IFileHosterRegistry? registry = null, IAppLogger? logger = null)
     {
         if (Options.SelectedFiles is not { Count: > 0 } selected)
         {
@@ -591,17 +601,69 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         List<PackageFile> packageFiles = [];
         foreach (string filePath in selected)
         {
+            long fileSize = SafeGetFileSize(filePath);
             foreach (KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp in FileHosterLogins)
             {
                 FileHosterClient? fileHoster = ResolveHosterClient(kvp);
-                if (fileHoster != null)
+                if (fileHoster is null)
                 {
-                    packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
+                    continue;
                 }
+
+                if (registry?.Find(fileHoster.Name) is IFileHosterPipeline pipeline
+                    && pipeline.MaxFileSizeFor(kvp.Value) is long cap
+                    && fileSize > 0
+                    && fileSize > cap)
+                {
+                    logger?.Log(
+                        this,
+                        LogType.Status,
+                        $"Skipping queueing of '{Path.GetFileName(filePath)}' on {fileHoster.Name}: "
+                        + $"{ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()} exceeds the "
+                        + $"{ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()} per-file limit.");
+                    continue;
+                }
+
+                // Storage-quota filter: skip when the file would push the account past
+                // its known quota. Persisted on the DTO by pipelines whose API exposes
+                // usage (FileBoom). Hosters that don't surface quota leave the fields
+                // null and we don't apply this filter.
+                if (kvp.Value.StorageQuotaBytes is long quota
+                    && kvp.Value.StorageUsedBytes is long used
+                    && fileSize > 0
+                    && used + fileSize > quota)
+                {
+                    long remaining = Math.Max(0, quota - used);
+                    logger?.Log(
+                        this,
+                        LogType.Status,
+                        $"Skipping queueing of '{Path.GetFileName(filePath)}' on {fileHoster.Name}: "
+                        + $"{ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()} would exceed the account's "
+                        + $"{ByteUnit.FromBytes(remaining, ByteBase.Binary).ToFriendlyString()} of remaining "
+                        + $"{ByteUnit.FromBytes(quota, ByteBase.Binary).ToFriendlyString()} storage quota.");
+                    continue;
+                }
+
+                packageFiles.Add(new PackageFile(this, filePath, fileHoster, kvp.Value));
             }
         }
 
         AddPackageFiles([.. packageFiles]);
+    }
+
+    private static long SafeGetFileSize(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length;
+        }
+        catch
+        {
+            // File missing / inaccessible. Return a sentinel so the caller doesn't apply
+            // the size filter and the runtime gets to surface the real "file not found"
+            // error per its normal path instead of being silently dropped here.
+            return -1;
+        }
     }
 
     private FileHosterClient? ResolveHosterClient(KeyValuePair<FileHosterClient, FileHosterLoginDto> kvp)

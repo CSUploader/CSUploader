@@ -633,6 +633,55 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_AnonymousFile_ReconstitutesAnonymousCredential()
+    {
+        // An anonymous upload (the wizard's built-in Anonymous option) persists with
+        // FileHosterLoginId=0 — there's no account row. On reload the credential must come
+        // back flagged IsAnonymous so the pipeline takes its no-login path; otherwise an
+        // anonymous package reloaded after a restart fails with "no API key / no username".
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            UploadPackageDto pkg = new() { Name = "anon", CreatedDateTime = DateTime.Now };
+            await _packageRepo.InsertAsync(pkg);
+            await _fileRepo.InsertAsync(new UploadPackageFileDto
+            {
+                FileName = "a.iso",
+                FileDirectory = tempDir,
+                FileSize = 1,
+                FileHoster = "Hexload",
+                FileHosterName = "Hexload",
+                FileHosterLoginId = 0,           // the anonymous sentinel
+                State = FileState.UploadQueued,
+                PackageId = pkg.Id,
+            });
+
+            // Never mode keeps the scheduler from starting the reloaded package — we only
+            // care that the credential was reconstituted correctly.
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
+            DefaultFileHosterRegistry reg = new([]);
+            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
+            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+
+            await freshManager.LoadPersistedPackagesAsync();
+
+            Package loaded = Assert.Single(freshManager.Packages);
+            PackageFile file = loaded.Single();
+            Assert.NotNull(file.FileHosterLogin);
+            Assert.True(file.FileHosterLogin.IsAnonymous);
+            Assert.Equal("Hexload", file.FileHosterLogin.FileHosterName);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
     public async Task ResetPackage_ReregistersAndStartsScheduler()
     {
         // Repro: after a Failed file is right-click → Reset, the file transitioned to
@@ -682,6 +731,65 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
+    }
+
+    [Fact]
+    public async Task StartPackage_SingleFile_LeavesOtherPackagesIdleFilesUntouched()
+    {
+        // Regression: the Uploads tab's per-row "Start" called StartPackage → StartAll →
+        // RequeueStartableFiles, which swept EVERY idle file across all packages into the
+        // queue. So right-clicking one row and choosing Start ran everything. The fix uses
+        // FillAvailableSlots (no requeue) + register-without-scheduling, so only the picked
+        // file starts and other packages' idle files stay idle.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package pkg1 = await CreateIdlePackageAsync(tempDir, "p1", "a.iso");
+            Package pkg2 = await CreateIdlePackageAsync(tempDir, "p2", "b.iso");
+            PackageFile fileA = pkg1.Single();
+            PackageFile fileB = pkg2.Single();
+
+            // Register pkg2 with the scheduler WITHOUT queuing its idle file, so it's in the
+            // scheduler's package set (the precondition that let the old RequeueStartableFiles
+            // sweep fileB) while fileB stays Idle.
+            _scheduler.AddPackage(pkg2, scheduleIdleFiles: false);
+
+            Assert.Equal(FileState.Idle, fileA.State);
+            Assert.Equal(FileState.Idle, fileB.State);
+
+            // Start only fileA.
+            _packageManager.StartPackage(fileA);
+
+            // Poll until fileA leaves Idle — proves the async FillSlots actually ran.
+            for (int i = 0; i < 50 && fileA.State == FileState.Idle; i++)
+            {
+                await Task.Delay(20);
+            }
+            Assert.NotEqual(FileState.Idle, fileA.State);
+
+            // The OTHER package's idle file must NOT have been swept into the queue.
+            Assert.Equal(FileState.Idle, fileB.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    private async Task<Package> CreateIdlePackageAsync(string tempDir, string title, string fileName)
+    {
+        string filePath = Path.Combine(tempDir, fileName);
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
+        {
+            Title = title,
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
+        return await _packageManager.AddPackageOnlyAsync(options);
     }
 
     [Fact]

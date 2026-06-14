@@ -44,6 +44,8 @@ public class AppSettings
 
     public static bool DefaultShowCompletionToasts { get; } = true;
 
+    public static bool DefaultAllowInvalidServerCertificates { get; } = false;
+
 #if DEBUG
     public static bool DefaultUseMockServer { get; } = true;
 #else
@@ -146,6 +148,17 @@ public class AppSettings
     /// completions are silent (still visible in the Uploaded tab and Logs).
     /// </summary>
     public bool ShowCompletionToasts { get; set; } = DefaultShowCompletionToasts;
+
+    /// <summary>
+    /// When true, the upload pipeline's <see cref="System.Net.Http.HttpClient"/> instances
+    /// accept ANY server certificate without validating the name or chain. Defaults to
+    /// false. Intended as an opt-in workaround for hosters whose storage CDN edges (e.g.
+    /// FileBoom's <c>cmb-*.filestore.app</c> nodes) ship certs that fail standard
+    /// validation (name mismatch, untrusted chain). Turning this on disables the protection
+    /// .NET gives you against MITM on every outbound request — only enable when uploads
+    /// are otherwise impossible.
+    /// </summary>
+    public bool AllowInvalidServerCertificates { get; set; } = DefaultAllowInvalidServerCertificates;
 
     public int? SpeedLimit { get; set; }
 

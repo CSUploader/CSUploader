@@ -7,6 +7,7 @@
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
         xmlns:vm="clr-namespace:CSUploader.ViewModels"
+        xmlns:beh="clr-namespace:CSUploader.Behaviors"
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         Title="{loc:Loc Wizard_Title}"
         Width="850" Height="620"
@@ -27,6 +28,84 @@
     <conv:EnumBoolConverter x:Key="EnumBoolConverter" />
     <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
     <conv:HosterIconConverter x:Key="HosterIconConverter" />
+
+    <!-- ToggleButton template for the SummaryExpander chevron. The default Expander
+         ToggleButton uses system "fancy" chrome (lavender bevels, focus rings) that
+         clashes with the dark theme. This replaces it with a flat 8-px chevron that
+         rotates 90° on IsChecked, with no focus highlight or hover bevel. -->
+    <Style x:Key="SummaryExpanderToggle" TargetType="ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToggleButton">
+            <Border Background="Transparent" Padding="6,4">
+              <Path x:Name="Chevron" Width="8" Height="8" Stretch="Uniform"
+                    Fill="{DynamicResource TextPrimaryBrush}"
+                    Data="M 0,0 L 4,4 L 8,0 Z"
+                    RenderTransformOrigin="0.5,0.5">
+                <Path.RenderTransform>
+                  <RotateTransform Angle="0" />
+                </Path.RenderTransform>
+              </Path>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="False">
+                <Setter TargetName="Chevron" Property="RenderTransform">
+                  <Setter.Value>
+                    <RotateTransform Angle="-90" />
+                  </Setter.Value>
+                </Setter>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Theme-aware Expander used on the Summary step. Default Expander renders the
+         header text with mauve highlight on focus + a system-colored toggle box; this
+         template uses a clean header row (toggle + custom content) over a muted
+         surface and lets the supplied Header DataTemplate render as-is. -->
+    <Style x:Key="SummaryExpander" TargetType="Expander">
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Expander">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="3">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Background="Transparent">
+                  <ToggleButton Style="{StaticResource SummaryExpanderToggle}"
+                                IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                VerticalAlignment="Center" Margin="2,0,4,0" />
+                  <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                </StackPanel>
+                <ContentPresenter Grid.Row="1"
+                                  x:Name="Content"
+                                  Visibility="Collapsed"
+                                  Margin="0" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsExpanded" Value="True">
+                <Setter TargetName="Content" Property="Visibility" Value="Visible" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
   <Grid>
@@ -52,8 +131,11 @@
         <TextBlock Text="{loc:Loc Wizard_Step_FileHosters}" FontSize="13"
                    FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=1}"
                    Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
-        <TextBlock Text="{loc:Loc Wizard_Step_Start}" FontSize="13"
+        <TextBlock Text="{loc:Loc Wizard_Step_Summary}" FontSize="13"
                    FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=2}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
+        <TextBlock Text="{loc:Loc Wizard_Step_Start}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=3}"
                    Foreground="{DynamicResource TextPrimaryBrush}" />
       </StackPanel>
     </Border>
@@ -130,23 +212,36 @@
                    FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
         </Grid>
 
-        <!-- Row 4: bulk-select buttons (directory mode only — files-mode users curated the list themselves) -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6"
-                    Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}">
+        <!-- Row 4: bulk-action buttons. Select All / Deselect All stay directory-mode-
+             only (a curated files-mode list doesn't benefit from "select everything I
+             just picked"), but Remove is always available so users can drop rows they
+             added by mistake regardless of how they got into the list. -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6">
           <Button Content="{loc:Loc Wizard_Step1_BtnSelectAll}" MinWidth="100" Padding="10,4"
+                  Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}"
                   Command="{Binding SelectAllCommand}" />
           <Button Content="{loc:Loc Wizard_Step1_BtnDeselectAll}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
+                  Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVisibility}}"
                   Command="{Binding SelectNoneCommand}" />
+          <Button Content="{loc:Loc Wizard_Step1_BtnRemove}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
+                  Command="{Binding RemoveSelectedFilesCommand}"
+                  CommandParameter="{Binding SelectedItems, ElementName=filesGrid}" />
         </StackPanel>
 
         <!-- Row 5: DataGrid of files -->
-        <DataGrid Grid.Row="5" ItemsSource="{Binding Files}"
+        <DataGrid Grid.Row="5" x:Name="filesGrid" ItemsSource="{Binding Files}"
                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                  IsReadOnly="False" SelectionMode="Single" RowHeaderWidth="0"
+                  IsReadOnly="False" SelectionMode="Extended" RowHeaderWidth="0"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   Background="{DynamicResource ContentBackgroundBrush}"
                   BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+          <DataGrid.InputBindings>
+            <KeyBinding Key="Delete" Command="{Binding RemoveSelectedFilesCommand}"
+                        CommandParameter="{Binding SelectedItems, ElementName=filesGrid}" />
+          </DataGrid.InputBindings>
           <DataGrid.RowStyle>
             <!-- BasedOn the global implicit style so we keep its Foreground/selection setters
                  (otherwise inline triggers replace them and rows render in the system colour).
@@ -230,9 +325,11 @@
         <TextBlock Grid.Row="1" Text="{loc:Loc Wizard_Step2_Desc}"
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
 
-        <DataGrid Grid.Row="2" ItemsSource="{Binding FileHosters}"
+        <DataGrid Grid.Row="2" x:Name="fileHostersGrid" ItemsSource="{Binding FileHosters}"
                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   IsReadOnly="False" SelectionMode="Single" RowHeaderWidth="0"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                   GridLinesVisibility="All"
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
                   VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
@@ -267,7 +364,7 @@
                   <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <CheckBox IsChecked="{Binding Use, UpdateSourceTrigger=PropertyChanged}"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}" />
+                              Visibility="{Binding CanUse, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextSecondaryBrush}"
@@ -276,7 +373,7 @@
                         <Style TargetType="TextBlock">
                           <Setter Property="Visibility" Value="Visible" />
                           <Style.Triggers>
-                            <DataTrigger Binding="{Binding HasAccounts}" Value="True">
+                            <DataTrigger Binding="{Binding CanUse}" Value="True">
                               <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                           </Style.Triggers>
@@ -296,7 +393,7 @@
                     <StackPanel.Style>
                       <Style TargetType="StackPanel">
                         <Style.Triggers>
-                          <DataTrigger Binding="{Binding HasAccounts}" Value="False">
+                          <DataTrigger Binding="{Binding CanUse}" Value="False">
                             <Setter Property="Opacity" Value="0.45" />
                             <Setter Property="ToolTip" Value="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
                           </DataTrigger>
@@ -328,20 +425,24 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Grid>
-                    <ComboBox ItemsSource="{Binding Accounts}"
+                    <!-- Dropdown lists the saved accounts plus a synthetic "Anonymous" entry
+                         (AccountOptions) for anonymous-capable hosters, so anonymous sits next
+                         to real accounts. Shown whenever the row is usable. -->
+                    <ComboBox ItemsSource="{Binding AccountOptions}"
                               SelectedItem="{Binding SelectedAccount, UpdateSourceTrigger=PropertyChanged}"
                               DisplayMemberPath="Username"
                               VerticalAlignment="Center"
                               HorizontalAlignment="Left"
                               Width="200"
                               Padding="4,2" FontSize="12"
-                              Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}" />
+                              Visibility="{Binding CanUse, Converter={StaticResource BoolToVisibility}}" />
+                    <!-- Not usable (no accounts and anonymous not supported): prompt to add one. -->
                     <TextBlock VerticalAlignment="Center" FontSize="12" Padding="6,2">
                       <TextBlock.Style>
                         <Style TargetType="TextBlock">
                           <Setter Property="Visibility" Value="Visible" />
                           <Style.Triggers>
-                            <DataTrigger Binding="{Binding HasAccounts}" Value="True">
+                            <DataTrigger Binding="{Binding CanUse}" Value="True">
                               <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                           </Style.Triggers>
@@ -395,8 +496,115 @@
         </Border>
       </Grid>
 
-      <!-- Step 2: When to start -->
-      <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+      <!-- Step 2: Summary — what will actually upload, grouped by destination hoster. -->
+      <Grid Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" /> <!-- Title -->
+          <RowDefinition Height="Auto" /> <!-- Description -->
+          <RowDefinition Height="Auto" /> <!-- Orphan warning -->
+          <RowDefinition Height="*" />    <!-- Hosters list -->
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Summary_Title}" FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
+        <TextBlock Grid.Row="1" Text="{loc:Loc Wizard_Summary_Desc}"
+                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   TextWrapping="Wrap" Margin="0,0,0,12" />
+
+        <!-- Orphan-files warning banner — surfaces files with zero destinations. The
+             user can still proceed (Next isn't blocked); those files just don't upload. -->
+        <Border Grid.Row="2"
+                Visibility="{Binding HasOrphanFiles, Converter={StaticResource BoolToVisibility}}"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource WarningBrush}"
+                BorderThickness="1" CornerRadius="3"
+                Padding="10,8" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Foreground="{DynamicResource WarningBrush}" FontSize="12" FontWeight="SemiBold">
+              <Run Text="{Binding OrphanFilesCount, Mode=OneWay}" />
+              <Run Text=" " />
+              <Run Text="{loc:Loc Wizard_Summary_OrphanWarning_Suffix}" />
+            </TextBlock>
+            <ItemsControl ItemsSource="{Binding OrphanFiles}" Margin="0,4,0,0">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding FileName}"
+                             FontSize="11"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             Margin="0,1" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Summaries}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Expander Style="{StaticResource SummaryExpander}"
+                          IsExpanded="True" Margin="0,0,0,8">
+                  <Expander.Header>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,6,8,6">
+                      <Image Source="{Binding HosterName, Converter={StaticResource HosterIconConverter}}"
+                             Width="20" Height="20" Margin="0,0,8,0"
+                             RenderOptions.BitmapScalingMode="HighQuality" />
+                      <TextBlock Text="{Binding HosterName}" FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding AccountUsername}" FontSize="12"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 VerticalAlignment="Center" Margin="8,0,0,0" />
+                      <TextBlock FontSize="12"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Run Text="•" />
+                        <Run Text=" " />
+                        <Run Text="{Binding FileCount, Mode=OneWay}" />
+                        <Run Text=" " />
+                        <Run Text="{loc:Loc Wizard_Summary_FileCount_Suffix}" />
+                        <Run Text="  •  " />
+                        <Run Text="{Binding TotalSize, Converter={StaticResource ByteUnitConverter}, Mode=OneWay}" />
+                        <Run Text="{Binding MaxFileSizeDisplay, Mode=OneWay}" />
+                      </TextBlock>
+                    </StackPanel>
+                  </Expander.Header>
+                  <Border Background="{DynamicResource SurfaceBrush}"
+                          BorderBrush="{DynamicResource BorderSubtleBrush}"
+                          BorderThickness="0,1,0,0">
+                    <ItemsControl ItemsSource="{Binding Files}" Margin="32,6,12,8">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*" />
+                              <ColumnDefinition Width="90" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding FileName}"
+                                       FontSize="12" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Size, Converter={StaticResource ByteUnitConverter}}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Border>
+                </Expander>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+
+      <!-- Step 3: When to start -->
+      <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
         <TextBlock Text="{loc:Loc Wizard_Step3_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
         <TextBlock Text="{loc:Loc Wizard_Step3_Desc}"

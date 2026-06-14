@@ -84,10 +84,8 @@ public sealed class ChunkSliceStream(Stream inner, long sliceLength) : Stream
 
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
-    protected override void Dispose(bool disposing)
-    {
+    protected override void Dispose(bool disposing) =>
         // Deliberately don't dispose _inner — the caller's FileStream lives across multiple
         // slices and gets disposed once at the end of the upload loop.
         base.Dispose(disposing);
-    }
 }

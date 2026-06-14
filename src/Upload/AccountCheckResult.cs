@@ -32,6 +32,15 @@ namespace CSUploader.Upload;
 /// DTO when the user-supplied username is empty — useful for API-key-direct accounts
 /// where the user pasted only a key and the grid would otherwise show a blank Username
 /// cell. Null when the verifier didn't learn one.</param>
+/// <param name="StorageUsedBytes">Bytes the account is currently consuming on the
+/// hoster's storage, when the hoster exposes a usage endpoint (FileBoom's
+/// <c>/v1/users/me/statistic</c> returns <c>storageSpace.used</c>). Null for hosters
+/// that don't surface storage info. Persisted onto <c>FileHosterLoginDto.StorageUsedBytes</c>
+/// alongside <see cref="StorageQuotaBytes"/> so the wizard can skip oversized
+/// (file, hoster) pairs at queue time and the grid can show usage.</param>
+/// <param name="StorageQuotaBytes">Total storage cap (free-tier hosters typically expose
+/// a hard limit — FileBoom's free tier is 10 GiB via <c>storageSpace.total</c>). Null
+/// for hosters that don't surface a quota. Paired with <see cref="StorageUsedBytes"/>.</param>
 public record AccountCheckResult(
     bool IsValid,
     AccountType AccountType,
@@ -41,4 +50,6 @@ public record AccountCheckResult(
     DateTime? SessionCookieExpiresUtc = null,
     int? PinnedProxyId = null,
     string? ApiKey = null,
-    string? DerivedUsername = null);
+    string? DerivedUsername = null,
+    long? StorageUsedBytes = null,
+    long? StorageQuotaBytes = null);

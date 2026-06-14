@@ -55,6 +55,22 @@ public class ExLoadPipelineTests
 
     private const string AccountInfoOkJson = """{"msg":"OK","server_time":"2026-05-25 16:13:59","status":200,"result":{"email":"u@example.com","premium_expire":"2027-12-31 00:00:00","balance":"0.00000"}}""";
 
+    // Verbatim shape from the live /api/account/info response: storage_used is a byte
+    // count, storage_left is "inf" for ex-load's unlimited accounts.
+    private const string AccountInfoWithStorageJson = """{"msg":"OK","server_time":"2026-06-10 16:02:34","status":200,"result":{"email":"u@example.com","premium_expire":"2027-12-31 00:00:00","balance":"0.00000","storage_used":"415593052","storage_left":"inf"}}""";
+
+    // Same but with a finite storage_left (hypothetical capped account) to prove quota math.
+    private const string AccountInfoCappedStorageJson = """{"msg":"OK","server_time":"2026-06-10 16:02:34","status":200,"result":{"email":"u@example.com","premium_expire":"2027-12-31 00:00:00","balance":"0.00000","storage_used":"400000000","storage_left":"600000000"}}""";
+
+    // Verbatim KatFile shape: storage_left is a JSON NUMBER (not a string), storage_used a
+    // string. The old string-typed DTO threw on the number and the whole deserialize failed.
+    private const string AccountInfoNumericStorageLeftJson = """{"result":{"balance":"0.00000","storage_left":2198032008075,"premium_expire":"2027-12-31 00:00:00","storage_used":"991247477","email":"u@example.com"},"status":200,"server_time":"2026-06-10 18:19:12","msg":"OK"}""";
+
+    // Verbatim Hexload shape (live 2026-06-13): an EMPTY account reports storage_used as JSON
+    // null (its dashboard shows 0.00 GB) and storage_left "inf". Distinct from the field being
+    // absent — must surface used=0, not blank.
+    private const string AccountInfoNullStorageUsedJson = """{"msg":"OK","server_time":"2026-06-13 12:12:34","status":200,"result":{"email":"u@example.com","premium_expire":"2027-12-31 00:00:00","balance":"0.00000","storage_used":null,"storage_left":"inf"}}""";
+
     private const string AccountInfoExpiredJson = """{"msg":"OK","server_time":"2026-05-25 16:13:59","status":200,"result":{"email":"u@example.com","premium_expire":"2024-01-01 00:00:00","balance":"0.00000"}}""";
 
     private const string UploadOkJson = """[{"file_code":"xyz789","file_status":"OK"}]""";
@@ -74,7 +90,7 @@ public class ExLoadPipelineTests
         FileHosterLoginDto credentials = new()
         {
             Id = 1,
-            FileHosterName = "ExLoad",
+            FileHosterName = "Ex-Load",
             Username = string.Empty,
             ApiKey = "key_pasted_by_user",
         };
@@ -107,7 +123,7 @@ public class ExLoadPipelineTests
         });
         ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
 
-        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "key_x" };
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "key_x" };
 
         await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
@@ -128,7 +144,7 @@ public class ExLoadPipelineTests
         Queue<HttpResponseSnapshot> uploads = new();
         ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
 
-        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "dead_key" };
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "dead_key" };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
@@ -146,7 +162,7 @@ public class ExLoadPipelineTests
         FakeAuthService auth = new(null);
         ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
 
-        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", Username = string.Empty, ApiKey = null };
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", Username = string.Empty, ApiKey = null };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
@@ -173,7 +189,7 @@ public class ExLoadPipelineTests
         FileHosterLoginDto credentials = new()
         {
             Id = 1,
-            FileHosterName = "ExLoad",
+            FileHosterName = "Ex-Load",
             Username = "u@example.com",
             Password = "p",
         };
@@ -221,7 +237,7 @@ public class ExLoadPipelineTests
         FileHosterLoginDto credentials = new()
         {
             Id = 1,
-            FileHosterName = "ExLoad",
+            FileHosterName = "Ex-Load",
             Username = "u@example.com",
             Password = "p",
         };
@@ -249,7 +265,7 @@ public class ExLoadPipelineTests
         FileHosterLoginDto credentials = new()
         {
             Id = 1,
-            FileHosterName = "ExLoad",
+            FileHosterName = "Ex-Load",
             Username = "u@example.com",
             Password = "p",
         };
@@ -272,7 +288,7 @@ public class ExLoadPipelineTests
         });
         ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
 
-        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "expired_key" };
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "expired_key" };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
 
@@ -359,35 +375,152 @@ public class ExLoadPipelineTests
         Assert.Null(result.ApiKey);
     }
 
+    // RunAsync_FileExceedsMaxFileSize_FailsWithoutTouchingApiOrWebView removed —
+    // ExLoadPipeline.MaxFileSize is now null (member uploads have no cap; the 100 MB
+    // limit is guest-only). The base XFS pre-check is still exercised via the other
+    // XFS-family pipelines that DO declare a cap (KatFile, TakeFile, etc.).
+
     [Fact]
-    public async Task RunAsync_FileExceedsMaxFileSize_FailsWithoutTouchingApiOrWebView()
+    public async Task CheckAccountAsync_ApiKeyDirect_SurfacesStorageUsedFromAccountInfoJson()
     {
+        // Storage comes straight from the /api/account/info JSON (storage_used +
+        // storage_left) — no cookie / my_files HTML scrape. storage_left="inf" → quota
+        // null → grid's Available cell renders blank.
         Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
-        Queue<string> getResponses = new();
+        Queue<string> getResponses = new(new[] { AccountInfoWithStorageJson });
         Queue<HttpResponseSnapshot> uploads = new();
         FakeAuthService auth = new(null);
         ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "ExLoad", ApiKey = "k" };
-        AttemptContext ctx = MakeContext(credentials) with { FileSize = 2L * 1024 * 1024 * 1024 };
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: "key_existing_one", handler, ProxyChoice.Direct, CancellationToken.None);
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+        Assert.True(result.IsValid);
+        Assert.Equal(415_593_052L, result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes); // "inf" → unlimited → Available column blank
+        Assert.Equal(0, auth.CallCount); // api-key path never pops the WebView
+        Assert.Empty(getResponses);
+    }
 
-        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
-        // The base XFileSharingApiPipeline interpolates the Name property — for this
-        // pipeline that's "ExLoad" (no hyphen, matching the FileHosters registry key).
-        Assert.Contains("ExLoad", fail.Reason, StringComparison.Ordinal);
-        Assert.Equal(0, auth.CallCount);
-        Assert.Empty(getCalls);
+    [Fact]
+    public async Task CheckAccountAsync_ApiKeyDirect_FiniteStorageLeft_ComputesQuota()
+    {
+        // When storage_left is a real number (not "inf"), quota = used + left so the
+        // grid's Available cell shows the remaining space.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoCappedStorageJson });
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: "key_existing_one", handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(400_000_000L, result.StorageUsedBytes);
+        Assert.Equal(1_000_000_000L, result.StorageQuotaBytes); // used + left
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ApiKeyDirect_NumericStorageLeft_ParsesAndComputesQuota()
+    {
+        // Regression: KatFile returns storage_left as a JSON NUMBER (not a string). The old
+        // string-typed DTO threw on the number and the whole /api/account/info deserialize
+        // failed, surfacing the misleading "API key was rejected" error. The JsonElement
+        // fields now tolerate both string and number shapes.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoNumericStorageLeftJson });
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: "key_existing_one", handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(991_247_477L, result.StorageUsedBytes);
+        // quota = used + left = 991247477 + 2198032008075
+        Assert.Equal(991_247_477L + 2_198_032_008_075L, result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ApiKeyDirect_NoStorageFields_LeavesStorageNull()
+    {
+        // Older/other XFS hosters whose /api/account/info omits storage_used/left. Must
+        // not throw — storage stays null and the grid renders blank Used/Available cells.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoOkJson }); // no storage_* fields
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: "key_existing_one", handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ApiKeyDirect_NullStorageUsed_TreatedAsZeroUsed()
+    {
+        // Hexload returns storage_used:null for an empty account (vs Ex-Load/KatFile's real
+        // number). Surface used=0 (its own dashboard shows 0.00 GB), NOT blank, while "inf"
+        // storage_left keeps quota null (Unlimited). Contrast with the absent-field test above,
+        // which stays null — proving present-but-null is distinguishable from absent.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { AccountInfoNullStorageUsedJson });
+        Queue<HttpResponseSnapshot> uploads = new();
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: "key_existing_one", handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(0L, result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_NoApiKey_SurfacesStorageFromDerivedAccountInfo()
+    {
+        // U/P→WebView path: after deriving the key, the base parses storage from the same
+        // /api/account/info JSON it already fetched — no extra round-trip.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[]
+        {
+            MyAccountWithApiKeyHtml,    // 1. my_account scrape (returns existing api-url)
+            AccountInfoWithStorageJson, // 2. /api/account/info (premium / email / storage)
+        });
+        Queue<HttpResponseSnapshot> uploads = new();
+        FakeAuthService auth = new("xfss_from_webview");
+        ExLoadPipeline pipeline = MakePipeline(auth, getCalls, getResponses, uploads, out _);
+        using HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(415_593_052L, result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+        Assert.Empty(getResponses); // both responses consumed — no my_files round-trip
     }
 
     [Fact]
     public void Properties_DeclareExLoadFreeTierLimits()
     {
+        // Ex-Load's 100 MB per-file cap is for anonymous guests only — our pipeline
+        // always uploads as a logged-in member, which has no documented cap. Override
+        // is in ExLoadPipeline.cs; pinned here so a future XFS-base default change
+        // doesn't accidentally reintroduce a cap that would block large legitimate
+        // uploads at queue time.
         ExLoadPipeline pipeline = new();
-        Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize);
-        Assert.Equal(30, pipeline.MaxFilesPerPackage);
-        Assert.Equal("ExLoad", pipeline.Name);
+        Assert.Null(pipeline.MaxFileSize);
+        Assert.Null(pipeline.MaxFilesPerPackage);
+        Assert.Equal("Ex-Load", pipeline.Name);
     }
 
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
@@ -435,8 +568,8 @@ public class ExLoadPipelineTests
         FilePath = @"C:\nope\package1\x.zip",
         FileName = "x.zip",
         FileSize = 100,
-        HosterName = "ExLoad",
-        Credentials = credentials ?? new FileHosterLoginDto { Id = 42, FileHosterName = "ExLoad", ApiKey = "default_key" },
+        HosterName = "Ex-Load",
+        Credentials = credentials ?? new FileHosterLoginDto { Id = 42, FileHosterName = "Ex-Load", ApiKey = "default_key" },
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
@@ -458,10 +591,13 @@ public class ExLoadPipelineTests
     {
         public int CallCount { get; private set; }
 
-        public Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+        public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
         {
             CallCount++;
-            return Task.FromResult(cannedCookie);
+            InteractiveAuthResult? result = cannedCookie is null
+                ? null
+                : new InteractiveAuthResult(cannedCookie, CapturedUsername: null);
+            return Task.FromResult(result);
         }
     }
 }

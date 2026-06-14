@@ -311,6 +311,29 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Starts every selected row. The Uploads context menu's "Start" item binds here
+    /// (passing the grid's SelectedItems) so a multi-row selection all starts — previously
+    /// it bound to the single SelectedItem and only the focused row started.
+    /// </summary>
+    [RelayCommand]
+    private void StartSelected(IList? selectedItems)
+    {
+        if (selectedItems is null || selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        // Snapshot — StartPackage mutates file state, and the live SelectedItems collection
+        // can shift underneath us as rows transition. Selecting a package and some of its
+        // files is harmless: StartPackage is idempotent (ForceQueueIfStartable skips files
+        // already queued/running).
+        foreach (object item in selectedItems.Cast<object>().ToArray())
+        {
+            _packageManager.StartPackage(item);
+        }
+    }
+
     [RelayCommand]
 #pragma warning disable CA1822 // Must be instance method for RelayCommand
     private void StopSelected(object? item)
@@ -593,10 +616,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         Packages.Remove(package);
     }
 
-    private void RemovePackageFromView(Package package)
-    {
-        RemovePackageFromView(package, package);
-    }
+    private void RemovePackageFromView(Package package) => RemovePackageFromView(package, package);
 
     private void PackageManager_FileCompleted(object? sender, PackageFile file)
     {

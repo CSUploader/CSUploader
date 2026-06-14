@@ -10,6 +10,7 @@
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
              xmlns:up="clr-namespace:CSUploader.Upload"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:UploadsViewModel}"
@@ -171,6 +172,8 @@
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   Loaded="UploadsGrid_Loaded"
                   ContextMenuOpening="UploadsGrid_ContextMenuOpening"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                   ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
@@ -203,9 +206,12 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                    <!-- Label + visibility track the focused (right-clicked) row, but the
+                         command operates on ALL selected rows via SelectedItems so a
+                         multi-row selection all starts. -->
                     <MenuItem Header="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource StartMenuLabel}}"
-                              Command="{Binding RetryCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              Command="{Binding StartSelectedCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
                         <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
@@ -465,7 +471,7 @@
                                 <Image Source="{Binding HosterDisplay, Converter={StaticResource HosterIconConverter}}"
                                        Width="18" Height="18" Margin="0,0,6,0"
                                        RenderOptions.BitmapScalingMode="HighQuality" />
-                                <TextBlock Text="{Binding HosterDisplay, FallbackValue=''}"
+                                <TextBlock Text="{Binding HosterDisplay}"
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </DataTemplate>

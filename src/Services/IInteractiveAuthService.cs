@@ -9,8 +9,8 @@ namespace CSUploader.Services;
 
 /// <summary>
 /// Per-hoster configuration for an <see cref="IInteractiveAuthService"/> sign-in. Tells
-/// the UI which URL to open in the embedded browser and which cookie to harvest once
-/// the user has signed in.
+/// the UI which URL to open in the embedded browser, which cookie to harvest as the
+/// session token, and (optionally) a second cookie carrying the user's identity.
 /// </summary>
 /// <param name="HosterName">Display name for the dialog header and for partitioning
 /// per-hoster WebView2 user-data folders (so two hosters can't see each other's
@@ -22,11 +22,55 @@ namespace CSUploader.Services;
 /// origin, not domain — but kept on the spec so a future implementation can validate
 /// the captured cookie's domain.</param>
 /// <param name="CookieName">Name of the session cookie to capture (e.g. <c>xfss</c>).</param>
+/// <param name="UsernameCookieName">Optional name of a cookie carrying the signed-in
+/// account's username/email — set by hosters that put the identity in the cookie jar
+/// rather than only on the my_account page (ExtMatrix uses <c>username</c>). When non-
+/// null and the cookie is present after sign-in, its value flows through as
+/// <see cref="InteractiveAuthResult.CapturedUsername"/>. XFileSharing-family hosters
+/// leave this null — their identity comes from the my_account scrape, not a cookie.</param>
+/// <param name="CookieValueValidator">Optional predicate the WebView calls against the
+/// captured cookie value before declaring sign-in success. When the cookie is set both
+/// before AND after login (as with FileBoom's <c>accessToken</c> JWT, which is issued
+/// with <c>aud:"client"</c> on the bootstrap call and re-issued with <c>aud:"user"</c>
+/// after password validation), cookie-presence alone fires too early — we'd close the
+/// window on the bootstrap token. The validator returns true only for the post-login
+/// value (e.g. by JWT-decoding and inspecting an audience/role claim). Leave null for
+/// hosters whose session cookie is set ONLY after login (XFileSharing family).</param>
+/// <param name="AdditionalCookieNames">Optional list of supplementary cookies to capture
+/// alongside <see cref="CookieName"/>. When non-empty and the named cookies are present
+/// in the post-login jar, their values flow through as
+/// <see cref="InteractiveAuthResult.AdditionalCookies"/>. Used by hosters whose
+/// authenticated requests need more than one cookie (e.g. FileBoom sends both
+/// <c>accessToken</c> and <c>pcId</c>).</param>
 public readonly record struct InteractiveAuthSpec(
     string HosterName,
     string LoginUrl,
     string CookieDomain,
-    string CookieName);
+    string CookieName,
+    string? UsernameCookieName = null,
+    Func<string, bool>? CookieValueValidator = null,
+    IReadOnlyList<string>? AdditionalCookieNames = null);
+
+/// <summary>
+/// Outcome of a successful <see cref="IInteractiveAuthService.AcquireSessionCookieAsync"/>
+/// call. Bundles the session cookie value with any additional identity cookie the spec
+/// asked the WebView to capture.
+/// </summary>
+/// <param name="SessionCookieValue">Value of the cookie named by
+/// <see cref="InteractiveAuthSpec.CookieName"/>. Always non-empty on success.</param>
+/// <param name="CapturedUsername">Value of the cookie named by
+/// <see cref="InteractiveAuthSpec.UsernameCookieName"/>, or null when the spec didn't
+/// request one or the cookie wasn't present. Hosters that use this as the canonical
+/// identity should propagate it onto <c>AccountCheckResult.DerivedUsername</c> so the
+/// EditAccount dialog and Accounts grid can surface it.</param>
+/// <param name="AdditionalCookies">Name→value map of the cookies the spec asked for via
+/// <see cref="InteractiveAuthSpec.AdditionalCookieNames"/>. Null when the spec didn't
+/// request any. Missing names (cookie not in the post-login jar) are simply absent from
+/// the map — callers handle them as optional.</param>
+public readonly record struct InteractiveAuthResult(
+    string SessionCookieValue,
+    string? CapturedUsername,
+    IReadOnlyDictionary<string, string>? AdditionalCookies = null);
 
 /// <summary>
 /// Abstraction for prompting the user to complete an interactive sign-in (currently a
@@ -38,7 +82,8 @@ public interface IInteractiveAuthService
 {
     /// <summary>
     /// Prompts the user to sign in per <paramref name="spec"/> and returns the captured
-    /// session cookie value, or null if the user cancelled or the sign-in was refused.
+    /// session cookie value (plus any additional identity cookie the spec asked for), or
+    /// null if the user cancelled or the sign-in was refused.
     /// </summary>
     /// <param name="spec">Per-hoster login parameters.</param>
     /// <param name="username">Account username being signed in. Currently informational —
@@ -54,14 +99,14 @@ public interface IInteractiveAuthService
     /// <param name="cancellationToken">Cancels the wait when the caller goes away. The
     /// WebView dialog itself stays open until the user closes it; cancellation just
     /// abandons the awaiter.</param>
-    /// <returns>The captured cookie value on success, or null if the user cancelled,
-    /// the proxy was refused (e.g. SOCKS-with-auth which WebView2 can't authenticate),
-    /// or <paramref name="proxy"/> was null.</returns>
+    /// <returns>The captured session + optional identity cookies on success, or null if
+    /// the user cancelled, the proxy was refused (e.g. SOCKS-with-auth which WebView2
+    /// can't authenticate), or <paramref name="proxy"/> was null.</returns>
     /// <remarks>
     /// Implementations must marshal to the UI dispatcher themselves — callers may invoke
     /// this from a background upload thread. The WPF implementation also serialises
     /// concurrent calls so two simultaneous uploads on the same hoster don't pop two
     /// modal windows on top of each other.
     /// </remarks>
-    Task<string?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken);
+    Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken);
 }

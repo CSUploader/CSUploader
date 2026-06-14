@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Media;
@@ -23,11 +24,11 @@ public partial class SettingsViewModel(
     AppSettings settings,
     IDialogService dialogService,
     IAppLogger logger,
+    IAccountVerifier accountVerifier,
     TrayIconManager? trayIconManager = null,
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
-    LogsViewModel? logsViewModel = null,
-    IAccountVerifier? accountVerifier = null) : ObservableObject
+    LogsViewModel? logsViewModel = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -35,10 +36,7 @@ public partial class SettingsViewModel(
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
     private readonly TrayIconManager? _trayIconManager = trayIconManager;
-    // Optional so existing test fixtures that don't exercise the account-check flow can
-    // construct the VM with minimal dependencies. When null, CheckAccountAsync returns
-    // the legacy "not implemented" message — preserving pre-pipeline behaviour.
-    private readonly IAccountVerifier? _accountVerifier = accountVerifier;
+    private readonly IAccountVerifier _accountVerifier = accountVerifier;
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.
     private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
@@ -349,6 +347,13 @@ public partial class SettingsViewModel(
                     // Hydrate AppSettings so ProxyManager.NextProxy sees the user's choice
                     // even before the Connection Manager VM has loaded its UI state.
                     _settings.ProxiesEnabled = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
+                case var k when k == SettingKey.AllowInvalidServerCertificates:
+                    // Lives on the Connection page; hydrate AppSettings here so the
+                    // DefaultHttpHandlerFactory sees the user's choice from the very first
+                    // HTTP handler it constructs (CheckAccount Refresh on startup, etc.).
+                    _settings.AllowInvalidServerCertificates = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
                 case var k when k == SettingKey.SuppressedConfirmations:
@@ -726,21 +731,15 @@ public partial class SettingsViewModel(
     }
 
     /// <summary>
-    /// Routes credential verification through the injected <see cref="IAccountVerifier"/>
-    /// when present, otherwise returns the legacy "not implemented" message. The five
-    /// call sites in this VM all pre-gate on <see cref="FileHosterClient.FindByHost"/>,
-    /// so reaching the null branch in production means the verifier was simply not wired
-    /// (test fixture, unit test) — not that a known hoster is unsupported.
+    /// Routes credential verification through the injected <see cref="IAccountVerifier"/>.
     /// </summary>
     private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken cancellationToken = default)
-    {
-        if (_accountVerifier is null)
-        {
-            return Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Account checking not implemented for this hoster."));
-        }
+        => _accountVerifier.CheckAsync(hosterName, username, password, apiKey, cancellationToken);
 
-        return _accountVerifier.CheckAsync(hosterName, username, password, apiKey, cancellationToken);
-    }
+    /// <summary>Wall-clock that <see cref="FileHosterLoginDto.MarkRefreshed"/> sites stamp
+    /// onto each DTO after a CheckAsync completes. Centralised so tests can compare against
+    /// the same primitive the production code uses.</summary>
+    private static DateTime NowLocal() => DateTime.Now;
 
     /// <summary>
     /// Drives the interactive (WebView) sign-in for an XFileSharing-API hoster from the
@@ -776,12 +775,25 @@ public partial class SettingsViewModel(
             target.ApiKey = result.ApiKey;
         }
 
-        // Fill an empty Username field from whatever the verifier learned (typically the
-        // email from /api/account/info). Skip when the user already typed one — they
-        // win over the auto-discovery so e.g. an alias they prefer isn't clobbered.
-        if (!string.IsNullOrEmpty(result.DerivedUsername) && string.IsNullOrEmpty(target.Username))
+        // API-key verifiers (XFileSharingApi, ExtMatrix) return the account email so we
+        // can surface it in the grid. The verifier is the canonical source — API-key
+        // hosters never expose a UsernameBox in EditAccountWindow, so any prior value is
+        // either null or a stale auto-discovery, both of which the new value supersedes.
+        if (!string.IsNullOrEmpty(result.DerivedUsername))
         {
             target.Username = result.DerivedUsername;
+        }
+
+        // Storage quota: only overwrite when the verifier surfaced fresh values. A null
+        // here means "this hoster doesn't report storage" — DON'T clobber the previously
+        // persisted numbers in that case.
+        if (result.StorageQuotaBytes is { } quota)
+        {
+            target.StorageQuotaBytes = quota;
+        }
+        if (result.StorageUsedBytes is { } used)
+        {
+            target.StorageUsedBytes = used;
         }
     }
 
@@ -872,7 +884,10 @@ public partial class SettingsViewModel(
             IsCheckingAccount = false;
         }
 
-        dto.SetCheckStatus(finalStatus, finalMessage);
+        // Real verifier outcome (success OR failure) → MarkRefreshed stamps CheckStatus,
+        // StatusMessage AND LastRefreshedDateTime atomically; the row's grid column for
+        // "Refreshed at" picks this up after Accounts[i] = dto below.
+        dto.MarkRefreshed(finalStatus, finalMessage, NowLocal());
         await _accountRepository.UpdateAsync(dto);
 
         // Replace the in-memory row with the verified DTO so AccountType (which a
@@ -916,7 +931,9 @@ public partial class SettingsViewModel(
             var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
             if (client is null)
             {
-                statuses[account.Id] = new RowStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
+                // No FileHosterClient implementation → no verifier round-trip happened →
+                // RefreshedAt stays null (we didn't actually try anything).
+                statuses[account.Id] = new RowStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"), RefreshedAt: null);
                 UpdateAccountStatus(account.Id, AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
                 continue;
             }
@@ -930,11 +947,16 @@ public partial class SettingsViewModel(
                     account.ApiKey,
                     cancellationToken);
 
+                // Single stamp covers both Valid and !Valid branches — we tried, so the
+                // timestamp reflects the attempt regardless of outcome.
+                DateTime refreshedAt = NowLocal();
+
                 if (result.IsValid)
                 {
                     statuses[account.Id] = new RowStatus(
                         AccountCheckStatus.Valid,
-                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"));
+                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"),
+                        refreshedAt);
                     if (account.AccountType != result.AccountType)
                     {
                         account.AccountType = result.AccountType;
@@ -948,9 +970,11 @@ public partial class SettingsViewModel(
                     // verifier's message, no "Failed: " prefix needed.
                     statuses[account.Id] = new RowStatus(
                         AccountCheckStatus.Failed,
-                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
+                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"),
+                        refreshedAt);
                 }
 
+                account.LastRefreshedDateTime = refreshedAt;
                 await _accountRepository.UpdateAsync(account, cancellationToken);
             }
             catch (Exception ex)
@@ -958,7 +982,13 @@ public partial class SettingsViewModel(
                 // Transport exceptions and verifier IsValid=false both bucket as Failed
                 // (red cell). The user sees the message text to distinguish; we don't
                 // need a separate "Error" colour.
-                statuses[account.Id] = new RowStatus(AccountCheckStatus.Failed, ex.Message);
+                DateTime refreshedAt = NowLocal();
+                statuses[account.Id] = new RowStatus(AccountCheckStatus.Failed, ex.Message, refreshedAt);
+                account.LastRefreshedDateTime = refreshedAt;
+                // Persist the timestamp even on transport failure. Swallow secondary DB
+                // errors so they don't mask the original verifier exception in the UI.
+                try { await _accountRepository.UpdateAsync(account, cancellationToken); }
+                catch { /* keep the primary failure visible */ }
             }
 
             RowStatus settled = statuses[account.Id];
@@ -1078,6 +1108,14 @@ public partial class SettingsViewModel(
             Password = NewAccountPassword,
             AccountType = NewAccountType,
         };
+        if (client is not null)
+        {
+            // Reaching here means we attempted a verifier round-trip (success, failure
+            // signal handled by the dialog, OR exception the user dismissed via "Add
+            // anyway"). Stamp the "Refreshed at" column unconditionally so the user
+            // can tell when we last tried — failure included.
+            dto.LastRefreshedDateTime = NowLocal();
+        }
         if (verifyResult is not null)
         {
             ApplySessionCookieIfPresent(dto, verifyResult);
@@ -1093,24 +1131,43 @@ public partial class SettingsViewModel(
     }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task RemoveAccountAsync(CancellationToken cancellationToken = default)
+    private async Task RemoveSelectedAccountsAsync(IList? selectedItems, CancellationToken cancellationToken = default)
     {
-        if (SelectedAccount is null)
+        FileHosterLoginDto[] targets = ResolveAccountTargets(selectedItems);
+        if (targets.Length == 0)
         {
             return;
         }
 
+        string message = targets.Length == 1
+            ? LocF("Settings_Accounts_Remove_Message_Format", targets[0].Username, targets[0].FileHosterName)
+            : LocF("Settings_Accounts_Remove_MessageBulk_Format", targets.Length);
+
         if (!_dialogService.ShowOptOutConfirmation(
                 ConfirmationKeys.RemoveFileHosterAccount,
-                LocF("Settings_Accounts_Remove_Message_Format", SelectedAccount.Username, SelectedAccount.FileHosterName),
+                message,
                 Loc("Settings_Accounts_Remove_Title")))
         {
             return;
         }
 
-        await _accountRepository.DeleteAsync(SelectedAccount.Id, cancellationToken);
+        foreach (FileHosterLoginDto account in targets)
+        {
+            await _accountRepository.DeleteAsync(account.Id, cancellationToken);
+        }
         await LoadAccountsAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Coerces a XAML-bound <see cref="IList"/> CommandParameter (DataGrid.SelectedItems
+    /// is non-generic) into a typed array snapshot. Returning an empty array on no
+    /// selection lets RelayCommand callers do a simple length check rather than handle
+    /// null.
+    /// </summary>
+    private static FileHosterLoginDto[] ResolveAccountTargets(IList? selectedItems)
+        => selectedItems is null
+            ? []
+            : [.. selectedItems.OfType<FileHosterLoginDto>()];
 
     [RelayCommand]
     private void EditAccount()
@@ -1145,74 +1202,27 @@ public partial class SettingsViewModel(
     // greyed out for the rest of the session. Save/Add stay non-concurrent because
     // they'd otherwise double-insert.
     [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task RefreshAccountAsync(CancellationToken cancellationToken = default)
+    private async Task RefreshSelectedAccountsAsync(IList? selectedItems, CancellationToken cancellationToken = default)
     {
-        if (SelectedAccount is null)
+        FileHosterLoginDto[] targets = ResolveAccountTargets(selectedItems);
+        if (targets.Length == 0)
         {
             return;
         }
-
-        var client = FileHosterClient.FindByHost(SelectedAccount.FileHosterName ?? string.Empty, Protocol.Http, _logger);
-        if (client is null)
-        {
-            CheckAccountStatus = LocF("Settings_Accounts_Status_NoImpl_Format", SelectedAccount.FileHosterName);
-            return;
-        }
-
-        // Capture before UI updates can reset SelectedAccount
-        FileHosterLoginDto account = SelectedAccount;
-        int accountId = account.Id;
-        string username = account.Username ?? string.Empty;
-        string password = account.Password ?? string.Empty;
 
         IsCheckingAccount = true;
-        CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", username, account.FileHosterName, 1, 1);
-
-        // Show "Checking..." in the DataGrid immediately and yield to let UI render.
-        UpdateAccountStatus(accountId, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
-        await Task.Yield();
-
         try
         {
-            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, account.ApiKey, cancellationToken);
-
-            RowStatus settled;
-            if (result.IsValid)
-            {
-                account.AccountType = result.AccountType;
-                ApplySessionCookieIfPresent(account, result);
-                settled = new RowStatus(
-                    AccountCheckStatus.Valid,
-                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"));
-                CheckAccountStatus = LocF("Settings_Accounts_Status_Valid_Format", result.Message);
-            }
-            else
-            {
-                // CheckStatus drives the cell colour now — the row text is just the
-                // verifier's message. The global status bar (CheckAccountStatus) keeps
-                // its "Failed: " prefix because it has no colour and needs the prefix
-                // to convey outcome.
-                settled = new RowStatus(
-                    AccountCheckStatus.Failed,
-                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"));
-                CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
-            }
-
-            await _accountRepository.UpdateAsync(account, cancellationToken);
-
-            // Reload and preserve check-status pairs (both fields are UI-only).
             Dictionary<int, RowStatus> statuses = BuildStatusMap();
-            statuses[accountId] = settled;
+            for (int i = 0; i < targets.Length; i++)
+            {
+                FileHosterLoginDto account = targets[i];
+                RowStatus settled = await RefreshSingleAccountAsync(account, i + 1, targets.Length, cancellationToken);
+                statuses[account.Id] = settled;
+            }
+
             await LoadAccountsAsync(cancellationToken);
             ApplyStatusMap(statuses);
-        }
-        catch (Exception ex)
-        {
-            // Pre-fix this only updated the global status bar; the row was left stuck on
-            // "Checking..." with no indication of failure. Now the row also turns red
-            // via CheckStatus = Failed.
-            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
-            UpdateAccountStatus(accountId, AccountCheckStatus.Failed, ex.Message);
         }
         finally
         {
@@ -1220,48 +1230,154 @@ public partial class SettingsViewModel(
         }
     }
 
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task ToggleAccountAsync(string? parameter, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Runs one row's verification round-trip, updating the grid's status cell and the
+    /// global progress text. Returns the <see cref="RowStatus"/> the caller should drop
+    /// into its status map before reloading.
+    /// </summary>
+    private async Task<RowStatus> RefreshSingleAccountAsync(FileHosterLoginDto account, int oneBasedIndex, int total, CancellationToken cancellationToken)
     {
-        if (SelectedAccount is null)
+        FileHosterClient? client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        if (client is null)
+        {
+            string noImpl = LocF("Settings_Accounts_Status_NoImpl_Format", account.FileHosterName);
+            CheckAccountStatus = noImpl;
+            // No verifier ran → no "Refreshed at" stamp.
+            return new RowStatus(AccountCheckStatus.Unsupported, noImpl, RefreshedAt: null);
+        }
+
+        int accountId = account.Id;
+        string username = account.Username ?? string.Empty;
+        string password = account.Password ?? string.Empty;
+
+        CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", username, account.FileHosterName, oneBasedIndex, total);
+        UpdateAccountStatus(accountId, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
+        await Task.Yield();
+
+        try
+        {
+            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, account.ApiKey, cancellationToken);
+
+            // Single stamp covers Valid / !Valid / catch — we did call the verifier, so
+            // the timestamp reflects the attempt regardless of outcome.
+            DateTime refreshedAt = NowLocal();
+            account.LastRefreshedDateTime = refreshedAt;
+
+            if (result.IsValid)
+            {
+                account.AccountType = result.AccountType;
+                ApplySessionCookieIfPresent(account, result);
+                CheckAccountStatus = LocF("Settings_Accounts_Status_Valid_Format", result.Message);
+                await _accountRepository.UpdateAsync(account, cancellationToken);
+                return new RowStatus(
+                    AccountCheckStatus.Valid,
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"),
+                    refreshedAt);
+            }
+
+            // CheckStatus drives the cell colour now — the row text is just the
+            // verifier's message. The global status bar (CheckAccountStatus) keeps
+            // its "Failed: " prefix because it has no colour and needs the prefix
+            // to convey outcome.
+            CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
+            await _accountRepository.UpdateAsync(account, cancellationToken);
+            return new RowStatus(
+                AccountCheckStatus.Failed,
+                result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"),
+                refreshedAt);
+        }
+        catch (Exception ex)
+        {
+            // Pre-fix this only updated the global status bar; the row was left stuck on
+            // "Checking..." with no indication of failure. Now the row also turns red
+            // via CheckStatus = Failed.
+            DateTime refreshedAt = NowLocal();
+            account.LastRefreshedDateTime = refreshedAt;
+            // Persist the timestamp even on transport failure. Swallow secondary DB
+            // errors so they don't mask the verifier exception that's about to surface
+            // in the row's status cell.
+            try { await _accountRepository.UpdateAsync(account, cancellationToken); }
+            catch { /* keep the primary failure visible */ }
+            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
+            return new RowStatus(AccountCheckStatus.Failed, ex.Message, refreshedAt);
+        }
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task EnableSelectedAccountsAsync(IList? selectedItems, CancellationToken cancellationToken = default)
+        => ApplyEnabledStateAsync(selectedItems, disable: false, cancellationToken);
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task DisableSelectedAccountsAsync(IList? selectedItems, CancellationToken cancellationToken = default)
+        => ApplyEnabledStateAsync(selectedItems, disable: true, cancellationToken);
+
+    private async Task ApplyEnabledStateAsync(IList? selectedItems, bool disable, CancellationToken cancellationToken)
+    {
+        FileHosterLoginDto[] targets = ResolveAccountTargets(selectedItems);
+        if (targets.Length == 0)
         {
             return;
         }
 
-        bool disable = !string.Equals(parameter, "Enable", StringComparison.Ordinal);
-        string username = SelectedAccount.Username ?? Loc("Common_Unknown");
-        SelectedAccount.Disabled = disable;
-        await _accountRepository.UpdateAsync(SelectedAccount, cancellationToken);
+        foreach (FileHosterLoginDto account in targets)
+        {
+            account.Disabled = disable;
+            await _accountRepository.UpdateAsync(account, cancellationToken);
+        }
 
         Dictionary<int, RowStatus> statuses = BuildStatusMap();
         await LoadAccountsAsync(cancellationToken);
         ApplyStatusMap(statuses);
 
-        CheckAccountStatus = disable
-            ? LocF("Settings_Accounts_Status_AccountDisabled_Format", username)
-            : LocF("Settings_Accounts_Status_AccountEnabled_Format", username);
+        if (targets.Length == 1)
+        {
+            string username = targets[0].Username ?? string.Empty;
+            CheckAccountStatus = disable
+                ? LocF("Settings_Accounts_Status_AccountDisabled_Format", username)
+                : LocF("Settings_Accounts_Status_AccountEnabled_Format", username);
+        }
+        else
+        {
+            CheckAccountStatus = LocF(
+                disable ? "Settings_Accounts_Status_AccountsBulkDisabled_Format" : "Settings_Accounts_Status_AccountsBulkEnabled_Format",
+                targets.Length);
+        }
     }
 
     // ── Helpers for preserving check status across reloads ──
 
-    /// <summary>(CheckStatus, StatusMessage) pair preserved across a LoadAccountsAsync
-    /// round-trip — both fields are UI-only so they'd otherwise reset to
-    /// (NotChecked, "Not checked") whenever the collection is reloaded from the DB.</summary>
-    private readonly record struct RowStatus(AccountCheckStatus Status, string Message);
+    /// <summary>(CheckStatus, StatusMessage, RefreshedAt) triple preserved across a
+    /// LoadAccountsAsync round-trip. CheckStatus + StatusMessage are UI-only so they'd
+    /// otherwise reset to (NotChecked, "Not checked") on every reload; RefreshedAt is
+    /// persisted but the snapshot path lets the in-flight RefreshAll loop replay a
+    /// freshly-stamped value without re-reading the DB row first.</summary>
+    private readonly record struct RowStatus(AccountCheckStatus Status, string Message, DateTime? RefreshedAt);
 
     private Dictionary<int, RowStatus> BuildStatusMap()
-        => Accounts.ToDictionary(a => a.Id, a => new RowStatus(a.CheckStatus, a.StatusMessage));
+        => Accounts.ToDictionary(a => a.Id, a => new RowStatus(a.CheckStatus, a.StatusMessage, a.LastRefreshedDateTime));
 
-    private void ApplyStatusMap(Dictionary<int, RowStatus> statuses)
+    private static void ApplyStatusMap(Dictionary<int, RowStatus> statuses, IEnumerable<FileHosterLoginDto> accounts)
     {
-        foreach (FileHosterLoginDto a in Accounts)
+        foreach (FileHosterLoginDto a in accounts)
         {
             if (statuses.TryGetValue(a.Id, out RowStatus row))
             {
-                a.SetCheckStatus(row.Status, row.Message);
+                if (row.RefreshedAt is { } stamp)
+                {
+                    // Snapshot came from a real verifier round-trip — replay the timestamp too.
+                    a.MarkRefreshed(row.Status, row.Message, stamp);
+                }
+                else
+                {
+                    // Snapshot came from a non-verification path (Enable/Disable, RemoveSelected,
+                    // or a hoster with no implementation) — don't synthesize a refresh stamp.
+                    a.SetCheckStatus(row.Status, row.Message);
+                }
             }
         }
     }
+
+    private void ApplyStatusMap(Dictionary<int, RowStatus> statuses) => ApplyStatusMap(statuses, Accounts);
 
     /// <summary>
     /// Updates an account's <see cref="FileHosterLoginDto.CheckStatus"/> and
@@ -1276,6 +1392,12 @@ public partial class SettingsViewModel(
         {
             if (Accounts[i].Id == accountId)
             {
+                // LastRefreshedDateTime preserved across the in-flight "Checking…" flip
+                // so the grid keeps showing the previous stamp until the post-verify
+                // MarkRefreshed overwrites it. (Other persisted fields — SessionCookie,
+                // ApiKey, Storage* — are still nulled by this copy; latent bug, out of
+                // scope here. See the next refresh's LoadAccountsAsync round-trip for
+                // recovery.)
                 FileHosterLoginDto copy = new()
                 {
                     Id = Accounts[i].Id,
@@ -1284,6 +1406,7 @@ public partial class SettingsViewModel(
                     Password = Accounts[i].Password,
                     AccountType = Accounts[i].AccountType,
                     Disabled = Accounts[i].Disabled,
+                    LastRefreshedDateTime = Accounts[i].LastRefreshedDateTime,
                 };
                 copy.SetCheckStatus(status, message);
                 Accounts[i] = copy;
