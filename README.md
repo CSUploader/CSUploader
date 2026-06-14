@@ -2,6 +2,8 @@
 
 CSUploader is a Windows desktop application for uploading files to file hosting services. It provides an upload wizard, a queue with real-time progress tracking, and history of past uploads.
 
+![CSUploader main window](docs/images/main-window.png)
+
 ## Features
 
 - **Upload Wizard** — Guided flow for picking a directory, selecting files, choosing file hosters and accounts, and starting the upload.
