@@ -122,6 +122,7 @@ Uploads_Tooltip_DecreasePriority  = 우선순위 낮추기
 Uploads_Col_Name                  = 이름
 Uploads_Col_Size                  = 크기
 Uploads_Col_Hoster                = 호스터
+Uploads_Col_Account               = 계정
 Uploads_Col_Status                = 상태
 Uploads_Col_Speed                 = 속도
 Uploads_Col_ETA                   = 남은 시간
@@ -225,6 +226,7 @@ Uploaded_Col_Name                 = 이름
 Uploaded_Col_Path                 = 경로
 Uploaded_Col_Size                 = 크기
 Uploaded_Col_Hoster               = 호스터
+Uploaded_Col_Account              = 계정
 Uploaded_Col_Finished             = 완료됨
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = 해시
@@ -354,6 +356,8 @@ Settings_Conn_UseProxies           = 프록시 사용
 Settings_Conn_UseProxiesTip        = 순환 사용의 마스터 스위치입니다. 꺼져 있으면 표에 프록시가 있어도 모든 트래픽(업로드 및 계정 확인)이 직접 연결됩니다 — 사용을 확정하지 않고 프록시를 추가하고 테스트할 때 유용합니다.
 Settings_Conn_AutoDisable          = 실패한 프록시 자동으로 선택 해제
 Settings_Conn_AutoDisableTip       = 켜져 있으면 수동 테스트 또는 업로드에 실패한 프록시는 선택 해제되어 순환에서 제외됩니다. 어떤 경우에도 상태 아이콘은 갱신됩니다.
+Settings_Conn_AllowInvalidCert    = 잘못된 서버 인증서 허용(권장하지 않음)
+Settings_Conn_AllowInvalidCertTip = 모든 아웃바운드 요청에서 TLS 인증서 유효성 검사를 건너뜁니다. 일부 호스터의 스토리지 CDN 노드(예: FileBoom의 cmb-*.filestore.app 에지)가 표준 검증에 실패하는 인증서를 사용하는 경우 필요합니다. MITM 공격에 대한 보호가 비활성화됩니다 — 업로드가 SSL 오류로 실패하는 경우에만 활성화하십시오.
 
 Settings_Conn_Col_On               = 사용
 Settings_Conn_Col_Priority         = 우선순위
@@ -438,6 +442,10 @@ Settings_Accounts_Col_Status       = 상태
 Settings_Accounts_Col_Username     = 사용자 이름
 Settings_Accounts_Col_Password     = 비밀번호
 Settings_Accounts_Col_Type         = 유형
+Settings_Accounts_Col_Used        = 사용 중
+Settings_Accounts_Col_Available   = 남은 용량
+Settings_Accounts_Col_RefreshedAt = 새로 고침 시각
+Settings_Accounts_Storage_Unlimited= 무제한
 
 Settings_Accounts_Context_Edit     = 계정 편집…
 Settings_Accounts_Context_Refresh  = 확인 / 새로 고침
@@ -452,6 +460,7 @@ Settings_Accounts_Btn_Refresh      = 새로 고침
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 계정 제거
 Settings_Accounts_Remove_Message_Format    = {1}의 계정 '{0}'을(를) 제거하시겠습니까?                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?
 
 Settings_Accounts_Validation_FillHosterUser = 파일 호스터, 사용자 이름, 비밀번호를 입력해 주십시오.
 Settings_Accounts_Check_DialogTitle         = 계정 확인
@@ -478,6 +487,8 @@ Settings_Accounts_Status_NoImpl             = 구현 없음
 Settings_Accounts_Status_RefreshSummary_Format = 계정 {0}개를 새로 고쳤습니다. {1}개가 갱신되었습니다.        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = 계정 '{0}'이(가) 비활성화되었습니다.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 계정 '{0}'이(가) 활성화되었습니다.                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0}개의 계정이 활성화되었습니다.
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = 정상
@@ -524,7 +535,13 @@ Wizard_Title                       = 업로드 마법사
 
 Wizard_Step_DirectorySource        = 1. 디렉터리
 Wizard_Step_FileHosters            = 2. 파일 호스터
-Wizard_Step_Start                  = 3. 시작
+Wizard_Step_Summary               = 3. 요약
+Wizard_Step_Start                  = 4. 시작
+Wizard_Summary_Title              = 업로드 요약
+Wizard_Summary_Desc               = 각 호스터에 업로드될 내용을 확인하세요. 적합한 파일이 없는 호스터는 제외됩니다.
+Wizard_Summary_FileCount_Suffix   = 개 파일
+Wizard_Summary_OrphanWarning_Suffix= 개 파일은 어떤 호스터에도 업로드되지 않습니다:
+Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}
 Wizard_Step_FilesSource            = 1. 파일
 
 Wizard_Step0_Mode_Directory        = 디렉터리 업로드
@@ -540,6 +557,7 @@ Wizard_Step1_PackageTitleLabel     = 패키지 제목:
 Wizard_Step1_FilterLabel           = 필터:
 Wizard_Step1_BtnSelectAll          = 모두 선택
 Wizard_Step1_BtnDeselectAll        = 모두 선택 해제
+Wizard_Step1_BtnRemove            = 제거
 Wizard_Step1_Col_File              = 파일
 Wizard_Step1_Col_Size              = 크기
 Wizard_Step1_SelectedLabel         = 선택됨:

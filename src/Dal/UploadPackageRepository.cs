@@ -96,6 +96,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             FinishedDateTime = f.FinishedDateTime,
             FileUrl = f.FileUrl,
             FileHosterName = f.FileHosterName,
+            FileHosterAccount = f.FileHosterAccount,
             State = (FileState)f.State,
             Error = f.Error,
             IsHashingComplete = f.IsHashingComplete,

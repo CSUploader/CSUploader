@@ -36,6 +36,13 @@ public class UploadPackageFileDbm
     [Required]
     public string FileHosterName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Denormalized account name the file was uploaded with (the credential's username, or null
+    /// for anonymous uploads). Nullable so pre-existing history rows (added before this column)
+    /// read as null. Stored at save time so it survives the account later being deleted.
+    /// </summary>
+    public string? FileHosterAccount { get; set; }
+
     public int State { get; set; }
 
     public string? Error { get; set; }

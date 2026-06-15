@@ -264,6 +264,7 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_Name}" Command="{Binding CopyColumnCommand}" CommandParameter="Name" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Size}" Command="{Binding CopyColumnCommand}" CommandParameter="Size" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Hoster}" Command="{Binding CopyColumnCommand}" CommandParameter="Hoster" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Account}" Command="{Binding CopyColumnCommand}" CommandParameter="Account" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Status}" Command="{Binding CopyColumnCommand}" CommandParameter="Status" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Speed}" Command="{Binding CopyColumnCommand}" CommandParameter="Speed" />
                         <MenuItem Header="{loc:Loc Uploads_Col_ETA}" Command="{Binding CopyColumnCommand}" CommandParameter="ETA" />
@@ -477,6 +478,12 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <!-- Account the file was uploaded with (AccountDisplay is on both Package and
+                     PackageFile rows, like HosterDisplay). DataGridTextColumn's Binding doubles
+                     as its ClipboardContentBinding, so row-copy includes the account. -->
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Account}"
+                                    Binding="{Binding AccountDisplay}" Width="130" />
 
                 <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140"
                                         ClipboardContentBinding="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}">

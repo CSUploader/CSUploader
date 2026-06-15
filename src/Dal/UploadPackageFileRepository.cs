@@ -120,6 +120,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FinishedDateTime = entity.FinishedDateTime,
         FileUrl = entity.FileUrl,
         FileHosterName = entity.FileHosterName,
+        FileHosterAccount = entity.FileHosterAccount,
         State = (FileState)entity.State,
         Error = entity.Error,
         IsHashingComplete = entity.IsHashingComplete,
@@ -142,6 +143,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.FinishedDateTime = entity.FinishedDateTime;
         dto.FileUrl = entity.FileUrl;
         dto.FileHosterName = entity.FileHosterName;
+        dto.FileHosterAccount = entity.FileHosterAccount;
         dto.State = (FileState)entity.State;
         dto.Error = entity.Error;
         dto.IsHashingComplete = entity.IsHashingComplete;
@@ -164,6 +166,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FinishedDateTime = dto.FinishedDateTime,
         FileUrl = dto.FileUrl ?? string.Empty,
         FileHosterName = dto.FileHosterName ?? string.Empty,
+        FileHosterAccount = dto.FileHosterAccount,
         State = (int)dto.State,
         Error = dto.Error,
         IsHashingComplete = dto.IsHashingComplete,

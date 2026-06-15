@@ -24,6 +24,10 @@ public class UploadedFileRow
 
     public string FileHosterName { get; set; } = string.Empty;
 
+    /// <summary>Account the file was uploaded with — the persisted username, or the localized
+    /// "(anonymous)" label for anonymous uploads. Computed at load time by the view model.</summary>
+    public string AccountDisplay { get; set; } = string.Empty;
+
     public DateTime FinishedDateTime { get; set; }
 
     public string? FileUrl { get; set; }

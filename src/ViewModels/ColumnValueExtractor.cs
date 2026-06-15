@@ -47,6 +47,7 @@ internal static class ColumnValueExtractor
             return columnKey switch
             {
                 "Hoster" => "HosterDisplay",
+                "Account" => "AccountDisplay",
                 "Status" => "State",
                 "ETA" => "TimeRemaining",
                 "SaveTo" => "SaveFrom",
@@ -66,6 +67,7 @@ internal static class ColumnValueExtractor
             "Path" => "FileDirectory",
             "Size" => "FileSize",
             "Hoster" => "FileHosterName",
+            "Account" => "AccountDisplay",
             "Finished" => "FinishedDateTime",
             "Hash" => "FileHash",
             "URL" => "FileUrl",

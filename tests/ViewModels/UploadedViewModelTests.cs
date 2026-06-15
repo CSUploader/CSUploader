@@ -6,6 +6,7 @@
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
@@ -133,6 +134,36 @@ public class UploadedViewModelTests : IDisposable
         dialog.Verify(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
+    [Fact]
+    public async Task LoadAsync_AnonymousFile_AccountDisplayShowsLocalizedAnonymousLabel()
+    {
+        // FileHosterLoginId == 0 is the anonymous marker (no account row); the history row
+        // must show the localized "(anonymous)" rather than the (null) stored account.
+        int packageId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(packageId, "anon.bin", FileState.Completed, fileHosterLoginId: 0, fileHosterAccount: null);
+
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        await vm.LoadAsync();
+        UploadedFileRow row = vm.Files.Single(r => r.FileName == "anon.bin");
+
+        Assert.Equal(Localizer.Instance["Wizard_Step2_AccountAnonymous"], row.AccountDisplay);
+    }
+
+    [Fact]
+    public async Task LoadAsync_RegisteredAccountFile_AccountDisplayShowsPersistedAccount()
+    {
+        // A real account (FileHosterLoginId > 0) shows the denormalized account name, proving
+        // FileHosterAccount round-trips through the repository persist + load path.
+        int packageId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(packageId, "acct.bin", FileState.Completed, fileHosterLoginId: 7, fileHosterAccount: "bob@example.com");
+
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        await vm.LoadAsync();
+        UploadedFileRow row = vm.Files.Single(r => r.FileName == "acct.bin");
+
+        Assert.Equal("bob@example.com", row.AccountDisplay);
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>());
 
@@ -148,7 +179,7 @@ public class UploadedViewModelTests : IDisposable
         return pkg.Id;
     }
 
-    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state)
+    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state, int fileHosterLoginId = 0, string? fileHosterAccount = null)
     {
         UploadPackageFileDto file = new()
         {
@@ -157,6 +188,8 @@ public class UploadedViewModelTests : IDisposable
             FileSize = 1024,
             FileHoster = "Rapidgator",
             FileHosterName = "Rapidgator",
+            FileHosterLoginId = fileHosterLoginId,
+            FileHosterAccount = fileHosterAccount,
             State = state,
             PackageId = packageId,
         };

@@ -269,6 +269,23 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     public string HosterDisplay => FileHosters[0].Name;
 
     /// <summary>
+    /// Display name of the representative account (the first login), mirroring
+    /// <see cref="HosterDisplay"/>'s first-hoster approach. Anonymous shows the localized
+    /// "(anonymous)" label. Read from <see cref="FileHosterLogins"/>'s values (the login DTOs),
+    /// not <see cref="FileHosters"/> (the hoster clients).
+    /// </summary>
+    public string AccountDisplay
+    {
+        get
+        {
+            FileHosterLoginDto login = FileHosterLogins.Values.First();
+            return login.IsAnonymous
+                ? CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
+                : (string.IsNullOrWhiteSpace(login.Username) ? string.Empty : login.Username);
+        }
+    }
+
+    /// <summary>
     /// True — marks this row as a package row for XAML template selection.
     /// </summary>
 #pragma warning disable CA1822

@@ -122,6 +122,7 @@ Uploads_Tooltip_DecreasePriority  = Ibaba ang priyoridad
 Uploads_Col_Name                  = Pangalan
 Uploads_Col_Size                  = Laki
 Uploads_Col_Hoster                = Hoster
+Uploads_Col_Account               = Account
 Uploads_Col_Status                = Status
 Uploads_Col_Speed                 = Bilis
 Uploads_Col_ETA                   = ETA
@@ -225,6 +226,7 @@ Uploaded_Col_Name                 = Pangalan
 Uploaded_Col_Path                 = Path
 Uploaded_Col_Size                 = Laki
 Uploaded_Col_Hoster               = Hoster
+Uploaded_Col_Account              = Account
 Uploaded_Col_Finished             = Tapos
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = Hash
@@ -354,6 +356,8 @@ Settings_Conn_UseProxies           = Gumamit ng proxies
 Settings_Conn_UseProxiesTip        = Master switch para sa rotation. Kapag naka-off, ang lahat ng trapiko (uploads at account checks) ay direkta na kumokonekta kahit may proxies sa grid — kapaki-pakinabang para sa pagdaragdag at pag-test ng proxies bago committed na gamitin sila.
 Settings_Conn_AutoDisable          = Awtomatikong i-uncheck ang failing na proxies
 Settings_Conn_AutoDisableTip       = Kapag naka-on, ang isang proxy na nag-fail sa manual test o sa upload ay ina-uncheck para laktawan ng rotation. Ang status icon ay nag-a-update kahit anong mangyari.
+Settings_Conn_AllowInvalidCert    = Tanggapin ang mga invalid na server certificate (hindi inirerekomenda)
+Settings_Conn_AllowInvalidCertTip = Laktawan ang TLS certificate validation sa bawat outbound request. Kailangan para sa ilang hoster na ang storage CDN nodes nito (hal. FileBoom's cmb-*.filestore.app edges) ay gumagamit ng mga certificate na hindi pumapasa sa standard validation. Mawawalan ng proteksyon laban sa mga MITM attack — i-enable lamang kapag ang pag-upload ay nabigo dahil sa SSL error.
 
 Settings_Conn_Col_On               = On
 Settings_Conn_Col_Priority         = Priority
@@ -438,6 +442,10 @@ Settings_Accounts_Col_Status       = Status
 Settings_Accounts_Col_Username     = Username
 Settings_Accounts_Col_Password     = Password
 Settings_Accounts_Col_Type         = Type
+Settings_Accounts_Col_Used        = Nagamit
+Settings_Accounts_Col_Available   = Available
+Settings_Accounts_Col_RefreshedAt = Na-refresh noong
+Settings_Accounts_Storage_Unlimited= Walang limitasyon
 
 Settings_Accounts_Context_Edit     = I-edit ang Account...
 Settings_Accounts_Context_Refresh  = I-check / I-refresh
@@ -452,6 +460,7 @@ Settings_Accounts_Btn_Refresh      = I-refresh
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Tanggalin ang Account
 Settings_Accounts_Remove_Message_Format    = Tanggalin ang account na '{0}' para sa {1}?                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format= Tanggalin ang {0} napiling account?
 
 Settings_Accounts_Validation_FillHosterUser = Mangyaring punan ang file hoster, username, at password.
 Settings_Accounts_Check_DialogTitle         = Account Check
@@ -478,6 +487,8 @@ Settings_Accounts_Status_NoImpl             = Walang implementation
 Settings_Accounts_Status_RefreshSummary_Format = Na-refresh ang {0} accounts. {1} ang na-update.        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = Naka-disable ang account na '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Naka-enable ang account na '{0}'.                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Naka-enable ang {0} accounts.
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -524,7 +535,13 @@ Wizard_Title                       = Upload Wizard
 
 Wizard_Step_DirectorySource        = 1. Directory
 Wizard_Step_FileHosters            = 2. File Hosters
-Wizard_Step_Start                  = 3. Simulan
+Wizard_Step_Summary               = 3. Buod
+Wizard_Step_Start                  = 4. Simulan
+Wizard_Summary_Title              = Buod ng Upload
+Wizard_Summary_Desc               = Suriin kung ano ang mai-upload sa bawat hoster. Ang mga hoster na walang kwalipikadong file ay tinatanggal.
+Wizard_Summary_FileCount_Suffix   = na file
+Wizard_Summary_OrphanWarning_Suffix= na file ay hindi mai-upload sa anumang hoster:
+Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file
 Wizard_Step_FilesSource            = 1. Mga File
 
 Wizard_Step0_Mode_Directory        = Mag-upload ng directory
@@ -540,6 +557,7 @@ Wizard_Step1_PackageTitleLabel     = Titulo ng package:
 Wizard_Step1_FilterLabel           = Filter:
 Wizard_Step1_BtnSelectAll          = Piliin lahat
 Wizard_Step1_BtnDeselectAll        = Alisin sa pagpili lahat
+Wizard_Step1_BtnRemove            = Tanggalin
 Wizard_Step1_Col_File              = File
 Wizard_Step1_Col_Size              = Laki
 Wizard_Step1_SelectedLabel         = Napili:

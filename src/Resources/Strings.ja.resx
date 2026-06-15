@@ -273,6 +273,9 @@
   <data name="Uploads_Col_Hoster" xml:space="preserve">
     <value>ホスター</value>
   </data>
+  <data name="Uploads_Col_Account" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
   <data name="Uploads_Col_Status" xml:space="preserve">
     <value>ステータス</value>
   </data>
@@ -506,6 +509,9 @@
   </data>
   <data name="Uploaded_Col_Hoster" xml:space="preserve">
     <value>ホスター</value>
+  </data>
+  <data name="Uploaded_Col_Account" xml:space="preserve">
+    <value>アカウント</value>
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>完了日時</value>

@@ -480,6 +480,9 @@ public class PackageManager
                     FileSize = file.Size ?? 0,
                     FileHoster = file.FileHoster.Name,
                     FileHosterName = file.FileHoster.Name,
+                    // Denormalize the account name (username for a real account; null for anonymous,
+                    // which the History tab renders as the localized "(anonymous)" via FileHosterLoginId==0).
+                    FileHosterAccount = file.FileHosterLogin is { IsAnonymous: false } login ? login.Username : null,
                     StartDateTime = DateTime.Now,
                     State = file.State,
                     IsHashingComplete = file.IsHashingComplete,

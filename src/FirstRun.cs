@@ -114,6 +114,10 @@ public static class FirstRun
             // Account Manager's "Refreshed at" column. TEXT (ISO-8601) matches the existing
             // DateTime column convention on this table (SessionCookieExpiresUtc).
             ("FileHosterLogin", "LastRefreshedDateTime", "ALTER TABLE FileHosterLogin ADD COLUMN LastRefreshedDateTime TEXT"),
+            // Denormalized account name a file was uploaded with (the "Account" column on the
+            // Uploads/History grids). Nullable so existing history rows carry NULL (the account
+            // wasn't recorded before this column) and anonymous uploads store NULL.
+            ("UploadPackageFile", "FileHosterAccount", "ALTER TABLE UploadPackageFile ADD COLUMN FileHosterAccount TEXT"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)

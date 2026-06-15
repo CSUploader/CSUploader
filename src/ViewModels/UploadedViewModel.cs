@@ -82,6 +82,14 @@ public partial class UploadedViewModel : ObservableObject
                 FileDirectory = file.FileDirectory ?? string.Empty,
                 FileSize = file.FileSize,
                 FileHosterName = file.FileHosterName ?? file.FileHoster ?? string.Empty,
+                // Invariant: FileHosterLoginId == 0 iff the upload was anonymous — the synthetic
+                // anonymous DTO is never persisted (Id stays 0) and every real account row has
+                // Id > 0. So 0 => the localized "(anonymous)"; otherwise the denormalized account
+                // name (null/blank for rows persisted before the column existed). Don't persist a
+                // real account with Id == 0 or it would mislabel here as anonymous.
+                AccountDisplay = file.FileHosterLoginId == 0
+                    ? Localizer.Instance["Wizard_Step2_AccountAnonymous"]
+                    : (file.FileHosterAccount ?? string.Empty),
                 FinishedDateTime = file.FinishedDateTime,
                 FileUrl = file.FileUrl,
                 FileHash = file.FileHash,

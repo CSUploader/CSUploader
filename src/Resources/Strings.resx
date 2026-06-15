@@ -273,6 +273,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Col_Hoster" xml:space="preserve">
     <value>Hoster</value>
   </data>
+  <data name="Uploads_Col_Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
   <data name="Uploads_Col_Status" xml:space="preserve">
     <value>Status</value>
   </data>
@@ -506,6 +509,9 @@ Use Help → Install Update to download and install.</value>
   </data>
   <data name="Uploaded_Col_Hoster" xml:space="preserve">
     <value>Hoster</value>
+  </data>
+  <data name="Uploaded_Col_Account" xml:space="preserve">
+    <value>Account</value>
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>Finished</value>

@@ -134,6 +134,17 @@ public class PackageFile : INotifyPropertyChanged
     public string HosterDisplay => FileHoster.Name;
 
     /// <summary>
+    /// Display name of the account this file is uploaded with, mirroring <see cref="HosterDisplay"/>
+    /// for unified XAML bindings. Anonymous uploads show the localized "(anonymous)" label rather
+    /// than the credential's <c>Username</c> (which is null on reloaded anonymous packages — see
+    /// PackageManager reconstitution). Fixed at construction like HosterDisplay, so no change
+    /// notification is needed.
+    /// </summary>
+    public string AccountDisplay => FileHosterLogin.IsAnonymous
+        ? CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
+        : (string.IsNullOrWhiteSpace(FileHosterLogin.Username) ? string.Empty : FileHosterLogin.Username);
+
+    /// <summary>
     /// False — marks this row as a file row (not a package) for XAML template selection.
     /// </summary>
 #pragma warning disable CA1822

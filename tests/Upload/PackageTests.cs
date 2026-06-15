@@ -6,9 +6,11 @@
 using System.IO;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Upload;
+using CSUploader.ViewModels;
 using Moq;
 
 namespace CSUploader.Tests.Upload;
@@ -367,6 +369,63 @@ public class PackageTests
         Package package = MakePackageWithFiles(FileState.Completed, FileState.Completed);
 
         Assert.Equal(FileState.Completed, package.Status);
+    }
+
+    [Fact]
+    public void AccountDisplay_RegisteredAccount_ShowsUsernameOnPackageFileAndCopyColumn()
+    {
+        Package package = MakePackageWithLogin(
+            new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "bob@example.com", IsAnonymous = false });
+
+        Assert.Equal("bob@example.com", package.AccountDisplay);
+        PackageFile file = Assert.Single(package);
+        Assert.Equal("bob@example.com", file.AccountDisplay);
+        // Copy-column maps "Account" -> AccountDisplay for the Uploads tab.
+        Assert.Equal("bob@example.com", ColumnValueExtractor.Extract(file, "Account", isUploadsTab: true));
+    }
+
+    [Fact]
+    public void AccountDisplay_Anonymous_ShowsLocalizedLabel_EvenWhenUsernameNull()
+    {
+        // Reloaded anonymous packages carry Username=null; AccountDisplay must still show the
+        // localized "(anonymous)" label rather than blank (the IsAnonymous-branch gotcha).
+        Package package = MakePackageWithLogin(
+            new FileHosterLoginDto { FileHosterName = "GigaPeta", Username = null, IsAnonymous = true });
+
+        string expected = Localizer.Instance["Wizard_Step2_AccountAnonymous"];
+        Assert.Equal(expected, package.AccountDisplay);
+        Assert.Equal(expected, Assert.Single(package).AccountDisplay);
+    }
+
+    [Fact]
+    public void AccountDisplay_AccountWithBlankUsername_ShowsEmptyNotAnonymous()
+    {
+        // A real account with no captured username (e.g. a HitFile account with no derived
+        // email) shows blank — it is NOT anonymous, so it must not show "(anonymous)".
+        Package package = MakePackageWithLogin(
+            new FileHosterLoginDto { FileHosterName = "HitFile", Username = null, IsAnonymous = false });
+
+        Assert.Equal(string.Empty, Assert.Single(package).AccountDisplay);
+        Assert.Equal(string.Empty, package.AccountDisplay);
+    }
+
+    private static Package MakePackageWithLogin(FileHosterLoginDto login)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"csu-acct-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        string p = Path.Combine(dir, "f.bin");
+        File.WriteAllText(p, "x");
+
+        PackageOptions options = new()
+        {
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [p],
+            FileHosters = new() { { new FileHosterClient(login.FileHosterName ?? "Rapidgator", Protocol.Http), login } },
+        };
+        Package package = new(options);
+        package.AddPackageFiles();
+        return package;
     }
 
     private static Package MakePackageWithFiles(params FileState[] fileStates)

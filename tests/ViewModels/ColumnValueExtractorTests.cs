@@ -36,6 +36,14 @@ public class ColumnValueExtractorTests
     }
 
     [Fact]
+    public void Extract_UploadedRow_AccountMapsToAccountDisplay()
+    {
+        UploadedFileRow row = new() { AccountDisplay = "bob@example.com" };
+
+        Assert.Equal("bob@example.com", ColumnValueExtractor.Extract(row, "Account", isUploadsTab: false));
+    }
+
+    [Fact]
     public void Extract_UploadedRow_FinishedFormatsAsInvariantTimestamp()
     {
         UploadedFileRow row = new() { FinishedDateTime = new DateTime(2025, 6, 1, 12, 34, 56, DateTimeKind.Local) };

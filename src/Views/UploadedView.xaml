@@ -167,6 +167,9 @@
                     <MenuItem Header="{loc:Loc Uploaded_Col_Hoster}"
                               Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="Hoster" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Account}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Account" />
                     <MenuItem Header="{loc:Loc Uploaded_Col_Finished}"
                               Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="Finished" />
@@ -331,6 +334,21 @@
                     </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Account}"
+                                Binding="{Binding AccountDisplay}"
+                                ClipboardContentBinding="{Binding AccountDisplay}"
+                                SortMemberPath="AccountDisplay"
+                                Width="130"
+                                MinWidth="70">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
 
             <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Finished}"
                                 Binding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"

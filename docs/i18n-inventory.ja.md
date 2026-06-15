@@ -121,6 +121,7 @@ Uploads_Tooltip_DecreasePriority  = 優先度を下げる
 Uploads_Col_Name                  = 名前
 Uploads_Col_Size                  = サイズ
 Uploads_Col_Hoster                = ホスター
+Uploads_Col_Account               = アカウント
 Uploads_Col_Status                = ステータス
 Uploads_Col_Speed                 = 速度
 Uploads_Col_ETA                   = 残り時間
@@ -224,6 +225,7 @@ Uploaded_Col_Name                 = 名前
 Uploaded_Col_Path                 = パス
 Uploaded_Col_Size                 = サイズ
 Uploaded_Col_Hoster               = ホスター
+Uploaded_Col_Account              = アカウント
 Uploaded_Col_Finished             = 完了日時
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = ハッシュ
@@ -353,6 +355,8 @@ Settings_Conn_UseProxies           = プロキシを使用
 Settings_Conn_UseProxiesTip        = ローテーションのマスタースイッチです。オフの場合、グリッドにプロキシがあってもすべてのトラフィック（アップロードおよびアカウントチェック）が直接接続されます — プロキシを追加してテストしたいが、まだ実際の使用にはコミットしたくないときに便利です。
 Settings_Conn_AutoDisable          = 失敗したプロキシのチェックを自動的に外す
 Settings_Conn_AutoDisableTip       = オンにすると、手動テストやアップロードに失敗したプロキシのチェックが外され、ローテーションでスキップされます。ステータスアイコンはどちらの場合でも更新されます。
+Settings_Conn_AllowInvalidCert    = 無効なサーバー証明書を受け入れる（推奨されません）
+Settings_Conn_AllowInvalidCertTip = すべての送信要求で TLS 証明書の検証をスキップします。一部のホスター（例: FileBoom の cmb-*.filestore.app エッジ）のストレージ CDN ノードが標準検証に失敗する証明書を使用している場合に必要です。MITM 攻撃に対する保護が無効になります — SSL エラーでアップロードが失敗する場合にのみ有効にしてください。
 
 Settings_Conn_Col_On               = 有効
 Settings_Conn_Col_Priority         = 優先度
@@ -437,6 +441,10 @@ Settings_Accounts_Col_Status       = ステータス
 Settings_Accounts_Col_Username     = ユーザー名
 Settings_Accounts_Col_Password     = パスワード
 Settings_Accounts_Col_Type         = 種類
+Settings_Accounts_Col_Used        = 使用中
+Settings_Accounts_Col_Available   = 使用可能
+Settings_Accounts_Col_RefreshedAt = 更新日時
+Settings_Accounts_Storage_Unlimited= 無制限
 
 Settings_Accounts_Context_Edit     = アカウントを編集…
 Settings_Accounts_Context_Refresh  = チェック / 更新
@@ -451,6 +459,7 @@ Settings_Accounts_Btn_Refresh      = 更新
 # Account remove / validation
 Settings_Accounts_Remove_Title             = アカウントを削除
 Settings_Accounts_Remove_Message_Format    = {1} のアカウント「{0}」を削除しますか?                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?
 
 Settings_Accounts_Validation_FillHosterUser = ファイルホスター、ユーザー名、パスワードを入力してください。
 Settings_Accounts_Check_DialogTitle         = アカウントチェック
@@ -477,6 +486,8 @@ Settings_Accounts_Status_NoImpl             = 実装なし
 Settings_Accounts_Status_RefreshSummary_Format = {0} 個のアカウントを更新しました。{1} 個が更新されました。        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = アカウント「{0}」を無効化しました。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = アカウント「{0}」を有効化しました。                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0} 件のアカウントを有効化しました。
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -523,7 +534,13 @@ Wizard_Title                       = アップロードウィザード
 
 Wizard_Step_DirectorySource        = 1. ディレクトリ
 Wizard_Step_FileHosters            = 2. ファイルホスター
-Wizard_Step_Start                  = 3. 開始
+Wizard_Step_Summary               = 3. サマリー
+Wizard_Step_Start                  = 4. 開始
+Wizard_Summary_Title              = アップロードサマリー
+Wizard_Summary_Desc               = 各ホスターへアップロードされる内容を確認します。対象ファイルがないホスターは除外されます。
+Wizard_Summary_FileCount_Suffix   = ファイル
+Wizard_Summary_OrphanWarning_Suffix= 件のファイルはどのホスターにもアップロードされません:
+Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}
 Wizard_Step_FilesSource            = 1. ファイル
 
 Wizard_Step0_Mode_Directory        = ディレクトリをアップロード
@@ -539,6 +556,7 @@ Wizard_Step1_PackageTitleLabel     = パッケージタイトル:
 Wizard_Step1_FilterLabel           = フィルター:
 Wizard_Step1_BtnSelectAll          = すべて選択
 Wizard_Step1_BtnDeselectAll        = 選択を解除
+Wizard_Step1_BtnRemove            = 削除
 Wizard_Step1_Col_File              = ファイル
 Wizard_Step1_Col_Size              = サイズ
 Wizard_Step1_SelectedLabel         = 選択中:

@@ -130,6 +130,7 @@ Uploads_Tooltip_DecreasePriority  = Giảm ưu tiên
 Uploads_Col_Name                  = Tên
 Uploads_Col_Size                  = Kích thước
 Uploads_Col_Hoster                = Nhà lưu trữ
+Uploads_Col_Account               = Tài khoản
 Uploads_Col_Status                = Trạng thái
 Uploads_Col_Speed                 = Tốc độ
 Uploads_Col_ETA                   = ETA
@@ -233,6 +234,7 @@ Uploaded_Col_Name                 = Tên
 Uploaded_Col_Path                 = Đường dẫn
 Uploaded_Col_Size                 = Kích thước
 Uploaded_Col_Hoster               = Nhà lưu trữ
+Uploaded_Col_Account              = Tài khoản
 Uploaded_Col_Finished             = Đã hoàn tất
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = Hash
@@ -362,6 +364,8 @@ Settings_Conn_UseProxies           = Dùng proxy
 Settings_Conn_UseProxiesTip        = Công tắc tổng cho việc luân phiên. Khi tắt, toàn bộ lưu lượng (các lượt tải lên và kiểm tra tài khoản) sẽ kết nối trực tiếp ngay cả khi có proxy trong bảng — tiện cho việc thêm và kiểm tra proxy mà chưa cam kết sử dụng.
 Settings_Conn_AutoDisable          = Tự động bỏ chọn các proxy bị lỗi
 Settings_Conn_AutoDisableTip       = Khi bật, một proxy thất bại trong kiểm tra thủ công hoặc khi tải lên sẽ bị bỏ chọn để vòng luân phiên bỏ qua nó. Biểu tượng trạng thái sẽ luôn cập nhật dù bật hay tắt.
+Settings_Conn_AllowInvalidCert    = Chấp nhận chứng chỉ máy chủ không hợp lệ (không khuyến nghị)
+Settings_Conn_AllowInvalidCertTip = Bỏ qua xác thực chứng chỉ TLS trên mọi yêu cầu đi ra. Cần thiết cho một số dịch vụ lưu trữ có các nút CDN sử dụng chứng chỉ không vượt qua xác thực tiêu chuẩn (ví dụ các nút biên cmb-*.filestore.app của FileBoom). Vô hiệu hóa bảo vệ chống tấn công MITM — chỉ bật khi tải lên thất bại với lỗi SSL.
 
 Settings_Conn_Col_On               = Bật
 Settings_Conn_Col_Priority         = Ưu tiên
@@ -446,6 +450,10 @@ Settings_Accounts_Col_Status       = Trạng thái
 Settings_Accounts_Col_Username     = Tên đăng nhập
 Settings_Accounts_Col_Password     = Mật khẩu
 Settings_Accounts_Col_Type         = Loại
+Settings_Accounts_Col_Used        = Đã dùng
+Settings_Accounts_Col_Available   = Còn lại
+Settings_Accounts_Col_RefreshedAt = Đã làm mới lúc
+Settings_Accounts_Storage_Unlimited= Không giới hạn
 
 Settings_Accounts_Context_Edit     = Sửa tài khoản...
 Settings_Accounts_Context_Refresh  = Kiểm tra / Làm mới
@@ -460,6 +468,7 @@ Settings_Accounts_Btn_Refresh      = Làm mới
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Xóa tài khoản
 Settings_Accounts_Remove_Message_Format    = Xóa tài khoản '{0}' của {1}?                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?
 
 Settings_Accounts_Validation_FillHosterUser = Vui lòng điền nhà lưu trữ tập tin, tên đăng nhập và mật khẩu.
 Settings_Accounts_Check_DialogTitle         = Kiểm tra tài khoản
@@ -486,6 +495,8 @@ Settings_Accounts_Status_NoImpl             = Chưa hỗ trợ
 Settings_Accounts_Status_RefreshSummary_Format = Đã làm mới {0} tài khoản. {1} đã cập nhật.        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = Đã tắt tài khoản '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Đã bật tài khoản '{0}'.                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Đã bật {0} tài khoản.
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -532,7 +543,13 @@ Wizard_Title                       = Trình hướng dẫn tải lên
 
 Wizard_Step_DirectorySource        = 1. Thư mục
 Wizard_Step_FileHosters            = 2. Nhà lưu trữ tập tin
-Wizard_Step_Start                  = 3. Bắt đầu
+Wizard_Step_Summary               = 3. Tóm tắt
+Wizard_Step_Start                  = 4. Bắt đầu
+Wizard_Summary_Title              = Tóm tắt tải lên
+Wizard_Summary_Desc               = Xem lại nội dung sẽ được tải lên mỗi nhà lưu trữ. Bỏ qua các nhà lưu trữ không có tập tin đủ điều kiện.
+Wizard_Summary_FileCount_Suffix   = tập tin
+Wizard_Summary_OrphanWarning_Suffix= tập tin sẽ không được tải lên bất kỳ nhà lưu trữ nào:
+Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin
 Wizard_Step_FilesSource            = 1. Tệp
 
 Wizard_Step0_Mode_Directory        = Tải lên thư mục
@@ -548,6 +565,7 @@ Wizard_Step1_PackageTitleLabel     = Tiêu đề gói:
 Wizard_Step1_FilterLabel           = Bộ lọc:
 Wizard_Step1_BtnSelectAll          = Chọn tất cả
 Wizard_Step1_BtnDeselectAll        = Bỏ chọn tất cả
+Wizard_Step1_BtnRemove            = Xóa
 Wizard_Step1_Col_File              = Tệp
 Wizard_Step1_Col_Size              = Kích thước
 Wizard_Step1_SelectedLabel         = Đã chọn:

@@ -27,6 +27,10 @@ public class UploadPackageFileDto
 
     public string? FileHosterName { get; set; }
 
+    /// <summary>Denormalized account name the file was uploaded with; null for anonymous uploads
+    /// and for history rows persisted before this column existed.</summary>
+    public string? FileHosterAccount { get; set; }
+
     public FileState State { get; set; }
 
     public string? Error { get; set; }

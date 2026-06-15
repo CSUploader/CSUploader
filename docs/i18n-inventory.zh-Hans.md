@@ -122,6 +122,7 @@ Uploads_Tooltip_DecreasePriority  = 降低优先级
 Uploads_Col_Name                  = 名称
 Uploads_Col_Size                  = 大小
 Uploads_Col_Hoster                = 文件托管商
+Uploads_Col_Account               = 账户
 Uploads_Col_Status                = 状态
 Uploads_Col_Speed                 = 速度
 Uploads_Col_ETA                   = 剩余时间
@@ -225,6 +226,7 @@ Uploaded_Col_Name                 = 名称
 Uploaded_Col_Path                 = 路径
 Uploaded_Col_Size                 = 大小
 Uploaded_Col_Hoster               = 文件托管商
+Uploaded_Col_Account              = 账户
 Uploaded_Col_Finished             = 完成时间
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = 哈希
@@ -354,6 +356,8 @@ Settings_Conn_UseProxies           = 使用代理
 Settings_Conn_UseProxiesTip        = 轮换的总开关。关闭后，即使列表中存在代理，所有流量（上传和账户检查）也将直接连接 — 便于在尚未正式启用前添加和测试代理。
 Settings_Conn_AutoDisable          = 自动取消勾选失败的代理
 Settings_Conn_AutoDisableTip       = 启用后，手动测试或上传失败的代理将被取消勾选，从而在轮换中跳过该代理。无论如何状态图标都会更新。
+Settings_Conn_AllowInvalidCert    = 接受无效的服务器证书（不推荐）
+Settings_Conn_AllowInvalidCertTip = 跳过所有出站请求的 TLS 证书验证。某些托管服务的存储 CDN 节点（例如 FileBoom 的 cmb-*.filestore.app 边缘）使用的证书无法通过标准验证时需要。这会禁用对 MITM 攻击的保护 — 仅在上传因 SSL 错误而失败时才启用。
 
 Settings_Conn_Col_On               = 启用
 Settings_Conn_Col_Priority         = 优先级
@@ -438,6 +442,10 @@ Settings_Accounts_Col_Status       = 状态
 Settings_Accounts_Col_Username     = 用户名
 Settings_Accounts_Col_Password     = 密码
 Settings_Accounts_Col_Type         = 类型
+Settings_Accounts_Col_Used        = 已用
+Settings_Accounts_Col_Available   = 可用
+Settings_Accounts_Col_RefreshedAt = 刷新时间
+Settings_Accounts_Storage_Unlimited= 无限制
 
 Settings_Accounts_Context_Edit     = 编辑账户…
 Settings_Accounts_Context_Refresh  = 检查 / 刷新
@@ -452,6 +460,7 @@ Settings_Accounts_Btn_Refresh      = 刷新
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 移除账户
 Settings_Accounts_Remove_Message_Format    = 是否移除 {1} 的账户"{0}"？                  # {0} = username, {1} = file hoster name
+Settings_Accounts_Remove_MessageBulk_Format= 是否移除 {0} 个所选账户？
 
 Settings_Accounts_Validation_FillHosterUser = 请填写文件托管商、用户名和密码。
 Settings_Accounts_Check_DialogTitle         = 账户检查
@@ -478,6 +487,8 @@ Settings_Accounts_Status_NoImpl             = 尚未实现
 Settings_Accounts_Status_RefreshSummary_Format = 已刷新 {0} 个账户，{1} 个有更新。        # {0} = checked count, {1} = updated count
 Settings_Accounts_Status_AccountDisabled_Format = 账户"{0}"已禁用。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 账户"{0}"已启用。                     # {0} = username
+Settings_Accounts_Status_AccountsBulkDisabled_Format= 已禁用 {0} 个账户。
+Settings_Accounts_Status_AccountsBulkEnabled_Format= 已启用 {0} 个账户。
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = 正常
@@ -524,7 +535,13 @@ Wizard_Title                       = 上传向导
 
 Wizard_Step_DirectorySource        = 1. 目录
 Wizard_Step_FileHosters            = 2. 文件托管商
-Wizard_Step_Start                  = 3. 开始
+Wizard_Step_Summary               = 3. 摘要
+Wizard_Step_Start                  = 4. 开始
+Wizard_Summary_Title              = 上传摘要
+Wizard_Summary_Desc               = 查看将上传到每个托管商的内容。无可上传文件的托管商将被忽略。
+Wizard_Summary_FileCount_Suffix   = 个文件
+Wizard_Summary_OrphanWarning_Suffix= 个文件无法上传到任何托管商：
+Wizard_Summary_MaxFileSize_Format = 每个文件最多 {0}
 Wizard_Step_FilesSource            = 1. 文件
 
 Wizard_Step0_Mode_Directory        = 上传目录
@@ -540,6 +557,7 @@ Wizard_Step1_PackageTitleLabel     = 包标题：
 Wizard_Step1_FilterLabel           = 筛选：
 Wizard_Step1_BtnSelectAll          = 全选
 Wizard_Step1_BtnDeselectAll        = 取消全选
+Wizard_Step1_BtnRemove            = 移除
 Wizard_Step1_Col_File              = 文件
 Wizard_Step1_Col_Size              = 大小
 Wizard_Step1_SelectedLabel         = 已选：

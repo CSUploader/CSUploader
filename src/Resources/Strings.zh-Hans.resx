@@ -273,6 +273,9 @@
   <data name="Uploads_Col_Hoster" xml:space="preserve">
     <value>文件托管商</value>
   </data>
+  <data name="Uploads_Col_Account" xml:space="preserve">
+    <value>账户</value>
+  </data>
   <data name="Uploads_Col_Status" xml:space="preserve">
     <value>状态</value>
   </data>
@@ -506,6 +509,9 @@
   </data>
   <data name="Uploaded_Col_Hoster" xml:space="preserve">
     <value>文件托管商</value>
+  </data>
+  <data name="Uploaded_Col_Account" xml:space="preserve">
+    <value>账户</value>
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>完成时间</value>
