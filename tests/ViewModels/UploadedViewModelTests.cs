@@ -164,6 +164,56 @@ public class UploadedViewModelTests : IDisposable
         Assert.Equal("bob@example.com", row.AccountDisplay);
     }
 
+    [Fact]
+    public void BuildColumnCopyText_MultipleSelectedRows_JoinsTheColumnValuePerRow()
+    {
+        // Regression: "Copy → URL" with several rows selected used to copy only the first.
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SelectedRows =
+        [
+            new UploadedFileRow { FileUrl = "https://h/a" },
+            new UploadedFileRow { FileUrl = "https://h/b" },
+            new UploadedFileRow { FileUrl = "https://h/c" },
+        ];
+
+        Assert.Equal(
+            string.Join(Environment.NewLine, "https://h/a", "https://h/b", "https://h/c"),
+            vm.BuildColumnCopyText("URL"));
+    }
+
+    [Fact]
+    public void BuildColumnCopyText_NoMultiSelection_FallsBackToPrimarySelectedRow()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SelectedRow = new UploadedFileRow { FileUrl = "https://h/only" }; // SelectedRows left empty
+
+        Assert.Equal("https://h/only", vm.BuildColumnCopyText("URL"));
+    }
+
+    [Fact]
+    public void BuildColumnCopyText_SkipsRowsWithABlankValue()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SelectedRows =
+        [
+            new UploadedFileRow { FileUrl = "https://h/a" },
+            new UploadedFileRow { FileUrl = string.Empty },
+            new UploadedFileRow { FileUrl = "https://h/c" },
+        ];
+
+        Assert.Equal(
+            string.Join(Environment.NewLine, "https://h/a", "https://h/c"),
+            vm.BuildColumnCopyText("URL"));
+    }
+
+    [Fact]
+    public void BuildColumnCopyText_NothingSelected_ReturnsNull()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+
+        Assert.Null(vm.BuildColumnCopyText("URL"));
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>());
 

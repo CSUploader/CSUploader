@@ -137,6 +137,14 @@ public partial class UploadedViewModel : ObservableObject
     private UploadedFileRow? selectedRow;
 
     /// <summary>
+    /// The full multi-row selection, snapshotted by the view when the context menu opens.
+    /// The per-column "Copy" commands operate on this so copying a column with several rows
+    /// selected yields a value per row — <see cref="SelectedRow"/> alone is only the primary
+    /// row (which is why "Copy → URL" used to copy just the first selected URL).
+    /// </summary>
+    public IReadOnlyList<UploadedFileRow> SelectedRows { get; set; } = [];
+
+    /// <summary>
     /// Opens the row's <c>FileUrl</c> in the default browser. Disabled when the row has
     /// no URL (e.g. an entry from before URL persistence existed).
     /// </summary>
@@ -161,19 +169,13 @@ public partial class UploadedViewModel : ObservableObject
     private static bool CanOpenUrl(UploadedFileRow? row) => !string.IsNullOrEmpty(row?.FileUrl);
 
     /// <summary>
-    /// Copies the value of <paramref name="columnKey"/> from <see cref="SelectedRow"/>
-    /// to the clipboard. Column keys mirror the resx <c>Uploaded_Col_*</c> suffix.
+    /// Copies the value of <paramref name="columnKey"/> for every selected row to the
+    /// clipboard (one per line). Column keys mirror the resx <c>Uploaded_Col_*</c> suffix.
     /// </summary>
     [RelayCommand]
     private void CopyColumn(string? columnKey)
     {
-        if (string.IsNullOrEmpty(columnKey) || SelectedRow is null)
-        {
-            return;
-        }
-
-        string? text = ColumnValueExtractor.Extract(SelectedRow, columnKey, isUploadsTab: false);
-        if (text is null)
+        if (BuildColumnCopyText(columnKey) is not { } text)
         {
             return;
         }
@@ -186,6 +188,32 @@ public partial class UploadedViewModel : ObservableObject
         {
             // Swallow contention errors from Clipboard.SetText — copying must never crash the UI thread.
         }
+    }
+
+    /// <summary>
+    /// Builds the clipboard payload for a per-column copy: that column's value for every row in
+    /// <see cref="SelectedRows"/> (blank values skipped), newline-joined. Falls back to the
+    /// primary <see cref="SelectedRow"/> when no multi-selection was captured. Returns null when
+    /// there is nothing to copy. Separated from <see cref="CopyColumnCommand"/> so the value
+    /// logic is unit-testable without touching the clipboard.
+    /// </summary>
+    internal string? BuildColumnCopyText(string? columnKey)
+    {
+        if (string.IsNullOrEmpty(columnKey))
+        {
+            return null;
+        }
+
+        IReadOnlyList<UploadedFileRow> rows = SelectedRows.Count > 0
+            ? SelectedRows
+            : (SelectedRow is { } only ? [only] : []);
+
+        string[] values = [.. rows
+            .Select(r => ColumnValueExtractor.Extract(r, columnKey, isUploadsTab: false))
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Cast<string>()];
+
+        return values.Length == 0 ? null : string.Join(Environment.NewLine, values);
     }
 
     [RelayCommand]

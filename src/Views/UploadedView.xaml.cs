@@ -233,6 +233,15 @@ public partial class UploadedView : UserControl
             return;
         }
 
+        // Snapshot the full multi-selection so the per-column "Copy" commands act on every
+        // selected row. The bound SelectedRow is only the primary row, and right-clicking
+        // within a multi-selection doesn't collapse it, so without this "Copy → URL" would
+        // copy just the first selected row's value.
+        if (DataContext is UploadedViewModel vm)
+        {
+            vm.SelectedRows = [.. FilesGrid.SelectedItems.OfType<UploadedFileRow>()];
+        }
+
         if (FindAncestor<DataGridRow>(source) is not null)
         {
             return;

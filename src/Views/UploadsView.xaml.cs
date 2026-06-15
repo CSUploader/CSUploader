@@ -240,6 +240,14 @@ public partial class UploadsView : UserControl
             return;
         }
 
+        // Snapshot the full multi-selection so per-column "Copy" acts on every selected row,
+        // not just the primary SelectedRow. (SelectRowOnRightClick already ran on right-down,
+        // so the selection is final here.)
+        if (DataContext is UploadsViewModel vm)
+        {
+            vm.SelectedRows = [.. uploadsGrid.SelectedItems.Cast<object>()];
+        }
+
         if (FindAncestor<DataGridRow>(source) is not null)
         {
             return;

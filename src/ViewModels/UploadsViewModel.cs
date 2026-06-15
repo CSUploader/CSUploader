@@ -546,6 +546,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private object? selectedRow;
 
     /// <summary>
+    /// The full multi-row selection (Package/PackageFile), snapshotted by the view when the
+    /// context menu opens, so the per-column "Copy" commands act on every selected row instead
+    /// of only the primary <see cref="SelectedRow"/>.
+    /// </summary>
+    public IReadOnlyList<object> SelectedRows { get; set; } = [];
+
+    /// <summary>
     /// Opens the row's <c>FileUrl</c> in the user's default browser. Only enabled for
     /// <see cref="PackageFile"/> rows with a non-empty URL — Package rows aggregate
     /// nothing meaningful here so the menu item disables itself for them.
@@ -581,13 +588,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void CopyColumn(string? columnKey)
     {
-        if (string.IsNullOrEmpty(columnKey) || SelectedRow is null)
-        {
-            return;
-        }
-
-        string? text = ColumnValueExtractor.Extract(SelectedRow, columnKey, isUploadsTab: true);
-        if (text is null)
+        if (BuildColumnCopyText(columnKey) is not { } text)
         {
             return;
         }
@@ -601,6 +602,31 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             // Clipboard.SetText can throw on rare contention with another app —
             // swallow rather than crash the UI thread for a copy operation.
         }
+    }
+
+    /// <summary>
+    /// Builds the clipboard payload for a per-column copy: that column's value for every row in
+    /// <see cref="SelectedRows"/> (blank values skipped), newline-joined; falls back to the
+    /// primary <see cref="SelectedRow"/>. Null when there's nothing to copy. Separated from
+    /// <see cref="CopyColumnCommand"/> so the value logic is unit-testable without the clipboard.
+    /// </summary>
+    internal string? BuildColumnCopyText(string? columnKey)
+    {
+        if (string.IsNullOrEmpty(columnKey))
+        {
+            return null;
+        }
+
+        IReadOnlyList<object> rows = SelectedRows.Count > 0
+            ? SelectedRows
+            : (SelectedRow is { } only ? [only] : []);
+
+        string[] values = [.. rows
+            .Select(r => ColumnValueExtractor.Extract(r, columnKey, isUploadsTab: true))
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Cast<string>()];
+
+        return values.Length == 0 ? null : string.Join(Environment.NewLine, values);
     }
 
     private void RemovePackageFromView(Package package, IEnumerable<PackageFile> files)
