@@ -229,75 +229,155 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
             userId = ctx.Credentials.ApiKey;
         }
 
-        // === Step 1: discover the per-file storage server (cheap, pre-upload — no bytes sent) ===
-        (string? uploadUrl, string? discoverError) = await DiscoverUploadServerAsync(ctx);
-        if (uploadUrl is null)
+        // === Discover a fresh upload node + upload, with a bounded retry on transient transport
+        // faults. The per-request sNNN node sometimes RESETs a large transfer mid-stream
+        // (SocketException 10054). A reset aborts before the closing multipart boundary, so the
+        // server commits nothing and returns no id — re-discovering a fresh node and re-sending is
+        // safe and never double-creates, honouring "never waste an upload". Only TRANSPORT
+        // exceptions are retried; a server VERDICT (a parsed result:false / off-shape response, which
+        // UploadMultipartAsync never throws on) fails immediately. ===
+        Exception? lastTransportError = null;
+        string? lastError = null;
+        for (int attempt = 1; attempt <= MaxUploadAttempts; attempt++)
         {
-            yield return new AttemptFailed(discoverError ?? "HitFile upload server discovery failed", null);
+            // Fresh node every attempt — the dead sNNN URL is never reused.
+            (string? uploadUrl, string? discoverError) = await DiscoverUploadServerAsync(ctx);
+            if (uploadUrl is null)
+            {
+                // Discovery failing (or returning no node) is terminal — it's a server verdict, not
+                // the per-node mid-stream reset we retry — so fail rather than hammer discovery.
+                yield return new AttemptFailed(discoverError ?? "HitFile upload server discovery failed", null);
+                yield break;
+            }
+
+            // Announce the transfer once, only after we actually have a node to send to — a discovery
+            // failure above must not look like a started transfer. A retry restarts progress from 0
+            // without re-announcing.
+            if (attempt == 1)
+            {
+                yield return new TransferStarted(ctx.FileSize);
+            }
+
+            // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel,
+            // same pattern as the other pipelines (can't yield from inside the event handler).
+            // Re-created per attempt; unsubscribed right after the progress drains.
+            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
+
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, userId);
+
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+            {
+                yield return progressEv;
+            }
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            bool attemptCancelled = false;
+            Exception? attemptException = null;
+            HttpResponseSnapshot? uploadResponse = null;
+            try
+            {
+                uploadResponse = await uploadTask;
+            }
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+            {
+                attemptCancelled = true;
+            }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+            }
+
+            if (attemptCancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (attemptException is not null)
+            {
+                if (!IsTransientUploadFault(attemptException))
+                {
+                    // Non-transport fault (e.g. a vanished local file) — retrying won't help, fail now.
+                    yield return new AttemptFailed(attemptException.Message, attemptException);
+                    yield break;
+                }
+
+                // Transport fault (connection reset / connect failure): retry with a fresh node while
+                // attempts remain, else fall through to the post-loop AttemptFailed.
+                lastTransportError = attemptException;
+                lastError = attemptException.Message;
+                if (attempt < MaxUploadAttempts)
+                {
+                    if (await DelayBeforeRetryAsync(attempt, ctx.Cancellation)) { yield return new AttemptCancelled(); yield break; }
+                    continue;
+                }
+
+                break;
+            }
+
+            // Got an HTTP response: a SERVER VERDICT, not a transient fault → parse and stop (no retry).
+            (string? url, string? error) = ParseUploadResponse(uploadResponse!);
+            if (error is not null)
+            {
+                yield return new AttemptFailed(error, null);
+                yield break;
+            }
+
+            yield return new TransferCompleted(url!);
             yield break;
         }
 
-        // === Step 2: upload ===
-        yield return new TransferStarted(ctx.FileSize);
+        // Exhausted all attempts on a transient transport fault (the node kept resetting mid-stream).
+        yield return new AttemptFailed(
+            $"HitFile upload failed after {MaxUploadAttempts} attempts (last transport error: {lastError})",
+            lastTransportError);
+    }
 
-        // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel,
-        // same pattern as the other pipelines (can't yield from inside the event handler).
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
+    // Bounded retry for the per-request upload node's intermittent mid-stream connection resets.
+    private const int MaxUploadAttempts = 3;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, userId);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
-        {
-            yield return progressEv;
-        }
-
-        ctx.Handler.UploadProgress -= onProgress;
-
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        HttpResponseSnapshot? uploadResponse = null;
+    /// <summary>Short, cancellable backoff between upload retries (1s, 2s, ...). Returns true when the
+    /// wait was cancelled, so the caller can surface <see cref="AttemptCancelled"/>.</summary>
+    private static async Task<bool> DelayBeforeRetryAsync(int completedAttempt, CancellationToken ct)
+    {
         try
         {
-            uploadResponse = await uploadTask;
+            await Task.Delay(TimeSpan.FromSeconds(completedAttempt), ct);
+            return false;
         }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            attemptCancelled = true;
+            return true;
         }
-        catch (Exception ex)
+    }
+
+    /// <summary>True for transport-level upload faults worth retrying with a fresh node — a mid-stream
+    /// connection reset (<c>SocketException 10054</c>) or a connect/DNS failure to the sNNN node, both
+    /// of which surface as a <see cref="System.Net.Sockets.SocketException"/> or
+    /// <see cref="System.Net.Http.HttpRequestException"/> somewhere in the exception chain. A server
+    /// VERDICT never reaches here — <c>UploadMultipartAsync</c> returns the non-2xx snapshot instead of
+    /// throwing — so retrying these can't re-send something the server already accepted.</summary>
+    private static bool IsTransientUploadFault(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
         {
-            attemptException = ex;
+            if (e is System.Net.Sockets.SocketException or System.Net.Http.HttpRequestException)
+            {
+                return true;
+            }
         }
 
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        (string? url, string? error) = ParseUploadResponse(uploadResponse!);
-        if (error is not null)
-        {
-            yield return new AttemptFailed(error, null);
-            yield break;
-        }
-
-        yield return new TransferCompleted(url!);
+        return false;
     }
 
     /// <summary>

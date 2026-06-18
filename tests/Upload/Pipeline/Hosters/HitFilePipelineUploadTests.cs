@@ -3,7 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
@@ -231,6 +233,94 @@ public class HitFilePipelineUploadTests
 
         Assert.Single(events.OfType<AttemptFailed>());
         Assert.DoesNotContain(events, e => e is TransferCompleted);
+    }
+
+    // A mid-stream connection reset, shaped exactly like the live failure: HttpRequestException ->
+    // IOException -> SocketException(10054).
+    private static HttpRequestException ConnectionReset() =>
+        new("Error while copying content to a stream",
+            new IOException("Unable to write data to the transport connection",
+                new SocketException(10054)));
+
+    [Fact]
+    public async Task RunAsync_UploadResetThenSucceeds_RetriesWithFreshDiscoveryAndCompletes()
+    {
+        // The per-request node resets the first transfer mid-stream; the retry re-discovers a fresh
+        // node and completes. No file is created by the reset, so this is safe (no double-upload).
+        int discoveryCalls = 0, uploadCalls = 0;
+        HitFilePipeline pipeline = new(
+            postJsonOverride: (url, body) =>
+            {
+                discoveryCalls++;
+                return new HttpResponseSnapshot(200, $$"""{"urls":["https://s{{discoveryCalls}}.hitfile.net/uploadfile"]}""", Array.Empty<string>());
+            },
+            uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
+            {
+                uploadCalls++;
+                if (uploadCalls == 1)
+                {
+                    throw ConnectionReset();
+                }
+
+                return Task.FromResult(new HttpResponseSnapshot(200, """{"result":true,"id":"OkAfterRetry","message":"Everything is ok"}""", Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://hitfile.net/OkAfterRetry", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, discoveryCalls); // re-discovered a fresh node for the retry
+        Assert.Equal(2, uploadCalls);
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadResetsEveryAttempt_FailsAfterMaxAttempts()
+    {
+        // The node keeps resetting → exhaust the bounded retries and surface a clear failure, having
+        // re-discovered a fresh node on each of the (3) attempts.
+        int discoveryCalls = 0, uploadCalls = 0;
+        HitFilePipeline pipeline = new(
+            postJsonOverride: (url, body) =>
+            {
+                discoveryCalls++;
+                return new HttpResponseSnapshot(200, $$"""{"urls":["https://s{{discoveryCalls}}.hitfile.net/uploadfile"]}""", Array.Empty<string>());
+            },
+            uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
+            {
+                uploadCalls++;
+                throw ConnectionReset();
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("after 3 attempts", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Equal(3, discoveryCalls);
+        Assert.Equal(3, uploadCalls);
+    }
+
+    [Fact]
+    public async Task RunAsync_NonTransportUploadException_FailsWithoutRetry()
+    {
+        // A non-transport fault (e.g. a vanished local file) is NOT the reset case — fail immediately
+        // rather than re-sending fruitlessly.
+        int uploadCalls = 0;
+        HitFilePipeline pipeline = new(
+            postJsonOverride: (url, body) =>
+                new HttpResponseSnapshot(200, $$"""{"urls":["{{UploadServer}}"]}""", Array.Empty<string>()),
+            uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
+            {
+                uploadCalls++;
+                throw new FileNotFoundException("the file is gone");
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Equal(1, uploadCalls); // no retry on a non-transport fault
     }
 
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
