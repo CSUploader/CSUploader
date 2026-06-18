@@ -262,27 +262,50 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// APIs (FileBoom/Keep2Share) return error envelopes with HTTP 200 alongside non-200
     /// auth-expired responses, and callers handle both shapes themselves.
     /// </summary>
-    public async Task<HttpResponseSnapshot> PostJsonAsync(string url, string jsonBody, CancellationToken cancellationToken = default)
+    public Task<HttpResponseSnapshot> PostJsonAsync(string url, string jsonBody, CancellationToken cancellationToken = default)
+        => PostJsonAsync(url, jsonBody, headers: null, cancellationToken);
+
+    /// <summary>
+    /// Like <see cref="PostJsonAsync(string, string, CancellationToken)"/> but attaches extra
+    /// request headers — e.g. a forwarded <c>Cookie</c> for cookie-authenticated JSON APIs whose
+    /// handler is built without <c>UseCookies</c> (HitFile's <c>/api/folder/content</c> storage
+    /// re-read on refresh). Mirrors <see cref="GetSnapshotAsync(string, IReadOnlyDictionary{string, string}?, CancellationToken)"/>;
+    /// does not throw on non-2xx. A null <paramref name="jsonBody"/> sends a body-less POST with no
+    /// <c>Content-Type</c> (mirrors a browser <c>fetch(POST)</c> with no body — HitFile's
+    /// <c>/api/user/app/id</c>), so a strict body/CSRF validator can't reject an unexpected entity.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostJsonAsync(string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         url = MaybeRewriteToMockServer(url);
 
-        using StringContent content = new(jsonBody, Encoding.UTF8, "application/json");
+        // No `using` on content: the HttpRequestMessage below owns it and disposes it (a
+        // separate using would double-dispose). Mirrors UploadMultipartAsync's note.
+        StringContent? content = jsonBody is null ? null : new StringContent(jsonBody, Encoding.UTF8, "application/json");
         HttpTransaction transaction = new()
         {
             Method = "POST",
             Url = url,
             Proxy = _proxyDescription,
             StartTime = DateTime.Now,
-            RequestBody = jsonBody,
+            RequestBody = jsonBody ?? string.Empty,
         };
 
         try
         {
-            CaptureRequestHeaders(transaction, content);
+            using HttpRequestMessage request = new(HttpMethod.Post, url) { Content = content };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
 
-            using HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
+            CaptureRequestHeaders(transaction, content, request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
 
             transaction.EndTime = DateTime.Now;

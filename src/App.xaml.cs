@@ -132,6 +132,9 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HxfilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.HitFilePipeline(
+                sp.GetRequiredService<Services.IInteractiveAuthService>()));
         // ExtMatrix DISABLED 2026-06-07. Their /api/upload.php endpoint hits the origin
         // nginx's client_max_body_size cap below ~27 MiB (clean 413 Payload Too Large
         // back from nginx, fronted by Cloudflare). Their web UI works around this with a

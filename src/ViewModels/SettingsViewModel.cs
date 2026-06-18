@@ -733,8 +733,8 @@ public partial class SettingsViewModel(
     /// <summary>
     /// Routes credential verification through the injected <see cref="IAccountVerifier"/>.
     /// </summary>
-    private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken cancellationToken = default)
-        => _accountVerifier.CheckAsync(hosterName, username, password, apiKey, cancellationToken);
+    private Task<AccountCheckResult> VerifyCredentialsAsync(string hosterName, string username, string password, string? apiKey = null, string? sessionCookie = null, CancellationToken cancellationToken = default)
+        => _accountVerifier.CheckAsync(hosterName, username, password, apiKey, sessionCookie, cancellationToken);
 
     /// <summary>Wall-clock that <see cref="FileHosterLoginDto.MarkRefreshed"/> sites stamp
     /// onto each DTO after a CheckAsync completes. Centralised so tests can compare against
@@ -822,6 +822,10 @@ public partial class SettingsViewModel(
             dto.SetCheckStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
         }
 
+        // Stamp the "Added at" time once, at creation. ??= so a value the dialog carried over
+        // (it never does on an add) is respected, but a fresh account gets now.
+        dto.CreatedDateTime ??= NowLocal();
+
         // Snapshot existing in-memory (status, message) pairs, insert, reload, restore.
         // Same dance RefreshAllAccountsAsync uses so other accounts' transient verify
         // state survives the round-trip through LoadAccountsAsync (both fields are
@@ -853,7 +857,8 @@ public partial class SettingsViewModel(
                 dto.FileHosterName ?? string.Empty,
                 dto.Username ?? string.Empty,
                 dto.Password ?? string.Empty,
-                dto.ApiKey);
+                dto.ApiKey,
+                dto.SessionCookie);
 
             if (result.IsValid)
             {
@@ -945,6 +950,7 @@ public partial class SettingsViewModel(
                     account.Username ?? string.Empty,
                     account.Password ?? string.Empty,
                     account.ApiKey,
+                    account.SessionCookie,
                     cancellationToken);
 
                 // Single stamp covers both Valid and !Valid branches — we tried, so the
@@ -1023,7 +1029,7 @@ public partial class SettingsViewModel(
                 return;
             }
 
-            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken: cancellationToken);
 
             if (result.IsValid)
             {
@@ -1069,7 +1075,7 @@ public partial class SettingsViewModel(
 
             try
             {
-                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken);
+                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken: cancellationToken);
                 verifyResult = result;
                 if (result.IsValid)
                 {
@@ -1107,6 +1113,7 @@ public partial class SettingsViewModel(
             Username = NewAccountUsername,
             Password = NewAccountPassword,
             AccountType = NewAccountType,
+            CreatedDateTime = NowLocal(),
         };
         if (client is not null)
         {
@@ -1256,7 +1263,7 @@ public partial class SettingsViewModel(
 
         try
         {
-            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, account.ApiKey, cancellationToken);
+            AccountCheckResult result = await VerifyCredentialsAsync(account.FileHosterName ?? string.Empty, username, password, account.ApiKey, account.SessionCookie, cancellationToken);
 
             // Single stamp covers Valid / !Valid / catch — we did call the verifier, so
             // the timestamp reflects the attempt regardless of outcome.
@@ -1392,21 +1399,29 @@ public partial class SettingsViewModel(
         {
             if (Accounts[i].Id == accountId)
             {
-                // LastRefreshedDateTime preserved across the in-flight "Checking…" flip
-                // so the grid keeps showing the previous stamp until the post-verify
-                // MarkRefreshed overwrites it. (Other persisted fields — SessionCookie,
-                // ApiKey, Storage* — are still nulled by this copy; latent bug, out of
-                // scope here. See the next refresh's LoadAccountsAsync round-trip for
-                // recovery.)
+                // Carry EVERY persisted field across the in-flight "Checking…" flip, not just
+                // LastRefreshedDateTime. A concurrent second refresh (RefreshSelectedAccounts allows
+                // concurrency) resolves its target from this in-memory row, so dropping ApiKey /
+                // SessionCookie / Storage* here would route HitFile to the interactive sign-in
+                // (popping a WebView) and lose the upload appId until the next LoadAccountsAsync.
+                FileHosterLoginDto src = Accounts[i];
                 FileHosterLoginDto copy = new()
                 {
-                    Id = Accounts[i].Id,
-                    FileHosterName = Accounts[i].FileHosterName,
-                    Username = Accounts[i].Username,
-                    Password = Accounts[i].Password,
-                    AccountType = Accounts[i].AccountType,
-                    Disabled = Accounts[i].Disabled,
-                    LastRefreshedDateTime = Accounts[i].LastRefreshedDateTime,
+                    Id = src.Id,
+                    FileHosterName = src.FileHosterName,
+                    Username = src.Username,
+                    Password = src.Password,
+                    AccountType = src.AccountType,
+                    Disabled = src.Disabled,
+                    IsAnonymous = src.IsAnonymous,
+                    ApiKey = src.ApiKey,
+                    SessionCookie = src.SessionCookie,
+                    SessionCookieExpiresUtc = src.SessionCookieExpiresUtc,
+                    PinnedProxyId = src.PinnedProxyId,
+                    StorageUsedBytes = src.StorageUsedBytes,
+                    StorageQuotaBytes = src.StorageQuotaBytes,
+                    LastRefreshedDateTime = src.LastRefreshedDateTime,
+                    CreatedDateTime = src.CreatedDateTime,
                 };
                 copy.SetCheckStatus(status, message);
                 Accounts[i] = copy;

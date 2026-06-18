@@ -33,7 +33,7 @@ public partial class EditAccountWindow : Window
     // the web UI is also failing for our test user. See ExtMatrixPipeline.cs class-
     // level remarks for the diagnosis chain and the re-enable checklist.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "Hotlink", "FileBoom" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "Hotlink", "FileBoom", "HitFile" };
 
     private readonly FileHosterLoginDto _original;
 
@@ -47,6 +47,25 @@ public partial class EditAccountWindow : Window
     /// <summary>Username discovered by a successful Sign-in (the account email). Applied to
     /// the saved DTO so the grid shows something meaningful for API-key accounts.</summary>
     private string? _derivedUsername;
+
+    /// <summary>Storage usage captured by a successful Sign-in, or carried over from the
+    /// existing account when editing without re-signing-in. Written to the saved DTO so a
+    /// hoster whose refresh can't re-read storage (HitFile — its appId is an upload token,
+    /// not a session, so it can't reach the logged-in storage API) keeps the figure instead
+    /// of blanking it on the post-save re-verify. Only overwritten by a Sign-in that actually
+    /// reports a value, so a failed/partial walk never clobbers a good number.</summary>
+    private long? _storageUsedBytes;
+    private long? _storageQuotaBytes;
+
+    /// <summary>Login session captured by a successful Sign-in (HitFile's <c>.hitfile.net</c>
+    /// cookie jar), or carried from the existing account. Persisted so "Check / Refresh" can
+    /// re-read server-side data (storage usage) through the proxy without re-opening the WebView.
+    /// Only overwritten by a Sign-in that actually captured one.</summary>
+    private string? _sessionCookie;
+
+    /// <summary>"Added at" stamp carried from the existing account so an edit-Save preserves it
+    /// (it's set once at insert by the add flow; null for a brand-new account).</summary>
+    private DateTime? _createdDateTime;
 
     public EditAccountWindow(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>>? interactiveLogin = null)
     {
@@ -76,6 +95,10 @@ public partial class EditAccountWindow : Window
         PasswordBox.Text = account.Password;
         ApiKeyBox.Text = account.ApiKey;
         _derivedUsername = string.IsNullOrEmpty(account.Username) ? null : account.Username;
+        _storageUsedBytes = account.StorageUsedBytes;
+        _storageQuotaBytes = account.StorageQuotaBytes;
+        _sessionCookie = string.IsNullOrEmpty(account.SessionCookie) ? null : account.SessionCookie;
+        _createdDateTime = account.CreatedDateTime;
 
         EnabledCheck.IsChecked = !account.Disabled;
 
@@ -151,9 +174,12 @@ public partial class EditAccountWindow : Window
             if (result.IsValid && !string.IsNullOrEmpty(result.ApiKey))
             {
                 // Surface the derived key in the box (single source of truth on Save) and
-                // remember the discovered username for the saved DTO.
+                // remember the discovered username + storage usage for the saved DTO.
                 ApiKeyBox.Text = result.ApiKey;
                 _derivedUsername = result.DerivedUsername ?? _derivedUsername;
+                if (result.StorageUsedBytes is { } used) { _storageUsedBytes = used; }
+                if (result.StorageQuotaBytes is { } quota) { _storageQuotaBytes = quota; }
+                if (!string.IsNullOrEmpty(result.SessionCookie)) { _sessionCookie = result.SessionCookie; }
 
                 SignInStatus.Text = !string.IsNullOrEmpty(result.DerivedUsername)
                     ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["EditAccount_SignIn_SuccessAs_Format"], result.DerivedUsername)
@@ -217,6 +243,16 @@ public partial class EditAccountWindow : Window
                 ApiKey = apiKey,
                 AccountType = _original.AccountType,
                 Disabled = EnabledCheck.IsChecked != true,
+                // Persist storage usage captured at Sign-in (or carried from the existing
+                // account). The post-save re-verify can't re-read it for HitFile, and
+                // ApplySessionCookieIfPresent only overwrites on non-null, so this is the DTO's
+                // only chance to hold a usage figure.
+                StorageUsedBytes = _storageUsedBytes,
+                StorageQuotaBytes = _storageQuotaBytes,
+                // Persist the captured login session so "Check / Refresh" can re-read storage
+                // server-side (HitFile) without re-opening the WebView.
+                SessionCookie = _sessionCookie,
+                CreatedDateTime = _createdDateTime,
             };
             DialogResult = true;
             return;
@@ -246,6 +282,13 @@ public partial class EditAccountWindow : Window
             ApiKey = null,
             AccountType = _original.AccountType,
             Disabled = EnabledCheck.IsChecked != true,
+            // Preserve previously-captured usage + session across an edit — SaveEditedAccountAsync
+            // persists this DTO verbatim (no re-verify), so omitting them would blank the grid's
+            // Used/Available cells (and drop the session) until the next manual refresh.
+            StorageUsedBytes = _storageUsedBytes,
+            StorageQuotaBytes = _storageQuotaBytes,
+            SessionCookie = _sessionCookie,
+            CreatedDateTime = _createdDateTime,
         };
         DialogResult = true;
     }

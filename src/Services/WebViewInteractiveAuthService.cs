@@ -10,6 +10,7 @@ using System.Windows.Threading;
 using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
+using CSUploader.Upload;
 using CSUploader.Views;
 
 namespace CSUploader.Services;
@@ -22,7 +23,7 @@ namespace CSUploader.Services;
 /// Serialises concurrent calls per hoster so a burst of background uploads doesn't stack
 /// N modal windows on top of each other.
 /// </summary>
-public sealed class WebViewInteractiveAuthService(IDialogService dialogService) : IInteractiveAuthService
+public sealed class WebViewInteractiveAuthService(IDialogService dialogService, AppSettings settings) : IInteractiveAuthService
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _perHosterGates = new(StringComparer.OrdinalIgnoreCase);
 
@@ -30,6 +31,11 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
     // an information dialog later (e.g. for SOCKS-with-auth notification). Currently used
     // only for the SOCKS-with-auth refusal message.
     private readonly IDialogService _dialogService = dialogService;
+
+    // Read live each sign-in so the WebView honours the same "accept invalid server certificates"
+    // opt-in uploads use — a MITM proxy or mis-issued hoster cert would otherwise block login only
+    // (uploads, on the C# handler, already accept it).
+    private readonly AppSettings _settings = settings;
 
     public async Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
     {
@@ -93,23 +99,38 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService) 
             proxy: proxy,
             proxyCredentials: proxyCredentials,
             cookieValueValidator: spec.CookieValueValidator,
-            additionalCookieNames: spec.AdditionalCookieNames)
+            additionalCookieNames: spec.AdditionalCookieNames,
+            successProbeScript: spec.SuccessProbeScript,
+            cookieCaptureUrl: spec.CookieCaptureUrl,
+            allowInvalidCertificates: _settings.AllowInvalidServerCertificates)
         {
-            // Parent the modal on the main window when one exists so it inherits owner/
-            // modal semantics (centred on owner, doesn't appear in the taskbar
-            // separately, blocks the owner until closed).
             Owner = Application.Current?.MainWindow,
         };
 
-        bool? result = window.ShowDialog();
-        if (result != true || window.CapturedCookieValue is null)
+        window.ShowDialog();
+
+        // Probe-script hosters (HitFile) return their credential via CapturedProbeValue; cookie
+        // hosters return CapturedCookieValue. Either being set means a successful sign-in. A probe
+        // hoster with CookieCaptureUrl set ALSO carries the captured cookie jar (as a Cookie header)
+        // on SessionCookieValue, so the C# side can make logged-in calls later (HitFile refresh).
+        if (window.CapturedProbeValue is { } probeValue)
         {
-            return null;
+            return new InteractiveAuthResult(
+                window.CapturedCookieValue ?? string.Empty,
+                window.CapturedUsernameCookieValue,
+                window.CapturedAdditionalCookies,
+                probeValue);
         }
-        return new InteractiveAuthResult(
-            window.CapturedCookieValue,
-            window.CapturedUsernameCookieValue,
-            window.CapturedAdditionalCookies);
+
+        if (window.CapturedCookieValue is { } cookieValue)
+        {
+            return new InteractiveAuthResult(
+                cookieValue,
+                window.CapturedUsernameCookieValue,
+                window.CapturedAdditionalCookies);
+        }
+
+        return null;
     }
 
     /// <summary>

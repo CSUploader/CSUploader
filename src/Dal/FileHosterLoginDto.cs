@@ -81,6 +81,13 @@ public class FileHosterLoginDto
     public DateTime? LastRefreshedDateTime { get; set; }
 
     /// <summary>
+    /// Local-time stamp of when this account was added (set once at insert, never changed).
+    /// Drives the Account Manager grid's "Added at" column. Null on accounts that predate the
+    /// column.
+    /// </summary>
+    public DateTime? CreatedDateTime { get; set; }
+
+    /// <summary>
     /// Outcome category for the last verification, used by the Account Manager grid to
     /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
     /// together via <see cref="SetCheckStatus"/> so they can't drift.

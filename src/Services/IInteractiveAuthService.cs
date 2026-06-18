@@ -42,6 +42,24 @@ namespace CSUploader.Services;
 /// <see cref="InteractiveAuthResult.AdditionalCookies"/>. Used by hosters whose
 /// authenticated requests need more than one cookie (e.g. FileBoom sends both
 /// <c>accessToken</c> and <c>pcId</c>).</param>
+/// <param name="SuccessProbeScript">Optional JavaScript-probe sign-in signal for hosters whose
+/// login sets no capturable login marker — e.g. HitFile, whose session cookies look identical
+/// signed-in vs anonymous, so cookie-presence detection can't tell when login completed. When set,
+/// the WebView runs this script on each poll tick; it must return a non-empty string once (and only
+/// once) the user is authenticated, and that string flows back as
+/// <see cref="InteractiveAuthResult.ProbeValue"/>. The script runs in the page's own context, so a
+/// <c>fetch(..., {credentials:'include'})</c> it makes carries the full cookie jar (HttpOnly
+/// included) automatically — letting the page fetch e.g. the account id directly, with no cookie
+/// capture/forwarding on the C# side at all. Used instead of <see cref="CookieName"/>-based
+/// completion; the cookie-based hosters leave it null.</param>
+/// <param name="CookieCaptureUrl">Optional URL whose FULL cookie jar is captured (as a single
+/// <c>name=value; name=value</c> header) into <see cref="InteractiveAuthResult.SessionCookieValue"/>
+/// when a <see cref="SuccessProbeScript"/> sign-in completes. Lets a probe hoster ALSO hand the C#
+/// side the logged-in cookies (HttpOnly included — captured via <c>CookieManager</c>, not
+/// <c>document.cookie</c>) for later server-side calls the page can't make on demand — e.g.
+/// HitFile's "Check / Refresh", which re-reads storage usage directly from C# through the proxy
+/// using these cookies (<c>https://app.hitfile.net/</c>). Null for hosters that don't need the raw
+/// jar (the probe value alone is their whole credential).</param>
 public readonly record struct InteractiveAuthSpec(
     string HosterName,
     string LoginUrl,
@@ -49,7 +67,9 @@ public readonly record struct InteractiveAuthSpec(
     string CookieName,
     string? UsernameCookieName = null,
     Func<string, bool>? CookieValueValidator = null,
-    IReadOnlyList<string>? AdditionalCookieNames = null);
+    IReadOnlyList<string>? AdditionalCookieNames = null,
+    string? SuccessProbeScript = null,
+    string? CookieCaptureUrl = null);
 
 /// <summary>
 /// Outcome of a successful <see cref="IInteractiveAuthService.AcquireSessionCookieAsync"/>
@@ -57,7 +77,9 @@ public readonly record struct InteractiveAuthSpec(
 /// asked the WebView to capture.
 /// </summary>
 /// <param name="SessionCookieValue">Value of the cookie named by
-/// <see cref="InteractiveAuthSpec.CookieName"/>. Always non-empty on success.</param>
+/// <see cref="InteractiveAuthSpec.CookieName"/>. Non-empty on a cookie-based success; empty for
+/// <see cref="InteractiveAuthSpec.SuccessProbeScript"/> hosters (which return their credential via
+/// <see cref="ProbeValue"/> instead).</param>
 /// <param name="CapturedUsername">Value of the cookie named by
 /// <see cref="InteractiveAuthSpec.UsernameCookieName"/>, or null when the spec didn't
 /// request one or the cookie wasn't present. Hosters that use this as the canonical
@@ -67,10 +89,14 @@ public readonly record struct InteractiveAuthSpec(
 /// <see cref="InteractiveAuthSpec.AdditionalCookieNames"/>. Null when the spec didn't
 /// request any. Missing names (cookie not in the post-login jar) are simply absent from
 /// the map — callers handle them as optional.</param>
+/// <param name="ProbeValue">The non-empty string returned by
+/// <see cref="InteractiveAuthSpec.SuccessProbeScript"/> (e.g. HitFile's account id fetched by the
+/// page itself). Null for cookie-based hosters.</param>
 public readonly record struct InteractiveAuthResult(
     string SessionCookieValue,
     string? CapturedUsername,
-    IReadOnlyDictionary<string, string>? AdditionalCookies = null);
+    IReadOnlyDictionary<string, string>? AdditionalCookies = null,
+    string? ProbeValue = null);
 
 /// <summary>
 /// Abstraction for prompting the user to complete an interactive sign-in (currently a

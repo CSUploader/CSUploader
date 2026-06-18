@@ -50,6 +50,7 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         StorageUsedBytes = entity.StorageUsedBytes,
         StorageQuotaBytes = entity.StorageQuotaBytes,
         LastRefreshedDateTime = entity.LastRefreshedDateTime,
+        CreatedDateTime = entity.CreatedDateTime,
     };
 
     protected override void MapToDto(FileHosterLoginDbm entity, FileHosterLoginDto dto)
@@ -67,6 +68,7 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         dto.StorageUsedBytes = entity.StorageUsedBytes;
         dto.StorageQuotaBytes = entity.StorageQuotaBytes;
         dto.LastRefreshedDateTime = entity.LastRefreshedDateTime;
+        dto.CreatedDateTime = entity.CreatedDateTime;
     }
 
     protected override FileHosterLoginDbm MapToDbm(FileHosterLoginDto dto) => new()
@@ -84,5 +86,6 @@ public class FileHosterLoginRepository(IDbContextFactory<CSUploaderDbContext> db
         StorageUsedBytes = dto.StorageUsedBytes,
         StorageQuotaBytes = dto.StorageQuotaBytes,
         LastRefreshedDateTime = dto.LastRefreshedDateTime,
+        CreatedDateTime = dto.CreatedDateTime,
     };
 }

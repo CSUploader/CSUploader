@@ -96,4 +96,12 @@ public class FileHosterLoginDbm
     /// (<see cref="StartDateTime"/>-style fields elsewhere).
     /// </summary>
     public DateTime? LastRefreshedDateTime { get; set; }
+
+    /// <summary>
+    /// Local-time stamp of when this account was added, set once at insert and never changed.
+    /// Drives the Account Manager grid's "Added at" column. Null on rows that predate the column
+    /// (existing DBs migrated in by <c>FirstRun</c>). Stored as local time to match the other
+    /// displayed timestamps on this DTO family (e.g. <see cref="LastRefreshedDateTime"/>).
+    /// </summary>
+    public DateTime? CreatedDateTime { get; set; }
 }

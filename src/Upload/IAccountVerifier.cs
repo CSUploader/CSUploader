@@ -25,6 +25,9 @@ public interface IAccountVerifier
     /// <paramref name="apiKey"/> is null, <paramref name="username"/>/<paramref name="password"/>
     /// are used; pipelines that can derive an API key from those credentials (Ex-Load's
     /// my_account scrape) will surface it on <see cref="AccountCheckResult.ApiKey"/>.
+    /// <paramref name="sessionCookie"/>, when supplied (a previously-captured login session), lets
+    /// a <see cref="Pipeline.ISessionRefreshablePipeline"/> re-validate / refresh server-side data
+    /// without re-opening the WebView — HitFile re-reads its storage usage through the proxy with it.
     /// </summary>
-    Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, CancellationToken ct = default);
+    Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, string? sessionCookie = null, CancellationToken ct = default);
 }

@@ -92,6 +92,30 @@ public class FileHosterLoginRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Roundtrip_PreservesCreatedDateTime()
+    {
+        // Mirrors the LastRefreshedDateTime check — guards the three mapper overrides for the
+        // new "Added at" column.
+        FileHosterLoginRepository repo = new(_factory);
+        DateTime stamp = new(2026, 6, 17, 21, 5, 31, DateTimeKind.Local);
+        FileHosterLoginDto inserted = new()
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+            CreatedDateTime = stamp,
+        };
+        await repo.InsertAsync(inserted);
+
+        FileHosterLoginDto? reloaded = await repo.FindAsync(inserted.Id);
+        Assert.NotNull(reloaded);
+        Assert.NotNull(reloaded!.CreatedDateTime);
+        Assert.True(
+            (reloaded.CreatedDateTime!.Value - stamp).Duration() < TimeSpan.FromSeconds(1),
+            $"Expected ~{stamp:O} but got {reloaded.CreatedDateTime:O}");
+    }
+
+    [Fact]
     public async Task InsertAsync_InsertsLoginWithGeneratedId()
     {
         // Arrange

@@ -121,6 +121,63 @@ public class AccountVerifierTests
     }
 
     [Fact]
+    public async Task CheckAsync_WithSessionCookieAndRefreshablePipeline_RoutesToRefreshAccountAsync()
+    {
+        // A "Check / Refresh" with a captured session on a session-refreshable pipeline (HitFile)
+        // must re-read server-side data via RefreshAccountAsync — NOT re-open the interactive
+        // CheckAccountAsync (which would pop the WebView).
+        AccountCheckResult refreshed = new(true, AccountType.Free, "storage refreshed");
+        Mock<IFileHosterPipeline> pipeline = new();
+        pipeline.As<ISessionRefreshablePipeline>()
+            .Setup(p => p.RefreshAccountAsync("appid", "cookie=1", It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(refreshed);
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("HitFile")).Returns(pipeline.Object);
+
+        Mock<IHttpHandlerFactory> factory = new();
+        factory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(new HttpHandler(new System.Net.Http.HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+
+        AccountVerifier verifier = new(registry.Object, factory.Object, DirectProxySource().Object, Mock.Of<IAppLogger>());
+
+        AccountCheckResult result = await verifier.CheckAsync("HitFile", "u", "p", apiKey: "appid", sessionCookie: "cookie=1");
+
+        Assert.Same(refreshed, result);
+        pipeline.Verify(
+            p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckAsync_NoSessionCookie_StaysOnCheckAccountAsync()
+    {
+        // The initial sign-in (no captured cookie yet) must go through CheckAccountAsync even on a
+        // session-refreshable pipeline — there's no session to re-read with.
+        AccountCheckResult signedIn = new(true, AccountType.Free, "signed in");
+        Mock<IFileHosterPipeline> pipeline = new();
+        pipeline.Setup(p => p.CheckAccountAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(signedIn);
+        Mock<ISessionRefreshablePipeline> refreshable = pipeline.As<ISessionRefreshablePipeline>();
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("HitFile")).Returns(pipeline.Object);
+
+        Mock<IHttpHandlerFactory> factory = new();
+        factory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(new HttpHandler(new System.Net.Http.HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+
+        AccountVerifier verifier = new(registry.Object, factory.Object, DirectProxySource().Object, Mock.Of<IAppLogger>());
+
+        AccountCheckResult result = await verifier.CheckAsync("HitFile", "u", "p", apiKey: null, sessionCookie: null);
+
+        Assert.Same(signedIn, result);
+        refreshable.Verify(
+            p => p.RefreshAccountAsync(It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task CheckAsync_ProxySourceReturnsDirect_HandlerBuiltDirect()
     {
         // ProxyManager.Next() returns ProxyChoice.Direct when "Use proxies for uploads"

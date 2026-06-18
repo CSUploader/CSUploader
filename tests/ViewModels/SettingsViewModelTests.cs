@@ -279,7 +279,7 @@ public class SettingsViewModelTests : IDisposable
         TaskCompletionSource<AccountCheckResult> gate = new();
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(gate.Task);
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -331,7 +331,7 @@ public class SettingsViewModelTests : IDisposable
         // CheckStatus=Failed (drives red cell) and the exception message.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DNS failure"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -357,7 +357,7 @@ public class SettingsViewModelTests : IDisposable
         // cell as a transport exception. The user-visible difference is the message.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -376,6 +376,38 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierReturnsNullStorage_PreservesDtoStorage()
+    {
+        // Regression: HitFile captures storage usage at WebView sign-in and the dialog carries
+        // it onto the DTO. The post-add re-verify runs CheckAccountAsync with the stored appId,
+        // which early-returns IsValid with NULL storage (it has no live session to re-read it).
+        // ApplySessionCookieIfPresent must preserve the carried value on null — otherwise the
+        // Used/Available cells go blank right after adding the account.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("HitFile", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "HitFile account ready.", ApiKey: "APPID123"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "HitFile",
+            Username = "user@example.com",
+            ApiKey = "APPID123",
+            StorageUsedBytes = 15663360, // carried from the sign-in probe
+            StorageQuotaBytes = null,     // unlimited
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Valid, row.CheckStatus);
+        Assert.Equal(15663360, row.StorageUsedBytes); // not clobbered by the null re-verify
+        Assert.Null(row.StorageQuotaBytes);
+        Assert.Equal("user@example.com", row.Username); // likewise preserved
+    }
+
+    [Fact]
     public async Task AddAccountFromDialogAsync_UnsupportedHoster_SkipsVerifierAndMarksUnsupported()
     {
         // FileHosterClient.FindByHost only returns non-null for hosters in the master
@@ -383,7 +415,7 @@ public class SettingsViewModelTests : IDisposable
         // — the verifier is never invoked and the row lands as Unsupported (grey).
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("verifier should never be called"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -399,7 +431,7 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
         Assert.Equal(AccountCheckStatus.Unsupported, row.CheckStatus);
         verifier.Verify(
-            v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
 
         // No verifier round-trip happened → LastRefreshedDateTime stays null.
@@ -413,7 +445,7 @@ public class SettingsViewModelTests : IDisposable
         // LastRefreshedDateTime should be stamped close to DateTime.Now and persisted.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "Logged in"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -438,13 +470,42 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task AddAccountFromDialogAsync_StampsCreatedDateTimeOnce()
+    {
+        // The "Added at" column: a fresh add gets stamped now and persists. (The dialog never
+        // carries a CreatedDateTime on an add, so the VM sets it.)
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "Logged in"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        DateTime before = DateTime.Now;
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.NotNull(row.CreatedDateTime);
+        Assert.InRange(row.CreatedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
+
+        FileHosterLoginDto persisted = (await _loginRepo.FindAsync(row.Id))!;
+        Assert.NotNull(persisted.CreatedDateTime);
+    }
+
+    [Fact]
     public async Task AddAccountFromDialogAsync_VerifierFailure_StillStampsLastRefreshedDateTime()
     {
         // "We tried" — not "we succeeded". Failed verify still records the attempt
         // timestamp so the user sees freshness regardless of outcome.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
         SettingsViewModel vm = CreateVm(verifier: verifier.Object);
@@ -472,7 +533,7 @@ public class SettingsViewModelTests : IDisposable
         // and persist; this test exercises the !IsValid branch.
         Mock<IAccountVerifier> verifier = new();
         verifier
-            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };

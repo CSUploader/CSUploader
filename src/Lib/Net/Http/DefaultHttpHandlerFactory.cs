@@ -27,6 +27,13 @@ public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandl
         {
             AllowAutoRedirect = false,
 
+            // Pipelines forward cookies BY HAND (read Set-Cookie off response snapshots, build the
+            // Cookie request header themselves — GigaPeta, HitFile refresh). Make that invariant
+            // real: with no auto cookie container, a manually-set Cookie header is what goes on the
+            // wire and a stray Set-Cookie can never silently start participating. Several pipeline
+            // comments assert "built without UseCookies" — this is the line that makes them true.
+            UseCookies = false,
+
             // Browsers send Accept-Encoding: gzip, deflate, br, zstd and expect to receive
             // compressed responses. Hosters increasingly only send compressed bodies; without
             // decompression enabled we'd either get garbled HTML or fall through to the WAF's

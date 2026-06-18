@@ -55,6 +55,9 @@ public partial class WebViewLoginWindow : Window
     private readonly string? _usernameCookieName;
     private readonly Func<string, bool>? _cookieValueValidator;
     private readonly IReadOnlyList<string>? _additionalCookieNames;
+    private readonly string? _successProbeScript;
+    private readonly string? _cookieCaptureUrl;
+    private readonly bool _allowInvalidCertificates;
     private readonly ProxyChoice? _proxy;
     private readonly ProxyCredentials? _proxyCredentials;
     private bool _initialized;
@@ -78,15 +81,21 @@ public partial class WebViewLoginWindow : Window
         ProxyChoice? proxy = null,
         ProxyCredentials? proxyCredentials = null,
         Func<string, bool>? cookieValueValidator = null,
-        IReadOnlyList<string>? additionalCookieNames = null)
+        IReadOnlyList<string>? additionalCookieNames = null,
+        string? successProbeScript = null,
+        string? cookieCaptureUrl = null,
+        bool allowInvalidCertificates = false)
     {
         _hosterName = hosterName;
         _loginUrl = loginUrl;
         _cookieDomain = cookieDomain;
         _cookieName = cookieName;
         _usernameCookieName = usernameCookieName;
+        _cookieCaptureUrl = cookieCaptureUrl;
         _cookieValueValidator = cookieValueValidator;
         _additionalCookieNames = additionalCookieNames;
+        _successProbeScript = successProbeScript;
+        _allowInvalidCertificates = allowInvalidCertificates;
         _proxy = proxy;
         _proxyCredentials = proxyCredentials;
 
@@ -125,6 +134,13 @@ public partial class WebViewLoginWindow : Window
     /// </summary>
     public IReadOnlyDictionary<string, string>? CapturedAdditionalCookies { get; private set; }
 
+    /// <summary>
+    /// The non-empty string returned by the optional <c>successProbeScript</c> (e.g. HitFile's
+    /// account id, fetched by the page itself). Null for cookie-based sign-ins or when the user
+    /// cancelled. Set immediately before <see cref="Window.DialogResult"/> flips to true.
+    /// </summary>
+    public string? CapturedProbeValue { get; private set; }
+
     private async void WebViewLoginWindow_Loaded(object sender, RoutedEventArgs e)
     {
         try
@@ -159,12 +175,13 @@ public partial class WebViewLoginWindow : Window
             WebView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
             WebView.CoreWebView2.SourceChanged += CoreWebView2_SourceChanged;
 
-            // Cookie poll loop. Fires alongside NavigationCompleted because SPA-shaped
-            // hosters (FileBoom and friends) log in via XHR with no full-page navigation —
-            // their post-login cookie update is invisible to the navigation event. Polling
-            // catches it within _pollInterval. Idempotent via _completed.
+            // Completion poll. Fires alongside NavigationCompleted because SPA-shaped hosters
+            // (FileBoom and friends) log in via XHR with no full-page navigation — their
+            // post-login state change is invisible to the navigation event. Each tick either
+            // reads the cookie jar or, for probe-script hosters (HitFile), runs the JS probe.
+            // Idempotent via _completed.
             _pollTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = _pollInterval };
-            _pollTimer.Tick += async (_, _) => await TryCaptureCookiesAsync();
+            _pollTimer.Tick += async (_, _) => await PollForCompletionAsync();
             _pollTimer.Start();
 
             // Wire proxy authentication. The 407 challenge from the proxy fires
@@ -173,6 +190,16 @@ public partial class WebViewLoginWindow : Window
             if (_proxyCredentials is not null)
             {
                 WebView.CoreWebView2.BasicAuthenticationRequested += CoreWebView2_BasicAuthenticationRequested;
+            }
+
+            // Mirror the C# handler's "accept invalid server certificates" opt-in. Without this a
+            // proxy that MITMs HTTPS with an untrusted cert (or a hoster CDN shipping a mis-issued
+            // cert) blocks the login with a Chromium cert-error page — even though uploads through
+            // the same proxy accept it — so the user could never sign in. Gated on the same setting
+            // (registered before navigation so the first request is covered).
+            if (_allowInvalidCertificates)
+            {
+                WebView.CoreWebView2.ServerCertificateErrorDetected += CoreWebView2_ServerCertificateErrorDetected;
             }
 
             _initialized = true;
@@ -195,7 +222,6 @@ public partial class WebViewLoginWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             DialogResult = false;
-            Close();
         }
     }
 
@@ -207,6 +233,14 @@ public partial class WebViewLoginWindow : Window
         }
 
         StatusText.Text = WebView.CoreWebView2.Source ?? string.Empty;
+    }
+
+    private void CoreWebView2_ServerCertificateErrorDetected(object? sender, CoreWebView2ServerCertificateErrorDetectedEventArgs e)
+    {
+        // AlwaysAllow: accept the cert for this and subsequent requests to the same host for the
+        // session — equivalent to the C# handler's DangerousAcceptAnyServerCertificateValidator,
+        // and only ever reached when the user explicitly enabled AllowInvalidServerCertificates.
+        e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
     }
 
     private void CoreWebView2_BasicAuthenticationRequested(object? sender, CoreWebView2BasicAuthenticationRequestedEventArgs e)
@@ -226,12 +260,114 @@ public partial class WebViewLoginWindow : Window
     }
 
     private async void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
-        => await TryCaptureCookiesAsync();
+        => await PollForCompletionAsync();
+
+    /// <summary>Dispatches the per-tick completion check: a JS probe for probe-script hosters
+    /// (HitFile), otherwise the cookie-jar read.</summary>
+    private Task PollForCompletionAsync()
+        => _successProbeScript is not null ? TryProbeAsync() : TryCaptureCookiesAsync();
+
+    /// <summary>
+    /// Runs the spec's <c>successProbeScript</c> in the page context and completes the window when
+    /// it returns a non-empty string. The script runs in the live page, so a <c>fetch</c> it makes
+    /// carries the full cookie jar (HttpOnly cookies included, sent automatically by the browser) —
+    /// which is how HitFile authenticates to <c>/api/user/app/id</c> for the account id without the
+    /// C# side ever needing the HttpOnly Laravel session cookie. Before login the script returns
+    /// "" (or the fetch 401s), so the poll simply keeps trying.
+    /// </summary>
+    private async Task TryProbeAsync()
+    {
+        if (_completed || _successProbeScript is null || WebView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            // ExecuteScriptAsync returns the script's result JSON-encoded (e.g. "\"id\"" or "\"\""
+            // or "null"). Deserialize back to the raw string.
+            string raw = await WebView.CoreWebView2.ExecuteScriptAsync(_successProbeScript);
+            string? value = TryParseJsonString(raw);
+            if (string.IsNullOrEmpty(value) || _completed)
+            {
+                return;
+            }
+
+            _completed = true;
+            _pollTimer?.Stop();
+            CapturedProbeValue = value;
+
+            // Probe hosters can ALSO ask us to hand the logged-in cookie jar to the C# side
+            // (for server-side calls the page can't make later — HitFile's refresh). HttpOnly
+            // cookies are included here (CookieManager, not document.cookie). Best-effort: a
+            // failure here must not block an otherwise-successful sign-in.
+            if (_cookieCaptureUrl is not null)
+            {
+                try
+                {
+                    CapturedCookieValue = await BuildCookieHeaderAsync(_cookieCaptureUrl);
+                }
+                catch (Exception)
+                {
+                    // Leave CapturedCookieValue null — sign-in still succeeds via the probe value.
+                }
+            }
+
+            DialogResult = true;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"],
+                ex.Message);
+        }
+    }
+
+    /// <summary>Reads the full cookie jar the browser would send to <paramref name="url"/> and
+    /// joins it into a single <c>name=value; name=value</c> header — HttpOnly cookies included,
+    /// since <see cref="CoreWebView2.CookieManager"/> returns them (the HttpOnly flag only gates
+    /// <c>document.cookie</c>). Returns null when the jar is empty.</summary>
+    private async Task<string?> BuildCookieHeaderAsync(string url)
+    {
+        System.Collections.Generic.IReadOnlyList<CoreWebView2Cookie> cookies =
+            await WebView.CoreWebView2!.CookieManager.GetCookiesAsync(url);
+
+        List<string> pairs = [];
+        foreach (CoreWebView2Cookie c in cookies)
+        {
+            if (!string.IsNullOrEmpty(c.Name) && !string.IsNullOrEmpty(c.Value))
+            {
+                pairs.Add(c.Name + "=" + c.Value);
+            }
+        }
+
+        return pairs.Count > 0 ? string.Join("; ", pairs) : null;
+    }
+
+    /// <summary>Decodes the JSON value <see cref="CoreWebView2.ExecuteScriptAsync"/> returns into a
+    /// plain string. Returns null for <c>null</c>/non-string/invalid JSON.</summary>
+    private static string? TryParseJsonString(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw) || raw == "null")
+        {
+            return null;
+        }
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string>(raw);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Reads the cookie jar, applies the validator, and closes the window with the
     /// captured value on first match. Called from BOTH <see cref="CoreWebView2.NavigationCompleted"/>
-    /// and the cookie poll timer; the <see cref="_completed"/> guard ensures only the first
+    /// and the poll timer; the <see cref="_completed"/> guard ensures only the first
     /// caller flips <see cref="Window.DialogResult"/>.
     /// </summary>
     private async Task TryCaptureCookiesAsync()
@@ -312,7 +448,6 @@ public partial class WebViewLoginWindow : Window
             CapturedUsernameCookieValue = usernameCookie?.Value;
             CapturedAdditionalCookies = additionalCookies;
             DialogResult = true;
-            Close();
         }
         catch (Exception ex)
         {
@@ -329,12 +464,11 @@ public partial class WebViewLoginWindow : Window
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
-        Close();
     }
 
     private void WebViewLoginWindow_Closed(object? sender, EventArgs e)
     {
-        // Stop the poll first so no more ticks fire after handlers are detached.
+        // Stop the timer first so no more ticks fire after handlers are detached.
         _pollTimer?.Stop();
         _pollTimer = null;
 
@@ -347,6 +481,7 @@ public partial class WebViewLoginWindow : Window
             WebView.CoreWebView2.NavigationCompleted -= CoreWebView2_NavigationCompleted;
             WebView.CoreWebView2.SourceChanged -= CoreWebView2_SourceChanged;
             WebView.CoreWebView2.BasicAuthenticationRequested -= CoreWebView2_BasicAuthenticationRequested;
+            WebView.CoreWebView2.ServerCertificateErrorDetected -= CoreWebView2_ServerCertificateErrorDetected;
         }
 
         WebView.Dispose();
