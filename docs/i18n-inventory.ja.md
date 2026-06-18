@@ -102,6 +102,7 @@ Uploads_Toolbar_StopTip           = すべてのアップロードを停止
 Uploads_Toolbar_RemoveTip         = 選択項目を削除
 
 Uploads_Context_Start             = 開始
+Uploads_Context_ForceStart        = 強制開始
 Uploads_Context_StartNow          = 今すぐ開始
 Uploads_Context_Stop              = 停止
 Uploads_Context_SkipUpload        = アップロードをスキップ

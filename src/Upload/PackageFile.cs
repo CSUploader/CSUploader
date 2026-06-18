@@ -168,6 +168,22 @@ public class PackageFile : INotifyPropertyChanged
     public CancellationTokenSource? Cts { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the user force-started this file from the
+    /// Uploads context menu. When true the <see cref="UploadScheduler"/> launches its upload
+    /// past the UPLOAD admission gate (global + per-host), while still respecting the hashing/CPU
+    /// limit: a file that needs hashing waits for a free CPU slot first, then this flag makes the
+    /// upload begin immediately rather than waiting for a free upload slot. The launched file
+    /// still enters the normal Hashing/Uploading state, so it
+    /// is counted when admitting normal files. Cleared when the file reaches a terminal state
+    /// OR when its in-flight work is cancelled/torn down (stop, reset, remove, pause) — so a
+    /// hash completing in the cancellation window can't make the scheduler launch an over-limit
+    /// upload for a file the user no longer wants force-started, and a later normal Start/Retry
+    /// behaves normally. Set on the scheduler loop; cleared both there and by the cancellation
+    /// paths that already mutate <see cref="State"/>/<see cref="Cts"/> directly.
+    /// </summary>
+    public bool ForceStart { get; internal set; }
+
+    /// <summary>
     /// Gets a value indicating whether hashing has been completed for this file.
     /// </summary>
     public bool IsHashingComplete { get; internal set; }

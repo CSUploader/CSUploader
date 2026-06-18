@@ -103,6 +103,7 @@ Uploads_Toolbar_StopTip           = 모든 업로드 중지
 Uploads_Toolbar_RemoveTip         = 선택 항목 제거
 
 Uploads_Context_Start             = 시작
+Uploads_Context_ForceStart        = 강제 시작
 Uploads_Context_StartNow          = 지금 시작
 Uploads_Context_Stop              = 중지
 Uploads_Context_SkipUpload        = 업로드 건너뛰기

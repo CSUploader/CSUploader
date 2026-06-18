@@ -103,6 +103,7 @@ Uploads_Toolbar_StopTip           = 停止所有上传
 Uploads_Toolbar_RemoveTip         = 移除所选项
 
 Uploads_Context_Start             = 开始
+Uploads_Context_ForceStart        = 强制开始
 Uploads_Context_StartNow          = 立即开始
 Uploads_Context_Stop              = 停止
 Uploads_Context_SkipUpload        = 跳过上传

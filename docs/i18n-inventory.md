@@ -103,6 +103,7 @@ Uploads_Toolbar_StopTip           = Stop all uploads
 Uploads_Toolbar_RemoveTip         = Remove selected
 
 Uploads_Context_Start             = Start
+Uploads_Context_ForceStart        = Force start
 Uploads_Context_StartNow          = Start now
 Uploads_Context_Stop              = Stop
 Uploads_Context_SkipUpload        = Skip Upload

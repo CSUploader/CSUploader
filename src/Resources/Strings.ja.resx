@@ -219,6 +219,9 @@
   <data name="Uploads_Context_Start" xml:space="preserve">
     <value>開始</value>
   </data>
+  <data name="Uploads_Context_ForceStart" xml:space="preserve">
+    <value>強制開始</value>
+  </data>
   <data name="Uploads_Context_StartNow" xml:space="preserve">
     <value>今すぐ開始</value>
   </data>

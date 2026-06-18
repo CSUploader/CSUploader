@@ -111,6 +111,7 @@ Uploads_Toolbar_StopTip           = Dừng tất cả các lượt tải lên
 Uploads_Toolbar_RemoveTip         = Xóa mục đã chọn
 
 Uploads_Context_Start             = Bắt đầu
+Uploads_Context_ForceStart        = Buộc bắt đầu
 Uploads_Context_StartNow          = Bắt đầu ngay
 Uploads_Context_Stop              = Dừng
 Uploads_Context_SkipUpload        = Bỏ qua tải lên

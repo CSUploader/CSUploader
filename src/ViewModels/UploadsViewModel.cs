@@ -334,6 +334,26 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Force-starts every selected row — launches each upload immediately past the concurrency
+    /// limit instead of queuing it to wait for a free slot. Mirrors <see cref="StartSelected"/>'s
+    /// multi-row snapshot semantics; <see cref="PackageManager.ForceStartPackage"/> skips files
+    /// already running or completed, so a mixed selection is safe.
+    /// </summary>
+    [RelayCommand]
+    private void ForceStartSelected(IList? selectedItems)
+    {
+        if (selectedItems is null || selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        foreach (object item in selectedItems.Cast<object>().ToArray())
+        {
+            _packageManager.ForceStartPackage(item);
+        }
+    }
+
     [RelayCommand]
 #pragma warning disable CA1822 // Must be instance method for RelayCommand
     private void StopSelected(object? item)

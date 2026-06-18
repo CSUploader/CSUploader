@@ -219,6 +219,9 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Context_Start" xml:space="preserve">
     <value>Simulan</value>
   </data>
+  <data name="Uploads_Context_ForceStart" xml:space="preserve">
+    <value>Sapilitang simulan</value>
+  </data>
   <data name="Uploads_Context_StartNow" xml:space="preserve">
     <value>Simulan ngayon</value>
   </data>

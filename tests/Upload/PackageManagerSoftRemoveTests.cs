@@ -908,6 +908,217 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ForceStartPackage_ScheduledPackage_ClearsScheduleRegistersAndStartsFile()
+    {
+        // Force start on a future-scheduled package must override the schedule, register the
+        // package, and kick the file off — like Start now, but past the concurrency gate.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "scheduled",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+            PackageFile file = package.Single();
+            Assert.Equal(FileState.Idle, file.State);
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+            _packageManager.ForceStartPackage(package);
+
+            Assert.Null(package.ScheduledStartTime);
+            Assert.Equal(1, _scheduler.RegisteredPackageCount);
+            for (int i = 0; i < 50 && file.State == FileState.Idle; i++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.NotEqual(FileState.Idle, file.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ForceStartPackage_WhileGloballyPaused_StillStartsFile()
+    {
+        // The discriminator vs. StartPackage: a global pause makes StartPackage a no-op (the
+        // file stays Idle), but ForceStartPackage launches the file anyway and leaves the pause
+        // in place for everything else.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string filePath = Path.Combine(tempDir, "a.iso");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "paused",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [filePath],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            PackageFile file = package.Single();
+
+            _scheduler.PauseAll();
+            for (int i = 0; i < 50 && !_packageManager.IsPaused; i++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.True(_packageManager.IsPaused);
+
+            _packageManager.ForceStartPackage(file);
+
+            for (int i = 0; i < 50 && file.State == FileState.Idle; i++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.NotEqual(FileState.Idle, file.State);
+            Assert.True(_packageManager.IsPaused); // force start must not lift the global pause
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ForceStartPackage_SingleFile_LeavesSiblingIdle()
+    {
+        // Force-starting one file must register the package without sweeping its other idle
+        // files into the queue (same surgical contract as the per-row Start).
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string fileA = Path.Combine(tempDir, "a.iso");
+            string fileB = Path.Combine(tempDir, "b.iso");
+            await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
+            await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "two",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [fileA, fileB],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            PackageFile target = package.First();
+            PackageFile sibling = package.Last();
+
+            _packageManager.ForceStartPackage(target);
+
+            Assert.Equal(1, _scheduler.RegisteredPackageCount);
+            for (int i = 0; i < 50 && target.State == FileState.Idle; i++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.NotEqual(FileState.Idle, target.State);
+            Assert.Equal(FileState.Idle, sibling.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StopPackage_ForceStartedFile_ClearsForceStartFlag()
+    {
+        // Closes the Stop-during-force-hash race: a force-started file that is stopped must have
+        // ForceStart cleared, so if its in-flight hash completes the scheduler does NOT take the
+        // force branch and launch an over-limit upload for the stopped file.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Hashing; // simulate a force-started file mid-hash
+            file.ForceStart = true;
+
+            PackageManager.StopPackage(file);
+
+            Assert.False(file.ForceStart);
+            Assert.Equal(FileState.Cancelled, file.State);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ResetPackage_ForceStartedFile_ClearsForceStartFlag()
+    {
+        // Reset routes through StopFile, which must clear ForceStart — otherwise a hash that
+        // finishes in the window would launch an upload with the just-cleared hash, over the limit.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Hashing;
+            file.ForceStart = true;
+
+            _packageManager.ResetPackage(file);
+
+            Assert.False(file.ForceStart);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task RemovePackage_ForceStartedFile_ClearsForceStartFlag()
+    {
+        // Removing a force-started file must clear ForceStart so a hash completing after removal
+        // can't launch a detached, over-limit upload.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Hashing;
+            file.ForceStart = true;
+
+            _packageManager.RemovePackage(file);
+
+            Assert.False(file.ForceStart);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
     private static async Task<T?> WaitForAsync<T>(Func<Task<T?>> probe)
         where T : class
     {

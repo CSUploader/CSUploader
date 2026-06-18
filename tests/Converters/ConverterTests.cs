@@ -6,6 +6,9 @@
 using System.Globalization;
 using System.Windows;
 using CSUploader.Converters;
+using CSUploader.Dal;
+using CSUploader.Lib.Net;
+using CSUploader.Upload;
 
 namespace CSUploader.Tests.Converters;
 
@@ -358,6 +361,80 @@ public class AccountCheckStatusToColorConverterTests
         // to grey — better an honest "no opinion" than a misleading "OK".
         Assert.Equal(DisabledColor, ConvertToColor("not an enum value"));
         Assert.Equal(DisabledColor, ConvertToColor(null!));
+    }
+}
+
+public class ItemStateToVisibilityConverterTests
+{
+    private readonly ItemStateToVisibilityConverter _converter = new();
+
+    [Theory]
+    // Startable: only files not yet in the pipeline.
+    [InlineData(FileState.Idle)]
+    [InlineData(FileState.Paused)]
+    [InlineData(FileState.Failed)]
+    [InlineData(FileState.Cancelled)]
+    public void Startable_NotInPipeline_Visible(FileState state)
+        => Assert.Equal(Visibility.Visible, Convert(state, "Startable"));
+
+    [Theory]
+    [InlineData(FileState.HashQueued)]
+    [InlineData(FileState.UploadQueued)]
+    [InlineData(FileState.Hashing)]
+    [InlineData(FileState.Uploading)]
+    [InlineData(FileState.Completed)]
+    public void Startable_QueuedRunningOrDone_Collapsed(FileState state)
+        => Assert.Equal(Visibility.Collapsed, Convert(state, "Startable"));
+
+    [Theory]
+    // ForceStartable: anything not currently running and not finished — including queued-and-waiting.
+    [InlineData(FileState.Idle)]
+    [InlineData(FileState.Paused)]
+    [InlineData(FileState.Failed)]
+    [InlineData(FileState.Cancelled)]
+    [InlineData(FileState.HashQueued)]
+    [InlineData(FileState.UploadQueued)]
+    public void ForceStartable_NotRunningNotDone_Visible(FileState state)
+        => Assert.Equal(Visibility.Visible, Convert(state, "ForceStartable"));
+
+    [Theory]
+    [InlineData(FileState.Hashing)]
+    [InlineData(FileState.Uploading)]
+    [InlineData(FileState.Completed)]
+    public void ForceStartable_RunningOrDone_Collapsed(FileState state)
+        => Assert.Equal(Visibility.Collapsed, Convert(state, "ForceStartable"));
+
+    [Theory]
+    // Stoppable (default mode): files currently in the pipeline.
+    [InlineData(FileState.Hashing)]
+    [InlineData(FileState.Uploading)]
+    [InlineData(FileState.HashQueued)]
+    [InlineData(FileState.UploadQueued)]
+    public void Stoppable_InPipeline_Visible(FileState state)
+        => Assert.Equal(Visibility.Visible, Convert(state, "Stoppable"));
+
+    [Theory]
+    [InlineData(FileState.Idle)]
+    [InlineData(FileState.Paused)]
+    [InlineData(FileState.Completed)]
+    public void Stoppable_NotInPipeline_Collapsed(FileState state)
+        => Assert.Equal(Visibility.Collapsed, Convert(state, "Stoppable"));
+
+    [Fact]
+    public void ConvertBack_ThrowsNotSupportedException()
+        => Assert.Throws<NotSupportedException>(
+            () => _converter.ConvertBack(Visibility.Visible, typeof(object), "Startable", CultureInfo.InvariantCulture));
+
+    private Visibility Convert(FileState state, string mode)
+        => (Visibility)_converter.Convert(FileInState(state), typeof(Visibility), mode, CultureInfo.InvariantCulture);
+
+    private static PackageFile FileInState(FileState state)
+    {
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
+        Package package = new(new PackageOptions { Title = "t", FileHosters = new() { { hoster, login } } });
+        // The source file need not exist — FileInfo is lazy and the converter only reads State.
+        return new PackageFile(package, @"C:\nonexistent\x.bin", hoster, login) { State = state };
     }
 }
 

@@ -684,6 +684,7 @@ public class PackageManager
         }
         else if (item is PackageFile packageFile)
         {
+            packageFile.ForceStart = false;
             packageFile.Cts?.Cancel();
             packageFile.Cts?.Dispose();
             packageFile.Cts = null;
@@ -719,6 +720,7 @@ public class PackageManager
     /// <param name="packageFile">The package file to remove.</param>
     public static void RemovePackageFile(PackageFile packageFile)
     {
+        packageFile.ForceStart = false;
         packageFile.Cts?.Cancel();
         packageFile.Cts?.Dispose();
         packageFile.Cts = null;
@@ -770,6 +772,39 @@ public class PackageManager
             // FillAvailableSlots so only this file starts — StartAll would requeue every
             // idle file across all packages (the bug where one row's Start ran everything).
             _scheduler.FillAvailableSlots();
+        }
+    }
+
+    /// <summary>
+    /// Force-starts a package or file: launches its upload past the UPLOAD admission gate (the
+    /// global upload limit and the per-host limit) instead of queuing it to wait for a free
+    /// upload slot like <see cref="StartPackage"/>. The hashing/CPU limit is still respected —
+    /// a file that needs hashing waits for a free CPU slot first, then its upload jumps the
+    /// limit. The launched upload is still counted by the scheduler when admitting normal files,
+    /// so it over-fills a slot rather than raising the limit: once it (or another running upload)
+    /// finishes and the running count drops back below the limit, normal admission resumes. Files
+    /// already running or Completed are skipped by the scheduler. Unlike <see cref="StartPackage"/>,
+    /// this is honoured even while the queue is globally paused (only the named files run).
+    /// </summary>
+    /// <param name="item">The package or file to force-start.</param>
+    public void ForceStartPackage(object item)
+    {
+        if (item is Package package)
+        {
+            package.ScheduledStartTime = null;
+
+            // Register the package (idempotently) so FillSlots counts its force-started files
+            // when admitting normal uploads. scheduleIdleFiles:false — we hand the exact files
+            // to ForceStart ourselves; don't let AddPackage sweep the package's other idle files
+            // into the queue. ForceStart skips any file already running/completed.
+            _scheduler.AddPackage(package, scheduleIdleFiles: false);
+            _scheduler.ForceStart(package);
+        }
+        else if (item is PackageFile packageFile)
+        {
+            packageFile.Package.ScheduledStartTime = null;
+            _scheduler.AddPackage(packageFile.Package, scheduleIdleFiles: false);
+            _scheduler.ForceStart([packageFile]);
         }
     }
 
@@ -859,6 +894,10 @@ public class PackageManager
 
     private static void StopFile(PackageFile file)
     {
+        // Clear the force-start override (also covers Reset, which routes through here): a hash
+        // that finishes in the cancellation window must not let OnHashCompleted launch an
+        // over-limit upload for a file the user just stopped/reset. See PackageFile.ForceStart.
+        file.ForceStart = false;
         file.Cts?.Cancel();
         file.Cts?.Dispose();
         file.Cts = null;

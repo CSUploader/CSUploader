@@ -161,6 +161,30 @@ public class UploadScheduler : IDisposable
     }
 
     /// <summary>
+    /// Force-starts the given files, launching each upload past the UPLOAD admission gate — the
+    /// global upload limit and the per-host limit. The hashing/CPU limit is RESPECTED: a file
+    /// that still needs hashing is queued for hashing through the normal gate and waits for a
+    /// free CPU slot; only its upload jumps the limit (immediately after the hash finishes). The
+    /// file enters the normal Uploading state, so <see cref="FillSlots"/> still COUNTS it when
+    /// admitting normal files afterward: over-filling a slot suppresses the next normal admission
+    /// until the running count drops back below the limit (it does not raise the limit). Files
+    /// already running or Completed are left untouched. Honoured even while globally paused — only
+    /// the named files run (after hashing, where required); the pause is not lifted.
+    /// </summary>
+    /// <param name="files">The files to force-start.</param>
+    public void ForceStart(IEnumerable<PackageFile> files)
+    {
+        PackageFile[] snapshot = [.. files];
+        Post(() =>
+        {
+            foreach (PackageFile file in snapshot)
+            {
+                ForceStartFile(file);
+            }
+        });
+    }
+
+    /// <summary>
     /// Pauses all running files by cancelling their tokens.
     /// </summary>
     public void PauseAll()
@@ -327,6 +351,39 @@ public class UploadScheduler : IDisposable
         }
     }
 
+    private void ForceStartFile(PackageFile file)
+    {
+        // Already running, or already done — nothing to force.
+        if (file.State is FileState.Hashing or FileState.Uploading or FileState.Completed)
+        {
+            return;
+        }
+
+        // Mark so the upload launches immediately once the file is ready (see OnHashCompleted),
+        // and so the flag is cleared on terminal completion. Clear any prior error so the
+        // launched attempt starts fresh.
+        file.ForceStart = true;
+        file.Error = null;
+
+        // Force start overrides the UPLOAD concurrency (global + per-host) but RESPECTS the
+        // hashing/CPU limit. A hash-required file that hasn't hashed yet is queued for hashing
+        // through the normal gate (HashQueued + FillSlots), so it waits for a free CPU slot like
+        // any other file; once it hashes, OnHashCompleted launches its upload IMMEDIATELY — over
+        // the upload limit — because ForceStart stays set. An already-hashed / no-hash file
+        // launches its upload directly, bypassing FillSlots' upload gate. Either way the file
+        // ends up in the normal Uploading state, so the next FillSlots counts it.
+        bool needsHash = _registry.Find(file.FileHoster.Name)?.RequiresHashingBeforeUpload ?? false;
+        if (needsHash && !file.IsHashingComplete)
+        {
+            SetFileState(file, FileState.HashQueued);
+            FillSlots();
+        }
+        else
+        {
+            LaunchUpload(file);
+        }
+    }
+
     private void LaunchHash(PackageFile file)
     {
         SetFileState(file, FileState.Hashing);
@@ -462,14 +519,32 @@ public class UploadScheduler : IDisposable
 
         if (cancelled)
         {
+            file.ForceStart = false;
             SetFileState(file, IsPaused ? FileState.Paused : FileState.Cancelled);
         }
         else if (!success)
         {
+            file.ForceStart = false;
             SetFileState(file, FileState.Failed);
+        }
+        else if (file.ForceStart && file.State == FileState.Hashing)
+        {
+            // Force-started and STILL actively hashing — i.e. the user hasn't stopped/reset/
+            // removed/paused it out from under us in the window between the hash finishing and
+            // this callback running. Launch the upload immediately, over the limit. LaunchUpload
+            // sets the state to Uploading; the FillSlots below counts it when deciding whether to
+            // admit normal files. ForceStart is cleared by OnUploadCompleted on terminal.
+            // The `State == Hashing` guard is belt-and-suspenders alongside the cancellation
+            // paths that clear ForceStart: if either signal says "no longer force-hashing", we
+            // fall through and queue normally (respecting the limit) instead of launching.
+            LaunchUpload(file);
         }
         else
         {
+            // Normal hash completion, or a force-started file whose work was cancelled during
+            // hashing — clear any residual force flag and queue through the usual gate so we
+            // never launch over the limit for a file the user is no longer force-starting.
+            file.ForceStart = false;
             SetFileState(file, FileState.UploadQueued);
         }
 
@@ -479,6 +554,10 @@ public class UploadScheduler : IDisposable
     private void OnUploadCompleted(PackageFile file, bool success, bool cancelled = false)
     {
         DisposeCts(file);
+
+        // The force-start override is consumed once the upload reaches a terminal state, so a
+        // later normal Start/Retry of this file goes through the usual admission gate.
+        file.ForceStart = false;
 
         if (cancelled)
         {
@@ -514,6 +593,9 @@ public class UploadScheduler : IDisposable
         {
             if (file.State is FileState.Hashing or FileState.Uploading)
             {
+                // Clear the force-start override: a paused file must not auto-launch its upload
+                // when its in-flight hash completes in the cancellation window.
+                file.ForceStart = false;
                 file.Cts?.Cancel();
                 file.Cts?.Dispose();
                 file.Cts = null;
@@ -522,6 +604,10 @@ public class UploadScheduler : IDisposable
             }
             else if (file.State is FileState.HashQueued or FileState.UploadQueued)
             {
+                // A force-started file can sit in HashQueued waiting for a CPU slot — pausing it
+                // must drop the override too, so a later normal resume doesn't bypass the upload
+                // limit once it finally hashes.
+                file.ForceStart = false;
                 SetFileState(file, FileState.Paused);
             }
         }
@@ -571,6 +657,10 @@ public class UploadScheduler : IDisposable
 
         foreach (PackageFile file in allFiles)
         {
+            // Stopping clears any force-start override so a hash completing in the cancellation
+            // window can't launch an upload for a file the user just stopped.
+            file.ForceStart = false;
+
             if (file.State is FileState.Hashing or FileState.Uploading)
             {
                 file.Cts?.Cancel();
@@ -588,9 +678,11 @@ public class UploadScheduler : IDisposable
 
     private void DoRemovePackage(Package package)
     {
-        // Cancel all running files
+        // Cancel all running files. Clear ForceStart too: the file is leaving the scheduler,
+        // so a hash completing in the cancellation window must not launch a detached upload.
         foreach (PackageFile file in package)
         {
+            file.ForceStart = false;
             file.Cts?.Cancel();
             file.Cts?.Dispose();
             file.Cts = null;

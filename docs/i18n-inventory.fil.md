@@ -103,6 +103,7 @@ Uploads_Toolbar_StopTip           = Itigil lahat ng uploads
 Uploads_Toolbar_RemoveTip         = Tanggalin ang napili
 
 Uploads_Context_Start             = Simulan
+Uploads_Context_ForceStart        = Sapilitang simulan
 Uploads_Context_StartNow          = Simulan ngayon
 Uploads_Context_Stop              = Itigil
 Uploads_Context_SkipUpload        = Laktawan ang Upload

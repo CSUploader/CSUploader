@@ -215,6 +215,15 @@
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
                         <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
+                    <!-- Force start: launches past the concurrency limit. Visible for any row
+                         not currently running and not finished (including queued-and-waiting),
+                         and operates on ALL selected rows via SelectedItems like Start. -->
+                    <MenuItem Header="{loc:Loc Uploads_Context_ForceStart}"
+                              Command="{Binding ForceStartSelectedCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=ForceStartable}">
+                        <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_Stop}" Command="{Binding StopSelectedCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Stoppable}">

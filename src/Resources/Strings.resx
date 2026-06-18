@@ -219,6 +219,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Context_Start" xml:space="preserve">
     <value>Start</value>
   </data>
+  <data name="Uploads_Context_ForceStart" xml:space="preserve">
+    <value>Force start</value>
+  </data>
   <data name="Uploads_Context_StartNow" xml:space="preserve">
     <value>Start now</value>
   </data>
