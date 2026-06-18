@@ -495,6 +495,12 @@
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>'{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。</value>
   </data>
+  <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
+    <value>再アップロード</value>
+  </data>
+  <data name="Uploads_ForceStart_Reupload_Format" xml:space="preserve">
+    <value>完了済みの {0} 個のファイルを再アップロードしますか? 正常にアップロード済みですが、強制開始でもう一度アップロードします。</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>JSON にエクスポート…</value>
   </data>

@@ -353,10 +353,23 @@ public class UploadScheduler : IDisposable
 
     private void ForceStartFile(PackageFile file)
     {
-        // Already running, or already done — nothing to force.
-        if (file.State is FileState.Hashing or FileState.Uploading or FileState.Completed)
+        // Already running — nothing to force.
+        if (file.State is FileState.Hashing or FileState.Uploading)
         {
             return;
+        }
+
+        // Re-uploading a completed file: run it again from scratch. Clear the previous upload
+        // result AND the cached hash — the file on disk may have changed since it last uploaded,
+        // so we re-hash rather than trust the old checksum. Clearing IsHashingComplete/FileHash
+        // routes a hash-required hoster back through HashQueued (still respecting the CPU limit)
+        // before upload. The Uploads VM has already confirmed the re-upload with the user.
+        if (file.State == FileState.Completed)
+        {
+            file.FileUrl = null;
+            file.IsUploadFinished = false;
+            file.IsHashingComplete = false;
+            file.FileHash = null;
         }
 
         // Mark so the upload launches immediately once the file is ready (see OnHashCompleted),

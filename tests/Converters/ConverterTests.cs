@@ -387,21 +387,23 @@ public class ItemStateToVisibilityConverterTests
         => Assert.Equal(Visibility.Collapsed, Convert(state, "Startable"));
 
     [Theory]
-    // ForceStartable: anything not currently running and not finished — including queued-and-waiting.
+    // ForceStartable: any row that isn't currently running — incl. queued-and-waiting AND finished
+    // (Completed/CompletedWithErrors), which re-upload after a confirmation.
     [InlineData(FileState.Idle)]
     [InlineData(FileState.Paused)]
     [InlineData(FileState.Failed)]
     [InlineData(FileState.Cancelled)]
     [InlineData(FileState.HashQueued)]
     [InlineData(FileState.UploadQueued)]
-    public void ForceStartable_NotRunningNotDone_Visible(FileState state)
+    [InlineData(FileState.Completed)]
+    [InlineData(FileState.CompletedWithErrors)]
+    public void ForceStartable_NotRunning_Visible(FileState state)
         => Assert.Equal(Visibility.Visible, Convert(state, "ForceStartable"));
 
     [Theory]
     [InlineData(FileState.Hashing)]
     [InlineData(FileState.Uploading)]
-    [InlineData(FileState.Completed)]
-    public void ForceStartable_RunningOrDone_Collapsed(FileState state)
+    public void ForceStartable_Running_Collapsed(FileState state)
         => Assert.Equal(Visibility.Collapsed, Convert(state, "ForceStartable"));
 
     [Theory]

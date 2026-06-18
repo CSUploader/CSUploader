@@ -348,11 +348,33 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        foreach (object item in selectedItems.Cast<object>().ToArray())
+        object[] items = [.. selectedItems.Cast<object>()];
+
+        // Re-uploading an already-completed file spends bandwidth/quota on a file that uploaded
+        // successfully — always confirm first (a plain prompt, no opt-out, so it can never happen
+        // by accident). Non-completed files force-start without a prompt.
+        int completedCount = items.Sum(CountCompletedFiles);
+        if (completedCount > 0)
+        {
+            string msg = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_ForceStart_Reupload_Format"], completedCount);
+            if (!DialogServiceForView.ShowConfirmation(msg, Localizer.Instance["Uploads_ForceStart_Reupload_Title"]))
+            {
+                return;
+            }
+        }
+
+        foreach (object item in items)
         {
             _packageManager.ForceStartPackage(item);
         }
     }
+
+    private static int CountCompletedFiles(object item) => item switch
+    {
+        Package p => p.Count(f => f.State == FileState.Completed),
+        PackageFile f => f.State == FileState.Completed ? 1 : 0,
+        _ => 0,
+    };
 
     [RelayCommand]
 #pragma warning disable CA1822 // Must be instance method for RelayCommand

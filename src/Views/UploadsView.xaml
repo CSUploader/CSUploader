@@ -222,7 +222,7 @@
                               Command="{Binding ForceStartSelectedCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=ForceStartable}">
-                        <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
+                        <MenuItem.Icon><Path Data="{StaticResource ForceStartGeometry}" Fill="{DynamicResource AccentBrush}" Width="16" Height="16" Stretch="Uniform" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_Stop}" Command="{Binding StopSelectedCommand}"
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"

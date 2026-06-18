@@ -213,6 +213,8 @@ Uploads_Remove_PackagesAndFiles_Format = 패키지 {0}개와 파일 {1}개(총 {
 Uploads_Reset_Title                  = 재설정
 Uploads_Reset_Package_Format         = 패키지 '{0}'을(를) 재설정하시겠습니까? 이 패키지의 완료된 파일 {1}개를 다시 해시하고 업로드합니다.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = 다시 업로드
+Uploads_ForceStart_Reupload_Format   = 이미 완료된 파일 {0}개를 다시 업로드할까요? 정상적으로 업로드되었지만 강제 시작으로 다시 업로드합니다.  # {0} = completed file count
 ```
 
 ---

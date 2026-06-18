@@ -495,6 +495,12 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.</value>
   </data>
+  <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
+    <value>I-upload muli</value>
+  </data>
+  <data name="Uploads_ForceStart_Reupload_Format" xml:space="preserve">
+    <value>I-upload muli ang {0} na natapos nang file? Matagumpay na na-upload ang mga ito — muli silang ia-upload ng force start.</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>I-export sa JSON…</value>
   </data>

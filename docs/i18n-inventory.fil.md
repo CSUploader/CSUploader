@@ -213,6 +213,8 @@ Uploads_Remove_PackagesAndFiles_Format = Tanggalin ang {0} package(s) at {1} fil
 Uploads_Reset_Title                  = I-reset
 Uploads_Reset_Package_Format         = I-reset ang package na '{0}'? Mag-re-rehash at muling i-aupload ang {1} natapos na file(s) sa package na ito.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = I-upload muli
+Uploads_ForceStart_Reupload_Format   = I-upload muli ang {0} na natapos nang file? Matagumpay na na-upload ang mga ito — muli silang ia-upload ng force start.  # {0} = completed file count
 ```
 
 ---

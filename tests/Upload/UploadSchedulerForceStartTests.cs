@@ -199,19 +199,53 @@ public sealed class UploadSchedulerForceStartTests : IDisposable
     }
 
     [Fact]
-    public async Task ForceStart_CompletedFile_IsNoOp()
+    public async Task ForceStart_CompletedFile_ReuploadsAndClearsPriorResult()
     {
         GatedPipeline pipeline = new("Rapidgator");
         (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 4, fileCount: 1);
         PackageFile file = package.Single();
-        file.State = FileState.Completed; // already finished
+        file.State = FileState.Completed;       // a finished upload...
+        file.FileUrl = "https://old/result";    // ...with a prior result
+        file.IsUploadFinished = true;
 
         scheduler.AddPackage(package, scheduleIdleFiles: false);
         scheduler.ForceStart([file]);
-        await Task.Delay(150);
 
-        Assert.Equal(FileState.Completed, file.State);
-        Assert.Equal(0, pipeline.RunCount); // never re-uploaded
+        await WaitFor(() => pipeline.RunCount == 1); // the re-upload attempt actually started
+        Assert.Equal(FileState.Uploading, file.State);
+        Assert.Null(file.FileUrl);                   // prior result cleared (by ForceStartFile)
+        Assert.False(file.IsUploadFinished);
+
+        pipeline.Complete(file.Name);
+        await WaitFor(() => file.State == FileState.Completed);
+        Assert.Equal("https://gated/" + file.Name, file.FileUrl); // new result recorded
+    }
+
+    [Fact]
+    public async Task ForceStart_CompletedHashRequiredFile_RehashesAndDoesNotReuseHash()
+    {
+        // Re-uploading a completed hash-required file must DISCARD the cached hash and re-hash
+        // (the file on disk may have changed). With CPU limit 0 it can't get a hash slot, so it
+        // parks in HashQueued with its hash cleared — proving the hash is recomputed, not reused,
+        // and that re-hashing still respects the CPU limit.
+        GatedPipeline pipeline = new("Rapidgator", requiresHash: true);
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 4, fileCount: 1, maxCpu: 0);
+        PackageFile file = package.Single();
+        file.State = FileState.Completed;
+        file.IsHashingComplete = true;
+        file.FileHash = "DEADBEEF";
+        file.FileUrl = "https://old/result";
+        file.IsUploadFinished = true;
+
+        scheduler.AddPackage(package, scheduleIdleFiles: false);
+        scheduler.ForceStart([file]);
+
+        await WaitFor(() => file.State == FileState.HashQueued);
+        await Task.Delay(150);
+        Assert.Equal(FileState.HashQueued, file.State); // waiting to re-hash (CPU limit respected)
+        Assert.False(file.IsHashingComplete);           // cached hash discarded...
+        Assert.Null(file.FileHash);                     // ...not reused
+        Assert.Null(file.FileUrl);                      // prior result cleared
     }
 
     [Fact]
@@ -222,8 +256,7 @@ public sealed class UploadSchedulerForceStartTests : IDisposable
         PackageFile file = package.Single();
 
         scheduler.AddPackage(package);
-        await WaitFor(() => file.State == FileState.Uploading);
-        Assert.Equal(1, pipeline.RunCount);
+        await WaitFor(() => pipeline.RunCount == 1);
 
         scheduler.ForceStart([file]); // already running → no second attempt
         await Task.Delay(150);

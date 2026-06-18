@@ -32,11 +32,11 @@ public class ItemStateToVisibilityConverter : IValueConverter
             // Normal Start: only files that aren't yet in the pipeline.
             "Startable" => state is FileState.Idle or FileState.Cancelled or FileState.Failed or FileState.Paused,
 
-            // Force start: anything not currently running and not finished — including a file
-            // already queued and waiting for a slot (HashQueued/UploadQueued), which is the
-            // core "jump the concurrency limit" case.
-            "ForceStartable" => state is FileState.Idle or FileState.HashQueued or FileState.UploadQueued
-                or FileState.Paused or FileState.Failed or FileState.Cancelled,
+            // Force start: any row that isn't currently running — queued-and-waiting
+            // (HashQueued/UploadQueued, the core "jump the concurrency limit" case), not-yet-
+            // started, AND finished rows (Completed/CompletedWithErrors), which re-upload after
+            // a confirmation prompt.
+            "ForceStartable" => state is not (FileState.Hashing or FileState.Uploading),
 
             // Stoppable (default): files currently in the pipeline.
             _ => state is FileState.Hashing or FileState.Uploading or FileState.HashQueued or FileState.UploadQueued,

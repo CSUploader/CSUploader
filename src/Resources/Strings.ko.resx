@@ -495,6 +495,12 @@
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>'{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.</value>
   </data>
+  <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
+    <value>다시 업로드</value>
+  </data>
+  <data name="Uploads_ForceStart_Reupload_Format" xml:space="preserve">
+    <value>이미 완료된 파일 {0}개를 다시 업로드할까요? 정상적으로 업로드되었지만 강제 시작으로 다시 업로드합니다.</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>JSON으로 내보내기…</value>
   </data>

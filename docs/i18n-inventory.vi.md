@@ -221,6 +221,8 @@ Uploads_Remove_PackagesAndFiles_Format = Xóa {0} gói và {1} tệp (tổng {2}
 Uploads_Reset_Title                  = Đặt lại
 Uploads_Reset_Package_Format         = Đặt lại gói '{0}'? Việc này sẽ băm lại và tải lên lại {1} tệp đã hoàn tất trong gói.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = Đặt lại '{0}'? Tệp này đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = Tải lên lại
+Uploads_ForceStart_Reupload_Format   = Tải lên lại {0} tệp đã hoàn tất? Chúng đã tải lên thành công — buộc bắt đầu sẽ tải chúng lên lần nữa.  # {0} = completed file count
 ```
 
 ---

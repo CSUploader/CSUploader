@@ -214,6 +214,8 @@ Uploads_Remove_PackagesAndFiles_Format = Remove {0} package(s) and {1} file(s) (
 Uploads_Reset_Title                  = Reset
 Uploads_Reset_Package_Format         = Reset package '{0}'? This will re-hash and re-upload {1} completed file(s) in this package.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = Reset '{0}'? It already uploaded successfully — resetting will re-hash and re-upload it.  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = Re-upload
+Uploads_ForceStart_Reupload_Format   = Re-upload {0} already-completed file(s)? They uploaded successfully before — force start will upload them again.  # {0} = completed file count
 ```
 
 ---

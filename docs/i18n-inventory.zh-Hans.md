@@ -213,6 +213,8 @@ Uploads_Remove_PackagesAndFiles_Format = 是否移除 {0} 个包和 {1} 个文�
 Uploads_Reset_Title                  = 重置
 Uploads_Reset_Package_Format         = 是否重置包 '{0}'？这将重新哈希并重新上传该包中 {1} 个已完成的文件。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = 是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = 重新上传
+Uploads_ForceStart_Reupload_Format   = 重新上传 {0} 个已完成的文件？它们之前已成功上传 — 强制开始将再次上传它们。  # {0} = completed file count
 ```
 
 ---

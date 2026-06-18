@@ -212,6 +212,8 @@ Uploads_Remove_PackagesAndFiles_Format = パッケージを {0} 個とファイ�
 Uploads_Reset_Title                  = リセット
 Uploads_Reset_Package_Format         = パッケージ '{0}' をリセットしますか? このパッケージ内の完了済みファイル {1} 個が再ハッシュ・再アップロードされます。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。  # {0} = file name
+Uploads_ForceStart_Reupload_Title    = 再アップロード
+Uploads_ForceStart_Reupload_Format   = 完了済みの {0} 個のファイルを再アップロードしますか? 正常にアップロード済みですが、強制開始でもう一度アップロードします。  # {0} = completed file count
 ```
 
 ---

@@ -495,6 +495,12 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>Reset '{0}'? It already uploaded successfully — resetting will re-hash and re-upload it.</value>
   </data>
+  <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
+    <value>Re-upload</value>
+  </data>
+  <data name="Uploads_ForceStart_Reupload_Format" xml:space="preserve">
+    <value>Re-upload {0} already-completed file(s)? They uploaded successfully before — force start will upload them again.</value>
+  </data>
   <data name="Uploaded_Toolbar_ExportJson" xml:space="preserve">
     <value>Export to JSON…</value>
   </data>
