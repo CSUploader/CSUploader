@@ -444,6 +444,7 @@ Settings_Accounts_Col_Password     = 비밀번호
 Settings_Accounts_Col_Type         = 유형
 Settings_Accounts_Col_Used        = 사용 중
 Settings_Accounts_Col_Available   = 남은 용량
+Settings_Accounts_Col_AddedAt     = 추가한 시각
 Settings_Accounts_Col_RefreshedAt = 새로 고침 시각
 Settings_Accounts_Storage_Unlimited= 무제한
 

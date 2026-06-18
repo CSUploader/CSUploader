@@ -444,6 +444,7 @@ Settings_Accounts_Col_Password     = 密码
 Settings_Accounts_Col_Type         = 类型
 Settings_Accounts_Col_Used        = 已用
 Settings_Accounts_Col_Available   = 可用
+Settings_Accounts_Col_AddedAt     = 添加时间
 Settings_Accounts_Col_RefreshedAt = 刷新时间
 Settings_Accounts_Storage_Unlimited= 无限制
 

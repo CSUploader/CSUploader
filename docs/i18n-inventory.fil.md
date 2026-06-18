@@ -444,6 +444,7 @@ Settings_Accounts_Col_Password     = Password
 Settings_Accounts_Col_Type         = Type
 Settings_Accounts_Col_Used        = Nagamit
 Settings_Accounts_Col_Available   = Available
+Settings_Accounts_Col_AddedAt     = Idinagdag noong
 Settings_Accounts_Col_RefreshedAt = Na-refresh noong
 Settings_Accounts_Storage_Unlimited= Walang limitasyon
 

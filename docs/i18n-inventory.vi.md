@@ -452,6 +452,7 @@ Settings_Accounts_Col_Password     = Mật khẩu
 Settings_Accounts_Col_Type         = Loại
 Settings_Accounts_Col_Used        = Đã dùng
 Settings_Accounts_Col_Available   = Còn lại
+Settings_Accounts_Col_AddedAt     = Đã thêm lúc
 Settings_Accounts_Col_RefreshedAt = Đã làm mới lúc
 Settings_Accounts_Storage_Unlimited= Không giới hạn
 

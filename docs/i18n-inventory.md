@@ -445,6 +445,7 @@ Settings_Accounts_Col_Password     = Password
 Settings_Accounts_Col_Type         = Type
 Settings_Accounts_Col_Used         = Used
 Settings_Accounts_Col_Available    = Available
+Settings_Accounts_Col_AddedAt      = Added at
 Settings_Accounts_Col_RefreshedAt  = Refreshed at
 Settings_Accounts_Storage_Unlimited = Unlimited
 

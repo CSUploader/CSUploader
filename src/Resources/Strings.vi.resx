@@ -979,6 +979,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Available" xml:space="preserve">
     <value>Còn lại</value>
   </data>
+  <data name="Settings_Accounts_Col_AddedAt" xml:space="preserve">
+    <value>Đã thêm lúc</value>
+  </data>
   <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
     <value>Đã làm mới lúc</value>
   </data>

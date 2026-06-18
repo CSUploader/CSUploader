@@ -979,6 +979,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Col_Available" xml:space="preserve">
     <value>使用可能</value>
   </data>
+  <data name="Settings_Accounts_Col_AddedAt" xml:space="preserve">
+    <value>追加日時</value>
+  </data>
   <data name="Settings_Accounts_Col_RefreshedAt" xml:space="preserve">
     <value>更新日時</value>
   </data>

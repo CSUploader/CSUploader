@@ -962,6 +962,13 @@
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}"
                                         Binding="{Binding Converter={StaticResource StorageAvailableDisplay}}"
                                         Width="110" IsReadOnly="True" />
+                    <!-- Wall-clock the account was added (set once at insert). Bound to
+                         FileHosterLoginDto.CreatedDateTime; blank when null (rows predating the
+                         column) via the shared DateTimeFormatConverter. -->
+                    <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_AddedAt}"
+                                        Binding="{Binding CreatedDateTime, Converter={StaticResource DateTimeFormat}}"
+                                        Width="140" IsReadOnly="True"
+                                        FontFamily="Consolas, Segoe UI" />
                     <!-- Wall-clock of the last verifier round-trip (success OR failure).
                          Bound to FileHosterLoginDto.LastRefreshedDateTime; renders blank
                          when null via the shared DateTimeFormatConverter. Monospace font

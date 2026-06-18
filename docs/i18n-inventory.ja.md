@@ -443,6 +443,7 @@ Settings_Accounts_Col_Password     = パスワード
 Settings_Accounts_Col_Type         = 種類
 Settings_Accounts_Col_Used        = 使用中
 Settings_Accounts_Col_Available   = 使用可能
+Settings_Accounts_Col_AddedAt     = 追加日時
 Settings_Accounts_Col_RefreshedAt = 更新日時
 Settings_Accounts_Storage_Unlimited= 無制限
 
