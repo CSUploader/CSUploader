@@ -15,13 +15,24 @@ namespace CSUploader.Upload;
 /// </summary>
 internal static class UploadQueueOrder
 {
-    /// <summary>Assigns QueueOrder = 1..N over <paramref name="ordered"/> in its current order.</summary>
-    public static void Renumber(IReadOnlyList<PackageFile> ordered)
+    /// <summary>
+    /// Assigns QueueOrder = 1..N over <paramref name="ordered"/> in its current order.
+    /// Returns true if any file's QueueOrder actually changed (so callers can skip a persist
+    /// write when the queue was already dense).
+    /// </summary>
+    public static bool Renumber(IReadOnlyList<PackageFile> ordered)
     {
+        bool changed = false;
         for (int i = 0; i < ordered.Count; i++)
         {
-            ordered[i].QueueOrder = i + 1;
+            if (ordered[i].QueueOrder != i + 1)
+            {
+                ordered[i].QueueOrder = i + 1;
+                changed = true;
+            }
         }
+
+        return changed;
     }
 
     /// <summary>
@@ -29,21 +40,22 @@ internal static class UploadQueueOrder
     /// [1, N]) and rewrites <see cref="PackageFile.QueueOrder"/> on every file to reflect the new
     /// order. The items in between shift by one position. The list itself is not reordered — only
     /// the QueueOrder properties are updated. <paramref name="ordered"/> must be the current queue
-    /// sorted ascending by QueueOrder.
+    /// sorted ascending by QueueOrder. Returns true if any QueueOrder changed — false when the file
+    /// isn't present, the list is empty, or the file is already at <paramref name="target"/>.
     /// </summary>
-    public static void MoveTo(List<PackageFile> ordered, PackageFile file, int target)
+    public static bool MoveTo(List<PackageFile> ordered, PackageFile file, int target)
     {
         int current = ordered.IndexOf(file);
         if (current < 0 || ordered.Count == 0)
         {
-            return;
+            return false;
         }
 
         target = Math.Clamp(target, 1, ordered.Count);
         List<PackageFile> working = [.. ordered];
         working.RemoveAt(current);
         working.Insert(target - 1, file);
-        Renumber(working);
+        return Renumber(working);
     }
 
     /// <summary>
@@ -51,19 +63,21 @@ internal static class UploadQueueOrder
     /// kept as a contiguous block in their current relative order, by <paramref name="delta"/>
     /// positions (negative = sooner), and rewrites <see cref="PackageFile.QueueOrder"/> on every
     /// file to reflect the new order. Clamped so the block stays within bounds. The list itself is
-    /// not reordered — only the QueueOrder properties are updated.
+    /// not reordered — only the QueueOrder properties are updated. Returns true if any QueueOrder
+    /// changed — false when <paramref name="delta"/> is 0, no selected file is present, or the
+    /// clamped move leaves every file at its current position.
     /// </summary>
-    public static void MoveBy(List<PackageFile> ordered, IReadOnlyCollection<PackageFile> selected, int delta)
+    public static bool MoveBy(List<PackageFile> ordered, IReadOnlyCollection<PackageFile> selected, int delta)
     {
         if (delta == 0)
         {
-            return;
+            return false;
         }
 
         List<PackageFile> block = [.. ordered.Where(selected.Contains)];
         if (block.Count == 0)
         {
-            return;
+            return false;
         }
 
         int firstIdx = ordered.IndexOf(block[0]);
@@ -75,6 +89,6 @@ internal static class UploadQueueOrder
 
         int insertAt = Math.Clamp(firstIdx + delta, 0, working.Count);
         working.InsertRange(insertAt, block);
-        Renumber(working);
+        return Renumber(working);
     }
 }

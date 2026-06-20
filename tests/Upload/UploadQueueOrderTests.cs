@@ -71,6 +71,73 @@ public class UploadQueueOrderTests
         Assert.Equal([1, 2, 3], files.Select(f => f.QueueOrder));
     }
 
+    [Fact]
+    public void Renumber_AlreadyDense_ReturnsFalse()
+    {
+        var files = Make(3); // already 1, 2, 3
+        Assert.False(UploadQueueOrder.Renumber(files));
+    }
+
+    [Fact]
+    public void Renumber_OutOfOrder_ReturnsTrue()
+    {
+        var files = Make(3);
+        files[0].QueueOrder = 9; // perturb so renumber must rewrite
+        Assert.True(UploadQueueOrder.Renumber(files));
+    }
+
+    [Fact]
+    public void MoveTo_SamePosition_ReturnsFalse()
+    {
+        var files = Make(4);
+        UploadQueueOrder.Renumber(files);
+        // files[1] is already at position 2 — moving it there must change nothing.
+        Assert.False(UploadQueueOrder.MoveTo(files, files[1], 2));
+        Assert.Equal([1, 2, 3, 4], OrderedPositions(files));
+    }
+
+    [Fact]
+    public void MoveTo_DifferentPosition_ReturnsTrue()
+    {
+        var files = Make(4);
+        UploadQueueOrder.Renumber(files);
+        Assert.True(UploadQueueOrder.MoveTo(files, files[0], 4));
+    }
+
+    [Fact]
+    public void MoveTo_FileNotPresent_ReturnsFalse()
+    {
+        var files = Make(3);
+        UploadQueueOrder.Renumber(files);
+        PackageFile stranger = Make(1)[0];
+        Assert.False(UploadQueueOrder.MoveTo(files, stranger, 1));
+    }
+
+    [Fact]
+    public void MoveBy_ZeroDelta_ReturnsFalse()
+    {
+        var files = Make(3);
+        UploadQueueOrder.Renumber(files);
+        Assert.False(UploadQueueOrder.MoveBy(files, [files[1]], 0));
+    }
+
+    [Fact]
+    public void MoveBy_NoSelectedPresent_ReturnsFalse()
+    {
+        var files = Make(3);
+        UploadQueueOrder.Renumber(files);
+        PackageFile stranger = Make(1)[0];
+        Assert.False(UploadQueueOrder.MoveBy(files, [stranger], +1));
+    }
+
+    [Fact]
+    public void MoveBy_RealMove_ReturnsTrue()
+    {
+        var files = Make(4);
+        UploadQueueOrder.Renumber(files);
+        Assert.True(UploadQueueOrder.MoveBy(files, [files[0]], +2));
+    }
+
     private static List<PackageFile> Make(int n)
     {
         FileHosterClient hoster = new("Rapidgator", Protocol.Http);

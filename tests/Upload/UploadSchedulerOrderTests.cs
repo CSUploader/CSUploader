@@ -1,0 +1,284 @@
+// <copyright file="UploadSchedulerOrderTests.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using System.Collections.Concurrent;
+using System.IO;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
+using Moq;
+
+namespace CSUploader.Tests.Upload;
+
+/// <summary>
+/// Verifies the per-file QueueOrder behaviour in <see cref="UploadScheduler"/>: <c>FillSlots</c>
+/// admits files in ascending QueueOrder, the move API renumbers the queue dense 1..N, and a file
+/// finishing re-densifies the remaining non-terminal set so "next" is always #1. Uses the same
+/// gated-pipeline harness as the force-start tests so the running set is deterministic.
+/// </summary>
+public sealed class UploadSchedulerOrderTests : IDisposable
+{
+    private readonly string _tempDir;
+    private readonly List<UploadScheduler> _schedulers = [];
+    private readonly List<GatedPipeline> _pipelines = [];
+
+    public UploadSchedulerOrderTests()
+    {
+        _tempDir = Path.Combine(Path.GetTempPath(), $"csu-order-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_tempDir);
+    }
+
+    public void Dispose()
+    {
+        foreach (GatedPipeline pipeline in _pipelines)
+        {
+            pipeline.ReleaseAll();
+        }
+
+        foreach (UploadScheduler scheduler in _schedulers)
+        {
+            scheduler.Dispose();
+        }
+
+        try { Directory.Delete(_tempDir, recursive: true); } catch { }
+    }
+
+    [Fact]
+    public async Task FillSlots_PicksLowestQueueOrderFirst()
+    {
+        GatedPipeline pipeline = new("Rapidgator");
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 1, fileCount: 3);
+
+        scheduler.AddPackage(package);
+
+        // With one upload slot, exactly the lowest-QueueOrder file runs.
+        await WaitFor(() => CountState(package, FileState.Uploading) == 1);
+        PackageFile running = package.Single(f => f.State == FileState.Uploading);
+        int minOrder = package.Min(f => f.QueueOrder);
+        Assert.Equal(minOrder, running.QueueOrder);
+
+        // Move a different (still-queued) file to position 1, then finish the running one.
+        PackageFile moved = package.First(f => f.State == FileState.UploadQueued);
+        scheduler.MoveFileTo(moved, 1);
+        await WaitFor(() => moved.QueueOrder == 1);
+
+        pipeline.Complete(running.Name);
+        await WaitFor(() => running.State == FileState.Completed);
+
+        // The moved file (now #1) must be the one that runs next.
+        await WaitFor(() => moved.State == FileState.Uploading);
+        Assert.Equal(FileState.Uploading, moved.State);
+    }
+
+    [Fact]
+    public async Task MoveFileTo_RenumbersDense()
+    {
+        const int n = 4;
+        GatedPipeline pipeline = new("Rapidgator");
+        // maxUploads 0 → nothing starts, so every file stays in the non-terminal queue.
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 0, fileCount: n);
+
+        scheduler.AddPackage(package);
+        await WaitFor(() => package.All(f => f.QueueOrder > 0));
+
+        PackageFile first = package.Single(f => f.QueueOrder == 1);
+        scheduler.MoveFileTo(first, n);
+        await WaitFor(() => first.QueueOrder == n);
+
+        // Dense 1..N over all files, and the moved file is last.
+        int[] orders = [.. package.Select(f => f.QueueOrder).OrderBy(o => o)];
+        Assert.Equal(Enumerable.Range(1, n), orders);
+        Assert.Equal(n, first.QueueOrder);
+    }
+
+    [Fact]
+    public async Task OnComplete_RenumbersRemainingToStartAtOne()
+    {
+        GatedPipeline pipeline = new("Rapidgator");
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 1, fileCount: 3);
+
+        scheduler.AddPackage(package);
+        await WaitFor(() => CountState(package, FileState.Uploading) == 1);
+
+        PackageFile running = package.Single(f => f.State == FileState.Uploading);
+        Assert.Equal(1, running.QueueOrder);
+
+        pipeline.Complete(running.Name);
+        await WaitFor(() => running.State == FileState.Completed);
+
+        // The two remaining non-terminal files re-densify to 1 and 2.
+        await WaitFor(() =>
+        {
+            int[] remaining = [.. package
+                .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+                .Select(f => f.QueueOrder)
+                .OrderBy(o => o)];
+            return remaining.SequenceEqual(new[] { 1, 2 });
+        });
+
+        int[] remainingOrders = [.. package
+            .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+            .Select(f => f.QueueOrder)
+            .OrderBy(o => o)];
+        Assert.Equal(new[] { 1, 2 }, remainingOrders);
+    }
+
+    [Fact]
+    public async Task RequeueTerminalFile_AppendsToEndAndClearsStaleOrder()
+    {
+        // A Failed file carrying a STALE low QueueOrder (colliding with a live position) must, when
+        // re-queued via StartAll → RequeueStartableFiles, be appended to the END rather than
+        // re-entering at its stale spot. The other non-terminal files keep a dense 1..N with no
+        // duplicates. maxUploads 0 → nothing launches, so the QueueOrder assertions are stable.
+        GatedPipeline pipeline = new("Rapidgator");
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 0, fileCount: 3);
+        PackageFile[] files = [.. package];
+
+        // Two live, dense, non-terminal files...
+        files[1].State = FileState.UploadQueued;
+        files[1].QueueOrder = 1;
+        files[2].State = FileState.UploadQueued;
+        files[2].QueueOrder = 2;
+
+        // ...and a Failed file whose stale QueueOrder COLLIDES with files[1]'s live position.
+        files[0].State = FileState.Failed;
+        files[0].QueueOrder = 1;
+
+        scheduler.AddPackage(package, scheduleIdleFiles: false);
+        scheduler.StartAll(); // RequeueStartableFiles → resets the Failed file's QueueOrder to 0
+
+        // The retried file ends up appended (highest QueueOrder) and the whole non-terminal set is
+        // a contiguous 1..3 permutation — no duplicates, no stale collision.
+        await WaitFor(() =>
+            files[0].QueueOrder == 3 &&
+            IsContiguousPermutation([.. package.Select(f => f.QueueOrder)], 3));
+
+        int[] orders = [.. package.Select(f => f.QueueOrder)];
+        Assert.True(files[0].QueueOrder > files[1].QueueOrder, "retried file must sort after the others");
+        Assert.True(files[0].QueueOrder > files[2].QueueOrder, "retried file must sort after the others");
+        Assert.Equal(Enumerable.Range(1, 3), [.. orders.OrderBy(o => o)]); // dense 1..3, no duplicates
+    }
+
+    private static bool IsContiguousPermutation(int[] orders, int n)
+        => orders.Length == n && orders.OrderBy(o => o).SequenceEqual(Enumerable.Range(1, n));
+
+    private static int CountState(Package package, FileState state) => package.Count(f => f.State == state);
+
+    private static async Task WaitFor(Func<bool> condition, int timeoutMs = 5000)
+    {
+        int waited = 0;
+        while (!condition() && waited < timeoutMs)
+        {
+            await Task.Delay(20);
+            waited += 20;
+        }
+
+        Assert.True(condition(), "condition was not met within the timeout");
+    }
+
+    private (UploadScheduler Scheduler, Package Package) Build(GatedPipeline pipeline, int maxUploads, int fileCount, int maxCpu = 4)
+    {
+        _pipelines.Add(pipeline);
+
+        AppSettings settings = new()
+        {
+            MaxConcurrentUploadJobs = maxUploads,
+            MaxConcurrentCPUJobs = maxCpu,
+        };
+        DefaultFileHosterRegistry registry = new([pipeline]);
+        UploadScheduler scheduler = new(settings, BuildAttemptRunner(registry), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
+        scheduler.Start();
+        _schedulers.Add(scheduler);
+
+        FileHosterClient hoster = new(pipeline.Name, Protocol.Http);
+        FileHosterLoginDto login = new() { FileHosterName = pipeline.Name, IsAnonymous = true };
+        PackageOptions options = new()
+        {
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            Settings = settings,
+            FileHosters = new() { { hoster, login } },
+        };
+        Package package = new(options);
+        PackageFile[] files = [.. Enumerable.Range(0, fileCount).Select(i => MakeFile(package, hoster, login, $"f{i}.bin"))];
+        package.AddPackageFiles(files);
+
+        return (scheduler, package);
+    }
+
+    private PackageFile MakeFile(Package package, FileHosterClient hoster, FileHosterLoginDto login, string name)
+    {
+        string path = Path.Combine(_tempDir, name);
+        File.WriteAllBytes(path, [1]);
+        return new PackageFile(package, path, hoster, login);
+    }
+
+    private static AttemptRunner BuildAttemptRunner(IFileHosterRegistry registry)
+    {
+        Mock<IProxySource> proxy = new();
+        proxy.Setup(p => p.Next()).Returns(ProxyChoice.Direct);
+        Mock<IHttpHandlerFactory> hf = new();
+        hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(() => new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+        return new AttemptRunner(registry, proxy.Object, hf.Object);
+    }
+
+    /// <summary>
+    /// Test pipeline whose upload blocks in the Uploading state until <see cref="Complete"/> is
+    /// called for that file (keyed by file name). Mirrors the harness in
+    /// <c>UploadSchedulerForceStartTests</c>.
+    /// </summary>
+    private sealed class GatedPipeline(string name, bool requiresHash = false) : IFileHosterPipeline
+    {
+        private readonly ConcurrentDictionary<string, TaskCompletionSource> _gates = new(StringComparer.Ordinal);
+        private int _runCount;
+
+        public string Name { get; } = name;
+
+        public bool RequiresHashingBeforeUpload { get; } = requiresHash;
+
+        public bool RequiresHashingAfterUpload => false;
+
+        public long? MaxFileSize => null;
+
+        public int? MaxFilesPerPackage => null;
+
+        public int RunCount => Volatile.Read(ref _runCount);
+
+        public void Complete(string fileName) => Gate(fileName).TrySetResult();
+
+        public void ReleaseAll()
+        {
+            foreach (TaskCompletionSource tcs in _gates.Values)
+            {
+                tcs.TrySetResult();
+            }
+        }
+
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+            => Task.FromResult(new AccountCheckResult(true, AccountType.Free, "ok"));
+
+        public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
+        {
+            Interlocked.Increment(ref _runCount);
+            yield return new TransferStarted(ctx.FileSize);
+
+            using (ct.Register(() => Gate(ctx.FileName).TrySetCanceled()))
+            {
+                await Gate(ctx.FileName).Task;
+            }
+
+            yield return new TransferCompleted("https://gated/" + ctx.FileName);
+        }
+
+        private TaskCompletionSource Gate(string fileName)
+            => _gates.GetOrAdd(fileName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+    }
+}

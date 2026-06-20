@@ -57,6 +57,9 @@ public class UploadScheduler : IDisposable
     /// </summary>
     public event EventHandler<FileStateChangedEventArgs>? FileStateChanged;
 
+    /// <summary>Raised after QueueOrder values change so the owner can persist them.</summary>
+    public event EventHandler<IReadOnlyList<PackageFile>>? QueueOrderChanged;
+
     /// <summary>
     /// Gets a value indicating whether the scheduler is paused.
     /// </summary>
@@ -184,6 +187,30 @@ public class UploadScheduler : IDisposable
         });
     }
 
+    /// <summary>Moves a file to 1-based position <paramref name="target"/> in the global queue.</summary>
+    public void MoveFileTo(PackageFile file, int target) => Post(() =>
+    {
+        List<PackageFile> ordered = OrderedNonTerminalFiles();
+        if (UploadQueueOrder.MoveTo(ordered, file, target))
+        {
+            QueueOrderChanged?.Invoke(this, ordered);
+        }
+
+        FillSlots();
+    });
+
+    /// <summary>Moves the given files as a block by <paramref name="delta"/> positions (negative = sooner).</summary>
+    public void MoveFilesBy(IReadOnlyList<PackageFile> files, int delta) => Post(() =>
+    {
+        List<PackageFile> ordered = OrderedNonTerminalFiles();
+        if (UploadQueueOrder.MoveBy(ordered, files, delta))
+        {
+            QueueOrderChanged?.Invoke(this, ordered);
+        }
+
+        FillSlots();
+    });
+
     /// <summary>
     /// Pauses all running files by cancelling their tokens.
     /// </summary>
@@ -286,11 +313,64 @@ public class UploadScheduler : IDisposable
             }
         }
 
+        EnsureQueueOrdered();
         FillSlots();
+    }
+
+    private List<PackageFile> OrderedNonTerminalFiles()
+    {
+        lock (_packagesLock)
+        {
+            return [.. _packages.SelectMany(p => p)
+                .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+                .OrderBy(f => f.QueueOrder)];
+        }
+    }
+
+    /// <summary>
+    /// Gives a global position to any non-terminal file that doesn't have one yet (QueueOrder 0):
+    /// appends after the current max, then renumbers the queue dense 1..N. The QueueOrder-0 sources
+    /// that append here are: newly scheduled package files; a Reset file
+    /// (<c>PackageManager.ResetFile</c>); the force-start re-upload of a Completed file
+    /// (<c>ForceStartFile</c>); and the manual Retry / Start-all of a Failed or Cancelled file
+    /// (<c>ForceQueueIfStartable</c> / <c>RequeueStartableFiles</c>). A Paused file keeps its
+    /// QueueOrder (it never left the non-terminal set), so resuming preserves its place.
+    /// Returns true and fires QueueOrderChanged if anything changed.
+    /// </summary>
+    private bool EnsureQueueOrdered()
+    {
+        List<PackageFile> ordered = OrderedNonTerminalFiles();
+        PackageFile[] unplaced = [.. ordered.Where(f => f.QueueOrder == 0)];
+        if (unplaced.Length == 0)
+        {
+            return false;
+        }
+
+        int next = ordered.Where(f => f.QueueOrder > 0).Select(f => f.QueueOrder).DefaultIfEmpty(0).Max();
+        foreach (PackageFile file in unplaced)
+        {
+            file.QueueOrder = ++next; // temporary; Renumber below makes it dense
+        }
+
+        List<PackageFile> reordered = [.. ordered.OrderBy(f => f.QueueOrder)];
+        UploadQueueOrder.Renumber(reordered);
+        QueueOrderChanged?.Invoke(this, reordered);
+        return true;
+    }
+
+    private void RenumberQueue()
+    {
+        List<PackageFile> ordered = OrderedNonTerminalFiles();
+        if (UploadQueueOrder.Renumber(ordered))
+        {
+            QueueOrderChanged?.Invoke(this, ordered);
+        }
     }
 
     private void FillSlots()
     {
+        EnsureQueueOrdered();
+
         if (IsPaused)
         {
             return;
@@ -299,10 +379,8 @@ public class UploadScheduler : IDisposable
         PackageFile[] allFiles;
         lock (_packagesLock)
         {
-            // Higher package priority is picked first. OrderByDescending is a stable
-            // sort in LINQ-to-objects, so same-priority packages keep their insertion
-            // order — no explicit tiebreaker needed.
-            allFiles = [.. _packages.OrderByDescending(p => p.Priority).SelectMany(p => p)];
+            // Files are admitted in ascending QueueOrder — the flat, per-file upload order.
+            allFiles = [.. _packages.SelectMany(p => p).OrderBy(f => f.QueueOrder)];
         }
 
         // Fill hashing slots
@@ -370,6 +448,7 @@ public class UploadScheduler : IDisposable
             file.IsUploadFinished = false;
             file.IsHashingComplete = false;
             file.FileHash = null;
+            file.QueueOrder = 0; // re-queue: append to the END (EnsureQueueOrdered places it after the max)
         }
 
         // Mark so the upload launches immediately once the file is ready (see OnHashCompleted),
@@ -561,6 +640,7 @@ public class UploadScheduler : IDisposable
             SetFileState(file, FileState.UploadQueued);
         }
 
+        RenumberQueue();
         FillSlots();
     }
 
@@ -585,6 +665,7 @@ public class UploadScheduler : IDisposable
             SetFileState(file, FileState.Completed);
         }
 
+        RenumberQueue();
         FillSlots();
     }
 
@@ -638,10 +719,19 @@ public class UploadScheduler : IDisposable
         {
             if (file.State is FileState.Idle or FileState.Paused or FileState.Cancelled or FileState.Failed)
             {
-                // Clear any prior error so retries start fresh
                 if (file.State == FileState.Failed)
                 {
+                    // Clear any prior error so retries start fresh
                     file.Error = null;
+                }
+
+                // Re-queueing a TERMINAL file (Failed/Cancelled) appends to the end: clear its
+                // stale QueueOrder so EnsureQueueOrdered (via the FillSlots after StartAll) gives
+                // it a fresh position past the current max. Idle is already 0; Paused kept its
+                // place in the non-terminal set, so leave it to preserve its position.
+                if (file.State is FileState.Failed or FileState.Cancelled)
+                {
+                    file.QueueOrder = 0;
                 }
 
                 // Determine which queue the file should go into

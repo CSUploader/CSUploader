@@ -57,6 +57,7 @@ public class PackageManager
 
         _scheduler.PackageAdded += (_, package) => PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
         _scheduler.FileStateChanged += OnFileStateChanged;
+        _scheduler.QueueOrderChanged += OnQueueOrderChanged;
         _scheduler.Start();
 
         // No need to subscribe to ProxyManager.RotationReloaded — RapidgatorClient (and
@@ -581,6 +582,40 @@ public class PackageManager
         });
     }
 
+    private void OnQueueOrderChanged(object? sender, IReadOnlyList<PackageFile> files)
+    {
+        Dictionary<int, int> orders = files
+            .Where(f => f.DbId is not null)
+            .ToDictionary(f => f.DbId!.Value, f => f.QueueOrder);
+        if (orders.Count == 0)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            await _persistLock.WaitAsync();
+            try
+            {
+                await _fileRepo.UpdateQueueOrderAsync(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(this, LogType.Error, $"Failed to persist queue order: {ex.Message}");
+            }
+            finally
+            {
+                _persistLock.Release();
+            }
+        });
+    }
+
+    /// <summary>Moves a file to 1-based position <paramref name="target"/> in the global upload queue.</summary>
+    public void MoveFileTo(PackageFile file, int target) => _scheduler.MoveFileTo(file, target);
+
+    /// <summary>Moves the given files as a block by <paramref name="delta"/> positions (negative = sooner).</summary>
+    public void MoveFilesBy(IReadOnlyList<PackageFile> files, int delta) => _scheduler.MoveFilesBy(files, delta);
+
     /// <summary>
     /// Test/shutdown helper: waits until any in-flight fire-and-forget persistence callback
     /// (queued by <see cref="OnFileStateChanged"/> or <see cref="RemovePackage"/>) has
@@ -845,6 +880,18 @@ public class PackageManager
         // No explicit RefreshConnection needed — AttemptRunner rebuilds the
         // HttpHandler at entry, so the retry naturally picks the next proxy.
         file.Error = null;
+
+        // Re-queueing a TERMINAL file (manual Retry / per-row Start of a Failed or Cancelled
+        // file) appends to the end: clear its stale QueueOrder so the subsequent
+        // FillAvailableSlots → FillSlots → EnsureQueueOrdered (on the scheduler loop) gives it a
+        // fresh position past the current max. Setting QueueOrder here is off-loop, consistent
+        // with the file.State / file.Error mutations already done in this method. Idle is already
+        // 0; Paused kept its place in the non-terminal set, so leave it to preserve its position.
+        if (file.State is FileState.Failed or FileState.Cancelled)
+        {
+            file.QueueOrder = 0;
+        }
+
         if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
         {
             file.State = FileState.HashQueued;
@@ -891,6 +938,7 @@ public class PackageManager
         file.Error = null;
         file.FileUrl = null;
         file.IsUploadFinished = false;
+        file.QueueOrder = 0;          // re-queue: append to the END of the upload order
         file.State = FileState.HashQueued;   // always restart from hash
     }
 

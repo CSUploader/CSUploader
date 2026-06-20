@@ -42,6 +42,12 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     private readonly UploadScheduler _scheduler;
     private readonly PackageManager _packageManager;
 
+    // Local manager+scheduler pairs created by individual tests (the "fresh restart" simulations).
+    // Tracked so DisposeAsync can stop each scheduler and drain its fire-and-forget persistence —
+    // since a reloaded file whose persisted QueueOrder is 0 makes the scheduler assign one and
+    // write it back, and that write must not race the shared SQLite connection's dispose.
+    private readonly List<(UploadScheduler Scheduler, PackageManager Manager)> _localPairs = [];
+
     public PackageManagerSoftRemoveTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
@@ -73,13 +79,42 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Stop the source of new FileStateChanged events first — the scheduler's channel
         // consumer is what raises those, and disposing it drains the consumer loop.
         _scheduler.Dispose();
-        // Wait for any callback already past the FileStateChanged dispatch (the
-        // `_ = Task.Run(...)` in OnFileStateChanged / RemovePackage) to finish its
-        // EF Core write. Without this, the write races against the connection dispose
+
+        // Same for every local manager+scheduler a test spun up against the shared connection.
+        foreach ((UploadScheduler scheduler, _) in _localPairs)
+        {
+            scheduler.Dispose();
+        }
+
+        // Wait for any callback already past the FileStateChanged / QueueOrderChanged dispatch
+        // (the `_ = Task.Run(...)` in OnFileStateChanged / OnQueueOrderChanged / RemovePackage) to
+        // finish its EF Core write. Without this, the write races against the connection dispose
         // below and the failure leaks into the NEXT test as thread-pool congestion.
         await _packageManager.DrainPendingPersistenceAsync();
+        foreach ((_, PackageManager manager) in _localPairs)
+        {
+            await manager.DrainPendingPersistenceAsync();
+        }
+
         _connection.Dispose();
     }
+
+    /// <summary>
+    /// Builds a "fresh restart" manager+scheduler against the shared connection and tracks the pair
+    /// so <see cref="DisposeAsync"/> drains its persistence. Use for tests that call
+    /// <see cref="PackageManager.LoadPersistedPackagesAsync"/> and may schedule a package (which
+    /// triggers a fire-and-forget queue-order write).
+    /// </summary>
+    private PackageManager NewLocalManager(AppSettings settings, DefaultFileHosterRegistry registry, out UploadScheduler scheduler)
+    {
+        scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
+        PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), registry);
+        _localPairs.Add((scheduler, manager));
+        return manager;
+    }
+
+    private PackageManager NewLocalManager(AppSettings settings, DefaultFileHosterRegistry registry)
+        => NewLocalManager(settings, registry, out _);
 
     [Fact]
     public async Task RemovePackage_PackageInstance_FlipsIsRemovedFromUploadsInDatabase()
@@ -145,8 +180,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup };
             DefaultFileHosterRegistry reg1 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg1);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg1);
+            PackageManager manager = NewLocalManager(settings, reg1);
 
             int doneId = await InsertPackageAsync("done");
             await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
@@ -181,8 +215,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
             DefaultFileHosterRegistry reg2 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg2);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg2);
+            PackageManager manager = NewLocalManager(settings, reg2, out UploadScheduler scheduler);
 
             int packageId = await InsertPackageAsync("queued");
             await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
@@ -207,8 +240,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
             DefaultFileHosterRegistry reg3 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg3);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg3);
+            PackageManager manager = NewLocalManager(settings, reg3, out UploadScheduler scheduler);
 
             int packageId = await InsertPackageAsync("queued");
             await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
@@ -233,8 +265,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
             DefaultFileHosterRegistry reg4 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg4);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg4);
+            PackageManager manager = NewLocalManager(settings, reg4, out UploadScheduler scheduler);
 
             int packageId = await InsertPackageAsync("running");
             // Pre-remap state Uploading counts as "was running at shutdown".
@@ -261,8 +292,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
             DefaultFileHosterRegistry reg5 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg5);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg5);
+            PackageManager manager = NewLocalManager(settings, reg5, out UploadScheduler scheduler);
 
             int packageId = await InsertPackageAsync("paused");
             await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Paused);
@@ -286,8 +316,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         {
             AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.Never };
             DefaultFileHosterRegistry reg6 = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg6);
-            PackageManager manager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg6);
+            PackageManager manager = NewLocalManager(settings, reg6);
 
             int doneId = await InsertPackageAsync("done");
             await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
@@ -421,8 +450,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             AppSettings settings = new();
             DefaultFileHosterRegistry reg = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+            // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
+            // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
+            PackageManager freshManager = NewLocalManager(settings, reg);
 
             await freshManager.LoadPersistedPackagesAsync();
 
@@ -461,10 +491,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             int packageId = added.DbId!.Value;
 
             // Fresh manager+scheduler against the same shared SQLite — simulates a restart.
+            // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
+            // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
             AppSettings settings = new();
             DefaultFileHosterRegistry reg = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+            PackageManager freshManager = NewLocalManager(settings, reg);
 
             await freshManager.LoadPersistedPackagesAsync();
 
@@ -530,8 +561,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             AppSettings settings = new();
             DefaultFileHosterRegistry reg = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+            PackageManager freshManager = NewLocalManager(settings, reg);
 
             await freshManager.LoadPersistedPackagesAsync();
 
@@ -568,8 +600,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
         AppSettings settings = new();
         DefaultFileHosterRegistry reg = new([]);
-        using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-        PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+        // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+        // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+        PackageManager freshManager = NewLocalManager(settings, reg);
 
         await freshManager.LoadPersistedPackagesAsync();
 
@@ -615,8 +648,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             AppSettings settings = new();
             DefaultFileHosterRegistry reg = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+            PackageManager freshManager = NewLocalManager(settings, reg);
 
             await freshManager.LoadPersistedPackagesAsync();
 
@@ -664,8 +698,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             // care that the credential was reconstituted correctly.
             AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
             DefaultFileHosterRegistry reg = new([]);
-            using UploadScheduler scheduler = new(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), reg);
-            PackageManager freshManager = new(settings, scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), reg);
+            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+            PackageManager freshManager = NewLocalManager(settings, reg);
 
             await freshManager.LoadPersistedPackagesAsync();
 
