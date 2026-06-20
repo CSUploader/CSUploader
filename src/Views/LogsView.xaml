@@ -107,7 +107,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="600" MinWidth="120"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -140,7 +140,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="600" MinWidth="120"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -169,7 +169,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="600" MinWidth="120"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -198,7 +198,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="600" MinWidth="120"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
