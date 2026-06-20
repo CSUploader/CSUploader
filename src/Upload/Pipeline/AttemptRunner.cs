@@ -33,6 +33,13 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
     /// </summary>
     public event EventHandler<AttemptCompleted>? AttemptCompleted;
 
+    /// <remarks>
+    /// Consumers MUST enumerate this sequence to completion (the sole consumer,
+    /// <c>UploadScheduler.LaunchUpload</c>, does). The retry pump runs the pipeline on a background
+    /// task whose cancellation flows through <paramref name="ct"/>, not through enumerator
+    /// disposal — so abandoning the enumeration early (e.g. <c>break</c>) would orphan the in-flight
+    /// pump rather than cancel it. Cancel via <paramref name="ct"/> instead of abandoning.
+    /// </remarks>
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptInputs inputs, [EnumeratorCancellation] CancellationToken ct)
     {
         // Captcha-gated hosters pin a proxy to the credentials at sign-in time so every
@@ -115,6 +122,11 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
         // channel on a background Task that captures any thrown transport fault.
         for (int attempt = 1; attempt <= MaxUploadAttempts; attempt++)
         {
+            // Each attempt starts from a clean slate — a prior attempt's partial success must never
+            // leak into this one's final AttemptCompleted.
+            success = false;
+            finalUrl = null;
+
             Channel<UploadEvent> channel = Channel.CreateUnbounded<UploadEvent>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
             Exception? fault = null;

@@ -263,11 +263,68 @@ public class HttpHandlerTests
             $"A local file-open failure (progressContent never created) must stay a terminal fault, not be reclassified as retryable. Got: {thrown}");
     }
 
+    // ---- Chunked uploads must NEVER be whole-pipeline retried by the shared retry layer (each
+    // chunk commits server-side: up.cgi per chunk + api.cgi finalize → re-sending could
+    // double-commit). PostChunkAsync therefore STRIPS any UploadBodyTransferException marker so the
+    // AttemptRunner IsInChain gate can never classify a chunk transport fault as safe-to-retry. ----
+
+    [Fact]
+    public async Task PostChunkAsync_BodyTransferMarker_IsStrippedSoChunkedIsNeverRetryable()
+    {
+        // The inner handler throws a PRE-WRAPPED marker exactly as the real stack produces it:
+        // HttpClient wraps a content-serialization fault (ProgressStreamContent's mid-send chunk
+        // write abort → UploadBodyTransferException) in
+        // HttpRequestException("Error while copying content to a stream.", <marker>). PostChunkAsync
+        // must strip that marker so the fault can never be treated as retryable, while preserving
+        // the underlying transport cause.
+        HttpHandler handler = new(
+            new HttpClient(new ThrowPreWrappedMarkerHandler(
+                new HttpRequestException(
+                    "Error while copying content to a stream.",
+                    new UploadBodyTransferException(new IOException("connection reset"))))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        using MemoryStream chunk = new("chunk-bytes"u8.ToArray());
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.PostChunkAsync(
+                endpoint: "https://example.test/up.cgi",
+                sid: "sid-123",
+                chunkData: chunk,
+                chunkLength: chunk.Length,
+                chunkIndex: 0,
+                basePosition: 0,
+                totalFileSize: chunk.Length,
+                dateTimeStarted: DateTime.Now));
+
+        // The marker was stripped — chunked can never be whole-pipeline retried.
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"PostChunkAsync must strip the body-transfer marker so chunked uploads are never retried. Got: {thrown}");
+
+        // The underlying transport cause is preserved (the IOException, or its message in the chain).
+        bool causePreserved = thrown.ToString().Contains("connection reset", StringComparison.Ordinal);
+        Assert.True(causePreserved, $"Underlying transport cause should be preserved. Got: {thrown}");
+    }
+
     /// <summary>
     /// Simulates a connect-phase failure: throws on send WITHOUT ever reading the request content,
     /// so <see cref="ProgressStreamContent"/> never serializes and <c>BodyFullySent</c> stays false.
     /// </summary>
     private sealed class ConnectFailHandler(Exception toThrow) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromException<HttpResponseMessage>(toThrow);
+    }
+
+    /// <summary>
+    /// Throws a caller-supplied (already-wrapped) exception on send, mirroring how the real HttpClient
+    /// surfaces a content-serialization fault: HttpRequestException("Error while copying content to a
+    /// stream.", &lt;UploadBodyTransferException&gt;). Used to verify PostChunkAsync strips the marker.
+    /// </summary>
+    private sealed class ThrowPreWrappedMarkerHandler(Exception toThrow) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromException<HttpResponseMessage>(toThrow);

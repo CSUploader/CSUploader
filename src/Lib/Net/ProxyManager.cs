@@ -13,9 +13,11 @@ namespace CSUploader.Lib.Net;
 
 /// <summary>
 /// Holds the current set of enabled proxies (in priority order) and hands them out
-/// to <see cref="HttpHandler"/>-using clients via <see cref="NextProxy"/>. New uploads
-/// (and retries — each retry constructs a fresh client) pick a proxy at construction;
-/// in-flight HttpClients are unaffected by changes here.
+/// to <see cref="HttpHandler"/>-using clients via <see cref="NextProxy"/>. Each new upload
+/// launch picks a proxy and builds its <see cref="HttpHandler"/> once; the proxy/handler
+/// (and its connection pool) is then fixed for the whole attempt-sequence — retries within a
+/// single <c>AttemptRunner.RunAsync</c> reuse the same handler, and only a fresh launch
+/// re-picks a proxy. In-flight HttpClients are unaffected by changes here.
 /// </summary>
 public class ProxyManager : IProxySource
 {

@@ -562,7 +562,27 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             // Deliberately NOT doing UploadMultipartAsync's connect-phase reclassification here:
             // chunked uploads re-discover (sid + per-chunk finalize) on each attempt and have their
             // own result-verification model, so the "body never fully sent → safe to retry" rule
-            // doesn't transfer to this path.
+            // doesn't transfer to this path. Stronger still: chunked uploads must NEVER be
+            // whole-pipeline retried by the shared retry layer — each chunk is committed
+            // server-side (up.cgi per chunk + api.cgi finalize), so re-sending could double-commit.
+            // ProgressStreamContent wraps a mid-send chunk write failure as
+            // UploadBodyTransferException one layer below us; strip that marker here so
+            // AttemptRunner's IsInChain retry gate can never treat a chunk transport fault as
+            // safe-to-retry. The underlying transport error still propagates (terminal). The marker
+            // may be nested (HttpClient wraps content-serialization exceptions in
+            // HttpRequestException("Error while copying content to a stream.", <marker>)), so walk
+            // the chain.
+            if (UploadBodyTransferException.IsInChain(ex))
+            {
+                for (Exception? e = ex; e is not null; e = e.InnerException)
+                {
+                    if (e is UploadBodyTransferException marker)
+                    {
+                        throw marker.InnerException ?? marker;
+                    }
+                }
+            }
+
             throw;
         }
     }
