@@ -3,13 +3,38 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Services;
 using CSUploader.ViewModels;
+using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
 public class LogsViewModelTests
 {
+    [Fact]
+    public void Ctor_WiresDialogServiceAndSettingRepo()
+    {
+        IDialogService dialog = Mock.Of<IDialogService>();
+        // Identity-only check — the repo is never queried here, so a mocked factory suffices.
+        SettingRepository repo = new(Mock.Of<IDbContextFactory<CSUploaderDbContext>>());
+
+        LogsViewModel vm = new(dialog, repo);
+
+        Assert.Same(dialog, vm.DialogServiceForView);
+        Assert.Same(repo, vm.SettingRepo);
+    }
+
+    [Fact]
+    public void Ctor_AllowsNullSettingRepo()
+    {
+        LogsViewModel vm = new(Mock.Of<IDialogService>());
+
+        Assert.Null(vm.SettingRepo);
+    }
+
     [Fact]
     public void ClearStatusLogs_RemovesOnlyStatusEntries()
     {
@@ -64,7 +89,7 @@ public class LogsViewModelTests
 
     private static LogsViewModel SeedAllTypes()
     {
-        LogsViewModel vm = new();
+        LogsViewModel vm = new(Mock.Of<IDialogService>());
         foreach (LogType type in Enum.GetValues<LogType>())
         {
             vm.AddLogEntry(new LogEvent { LogType = type, DateTime = DateTime.Now, Message = type.ToString() });

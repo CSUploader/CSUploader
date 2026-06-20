@@ -525,6 +525,10 @@ Logs_Col_Message                   = Message
 Logs_Col_Thread                    = Thread
 Logs_Col_Url                       = URL
 
+# Column show/hide "Reset columns" confirmation (Logs tab grids).
+Logs_ResetColumns_Title            = Reset columns
+Logs_ResetColumns_Message          = Reset the Logs columns to their defaults? This clears any custom show/hide and ordering you've set.
+
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
 Logs_Status_NoUrlsClipboardCleared = No URLs in selection; clipboard cleared

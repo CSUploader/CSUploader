@@ -9,6 +9,7 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:behaviors="clr-namespace:CSUploader.Behaviors"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:upload="clr-namespace:CSUploader.Upload"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:LogsViewModel}"
@@ -99,6 +100,9 @@
                             Command="{Binding ClearStatusLogsCommand}"
                             Style="{StaticResource JD2Button}" />
                     <DataGrid Grid.Row="1" ItemsSource="{Binding StatusLogs}" Style="{StaticResource LogDataGridStyle}"
+                              x:Name="StatusLogGrid"
+                              Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"
+                              Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
@@ -128,6 +132,9 @@
                             Command="{Binding ClearHttpLogsCommand}"
                             Style="{StaticResource JD2Button}" />
                     <DataGrid Grid.Row="1" ItemsSource="{Binding HttpLogs}" Style="{StaticResource LogDataGridStyle}"
+                              x:Name="HttpLogGrid"
+                              Tag="{x:Static upload:SettingKey.LogsHttpTabHiddenColumns}"
+                              Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
@@ -161,6 +168,9 @@
                             Command="{Binding ClearErrorLogsCommand}"
                             Style="{StaticResource JD2Button}" />
                     <DataGrid Grid.Row="1" ItemsSource="{Binding ErrorLogs}" Style="{StaticResource LogDataGridStyle}"
+                              x:Name="ErrorLogGrid"
+                              Tag="{x:Static upload:SettingKey.LogsErrorsTabHiddenColumns}"
+                              Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
@@ -190,6 +200,9 @@
                             Command="{Binding ClearUILogsCommand}"
                             Style="{StaticResource JD2Button}" />
                     <DataGrid Grid.Row="1" ItemsSource="{Binding UILogs}" Style="{StaticResource LogDataGridStyle}"
+                              x:Name="UILogGrid"
+                              Tag="{x:Static upload:SettingKey.LogsUITabHiddenColumns}"
+                              Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">

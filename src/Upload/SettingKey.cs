@@ -45,6 +45,14 @@ public static class SettingKey
 
     public static string UploadedTabHiddenColumns { get; } = "uploadedTabHiddenColumns";
 
+    public static string LogsStatusTabHiddenColumns { get; } = "logsStatusTabHiddenColumns";
+
+    public static string LogsHttpTabHiddenColumns { get; } = "logsHttpTabHiddenColumns";
+
+    public static string LogsErrorsTabHiddenColumns { get; } = "logsErrorsTabHiddenColumns";
+
+    public static string LogsUITabHiddenColumns { get; } = "logsUITabHiddenColumns";
+
     public static string Language { get; } = "language";
 
     public static string ShowCompletionToasts { get; } = "showCompletionToasts";

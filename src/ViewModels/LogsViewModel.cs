@@ -15,6 +15,24 @@ public partial class LogsViewModel : ObservableObject
     [ObservableProperty]
     private bool autoScroll = true;
 
+    /// <summary>
+    /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
+    /// via <see cref="Lib.UI.DataGridColumnVisibilityPersistence"/>. Optional in tests.
+    /// </summary>
+    internal Dal.SettingRepository? SettingRepo { get; }
+
+    /// <summary>
+    /// Exposed to the view's code-behind so the "Reset columns" entry can prompt via
+    /// the standard opt-out confirmation flow.
+    /// </summary>
+    internal Services.IDialogService DialogServiceForView { get; }
+
+    public LogsViewModel(Services.IDialogService dialogService, Dal.SettingRepository? settingRepo = null)
+    {
+        DialogServiceForView = dialogService;
+        SettingRepo = settingRepo;
+    }
+
     public ObservableCollection<LogEntryViewModel> StatusLogs { get; } = [];
 
     public ObservableCollection<LogEntryViewModel> HttpLogs { get; } = [];

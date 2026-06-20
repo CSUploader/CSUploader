@@ -1175,6 +1175,12 @@ Add anyway?</value>
   <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
     <value>Exported {0} package(s) to {1}</value>
   </data>
+  <data name="Logs_ResetColumns_Title" xml:space="preserve">
+    <value>Reset columns</value>
+  </data>
+  <data name="Logs_ResetColumns_Message" xml:space="preserve">
+    <value>Reset the Logs columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
+  </data>
   <data name="Wizard_Title" xml:space="preserve">
     <value>Upload Wizard</value>
   </data>
