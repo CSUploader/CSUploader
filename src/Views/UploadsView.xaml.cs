@@ -166,6 +166,26 @@ public partial class UploadsView : UserControl
     }
 
     /// <summary>
+    /// Restricts editing to the Order cell on non-terminal file rows. The grid is editable
+    /// (IsReadOnly=False) ONLY so the Order cell can be typed into; a grid-level
+    /// IsReadOnly=True would force every column read-only and a column-level
+    /// IsReadOnly=False cannot override it ("true takes precedence over false"). So instead
+    /// we cancel the edit for every other column, for package rows, and for terminal file
+    /// rows (which show a blank order) before they enter edit mode.
+    /// </summary>
+    private void UploadsGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        // The grid is editable only so the Order cell can be typed into. Cancel edits for every
+        // other column, and for package rows / terminal file rows (which show a blank order).
+        if (e.Column != OrderColumn
+            || e.Row.Item is not PackageFile file
+            || file.State is FileState.Completed or FileState.Failed or FileState.Cancelled)
+        {
+            e.Cancel = true;
+        }
+    }
+
+    /// <summary>
     /// Commits an edited "Order" cell to a move. The editing TextBox holds the raw typed
     /// 1-based position; SetOrderCommand routes it through the package manager, which
     /// clamps and re-numbers. Package and terminal rows are ignored.

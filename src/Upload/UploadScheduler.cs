@@ -184,6 +184,12 @@ public class UploadScheduler : IDisposable
             {
                 ForceStartFile(file);
             }
+
+            // A Completed re-upload's ForceStartFile sets QueueOrder=0 ("append") then launches
+            // the upload directly with no renumber for the no-hash / already-hashed case, so it
+            // would sit Uploading with no assigned position until the next renumber. Renumber once
+            // here so any such 0-files get a dense appended number immediately.
+            RenumberQueue();
         });
     }
 
@@ -317,13 +323,17 @@ public class UploadScheduler : IDisposable
         FillSlots();
     }
 
+    // Unplaced files (QueueOrder <= 0, the "append" sentinel) sort AFTER all placed files so any
+    // renumber appends them to the end rather than folding them to the front.
+    private static int QueueSortKey(PackageFile f) => f.QueueOrder <= 0 ? int.MaxValue : f.QueueOrder;
+
     private List<PackageFile> OrderedNonTerminalFiles()
     {
         lock (_packagesLock)
         {
             return [.. _packages.SelectMany(p => p)
                 .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
-                .OrderBy(f => f.QueueOrder)];
+                .OrderBy(QueueSortKey)];
         }
     }
 
@@ -380,7 +390,7 @@ public class UploadScheduler : IDisposable
         lock (_packagesLock)
         {
             // Files are admitted in ascending QueueOrder — the flat, per-file upload order.
-            allFiles = [.. _packages.SelectMany(p => p).OrderBy(f => f.QueueOrder)];
+            allFiles = [.. _packages.SelectMany(p => p).OrderBy(QueueSortKey)];
         }
 
         // Fill hashing slots

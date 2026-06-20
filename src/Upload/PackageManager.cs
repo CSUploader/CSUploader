@@ -28,6 +28,15 @@ public class PackageManager
     // every prior file's UpdateStateAsync (and its URL) has already been committed to SQLite.
     private readonly SemaphoreSlim _persistLock = new(1, 1);
 
+    // Tracks every in-flight fire-and-forget persistence task so DrainPendingPersistenceAsync can
+    // await ALL of them — including a Task.Run that has been scheduled but hasn't yet started (and
+    // so hasn't taken _persistLock). Registering the task here happens synchronously on the
+    // event-firing thread BEFORE the work is dispatched, closing the window where the drain would
+    // otherwise acquire the free lock and return while a queued callback was still pending, letting
+    // its EF Core write race the SqliteConnection's dispose. See tests/CLAUDE.md.
+    private readonly HashSet<Task> _pendingPersistence = [];
+    private readonly Lock _pendingPersistenceLock = new();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="PackageManager"/> class.
     /// </summary>
@@ -504,7 +513,7 @@ public class PackageManager
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
 
-        _ = Task.Run(async () =>
+        TrackPersistence(async () =>
         {
             await _persistLock.WaitAsync();
             try
@@ -562,7 +571,7 @@ public class PackageManager
             return;
         }
 
-        _ = Task.Run(async () =>
+        TrackPersistence(async () =>
         {
             await _persistLock.WaitAsync();
             try
@@ -596,8 +605,76 @@ public class PackageManager
     /// </summary>
     internal async Task DrainPendingPersistenceAsync()
     {
-        await _persistLock.WaitAsync();
-        _persistLock.Release();
+        // Snapshot and await every tracked persistence task. A task that was scheduled but not yet
+        // started is already in the set (TrackPersistence registers it synchronously before
+        // dispatch), so awaiting the snapshot covers callbacks that haven't taken _persistLock yet —
+        // the gap a bare `_persistLock.WaitAsync()/Release()` would miss. Loop because a draining
+        // task could, in principle, queue another; in practice the scheduler is stopped first so the
+        // second pass is empty.
+        while (true)
+        {
+            Task[] pending;
+            lock (_pendingPersistenceLock)
+            {
+                pending = [.. _pendingPersistence];
+            }
+
+            if (pending.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await Task.WhenAll(pending);
+            }
+            catch
+            {
+                // Each tracked task already swallows + logs its own exceptions; WhenAll only
+                // re-surfaces them. Draining must not throw — we only care that they finished.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs a fire-and-forget persistence callback while registering it in
+    /// <see cref="_pendingPersistence"/> for the lifetime of the work, so
+    /// <see cref="DrainPendingPersistenceAsync"/> can await it. The task is added synchronously on
+    /// the caller's thread (before <see cref="Task.Run"/> schedules anything) and removed in a
+    /// continuation when the body completes.
+    /// </summary>
+    private void TrackPersistence(Func<Task> body)
+    {
+        // Gate the work on a TCS so the task is registered in _pendingPersistence BEFORE its body
+        // can run (and therefore before it can complete and try to remove itself). Without the gate,
+        // a body that finished between Task.Run and the Add could remove-then-never-have-been-added,
+        // or the Add could land after the removal continuation — either way leaving a stale entry or
+        // missing one. Releasing the gate after the Add makes the add-then-remove order deterministic.
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task task = Task.Run(async () =>
+        {
+            await gate.Task;
+            await body();
+        });
+
+        lock (_pendingPersistenceLock)
+        {
+            _pendingPersistence.Add(task);
+        }
+
+        _ = task.ContinueWith(
+            t =>
+            {
+                lock (_pendingPersistenceLock)
+                {
+                    _pendingPersistence.Remove(t);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        gate.SetResult();
     }
 
     /// <summary>
@@ -669,7 +746,7 @@ public class PackageManager
             int? packageDbId = package.DbId;
             if (packageDbId is int pid)
             {
-                _ = Task.Run(async () =>
+                TrackPersistence(async () =>
                 {
                     await _persistLock.WaitAsync();
                     try
@@ -699,7 +776,7 @@ public class PackageManager
             int? fileDbId = packageFile.DbId;
             if (fileDbId is int fid)
             {
-                _ = Task.Run(async () =>
+                TrackPersistence(async () =>
                 {
                     await _persistLock.WaitAsync();
                     try

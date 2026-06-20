@@ -166,6 +166,97 @@ public sealed class UploadSchedulerOrderTests : IDisposable
         Assert.Equal(Enumerable.Range(1, 3), [.. orders.OrderBy(o => o)]); // dense 1..3, no duplicates
     }
 
+    [Fact]
+    public async Task RenumberQueue_UnplacedZeroFile_AppendsToEndNotFront()
+    {
+        // A non-terminal file carrying QueueOrder==0 (the "unplaced/append" sentinel — e.g. set
+        // off-loop by a Reset/retry/force-start) must, when a RenumberQueue runs, sort to the END
+        // (largest QueueOrder) rather than folding to position 1. Drive the renumber by completing
+        // a different running file (OnUploadCompleted → RenumberQueue). maxUploads 1 so exactly one
+        // file runs and the rest stay queued, keeping QueueOrder assertions stable.
+        GatedPipeline pipeline = new("Rapidgator");
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 1, fileCount: 4);
+
+        // Let the scheduler queue all four and launch the lowest one (dense 1..4 via EnsureQueueOrdered).
+        scheduler.AddPackage(package);
+        await WaitFor(() => CountState(package, FileState.Uploading) == 1 && package.All(f => f.QueueOrder > 0));
+
+        PackageFile running = package.Single(f => f.State == FileState.Uploading);
+
+        // Plant the "unplaced" sentinel on a still-queued file, off the scheduler loop (mimicking a
+        // Reset/retry that sets QueueOrder=0). It must NOT be the running one (whose completion drives
+        // the renumber). With Fix 2 this 0 sorts LAST on the next RenumberQueue, not to the front.
+        PackageFile zeroed = package.First(f => f.State == FileState.UploadQueued);
+        zeroed.QueueOrder = 0;
+
+        // Finish the running file → OnUploadCompleted fires RenumberQueue over the remaining set.
+        pipeline.Complete(running.Name);
+        await WaitFor(() => running.State == FileState.Completed);
+
+        // The three remaining non-terminal files re-densify to a contiguous 1..3, and the file that
+        // was 0 is appended (the LARGEST of the three), never position 1.
+        await WaitFor(() =>
+        {
+            int[] remaining = [.. package
+                .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+                .Select(f => f.QueueOrder)
+                .OrderBy(o => o)];
+            return remaining.SequenceEqual(new[] { 1, 2, 3 });
+        });
+
+        PackageFile[] remainingFiles = [.. package
+            .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))];
+        int maxRemaining = remainingFiles.Max(f => f.QueueOrder);
+        Assert.Equal(maxRemaining, zeroed.QueueOrder); // appended to the END
+        Assert.NotEqual(1, zeroed.QueueOrder);         // NOT folded to the front
+        Assert.All(remainingFiles.Where(f => f != zeroed), f => Assert.True(f.QueueOrder < zeroed.QueueOrder));
+    }
+
+    [Fact]
+    public async Task ForceStart_CompletedNoHashReupload_AppendsWithAssignedPosition()
+    {
+        // Force-starting a re-upload of a Completed (no-hash) file sets QueueOrder=0 ("append") and
+        // launches the upload directly. The single RenumberQueue() after the force-start loop must
+        // give it a real appended position immediately: it ends with the MAX QueueOrder (not the
+        // front) and OrderDisplay would show a number (QueueOrder > 0). maxUploads 0 so the other
+        // files stay queued and the QueueOrder assertions are stable.
+        GatedPipeline pipeline = new("Rapidgator");
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 0, fileCount: 3);
+        PackageFile[] files = [.. package];
+
+        // Two queued, dense, non-terminal files...
+        files[1].State = FileState.UploadQueued;
+        files[1].QueueOrder = 1;
+        files[2].State = FileState.UploadQueued;
+        files[2].QueueOrder = 2;
+
+        // ...and a Completed file we'll force-start a re-upload of.
+        files[0].State = FileState.Completed;
+        files[0].QueueOrder = 0;
+        files[0].IsUploadFinished = true;
+        files[0].FileUrl = "https://done/old";
+
+        scheduler.AddPackage(package, scheduleIdleFiles: false);
+        scheduler.ForceStart([files[0]]);
+
+        // The re-upload launches (Uploading, over the 0 limit) AND gets a dense appended position.
+        await WaitFor(() => files[0].State == FileState.Uploading && files[0].QueueOrder > 0);
+
+        int maxOrder = package
+            .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+            .Max(f => f.QueueOrder);
+        Assert.Equal(maxOrder, files[0].QueueOrder); // appended to the END, not the front
+        Assert.True(files[0].QueueOrder > files[1].QueueOrder);
+        Assert.True(files[0].QueueOrder > files[2].QueueOrder);
+
+        // The whole non-terminal set is a contiguous 1..3 — a number would show in OrderDisplay.
+        int[] orders = [.. package
+            .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
+            .Select(f => f.QueueOrder)
+            .OrderBy(o => o)];
+        Assert.Equal(Enumerable.Range(1, 3), orders);
+    }
+
     private static bool IsContiguousPermutation(int[] orders, int n)
         => orders.Length == n && orders.OrderBy(o => o).SequenceEqual(Enumerable.Range(1, n));
 

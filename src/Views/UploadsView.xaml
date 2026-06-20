@@ -169,13 +169,14 @@
         <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   Loaded="UploadsGrid_Loaded"
+                  BeginningEdit="UploadsGrid_BeginningEdit"
                   CellEditEnding="UploadsGrid_CellEditEnding"
                   ContextMenuOpening="UploadsGrid_ContextMenuOpening"
                   beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
                   beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
                   ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
-                  IsReadOnly="True"
+                  IsReadOnly="False"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
                   CanUserResizeColumns="True"
@@ -552,7 +553,8 @@
                                     Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
                                     Width="80" Visibility="Collapsed" />
                 <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Order}" Width="60"
-                                        Visibility="Collapsed" x:Name="OrderColumn" IsReadOnly="False">
+                                        Visibility="Collapsed" x:Name="OrderColumn" IsReadOnly="False"
+                                        ClipboardContentBinding="{Binding OrderDisplay}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding OrderDisplay}"
