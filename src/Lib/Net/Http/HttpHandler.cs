@@ -437,7 +437,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
 
             // Connect-phase reclassification — intentionally scoped to UploadMultipartAsync (the
-            // method HitFile/GigaPeta/BRupload use). Once progressContent exists, the upload
+            // shared multipart path used by HitFile, GigaPeta, BRupload, and other multipart
+            // hosters), NOT UploadFileAsync/PostChunkAsync. Once progressContent exists, the upload
             // attempt is underway; a fault while BodyFullySent is still false means the request
             // body didn't complete — a connect-phase DNS/TCP/TLS failure that never reached the
             // body, or a mid-send abort. Either way zero (or partial) bytes were sent, the server
@@ -557,6 +558,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusReason = "Error";
             transaction.ResponseBody = ex.ToString();
             LogTransaction(transaction);
+
+            // Deliberately NOT doing UploadMultipartAsync's connect-phase reclassification here:
+            // chunked uploads re-discover (sid + per-chunk finalize) on each attempt and have their
+            // own result-verification model, so the "body never fully sent → safe to retry" rule
+            // doesn't transfer to this path.
             throw;
         }
     }

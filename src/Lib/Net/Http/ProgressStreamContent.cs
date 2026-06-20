@@ -18,6 +18,9 @@ public class ProgressStreamContent(Stream content, Action<long, long> progress, 
     /// upload methods after a fault: when this is still false the server received an incomplete
     /// (or no) body and committed nothing, so the failure is a safe-to-retry body-transfer abort —
     /// whether the write aborted mid-send or the connection never established at all.
+    /// Cross-thread publication relies on the <c>await</c> edge in UploadMultipartAsync's catch
+    /// (the write here happens-before the read there); keep the single reader behind that edge —
+    /// do NOT add an unsynchronized reader on another thread.
     /// </summary>
     internal bool BodyFullySent { get; private set; }
 

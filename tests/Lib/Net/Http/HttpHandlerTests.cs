@@ -239,6 +239,30 @@ public class HttpHandlerTests
             $"A failure after the body was fully sent must stay a terminal fault (server may have committed). Got: {thrown}");
     }
 
+    [Fact]
+    public async Task UploadMultipartAsync_LocalFileOpenFails_NotReclassified_StaysTerminalFault()
+    {
+        // SAFETY NEGATIVE for the `progressContent is not null` half of the guard: a non-existent
+        // source file makes `new FileStream(...)` throw BEFORE progressContent is assigned (it stays
+        // null), so the fault is a LOCAL setup error, not a network "nothing committed" case. It must
+        // NOT be reclassified as retryable. Locks the guard against a future refactor that eagerly
+        // initializes progressContent. The inner handler never even runs — the throw is pre-send.
+        string missingPath = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(), "csu-does-not-exist-" + Guid.NewGuid().ToString("N") + ".bin");
+        HttpHandler handler = new(
+            new HttpClient(new ConnectFailHandler(new HttpRequestException("should never be reached"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadMultipartAsync(missingPath, "https://example.test/u", fileFieldName: "file"));
+
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A local file-open failure (progressContent never created) must stay a terminal fault, not be reclassified as retryable. Got: {thrown}");
+    }
+
     /// <summary>
     /// Simulates a connect-phase failure: throws on send WITHOUT ever reading the request content,
     /// so <see cref="ProgressStreamContent"/> never serializes and <c>BodyFullySent</c> stays false.
