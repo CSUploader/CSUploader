@@ -44,7 +44,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishedDate)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
 
@@ -447,36 +446,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             return files.Max(f => f.FinishedDate);
         }
     }
-
-    /// <summary>
-    /// Gets or sets the upload priority for this package. Defaults to
-    /// <see cref="PackagePriority.Normal"/>; the scheduler picks files from higher-
-    /// priority packages first. Child file rows pass through this value so the
-    /// Priority column shows the same level regardless of which row is displayed.
-    /// </summary>
-    public PackagePriority Priority
-    {
-        get;
-        set
-        {
-            if (field == value)
-            {
-                return;
-            }
-
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
-
-            // Cascade into each child file so its pass-through Priority cell updates
-            // immediately instead of waiting on the 200ms RefreshTimer tick.
-            PackageFile[] snapshot;
-            lock (_filesLock) { snapshot = [.. PackageFiles]; }
-            foreach (PackageFile f in snapshot)
-            {
-                f.RaisePropertyChanged(nameof(PackageFile.Priority));
-            }
-        }
-    } = PackagePriority.Normal;
 
     /// <summary>
     /// Gets the newline-joined URLs of child files that have finished uploading, or empty if none.

@@ -261,7 +261,6 @@ public class PackageManager
             DbId = pkgDto.Id,
             ScheduledStartTime = pkgDto.ScheduledStartTime,
             SpeedLimitKBps = pkgDto.SpeedLimitKBps,
-            Priority = pkgDto.Priority,
         };
 
         // Override Name since it was persisted
@@ -370,7 +369,6 @@ public class PackageManager
         lock (_lock)
         { Packages.Add(package); }
         PackageAdded?.Invoke(this, new PackageAddedEventArgs(null, [package]));
-        WirePackagePersistence(package);
 
         if (allTerminal)
         {
@@ -424,36 +422,8 @@ public class PackageManager
         }
 
         await PersistNewPackageAsync(package);
-        WirePackagePersistence(package);
 
         return package;
-    }
-
-    /// <summary>
-    /// Hooks <see cref="Package.PropertyChanged"/> so user-driven priority changes
-    /// flow through to the database immediately (no save button needed).
-    /// </summary>
-    private void WirePackagePersistence(Package package)
-    {
-        package.PropertyChanged += async (_, e) =>
-        {
-            if (package.DbId is not int id)
-            {
-                return;
-            }
-
-            if (e.PropertyName == nameof(Package.Priority))
-            {
-                try
-                {
-                    await _packageRepo.UpdatePriorityAsync(id, package.Priority);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log(this, LogType.Error, $"Failed to persist priority for package {id}: {ex.Message}");
-                }
-            }
-        };
     }
 
     private async Task PersistNewPackageAsync(Package package)

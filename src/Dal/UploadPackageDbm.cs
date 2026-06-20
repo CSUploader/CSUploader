@@ -29,13 +29,6 @@ public class UploadPackageDbm
     public int StartMode { get; set; }
 
     /// <summary>
-    /// Five-level upload priority (cast to <see cref="Upload.PackagePriority"/>).
-    /// Defaults to 0 (Normal). The scheduler picks files from higher-priority
-    /// packages first.
-    /// </summary>
-    public int Priority { get; set; }
-
-    /// <summary>
     /// Soft-delete flag for the Uploads tab. Set when the user removes a package from
     /// Uploads — the package's per-file rows are still consulted by the Uploaded tab
     /// (each file has its own <see cref="UploadPackageFileDbm.IsHidden"/> flag for that),

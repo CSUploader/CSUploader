@@ -35,7 +35,6 @@ public class PackageFile : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileHash)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueOrder)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
     }
@@ -306,13 +305,6 @@ public class PackageFile : INotifyPropertyChanged
     public DateTime AddedDate { get; set; } = DateTime.Now;
 
     /// <summary>
-    /// Gets the owning package's upload priority. Pass-through so the file-row's
-    /// Priority column shares the package-level value (priority is a per-package
-    /// concept; individual files don't carry their own).
-    /// </summary>
-    public PackagePriority Priority => Package.Priority;
-
-    /// <summary>
     /// Global upload position across all packages (1-based; lower uploads sooner). The
     /// scheduler orders every file by this value. Maintained dense (1..N) over non-terminal
     /// files; terminal files keep a stale value that is not displayed. Fires PropertyChanged
@@ -338,14 +330,6 @@ public class PackageFile : INotifyPropertyChanged
     public string OrderDisplay => State is FileState.Completed or FileState.Failed or FileState.Cancelled || QueueOrder <= 0
         ? string.Empty
         : QueueOrder.ToString(System.Globalization.CultureInfo.CurrentCulture);
-
-    /// <summary>
-    /// Raises <see cref="PropertyChanged"/> for the given property name. Allows
-    /// <see cref="Upload.Package"/> to cascade aggregated-property changes into
-    /// child file rows (e.g. Priority) without exposing the event handler list.
-    /// </summary>
-    internal void RaisePropertyChanged(string propertyName) =>
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
     /// <summary>
     /// Consumes a single <see cref="Pipeline.UploadEvent"/> emitted by <see cref="Pipeline.AttemptRunner"/>.

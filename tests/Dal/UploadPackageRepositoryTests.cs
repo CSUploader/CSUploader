@@ -161,42 +161,6 @@ public class UploadPackageRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task InsertAndFind_RoundTripsPriority()
-    {
-        UploadPackageDto pkg = new()
-        {
-            Name = "p",
-            CreatedDateTime = DateTime.Now,
-            Priority = PackagePriority.High,
-        };
-        await _packageRepo.InsertAsync(pkg);
-
-        UploadPackageDto? reloaded = await _packageRepo.FindAsync(pkg.Id);
-
-        Assert.Equal(PackagePriority.High, reloaded!.Priority);
-    }
-
-    [Fact]
-    public async Task UpdatePriorityAsync_FlipsValueWithoutTouchingOtherFields()
-    {
-        UploadPackageDto pkg = new()
-        {
-            Name = "p",
-            CreatedDateTime = DateTime.Now,
-            Priority = PackagePriority.Normal,
-            IsCompleted = true,
-        };
-        await _packageRepo.InsertAsync(pkg);
-
-        await _packageRepo.UpdatePriorityAsync(pkg.Id, PackagePriority.Lowest);
-
-        UploadPackageDto? reloaded = await _packageRepo.FindAsync(pkg.Id);
-        Assert.Equal(PackagePriority.Lowest, reloaded!.Priority);
-        Assert.True(reloaded.IsCompleted);
-        Assert.Equal("p", reloaded.Name);
-    }
-
-    [Fact]
     public async Task DeleteHiddenHistoryAsync_RemovesFilesHiddenFromBothTabs()
     {
         // File hidden from both tabs (IsRemovedFromUploads + IsHidden) — should be deleted.
