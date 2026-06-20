@@ -45,7 +45,6 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
 
         PackageFile[] snapshot;
         lock (_filesLock)
@@ -91,24 +90,13 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
-    /// Gets the Order-column text for the package row: the minimum 1-based <see cref="PackageFile.QueueOrder"/>
-    /// among its non-terminal, placed (QueueOrder &gt; 0) files, or blank when none qualify. Shows roughly
-    /// where the package sits in the global upload queue.
+    /// Gets the Order-column text for the package row. A package is a grouping row, not a queue
+    /// entry — only individual files carry a <see cref="PackageFile.QueueOrder"/> — so a package
+    /// has no position in the upload queue and the Order column is always blank for it.
     /// </summary>
-    public string OrderDisplay
-    {
-        get
-        {
-            PackageFile[] files;
-            lock (_filesLock)
-            { files = [.. PackageFiles]; }
-            int? min = files
-                .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled) && f.QueueOrder > 0)
-                .Select(f => (int?)f.QueueOrder)
-                .Min();
-            return min is int v ? v.ToString(System.Globalization.CultureInfo.CurrentCulture) : string.Empty;
-        }
-    }
+#pragma warning disable CA1822 // Must be instance for {Binding OrderDisplay} to resolve via the row's DataContext.
+    public string OrderDisplay => string.Empty;
+#pragma warning restore CA1822
 
     /// <summary>
     /// Gets the file hosters used the package is uploading to.

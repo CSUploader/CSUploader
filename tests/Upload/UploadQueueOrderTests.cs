@@ -138,6 +138,28 @@ public class UploadQueueOrderTests
         Assert.True(UploadQueueOrder.MoveBy(files, [files[0]], +2));
     }
 
+    [Fact]
+    public void Package_OrderDisplay_IsAlwaysBlank_EvenWhenFilesHaveOrders()
+    {
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
+        Package pkg = new(new PackageOptions { Title = "p", FileHosters = new() { { hoster, login } } });
+        PackageFile[] files =
+        [
+            new PackageFile(pkg, @"C:\x\a.bin", hoster, login) { QueueOrder = 1 },
+            new PackageFile(pkg, @"C:\x\b.bin", hoster, login) { QueueOrder = 2 },
+        ];
+        pkg.AddPackageFiles(files);
+
+        // A package is a grouping row, not a queue entry — its Order column is always blank,
+        // even though its (non-terminal) files carry real 1-based QueueOrders.
+        Assert.Equal(string.Empty, pkg.OrderDisplay);
+
+        // Sanity: the files themselves still surface their order.
+        Assert.Equal("1", files[0].OrderDisplay);
+        Assert.Equal("2", files[1].OrderDisplay);
+    }
+
     private static List<PackageFile> Make(int n)
     {
         FileHosterClient hoster = new("Rapidgator", Protocol.Http);
