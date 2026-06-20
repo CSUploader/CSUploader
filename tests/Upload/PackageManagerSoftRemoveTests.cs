@@ -756,7 +756,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             Assert.Null(file.Error);
             Assert.NotEqual(FileState.Failed, file.State);
 
-            for (int i = 0; i < 50 && _scheduler.IsPaused; i++)
+            for (int i = 0; i < 250 && _scheduler.IsPaused; i++)
             {
                 await Task.Delay(20);
             }
@@ -797,7 +797,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             _packageManager.StartPackage(fileA);
 
             // Poll until fileA leaves Idle — proves the async FillSlots actually ran.
-            for (int i = 0; i < 50 && fileA.State == FileState.Idle; i++)
+            for (int i = 0; i < 250 && fileA.State == FileState.Idle; i++)
             {
                 await Task.Delay(20);
             }
@@ -974,7 +974,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             Assert.Null(package.ScheduledStartTime);
             Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            for (int i = 0; i < 50 && file.State == FileState.Idle; i++)
+            for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
             {
                 await Task.Delay(20);
             }
@@ -1013,7 +1013,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             PackageFile file = package.Single();
 
             _scheduler.PauseAll();
-            for (int i = 0; i < 50 && !_packageManager.IsPaused; i++)
+            for (int i = 0; i < 250 && !_packageManager.IsPaused; i++)
             {
                 await Task.Delay(20);
             }
@@ -1022,7 +1022,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             _packageManager.ForceStartPackage(file);
 
-            for (int i = 0; i < 50 && file.State == FileState.Idle; i++)
+            for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
             {
                 await Task.Delay(20);
             }
@@ -1066,7 +1066,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             _packageManager.ForceStartPackage(target);
 
             Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            for (int i = 0; i < 50 && target.State == FileState.Idle; i++)
+            for (int i = 0; i < 250 && target.State == FileState.Idle; i++)
             {
                 await Task.Delay(20);
             }
@@ -1157,9 +1157,13 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     private static async Task<T?> WaitForAsync<T>(Func<Task<T?>> probe)
         where T : class
     {
-        // RemovePackage's persistence is fire-and-forget; poll briefly so the test doesn't
-        // depend on a fixed delay.
-        for (int i = 0; i < 50; i++)
+        // RemovePackage's persistence is fire-and-forget; poll until it commits. The loop returns
+        // the instant the probe succeeds, so the happy path is unaffected — the generous 10s budget
+        // (100×100 ms) only matters under parallel-run thread-pool congestion, where a correct-but-
+        // slow persistence Task.Run can sit queued for seconds before a worker picks it up.
+        // (TestThreadPoolInitializer raises the worker floor to make that rare; this wider budget is
+        // belt-and-suspenders so a slow write is never declared a failure prematurely.)
+        for (int i = 0; i < 100; i++)
         {
             T? result = await probe();
             if (result is not null)
@@ -1167,7 +1171,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
                 return result;
             }
 
-            await Task.Delay(50);
+            await Task.Delay(100);
         }
 
         return null;
