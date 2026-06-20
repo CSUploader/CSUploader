@@ -149,35 +149,16 @@ public sealed class GigaPetaPipeline : IFileHosterPipeline
 
         ctx.Handler.UploadProgress -= onProgress;
 
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        HttpResponseSnapshot? uploadResponse = null;
-        try
-        {
-            uploadResponse = await uploadTask;
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            attemptCancelled = true;
-        }
-        catch (Exception ex)
-        {
-            attemptException = ex;
-        }
+        // Let any transport fault propagate out of RunAsync to the shared retry layer
+        // (AttemptRunner): a connect-phase failure or a mid-send abort arrives as a safe-to-retry
+        // UploadBodyTransferException, and re-running this whole pipeline scrapes a FRESH rotating
+        // upload node — the right recovery, and it never double-creates because the body never
+        // finished. A genuine user cancel surfaces as OperationCanceledException and is classified by
+        // AttemptRunner. A SERVER VERDICT does NOT throw (UploadMultipartAsync returns the snapshot),
+        // so it still flows through ParseUploadResponse below.
+        HttpResponseSnapshot uploadResponse = await uploadTask;
 
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        (string? url, string? error) = ParseUploadResponse(uploadResponse!);
+        (string? url, string? error) = ParseUploadResponse(uploadResponse);
         if (error is not null)
         {
             yield return new AttemptFailed(error, null);

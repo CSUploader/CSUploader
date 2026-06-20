@@ -236,76 +236,43 @@ public class HitFilePipelineUploadTests
     }
 
     // A mid-stream connection reset, shaped exactly like the live failure: HttpRequestException ->
-    // IOException -> SocketException(10054).
+    // UploadBodyTransferException -> IOException -> SocketException(10054). The body-transfer marker
+    // is what AttemptRunner keys its safe-to-retry decision off.
     private static HttpRequestException ConnectionReset() =>
         new("Error while copying content to a stream",
-            new IOException("Unable to write data to the transport connection",
-                new SocketException(10054)));
+            new UploadBodyTransferException(
+                new IOException("Unable to write data to the transport connection",
+                    new SocketException(10054))));
 
     [Fact]
-    public async Task RunAsync_UploadResetThenSucceeds_RetriesWithFreshDiscoveryAndCompletes()
+    public async Task RunAsync_UploadTransportFault_PropagatesOutOfRunAsync()
     {
-        // The per-request node resets the first transfer mid-stream; the retry re-discovers a fresh
-        // node and completes. No file is created by the reset, so this is safe (no double-upload).
-        int discoveryCalls = 0, uploadCalls = 0;
+        // The pipeline no longer owns retry/classification — the shared retry layer (AttemptRunner)
+        // does. A transport fault from the upload (a body-incomplete mid-send reset) must therefore
+        // PROPAGATE out of RunAsync rather than be swallowed into an AttemptFailed/AttemptCancelled,
+        // so AttemptRunner can classify it (body-not-fully-sent → re-run the whole pipeline).
+        int uploadCalls = 0;
         HitFilePipeline pipeline = new(
             postJsonOverride: (url, body) =>
-            {
-                discoveryCalls++;
-                return new HttpResponseSnapshot(200, $$"""{"urls":["https://s{{discoveryCalls}}.hitfile.net/uploadfile"]}""", Array.Empty<string>());
-            },
-            uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
-            {
-                uploadCalls++;
-                if (uploadCalls == 1)
-                {
-                    throw ConnectionReset();
-                }
-
-                return Task.FromResult(new HttpResponseSnapshot(200, """{"result":true,"id":"OkAfterRetry","message":"Everything is ok"}""", Array.Empty<string>()));
-            });
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-
-        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
-        Assert.Equal("https://hitfile.net/OkAfterRetry", tc.FileUrl);
-        Assert.Empty(events.OfType<AttemptFailed>());
-        Assert.Equal(2, discoveryCalls); // re-discovered a fresh node for the retry
-        Assert.Equal(2, uploadCalls);
-    }
-
-    [Fact]
-    public async Task RunAsync_UploadResetsEveryAttempt_FailsAfterMaxAttempts()
-    {
-        // The node keeps resetting → exhaust the bounded retries and surface a clear failure, having
-        // re-discovered a fresh node on each of the (3) attempts.
-        int discoveryCalls = 0, uploadCalls = 0;
-        HitFilePipeline pipeline = new(
-            postJsonOverride: (url, body) =>
-            {
-                discoveryCalls++;
-                return new HttpResponseSnapshot(200, $$"""{"urls":["https://s{{discoveryCalls}}.hitfile.net/uploadfile"]}""", Array.Empty<string>());
-            },
+                new HttpResponseSnapshot(200, $$"""{"urls":["{{UploadServer}}"]}""", Array.Empty<string>()),
             uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
             {
                 uploadCalls++;
                 throw ConnectionReset();
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(
+            async () => await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None)));
 
-        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Contains("after 3 attempts", fail.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain(events, e => e is TransferCompleted);
-        Assert.Equal(3, discoveryCalls);
-        Assert.Equal(3, uploadCalls);
+        Assert.True(UploadBodyTransferException.IsInChain(ex)); // the safe-to-retry signal survives intact
+        Assert.Equal(1, uploadCalls); // single-shot; no in-pipeline retry
     }
 
     [Fact]
-    public async Task RunAsync_NonTransportUploadException_FailsWithoutRetry()
+    public async Task RunAsync_NonTransportUploadException_PropagatesOutOfRunAsync()
     {
-        // A non-transport fault (e.g. a vanished local file) is NOT the reset case — fail immediately
-        // rather than re-sending fruitlessly.
+        // The pipeline no longer classifies faults — a non-transport throw (e.g. a vanished local
+        // file) propagates exactly like a transport one and AttemptRunner decides it's non-retryable.
         int uploadCalls = 0;
         HitFilePipeline pipeline = new(
             postJsonOverride: (url, body) =>
@@ -316,11 +283,10 @@ public class HitFilePipelineUploadTests
                 throw new FileNotFoundException("the file is gone");
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        await Assert.ThrowsAsync<FileNotFoundException>(
+            async () => await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None)));
 
-        Assert.Single(events.OfType<AttemptFailed>());
-        Assert.DoesNotContain(events, e => e is TransferCompleted);
-        Assert.Equal(1, uploadCalls); // no retry on a non-transport fault
+        Assert.Equal(1, uploadCalls); // single-shot
     }
 
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)

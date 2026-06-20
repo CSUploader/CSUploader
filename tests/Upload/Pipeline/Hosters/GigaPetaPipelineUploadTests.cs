@@ -3,7 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
@@ -140,6 +142,36 @@ public class GigaPetaPipelineUploadTests
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("403", fail.Reason, StringComparison.Ordinal);
         Assert.DoesNotContain(events, e => e is TransferCompleted);
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadTransportFault_PropagatesOutOfRunAsync()
+    {
+        // The pipeline no longer catches the upload's transport fault into a terminal
+        // AttemptFailed/AttemptCancelled — the shared retry layer (AttemptRunner) owns that. A
+        // body-incomplete mid-send reset must PROPAGATE out of RunAsync so AttemptRunner can classify
+        // it (body-not-fully-sent → re-run the whole pipeline against a fresh scraped node).
+        Queue<HttpResponseSnapshot> home = new(new[]
+        {
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+        });
+        int uploadCalls = 0;
+        GigaPetaPipeline pipeline = new(
+            getSnapshotOverride: _ => home.Dequeue(),
+            uploadOverride: (filePath, endpoint, extraFields, headers, speed) =>
+            {
+                uploadCalls++;
+                throw new HttpRequestException(
+                    "Error while copying content to a stream",
+                    new UploadBodyTransferException(
+                        new IOException("Unable to write data to the transport connection", new SocketException(10054))));
+            });
+
+        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(
+            async () => await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None)));
+
+        Assert.True(UploadBodyTransferException.IsInChain(ex)); // the safe-to-retry signal survives intact
+        Assert.Equal(1, uploadCalls); // single-shot; no in-pipeline retry
     }
 
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
