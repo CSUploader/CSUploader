@@ -117,15 +117,19 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
         // Bounded retry loop. The whole hoster pipeline is re-run (a fresh attempt) ONLY when
         // the previous attempt propagated a body-incomplete transport fault — the connection
         // aborted mid-send, so the server committed nothing and re-sending cannot double-create.
-        // A server verdict (yielded AttemptFailed/AttemptCancelled) or success is terminal.
-        // `yield return` can't live inside try/catch, so we pump the pipeline's events through a
-        // channel on a background Task that captures any thrown transport fault.
+        // A server verdict (yielded AttemptFailed) or success is terminal. A yielded
+        // AttemptCancelled is NOT a plain terminal: it's a non-retrying pipeline's way of
+        // signalling a user-cancel, so we normalise it to a thrown OperationCanceledException
+        // (the same contract GigaPeta/HitFile propagate directly) — see the cancelledByPipeline
+        // handling below. `yield return` can't live inside try/catch, so we pump the pipeline's
+        // events through a channel on a background Task that captures any thrown transport fault.
         for (int attempt = 1; attempt <= MaxUploadAttempts; attempt++)
         {
             // Each attempt starts from a clean slate — a prior attempt's partial success must never
             // leak into this one's final AttemptCompleted.
             success = false;
             finalUrl = null;
+            bool cancelledByPipeline = false;
 
             Channel<UploadEvent> channel = Channel.CreateUnbounded<UploadEvent>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
@@ -158,13 +162,29 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
                     success = true;
                     finalUrl = tc.FileUrl;
                 }
+                else if (ev is AttemptCancelled)
+                {
+                    cancelledByPipeline = true;
+                }
             }
 
             await pump; // ensure `fault` is published (and surface any pump-internal failure).
 
             if (fault is null)
             {
-                // Terminal: success, a server-verdict AttemptFailed, or AttemptCancelled.
+                if (cancelledByPipeline)
+                {
+                    // A non-retrying pipeline signalled a user cancellation by yielding
+                    // AttemptCancelled (rather than propagating the OCE the way GigaPeta/HitFile
+                    // do). Normalise it to the SAME thrown-OCE cancellation contract so the
+                    // scheduler marks the row Cancelled (not Failed) and — like the propagating
+                    // pipelines — no AttemptCompleted is emitted, so a user-cancel records no proxy
+                    // result. ct is necessarily already cancelled here (pipelines only yield
+                    // AttemptCancelled under `when (ctx.Cancellation.IsCancellationRequested)`).
+                    throw new OperationCanceledException(ct);
+                }
+
+                // Terminal: success, or a server-verdict AttemptFailed.
                 break;
             }
 

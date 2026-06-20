@@ -360,6 +360,40 @@ public class AttemptRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenPipelineYieldsAttemptCancelled_ThrowsOperationCanceledWithoutAttemptCompleted()
+    {
+        // The six non-retrying pipelines (FileBoom/BRupload/Alfafile/ExtMatrix/Rapidgator/
+        // XFileSharingApi) signal a user-cancel by YIELDING AttemptCancelled (not throwing the
+        // way GigaPeta/HitFile do). AttemptRunner must normalise that yield into the SAME
+        // thrown-OCE cancellation contract: throw OperationCanceledException so the scheduler
+        // marks the row Cancelled (not Failed), do NOT retry, and emit NO terminal
+        // AttemptCompleted (so ProxyManager records no proxy result on a user-cancel). The
+        // AttemptCancelled event itself is still forwarded (PackageFile needs it for
+        // FinishedDate/Speed), so it MAY appear in the events drained before the throw.
+        using CancellationTokenSource cts = new();
+        cts.Cancel(); // pipelines only yield AttemptCancelled under an already-cancelled token.
+        ProgrammablePipeline pipeline = new(_ => PipelineBehavior.YieldCancel());
+        AttemptRunner runner = BuildRunner(pipeline);
+        AttemptCompleted? terminalSeen = null;
+        runner.AttemptCompleted += (_, e) => terminalSeen = e;
+
+        List<UploadEvent> events = [];
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), cts.Token))
+            {
+                events.Add(ev);
+            }
+        });
+
+        Assert.Equal(1, pipeline.Invocations); // no retry on a user-cancel
+        Assert.DoesNotContain(events, e => e is AttemptCompleted); // no terminal yielded before the throw
+        Assert.Null(terminalSeen); // and none raised to event subscribers (ProxyManager)
+        // The cancel signal itself is still forwarded to the consumer (PackageFile.ApplyEvent).
+        Assert.Contains(events, e => e is AttemptCancelled);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenBareOceWithUnrelatedToken_TreatedAsFaultNotCancellation()
     {
         // Our runner token is a live, NON-cancelled token, but the pipeline throws an OCE
@@ -433,13 +467,18 @@ public class AttemptRunnerTests
     private sealed record PipelineBehavior(
         string? SuccessUrl,
         Exception? Throw,
-        string? ServerFailureReason)
+        string? ServerFailureReason,
+        bool YieldCancelled = false)
     {
         public static PipelineBehavior Succeed(string url) => new(url, null, null);
 
         public static PipelineBehavior ThrowAfterStarted(Exception ex) => new(null, ex, null);
 
         public static PipelineBehavior YieldServerFailure(string reason) => new(null, null, reason);
+
+        // A non-retrying pipeline (FileBoom/BRupload/Alfafile/ExtMatrix/Rapidgator/XFileSharingApi)
+        // signalling a user-cancel: yield AttemptCancelled, then yield break (no throw).
+        public static PipelineBehavior YieldCancel() => new(null, null, null, YieldCancelled: true);
     }
 
     /// <summary>
@@ -479,6 +518,12 @@ public class AttemptRunnerTests
             if (behavior.ServerFailureReason is not null)
             {
                 yield return new AttemptFailed(behavior.ServerFailureReason, null);
+                yield break;
+            }
+
+            if (behavior.YieldCancelled)
+            {
+                yield return new AttemptCancelled();
                 yield break;
             }
 
