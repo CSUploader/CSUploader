@@ -22,7 +22,19 @@ public class ProgressStreamContent(Stream content, Action<long, long> progress, 
         while ((bytesRead = await _content.ReadAsync(buffer, _cancellationToken).ConfigureAwait(false)) != 0)
         {
             _cancellationToken.ThrowIfCancellationRequested();
-            await stream.WriteAsync(buffer.AsMemory(0, bytesRead), _cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await stream.WriteAsync(buffer.AsMemory(0, bytesRead), _cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Writing to the request body stream failed mid-send (the server reset the
+                // connection before we finished). The server received an incomplete request and
+                // committed nothing, so this is a safe-to-retry body-transfer abort. Marking it
+                // lets the retry layer distinguish it from a server verdict or a local read error.
+                throw new UploadBodyTransferException(ex);
+            }
 
             totalBytesRead += bytesRead;
             _progress(_content.Length, totalBytesRead);

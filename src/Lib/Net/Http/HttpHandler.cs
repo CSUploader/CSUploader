@@ -617,6 +617,17 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             LogTransaction(transaction);
             throw;
         }
+        catch (Exception ex) when (UploadBodyTransferException.IsInChain(ex))
+        {
+            // A mid-send body abort — log like the generic catch but RETHROW so the shared
+            // retry layer (AttemptRunner) can re-send (the server committed nothing).
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+            throw;
+        }
         catch (Exception ex)
         {
             transaction.EndTime = DateTime.Now;
