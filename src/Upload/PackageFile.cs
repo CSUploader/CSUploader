@@ -37,6 +37,7 @@ public class PackageFile : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueOrder)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
     }
 
     /// <summary>
@@ -329,8 +330,14 @@ public class PackageFile : INotifyPropertyChanged
 
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueOrder)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
         }
     }
+
+    /// <summary>Order-column text: blank for terminal/unplaced files, else the 1-based QueueOrder.</summary>
+    public string OrderDisplay => State is FileState.Completed or FileState.Failed or FileState.Cancelled || QueueOrder <= 0
+        ? string.Empty
+        : QueueOrder.ToString(System.Globalization.CultureInfo.CurrentCulture);
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> for the given property name. Allows

@@ -165,6 +165,41 @@ public partial class UploadsView : UserControl
         return menu;
     }
 
+    /// <summary>
+    /// Commits an edited "Order" cell to a move. The editing TextBox holds the raw typed
+    /// 1-based position; SetOrderCommand routes it through the package manager, which
+    /// clamps and re-numbers. Package and terminal rows are ignored.
+    /// </summary>
+    private void UploadsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit)
+        {
+            return;
+        }
+
+        if (e.Column != OrderColumn)
+        {
+            return;
+        }
+
+        if (e.Row.Item is not PackageFile file)
+        {
+            return; // ignore package rows
+        }
+
+        // For a DataGridTemplateColumn the editing element IS the TextBox from the
+        // CellEditingTemplate, so no visual-tree walk is needed.
+        if (e.EditingElement is not TextBox tb || !int.TryParse(tb.Text, out int target))
+        {
+            return;
+        }
+
+        if (DataContext is UploadsViewModel vm)
+        {
+            vm.SetOrderCommand.Execute((file, target));
+        }
+    }
+
     private void AddUploadButton_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is UploadsViewModel vm)

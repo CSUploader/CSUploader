@@ -9,7 +9,6 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
              xmlns:vm="clr-namespace:CSUploader.ViewModels"
-             xmlns:up="clr-namespace:CSUploader.Upload"
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"
@@ -24,7 +23,6 @@
         <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
         <conv:FileStateDisplayConverter x:Key="FileStateConverter" />
         <conv:FileStateIconConverter x:Key="FileStateIconConverter" />
-        <conv:PackagePriorityDisplayConverter x:Key="PackagePriorityConverter" />
         <conv:HosterIconConverter x:Key="HosterIconConverter" />
         <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
 
@@ -140,16 +138,16 @@
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
 
                 <Button Style="{StaticResource ToolbarButton}"
-                        Command="{Binding IncreasePriorityCommand}"
+                        Command="{Binding MoveUpCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="{loc:Loc Uploads_Tooltip_IncreasePriority}">
+                        ToolTip="{loc:Loc Uploads_Tooltip_MoveUp}">
                     <TextBlock Text="&#x25B2;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
                 <Button Style="{StaticResource ToolbarButton}"
-                        Command="{Binding DecreasePriorityCommand}"
+                        Command="{Binding MoveDownCommand}"
                         CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
-                        ToolTip="{loc:Loc Uploads_Tooltip_DecreasePriority}">
+                        ToolTip="{loc:Loc Uploads_Tooltip_MoveDown}">
                     <TextBlock Text="&#x25BC;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
@@ -171,6 +169,7 @@
         <!-- Main DataGrid -->
         <DataGrid x:Name="uploadsGrid" Grid.Row="1"
                   Loaded="UploadsGrid_Loaded"
+                  CellEditEnding="UploadsGrid_CellEditEnding"
                   ContextMenuOpening="UploadsGrid_ContextMenuOpening"
                   beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
                   beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
@@ -248,14 +247,11 @@
                               CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
-                    <!-- Priority submenu. SetPriorityCommand reads SelectedRow off the VM
-                         so each subitem only needs the level as CommandParameter. -->
-                    <MenuItem Header="{loc:Loc Uploads_Context_Priority}">
-                        <MenuItem Header="{loc:Loc Uploads_Priority_Highest}" Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Highest}" />
-                        <MenuItem Header="{loc:Loc Uploads_Priority_High}"    Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.High}" />
-                        <MenuItem Header="{loc:Loc Uploads_Priority_Normal}"  Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Normal}" />
-                        <MenuItem Header="{loc:Loc Uploads_Priority_Low}"     Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Low}" />
-                        <MenuItem Header="{loc:Loc Uploads_Priority_Lowest}"  Command="{Binding SetPriorityCommand}" CommandParameter="{x:Static up:PackagePriority.Lowest}" />
+                    <MenuItem Header="{loc:Loc Uploads_Context_Move}">
+                        <MenuItem Header="{loc:Loc Uploads_Move_Up10}"   Command="{Binding MoveSelectedCommand}" CommandParameter="-10" />
+                        <MenuItem Header="{loc:Loc Uploads_Move_Up1}"    Command="{Binding MoveSelectedCommand}" CommandParameter="-1" />
+                        <MenuItem Header="{loc:Loc Uploads_Move_Down1}"  Command="{Binding MoveSelectedCommand}" CommandParameter="1" />
+                        <MenuItem Header="{loc:Loc Uploads_Move_Down10}" Command="{Binding MoveSelectedCommand}" CommandParameter="10" />
                     </MenuItem>
                     <Separator />
                     <!-- Per-column copy submenu. Each item passes its column key (matching
@@ -285,7 +281,7 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
                         <MenuItem Header="{loc:Loc Uploads_Col_ScheduledAt}" Command="{Binding CopyColumnCommand}" CommandParameter="ScheduledAt" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Duration}" Command="{Binding CopyColumnCommand}" CommandParameter="Duration" />
-                        <MenuItem Header="{loc:Loc Uploads_Col_Priority}" Command="{Binding CopyColumnCommand}" CommandParameter="Priority" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Order}" Command="{Binding CopyColumnCommand}" CommandParameter="Order" />
                         <MenuItem Header="{loc:Loc Uploads_Col_SpeedLimit}" Command="{Binding CopyColumnCommand}" CommandParameter="SpeedLimit" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Hash}" Command="{Binding CopyColumnCommand}" CommandParameter="Hash" />
                         <MenuItem Header="{loc:Loc Uploads_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
@@ -555,9 +551,21 @@
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_Duration}"
                                     Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
                                     Width="80" Visibility="Collapsed" />
-                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Priority}"
-                                    Binding="{Binding Priority, Converter={StaticResource PackagePriorityConverter}}"
-                                    Width="90" Visibility="Collapsed" />
+                <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Order}" Width="60"
+                                        Visibility="Collapsed" x:Name="OrderColumn" IsReadOnly="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding OrderDisplay}"
+                                       VerticalAlignment="Center" Margin="4,0,0,0" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <!-- Edit the raw QueueOrder; package/terminal rows are ignored on commit. -->
+                            <TextBox Text="{Binding QueueOrder, Mode=OneWay}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_SpeedLimit}"
                                     Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
                                     Width="90" Visibility="Collapsed" />

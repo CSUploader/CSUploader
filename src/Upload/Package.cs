@@ -46,6 +46,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OrderDisplay)));
 
         PackageFile[] snapshot;
         lock (_filesLock)
@@ -87,6 +88,26 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             lock (_filesLock)
             { files = [.. PackageFiles]; }
             return files.Any(s => s.Size.HasValue) ? files.Sum(u => u.Size) : null;
+        }
+    }
+
+    /// <summary>
+    /// Gets the Order-column text for the package row: the minimum 1-based <see cref="PackageFile.QueueOrder"/>
+    /// among its non-terminal, placed (QueueOrder &gt; 0) files, or blank when none qualify. Shows roughly
+    /// where the package sits in the global upload queue.
+    /// </summary>
+    public string OrderDisplay
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            int? min = files
+                .Where(f => f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled) && f.QueueOrder > 0)
+                .Select(f => (int?)f.QueueOrder)
+                .Min();
+            return min is int v ? v.ToString(System.Globalization.CultureInfo.CurrentCulture) : string.Empty;
         }
     }
 
