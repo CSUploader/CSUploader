@@ -308,6 +308,7 @@ public class PackageManager
                 FileHash = fileDto.FileHash,
                 StartedDate = fileDto.StartDateTime > DateTime.MinValue ? fileDto.StartDateTime : null,
                 FinishedDate = fileDto.FinishedDateTime > DateTime.MinValue ? fileDto.FinishedDateTime : null,
+                QueueOrder = fileDto.QueueOrder,
             };
 
             // Source file may have been deleted between sessions for terminal-state
@@ -490,6 +491,7 @@ public class PackageManager
                     FileHosterLoginId = file.FileHosterLogin?.Id ?? 0,
                     SortOrder = sortOrder++,
                     PackageId = package.DbId.Value,
+                    QueueOrder = file.QueueOrder,
                 };
                 await _fileRepo.InsertAsync(fileDto);
                 file.DbId = fileDto.Id;

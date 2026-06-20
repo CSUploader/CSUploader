@@ -36,6 +36,7 @@ public class PackageFile : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Priority)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueOrder)));
     }
 
     /// <summary>
@@ -309,6 +310,27 @@ public class PackageFile : INotifyPropertyChanged
     /// concept; individual files don't carry their own).
     /// </summary>
     public PackagePriority Priority => Package.Priority;
+
+    /// <summary>
+    /// Global upload position across all packages (1-based; lower uploads sooner). The
+    /// scheduler orders every file by this value. Maintained dense (1..N) over non-terminal
+    /// files; terminal files keep a stale value that is not displayed. Fires PropertyChanged
+    /// so the Order cell refreshes immediately on a reorder.
+    /// </summary>
+    public int QueueOrder
+    {
+        get;
+        internal set
+        {
+            if (field == value)
+            {
+                return;
+            }
+
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueOrder)));
+        }
+    }
 
     /// <summary>
     /// Raises <see cref="PropertyChanged"/> for the given property name. Allows
