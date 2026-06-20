@@ -350,7 +350,9 @@ public class UploadScheduler : IDisposable
     private bool EnsureQueueOrdered()
     {
         List<PackageFile> ordered = OrderedNonTerminalFiles();
-        PackageFile[] unplaced = [.. ordered.Where(f => f.QueueOrder == 0)];
+        // <= 0 (not just == 0) to stay consistent with QueueSortKey, which treats any non-positive
+        // value as the unplaced "append" sentinel — so a stray negative also gets re-placed.
+        PackageFile[] unplaced = [.. ordered.Where(f => f.QueueOrder <= 0)];
         if (unplaced.Length == 0)
         {
             return false;
