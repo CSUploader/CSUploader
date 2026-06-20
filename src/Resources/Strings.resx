@@ -240,32 +240,29 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Set Speed Limit...</value>
   </data>
-  <data name="Uploads_Context_Priority" xml:space="preserve">
-    <value>Priority</value>
+  <data name="Uploads_Context_Move" xml:space="preserve">
+    <value>Move</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
-  <data name="Uploads_Priority_Highest" xml:space="preserve">
-    <value>Highest</value>
+  <data name="Uploads_Move_Up10" xml:space="preserve">
+    <value>Up 10</value>
   </data>
-  <data name="Uploads_Priority_High" xml:space="preserve">
-    <value>High</value>
+  <data name="Uploads_Move_Up1" xml:space="preserve">
+    <value>Up 1</value>
   </data>
-  <data name="Uploads_Priority_Normal" xml:space="preserve">
-    <value>Normal</value>
+  <data name="Uploads_Move_Down1" xml:space="preserve">
+    <value>Down 1</value>
   </data>
-  <data name="Uploads_Priority_Low" xml:space="preserve">
-    <value>Low</value>
+  <data name="Uploads_Move_Down10" xml:space="preserve">
+    <value>Down 10</value>
   </data>
-  <data name="Uploads_Priority_Lowest" xml:space="preserve">
-    <value>Lowest</value>
+  <data name="Uploads_Tooltip_MoveUp" xml:space="preserve">
+    <value>Move up (uploads sooner)</value>
   </data>
-  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
-    <value>Increase priority</value>
-  </data>
-  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
-    <value>Decrease priority</value>
+  <data name="Uploads_Tooltip_MoveDown" xml:space="preserve">
+    <value>Move down (uploads later)</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Name</value>
@@ -312,8 +309,8 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>Duration</value>
   </data>
-  <data name="Uploads_Col_Priority" xml:space="preserve">
-    <value>Priority</value>
+  <data name="Uploads_Col_Order" xml:space="preserve">
+    <value>Order</value>
   </data>
   <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
     <value>Speed Limit</value>

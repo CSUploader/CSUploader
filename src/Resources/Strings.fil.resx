@@ -240,32 +240,29 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Itakda ang Speed Limit...</value>
   </data>
-  <data name="Uploads_Context_Priority" xml:space="preserve">
-    <value>Priyoridad</value>
+  <data name="Uploads_Context_Move" xml:space="preserve">
+    <value>Ilipat</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Tanggalin</value>
   </data>
-  <data name="Uploads_Priority_Highest" xml:space="preserve">
-    <value>Pinakamataas</value>
+  <data name="Uploads_Move_Up10" xml:space="preserve">
+    <value>Pataas 10</value>
   </data>
-  <data name="Uploads_Priority_High" xml:space="preserve">
-    <value>Mataas</value>
+  <data name="Uploads_Move_Up1" xml:space="preserve">
+    <value>Pataas 1</value>
   </data>
-  <data name="Uploads_Priority_Normal" xml:space="preserve">
-    <value>Normal</value>
+  <data name="Uploads_Move_Down1" xml:space="preserve">
+    <value>Pababa 1</value>
   </data>
-  <data name="Uploads_Priority_Low" xml:space="preserve">
-    <value>Mababa</value>
+  <data name="Uploads_Move_Down10" xml:space="preserve">
+    <value>Pababa 10</value>
   </data>
-  <data name="Uploads_Priority_Lowest" xml:space="preserve">
-    <value>Pinakamababa</value>
+  <data name="Uploads_Tooltip_MoveUp" xml:space="preserve">
+    <value>Ilipat pataas (mas maagang mag-upload)</value>
   </data>
-  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
-    <value>Itaas ang priyoridad</value>
-  </data>
-  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
-    <value>Ibaba ang priyoridad</value>
+  <data name="Uploads_Tooltip_MoveDown" xml:space="preserve">
+    <value>Ilipat pababa (mas huling mag-upload)</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Pangalan</value>
@@ -312,8 +309,8 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>Tagal</value>
   </data>
-  <data name="Uploads_Col_Priority" xml:space="preserve">
-    <value>Priority</value>
+  <data name="Uploads_Col_Order" xml:space="preserve">
+    <value>Pagkakasunod</value>
   </data>
   <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
     <value>Speed Limit</value>

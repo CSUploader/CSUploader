@@ -240,32 +240,29 @@
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>速度制限を設定…</value>
   </data>
-  <data name="Uploads_Context_Priority" xml:space="preserve">
-    <value>優先度</value>
+  <data name="Uploads_Context_Move" xml:space="preserve">
+    <value>移動</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>削除</value>
   </data>
-  <data name="Uploads_Priority_Highest" xml:space="preserve">
-    <value>最高</value>
+  <data name="Uploads_Move_Up10" xml:space="preserve">
+    <value>上へ10</value>
   </data>
-  <data name="Uploads_Priority_High" xml:space="preserve">
-    <value>高</value>
+  <data name="Uploads_Move_Up1" xml:space="preserve">
+    <value>上へ1</value>
   </data>
-  <data name="Uploads_Priority_Normal" xml:space="preserve">
-    <value>普通</value>
+  <data name="Uploads_Move_Down1" xml:space="preserve">
+    <value>下へ1</value>
   </data>
-  <data name="Uploads_Priority_Low" xml:space="preserve">
-    <value>低</value>
+  <data name="Uploads_Move_Down10" xml:space="preserve">
+    <value>下へ10</value>
   </data>
-  <data name="Uploads_Priority_Lowest" xml:space="preserve">
-    <value>最低</value>
+  <data name="Uploads_Tooltip_MoveUp" xml:space="preserve">
+    <value>上へ移動（早くアップロード）</value>
   </data>
-  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
-    <value>優先度を上げる</value>
-  </data>
-  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
-    <value>優先度を下げる</value>
+  <data name="Uploads_Tooltip_MoveDown" xml:space="preserve">
+    <value>下へ移動（遅くアップロード）</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>名前</value>
@@ -312,8 +309,8 @@
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>所要時間</value>
   </data>
-  <data name="Uploads_Col_Priority" xml:space="preserve">
-    <value>優先度</value>
+  <data name="Uploads_Col_Order" xml:space="preserve">
+    <value>順序</value>
   </data>
   <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
     <value>速度制限</value>

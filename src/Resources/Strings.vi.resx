@@ -240,32 +240,29 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Đặt giới hạn tốc độ...</value>
   </data>
-  <data name="Uploads_Context_Priority" xml:space="preserve">
-    <value>Ưu tiên</value>
+  <data name="Uploads_Context_Move" xml:space="preserve">
+    <value>Di chuyển</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Xóa</value>
   </data>
-  <data name="Uploads_Priority_Highest" xml:space="preserve">
-    <value>Cao nhất</value>
+  <data name="Uploads_Move_Up10" xml:space="preserve">
+    <value>Lên 10</value>
   </data>
-  <data name="Uploads_Priority_High" xml:space="preserve">
-    <value>Cao</value>
+  <data name="Uploads_Move_Up1" xml:space="preserve">
+    <value>Lên 1</value>
   </data>
-  <data name="Uploads_Priority_Normal" xml:space="preserve">
-    <value>Bình thường</value>
+  <data name="Uploads_Move_Down1" xml:space="preserve">
+    <value>Xuống 1</value>
   </data>
-  <data name="Uploads_Priority_Low" xml:space="preserve">
-    <value>Thấp</value>
+  <data name="Uploads_Move_Down10" xml:space="preserve">
+    <value>Xuống 10</value>
   </data>
-  <data name="Uploads_Priority_Lowest" xml:space="preserve">
-    <value>Thấp nhất</value>
+  <data name="Uploads_Tooltip_MoveUp" xml:space="preserve">
+    <value>Di chuyển lên (tải lên sớm hơn)</value>
   </data>
-  <data name="Uploads_Tooltip_IncreasePriority" xml:space="preserve">
-    <value>Tăng ưu tiên</value>
-  </data>
-  <data name="Uploads_Tooltip_DecreasePriority" xml:space="preserve">
-    <value>Giảm ưu tiên</value>
+  <data name="Uploads_Tooltip_MoveDown" xml:space="preserve">
+    <value>Di chuyển xuống (tải lên muộn hơn)</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>Tên</value>
@@ -312,8 +309,8 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Uploads_Col_Duration" xml:space="preserve">
     <value>Thời lượng</value>
   </data>
-  <data name="Uploads_Col_Priority" xml:space="preserve">
-    <value>Ưu tiên</value>
+  <data name="Uploads_Col_Order" xml:space="preserve">
+    <value>Thứ tự</value>
   </data>
   <data name="Uploads_Col_SpeedLimit" xml:space="preserve">
     <value>Giới hạn tốc độ</value>
