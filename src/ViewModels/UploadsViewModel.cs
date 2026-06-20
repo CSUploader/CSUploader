@@ -234,54 +234,54 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void Stop() => _packageManager.StopPackages();
 
-    /// <summary>
-    /// Bumps the priority of the package owning the given row up one level
-    /// (capped at <see cref="PackagePriority.Highest"/>). Does not reorder the
-    /// visual list — only the scheduler's pick order is affected.
-    /// </summary>
+    /// <summary>Toolbar ▲ — move the focused file one position sooner (toward #1).</summary>
     [RelayCommand]
-    private static void IncreasePriority(object? item)
+    private void MoveUp(object? item)
     {
-        if (ResolveOwningPackage(item) is Package p && p.Priority < PackagePriority.Highest)
+        if (item is PackageFile file)
         {
-            p.Priority = (PackagePriority)((int)p.Priority + 1);
+            _packageManager.MoveFilesBy([file], -1);
+        }
+    }
+
+    /// <summary>Toolbar ▼ — move the focused file one position later.</summary>
+    [RelayCommand]
+    private void MoveDown(object? item)
+    {
+        if (item is PackageFile file)
+        {
+            _packageManager.MoveFilesBy([file], +1);
         }
     }
 
     /// <summary>
-    /// Lowers the priority of the package owning the given row one level (capped
-    /// at <see cref="PackagePriority.Lowest"/>).
+    /// Right-click → Move submenu. Negative delta = sooner (toward #1). Operates on all selected
+    /// file rows as a block (preserving their relative order).
     /// </summary>
     [RelayCommand]
-    private static void DecreasePriority(object? item)
+    private void MoveSelected(string? deltaText)
     {
-        if (ResolveOwningPackage(item) is Package p && p.Priority > PackagePriority.Lowest)
+        if (!int.TryParse(deltaText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int delta))
         {
-            p.Priority = (PackagePriority)((int)p.Priority - 1);
+            return;
+        }
+
+        PackageFile[] files = [.. SelectedRows.OfType<PackageFile>()];
+        if (files.Length == 0 && SelectedRow is PackageFile single)
+        {
+            files = [single];
+        }
+
+        if (files.Length > 0)
+        {
+            _packageManager.MoveFilesBy(files, delta);
         }
     }
 
-    /// <summary>
-    /// Sets the priority of the currently-selected row's owning package to an
-    /// explicit level (right-click context-menu submenu). Uses
-    /// <see cref="SelectedRow"/> instead of taking the row as a parameter so the
-    /// MenuItem only needs to pass the <see cref="PackagePriority"/> enum value.
-    /// </summary>
+    /// <summary>Commit of the editable Order cell — move the file to the typed 1-based position.</summary>
     [RelayCommand]
-    private void SetPriority(PackagePriority level)
-    {
-        if (ResolveOwningPackage(SelectedRow) is Package p)
-        {
-            p.Priority = level;
-        }
-    }
-
-    private static Package? ResolveOwningPackage(object? item) => item switch
-    {
-        Package p => p,
-        PackageFile f => f.Package,
-        _ => null,
-    };
+    private void SetOrder((PackageFile File, int Target) arg)
+        => _packageManager.MoveFileTo(arg.File, arg.Target);
 
     private void RebuildVisibleRows()
     {

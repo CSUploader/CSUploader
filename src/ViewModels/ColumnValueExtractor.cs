@@ -57,6 +57,7 @@ internal static class ColumnValueExtractor
                 "SpeedLimit" => "EffectiveSpeedLimitKBps",
                 "Hash" => "FileHash",
                 "URL" => "FileUrl",
+                "Order" => "QueueOrder",
                 _ => columnKey,
             };
         }
