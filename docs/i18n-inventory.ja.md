@@ -115,8 +115,8 @@ Uploads_Move_Up10                 = 上へ10
 Uploads_Move_Up1                  = 上へ1
 Uploads_Move_Down1                = 下へ1
 Uploads_Move_Down10               = 下へ10
-Uploads_Tooltip_MoveUp            = 上へ移動（早くアップロード）
-Uploads_Tooltip_MoveDown          = 下へ移動（遅くアップロード）
+Uploads_Tooltip_MoveUp            = 上へ移動（より早くアップロード）
+Uploads_Tooltip_MoveDown          = 下へ移動（より遅くアップロード）
 
 Uploads_Col_Name                  = 名前
 Uploads_Col_Size                  = サイズ

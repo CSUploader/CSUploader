@@ -259,10 +259,10 @@
     <value>下へ10</value>
   </data>
   <data name="Uploads_Tooltip_MoveUp" xml:space="preserve">
-    <value>上へ移動（早くアップロード）</value>
+    <value>上へ移動（より早くアップロード）</value>
   </data>
   <data name="Uploads_Tooltip_MoveDown" xml:space="preserve">
-    <value>下へ移動（遅くアップロード）</value>
+    <value>下へ移動（より遅くアップロード）</value>
   </data>
   <data name="Uploads_Col_Name" xml:space="preserve">
     <value>名前</value>
