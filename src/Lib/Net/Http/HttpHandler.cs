@@ -358,6 +358,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             RequestBody = $"[Multipart file upload: {Path.GetFileName(filePath)}]",
         };
 
+        // Hoisted out of the try so the generic catch can read BodyFullySent. Stays null until the
+        // FileStream is opened and the content created — a fault while it's still null is a local
+        // setup error (e.g. the source file vanished), NOT a network "nothing committed" case.
+        ProgressStreamContent? progressContent = null;
+
         try
         {
             MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
@@ -375,7 +380,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 ? new ThrottledStream(rawStream, getBytesPerSecond)
                 : rawStream;
             using Stream disposeFileStream = fileStream;
-            ProgressStreamContent progressContent = new(
+            progressContent = new(
                 fileStream,
                 (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
                 cancellationToken);
@@ -430,6 +435,23 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.ResponseBody = ex.ToString();
             LogTransaction(transaction);
             UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+
+            // Connect-phase reclassification — intentionally scoped to UploadMultipartAsync (the
+            // method HitFile/GigaPeta/BRupload use). Once progressContent exists, the upload
+            // attempt is underway; a fault while BodyFullySent is still false means the request
+            // body didn't complete — a connect-phase DNS/TCP/TLS failure that never reached the
+            // body, or a mid-send abort. Either way zero (or partial) bytes were sent, the server
+            // committed nothing, so reclassify as a safe-to-retry body-transfer abort for the
+            // shared retry layer. Guard on progressContent being non-null: if it was never created
+            // (FileStream open failed before creation) the fault is local setup (file gone), not a
+            // network case, and must stay a plain terminal fault. A fault AFTER the body was fully
+            // sent (BodyFullySent true, e.g. a lost response) is likewise NOT reclassified — the
+            // server may have committed, so it must not retry.
+            if (progressContent is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
+            {
+                throw new UploadBodyTransferException(ex);
+            }
+
             throw;
         }
     }

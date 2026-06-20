@@ -190,6 +190,83 @@ public class HttpHandlerTests
         Assert.DoesNotContain("Content-Type:", between, StringComparison.Ordinal);
     }
 
+    // ---- Connect-phase retry classification: UploadMultipartAsync reclassifies a fault where the
+    // request body was never fully sent (connect-phase DNS/TCP/TLS failure that never reached the
+    // body) as a safe-to-retry UploadBodyTransferException, but leaves a post-body failure (server
+    // may have committed) as a terminal fault. ----
+
+    [Fact]
+    public async Task UploadMultipartAsync_ConnectPhaseFailure_ReclassifiedAsRetryableBodyTransferAbort()
+    {
+        // The inner handler throws WITHOUT ever reading the request content — simulating a
+        // connect-phase failure (DNS/TCP/TLS) where ProgressStreamContent.SerializeToStreamAsync
+        // never runs, so BodyFullySent stays false. Zero bytes were sent → server committed
+        // nothing → the shared retry layer must be allowed to re-send.
+        using TempFile temp = TempFile.With("payload-bytes");
+        HttpHandler handler = new(
+            new HttpClient(new ConnectFailHandler(new HttpRequestException("No connection could be made"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file"));
+
+        Assert.True(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"Connect-phase failure should be reclassified as a retryable body-transfer abort. Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task UploadMultipartAsync_PostBodyFailure_NotReclassified_StaysTerminalFault()
+    {
+        // SAFETY TEST: the inner handler FIRST drains the request content (so ProgressStreamContent
+        // runs to completion and sets BodyFullySent), THEN throws — simulating the response being
+        // lost AFTER the whole body was sent. The server may have committed the upload, so this
+        // must NOT be reclassified as retryable, or AttemptRunner could double-create the file.
+        using TempFile temp = TempFile.With("payload-bytes");
+        HttpHandler handler = new(
+            new HttpClient(new DrainThenThrowHandler(new HttpRequestException("connection closed while receiving response"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file"));
+
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A failure after the body was fully sent must stay a terminal fault (server may have committed). Got: {thrown}");
+    }
+
+    /// <summary>
+    /// Simulates a connect-phase failure: throws on send WITHOUT ever reading the request content,
+    /// so <see cref="ProgressStreamContent"/> never serializes and <c>BodyFullySent</c> stays false.
+    /// </summary>
+    private sealed class ConnectFailHandler(Exception toThrow) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromException<HttpResponseMessage>(toThrow);
+    }
+
+    /// <summary>
+    /// Simulates a post-body failure (e.g. lost response): fully reads the request content first
+    /// (so <see cref="ProgressStreamContent"/> runs to completion and sets <c>BodyFullySent</c>),
+    /// THEN throws.
+    /// </summary>
+    private sealed class DrainThenThrowHandler(Exception toThrow) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Content is not null)
+            {
+                await request.Content.CopyToAsync(Stream.Null, cancellationToken);
+            }
+
+            throw toThrow;
+        }
+    }
+
     /// <summary>
     /// Captures the first outbound request — its Content-Type and a fully-buffered copy of
     /// the body — so tests can assert on the on-the-wire shape. Returns 200 to keep the

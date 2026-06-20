@@ -31,6 +31,10 @@ public class ProgressStreamContentTests
         var ex = await Assert.ThrowsAsync<UploadBodyTransferException>(() => content.CopyToAsync(failingDest));
         Assert.True(UploadBodyTransferException.IsInChain(ex));
         Assert.IsType<IOException>(ex.InnerException);
+
+        // The loop threw before exiting normally, so the body was NOT fully sent. This is the flag
+        // the upload methods read to know the server committed nothing → safe to retry.
+        Assert.False(content.BodyFullySent);
     }
 
     [Fact]
@@ -95,6 +99,11 @@ public class ProgressStreamContentTests
         Assert.Equal(source.Length, dest.Length);
         Assert.Equal(payload, dest.ToArray());
         Assert.Equal(source.Length, lastTransferred);
+
+        // The copy loop ran to completion (ReadAsync returned 0), so every byte was written. This
+        // is the ONLY path that sets the flag — a fault after this point (e.g. a lost response) is
+        // therefore NOT mistaken for an incomplete body, preserving the never-double-create invariant.
+        Assert.True(content.BodyFullySent);
     }
 
     /// <summary>

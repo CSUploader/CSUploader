@@ -13,6 +13,14 @@ public class ProgressStreamContent(Stream content, Action<long, long> progress, 
     private readonly Action<long, long> _progress = progress;
     private readonly CancellationToken _cancellationToken = cancellationToken;
 
+    /// <summary>
+    /// True once every byte of the body has been written to the request stream. Read by the
+    /// upload methods after a fault: when this is still false the server received an incomplete
+    /// (or no) body and committed nothing, so the failure is a safe-to-retry body-transfer abort —
+    /// whether the write aborted mid-send or the connection never established at all.
+    /// </summary>
+    internal bool BodyFullySent { get; private set; }
+
     protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
     {
         byte[] buffer = new byte[81920];
@@ -39,6 +47,11 @@ public class ProgressStreamContent(Stream content, Action<long, long> progress, 
             totalBytesRead += bytesRead;
             _progress(_content.Length, totalBytesRead);
         }
+
+        // Loop exited normally (ReadAsync returned 0) — every body byte was written. Set ONLY here,
+        // never on a throw, so a fault leaves this false and the upload methods can treat it as a
+        // safe-to-retry body-transfer abort.
+        BodyFullySent = true;
     }
 
     protected override bool TryComputeLength(out long length)
