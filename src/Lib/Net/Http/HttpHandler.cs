@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -571,15 +572,16 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             // safe-to-retry. The underlying transport error still propagates (terminal). The marker
             // may be nested (HttpClient wraps content-serialization exceptions in
             // HttpRequestException("Error while copying content to a stream.", <marker>)), so walk
-            // the chain.
-            if (UploadBodyTransferException.IsInChain(ex))
+            // the chain in a single pass.
+            for (Exception? e = ex; e is not null; e = e.InnerException)
             {
-                for (Exception? e = ex; e is not null; e = e.InnerException)
+                if (e is UploadBodyTransferException marker)
                 {
-                    if (e is UploadBodyTransferException marker)
-                    {
-                        throw marker.InnerException ?? marker;
-                    }
+                    // Rethrow the underlying transport cause, never the marker itself — a chunk
+                    // transport fault must never carry a retryable signal to AttemptRunner. The
+                    // fallback is a plain (non-marker) exception so the strip can't re-expose the
+                    // retryable type even if a marker ever lacked an inner.
+                    throw marker.InnerException ?? new IOException(marker.Message);
                 }
             }
 

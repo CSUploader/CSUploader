@@ -304,9 +304,12 @@ public class HttpHandlerTests
             UploadBodyTransferException.IsInChain(thrown),
             $"PostChunkAsync must strip the body-transfer marker so chunked uploads are never retried. Got: {thrown}");
 
-        // The underlying transport cause is preserved (the IOException, or its message in the chain).
-        bool causePreserved = thrown.ToString().Contains("connection reset", StringComparison.Ordinal);
-        Assert.True(causePreserved, $"Underlying transport cause should be preserved. Got: {thrown}");
+        // Independently prove the strip: the thrown exception IS the underlying IOException, not a
+        // wrapper that still carries the marker. (A loose ToString().Contains("connection reset")
+        // would pass even if the marker were still present, since the marker's ToString includes
+        // its inner — so assert the concrete type and message instead.)
+        IOException io = Assert.IsType<IOException>(thrown);
+        Assert.Equal("connection reset", io.Message);
     }
 
     /// <summary>
