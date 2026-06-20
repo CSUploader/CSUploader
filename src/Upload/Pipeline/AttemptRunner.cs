@@ -156,7 +156,12 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
                 break;
             }
 
-            if (ct.IsCancellationRequested || fault is OperationCanceledException)
+            // Only OUR runner token counts as a user/scheduler cancellation. A bare OCE
+            // carrying an unrelated or None token (an internal Task.Delay/timeout, or a
+            // library's own linked token) is a FAULT, not a user-cancel — let it fall through
+            // to the retryable check so it ends as Failed, not silently Cancelled.
+            if ((fault is OperationCanceledException oce && oce.CancellationToken == ct)
+                || ct.IsCancellationRequested)
             {
                 // Genuine user/scheduler cancellation — never retry, and surface it as a
                 // cancellation so the scheduler marks the row Cancelled (not Failed). The

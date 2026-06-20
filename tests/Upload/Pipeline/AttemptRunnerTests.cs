@@ -240,6 +240,33 @@ public class AttemptRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenBodyAbortOnAttempts1And2ThenSuccess_RetriesTwiceAndCompletes()
+    {
+        // Body-incomplete fault on attempts 1 AND 2, success on attempt 3. Locks the
+        // `attempt < MaxUploadAttempts` boundary against an off-by-one: the runner must use
+        // all three permitted attempts and still succeed on the last one.
+        ProgrammablePipeline pipeline = new(attempt =>
+            attempt < 3
+                ? PipelineBehavior.ThrowAfterStarted(
+                    new HttpRequestException("Error while copying content to a stream.", new UploadBodyTransferException(new IOException("reset"))))
+                : PipelineBehavior.Succeed("https://x/y"));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(3, pipeline.Invocations);
+        Assert.Contains(events, e => e is TransferCompleted);
+        Assert.DoesNotContain(events, e => e is AttemptFailed);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.True(last.Success);
+        Assert.Equal("https://x/y", last.FileUrl);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenBodyAbortEveryAttempt_ExhaustsRetriesAndFails()
     {
         // The body-incomplete fault recurs on every attempt. After MaxUploadAttempts the
@@ -330,6 +357,34 @@ public class AttemptRunnerTests
         });
 
         Assert.Equal(1, pipeline.Invocations);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenBareOceWithUnrelatedToken_TreatedAsFaultNotCancellation()
+    {
+        // Our runner token is a live, NON-cancelled token, but the pipeline throws an OCE
+        // carrying a DIFFERENT token (an internal Task.Delay/timeout or a library's own linked
+        // token — here a separate, non-cancelled source). That is a FAULT, not a user-cancel:
+        // the runner must NOT throw, must NOT retry (it's not a body-transfer abort), and must
+        // end as a terminal Failed so the row shows Failed rather than silently Cancelled.
+        // Using a live runner token (not CancellationToken.None) is deliberate: None == None
+        // would otherwise alias an unrelated-None OCE to our own token and mask the bug.
+        using CancellationTokenSource runnerCts = new();
+        using CancellationTokenSource unrelatedCts = new();
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.ThrowAfterStarted(new OperationCanceledException(unrelatedCts.Token)));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), runnerCts.Token))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(1, pipeline.Invocations);
+        Assert.Single(events.OfType<AttemptFailed>());
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
     }
 
     private static AttemptInputs MakeInputs() => new()
