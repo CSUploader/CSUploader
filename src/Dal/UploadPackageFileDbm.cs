@@ -60,6 +60,12 @@ public class UploadPackageFileDbm
 
     public int SortOrder { get; set; }
 
+    /// <summary>
+    /// Global upload order across all packages (1-based; lower uploads sooner). 0 for legacy
+    /// rows written before this column existed — the scheduler renumbers those on load.
+    /// </summary>
+    public int QueueOrder { get; set; }
+
     public int PackageId { get; set; }
 
     /// <summary>

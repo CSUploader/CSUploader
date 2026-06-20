@@ -109,6 +109,30 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
                 .SetProperty(f => f.FileUrl, fileUrl ?? string.Empty), ct);
     }
 
+    /// <summary>
+    /// Rewrites <see cref="UploadPackageFileDbm.QueueOrder"/> for many files in one
+    /// transaction. A single reorder renumbers the whole queue, so this is called with the
+    /// full changed set rather than one row at a time.
+    /// </summary>
+    public async Task UpdateQueueOrderAsync(IReadOnlyDictionary<int, int> ordersByFileId, CancellationToken ct = default)
+    {
+        if (ordersByFileId.Count == 0)
+        {
+            return;
+        }
+
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        foreach ((int fileId, int order) in ordersByFileId)
+        {
+            await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == fileId)
+                .ExecuteUpdateAsync(s => s.SetProperty(f => f.QueueOrder, order), ct);
+        }
+
+        await tx.CommitAsync(ct);
+    }
+
     protected override UploadPackageFileDto MapToDto(UploadPackageFileDbm entity) => new()
     {
         Id = entity.Id,
@@ -127,6 +151,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FileHash = entity.FileHash,
         FileHosterLoginId = entity.FileHosterLoginId,
         SortOrder = entity.SortOrder,
+        QueueOrder = entity.QueueOrder,
         PackageId = entity.PackageId,
         IsHidden = entity.IsHidden,
         IsRemovedFromUploads = entity.IsRemovedFromUploads,
@@ -150,6 +175,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.FileHash = entity.FileHash;
         dto.FileHosterLoginId = entity.FileHosterLoginId;
         dto.SortOrder = entity.SortOrder;
+        dto.QueueOrder = entity.QueueOrder;
         dto.PackageId = entity.PackageId;
         dto.IsHidden = entity.IsHidden;
         dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
@@ -173,6 +199,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         FileHash = dto.FileHash,
         FileHosterLoginId = dto.FileHosterLoginId,
         SortOrder = dto.SortOrder,
+        QueueOrder = dto.QueueOrder,
         PackageId = dto.PackageId,
         IsHidden = dto.IsHidden,
         IsRemovedFromUploads = dto.IsRemovedFromUploads,

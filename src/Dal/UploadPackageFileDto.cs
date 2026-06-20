@@ -43,6 +43,8 @@ public class UploadPackageFileDto
 
     public int SortOrder { get; set; }
 
+    public int QueueOrder { get; set; }
+
     public int PackageId { get; set; }
 
     public bool IsHidden { get; set; }

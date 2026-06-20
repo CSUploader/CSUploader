@@ -198,6 +198,19 @@ public class UploadPackageFileRepositoryTests : IDisposable
         Assert.False(reloaded!.IsHidden);
     }
 
+    [Fact]
+    public async Task UpdateQueueOrderAsync_RewritesOrdersForMultipleFiles()
+    {
+        int p = await InsertPackageAsync("p");
+        int a = await InsertFileAsync(p, "a", queueOrder: 1);
+        int b = await InsertFileAsync(p, "b", queueOrder: 2);
+
+        await _fileRepo.UpdateQueueOrderAsync(new Dictionary<int, int> { [a] = 2, [b] = 1 });
+
+        Assert.Equal(2, (await _fileRepo.FindAsync(a))!.QueueOrder);
+        Assert.Equal(1, (await _fileRepo.FindAsync(b))!.QueueOrder);
+    }
+
     private async Task<int> InsertPackageAsync(string name, bool isCompleted = false)
     {
         UploadPackageDto pkg = new()
@@ -210,7 +223,7 @@ public class UploadPackageFileRepositoryTests : IDisposable
         return pkg.Id;
     }
 
-    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state)
+    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state = FileState.Idle, int queueOrder = 0)
     {
         UploadPackageFileDto file = new()
         {
@@ -221,6 +234,7 @@ public class UploadPackageFileRepositoryTests : IDisposable
             FileHosterName = "Rapidgator",
             State = state,
             PackageId = packageId,
+            QueueOrder = queueOrder,
         };
         await _fileRepo.InsertAsync(file);
         return file.Id;

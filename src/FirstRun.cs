@@ -121,6 +121,7 @@ public static class FirstRun
             // Uploads/History grids). Nullable so existing history rows carry NULL (the account
             // wasn't recorded before this column) and anonymous uploads store NULL.
             ("UploadPackageFile", "FileHosterAccount", "ALTER TABLE UploadPackageFile ADD COLUMN FileHosterAccount TEXT"),
+            ("UploadPackageFile", "QueueOrder", "ALTER TABLE UploadPackageFile ADD COLUMN QueueOrder INTEGER NOT NULL DEFAULT 0"),
         ];
 
         foreach ((string table, string column, string sql) in migrations)
