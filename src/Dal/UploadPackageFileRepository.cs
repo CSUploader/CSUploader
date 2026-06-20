@@ -60,7 +60,7 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         return [.. rows.Select(r => (MapToDto(r.File), r.PackageName ?? string.Empty))];
     }
 
-    public async Task UpdateStateAsync(int fileId, int state, string? error, string? fileUrl, DateTime? finishedDateTime = null, CancellationToken ct = default)
+    public async Task UpdateStateAsync(int fileId, int state, string? error, string? fileUrl, DateTime? finishedDateTime = null, DateTime? startedDateTime = null, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
         if (finishedDateTime is { } finished)
@@ -71,7 +71,8 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
                     .SetProperty(f => f.State, state)
                     .SetProperty(f => f.Error, error ?? string.Empty)
                     .SetProperty(f => f.FileUrl, fileUrl ?? string.Empty)
-                    .SetProperty(f => f.FinishedDateTime, finished), ct);
+                    .SetProperty(f => f.FinishedDateTime, finished)
+                    .SetProperty(f => f.StartDateTime, f => startedDateTime ?? f.StartDateTime), ct);
         }
         else
         {

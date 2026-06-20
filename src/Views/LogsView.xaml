@@ -17,6 +17,7 @@
 
     <UserControl.Resources>
         <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+        <conv:UrlDecodeConverter x:Key="UrlDecodeConverter" />
 
         <!-- Single-line message rendering: collapse newlines, ellipsis on overflow,
              full text available via tooltip + double-click for the details dialog. -->
@@ -25,6 +26,15 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="ToolTip" Value="{Binding Message}" />
+        </Style>
+
+        <!-- URL column rendering (HTTP tab): same single-line ellipsis treatment as the
+             message column, but the tooltip shows the url-decoded URL for readability. -->
+        <Style x:Key="LogUrlStyle" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTip" Value="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}}" />
         </Style>
         <Style x:Key="LogRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
             <Setter Property="MaxHeight" Value="22" />
@@ -39,6 +49,7 @@
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DataGridGridLineBrush}" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
             <Setter Property="RowHeaderWidth" Value="0" />
             <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
             <Setter Property="RowBackground" Value="{DynamicResource LogBackgroundBrush}" />
@@ -96,7 +107,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -123,10 +134,13 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Status}" Binding="{Binding StatusCode}" Width="60" />
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Url}"
+                                                Binding="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}}"
+                                                Width="320" ElementStyle="{StaticResource LogUrlStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -155,7 +169,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>
@@ -184,7 +198,7 @@
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Binding="{Binding Filename}" Width="180" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Binding="{Binding Function}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Binding="{Binding LineNumber}" Width="60" />
-                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*"
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Binding="{Binding Message}" Width="*" MinWidth="200"
                                                 ElementStyle="{StaticResource LogMessageStyle}" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Binding="{Binding ThreadId}" Width="60" />
                         </DataGrid.Columns>

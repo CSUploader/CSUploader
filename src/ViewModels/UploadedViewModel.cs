@@ -91,6 +91,7 @@ public partial class UploadedViewModel : ObservableObject
                     ? Localizer.Instance["Wizard_Step2_AccountAnonymous"]
                     : (file.FileHosterAccount ?? string.Empty),
                 FinishedDateTime = file.FinishedDateTime,
+                StartedDateTime = file.StartDateTime,
                 FileUrl = file.FileUrl,
                 FileHash = file.FileHash,
             });

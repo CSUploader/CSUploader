@@ -132,6 +132,7 @@ Uploads_Col_Progress              = Progress
 Uploads_Col_SaveTo                = Save to
 Uploads_Col_Added                 = Added
 Uploads_Col_Finished              = Finished
+Uploads_Col_Started               = Started
 Uploads_Col_ScheduledAt           = Scheduled at
 Uploads_Col_Duration              = Duration
 Uploads_Col_Order                 = Order
@@ -231,6 +232,7 @@ Uploaded_Col_Size                 = Size
 Uploaded_Col_Hoster               = Hoster
 Uploaded_Col_Account              = Account
 Uploaded_Col_Finished             = Finished
+Uploaded_Col_Started              = Started
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = Hash
 
@@ -521,6 +523,7 @@ Logs_Col_Function                  = Function
 Logs_Col_Line                      = Line
 Logs_Col_Message                   = Message
 Logs_Col_Thread                    = Thread
+Logs_Col_Url                       = URL
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.

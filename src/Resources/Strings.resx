@@ -303,6 +303,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>Finished</value>
   </data>
+  <data name="Uploads_Col_Started" xml:space="preserve">
+    <value>Started</value>
+  </data>
   <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
     <value>Scheduled at</value>
   </data>
@@ -521,6 +524,9 @@ Use Help → Install Update to download and install.</value>
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>Finished</value>
+  </data>
+  <data name="Uploaded_Col_Started" xml:space="preserve">
+    <value>Started</value>
   </data>
   <data name="Uploaded_Col_URL" xml:space="preserve">
     <value>URL</value>
@@ -1153,6 +1159,9 @@ Add anyway?</value>
   </data>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>Thread</value>
+  </data>
+  <data name="Logs_Col_Url" xml:space="preserve">
+    <value>URL</value>
   </data>
   <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
     <value>No URLs in selection; clipboard cleared</value>

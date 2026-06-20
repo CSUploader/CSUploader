@@ -251,6 +251,62 @@ public class DateTimeFormatConverterTests
     }
 }
 
+public class UrlDecodeConverterTests
+{
+    private readonly UrlDecodeConverter _converter = new();
+
+    private string Convert(object value)
+        => (string)_converter.Convert(value, typeof(string), null!, CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void Convert_PercentEncodedString_Decodes()
+    {
+        Assert.Equal(
+            "https://a.com/b c",
+            Convert("https%3A%2F%2Fa.com%2Fb%20c"));
+    }
+
+    [Fact]
+    public void Convert_PlainString_ReturnedUnchanged()
+    {
+        Assert.Equal("https://a.com/already/plain", Convert("https://a.com/already/plain"));
+    }
+
+    [Fact]
+    public void Convert_Null_ReturnsEmptyString()
+    {
+        Assert.Equal(string.Empty, Convert(null!));
+    }
+
+    [Fact]
+    public void Convert_EmptyString_ReturnsEmptyString()
+    {
+        Assert.Equal(string.Empty, Convert(string.Empty));
+    }
+
+    [Fact]
+    public void Convert_NonStringType_ReturnsEmptyString()
+    {
+        Assert.Equal(string.Empty, Convert(12345));
+    }
+
+    [Fact]
+    public void Convert_MalformedPercentSequence_ReturnsOriginalWithoutThrowing()
+    {
+        // A dangling '%' is not a valid escape; Uri.UnescapeDataString tolerates some
+        // malformed input but the converter must never throw — it falls back to the input.
+        const string malformed = "https://a.com/%ZZ%/x";
+        Assert.Equal(malformed, Convert(malformed));
+    }
+
+    [Fact]
+    public void ConvertBack_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(
+            () => _converter.ConvertBack("x", typeof(string), null!, CultureInfo.InvariantCulture));
+    }
+}
+
 public class BoolToVisibilityConverterTests
 {
     private readonly BoolToVisibilityConverter _converter = new();

@@ -518,7 +518,7 @@ public class PackageManager
             await _persistLock.WaitAsync();
             try
             {
-                await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime);
+                await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime, e.File.StartedDate);
 
                 if (fileHashIfJustComputed is not null)
                 {

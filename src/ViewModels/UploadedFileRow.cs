@@ -30,6 +30,8 @@ public class UploadedFileRow
 
     public DateTime FinishedDateTime { get; set; }
 
+    public DateTime StartedDateTime { get; set; }
+
     public string? FileUrl { get; set; }
 
     public string? FileHash { get; set; }

@@ -280,6 +280,7 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_SaveTo}" Command="{Binding CopyColumnCommand}" CommandParameter="SaveTo" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Added}" Command="{Binding CopyColumnCommand}" CommandParameter="Added" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Started}" Command="{Binding CopyColumnCommand}" CommandParameter="Started" />
                         <MenuItem Header="{loc:Loc Uploads_Col_ScheduledAt}" Command="{Binding CopyColumnCommand}" CommandParameter="ScheduledAt" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Duration}" Command="{Binding CopyColumnCommand}" CommandParameter="Duration" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Order}" Command="{Binding CopyColumnCommand}" CommandParameter="Order" />
@@ -545,6 +546,9 @@
                                     Width="130" Visibility="Collapsed" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_Finished}"
                                     Binding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}}"
+                                    Width="130" Visibility="Collapsed" />
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Started}"
+                                    Binding="{Binding StartedDate, Converter={StaticResource DateTimeConverter}}"
                                     Width="130" Visibility="Collapsed" />
                 <DataGridTextColumn Header="{loc:Loc Uploads_Col_ScheduledAt}"
                                     Binding="{Binding ScheduledStartTime, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"

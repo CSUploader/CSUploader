@@ -199,6 +199,42 @@ public class UploadPackageFileRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateStateAsync_WithStartedDateTime_OverwritesStartDateTime()
+    {
+        // The real upload-start time only becomes known at the terminal write; passing it
+        // overwrites the add-time captured at insert so the History "Started at" is truthful.
+        var addTime = new DateTime(2025, 1, 1, 8, 0, 0, DateTimeKind.Local);
+        var realStart = new DateTime(2025, 1, 1, 9, 30, 0, DateTimeKind.Local);
+        var finished = new DateTime(2025, 1, 1, 9, 45, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Uploading, startDateTime: addTime);
+
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Completed, null, "https://x/a.html", finishedDateTime: finished, startedDateTime: realStart);
+
+        UploadPackageFileDto? reloaded = await _fileRepo.FindAsync(fileId);
+        Assert.NotNull(reloaded);
+        Assert.Equal(realStart, reloaded!.StartDateTime);
+        Assert.Equal(finished, reloaded.FinishedDateTime);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsync_WithNullStartedDateTime_PreservesInsertedStartDateTime()
+    {
+        // For Failed/Cancelled the real start may be null; the coalesce must keep the
+        // existing add-time rather than wiping it to default(DateTime).
+        var addTime = new DateTime(2025, 2, 2, 10, 0, 0, DateTimeKind.Local);
+        var finished = new DateTime(2025, 2, 2, 10, 5, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "b.iso", FileState.Uploading, startDateTime: addTime);
+
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Failed, "boom", null, finishedDateTime: finished, startedDateTime: null);
+
+        UploadPackageFileDto? reloaded = await _fileRepo.FindAsync(fileId);
+        Assert.NotNull(reloaded);
+        Assert.Equal(addTime, reloaded!.StartDateTime);
+    }
+
+    [Fact]
     public async Task UpdateQueueOrderAsync_RewritesOrdersForMultipleFiles()
     {
         int p = await InsertPackageAsync("p");
@@ -223,7 +259,7 @@ public class UploadPackageFileRepositoryTests : IDisposable
         return pkg.Id;
     }
 
-    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state = FileState.Idle, int queueOrder = 0)
+    private async Task<int> InsertFileAsync(int packageId, string fileName, FileState state = FileState.Idle, int queueOrder = 0, DateTime? startDateTime = null)
     {
         UploadPackageFileDto file = new()
         {
@@ -235,6 +271,7 @@ public class UploadPackageFileRepositoryTests : IDisposable
             State = state,
             PackageId = packageId,
             QueueOrder = queueOrder,
+            StartDateTime = startDateTime ?? default,
         };
         await _fileRepo.InsertAsync(file);
         return file.Id;

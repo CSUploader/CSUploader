@@ -173,6 +173,9 @@
                     <MenuItem Header="{loc:Loc Uploaded_Col_Finished}"
                               Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="Finished" />
+                    <MenuItem Header="{loc:Loc Uploaded_Col_Started}"
+                              Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="Started" />
                     <MenuItem Header="{loc:Loc Uploaded_Col_Hash}"
                               Command="{Binding PlacementTarget.DataContext.CopyColumnCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="Hash" />
@@ -353,6 +356,19 @@
             <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Finished}"
                                 Binding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
                                 ClipboardContentBinding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                                Width="160"
+                                MinWidth="100">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
+
+            <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Started}"
+                                Binding="{Binding StartedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                                ClipboardContentBinding="{Binding StartedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
                                 Width="160"
                                 MinWidth="100">
                 <DataGridTextColumn.ElementStyle>

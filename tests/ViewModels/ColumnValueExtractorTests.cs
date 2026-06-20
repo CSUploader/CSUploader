@@ -52,6 +52,29 @@ public class ColumnValueExtractorTests
     }
 
     [Fact]
+    public void Extract_UploadedRow_StartedMapsToStartedDateTime()
+    {
+        UploadedFileRow row = new() { StartedDateTime = new DateTime(2025, 6, 1, 9, 30, 0, DateTimeKind.Local) };
+
+        Assert.Equal("2025-06-01 09:30:00", ColumnValueExtractor.Extract(row, "Started", isUploadsTab: false));
+    }
+
+    [Fact]
+    public void Extract_UploadsRow_StartedMapsToStartedDate()
+    {
+        // The Uploads tab reflects against the live row VM; the "Started" key maps to the
+        // in-memory StartedDate property (DateTime?). Any row exposing StartedDate works.
+        UploadsRowStub row = new() { StartedDate = new DateTime(2025, 6, 1, 9, 30, 0, DateTimeKind.Local) };
+
+        Assert.Equal("2025-06-01 09:30:00", ColumnValueExtractor.Extract(row, "Started", isUploadsTab: true));
+    }
+
+    private sealed class UploadsRowStub
+    {
+        public DateTime? StartedDate { get; set; }
+    }
+
+    [Fact]
     public void Extract_UploadedRow_UrlMapsToFileUrl()
     {
         UploadedFileRow row = new() { FileUrl = "https://example/x.html" };
