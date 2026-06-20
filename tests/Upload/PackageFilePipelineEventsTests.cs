@@ -40,6 +40,24 @@ public class PackageFilePipelineEventsTests
     }
 
     [Fact]
+    public void ApplyEvent_TransferCompleted_SetsBytesLoadedToSize_WhenNoBytesWereTransferred()
+    {
+        // Instant dedup hit (e.g. Alfafile already has the file by hash): the pipeline yields
+        // TransferCompleted with no preceding TransferProgress, so BytesLoaded was never advanced.
+        // A completed file must still show its full size loaded, matching the 100% progress —
+        // not a misleading 0.
+        PackageFile file = MakeFile(out _);
+        Assert.Null(file.BytesLoaded); // precondition: nothing transferred yet
+
+        file.ApplyEvent(new TransferCompleted("https://x/y"));
+
+        Assert.Equal(file.Size, file.BytesLoaded);
+        Assert.Equal(1L, file.BytesLoaded); // the 1-byte temp file from MakeFile
+        Assert.Null(file.BytesRemaining);
+        Assert.Equal(100.0, file.Progress);
+    }
+
+    [Fact]
     public void ApplyEvent_AttemptFailed_SetsError()
     {
         PackageFile file = MakeFile(out _);

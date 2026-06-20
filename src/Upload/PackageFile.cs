@@ -365,6 +365,12 @@ public class PackageFile : INotifyPropertyChanged
                 IsUploadFinished = true;
                 FileUrl = tc.FileUrl;
                 Progress = 100.0;
+                // A completed file is fully on the server. Normal uploads have already driven
+                // BytesLoaded to the full size via TransferProgress, but some hosters short-circuit
+                // with no byte transfer (e.g. Alfafile returns the link instantly when it already
+                // has the file by hash) — so set BytesLoaded to the size to match the 100% progress
+                // instead of leaving a misleading 0.
+                BytesLoaded = Size;
                 BytesRemaining = null;
                 Speed = null;
                 FinishedDate = DateTime.Now;
