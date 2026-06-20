@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using CSUploader.Dal;
@@ -211,6 +212,126 @@ public class AttemptRunnerTests
         Assert.DoesNotContain(events, e => e is HandlerBuilt);
     }
 
+    [Fact]
+    public async Task RunAsync_WhenBodyAbortThenSuccess_RetriesAndCompletesSuccessfully()
+    {
+        // Attempt 1 throws a body-incomplete transport fault (HttpClient wraps
+        // UploadBodyTransferException). Re-sending is safe because the body never finished,
+        // so AttemptRunner re-runs the whole pipeline; attempt 2 succeeds.
+        ProgrammablePipeline pipeline = new(attempt =>
+            attempt == 1
+                ? PipelineBehavior.ThrowAfterStarted(
+                    new HttpRequestException("Error while copying content to a stream.", new UploadBodyTransferException(new IOException("reset"))))
+                : PipelineBehavior.Succeed("https://x/y"));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(2, pipeline.Invocations);
+        Assert.Contains(events, e => e is TransferCompleted);
+        Assert.DoesNotContain(events, e => e is AttemptFailed);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.True(last.Success);
+        Assert.Equal("https://x/y", last.FileUrl);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenBodyAbortEveryAttempt_ExhaustsRetriesAndFails()
+    {
+        // The body-incomplete fault recurs on every attempt. After MaxUploadAttempts the
+        // runner must surface a terminal AttemptFailed (NOT throw) so the row shows Failed,
+        // not Cancelled.
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.ThrowAfterStarted(
+                new HttpRequestException("Error while copying content to a stream.", new UploadBodyTransferException(new IOException("reset")))));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        // Must NOT throw — exhausted retries are a terminal Failed, not a cancellation.
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(3, pipeline.Invocations);
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("after 3 attempts", fail.Reason, StringComparison.Ordinal);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenNonRetryableTransportFault_FailsImmediatelyWithoutRetry()
+    {
+        // A plain transport fault (not a body abort) is NOT safe to blindly re-send — the
+        // body may have been fully delivered. Fail immediately on the first attempt.
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.ThrowAfterStarted(new HttpRequestException("500")));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(1, pipeline.Invocations);
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.DoesNotContain("after", fail.Reason, StringComparison.Ordinal);
+        Assert.Equal("500", fail.Reason);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenPipelineYieldsServerVerdictFailure_ForwardsWithoutRetry()
+    {
+        // A server verdict is a parsed bad response yielded as AttemptFailed (no throw). It's
+        // terminal — the runner forwards it and does not retry.
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.YieldServerFailure("server said no"));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(1, pipeline.Invocations);
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Equal("server said no", fail.Reason);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUserCancels_ThrowsOperationCanceledAndDoesNotRetry()
+    {
+        // The pipeline throws OperationCanceledException because the token is cancelled.
+        // The runner must propagate a cancellation (scheduler keys "Cancelled" off it) and
+        // must NOT retry.
+        using CancellationTokenSource cts = new();
+        cts.Cancel();
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.ThrowAfterStarted(new OperationCanceledException()));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (UploadEvent _ in runner.RunAsync(MakeInputs(), cts.Token))
+            {
+                /* drain */
+            }
+        });
+
+        Assert.Equal(1, pipeline.Invocations);
+    }
+
     private static AttemptInputs MakeInputs() => new()
     {
         FilePath = @"C:\does-not-matter\x.zip",
@@ -248,6 +369,65 @@ public class AttemptRunnerTests
             {
                 yield return new AttemptFailed("synthetic failure", null);
             }
+        }
+    }
+
+    /// <summary>
+    /// What a <see cref="ProgrammablePipeline"/> attempt does after yielding TransferStarted.
+    /// </summary>
+    private sealed record PipelineBehavior(
+        string? SuccessUrl,
+        Exception? Throw,
+        string? ServerFailureReason)
+    {
+        public static PipelineBehavior Succeed(string url) => new(url, null, null);
+
+        public static PipelineBehavior ThrowAfterStarted(Exception ex) => new(null, ex, null);
+
+        public static PipelineBehavior YieldServerFailure(string reason) => new(null, null, reason);
+    }
+
+    /// <summary>
+    /// A pipeline whose per-attempt behavior is chosen by a factory keyed off the 1-based
+    /// invocation number, so tests can make attempt 1 throw and attempt 2 succeed, etc.
+    /// </summary>
+    private sealed class ProgrammablePipeline(Func<int, PipelineBehavior> behaviorFor) : IFileHosterPipeline
+    {
+        public int Invocations { get; private set; }
+
+        public string Name => "Rapidgator";
+
+        public bool RequiresHashingBeforeUpload => false;
+
+        public bool RequiresHashingAfterUpload => false;
+
+        public long? MaxFileSize => null;
+
+        public int? MaxFilesPerPackage => null;
+
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+            => Task.FromResult(new AccountCheckResult(true, AccountType.Free, "Login OK"));
+
+        public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
+        {
+            int attempt = ++this.Invocations;
+            PipelineBehavior behavior = behaviorFor(attempt);
+
+            yield return new TransferStarted(ctx.FileSize);
+            await Task.Yield();
+
+            if (behavior.Throw is not null)
+            {
+                throw behavior.Throw;
+            }
+
+            if (behavior.ServerFailureReason is not null)
+            {
+                yield return new AttemptFailed(behavior.ServerFailureReason, null);
+                yield break;
+            }
+
+            yield return new TransferCompleted(behavior.SuccessUrl!);
         }
     }
 }

@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -11,11 +12,19 @@ using CSUploader.Lib.Net.Http;
 namespace CSUploader.Upload.Pipeline;
 
 /// <summary>
-/// Outer pipeline orchestrator. One <c>RunAsync</c> call = one upload attempt.
+/// Outer pipeline orchestrator. One <c>RunAsync</c> call = one upload attempt (with bounded,
+/// universally-safe retries on body-incomplete transport faults).
 /// Picks proxy → builds handler → invokes hoster pipeline → emits <see cref="AttemptCompleted"/>.
 /// </summary>
 public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource proxySource, IHttpHandlerFactory handlerFactory)
 {
+    /// <summary>
+    /// Total number of times the whole hoster pipeline may run for a single upload. A retry
+    /// re-invokes the entire <see cref="IFileHosterPipeline.RunAsync"/> (fresh discovery +
+    /// re-send), which is only safe when the previous attempt's body never finished sending
+    /// — see <see cref="UploadBodyTransferException"/>.
+    /// </summary>
+    private const int MaxUploadAttempts = 3;
 
     /// <summary>
     /// Raised after every attempt. <see cref="ProxyManager"/> subscribes here to update
@@ -97,29 +106,108 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
 
         bool success = false;
         string? finalUrl = null;
-        Exception? failure = null;
 
-        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, ct))
+        // Bounded retry loop. The whole hoster pipeline is re-run (a fresh attempt) ONLY when
+        // the previous attempt propagated a body-incomplete transport fault — the connection
+        // aborted mid-send, so the server committed nothing and re-sending cannot double-create.
+        // A server verdict (yielded AttemptFailed/AttemptCancelled) or success is terminal.
+        // `yield return` can't live inside try/catch, so we pump the pipeline's events through a
+        // channel on a background Task that captures any thrown transport fault.
+        for (int attempt = 1; attempt <= MaxUploadAttempts; attempt++)
         {
-            yield return ev;
+            Channel<UploadEvent> channel = Channel.CreateUnbounded<UploadEvent>(
+                new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+            Exception? fault = null;
 
-            switch (ev)
+            Task pump = Task.Run(async () =>
             {
-                case TransferCompleted tc:
+                try
+                {
+                    await foreach (UploadEvent ev in pipeline.RunAsync(ctx, ct))
+                    {
+                        channel.Writer.TryWrite(ev);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    fault = ex;
+                }
+                finally
+                {
+                    channel.Writer.Complete();
+                }
+            });
+
+            await foreach (UploadEvent ev in channel.Reader.ReadAllAsync(CancellationToken.None))
+            {
+                yield return ev;
+                if (ev is TransferCompleted tc)
+                {
                     success = true;
                     finalUrl = tc.FileUrl;
-                    break;
-                case AttemptFailed af:
-                    failure = af.Exception;
-                    break;
-                case AttemptCancelled:
-                    break;
+                }
             }
+
+            await pump; // ensure `fault` is published (and surface any pump-internal failure).
+
+            if (fault is null)
+            {
+                // Terminal: success, a server-verdict AttemptFailed, or AttemptCancelled.
+                break;
+            }
+
+            if (ct.IsCancellationRequested || fault is OperationCanceledException)
+            {
+                // Genuine user/scheduler cancellation — never retry, and surface it as a
+                // cancellation so the scheduler marks the row Cancelled (not Failed). The
+                // final AttemptCompleted event is intentionally NOT emitted on this path
+                // (matching prior behavior).
+                throw new OperationCanceledException(ct);
+            }
+
+            bool retryable = UploadBodyTransferException.IsInChain(fault);
+            if (retryable && attempt < MaxUploadAttempts)
+            {
+                if (await DelayBeforeRetryAsync(attempt, ct))
+                {
+                    // Cancelled during the back-off — treat as a genuine cancellation.
+                    throw new OperationCanceledException(ct);
+                }
+
+                continue; // re-run the whole attempt; the pool opens a fresh connection.
+            }
+
+            // Non-retryable transport fault, or retries exhausted → terminal Failed (not
+            // Cancelled). Yielding AttemptFailed (no thrown exception) lets the scheduler
+            // mark the row Failed.
+            string reason = retryable
+                ? $"Upload failed after {MaxUploadAttempts} attempts (last transport error: {fault.Message})"
+                : fault.Message;
+            yield return new AttemptFailed(reason, fault);
+            success = false;
+            break;
         }
 
         AttemptCompleted finalEvent = new(Success: success, ProxyId: proxy.Id, FileUrl: finalUrl);
         yield return finalEvent;
         this.AttemptCompleted?.Invoke(this, finalEvent);
-        _ = failure; // reserved for richer reporting once all hosters wire AttemptFailed
+    }
+
+    /// <summary>
+    /// Backs off before re-running the pipeline (1s, 2s, …, keyed off the just-completed
+    /// attempt number), cancellable. Returns <see langword="true"/> if the wait was cancelled
+    /// (caller should abort as a cancellation), <see langword="false"/> to proceed with the retry.
+    /// </summary>
+    private static async Task<bool> DelayBeforeRetryAsync(int completedAttempt, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(completedAttempt), ct);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return true;
+        }
     }
 }
