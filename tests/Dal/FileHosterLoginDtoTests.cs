@@ -71,6 +71,21 @@ public class FileHosterLoginDtoTests
     }
 
     [Fact]
+    public void Username_Setter_RaisesPropertyChanged()
+    {
+        // ApplySessionCookieIfPresent sets Username in place from the verifier's DerivedUsername
+        // (API-key hosters like HitFile), so the grid's {Binding Username} column must be notified.
+        FileHosterLoginDto dto = new();
+        List<string?> changed = [];
+        dto.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dto.Username = "user@example.com";
+
+        Assert.Contains(nameof(FileHosterLoginDto.Username), changed);
+        Assert.Equal("user@example.com", dto.Username);
+    }
+
+    [Fact]
     public void StorageUsedBytes_Setter_RaisesPropertyChanged_ForUsedAndAvailable()
     {
         // StorageAvailableBytes is computed from StorageUsedBytes/StorageQuotaBytes, so the

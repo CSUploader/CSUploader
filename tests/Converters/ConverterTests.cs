@@ -72,24 +72,37 @@ public class ByteUnitConverterTests
     }
 }
 
-public class StorageAvailableDisplayConverterTests
+public class StorageAvailableDisplayMultiConverterTests
 {
-    private readonly StorageAvailableDisplayConverter _converter = new();
+    private readonly StorageAvailableDisplayMultiConverter _converter = new();
+
+    private object Convert(long? used, long? quota)
+        => _converter.Convert([BoxOrNull(used), BoxOrNull(quota)], typeof(string), null!, CultureInfo.InvariantCulture);
+
+    // Mirror what a MultiBinding hands the converter for a null long? source: the binding
+    // contributes a null array slot, not a boxed default.
+    private static object BoxOrNull(long? v) => v is long l ? l : (object)null!;
 
     [Fact]
     public void Convert_KnownQuota_RendersRemainingBytes()
     {
         // used + quota both known → Available = quota - used, formatted in binary IEC.
-        CSUploader.Dal.FileHosterLoginDto dto = new()
-        {
-            StorageUsedBytes = 400_000_000L,
-            StorageQuotaBytes = 1_000_000_000L, // 600 MB remaining
-        };
-
-        object result = _converter.Convert(dto, typeof(string), null!, CultureInfo.InvariantCulture);
+        // 1 GiB used of 10 GiB → 9 GiB remaining ≈ "9 GiB".
+        object result = Convert(used: 1L * 1024 * 1024 * 1024, quota: 10L * 1024 * 1024 * 1024);
 
         string text = Assert.IsType<string>(result);
-        Assert.Contains("MiB", text, StringComparison.Ordinal); // 600 MB ≈ 572 MiB
+        Assert.Contains("GiB", text, StringComparison.Ordinal);
+        Assert.StartsWith("9", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Convert_OverQuota_ClampsAtZero()
+    {
+        // Mirror StorageAvailableBytes: never a negative value.
+        object result = Convert(used: 100L, quota: 50L);
+
+        string text = Assert.IsType<string>(result);
+        Assert.StartsWith("0", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -97,13 +110,7 @@ public class StorageAvailableDisplayConverterTests
     {
         // Ex-Load shape: storage reported (used known) but no cap (quota null) → "Unlimited"
         // rather than a blank cell.
-        CSUploader.Dal.FileHosterLoginDto dto = new()
-        {
-            StorageUsedBytes = 415_593_052L,
-            StorageQuotaBytes = null,
-        };
-
-        object result = _converter.Convert(dto, typeof(string), null!, CultureInfo.InvariantCulture);
+        object result = Convert(used: 5L, quota: null);
 
         string text = Assert.IsType<string>(result);
         Assert.False(string.IsNullOrEmpty(text), "Unlimited storage must render a non-empty label");
@@ -115,17 +122,8 @@ public class StorageAvailableDisplayConverterTests
     public void Convert_NoStorageInfo_RendersBlank()
     {
         // Neither used nor quota known (hoster doesn't report storage) → blank cell.
-        CSUploader.Dal.FileHosterLoginDto dto = new();
+        object result = Convert(used: null, quota: null);
 
-        object result = _converter.Convert(dto, typeof(string), null!, CultureInfo.InvariantCulture);
-
-        Assert.Equal(string.Empty, result);
-    }
-
-    [Fact]
-    public void Convert_NonDto_RendersBlank()
-    {
-        object result = _converter.Convert("not a dto", typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.Equal(string.Empty, result);
     }
 
@@ -133,7 +131,7 @@ public class StorageAvailableDisplayConverterTests
     public void ConvertBack_ThrowsNotSupportedException()
     {
         Assert.Throws<NotSupportedException>(
-            () => _converter.ConvertBack("x", typeof(object), null!, CultureInfo.InvariantCulture));
+            () => _converter.ConvertBack("x", [typeof(long), typeof(long)], null!, CultureInfo.InvariantCulture));
     }
 }
 

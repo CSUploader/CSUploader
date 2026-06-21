@@ -23,7 +23,7 @@
         <conv:HosterIconConverter x:Key="HosterIconConverter" />
         <conv:ByteUnitConverter x:Key="ByteUnit" />
         <conv:DateTimeFormatConverter x:Key="DateTimeFormat" />
-        <conv:StorageAvailableDisplayConverter x:Key="StorageAvailableDisplay" />
+        <conv:StorageAvailableDisplayMultiConverter x:Key="StorageAvailableDisplayMulti" />
 
         <Style x:Key="SidebarItem" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="6,8" />
@@ -955,13 +955,22 @@
                          scrollbar actually has something to scroll over. The * setting
                          used to shrink Available to whatever space was left, which made
                          the cell unreadable on narrow windows without surfacing a scrollbar.
-                         Bound to the whole row (not a single property) via
-                         StorageAvailableDisplay so it can render "Unlimited" when the hoster
-                         reports usage but no cap (Ex-Load), formatted bytes when the cap is
-                         known, or blank when there's no storage info at all. -->
+                         MultiBinding over the two NOTIFYING source properties
+                         (StorageUsedBytes / StorageQuotaBytes) — NOT an empty-path
+                         {Binding} over the whole row, which only re-evaluates when the item
+                         instance is replaced and so showed stale data once refresh started
+                         updating the row in place. The converter renders "Unlimited" when the
+                         hoster reports usage but no cap (Ex-Load), formatted bytes when the cap
+                         is known, or blank when there's no storage info at all. -->
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}"
-                                        Binding="{Binding Converter={StaticResource StorageAvailableDisplay}}"
-                                        Width="110" IsReadOnly="True" />
+                                        Width="110" IsReadOnly="True">
+                        <DataGridTextColumn.Binding>
+                            <MultiBinding Converter="{StaticResource StorageAvailableDisplayMulti}">
+                                <Binding Path="StorageUsedBytes" />
+                                <Binding Path="StorageQuotaBytes" />
+                            </MultiBinding>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
                     <!-- Wall-clock the account was added (set once at insert). Bound to
                          FileHosterLoginDto.CreatedDateTime; blank when null (rows predating the
                          column) via the shared DateTimeFormatConverter. -->

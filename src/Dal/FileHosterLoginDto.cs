@@ -37,7 +37,12 @@ public class FileHosterLoginDto : INotifyPropertyChanged
 
     public string? FileHosterName { get; set; }
 
-    public string? Username { get; set; }
+    private string? _username;
+
+    // Notifies because RefreshSingleAccountAsync → ApplySessionCookieIfPresent can set this in
+    // place from the verifier's DerivedUsername (API-key hosters like HitFile), and the grid's
+    // {Binding Username} column must re-render without a reload.
+    public string? Username { get => _username; set => SetField(ref _username, value); }
 
     public string? Password { get; set; }
 
