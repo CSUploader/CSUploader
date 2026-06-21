@@ -141,6 +141,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}}" Width="160" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Status}" Binding="{Binding StatusCode}" Width="60" />
+                            <DataGridTextColumn Header="{loc:Loc Logs_Col_Method}" Binding="{Binding HttpTransaction.Method}" Width="70" />
                             <DataGridTextColumn Header="{loc:Loc Logs_Col_Url}"
                                                 Binding="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}}"
                                                 Width="320" ElementStyle="{StaticResource LogUrlStyle}" />
