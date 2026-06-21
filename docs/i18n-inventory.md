@@ -524,6 +524,7 @@ Logs_Col_Line                      = Line
 Logs_Col_Message                   = Message
 Logs_Col_Thread                    = Thread
 Logs_Col_Url                       = URL
+Logs_Col_Proxy                     = Proxy
 
 # Column show/hide "Reset columns" confirmation (Logs tab grids).
 Logs_ResetColumns_Title            = Reset columns

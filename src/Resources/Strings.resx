@@ -1163,6 +1163,9 @@ Add anyway?</value>
   <data name="Logs_Col_Url" xml:space="preserve">
     <value>URL</value>
   </data>
+  <data name="Logs_Col_Proxy" xml:space="preserve">
+    <value>Proxy</value>
+  </data>
   <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
     <value>No URLs in selection; clipboard cleared</value>
   </data>
