@@ -65,6 +65,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     /// <summary>Thrown internally when a post-auth API call returns HTTP 401 (token expired).</summary>
     private sealed class AuthExpiredException : Exception { }
 
+    /// <summary>Thrown internally when file/upload reports the cached folder_id was deleted
+    /// server-side (envelope status 404 "Folder ... doesn't exist"), so the pipeline can drop the
+    /// stale cache entry, recreate the folder, and reserve the upload again.</summary>
+    private sealed class FolderGoneException : Exception { }
+
     public string Name => "Alfafile";
 
     public bool RequiresHashingBeforeUpload => true;
@@ -119,13 +124,15 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
         do
         {
-            // === Folder ===
+            // === Folder + file/upload reservation (recreates the folder once if its cached id
+            // was deleted on Alfafile's side, before any bytes are sent — so it can't double-create). ===
             string folderName = ResolveFolderName(ctx.FilePath);
             string? folderId;
-            string? folderError;
+            UploadUrlResult? upload;
+            string? reserveError;
             try
             {
-                (folderId, folderError) = await CreateFolderAsync(ctx, auth, folderName);
+                (folderId, upload, reserveError) = await ResolveFolderAndReserveAsync(ctx, auth, folderName);
             }
             catch (AuthExpiredException)
             {
@@ -134,26 +141,13 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
                 break;
             }
 
-            if (folderId is null)
+            if (folderId is null || upload is null)
             {
-                attemptFailure = folderError ?? "folder/create failed";
+                attemptFailure = reserveError ?? "folder/create failed";
                 break;
             }
 
             yield return new TransferStarted(ctx.FileSize);
-
-            // === file/upload → upload_url + upload_id (or instant-finish on dedup) ===
-            UploadUrlResult upload;
-            try
-            {
-                upload = await GetUploadUrlAsync(ctx, auth, folderId);
-            }
-            catch (AuthExpiredException)
-            {
-                _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
-                authExpired = true;
-                break;
-            }
 
             if (upload.Error is not null)
             {
@@ -387,6 +381,55 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         return name;
     }
 
+    private void EvictFolderCache(AttemptContext ctx, AlfafileAuthState auth, string folderName)
+        => _foldersByName.TryRemove((ctx.Credentials.Id, auth.PrimaryFolderId, folderName), out _);
+
+    /// <summary>
+    /// Resolves the destination folder and reserves the upload, recreating the folder ONCE if
+    /// Alfafile reports the cached folder_id was deleted server-side. AuthExpiredException from
+    /// either inner call propagates to the caller's existing handler. Returns
+    /// (folderId, upload, error); on success error is null and both folderId/upload are set.
+    /// </summary>
+    private async Task<(string? FolderId, UploadUrlResult? Upload, string? Error)> ResolveFolderAndReserveAsync(
+        AttemptContext ctx, AlfafileAuthState auth, string folderName)
+    {
+        // "Could not be recreated" message reused for both the bounded-loop exit and a second
+        // FolderGoneException (attempt 2), so no FolderGoneException can escape this method.
+        const string RecreateFailed = "Alfafile upload folder could not be recreated (it kept reporting as missing)";
+
+        for (int attempt = 1; attempt <= 2; attempt++)
+        {
+            (string? folderId, string? folderError) = await CreateFolderAsync(ctx, auth, folderName);
+            if (folderId is null)
+            {
+                return (null, null, folderError ?? "folder/create failed");
+            }
+
+            try
+            {
+                UploadUrlResult upload = await GetUploadUrlAsync(ctx, auth, folderId);
+                return (folderId, upload, null);
+            }
+            catch (FolderGoneException) when (attempt == 1)
+            {
+                // The cached destination folder was deleted on Alfafile's side. Drop the stale
+                // cache entry so the next pass recreates it under the (root) parent. No bytes have
+                // been sent yet, so recreating + re-reserving cannot double-create the file.
+                EvictFolderCache(ctx, auth, folderName);
+            }
+            catch (FolderGoneException)
+            {
+                // Attempt 2 still reported the folder missing even after recreating it. Convert to
+                // the returned error rather than letting the exception escape (the `when (attempt
+                // == 1)` filter above would otherwise rethrow it as an unclassified exception).
+                return (null, null, RecreateFailed);
+            }
+        }
+
+        // Recreated the folder but file/upload still reported it missing — fail rather than loop.
+        return (null, null, RecreateFailed);
+    }
+
     private async Task<(string? FolderId, string? Error)> CreateFolderAsync(AttemptContext ctx, AlfafileAuthState auth, string folderName)
     {
         // Reuse a folder we already touched earlier in this session — saves a round-trip
@@ -487,6 +530,10 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
         {
             if (env?.Status == 401) throw new AuthExpiredException();
+            if (env?.Status == 404 && (env.Details?.Contains("folder", StringComparison.OrdinalIgnoreCase) ?? false))
+            {
+                throw new FolderGoneException();
+            }
             return new UploadUrlResult(null, null, null, FormatApiError("file/upload failed", env?.Details, env?.Status, body));
         }
 

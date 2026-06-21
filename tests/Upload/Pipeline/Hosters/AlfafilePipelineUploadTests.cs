@@ -354,6 +354,95 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_FileUploadReportsFolderGone_RecreatesFolderAndSucceeds()
+    {
+        // Regression: the user deleted the destination folder on Alfafile's website, so the
+        // cached folder_id ("GXBR") is stale. The first file/upload returns an envelope with
+        // status 404 "Folder ... doesn't exist" (HTTP 200, envelope status 404). The pipeline
+        // must drop the stale cache entry, recreate the folder, and reserve the upload again —
+        // once, before any bytes are sent — rather than surfacing a terminal failure.
+        int folderCreateCalls = 0;
+        int fileUploadCalls = 0;
+        Queue<string> responses = new(new[]
+        {
+            // login
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            // folder/create (1st) — returns the stale slug that will be reported gone
+            """{"response":{"folder":{"folder_id":"GXBR"}},"status":200,"details":null}""",
+            // file/upload (1st) — folder gone: envelope status 404, details mention "folder"
+            """{"response":null,"status":404,"details":"Folder with folder_id: 'GXBR' doesn't exist"}""",
+            // folder/create (2nd, after eviction) — fresh folder id
+            """{"response":{"folder":{"folder_id":"NEWX"}},"status":200,"details":null}""",
+            // file/upload (2nd) — normal reservation (upload_url + upload_id)
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post?uuid=U1","file":null,"state":0,"state_label":"Uploading"}},"status":200,"details":null}""",
+            // file/upload_info — done, public url
+            """{"response":{"upload":{"upload_id":"U1","url":null,"file":{"url":"https://alfafile.net/ok/x.zip"},"state":2,"state_label":"Done"}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url =>
+            {
+                if (url.Contains("/folder/create", StringComparison.Ordinal))
+                {
+                    folderCreateCalls++;
+                }
+                if (url.Contains("/file/upload?", StringComparison.Ordinal))
+                {
+                    fileUploadCalls++;
+                }
+                return responses.Dequeue();
+            },
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        // Recovery happened: file/upload was called twice and folder/create re-invoked.
+        Assert.Equal(2, fileUploadCalls);
+        Assert.Equal(2, folderCreateCalls);
+        // Ends in success, not a terminal failure.
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://alfafile.net/ok/x.zip", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        // TransferStarted is still yielded exactly once.
+        Assert.Single(events.OfType<TransferStarted>());
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_FileUploadReportsFolderGoneTwice_FailsCleanlyWithoutLooping()
+    {
+        // If BOTH file/upload calls report the folder gone (e.g. the user keeps deleting it,
+        // or some server-side oddity), the pipeline must fail cleanly with a sensible message
+        // rather than throwing an unclassified FolderGoneException or looping forever.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GXBR"}},"status":200,"details":null}""",
+            """{"response":null,"status":404,"details":"Folder with folder_id: 'GXBR' doesn't exist"}""",
+            // recreate → second attempt
+            """{"response":{"folder":{"folder_id":"NEWX"}},"status":200,"details":null}""",
+            // still gone on the second pass
+            """{"response":null,"status":404,"details":"Folder with folder_id: 'NEWX' doesn't exist"}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("could not be recreated", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
+    [Fact]
     public async Task RunAsync_LoginFailsWithStatus401_YieldsAuthFailed()
     {
         Queue<string> responses = new(new[]
