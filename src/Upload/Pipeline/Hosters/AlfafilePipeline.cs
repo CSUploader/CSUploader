@@ -517,6 +517,10 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     private static readonly TimeSpan _uploadInfoPollMinDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan _uploadInfoPollMaxDelay = TimeSpan.FromSeconds(5);
 
+    /// <summary>Maximum number of re-authentications allowed while polling upload_info after a
+    /// post-upload 401. Bounded so genuinely-invalid credentials fail terminally rather than loop.</summary>
+    private const int MaxUploadInfoReauths = 2;
+
     private async Task<UploadUrlResult> GetUploadUrlAsync(AttemptContext ctx, AlfafileAuthState auth, string folderId)
     {
         string url = $"{ApiBase}/file/upload"
@@ -559,12 +563,13 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private async Task<(string?, string?)> GetUploadInfoAsync(AttemptContext ctx, AlfafileAuthState auth, string uploadId)
     {
-        string url = $"{ApiBase}/file/upload_info?upload_id={uploadId}&token={auth.Token}";
         DateTime deadline = DateTime.UtcNow + _uploadInfoPollTimeout;
         TimeSpan delay = _uploadInfoPollMinDelay;
+        int reauthAttempts = 0;
 
         while (true)
         {
+            string url = $"{ApiBase}/file/upload_info?upload_id={uploadId}&token={auth.Token}";
             string body = await GetAsync(ctx, url);
 
             if (!JsonHelpers.TryDeserializeObject(body, out UploadInfoEnvelope? env))
@@ -574,7 +579,24 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
             if (env?.Status == 401)
             {
-                throw new AuthExpiredException();
+                // Token expired AFTER the bytes were uploaded (the byte upload uses a pre-signed URL
+                // and already completed). Re-authenticate and re-poll the SAME upload_id — NEVER
+                // re-upload, which could create a duplicate (the file may already be committed or
+                // still processing). Bounded so genuinely-invalid credentials fail terminally rather
+                // than loop. The poll deadline still applies across re-auths.
+                if (reauthAttempts++ >= MaxUploadInfoReauths)
+                {
+                    throw new AuthExpiredException();
+                }
+
+                AlfafileAuthState? refreshed = await ReauthenticateAsync(ctx, auth);
+                if (refreshed is null)
+                {
+                    throw new AuthExpiredException();
+                }
+
+                auth = refreshed;
+                continue; // re-poll the same upload_id with the fresh token
             }
 
             if (env?.Status != 200)
@@ -629,6 +651,23 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             TimeSpan next = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * 2);
             delay = next > _uploadInfoPollMaxDelay ? _uploadInfoPollMaxDelay : next;
         }
+    }
+
+    /// <summary>
+    /// Forces a token refresh after a post-auth 401: drops the stale token (only if it is still the
+    /// cached one, so a concurrent upload's fresh token isn't clobbered), then re-logs-in through the
+    /// login gate. Returns null when re-login fails (caller surfaces a terminal AuthExpired).
+    /// </summary>
+    private async Task<AlfafileAuthState?> ReauthenticateAsync(AttemptContext ctx, AlfafileAuthState stale)
+    {
+        if (_authByCredentialsId.TryGetValue(ctx.Credentials.Id, out AlfafileAuthState? current)
+            && ReferenceEquals(current, stale))
+        {
+            _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
+        }
+
+        (AlfafileAuthState? auth, _, _) = await EnsureAuthAsync(ctx, ctx.Cancellation);
+        return auth;
     }
 
     private Task<string> GetAsync(AttemptContext ctx, string url)

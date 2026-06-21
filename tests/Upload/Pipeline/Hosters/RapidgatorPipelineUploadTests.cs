@@ -246,6 +246,97 @@ public class RapidgatorPipelineUploadTests
         Assert.Empty(responses);
     }
 
+    [Fact]
+    public async Task RunAsync_WhenUploadInfo401_ReAuthsAndRePollsSameUploadIdWithoutReUploading()
+    {
+        // The token can expire AFTER the bytes were uploaded (the byte upload uses a pre-signed
+        // URL and already completed). upload_info then returns envelope status 401. The pipeline
+        // must re-authenticate (an extra login round-trip) and re-poll the SAME upload_id with the
+        // fresh token — NEVER re-upload the bytes (that could create a duplicate). Recovery ends in
+        // success.
+        int uploadInvocations = 0;
+        Queue<string> responses = new(new[]
+        {
+            // login
+            """{"response":{"token":"TOK","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // folder/create
+            """{"response":{"folder":{"folder_id":"8676913"}},"status":200,"details":null}""",
+            // file/upload — returns the upload_url + upload_id
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
+            // upload_info — token expired mid-upload
+            """{"response":null,"status":401,"details":"Unauthorized. Token doesn't exist"}""",
+            // re-auth login (consumed by EnsureAuthAsync → LoginAsync)
+            """{"response":{"token":"TOK2","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // upload_info re-poll with the fresh token — done, public url
+            """{"response":{"upload":{"file":{"url":"https://r.net/file/reauth"},"state":2}},"status":200,"details":null}""",
+        });
+        RapidgatorPipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) =>
+            {
+                uploadInvocations++;
+                return Task.CompletedTask;
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        // Recovered without re-uploading: the byte upload ran exactly once.
+        Assert.Equal(1, uploadInvocations);
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://r.net/file/reauth", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        // Every queued response was consumed: 401 → re-auth login → re-poll, in order.
+        Assert.Empty(responses);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenUploadInfo401ExhaustsReauths_YieldsTerminalTokenExpiredWithoutReUploading()
+    {
+        // If upload_info keeps returning 401 even after re-authenticating up to MaxUploadInfoReauths
+        // (=2) times, the pipeline gives up via the existing terminal AuthExpired path. The byte
+        // upload must still have run exactly once — re-auth never re-uploads.
+        int uploadInvocations = 0;
+        Queue<string> responses = new(new[]
+        {
+            // login
+            """{"response":{"token":"TOK","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // folder/create
+            """{"response":{"folder":{"folder_id":"8676913"}},"status":200,"details":null}""",
+            // file/upload
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
+            // upload_info 401 (#1) → re-auth #1
+            """{"response":null,"status":401,"details":"Unauthorized. Token doesn't exist"}""",
+            """{"response":{"token":"TOK2","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // upload_info 401 (#2) → re-auth #2
+            """{"response":null,"status":401,"details":"Unauthorized. Token doesn't exist"}""",
+            """{"response":{"token":"TOK3","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            // upload_info 401 (#3) → exceeds MaxUploadInfoReauths → terminal AuthExpired
+            """{"response":null,"status":401,"details":"Unauthorized. Token doesn't exist"}""",
+        });
+        RapidgatorPipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) =>
+            {
+                uploadInvocations++;
+                return Task.CompletedTask;
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(1, uploadInvocations);
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("token expired", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
     private static AttemptContext MakeContext() => new()
     {
         AttemptId = Guid.NewGuid(),
