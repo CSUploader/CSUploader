@@ -109,8 +109,13 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
-    public async Task RunAsync_WhenUploadInfoStateIsFail_StopsPollingAndReportsAttemptFailed()
+    public async Task RunAsync_WhenUploadInfoStateIsFail_ThrowsUploadProcessingFailedAndStopsPolling()
     {
+        // state=3 ("Fail") with an empty file means the server processed the bytes but created
+        // NO file. Because nothing was committed, re-running the whole upload is safe — so the
+        // pipeline THROWS UploadProcessingFailedException (carrying the raw body) rather than
+        // yielding a terminal AttemptFailed. The shared retry layer (AttemptRunner) catches that
+        // fault and re-runs the upload; see AttemptRunnerTests for the retry/terminal behaviour.
         Queue<string> responses = new(new[]
         {
             """{"response":{"token":"TOK"},"status":200,"details":null}""",
@@ -123,18 +128,22 @@ public class AlfafilePipelineUploadTests
             uploadOverride: (filePath, link, _) => Task.CompletedTask);
 
         List<UploadEvent> events = [];
-        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        UploadProcessingFailedException ex = await Assert.ThrowsAsync<UploadProcessingFailedException>(async () =>
         {
-            events.Add(ev);
-        }
+            await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+            {
+                events.Add(ev);
+            }
+        });
 
-        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        Assert.Contains("state 3", ex.Message, StringComparison.Ordinal);
         // The raw upload_info response body is embedded so a state-3 rejection is diagnosable
         // (the parsed `details` is often empty and the body is never persisted on its own).
-        Assert.Contains("response:", failure.Reason, StringComparison.Ordinal);
-        Assert.Contains("\"file\":null", failure.Reason, StringComparison.Ordinal);
-        Assert.Empty(responses);
+        Assert.Contains("response:", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("\"file\":null", ex.Message, StringComparison.Ordinal);
+        // state-3 no longer yields a terminal AttemptFailed — that now happens at the AttemptRunner layer.
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Empty(responses); // polling stopped at state 3
     }
 
     [Fact]

@@ -202,7 +202,15 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
                 throw new OperationCanceledException(ct);
             }
 
-            bool retryable = UploadBodyTransferException.IsInChain(fault);
+            // Two safe-to-retry bases, both meaning the server has no file from this attempt — so
+            // re-running the whole pipeline cannot double-create:
+            //   • body-not-fully-sent (transport): the connection aborted mid-send, so the server
+            //     received an incomplete request and committed nothing (UploadBodyTransferException);
+            //   • post-upload processing failure: the server accepted the bytes but its processing
+            //     reported the upload failed and created NO file, e.g. Alfafile/Rapidgator
+            //     upload_info state 3 "Fail" with an empty file (UploadProcessingFailedException).
+            bool retryable = UploadBodyTransferException.IsInChain(fault)
+                || UploadProcessingFailedException.IsInChain(fault);
             if (retryable && attempt < MaxUploadAttempts)
             {
                 if (await DelayBeforeRetryAsync(attempt, ct))
@@ -218,7 +226,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             // Cancelled). Yielding AttemptFailed (no thrown exception) lets the scheduler
             // mark the row Failed.
             string reason = retryable
-                ? $"Upload failed after {MaxUploadAttempts} attempts (last transport error: {fault.Message})"
+                ? $"Upload failed after {MaxUploadAttempts} attempts (last error: {fault.Message})"
                 : fault.Message;
             yield return new AttemptFailed(reason, fault);
             success = false;

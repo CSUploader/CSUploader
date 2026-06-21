@@ -267,6 +267,58 @@ public class AttemptRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenProcessingFailedThenSuccess_RetriesAndCompletesSuccessfully()
+    {
+        // Attempt 1 throws UploadProcessingFailedException (server processed the bytes but its
+        // post-upload processing failed with no file created — Alfafile/Rapidgator state 3).
+        // Re-running is safe because nothing was committed, so AttemptRunner re-runs the whole
+        // pipeline; attempt 2 succeeds.
+        ProgrammablePipeline pipeline = new(attempt =>
+            attempt == 1
+                ? PipelineBehavior.ThrowAfterStarted(new UploadProcessingFailedException("state 3 ..."))
+                : PipelineBehavior.Succeed("https://x/y"));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(2, pipeline.Invocations);
+        Assert.Contains(events, e => e is TransferCompleted);
+        Assert.DoesNotContain(events, e => e is AttemptFailed);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.True(last.Success);
+        Assert.Equal("https://x/y", last.FileUrl);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenProcessingFailedEveryAttempt_ExhaustsRetriesAndFails()
+    {
+        // The processing-failed fault recurs on every attempt. After MaxUploadAttempts the
+        // runner must surface a terminal AttemptFailed (NOT throw) that mentions the attempt
+        // count and carries the underlying fault message, so the row shows Failed.
+        ProgrammablePipeline pipeline = new(_ =>
+            PipelineBehavior.ThrowAfterStarted(new UploadProcessingFailedException("state 3 server rejected")));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        // Must NOT throw — exhausted retries are a terminal Failed, not a cancellation.
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(3, pipeline.Invocations);
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("after 3 attempts", fail.Reason, StringComparison.Ordinal);
+        Assert.Contains("state 3 server rejected", fail.Reason, StringComparison.Ordinal);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.False(last.Success);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenBodyAbortEveryAttempt_ExhaustsRetriesAndFails()
     {
         // The body-incomplete fault recurs on every attempt. After MaxUploadAttempts the

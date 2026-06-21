@@ -496,11 +496,13 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             // triaging.
             if (upload?.State == RapidgatorUploadStateFail)
             {
-                // Include the raw response so a state-3 rejection is actually diagnosable: the
-                // parsed `details` is often empty, and the full upload_info body is never
-                // persisted on its own (only this error message reaches the logs/row).
+                // The server processed the bytes but failed with no file created (state 3) — re-running
+                // the whole upload is safe (nothing committed) and often succeeds for a transient
+                // "Unknown error", so signal the shared retry layer. The message carries the raw body
+                // so an exhausted retry is still diagnosable.
                 string suffix = env.Details is { Length: > 0 } d ? $": {d}" : string.Empty;
-                return (null, $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status}); response: {Snippet(body)}");
+                throw new UploadProcessingFailedException(
+                    $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status}); response: {Snippet(body)}");
             }
 
             // Out of budget — give up. Surfacing the last state we saw helps the user
