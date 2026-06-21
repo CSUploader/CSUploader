@@ -551,6 +551,37 @@ public class SettingsViewModelTests : IDisposable
         Assert.InRange(persisted.LastRefreshedDateTime!.Value, before.AddSeconds(-1), DateTime.Now.AddSeconds(1));
     }
 
+    [Fact]
+    public async Task RefreshSelectedAccounts_PreservesSelectedRow()
+    {
+        // Regression: refreshing reloads the Accounts collection (Clear + re-add), replacing
+        // every DTO instance. Without re-selecting by Id, the bound SelectedAccount (and the
+        // grid's row highlight) was lost. After refresh, SelectedAccount must point at the
+        // refreshed account's NEW live instance in the rebuilt collection.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "OK"));
+
+        FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
+        await _loginRepo.InsertAsync(seed);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
+        vm.SelectedAccount = target;
+
+        await vm.RefreshSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
+
+        Assert.NotNull(vm.SelectedAccount);
+        Assert.Equal(seed.Id, vm.SelectedAccount!.Id);
+        // The collection was rebuilt with fresh DTOs, so the restored selection must be a LIVE
+        // row in the new collection — not the orphaned old instance the buggy version left behind.
+        Assert.Contains(vm.SelectedAccount, vm.Accounts);
+        Assert.NotSame(target, vm.SelectedAccount);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)
     {
         for (int i = 0; i < timeoutMs / 10; i++)

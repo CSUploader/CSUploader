@@ -617,11 +617,33 @@ public partial class SettingsViewModel(
 
     private async Task LoadAccountsAsync(CancellationToken cancellationToken = default)
     {
+        // Preserve the selected row across the rebuild. SelectedItem binds to SelectedAccount, and
+        // Clear()+Add() replaces every DTO instance with a fresh one, so without re-selecting by Id
+        // the highlighted row is lost — e.g. after a right-click → Refresh reloads the grid.
+        int? selectedId = SelectedAccount?.Id;
+
         Accounts.Clear();
         FileHosterLoginDto[] accounts = await _accountRepository.GetAllAsync(cancellationToken);
         foreach (FileHosterLoginDto account in accounts)
         {
             Accounts.Add(account);
+        }
+
+        if (selectedId is int id)
+        {
+            FileHosterLoginDto? restored = null;
+            foreach (FileHosterLoginDto account in Accounts)
+            {
+                if (account.Id == id)
+                {
+                    restored = account;
+                    break;
+                }
+            }
+
+            // Null when the account no longer exists (e.g. removed) — clearing the selection
+            // is then the correct outcome.
+            SelectedAccount = restored;
         }
     }
 
