@@ -591,8 +591,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
             if (upload?.State == AlfafileUploadStateFail)
             {
+                // Include the raw response so a state-3 rejection is actually diagnosable: the
+                // parsed `details` is often empty, and the full upload_info body is never
+                // persisted on its own (only this error message reaches the logs/row).
                 string suffix = env.Details is { Length: > 0 } d ? $": {d}" : string.Empty;
-                return (null, $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status})");
+                return (null, $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status}); response: {Snippet(body)}");
             }
 
             if (DateTime.UtcNow >= deadline)
@@ -619,6 +622,24 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private Task<string> GetAsync(AttemptContext ctx, string url)
         => _httpOverride is not null ? _httpOverride(url) : ctx.Handler.GetStringAsync(url, ctx.Cancellation);
+
+    /// <summary>
+    /// Compacts a response body for embedding in an error message: trims, collapses newlines, and
+    /// caps the length so the (small) upload_info JSON is captured in full without risking an
+    /// unbounded blob in the logs. Renders "(empty)" for a blank body.
+    /// </summary>
+    private static string Snippet(string? body, int max = 1000)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "(empty)";
+        }
+
+        string trimmed = body.Trim()
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal);
+        return trimmed.Length > max ? trimmed[..max] + "…" : trimmed;
+    }
 
     private static string FormatApiError(string fallback, string? details, int? status, string? rawBody = null)
     {

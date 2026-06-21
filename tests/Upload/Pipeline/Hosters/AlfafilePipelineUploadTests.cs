@@ -130,6 +130,10 @@ public class AlfafilePipelineUploadTests
 
         AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        // The raw upload_info response body is embedded so a state-3 rejection is diagnosable
+        // (the parsed `details` is often empty and the body is never persisted on its own).
+        Assert.Contains("response:", failure.Reason, StringComparison.Ordinal);
+        Assert.Contains("\"file\":null", failure.Reason, StringComparison.Ordinal);
         Assert.Empty(responses);
     }
 
