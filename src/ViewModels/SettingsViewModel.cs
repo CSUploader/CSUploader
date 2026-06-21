@@ -1242,16 +1242,27 @@ public partial class SettingsViewModel(
         IsCheckingAccount = true;
         try
         {
-            Dictionary<int, RowStatus> statuses = BuildStatusMap();
             for (int i = 0; i < targets.Length; i++)
             {
+                // targets come from ResolveAccountTargets → the grid's SelectedItems, which
+                // are the live Accounts instances. RefreshSingleAccountAsync already mutates
+                // this same instance in place (LastRefreshedDateTime, AccountType, session,
+                // Storage*) and persists it.
                 FileHosterLoginDto account = targets[i];
                 RowStatus settled = await RefreshSingleAccountAsync(account, i + 1, targets.Length, cancellationToken);
-                statuses[account.Id] = settled;
-            }
 
-            await LoadAccountsAsync(cancellationToken);
-            ApplyStatusMap(statuses);
+                // Apply the final outcome to the SAME live row instance — no reload, so the
+                // grid updates in place (DTO is now observable) and the selection/highlight is
+                // preserved naturally.
+                if (settled.RefreshedAt is { } stamp)
+                {
+                    account.MarkRefreshed(settled.Status, settled.Message, stamp);
+                }
+                else
+                {
+                    account.SetCheckStatus(settled.Status, settled.Message);
+                }
+            }
         }
         finally
         {
@@ -1410,43 +1421,19 @@ public partial class SettingsViewModel(
 
     /// <summary>
     /// Updates an account's <see cref="FileHosterLoginDto.CheckStatus"/> and
-    /// <see cref="FileHosterLoginDto.StatusMessage"/> together, replacing the item in
-    /// <see cref="Accounts"/> to trigger ObservableCollection change notification
-    /// (FileHosterLoginDto doesn't implement INotifyPropertyChanged, and same-reference
-    /// assignment is optimised away by the framework).
+    /// <see cref="FileHosterLoginDto.StatusMessage"/> together, IN PLACE on the live
+    /// <see cref="Accounts"/> instance. <see cref="FileHosterLoginDto"/> now raises
+    /// PropertyChanged for those fields, so mutating the existing item re-renders its row
+    /// — no need to replace the item (the old copy-every-field workaround), which also
+    /// dropped the selection highlight.
     /// </summary>
     private void UpdateAccountStatus(int accountId, AccountCheckStatus status, string message)
     {
-        for (int i = 0; i < Accounts.Count; i++)
+        foreach (FileHosterLoginDto account in Accounts)
         {
-            if (Accounts[i].Id == accountId)
+            if (account.Id == accountId)
             {
-                // Carry EVERY persisted field across the in-flight "Checking…" flip, not just
-                // LastRefreshedDateTime. A concurrent second refresh (RefreshSelectedAccounts allows
-                // concurrency) resolves its target from this in-memory row, so dropping ApiKey /
-                // SessionCookie / Storage* here would route HitFile to the interactive sign-in
-                // (popping a WebView) and lose the upload appId until the next LoadAccountsAsync.
-                FileHosterLoginDto src = Accounts[i];
-                FileHosterLoginDto copy = new()
-                {
-                    Id = src.Id,
-                    FileHosterName = src.FileHosterName,
-                    Username = src.Username,
-                    Password = src.Password,
-                    AccountType = src.AccountType,
-                    Disabled = src.Disabled,
-                    IsAnonymous = src.IsAnonymous,
-                    ApiKey = src.ApiKey,
-                    SessionCookie = src.SessionCookie,
-                    SessionCookieExpiresUtc = src.SessionCookieExpiresUtc,
-                    PinnedProxyId = src.PinnedProxyId,
-                    StorageUsedBytes = src.StorageUsedBytes,
-                    StorageQuotaBytes = src.StorageQuotaBytes,
-                    LastRefreshedDateTime = src.LastRefreshedDateTime,
-                    CreatedDateTime = src.CreatedDateTime,
-                };
-                copy.SetCheckStatus(status, message);
-                Accounts[i] = copy;
+                account.SetCheckStatus(status, message);
                 return;
             }
         }

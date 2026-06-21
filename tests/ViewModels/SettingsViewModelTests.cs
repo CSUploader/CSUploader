@@ -554,10 +554,12 @@ public class SettingsViewModelTests : IDisposable
     [Fact]
     public async Task RefreshSelectedAccounts_PreservesSelectedRow()
     {
-        // Regression: refreshing reloads the Accounts collection (Clear + re-add), replacing
-        // every DTO instance. Without re-selecting by Id, the bound SelectedAccount (and the
-        // grid's row highlight) was lost. After refresh, SelectedAccount must point at the
-        // refreshed account's NEW live instance in the rebuilt collection.
+        // Refresh now updates the selected row IN PLACE (FileHosterLoginDto is observable),
+        // so the collection is NOT rebuilt and the selected DTO instance is NOT replaced.
+        // The bound SelectedAccount must therefore remain the SAME live instance, proving the
+        // refresh updated the row in place rather than reloading — which preserves the grid's
+        // highlight naturally. The status/timestamp assertions confirm the in-place update
+        // actually landed on that instance.
         Mock<IAccountVerifier> verifier = new();
         verifier
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -576,10 +578,12 @@ public class SettingsViewModelTests : IDisposable
 
         Assert.NotNull(vm.SelectedAccount);
         Assert.Equal(seed.Id, vm.SelectedAccount!.Id);
-        // The collection was rebuilt with fresh DTOs, so the restored selection must be a LIVE
-        // row in the new collection — not the orphaned old instance the buggy version left behind.
         Assert.Contains(vm.SelectedAccount, vm.Accounts);
-        Assert.NotSame(target, vm.SelectedAccount);
+        // SAME live instance — the row was updated in place, not replaced by a reload.
+        Assert.Same(target, vm.SelectedAccount);
+        // ...and the in-place update actually happened on that instance.
+        Assert.Equal(AccountCheckStatus.Valid, target.CheckStatus);
+        Assert.NotNull(target.LastRefreshedDateTime);
     }
 
     private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)

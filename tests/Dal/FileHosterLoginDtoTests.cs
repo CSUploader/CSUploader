@@ -52,4 +52,37 @@ public class FileHosterLoginDtoTests
         FileHosterLoginDto dto = new();
         Assert.Null(dto.StorageAvailableBytes);
     }
+
+    [Fact]
+    public void SetCheckStatus_RaisesPropertyChanged_ForCheckStatusAndStatusMessage()
+    {
+        // The Accounts grid relies on these notifications to re-render a row in place
+        // (instead of replacing the DTO instance) on refresh/enable/disable.
+        FileHosterLoginDto dto = new();
+        List<string?> changed = [];
+        dto.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dto.SetCheckStatus(AccountCheckStatus.Valid, "ok");
+
+        Assert.Contains(nameof(FileHosterLoginDto.CheckStatus), changed);
+        Assert.Contains(nameof(FileHosterLoginDto.StatusMessage), changed);
+        Assert.Equal(AccountCheckStatus.Valid, dto.CheckStatus);
+        Assert.Equal("ok", dto.StatusMessage);
+    }
+
+    [Fact]
+    public void StorageUsedBytes_Setter_RaisesPropertyChanged_ForUsedAndAvailable()
+    {
+        // StorageAvailableBytes is computed from StorageUsedBytes/StorageQuotaBytes, so the
+        // "Available" column must be told to re-read when either operand changes.
+        FileHosterLoginDto dto = new() { StorageQuotaBytes = 1000L };
+        List<string?> changed = [];
+        dto.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dto.StorageUsedBytes = 250L;
+
+        Assert.Contains(nameof(FileHosterLoginDto.StorageUsedBytes), changed);
+        Assert.Contains(nameof(FileHosterLoginDto.StorageAvailableBytes), changed);
+        Assert.Equal(750L, dto.StorageAvailableBytes);
+    }
 }

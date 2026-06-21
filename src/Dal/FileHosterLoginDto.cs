@@ -3,12 +3,36 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using CSUploader.Upload;
 
 namespace CSUploader.Dal;
 
-public class FileHosterLoginDto
+public class FileHosterLoginDto : INotifyPropertyChanged
 {
+    // The Accounts DataGrid only re-renders a row when the bound item raises
+    // PropertyChanged (or the item instance is replaced). The display-bound, mutable
+    // fields below notify so an in-place refresh/enable/disable updates the grid without
+    // replacing the item or reloading the whole collection. Implemented by hand so the
+    // Dal project keeps no UI/MVVM (CommunityToolkit) dependency.
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    private bool SetField<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        OnPropertyChanged(name);
+        return true;
+    }
+
     public int Id { get; set; }
 
     public string? FileHosterName { get; set; }
@@ -17,9 +41,13 @@ public class FileHosterLoginDto
 
     public string? Password { get; set; }
 
-    public bool Disabled { get; set; }
+    private bool _disabled;
 
-    public AccountType AccountType { get; set; }
+    public bool Disabled { get => _disabled; set => SetField(ref _disabled, value); }
+
+    private AccountType _accountType;
+
+    public AccountType AccountType { get => _accountType; set => SetField(ref _accountType, value); }
 
     /// <summary>
     /// Marks a synthetic, non-persisted "Anonymous" selection — the built-in no-login option
@@ -54,13 +82,27 @@ public class FileHosterLoginDto
     /// </summary>
     public string? ApiKey { get; set; }
 
+    private long? _storageUsedBytes;
+
     /// <summary>Bytes the account is currently consuming on the hoster (FileBoom's
     /// <c>storageSpace.used</c>). Null when not known.</summary>
-    public long? StorageUsedBytes { get; set; }
+    public long? StorageUsedBytes
+    {
+        get => _storageUsedBytes;
+        // StorageAvailableBytes is computed from this, so cascade its notification too.
+        set { if (SetField(ref _storageUsedBytes, value)) OnPropertyChanged(nameof(StorageAvailableBytes)); }
+    }
+
+    private long? _storageQuotaBytes;
 
     /// <summary>Total storage quota the account is allowed (FileBoom's
     /// <c>storageSpace.total</c>). Null when not known.</summary>
-    public long? StorageQuotaBytes { get; set; }
+    public long? StorageQuotaBytes
+    {
+        get => _storageQuotaBytes;
+        // StorageAvailableBytes is computed from this, so cascade its notification too.
+        set { if (SetField(ref _storageQuotaBytes, value)) OnPropertyChanged(nameof(StorageAvailableBytes)); }
+    }
 
     /// <summary>Computed remaining storage = <see cref="StorageQuotaBytes"/> − <see cref="StorageUsedBytes"/>,
     /// floored at 0 (handles the over-quota case some hosters allow transiently). Null
@@ -78,7 +120,9 @@ public class FileHosterLoginDto
     /// <see cref="SetCheckStatus"/>, which is reserved for in-flight markers ("Checking…")
     /// and snapshot restores that must NOT touch the timestamp.
     /// </summary>
-    public DateTime? LastRefreshedDateTime { get; set; }
+    private DateTime? _lastRefreshedDateTime;
+
+    public DateTime? LastRefreshedDateTime { get => _lastRefreshedDateTime; set => SetField(ref _lastRefreshedDateTime, value); }
 
     /// <summary>
     /// Local-time stamp of when this account was added (set once at insert, never changed).
@@ -92,7 +136,9 @@ public class FileHosterLoginDto
     /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
     /// together via <see cref="SetCheckStatus"/> so they can't drift.
     /// </summary>
-    public AccountCheckStatus CheckStatus { get; set; } = AccountCheckStatus.NotChecked;
+    private AccountCheckStatus _checkStatus = AccountCheckStatus.NotChecked;
+
+    public AccountCheckStatus CheckStatus { get => _checkStatus; set => SetField(ref _checkStatus, value); }
 
     /// <summary>
     /// Non-persisted display field showing the last check result (e.g. "Premium until
@@ -102,7 +148,9 @@ public class FileHosterLoginDto
     /// the colour scheme. Empty by default; the colour-coded cell carries the
     /// NotChecked signal on its own.
     /// </summary>
-    public string StatusMessage { get; set; } = string.Empty;
+    private string _statusMessage = string.Empty;
+
+    public string StatusMessage { get => _statusMessage; set => SetField(ref _statusMessage, value); }
 
     /// <summary>
     /// Sets <see cref="CheckStatus"/> and <see cref="StatusMessage"/> together — the only
