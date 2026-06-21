@@ -130,23 +130,47 @@ public partial class LogsView : UserControl
 
     private void DataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is DataGrid dg && dg.SelectedItem is LogEntryViewModel entry)
+        // Only open details when the double-click actually landed on a row — not on the column
+        // header, the empty area below the rows, or a scrollbar. Otherwise a double-click
+        // anywhere on the grid would re-open the previously-selected row's details. Use the
+        // double-clicked row's own item rather than SelectedItem so it opens what was clicked.
+        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is { Item: LogEntryViewModel entry })
         {
-            Window window;
-
-            // Open HttpDetailsWindow for HTTP entries with transaction data,
-            // LogDetailsWindow for everything else
-            if (entry.HasHttpTransaction)
-            {
-                window = new HttpDetailsWindow(entry);
-            }
-            else
-            {
-                window = new LogDetailsWindow(entry);
-            }
-
-            window.Owner = Window.GetWindow(this);
-            window.ShowDialog();
+            OpenDetails(entry);
         }
+    }
+
+    private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // Enter opens the selected row's details, mirroring a double-click. Handled during
+        // tunnelling so the DataGrid's default Enter behaviour (move selection to the next row)
+        // doesn't run instead.
+        if (e.Key == Key.Enter && sender is DataGrid dg && dg.SelectedItem is LogEntryViewModel entry)
+        {
+            OpenDetails(entry);
+            e.Handled = true;
+        }
+    }
+
+    private void OpenDetails(LogEntryViewModel entry)
+    {
+        // HttpDetailsWindow for HTTP entries with transaction data; LogDetailsWindow otherwise.
+        Window window = entry.HasHttpTransaction
+            ? new HttpDetailsWindow(entry)
+            : new LogDetailsWindow(entry);
+
+        window.Owner = Window.GetWindow(this);
+        window.ShowDialog();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        while (source is not null and not T)
+        {
+            source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+        }
+
+        return source as T;
     }
 }

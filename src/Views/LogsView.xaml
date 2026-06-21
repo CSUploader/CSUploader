@@ -104,6 +104,7 @@
                               Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"
                               Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
+                              PreviewKeyDown="DataGrid_PreviewKeyDown"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
                         <DataGrid.Columns>
@@ -136,6 +137,7 @@
                               Tag="{x:Static upload:SettingKey.LogsHttpTabHiddenColumns}"
                               Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
+                              PreviewKeyDown="DataGrid_PreviewKeyDown"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
                         <DataGrid.Columns>
@@ -174,6 +176,7 @@
                               Tag="{x:Static upload:SettingKey.LogsErrorsTabHiddenColumns}"
                               Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
+                              PreviewKeyDown="DataGrid_PreviewKeyDown"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
                         <DataGrid.Columns>
@@ -206,6 +209,7 @@
                               Tag="{x:Static upload:SettingKey.LogsUITabHiddenColumns}"
                               Loaded="LogGrid_Loaded"
                               MouseDoubleClick="DataGrid_MouseDoubleClick"
+                              PreviewKeyDown="DataGrid_PreviewKeyDown"
                               behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"
                               RowStyle="{StaticResource LogRowStyle}">
                         <DataGrid.Columns>
