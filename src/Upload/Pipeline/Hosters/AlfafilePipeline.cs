@@ -582,9 +582,10 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
                 // Token expired AFTER the bytes were uploaded (the byte upload uses a pre-signed URL
                 // and already completed). Re-authenticate and re-poll the SAME upload_id — NEVER
                 // re-upload, which could create a duplicate (the file may already be committed or
-                // still processing). Bounded so genuinely-invalid credentials fail terminally rather
-                // than loop. The poll deadline still applies across re-auths.
-                if (reauthAttempts++ >= MaxUploadInfoReauths)
+                // still processing). Bounded by BOTH the re-auth count and the poll deadline so
+                // genuinely-invalid credentials (or a token that keeps expiring) fail terminally
+                // rather than loop.
+                if (DateTime.UtcNow >= deadline || reauthAttempts++ >= MaxUploadInfoReauths)
                 {
                     throw new AuthExpiredException();
                 }
