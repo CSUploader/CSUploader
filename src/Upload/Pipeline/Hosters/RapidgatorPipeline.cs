@@ -501,8 +501,17 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
                 // "Unknown error", so signal the shared retry layer. The message carries the raw body
                 // so an exhausted retry is still diagnosable.
                 string suffix = env.Details is { Length: > 0 } d ? $": {d}" : string.Empty;
-                throw new UploadProcessingFailedException(
-                    $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status}); response: {Snippet(body)}");
+                string message = $"file/upload_info: server rejected the upload (state 3){suffix} (HTTP {env.Status}); response: {Snippet(body)}";
+
+                // Retry ONLY when the failure left no committed file (the normal Fail shape) — re-running
+                // then provably can't double-create. If a state-3 ever DOES carry a file url (a buggy
+                // server response), it is NOT safe to re-upload, so surface it as a terminal failure.
+                if (upload.File?.Url is { Length: > 0 })
+                {
+                    return (null, message);
+                }
+
+                throw new UploadProcessingFailedException(message);
             }
 
             // Out of budget — give up. Surfacing the last state we saw helps the user

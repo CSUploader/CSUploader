@@ -319,6 +319,34 @@ public class AttemptRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenProcessingFailedWrappedInOuterException_StillRetries()
+    {
+        // The gate walks the inner-exception chain (UploadProcessingFailedException.IsInChain).
+        // Lock that contract: even if the fault is ever wrapped in an outer exception (the way
+        // HttpClient wraps UploadBodyTransferException), the runner must still recognise it as
+        // safe-to-retry. Attempt 1 throws a wrapped processing-failure; attempt 2 succeeds.
+        ProgrammablePipeline pipeline = new(attempt =>
+            attempt == 1
+                ? PipelineBehavior.ThrowAfterStarted(
+                    new HttpRequestException("wrapped", new UploadProcessingFailedException("state 3")))
+                : PipelineBehavior.Succeed("https://x/y"));
+        AttemptRunner runner = BuildRunner(pipeline);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in runner.RunAsync(MakeInputs(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal(2, pipeline.Invocations);
+        Assert.Contains(events, e => e is TransferCompleted);
+        Assert.DoesNotContain(events, e => e is AttemptFailed);
+        AttemptCompleted last = Assert.IsType<AttemptCompleted>(events[^1]);
+        Assert.True(last.Success);
+        Assert.Equal("https://x/y", last.FileUrl);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenBodyAbortEveryAttempt_ExhaustsRetriesAndFails()
     {
         // The body-incomplete fault recurs on every attempt. After MaxUploadAttempts the

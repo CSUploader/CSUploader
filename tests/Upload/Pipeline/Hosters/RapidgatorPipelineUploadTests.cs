@@ -215,6 +215,37 @@ public class RapidgatorPipelineUploadTests
         Assert.Empty(responses);
     }
 
+    [Fact]
+    public async Task RunAsync_WhenUploadInfoStateIsFailButCarriesFileUrl_DoesNotRetryAndYieldsTerminalFailure()
+    {
+        // Safety precondition lock: state=3 is only safe to auto-retry because it normally carries
+        // NO committed file. If a (buggy) server ever returns state=3 WITH a populated file url,
+        // re-uploading could double-create — so the pipeline must NOT throw the retryable
+        // UploadProcessingFailedException; it surfaces a terminal AttemptFailed (not retried) instead.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"folder_id":"5973665"}},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"8676913"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.rapidgator/post"}},"status":200,"details":null}""",
+            // state=3 but with a committed file url — must NOT be treated as safe-to-retry.
+            """{"response":{"upload":{"file":{"url":"https://r.net/committed/x.zip"},"state":3}},"status":200,"details":null}""",
+        });
+        RapidgatorPipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        // Enumeration must complete normally — no UploadProcessingFailedException escapes.
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
     private static AttemptContext MakeContext() => new()
     {
         AttemptId = Guid.NewGuid(),

@@ -13,7 +13,8 @@ namespace CSUploader.Upload.Pipeline;
 
 /// <summary>
 /// Outer pipeline orchestrator. One <c>RunAsync</c> call = one upload attempt (with bounded,
-/// universally-safe retries on body-incomplete transport faults).
+/// universally-safe retries on faults that prove the server has no file from this attempt:
+/// a body-incomplete transport abort, or a post-upload processing failure that created no file).
 /// Picks proxy → builds handler → invokes hoster pipeline → emits <see cref="AttemptCompleted"/>.
 /// </summary>
 public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource proxySource, IHttpHandlerFactory handlerFactory)
@@ -21,8 +22,10 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
     /// <summary>
     /// Total number of times the whole hoster pipeline may run for a single upload. A retry
     /// re-invokes the entire <see cref="IFileHosterPipeline.RunAsync"/> (fresh discovery +
-    /// re-send), which is only safe when the previous attempt's body never finished sending
-    /// — see <see cref="UploadBodyTransferException"/>.
+    /// re-send), which is only safe when the previous attempt left the server with no file:
+    /// either its body never finished sending (see <see cref="UploadBodyTransferException"/>)
+    /// or its post-upload processing failed and created no file
+    /// (see <see cref="UploadProcessingFailedException"/>).
     /// </summary>
     private const int MaxUploadAttempts = 3;
 
@@ -114,9 +117,11 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
         bool success = false;
         string? finalUrl = null;
 
-        // Bounded retry loop. The whole hoster pipeline is re-run (a fresh attempt) ONLY when
-        // the previous attempt propagated a body-incomplete transport fault — the connection
-        // aborted mid-send, so the server committed nothing and re-sending cannot double-create.
+        // Bounded retry loop. The whole hoster pipeline is re-run (a fresh attempt) ONLY when the
+        // previous attempt propagated a fault that proves the server has no file from it: a
+        // body-incomplete transport fault (the connection aborted mid-send, so the server committed
+        // nothing) or a post-upload processing failure that created no file (UploadProcessingFailedException).
+        // Either way re-sending cannot double-create.
         // A server verdict (yielded AttemptFailed) or success is terminal. A yielded
         // AttemptCancelled is NOT a plain terminal: it's a non-retrying pipeline's way of
         // signalling a user-cancel, so we normalise it to a thrown OperationCanceledException

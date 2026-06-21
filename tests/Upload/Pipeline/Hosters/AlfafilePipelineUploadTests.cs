@@ -147,6 +147,37 @@ public class AlfafilePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenUploadInfoStateIsFailButCarriesFileUrl_DoesNotRetryAndYieldsTerminalFailure()
+    {
+        // Safety precondition lock: state=3 is only safe to auto-retry because it normally carries
+        // NO committed file. If a (buggy) server ever returns state=3 WITH a populated file url,
+        // re-uploading could double-create — so the pipeline must NOT throw the retryable
+        // UploadProcessingFailedException; it surfaces a terminal AttemptFailed (not retried) instead.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK"},"status":200,"details":null}""",
+            """{"response":{"folder":{"folder_id":"GCtX"}},"status":200,"details":null}""",
+            """{"response":{"upload":{"upload_id":"U1","url":"https://upload.alfafile/post"}},"status":200,"details":null}""",
+            // state=3 but with a committed file url — must NOT be treated as safe-to-retry.
+            """{"response":{"upload":{"file":{"url":"https://alfafile.net/committed/x.zip"},"state":3}},"status":200,"details":null}""",
+        });
+        AlfafilePipeline pipeline = new(
+            getOverride: url => responses.Dequeue(),
+            uploadOverride: (filePath, link, _) => Task.CompletedTask);
+
+        List<UploadEvent> events = [];
+        // Enumeration must complete normally — no UploadProcessingFailedException escapes.
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed failure = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("state 3", failure.Reason, StringComparison.Ordinal);
+        Assert.Empty(responses);
+    }
+
+    [Fact]
     public async Task RunAsync_FileAtDriveRoot_SendsSanitizedFolderName()
     {
         // Regression: uploading a file at D:\file.iso used to produce a folder name of
