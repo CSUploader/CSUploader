@@ -307,7 +307,7 @@
     <value>開始予定日時</value>
   </data>
   <data name="Uploads_Col_Duration" xml:space="preserve">
-    <value>所要時間</value>
+    <value>経過時間</value>
   </data>
   <data name="Uploads_Col_Order" xml:space="preserve">
     <value>順序</value>

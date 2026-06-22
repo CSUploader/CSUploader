@@ -307,7 +307,7 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
     <value>Lên lịch lúc</value>
   </data>
   <data name="Uploads_Col_Duration" xml:space="preserve">
-    <value>Thời lượng</value>
+    <value>Đã trôi qua</value>
   </data>
   <data name="Uploads_Col_Order" xml:space="preserve">
     <value>Thứ tự</value>

@@ -307,7 +307,7 @@
     <value>예약 시각</value>
   </data>
   <data name="Uploads_Col_Duration" xml:space="preserve">
-    <value>소요 시간</value>
+    <value>경과 시간</value>
   </data>
   <data name="Uploads_Col_Order" xml:space="preserve">
     <value>순서</value>
