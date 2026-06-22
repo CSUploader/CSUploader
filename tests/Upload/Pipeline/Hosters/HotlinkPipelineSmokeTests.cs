@@ -13,11 +13,14 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 public class HotlinkPipelineSmokeTests
 {
     [Fact]
-    public void Properties_DeclareHotlinkConfigAndStandardFreeTierLimits()
+    public void Properties_DeclareHotlinkConfigAndUncappedFileSize()
     {
         HotlinkPipeline pipeline = new();
         Assert.Equal("Hotlink", pipeline.Name);
-        Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize);
+
+        // Uncapped, mirroring Ex-Load — the base's 1 GiB default was only a conservative
+        // guess; lifted until a real free-account upload confirms the actual limit.
+        Assert.Null(pipeline.MaxFileSize);
         Assert.Null(pipeline.MaxFilesPerPackage);
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.False(pipeline.RequiresHashingAfterUpload);

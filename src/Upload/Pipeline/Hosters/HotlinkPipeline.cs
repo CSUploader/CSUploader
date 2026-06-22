@@ -10,11 +10,13 @@ using CSUploader.Services;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Hotlink. Standard XFileSharingPro API — verified end-to-end during the 2026-05-29
-/// probe sweep (both REST endpoints responding with the canonical
-/// <c>{status, msg, server_time}</c> shape; <c>/login.html</c> served direct, no
-/// redirects). Only Name + Host required; protocol lives in
-/// <see cref="XFileSharingApiPipeline"/>.
+/// Hotlink. Standard XFileSharingPro API — the upload protocol lives in
+/// <see cref="XFileSharingApiPipeline"/>; this subclass supplies only Name + Host (plus an
+/// Ex-Load-style uncapped <see cref="MaxFileSize"/>). The 2026-05-29 probe sweep confirmed
+/// the REST endpoints respond with the canonical <c>{status, msg, server_time}</c> shape and
+/// that <c>/login.html</c> is served direct (no redirects), but a real upload has NOT been
+/// verified end-to-end — treat the XFileSharing assumption as probe-confirmed, not
+/// upload-proven, until a live sign-in + upload round-trips.
 /// </summary>
 public sealed class HotlinkPipeline : XFileSharingApiPipeline
 {
@@ -35,4 +37,12 @@ public sealed class HotlinkPipeline : XFileSharingApiPipeline
     public override string Name => "Hotlink";
 
     protected override string Host => "https://hotlink.cc";
+
+    /// <summary>
+    /// Uncapped, mirroring Ex-Load (the hoster Hotlink most resembles). The base's 1 GiB
+    /// default is only a conservative free-tier guess; lifted here for parity pending a real
+    /// hotlink.cc free-account upload that confirms the actual limit. If oversized free
+    /// uploads start getting rejected server-side, restore a concrete cap here.
+    /// </summary>
+    public override long? MaxFileSize => null;
 }
