@@ -434,8 +434,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     {
         string? dir = item switch
         {
-            Package pkg => pkg.SaveFrom,
-            PackageFile file => file.SaveFrom,
+            Package pkg => pkg.Path,
+            PackageFile file => file.Path,
             _ => null,
         };
 

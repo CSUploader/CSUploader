@@ -8,6 +8,7 @@ using System.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Upload.Pipeline;
+using IOPath = System.IO.Path;
 
 namespace CSUploader.Upload;
 
@@ -463,10 +464,10 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// <summary>
     /// Gets the directory all package files share, or the longest common parent if files
     /// span subfolders, or null if no files are present or files span unrelated roots
-    /// (e.g. different drives). Computed live from <see cref="PackageFile.SaveFrom"/>
+    /// (e.g. different drives). Computed live from <see cref="PackageFile.Path"/>
     /// values; not stored.
     /// </summary>
-    public string? SaveFrom
+    public string? Path
     {
         get
         {
@@ -478,7 +479,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 return null;
             }
 
-            return LongestCommonDirectory(files.Select(f => f.SaveFrom));
+            return LongestCommonDirectory(files.Select(f => f.Path));
         }
     }
 
@@ -522,15 +523,15 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 return candidate;
             }
 
-            string withSep = candidate.EndsWith(Path.DirectorySeparatorChar)
+            string withSep = candidate.EndsWith(IOPath.DirectorySeparatorChar)
                 ? candidate
-                : candidate + Path.DirectorySeparatorChar;
+                : candidate + IOPath.DirectorySeparatorChar;
             if (b.StartsWith(withSep, StringComparison.OrdinalIgnoreCase))
             {
                 return candidate;
             }
 
-            candidate = Path.GetDirectoryName(candidate);
+            candidate = IOPath.GetDirectoryName(candidate);
         }
         return string.Empty;
     }
@@ -613,7 +614,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                     logger?.Log(
                         this,
                         LogType.Status,
-                        $"Skipping queueing of '{Path.GetFileName(filePath)}' on {fileHoster.Name}: "
+                        $"Skipping queueing of '{IOPath.GetFileName(filePath)}' on {fileHoster.Name}: "
                         + $"{ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()} exceeds the "
                         + $"{ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()} per-file limit.");
                     continue;
@@ -632,7 +633,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                     logger?.Log(
                         this,
                         LogType.Status,
-                        $"Skipping queueing of '{Path.GetFileName(filePath)}' on {fileHoster.Name}: "
+                        $"Skipping queueing of '{IOPath.GetFileName(filePath)}' on {fileHoster.Name}: "
                         + $"{ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()} would exceed the account's "
                         + $"{ByteUnit.FromBytes(remaining, ByteBase.Binary).ToFriendlyString()} of remaining "
                         + $"{ByteUnit.FromBytes(quota, ByteBase.Binary).ToFriendlyString()} storage quota.");

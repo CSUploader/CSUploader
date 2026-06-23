@@ -6,6 +6,7 @@
 using System.ComponentModel;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using IOPath = System.IO.Path;
 
 namespace CSUploader.Upload;
 
@@ -49,12 +50,12 @@ public class PackageFile : INotifyPropertyChanged
     public PackageFile(Package package, string filePath, FileHosterClient fileHoster, FileHosterLoginDto fileHosterLoginDto)
     {
         Package = package;
-        Name = Path.GetFileName(filePath);
+        Name = IOPath.GetFileName(filePath);
         FileInfo = new FileInfo(filePath);
 
         FileHoster = fileHoster;
         FileHosterLogin = fileHosterLoginDto;
-        SaveFrom = Path.GetDirectoryName(filePath);
+        Path = IOPath.GetDirectoryName(filePath);
         FileType = FileInfo.Extension.Length > 0 ? FileInfo.Extension[1..] : string.Empty;
 
         // Snapshot the size once at construction. Reading FileInfo.Length on every
@@ -260,9 +261,10 @@ public class PackageFile : INotifyPropertyChanged
     public double? Progress { get; set; }
 
     /// <summary>
-    /// Gets or sets the file path of the file on disk.
+    /// Gets or sets the local source directory the file was added from (the directory
+    /// portion of its original path on disk).
     /// </summary>
-    public string? SaveFrom { get; set; }
+    public string? Path { get; set; }
 
     /// <summary>
     /// Per-file speed limit override in KB/s. Null means fall back to the package's limit.

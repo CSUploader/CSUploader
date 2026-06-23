@@ -457,7 +457,7 @@ public class PackageManager
                 UploadPackageFileDto fileDto = new()
                 {
                     FileName = file.Name,
-                    FileDirectory = file.SaveFrom ?? string.Empty,
+                    FileDirectory = file.Path ?? string.Empty,
                     FileSize = file.Size ?? 0,
                     FileHoster = file.FileHoster.Name,
                     FileHosterName = file.FileHoster.Name,

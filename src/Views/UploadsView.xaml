@@ -533,7 +533,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Path}" Binding="{Binding SaveFrom}" Width="180">
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Path}" Binding="{Binding Path}" Width="180">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />

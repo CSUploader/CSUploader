@@ -48,7 +48,6 @@ internal static class ColumnValueExtractor
                 "Account" => "AccountDisplay",
                 "Status" => "State",
                 "ETA" => "TimeRemaining",
-                "Path" => "SaveFrom",
                 "Added" => "AddedDate",
                 "Finished" => "FinishedDate",
                 "Started" => "StartedDate",

@@ -269,15 +269,15 @@ public class PackageTests
     }
 
     [Fact]
-    public void SaveFrom_NoFiles_ReturnsNull()
+    public void Path_NoFiles_ReturnsNull()
     {
         Package package = new(new PackageOptions { Title = "t", FileHosters = new() });
 
-        Assert.Null(package.SaveFrom);
+        Assert.Null(package.Path);
     }
 
     [Fact]
-    public void SaveFrom_AllFilesShareDirectory_ReturnsThatDirectory()
+    public void Path_AllFilesShareDirectory_ReturnsThatDirectory()
     {
         string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(dir);
@@ -297,7 +297,7 @@ public class PackageTests
             Package package = new(options);
             package.AddPackageFiles();
 
-            Assert.Equal(dir, package.SaveFrom);
+            Assert.Equal(dir, package.Path);
         }
         finally
         {
@@ -306,7 +306,7 @@ public class PackageTests
     }
 
     [Fact]
-    public void SaveFrom_FilesShareAncestor_ReturnsLongestCommonParent()
+    public void Path_FilesShareAncestor_ReturnsLongestCommonParent()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         string sub = Path.Combine(root, "sub");
@@ -327,7 +327,7 @@ public class PackageTests
             Package package = new(options);
             package.AddPackageFiles();
 
-            Assert.Equal(root, package.SaveFrom);
+            Assert.Equal(root, package.Path);
         }
         finally
         {

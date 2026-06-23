@@ -75,18 +75,18 @@ public class ColumnValueExtractorTests
     }
 
     [Fact]
-    public void Extract_UploadsRow_PathMapsToSaveFrom()
+    public void Extract_UploadsRow_PathReflectsPathProperty()
     {
-        // The Uploads tab's "Path" column (id renamed from the misleading "SaveTo") maps to
-        // the row's SaveFrom property — the file's local source directory.
-        UploadsPathRowStub row = new() { SaveFrom = @"D:\downloads" };
+        // The Uploads tab's "Path" column reflects the row's Path property — the file's
+        // local source directory (renamed from the misleading "SaveTo"/"SaveFrom").
+        UploadsPathRowStub row = new() { Path = @"D:\downloads" };
 
         Assert.Equal(@"D:\downloads", ColumnValueExtractor.Extract(row, "Path", isUploadsTab: true));
     }
 
     private sealed class UploadsPathRowStub
     {
-        public string? SaveFrom { get; set; }
+        public string? Path { get; set; }
     }
 
     [Fact]
