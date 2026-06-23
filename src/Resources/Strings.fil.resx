@@ -295,7 +295,7 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
     <value>Progreso</value>
   </data>
   <data name="Uploads_Col_SaveTo" xml:space="preserve">
-    <value>I-save sa</value>
+    <value>Path</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>Idinagdag</value>

@@ -295,7 +295,7 @@
     <value>進捗</value>
   </data>
   <data name="Uploads_Col_SaveTo" xml:space="preserve">
-    <value>保存先</value>
+    <value>パス</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>追加日時</value>

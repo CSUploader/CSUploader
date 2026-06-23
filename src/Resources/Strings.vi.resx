@@ -295,7 +295,7 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
     <value>Tiến độ</value>
   </data>
   <data name="Uploads_Col_SaveTo" xml:space="preserve">
-    <value>Lưu vào</value>
+    <value>Đường dẫn</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>Đã thêm</value>

@@ -295,7 +295,7 @@
     <value>进度</value>
   </data>
   <data name="Uploads_Col_SaveTo" xml:space="preserve">
-    <value>保存至</value>
+    <value>路径</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
     <value>添加时间</value>
