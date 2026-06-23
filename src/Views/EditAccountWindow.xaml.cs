@@ -32,8 +32,11 @@ public partial class EditAccountWindow : Window
     // 413 below ~27 MiB and we can't capture their web UI's chunked protocol because
     // the web UI is also failing for our test user. See ExtMatrixPipeline.cs class-
     // level remarks for the diagnosis chain and the re-enable checklist.
+    // "Hotlink" intentionally absent — DISABLED 2026-06-23. hotlink.cc free accounts can't
+    // upload and its XFileSharing Pro per-user API key is never rendered, so there is no usable
+    // api-key flow. See HotlinkPipeline.cs class-level remarks for the diagnosis + re-enable checklist.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "Hotlink", "FileBoom", "HitFile" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "FileBoom", "HitFile" };
 
     private readonly FileHosterLoginDto _original;
 

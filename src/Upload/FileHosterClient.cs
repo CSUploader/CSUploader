@@ -56,7 +56,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // so a single Hexload entry covers traffic addressed to either domain.
         { "Hexload", "hexload.com" },
         { "HitFile", "www.hitfile.net" },
-        { "Hotlink", "hotlink.cc" },
+        // Hotlink DISABLED 2026-06-23 — hotlink.cc free accounts can't upload (uploading is
+        // premium-only: op=upload → "You are not allowed to upload files") and its XFileSharing
+        // Pro per-user API key is never rendered on my_account, so the api-key path is impossible.
+        // Pipeline DI registration + the EditAccount API-key flag are commented out alongside this.
+        // Do NOT re-add without an upload-enabled account AND a logged-in web-upload mode — see
+        // HotlinkPipeline.cs class-level remarks for the full diagnosis + re-enable checklist.
+        // { "Hotlink", "hotlink.cc" },
         { "Hxfile", "hxfile.co" },
         { "IcerBox", "www.icerbox.com" },
         { "IsraCloud", "www.isra.cloud" },

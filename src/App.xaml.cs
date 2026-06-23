@@ -130,7 +130,13 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HxfilePipeline>();
-        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
+        // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
+        // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
+        // Pro per-user API key is never rendered on my_account, so the api-key bootstrap is
+        // structurally impossible. Re-enabling also needs a different (logged-in web) upload path
+        // than the rest of the XFS-API family. See HotlinkPipeline.cs class-level remarks for the
+        // full diagnosis + re-enable checklist.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
