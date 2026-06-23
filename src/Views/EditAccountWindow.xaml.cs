@@ -184,14 +184,14 @@ public partial class EditAccountWindow : Window
 
     /// <summary>
     /// Shows a sign-in failure as a compact, height-capped "Error: …" line plus a Details link,
-    /// in place of the status text. The full <paramref name="message"/> — which can carry a
-    /// multi-hundred-character raw-HTML snippet from the XFileSharing pipeline — is stashed for
-    /// the Details dialog rather than dumped into this fixed-size window, where it would wrap and
-    /// shove the Save/Cancel buttons off the bottom.
+    /// in place of the status text. The short <paramref name="message"/> goes on the line; the
+    /// fuller <paramref name="detail"/> (when the verifier supplies one — e.g. the complete
+    /// my_account response, which is far too large for this fixed-size window) is stashed for the
+    /// Details dialog. Falls back to <paramref name="message"/> when there's no extra detail.
     /// </summary>
-    private void ShowSignInError(string message)
+    private void ShowSignInError(string message, string? detail = null)
     {
-        _lastSignInError = message;
+        _lastSignInError = string.IsNullOrEmpty(detail) ? message : detail;
         SignInStatus.Visibility = Visibility.Collapsed;
         SignInErrorPanel.Visibility = Visibility.Visible;
         SignInErrorText.Text = string.Format(
@@ -248,10 +248,10 @@ public partial class EditAccountWindow : Window
             }
             else
             {
-                // Failure messages can be long (the XFileSharing my_account failure appends a
-                // raw-HTML snippet) — show a capped "Error: …" with a Details link instead of
-                // letting it grow the fixed-size window.
-                ShowSignInError(result.Message ?? Localizer.Instance["EditAccount_SignIn_FailedGeneric"]);
+                // Show a capped "Error: …" line with a Details link; the verifier's full Detail
+                // (e.g. the complete my_account response) opens in the Details dialog rather than
+                // growing this fixed-size window.
+                ShowSignInError(result.Message ?? Localizer.Instance["EditAccount_SignIn_FailedGeneric"], result.Detail);
             }
         }
         catch (Exception ex)

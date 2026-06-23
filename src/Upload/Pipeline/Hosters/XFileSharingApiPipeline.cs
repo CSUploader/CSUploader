@@ -806,8 +806,10 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
                 // ex-load.com's 302→login interstitial is the classic case (was caught
                 // by adding the redirect-follow here in the first place).
                 string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-                return new AccountCheckResult(false, AccountType.Free,
-                    $"my_account did not contain an API key OR a CSRF token{trail}. The sign-in may not have worked. " + Snippet(html));
+                string summary = $"my_account did not contain an API key OR a CSRF token{trail}. The sign-in may not have worked.";
+                // Message stays short (grid/status text); the full response goes into Detail so
+                // the Add Account "Details" dialog can show the complete page, not a 200-char snippet.
+                return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
             }
 
             string generateUrl = $"{MyAccountUrl}&generate_api_key=1&token={Uri.EscapeDataString(csrf)}";
@@ -833,8 +835,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             if (derivedKey is null)
             {
                 string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-                return new AccountCheckResult(false, AccountType.Free,
-                    $"my_account did not contain an api-url input after generate{trail}. " + Snippet(html));
+                string summary = $"my_account did not contain an api-url input after generate{trail}.";
+                return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
             }
         }
 
@@ -1444,6 +1446,18 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
+
+    /// <summary>
+    /// Builds the verbose failure detail for <see cref="AccountCheckResult.Detail"/>: the short
+    /// human summary followed by the complete, untruncated response body (unlike <see cref="Snippet"/>,
+    /// which caps at 200 chars for inline status text). The Add Account "Details" dialog renders
+    /// this verbatim, so the body keeps its original line breaks. Falls back to just the summary
+    /// when the body is empty.
+    /// </summary>
+    private static string BuildFailureDetail(string summary, string responseBody)
+        => string.IsNullOrWhiteSpace(responseBody)
+            ? summary
+            : summary + Environment.NewLine + Environment.NewLine + responseBody;
 
     private async Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
     {

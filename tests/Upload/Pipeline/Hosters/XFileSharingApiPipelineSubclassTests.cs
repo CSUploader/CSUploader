@@ -366,6 +366,54 @@ public class XFileSharingApiPipelineSubclassTests
         Assert.DoesNotContain("Ex-Load", fail.Reason, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CheckAccount_MyAccountWithoutKeyOrCsrf_KeepsMessageShortAndPutsFullResponseInDetail()
+    {
+        // Hxfile-shape failure: the captcha sign-in captures a cookie, but my_account comes back
+        // as the login page — no api-url input, no CSRF token. The compact "Error: …" line in the
+        // Add Account window can't fit a raw HTML page, so Message must stay a short human summary
+        // while the COMPLETE response body goes to Detail (the "Details" dialog shows it untruncated).
+        const string LoginTailMarker = "HXFILE_LOGIN_PAGE_TAIL_MARKER_7QZ";
+        const string LoginPageHtml = """
+            <!DOCTYPE html><html lang="en"><head>
+            <meta name="a.validate.02" content="2vj1EWr-YigvQvwbtaKFiktev4MPswP0US9m" />
+            <meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <title>Sign in</title></head><body>
+            <form action="/login.html" method="post">
+              <input name="login"><input name="password" type="password">
+            </form>
+            <div id="tail">HXFILE_LOGIN_PAGE_TAIL_MARKER_7QZ</div>
+            </body></html>
+            """;
+
+        // Fixture has neither name="api-url" nor name="token", so both extractors return null and
+        // the verify path lands on the "no key OR CSRF" branch — and it's well over the 200-char
+        // Snippet() cap, with the marker at the tail, so the marker proves Detail isn't truncated.
+        FakeAuthService auth = new("xfsts_cookie_like");
+        TestXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(LoginPageHtml),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
+
+        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+
+        // Message: the short, HTML-free summary.
+        Assert.Contains("did not contain an API key OR a CSRF token", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(LoginTailMarker, result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("<html", result.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Detail: the summary plus the full, untruncated response body. The tail marker sits well
+        // past the old 200-char Snippet cut, so its presence proves nothing was truncated.
+        Assert.NotNull(result.Detail);
+        Assert.Contains("did not contain an API key OR a CSRF token", result.Detail!, StringComparison.Ordinal);
+        Assert.Contains(LoginTailMarker, result.Detail!, StringComparison.Ordinal);
+    }
+
     private static AttemptContext MakeContext(FileHosterLoginDto credentials) => new()
     {
         AttemptId = Guid.NewGuid(),

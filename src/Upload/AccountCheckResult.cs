@@ -41,6 +41,11 @@ namespace CSUploader.Upload;
 /// <param name="StorageQuotaBytes">Total storage cap (free-tier hosters typically expose
 /// a hard limit — FileBoom's free tier is 10 GiB via <c>storageSpace.total</c>). Null
 /// for hosters that don't surface a quota. Paired with <see cref="StorageUsedBytes"/>.</param>
+/// <param name="Detail">Verbose diagnostic for a failure — typically the human summary
+/// followed by the complete raw response body. <see cref="Message"/> stays short (it goes
+/// into grid status cells and confirmation dialogs); <see cref="Detail"/> is the full text
+/// the Add Account window's "Details" link shows in a scrollable dialog. Null when there's
+/// nothing beyond <see cref="Message"/> (callers fall back to it).</param>
 public record AccountCheckResult(
     bool IsValid,
     AccountType AccountType,
@@ -52,4 +57,5 @@ public record AccountCheckResult(
     string? ApiKey = null,
     string? DerivedUsername = null,
     long? StorageUsedBytes = null,
-    long? StorageQuotaBytes = null);
+    long? StorageQuotaBytes = null,
+    string? Detail = null);
