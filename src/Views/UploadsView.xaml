@@ -277,7 +277,7 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_BytesLoaded}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesLoaded" />
                         <MenuItem Header="{loc:Loc Uploads_Col_BytesRemaining}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesRemaining" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Progress}" Command="{Binding CopyColumnCommand}" CommandParameter="Progress" />
-                        <MenuItem Header="{loc:Loc Uploads_Col_SaveTo}" Command="{Binding CopyColumnCommand}" CommandParameter="SaveTo" />
+                        <MenuItem Header="{loc:Loc Uploads_Col_Path}" Command="{Binding CopyColumnCommand}" CommandParameter="Path" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Added}" Command="{Binding CopyColumnCommand}" CommandParameter="Added" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
                         <MenuItem Header="{loc:Loc Uploads_Col_Started}" Command="{Binding CopyColumnCommand}" CommandParameter="Started" />
@@ -533,7 +533,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="{loc:Loc Uploads_Col_SaveTo}" Binding="{Binding SaveFrom}" Width="180">
+                <DataGridTextColumn Header="{loc:Loc Uploads_Col_Path}" Binding="{Binding SaveFrom}" Width="180">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />

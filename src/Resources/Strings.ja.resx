@@ -294,7 +294,7 @@
   <data name="Uploads_Col_Progress" xml:space="preserve">
     <value>進捗</value>
   </data>
-  <data name="Uploads_Col_SaveTo" xml:space="preserve">
+  <data name="Uploads_Col_Path" xml:space="preserve">
     <value>パス</value>
   </data>
   <data name="Uploads_Col_Added" xml:space="preserve">
