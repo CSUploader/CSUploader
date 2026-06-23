@@ -344,6 +344,67 @@ public class XFileSharingApiPipelineSubclassTests
     }
 
     [Fact]
+    public async Task UPBootstrap_HxfileBareTokenApiKey_ExtractsKeyFromRegenLinkAnchor()
+    {
+        // Hxfile renders the API key as a BARE token in the my_account "API Key" cell, right
+        // before the regenerate link (name="regen-api-key") — not as a /api/account/info?key=…
+        // URL like the other XFS hosters. Captured from the live authenticated my_account page
+        // 2026-06-24. The fixture keeps a name="token" input so that, if extraction regressed to
+        // null, the pipeline would try to generate a key (a third GET) and blow the 2-item queue.
+        const string HxfileMyAccountHtml = """
+            <form method="POST">
+            <input type="hidden" name="op" value="my_account">
+            <input type="hidden" name="token" value="dbce9a3a102d33cd0fe8a03f83e33eea">
+            <table class="table table-account"><tbody>
+            <tr>
+                <td>API Key</td>
+                <td>
+                    7978n5x2t9eqvjjs4deb <a href="?op=my_account&generate_api_key=1&token=dbce9a3a102d33cd0fe8a03f83e33eea" onclick="return confirm('Regenerate api key?')" name="regen-api-key">(Change key)</a> <a href="https://hxfileco.docs.apiary.io/" target=_blank>(API Docs)</a><br/>
+                </td>
+            </tr>
+            </tbody></table>
+            </form>
+            """;
+
+        Queue<string> getResponses = new(new[]
+        {
+            HxfileMyAccountHtml,                                                                // my_account → bare-token key already present
+            """{"msg":"OK","status":200,"sess_id":"sess_hx","result":"http://fs1.test-xfs.example/cgi-bin/upload.cgi"}""",
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"hxCode","file_status":"OK"}]""", Array.Empty<string>()),
+        });
+
+        FakeAuthService auth = new("xfss_hxfile_like");
+        TestXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(getResponses.Dequeue()),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(uploads.Dequeue()));
+
+        FileHosterLoginDto credentials = new()
+        {
+            Id = 88,
+            FileHosterName = "TestXfsHost",
+            Username = "hubga54524@minitts.net",
+            Password = "p",
+        };
+        AttemptContext ctx = MakeContext(credentials);
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        // The bare token landed on the DTO via the new regen-link-anchored branch — and, because
+        // only two GETs were queued, WITHOUT a wasteful generate_api_key regenerate round-trip.
+        Assert.Equal("7978n5x2t9eqvjjs4deb", credentials.ApiKey);
+    }
+
+    [Fact]
     public async Task SubclassMaxFileSizeMessage_UsesSubclassNameNotExLoad()
     {
         TestXfsHostPipeline pipeline = new(

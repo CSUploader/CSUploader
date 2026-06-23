@@ -168,6 +168,18 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         """|value=["'][^"']*/api/account/info\?key=([^"'&]+)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Fifth shape (Hxfile, captured 2026-06-24): the key is rendered as a BARE token in the
+    // my_account "API Key" table cell — not wrapped in a /api/account/info?key=… URL like the
+    // four shapes above — sitting immediately before the "(Change key)" regenerate link
+    // (<a … name="regen-api-key">). Anchor on that link and capture the token in front of it.
+    // The negative lookbehind pins the capture to the token's true start, and the {12,} floor
+    // keeps it from latching onto a short stray word. Consulted only as a fallback (see
+    // ExtractApiKey), so the canonical api-url shapes always win; other XFS hosters that also
+    // carry this regen link render the key as a URL first, so they never reach this branch.
+    private static readonly Regex _apiKeyBareTokenRegex = new(
+        """(?<![A-Za-z0-9])([A-Za-z0-9]{12,})\s*<a\b[^>]*\bname=["']regen-api-key["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Anonymous web upload (Hexload, captured 2026-06-13): the homepage renders
     //   <form id="uploadfile" action="https://<rand>.droply.top/cgi-bin/upload.cgi?upload_type=file&utype=anon">
     // The action host rotates per page load. Anchor on the upload.cgi action (the only form on
@@ -1413,17 +1425,23 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     private static string? ExtractApiKey(string html)
     {
         Match m = _apiKeyRegex.Match(html);
-        if (!m.Success) return null;
-        // One of four groups captures depending on which branch matched (see the regex
-        // definition for the four shapes). Pick the non-empty one.
-        for (int i = 1; i <= 4; i++)
+        if (m.Success)
         {
-            if (m.Groups[i].Success && m.Groups[i].Length > 0)
+            // One of four groups captures depending on which branch matched (see the regex
+            // definition for the four shapes). Pick the non-empty one.
+            for (int i = 1; i <= 4; i++)
             {
-                return m.Groups[i].Value;
+                if (m.Groups[i].Success && m.Groups[i].Length > 0)
+                {
+                    return m.Groups[i].Value;
+                }
             }
         }
-        return null;
+
+        // Fall back to the bare-token shape (Hxfile): a raw key next to the regenerate link,
+        // with no api-url URL to parse. Only reached when none of the four URL shapes matched.
+        Match bare = _apiKeyBareTokenRegex.Match(html);
+        return bare.Success && bare.Groups[1].Length > 0 ? bare.Groups[1].Value : null;
     }
 
     private static string? ExtractCsrfToken(string html)
