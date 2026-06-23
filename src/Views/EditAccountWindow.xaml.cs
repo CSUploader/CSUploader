@@ -70,6 +70,11 @@ public partial class EditAccountWindow : Window
     /// (it's set once at insert by the add flow; null for a brand-new account).</summary>
     private DateTime? _createdDateTime;
 
+    /// <summary>Full text of the last sign-in failure (summary plus any raw response body),
+    /// stashed for the "Details" link. The status row only shows a height-capped preview so a
+    /// verbose message can't grow the fixed-size window; the complete text is shown here.</summary>
+    private string? _lastSignInError;
+
     public EditAccountWindow(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>>? interactiveLogin = null)
     {
         InitializeComponent();
@@ -148,10 +153,62 @@ public partial class EditAccountWindow : Window
 
         // Sign-in needs the interactive callback; disable it (with a hint) when unavailable.
         SignInButton.IsEnabled = _interactiveLogin is not null;
+
+        // Reset the sign-in feedback to a clean status. Both branches route through
+        // ShowSignInStatus, which clears any leftover "✓ Signed in" / "Error: …" (and the stashed
+        // error detail) — that feedback is per-hoster and must not carry over when the combo
+        // switches to a different one.
         if (_interactiveLogin is null && api)
         {
-            SignInStatus.Text = Localizer.Instance["EditAccount_SignIn_Unavailable"];
+            ShowSignInStatus(Localizer.Instance["EditAccount_SignIn_Unavailable"], "TextSecondaryBrush");
         }
+        else
+        {
+            ShowSignInStatus(string.Empty, "TextSecondaryBrush");
+        }
+    }
+
+    /// <summary>
+    /// Shows a short status message in the sign-in row (in-progress / success / unavailable) and
+    /// hides the error panel — the status text and the error panel share the row's status cell,
+    /// and only one is ever visible.
+    /// </summary>
+    private void ShowSignInStatus(string text, string brushResourceKey)
+    {
+        _lastSignInError = null;
+        SignInErrorPanel.Visibility = Visibility.Collapsed;
+        SignInStatus.Visibility = Visibility.Visible;
+        SignInStatus.Text = text;
+        SignInStatus.Foreground = (System.Windows.Media.Brush)FindResource(brushResourceKey);
+    }
+
+    /// <summary>
+    /// Shows a sign-in failure as a compact, height-capped "Error: …" line plus a Details link,
+    /// in place of the status text. The full <paramref name="message"/> — which can carry a
+    /// multi-hundred-character raw-HTML snippet from the XFileSharing pipeline — is stashed for
+    /// the Details dialog rather than dumped into this fixed-size window, where it would wrap and
+    /// shove the Save/Cancel buttons off the bottom.
+    /// </summary>
+    private void ShowSignInError(string message)
+    {
+        _lastSignInError = message;
+        SignInStatus.Visibility = Visibility.Collapsed;
+        SignInErrorPanel.Visibility = Visibility.Visible;
+        SignInErrorText.Text = string.Format(
+            CultureInfo.CurrentCulture,
+            "{0}: {1}",
+            Localizer.Instance["Common_Error"],
+            message);
+    }
+
+    private void ErrorDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_lastSignInError))
+        {
+            return;
+        }
+
+        new ErrorDetailsWindow(_lastSignInError) { Owner = this }.ShowDialog();
     }
 
     private async void SignInButton_Click(object sender, RoutedEventArgs e)
@@ -169,7 +226,7 @@ public partial class EditAccountWindow : Window
 
         // Guard against double-clicks re-entering while the WebView is open.
         SignInButton.IsEnabled = false;
-        SignInStatus.Text = Localizer.Instance["EditAccount_SignIn_InProgress"];
+        ShowSignInStatus(Localizer.Instance["EditAccount_SignIn_InProgress"], "TextSecondaryBrush");
         try
         {
             AccountCheckResult result = await _interactiveLogin(hoster);
@@ -184,24 +241,22 @@ public partial class EditAccountWindow : Window
                 if (result.StorageQuotaBytes is { } quota) { _storageQuotaBytes = quota; }
                 if (!string.IsNullOrEmpty(result.SessionCookie)) { _sessionCookie = result.SessionCookie; }
 
-                SignInStatus.Text = !string.IsNullOrEmpty(result.DerivedUsername)
+                string successText = !string.IsNullOrEmpty(result.DerivedUsername)
                     ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["EditAccount_SignIn_SuccessAs_Format"], result.DerivedUsername)
                     : Localizer.Instance["EditAccount_SignIn_Success"];
-                SignInStatus.Foreground = (System.Windows.Media.Brush)FindResource("SuccessBrush");
+                ShowSignInStatus(successText, "SuccessBrush");
             }
             else
             {
-                SignInStatus.Text = string.Format(
-                    CultureInfo.CurrentCulture,
-                    Localizer.Instance["EditAccount_SignIn_Failed_Format"],
-                    result.Message ?? Localizer.Instance["EditAccount_SignIn_FailedGeneric"]);
-                SignInStatus.Foreground = (System.Windows.Media.Brush)FindResource("ErrorBrush");
+                // Failure messages can be long (the XFileSharing my_account failure appends a
+                // raw-HTML snippet) — show a capped "Error: …" with a Details link instead of
+                // letting it grow the fixed-size window.
+                ShowSignInError(result.Message ?? Localizer.Instance["EditAccount_SignIn_FailedGeneric"]);
             }
         }
         catch (Exception ex)
         {
-            SignInStatus.Text = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["EditAccount_SignIn_Failed_Format"], ex.Message);
-            SignInStatus.Foreground = (System.Windows.Media.Brush)FindResource("ErrorBrush");
+            ShowSignInError(ex.Message);
         }
         finally
         {

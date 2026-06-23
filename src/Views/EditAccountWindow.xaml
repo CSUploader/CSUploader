@@ -185,6 +185,29 @@
                 <TextBlock Grid.Column="1" x:Name="SignInStatus" VerticalAlignment="Center"
                            Margin="10,0,0,0" FontSize="12" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondaryBrush}" />
+
+                <!-- Failure state, shown in place of SignInStatus (only one is ever visible).
+                     A height-capped "Error: …" line keeps a verbose message — the XFileSharing
+                     my_account failure appends a raw-HTML snippet — from growing this row and
+                     shoving the Save/Cancel buttons out of the fixed-size, non-resizable window.
+                     The complete text is available via the Details link (ErrorDetailsWindow). -->
+                <StackPanel Grid.Column="1" x:Name="SignInErrorPanel" Margin="10,0,0,0"
+                            VerticalAlignment="Center" Visibility="Collapsed">
+                    <!-- MaxHeight caps the wrapped text at ~3 lines so a verbose message can't
+                         grow the row; TextTrimming ellipsizes the last visible line, and the
+                         Details link below always exposes the full text regardless. (WPF's
+                         TextBlock has no MaxLines — that's a UWP/WinUI property — so the cap is
+                         expressed as a height.) -->
+                    <TextBlock x:Name="SignInErrorText"
+                               FontSize="12" TextWrapping="Wrap" MaxHeight="48"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource ErrorBrush}" />
+                    <TextBlock Margin="0,2,0,0" FontSize="12">
+                        <Hyperlink Click="ErrorDetails_Click" Foreground="{DynamicResource AccentBrush}">
+                            <Run Text="{loc:Loc Common_Details}" />
+                        </Hyperlink>
+                    </TextBlock>
+                </StackPanel>
             </Grid>
 
             <!-- "or" separator between Sign-in and the manual API-key entry. -->
