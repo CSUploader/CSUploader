@@ -130,6 +130,9 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HxfilePipeline>();
+        // IcerBox is a clean JSON REST API (email+password login → Bearer JWT → blueimp upload),
+        // so it needs no IInteractiveAuthService — unlike the captcha-gated XFS/FileBoom/HitFile hosters.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.IcerBoxPipeline>();
         // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
         // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
         // Pro per-user API key is never rendered on my_account, so the api-key bootstrap is

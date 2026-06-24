@@ -8,7 +8,7 @@ CSUploader is a Windows desktop application for uploading files to file hosting 
 
 - **Upload Wizard** — Guided flow for picking a directory, selecting files, choosing file hosters and accounts, and starting the upload.
 - **Upload Queue** — Concurrent jobs with pause/resume, priority ordering, and a global speed limit.
-- **File Hosters** — Pluggable architecture with eleven hosters shipping: Rapidgator, Alfafile, BRupload, Ex-Load, FileBoom, KatFile, TakeFile, Hexload, Hxfile, GigaPeta, and HitFile. Per-hoster account management with credential verification, plus anonymous (no-login) uploads for GigaPeta, Hexload, and HitFile.
+- **File Hosters** — Pluggable architecture with twelve hosters shipping: Rapidgator, Alfafile, BRupload, Ex-Load, FileBoom, KatFile, TakeFile, Hexload, Hxfile, IcerBox, GigaPeta, and HitFile. Per-hoster account management with credential verification, plus anonymous (no-login) uploads for GigaPeta, Hexload, and HitFile.
 - **Connection Manager** — Optional proxy support with priority ordering, automatic rotation on retry, and connectivity testing.
 - **Dark / Light Themes** — Choose your preferred theme; the choice persists between sessions.
 - **System Tray** — Optional minimize-to-tray and close-to-tray with a first-run prompt to choose the close button's behaviour.
