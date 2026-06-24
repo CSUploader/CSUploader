@@ -25,8 +25,11 @@ namespace CSUploader.Views;
 /// WebView2 stores user-data (cookies, cache, hCaptcha challenge state) per user-data-folder.
 /// We point each instance at a folder under <c>%LocalAppData%\CSUploader\WebView2\&lt;hoster&gt;</c>
 /// so a user re-opening the window doesn't have to re-solve the captcha after a recent
-/// session — the prior cookies and hCaptcha trust state are still there. The folder is
-/// per-hoster so two different hosters can't leak cookies into each other's stores.
+/// session — the hCaptcha trust state is still there. The folder is per-hoster so two
+/// different hosters can't leak cookies into each other's stores. The named <em>session</em>
+/// cookie, however, is deleted on every open (see <see cref="WebViewLoginWindow_Loaded"/>):
+/// a stale one persisted from a prior sign-in would otherwise be captured the instant the page
+/// loads and close the window before a fresh login, yielding an expired (anonymous) session.
 /// </para>
 /// <para>
 /// Detection logic: after every <see cref="CoreWebView2.NavigationCompleted"/>, we read
@@ -201,6 +204,20 @@ public partial class WebViewLoginWindow : Window
             {
                 WebView.CoreWebView2.ServerCertificateErrorDetected += CoreWebView2_ServerCertificateErrorDetected;
             }
+
+            // Drop any persisted *session* cookie before navigating. The per-hoster profile keeps
+            // cookies across runs so the hCaptcha/solver trust survives — but a session cookie left
+            // over from a prior sign-in may have expired server-side, and the capture logic would
+            // grab that dead cookie the instant the login page loads and close before the user
+            // re-authenticates, handing the pipeline a session that resolves to "anonymous" (the
+            // logged-out my_account page). Clearing just the session cookie forces a fresh login
+            // while preserving the captcha-skip. Symmetric with the capture read
+            // (GetCookiesAsync(_loginUrl)), so it removes exactly the cookie capture would later see.
+            // Safe for every hoster: a cleared profile is identical to a first-ever sign-in, which
+            // already works for all of them — hosters that DO set the cookie pre-login (FileBoom's
+            // client-scoped JWT) have a cookie validator that already rejects the pre-login value,
+            // so the window still waits for the real post-login one.
+            WebView.CoreWebView2.CookieManager.DeleteCookies(_cookieName, _loginUrl);
 
             _initialized = true;
             StatusText.Text = string.Format(
