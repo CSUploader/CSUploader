@@ -40,6 +40,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline
     private const string ApiBase = "https://icerbox.com/api/v1";
     private const string LoginUrl = ApiBase + "/auth/login";
     private const string AccountUrl = ApiBase + "/user/account";
+    private const string DiskUsageUrl = ApiBase + "/filemanager/du";
     private const string UploadServerUrl = ApiBase + "/upload/server";
     private const string SiteOrigin = "https://icerbox.com";
     private const string DownloadBase = "https://icerbox.com/";
@@ -231,8 +232,69 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "icerbox account read failed: " + ex.Message);
         }
 
-        return ParseAccount(snap);
+        AccountCheckResult result = ParseAccount(snap);
+        if (!result.IsValid)
+        {
+            return result;
+        }
+
+        // Best-effort storage usage from /filemanager/du. A failure here must NOT fail an
+        // otherwise-valid account — leave the grid's Used/Available blank instead.
+        (long? used, long? quota) = await TryGetStorageAsync(handler, token, ct);
+        return result with { StorageUsedBytes = used, StorageQuotaBytes = quota };
     }
+
+    /// <summary>
+    /// Best-effort storage usage from <c>GET /api/v1/filemanager/du</c> →
+    /// <c>{"files_count":N,"files_size":&lt;bytesUsed&gt;,"capacity":&lt;bytesTotal&gt;}</c> (the free
+    /// tier's capacity is 1 GiB). Returns (null, null) on any failure so a transient hiccup leaves
+    /// Used/Available blank rather than failing the account check.
+    /// </summary>
+    private async Task<(long? Used, long? Quota)> TryGetStorageAsync(HttpHandler handler, string token, CancellationToken ct)
+    {
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = await GetSnapshotAsync(handler, DiskUsageUrl, token, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return (null, null);
+        }
+
+        if (snap.StatusCode is < 200 or >= 300)
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            JsonElement root = doc.RootElement;
+            long? used = ReadNonNegativeLong(root, "files_size");
+            long? capacity = ReadNonNegativeLong(root, "capacity");
+            // A zero/absent capacity means "no advertised cap" → leave quota null so the grid shows
+            // Used / (blank) instead of implying a 0-byte account.
+            return (used, capacity is > 0 ? capacity : null);
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+    }
+
+    private static long? ReadNonNegativeLong(JsonElement obj, string name)
+        => obj.ValueKind == JsonValueKind.Object
+            && obj.TryGetProperty(name, out JsonElement el)
+            && el.ValueKind == JsonValueKind.Number
+            && el.TryGetInt64(out long v)
+            && v >= 0
+            ? v
+            : null;
 
     /// <summary>
     /// Acquires the per-credentials gate, double-checks the cache, and either logs in (leader) or

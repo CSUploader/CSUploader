@@ -152,13 +152,18 @@ public class IcerBoxPipelineTests
         Assert.DoesNotContain(events, e => e is TransferCompleted);
     }
 
+    private const string AccountFreeJson = """{"data":{"id":"8L8EoP","email":"qepmo74208@minitts.net","has_premium":false,"premium":null}}""";
+    private const string DiskUsageJson = """{"files_count":1,"files_size":5225142,"capacity":1073741824}""";
+
     [Fact]
-    public async Task CheckAccount_FreeAccount_ReturnsValidFreeWithEmail()
+    public async Task CheckAccount_FreeAccount_ReturnsValidFreeWithEmailAndStorage()
     {
-        const string AccountJson = """{"data":{"id":"8L8EoP","email":"qepmo74208@minitts.net","has_premium":false,"premium":null}}""";
         IcerBoxPipeline pipeline = new(
             loginOverride: (_, _) => new HttpResponseSnapshot(200, LoginOkJson, []),
-            getOverride: _ => new HttpResponseSnapshot(200, AccountJson, []));
+            getOverride: url => new HttpResponseSnapshot(
+                200,
+                url.EndsWith("/filemanager/du", StringComparison.Ordinal) ? DiskUsageJson : AccountFreeJson,
+                []));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(
             "qepmo74208@minitts.net", "pw", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -166,6 +171,28 @@ public class IcerBoxPipelineTests
         Assert.True(result.IsValid);
         Assert.Equal(AccountType.Free, result.AccountType);
         Assert.Equal("qepmo74208@minitts.net", result.DerivedUsername);
+        // Used/Available come from /filemanager/du (files_size / capacity).
+        Assert.Equal(5225142L, result.StorageUsedBytes);
+        Assert.Equal(1073741824L, result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccount_DiskUsageCallFails_StaysValidWithBlankStorage()
+    {
+        // A /du failure must not fail an otherwise-valid account — Used/Available just stay blank.
+        IcerBoxPipeline pipeline = new(
+            loginOverride: (_, _) => new HttpResponseSnapshot(200, LoginOkJson, []),
+            getOverride: url => url.EndsWith("/filemanager/du", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(500, "Internal Server Error", [])
+                : new HttpResponseSnapshot(200, AccountFreeJson, []));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "qepmo74208@minitts.net", "pw", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(AccountType.Free, result.AccountType);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
     }
 
     [Fact]
