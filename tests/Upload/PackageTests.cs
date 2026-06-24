@@ -51,6 +51,159 @@ public class PackageTests
     }
 
     [Fact]
+    public void AddPackageFiles_IncludedFilesPerHoster_RestrictsToListedFilesPerHoster()
+    {
+        // The wizard's Summary-page fit: Rapidgator keeps only file A, BRupload keeps both.
+        string tempA = Path.Combine(Path.GetTempPath(), $"task1-inc-a-{Guid.NewGuid():N}.bin");
+        string tempB = Path.Combine(Path.GetTempPath(), $"task1-inc-b-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(tempA, "a");
+        File.WriteAllText(tempB, "b");
+        try
+        {
+            FileHosterClient rg = new("Rapidgator", Protocol.Http);
+            FileHosterClient br = new("BRupload", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [tempA, tempB],
+                FileHosters = new()
+                {
+                    { rg, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                    { br, new FileHosterLoginDto { FileHosterName = "BRupload" } },
+                },
+                IncludedFilesPerHoster = new(StringComparer.Ordinal)
+                {
+                    ["Rapidgator"] = [tempA],
+                    ["BRupload"] = [tempA, tempB],
+                },
+            };
+            Package package = new(options);
+
+            package.AddPackageFiles();
+
+            PackageFile[] files = [.. package];
+            // 3 pairs, not the 4 of a full cross-product: Rapidgator(A) + BRupload(A,B).
+            Assert.Equal(3, files.Length);
+            PackageFile rgFile = Assert.Single(files, f => f.FileHoster.Name == "Rapidgator");
+            Assert.Equal(Path.GetFileName(tempA), rgFile.Name);
+            Assert.Equal(2, files.Count(f => f.FileHoster.Name == "BRupload"));
+        }
+        finally
+        {
+            File.Delete(tempA);
+            File.Delete(tempB);
+        }
+    }
+
+    [Fact]
+    public void AddPackageFiles_IncludedFilesPerHoster_NoEntryForHoster_StaysUnrestricted()
+    {
+        // Map present but only Rapidgator listed → BRupload (no entry) keeps the full cross-product.
+        string tempA = Path.Combine(Path.GetTempPath(), $"task1-noent-a-{Guid.NewGuid():N}.bin");
+        string tempB = Path.Combine(Path.GetTempPath(), $"task1-noent-b-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(tempA, "a");
+        File.WriteAllText(tempB, "b");
+        try
+        {
+            FileHosterClient rg = new("Rapidgator", Protocol.Http);
+            FileHosterClient br = new("BRupload", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [tempA, tempB],
+                FileHosters = new()
+                {
+                    { rg, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                    { br, new FileHosterLoginDto { FileHosterName = "BRupload" } },
+                },
+                IncludedFilesPerHoster = new(StringComparer.Ordinal) { ["Rapidgator"] = [tempA] },
+            };
+            Package package = new(options);
+
+            package.AddPackageFiles();
+
+            PackageFile[] files = [.. package];
+            Assert.Single(files, f => f.FileHoster.Name == "Rapidgator");
+            Assert.Equal(2, files.Count(f => f.FileHoster.Name == "BRupload")); // unrestricted
+        }
+        finally
+        {
+            File.Delete(tempA);
+            File.Delete(tempB);
+        }
+    }
+
+    [Fact]
+    public void AddPackageFiles_IncludedFilesPerHoster_EmptySetForHoster_UploadsNothingToIt()
+    {
+        // An explicit empty set (every file deselected for that hoster on Page 3) → no pairs for it.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-empty-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(temp, "a");
+        try
+        {
+            FileHosterClient rg = new("Rapidgator", Protocol.Http);
+            FileHosterClient br = new("BRupload", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new()
+                {
+                    { rg, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                    { br, new FileHosterLoginDto { FileHosterName = "BRupload" } },
+                },
+                IncludedFilesPerHoster = new(StringComparer.Ordinal) { ["Rapidgator"] = [] },
+            };
+            Package package = new(options);
+
+            package.AddPackageFiles();
+
+            PackageFile only = Assert.Single(package); // Rapidgator excluded, BRupload unrestricted
+            Assert.Equal("BRupload", only.FileHoster.Name);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
+    public void AddPackageFiles_IncludedFile_StillRejectedByPerFileSizeCap()
+    {
+        // The allow-list only RESTRICTS — the per-file size cap still applies on top. A file that's
+        // in the hoster's allow-list but over its cap must NOT be queued.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-inc-cap-{Guid.NewGuid():N}.bin");
+        File.WriteAllText(temp, "hello"); // 5 bytes
+        try
+        {
+            FileHosterClient tiny = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new() { { tiny, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+                IncludedFilesPerHoster = new(StringComparer.Ordinal) { ["Rapidgator"] = [temp] }, // allow-listed…
+            };
+            Package package = new(options);
+
+            // …but a cap of 0 means every byte exceeds it, so the size filter still drops the pair.
+            StubRegistry registry = new(new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase) { ["Rapidgator"] = 0L });
+
+            package.AddPackageFiles(registry, Mock.Of<IAppLogger>());
+
+            Assert.Empty(package);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
     public void AddPackageFiles_NoArg_WhenSelectedFilesEmpty_AddsNothing()
     {
         FileHosterClient hoster = new("Rapidgator", Protocol.Http);

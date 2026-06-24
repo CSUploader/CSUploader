@@ -606,6 +606,17 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                     continue;
                 }
 
+                // Per-hoster allow-list (the upload wizard's Summary-page fit): when an entry exists
+                // for this hoster, only its listed files go to it. No entry / null map → unrestricted
+                // (the default cross-product). This only RESTRICTS — the size + quota filters below
+                // still apply on top.
+                if (Options.IncludedFilesPerHoster is { } includedPerHoster
+                    && includedPerHoster.TryGetValue(fileHoster.Name, out HashSet<string>? includedFiles)
+                    && !includedFiles.Contains(filePath))
+                {
+                    continue;
+                }
+
                 if (registry?.Find(fileHoster.Name) is IFileHosterPipeline pipeline
                     && pipeline.MaxFileSizeFor(kvp.Value) is long cap
                     && fileSize > 0

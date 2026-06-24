@@ -1217,6 +1217,15 @@ Add anyway?</value>
   <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
     <value>max {0} per file</value>
   </data>
+  <data name="Wizard_Summary_SelectedOfFree_Format" xml:space="preserve">
+    <value>{0} selected of {1} free</value>
+  </data>
+  <data name="Wizard_Summary_OverCapacityHint" xml:space="preserve">
+    <value>Over the available space — uncheck files to continue.</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNotice_Format" xml:space="preserve">
+    <value>{0} file(s) unchecked to fit the available space.</value>
+  </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Files</value>
   </data>

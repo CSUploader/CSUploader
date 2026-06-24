@@ -508,11 +508,154 @@ public class UploadWizardViewModelTests : IDisposable
         vm.CurrentStep = 2;
 
         HosterUploadSummary entry = Assert.Single(vm.Summaries);
-        FileEntry only = Assert.Single(entry.Files);
+        SummaryFileItem only = Assert.Single(entry.Files);
         Assert.Equal("ok.bin", only.FileName);
         // huge.bin had nowhere to go — it's an orphan even though BRupload appeared.
         FileEntry orphan = Assert.Single(vm.OrphanFiles);
         Assert.Equal("huge.bin", orphan.FileName);
+    }
+
+    [Fact]
+    public void Summary_AutoFitsToAccountAvailableSpace_KeepingBiggest()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        // Account reports 1000 bytes free (quota 1000, used 0); files 600 + 300 + 300 → fit keeps 600 + 300.
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        brupload.Use = true;
+
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.Equal(900L, entry.IncludedBytes);   // 600 + one 300
+        Assert.Equal(2, entry.IncludedCount);
+        Assert.False(entry.IsOverCapacity);
+        Assert.True(vm.CanGoNext);                  // within capacity → Next allowed
+        Assert.True(vm.HasAutoFitNotice);           // one file was auto-unchecked
+    }
+
+    [Fact]
+    public void Summary_RecheckingFilePastAvailable_BlocksNext_UncheckingRestores()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.True(vm.CanGoNext); // auto-fit kept it within capacity
+
+        // User re-checks the auto-dropped file → 1200 > 1000 → Next blocked.
+        entry.Files.First(f => !f.Included).Included = true;
+        Assert.True(entry.IsOverCapacity);
+        Assert.False(vm.CanGoNext);
+
+        // Unchecking the 600 brings it back to 600 ≤ 1000 → Next allowed again.
+        entry.Files.First(f => f.Included && f.Size == 600).Included = false;
+        Assert.False(entry.IsOverCapacity);
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void BuildIncludedFilesPerHoster_ContainsOnlyCheckedFiles()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        brupload.Use = true;
+        vm.CurrentStep = 2; // populates Summaries + auto-fits (keeps 600 + one 300, drops the other)
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        string droppedPath = entry.Files.First(f => !f.Included).File.FullPath;
+
+        Dictionary<string, HashSet<string>>? map = vm.BuildIncludedFilesPerHoster();
+
+        Assert.NotNull(map);
+        HashSet<string> included = Assert.Contains("BRupload", map!);
+        Assert.Equal(2, included.Count);                 // the auto-fit kept 2 of 3
+        Assert.Contains("big.bin", included);            // FullPath of the kept big file
+        Assert.DoesNotContain(droppedPath, included);    // the auto-dropped file is excluded
+    }
+
+    [Fact]
+    public void Summary_BackFromStartStep_PreservesManualCheckboxEdits()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        // Plenty of free space so auto-fit unchecks nothing — any unchecked file is the user's edit.
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1_000_000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary built = Assert.Single(vm.Summaries);
+        Assert.Equal(2, built.IncludedCount);
+
+        // User manually unchecks one file on Page 3.
+        built.Files.First(f => f.FileName == "a.bin").Included = false;
+        Assert.Equal(1, built.IncludedCount);
+
+        // Forward to the start-mode step, then Back to the summary.
+        vm.CurrentStep = 3;
+        vm.CurrentStep = 2;
+
+        // Same summary instance, manual edit intact (no rebuild, no re-auto-fit).
+        HosterUploadSummary afterBack = Assert.Single(vm.Summaries);
+        Assert.Same(built, afterBack);
+        Assert.Equal(1, afterBack.IncludedCount);
+        Assert.False(afterBack.Files.First(f => f.FileName == "a.bin").Included);
+    }
+
+    [Fact]
+    public void Summary_RebuildsWhenPage1SelectionChanges()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        FileEntry a = new() { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true };
+        vm.Files.Add(a);
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.Equal(2, Assert.Single(vm.Summaries).IncludedCount);
+
+        // Back, deselect a file on Page 1, return → the summary rebuilds with only the still-selected one.
+        vm.CurrentStep = 1;
+        a.IsSelected = false; // Page 1 change marks the summary dirty
+        vm.CurrentStep = 2;
+
+        SummaryFileItem only = Assert.Single(Assert.Single(vm.Summaries).Files);
+        Assert.Equal("b.bin", only.FileName);
     }
 
     [Fact]

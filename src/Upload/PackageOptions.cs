@@ -39,4 +39,22 @@ public class PackageOptions
     /// The file hosters.
     /// </value>
     public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosters { get; set; } = [];
+
+    /// <summary>
+    /// Optional per-hoster file allow-list, keyed by hoster name (matching
+    /// <see cref="FileHosterClient.Name"/>); each value is the set of full file paths to upload
+    /// to that hoster. When an entry is present for a hoster,
+    /// <see cref="Package.AddPackageFiles(Pipeline.IFileHosterRegistry?, IAppLogger?)"/> only
+    /// creates (file, hoster) pairs whose path is in that set — this is how the upload wizard's
+    /// Summary page sends each hoster the subset of files the user kept after the per-hoster
+    /// available-space fit. A hoster with no entry (or a null map) stays unrestricted (every
+    /// selected file), preserving the default cross-product for non-wizard callers. It only ever
+    /// RESTRICTS further; the per-file size and storage-quota filters still apply on top.
+    /// <para>Paths are matched against <see cref="SelectedFiles"/> using whatever comparer the
+    /// supplied <see cref="HashSet{T}"/> uses, so callers must populate it with the same path
+    /// strings/casing as <see cref="SelectedFiles"/> (the wizard sources both from the same
+    /// <c>FileEntry.FullPath</c>); use an <see cref="StringComparer.OrdinalIgnoreCase"/> set if a
+    /// caller's two sides might ever differ in case on Windows' case-insensitive filesystem.</para>
+    /// </summary>
+    public Dictionary<string, HashSet<string>>? IncludedFilesPerHoster { get; set; }
 }

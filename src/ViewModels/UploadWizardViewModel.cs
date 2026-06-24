@@ -76,6 +76,7 @@ public partial class UploadWizardViewModel : ObservableObject
                 }
             }
         }
+        _summaryDirty = true;
         RecomputeHosterValidation();
     }
 
@@ -101,6 +102,7 @@ public partial class UploadWizardViewModel : ObservableObject
                 }
             }
         }
+        _summaryDirty = true;
         RecomputeHosterValidation();
     }
     [ObservableProperty]
@@ -153,6 +155,14 @@ public partial class UploadWizardViewModel : ObservableObject
 
     public bool HasOrphanFiles => OrphanFiles.Count > 0;
 
+    /// <summary>Non-empty when the Summary step's capacity fit auto-unchecked one or more files to
+    /// keep a hoster within its available space — shown as an informational notice on Page 3.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAutoFitNotice))]
+    private string autoFitNotice = string.Empty;
+
+    public bool HasAutoFitNotice => !string.IsNullOrEmpty(AutoFitNotice);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsScheduledMode))]
     private UploadStartMode startMode = UploadStartMode.Immediately;
@@ -172,11 +182,17 @@ public partial class UploadWizardViewModel : ObservableObject
     /// hoster's declared limits are violated in a way the user must resolve manually —
     /// either too many files for the package, or every used hoster has zero files within
     /// its size limit. Size warnings on their own are informational (oversized files are
-    /// dropped at upload time) and don't block. The Summary step (CurrentStep==2) never
-    /// blocks Next: orphan files surface a warning banner but the user is allowed to
-    /// proceed and accept the partial coverage.
+    /// dropped at upload time) and don't block. The Summary step (CurrentStep==2) blocks
+    /// Next only while a hoster has more bytes checked than its account's available storage
+    /// (<see cref="_summaryHasOverCapacity"/>) — orphan files still just surface a warning
+    /// banner the user may proceed past.
     /// </summary>
-    public bool CanGoNext => CurrentStep != 1 || !_hasHardBlock;
+    public bool CanGoNext => CurrentStep switch
+    {
+        1 => !_hasHardBlock,
+        2 => !_summaryHasOverCapacity,
+        _ => true,
+    };
 
     public bool IsLastStep => CurrentStep == 3;
 
@@ -198,6 +214,17 @@ public partial class UploadWizardViewModel : ObservableObject
     /// completely empty.
     /// </summary>
     private bool _hasHardBlock;
+
+    /// <summary>True when at least one hoster on the Summary step has more bytes checked than its
+    /// account's available storage — blocks Next until the user unchecks enough files. Only
+    /// quota-reporting hosters (IcerBox/FileBoom/HitFile) can ever set it.</summary>
+    private bool _summaryHasOverCapacity;
+
+    /// <summary>True when a Page 1/2 selection changed since the Summary was last built, so the next
+    /// entry to step 2 rebuilds it. Starts true (first entry always builds), cleared after a build,
+    /// and set again by any file/hoster selection change — so a Back from the later start-mode step
+    /// (no selection change) preserves the user's manual Page 3 checkbox edits instead of re-fitting.</summary>
+    private bool _summaryDirty = true;
 
     /// <summary>
     /// Recomputes <see cref="HosterValidationWarnings"/> by walking each enabled hoster's
@@ -305,6 +332,7 @@ public partial class UploadWizardViewModel : ObservableObject
     {
         if (e.PropertyName == nameof(FileEntry.IsSelected))
         {
+            _summaryDirty = true;
             RecomputeHosterValidation();
         }
     }
@@ -316,6 +344,7 @@ public partial class UploadWizardViewModel : ObservableObject
         if (e.PropertyName is nameof(FileHosterSelectionViewModel.Use)
             or nameof(FileHosterSelectionViewModel.SelectedAccount))
         {
+            _summaryDirty = true;
             RecomputeHosterValidation();
         }
     }
@@ -333,6 +362,12 @@ public partial class UploadWizardViewModel : ObservableObject
     /// </summary>
     private void RecomputeSummary()
     {
+        // Detach the previous summaries' capacity listeners before rebuilding.
+        foreach (HosterUploadSummary previous in Summaries)
+        {
+            previous.CapacityChanged -= OnSummaryCapacityChanged;
+        }
+
         Summaries.Clear();
         OrphanFiles.Clear();
 
@@ -378,18 +413,30 @@ public partial class UploadWizardViewModel : ObservableObject
                 continue;
             }
 
+            // Eligible (size-cap-passing) files have a destination even if the capacity fit later
+            // unchecks some of them — those are intentional drops, not size-orphans.
             foreach (FileEntry file in eligible)
             {
                 withDestination.Add(file);
             }
 
-            Summaries.Add(new HosterUploadSummary(
-                HosterName: hoster.FileHosterName,
-                AccountUsername: account.Username ?? string.Empty,
-                Files: eligible)
-            {
-                MaxFileSize = maxFileSize,
-            });
+            // Remaining free space for accounts whose hoster reports a quota; null = unlimited.
+            long? available = account.StorageQuotaBytes is long quota && account.StorageUsedBytes is long used
+                ? Math.Max(0L, quota - used)
+                : null;
+
+            List<SummaryFileItem> items = [.. eligible.Select(f => new SummaryFileItem(f, included: true))];
+            HosterUploadSummary summary = new(
+                hoster.FileHosterName,
+                account.Username ?? string.Empty,
+                items,
+                available,
+                maxFileSize);
+
+            // Auto-fit BEFORE wiring the wizard's listener so the initial fit doesn't churn CanGoNext.
+            summary.AutoFit();
+            summary.CapacityChanged += OnSummaryCapacityChanged;
+            Summaries.Add(summary);
         }
 
         foreach (FileEntry file in selected)
@@ -400,17 +447,65 @@ public partial class UploadWizardViewModel : ObservableObject
             }
         }
 
+        // Every item starts checked, so anything now unchecked was dropped by the capacity auto-fit
+        // — count the final state rather than trusting AutoFit's per-call return value.
+        int autoUnchecked = Summaries.Sum(s => s.Files.Count(item => !item.Included));
+        AutoFitNotice = autoUnchecked > 0
+            ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], autoUnchecked)
+            : string.Empty;
+
+        RecomputeSummaryCapacity();
         OnPropertyChanged(nameof(OrphanFilesCount));
         OnPropertyChanged(nameof(HasOrphanFiles));
     }
 
+    private void OnSummaryCapacityChanged(object? sender, EventArgs e) => RecomputeSummaryCapacity();
+
+    /// <summary>Recomputes whether any hoster on the Summary page is over its available space and
+    /// refreshes <see cref="CanGoNext"/> (the Summary step blocks Next while any hoster is over).</summary>
+    private void RecomputeSummaryCapacity()
+    {
+        bool over = Summaries.Any(s => s.IsOverCapacity);
+        if (over != _summaryHasOverCapacity)
+        {
+            _summaryHasOverCapacity = over;
+            OnPropertyChanged(nameof(CanGoNext));
+        }
+    }
+
+    /// <summary>
+    /// Builds the per-hoster file allow-list (<see cref="PackageOptions.IncludedFilesPerHoster"/>)
+    /// from the Summary page's current checkbox state: each hoster → the <c>FullPath</c>s of its
+    /// still-checked files. Returns null when there are no summaries (nothing to restrict → the
+    /// package keeps its default cross-product). Internal for testing.
+    /// </summary>
+    internal Dictionary<string, HashSet<string>>? BuildIncludedFilesPerHoster()
+    {
+        if (Summaries.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, HashSet<string>> includedPerHoster = new(StringComparer.Ordinal);
+        foreach (HosterUploadSummary summary in Summaries)
+        {
+            includedPerHoster[summary.HosterName] =
+                [.. summary.Files.Where(item => item.Included).Select(item => item.File.FullPath)];
+        }
+
+        return includedPerHoster;
+    }
+
     partial void OnCurrentStepChanged(int value)
     {
-        // Lazy-populate the summary the moment the user advances to it — avoids paying
-        // the iteration cost on every selection toggle back on step 1.
-        if (value == 2)
+        // Lazy-(re)build the summary on entry to step 2, but ONLY when a Page 1/2 selection actually
+        // changed since it was last built (_summaryDirty). Otherwise keep the existing summaries so a
+        // Back from the later "when to start" step (step 3) preserves the user's manual checkbox edits
+        // and the auto-fit result rather than wiping them with a fresh fit.
+        if (value == 2 && _summaryDirty)
         {
             RecomputeSummary();
+            _summaryDirty = false;
         }
     }
 
@@ -764,6 +859,10 @@ public partial class UploadWizardViewModel : ObservableObject
             }
         }
 
+        // Per-hoster file selection from the Summary page's capacity fit (null when there are no
+        // summaries → the package keeps its default cross-product; size/quota filters still apply).
+        options.IncludedFilesPerHoster = BuildIncludedFilesPerHoster();
+
         if (options.FileHosters.Count == 0)
         {
             dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickHoster"]);
@@ -835,40 +934,139 @@ public partial class FileEntry : ObservableObject
 }
 
 /// <summary>
-/// One row on the Upload Wizard's summary step: one hoster, the account chosen for it,
-/// and the files that will actually be uploaded to that hoster after applying its
-/// declared per-file size cap and per-package count cap. Hosters that end up with
-/// zero eligible files don't get a <see cref="HosterUploadSummary"/> at all — they're
-/// omitted from <see cref="UploadWizardViewModel.Summaries"/> entirely.
+/// One file row inside a <see cref="HosterUploadSummary"/> on the wizard's Summary page. Its
+/// <see cref="Included"/> checkbox is INDEPENDENT per hoster — unchecking a file for one hoster
+/// doesn't affect another hoster's copy or the Page 1 selection — which is how the per-hoster
+/// available-space fit lets a big file go to a roomy hoster but not a tight one.
 /// </summary>
-/// <param name="HosterName">Display name, e.g. <c>"KatFile"</c>.</param>
-/// <param name="AccountUsername">Username of the selected account (may be the email
-/// for API-key-direct accounts where the verifier surfaced one). Empty when no
-/// account has surfaced an identity yet — the row is still shown.</param>
-/// <param name="Files">Files going to this hoster in the order they'd upload, already
-/// truncated to the hoster's MaxFilesPerPackage cap and filtered by MaxFileSize.</param>
-public sealed record HosterUploadSummary(
-    string HosterName,
-    string AccountUsername,
-    IReadOnlyList<FileEntry> Files)
+public sealed partial class SummaryFileItem : ObservableObject
 {
+    [ObservableProperty]
+    private bool included;
+
+    public SummaryFileItem(FileEntry file, bool included)
+    {
+        File = file;
+
+        // Set the backing field directly: constructing the item must not raise a change
+        // notification (nothing is subscribed yet, and the owner recomputes once at the end).
+        this.included = included;
+    }
+
+    public FileEntry File { get; }
+
+    public string FileName => File.FileName;
+
+    public long Size => File.Size;
+}
+
+/// <summary>
+/// One row on the Upload Wizard's summary step: one hoster, the account chosen for it, and the
+/// files eligible for it after the hoster's per-file size cap and per-package count cap. Each file
+/// carries an independent <see cref="SummaryFileItem.Included"/> checkbox. For an account that
+/// reports a storage quota, <see cref="AvailableBytes"/> is the remaining free space and the row
+/// flips <see cref="IsOverCapacity"/> when the included files exceed it (which blocks the wizard's
+/// Next). Hosters that end up with zero eligible files don't get a summary at all.
+/// </summary>
+public sealed partial class HosterUploadSummary : ObservableObject
+{
+    public HosterUploadSummary(
+        string hosterName,
+        string accountUsername,
+        IReadOnlyList<SummaryFileItem> files,
+        long? availableBytes,
+        long? maxFileSize)
+    {
+        HosterName = hosterName;
+        AccountUsername = accountUsername;
+        Files = new ObservableCollection<SummaryFileItem>(files);
+        AvailableBytes = availableBytes;
+        MaxFileSize = maxFileSize;
+
+        foreach (SummaryFileItem item in Files)
+        {
+            item.PropertyChanged += OnItemPropertyChanged;
+        }
+
+        Recompute();
+    }
+
+    public string HosterName { get; }
+
+    public string AccountUsername { get; }
+
+    public ObservableCollection<SummaryFileItem> Files { get; }
+
+    /// <summary>Remaining free space on the selected account (quota − used), or null when the hoster
+    /// reports no quota — treated as unlimited, so it never constrains and never auto-fits.</summary>
+    public long? AvailableBytes { get; }
+
+    /// <summary>Per-file size cap the hoster's pipeline declares, or null when it declares none.</summary>
+    public long? MaxFileSize { get; }
+
+    /// <summary>Raised when a file's Included toggle changes the included total — the wizard listens
+    /// so it can re-evaluate whether Next should be blocked.</summary>
+    public event EventHandler? CapacityChanged;
+
+    /// <summary>Bytes of the currently-checked files.</summary>
+    [ObservableProperty]
+    private long includedBytes;
+
+    /// <summary>Count of currently-checked files.</summary>
+    [ObservableProperty]
+    private int includedCount;
+
+    /// <summary>True when the checked files exceed <see cref="AvailableBytes"/> (only possible for a
+    /// quota-reporting hoster). Drives the red capacity line and the wizard's Next block.</summary>
+    [ObservableProperty]
+    private bool isOverCapacity;
+
+    /// <summary>True when this hoster's account reports a storage quota (so capacity applies).</summary>
+    public bool HasQuota => AvailableBytes is not null;
+
+    // Total eligible files / bytes (independent of the checkbox state) — kept for the summary header.
     public int FileCount => Files.Count;
 
-    /// <summary>Sum of <see cref="FileEntry.Size"/> across <see cref="Files"/>. Surfaced
-    /// in the hoster's expander header so the user can see the total bytes going to
-    /// each hoster alongside the file count.</summary>
     public long TotalSize => Files.Sum(f => f.Size);
 
-    /// <summary>Per-file size cap the hoster's pipeline declares, or null when the
-    /// pipeline doesn't declare one. Used to render the "max X per file" hint in the
-    /// summary header so the user knows why oversized files are landing as orphans
-    /// instead of going to this hoster.</summary>
-    public long? MaxFileSize { get; init; }
+    /// <summary>The expander-header summary of what's CHECKED — "•  N files  •  &lt;bytes&gt;" plus the
+    /// optional per-file-cap hint. A single string (not inline Runs) so it refreshes live as the user
+    /// toggles files: inline <c>&lt;Run&gt;</c> text doesn't re-render on a source change.</summary>
+    public string IncludedSummary
+    {
+        get
+        {
+            string files = Localizer.Instance["Wizard_Summary_FileCount_Suffix"];
+            string bytes = ByteUnit.FromBytes(IncludedBytes, ByteBase.Binary).ToFriendlyString();
+            return string.Format(CultureInfo.CurrentCulture, "•  {0} {1}  •  {2}{3}", IncludedCount, files, bytes, MaxFileSizeDisplay);
+        }
+    }
 
-    /// <summary>Pre-formatted "  •  max X per file" suffix for the summary header, or
-    /// the empty string when <see cref="MaxFileSize"/> is null. Built here (not in
-    /// XAML) so the leading bullet separator collapses cleanly with the rest of the
-    /// header line when the hoster has no declared cap.</summary>
+    /// <summary>"{checked} selected of {free} free" for a quota-reporting hoster; empty otherwise.</summary>
+    public string CapacityDisplay
+    {
+        get
+        {
+            if (AvailableBytes is not long available)
+            {
+                return string.Empty;
+            }
+
+            string included = ByteUnit.FromBytes(IncludedBytes, ByteBase.Binary).ToFriendlyString();
+            string free = ByteUnit.FromBytes(available, ByteBase.Binary).ToFriendlyString();
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Summary_SelectedOfFree_Format"],
+                included,
+                free);
+        }
+    }
+
+    /// <summary>The over-capacity hint shown (red) when <see cref="IsOverCapacity"/>; empty otherwise.</summary>
+    public string CapacityError => IsOverCapacity ? Localizer.Instance["Wizard_Summary_OverCapacityHint"] : string.Empty;
+
+    /// <summary>Pre-formatted "  •  max X per file" suffix for the summary header, or empty when the
+    /// hoster declares no cap.</summary>
     public string MaxFileSizeDisplay
     {
         get
@@ -883,6 +1081,77 @@ public sealed record HosterUploadSummary(
                 CultureInfo.CurrentCulture,
                 Localizer.Instance["Wizard_Summary_MaxFileSize_Format"],
                 size);
+        }
+    }
+
+    /// <summary>Recomputes the included total + over-capacity flag from the current checkbox states.</summary>
+    public void Recompute()
+    {
+        long sum = 0;
+        int count = 0;
+        foreach (SummaryFileItem item in Files)
+        {
+            if (item.Included)
+            {
+                sum += item.Size;
+                count++;
+            }
+        }
+
+        IncludedBytes = sum;
+        IncludedCount = count;
+        IsOverCapacity = AvailableBytes is long available && sum > available;
+
+        // CapacityDisplay/CapacityError/IncludedSummary are computed off IncludedBytes/IsOverCapacity
+        // — nudge them so the header + capacity line refresh live as files are toggled.
+        OnPropertyChanged(nameof(CapacityDisplay));
+        OnPropertyChanged(nameof(CapacityError));
+        OnPropertyChanged(nameof(IncludedSummary));
+    }
+
+    /// <summary>
+    /// Greedy "keep biggest that fit": for a quota-reporting hoster, walk files largest-first and keep
+    /// each <see cref="SummaryFileItem.Included"/> while the running total stays within
+    /// <see cref="AvailableBytes"/>; uncheck the rest. No-op for an unlimited hoster. Returns how many
+    /// files THIS call unchecked — only meaningful right after construction (when every item starts
+    /// checked); the wizard derives its "N unchecked to fit" notice from the final state instead.
+    /// </summary>
+    public int AutoFit()
+    {
+        if (AvailableBytes is not long available)
+        {
+            return 0;
+        }
+
+        int uncheckedCount = 0;
+        long running = 0;
+        foreach (SummaryFileItem item in Files.OrderByDescending(f => f.Size))
+        {
+            if (running + item.Size <= available)
+            {
+                running += item.Size;
+                item.Included = true;
+            }
+            else
+            {
+                if (item.Included)
+                {
+                    uncheckedCount++;
+                }
+
+                item.Included = false;
+            }
+        }
+
+        return uncheckedCount;
+    }
+
+    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SummaryFileItem.Included))
+        {
+            Recompute();
+            CapacityChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }
