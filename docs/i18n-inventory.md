@@ -558,6 +558,7 @@ Wizard_Summary_MaxFileSize_Format  = max {0} per file                          #
 Wizard_Summary_SelectedOfFree_Format = {0} selected of {1} free                 # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint    = Over the available space — uncheck files to continue.
 Wizard_Summary_AutoFitNotice_Format = {0} file(s) unchecked to fit the available space.   # {0} = count of auto-unchecked files
+Wizard_Summary_CheckingSpace       = checking available space…                  # per-hoster indicator while a live storage refresh is in flight
 Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Mode_Directory        = Upload directory

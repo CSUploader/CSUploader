@@ -583,6 +583,13 @@
                                    Text="{Binding IncludedSummary, Mode=OneWay}" />
                       </StackPanel>
 
+                      <!-- Live storage-refresh indicator: shown while this hoster's free space is being
+                           re-checked; the capacity line below still shows the snapshot until it lands. -->
+                      <TextBlock Margin="28,3,0,0" FontSize="11" FontStyle="Italic"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 Text="{loc:Loc Wizard_Summary_CheckingSpace}"
+                                 Visibility="{Binding IsRefreshing, Converter={StaticResource BoolToVisibility}}" />
+
                       <!-- Capacity line: "{checked} selected of {free} free" — secondary normally,
                            red + bold when the checked files exceed the account's free space. Only
                            rendered for hosters whose account reports a quota. -->

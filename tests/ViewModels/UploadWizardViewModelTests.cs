@@ -658,6 +658,161 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.Equal("b.bin", only.FileName);
     }
 
+    // ── Summary-step live storage refresh ──
+
+    private static FileHosterSelectionViewModel IcerBoxRow(long quota, long used)
+        => new("IcerBox", [new FileHosterLoginDto { Id = 1, FileHosterName = "IcerBox", Username = "u", StorageQuotaBytes = quota, StorageUsedBytes = used }]);
+
+    private UploadWizardViewModel WizardWithVerifier(IAccountVerifier verifier)
+    {
+        // IcerBox's pipeline IS IStorageRefreshablePipeline (so the refresh gate opens) and declares no
+        // per-file cap, so file sizes don't interfere with the capacity test.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.IcerBoxPipeline()]);
+        return new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry, verifier);
+    }
+
+    [Fact]
+    public async Task Summary_RefreshShrinksAvailable_ReFitsLiveWhenPristine()
+    {
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.RefreshStorageAsync("IcerBox", It.IsAny<FileHosterLoginDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StorageUsage(900L, 1000L)); // fresh: 100 free (snapshot said 1000)
+
+        UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
+        FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
+        vm.FileHosters.Add(icer);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        icer.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+
+        await vm.PendingStorageRefresh!;
+
+        Assert.Equal(100L, entry.AvailableBytes); // refreshed (snapshot said 1000)
+        Assert.Equal(1, entry.IncludedCount);     // 80 + 80 > 100 → live re-fit keeps one
+        Assert.False(entry.IsRefreshing);
+    }
+
+    [Fact]
+    public async Task Summary_RefreshReturnsNull_KeepsSnapshot()
+    {
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.RefreshStorageAsync("IcerBox", It.IsAny<FileHosterLoginDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StorageUsage?)null);
+
+        UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
+        FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
+        vm.FileHosters.Add(icer);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        icer.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+
+        await vm.PendingStorageRefresh!;
+
+        Assert.Equal(1000L, entry.AvailableBytes); // snapshot kept
+        Assert.Equal(2, entry.IncludedCount);
+        Assert.False(entry.IsRefreshing);
+    }
+
+    [Fact]
+    public async Task Summary_UserEditedBeforeRefresh_UpdatesAvailableButDoesNotReFit()
+    {
+        // Gate the refresh so the user can edit BEFORE it lands (a sync mock would land during step-2
+        // entry, before any edit). The refresh completes only when we set the result.
+        TaskCompletionSource<StorageUsage?> gate = new();
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.RefreshStorageAsync("IcerBox", It.IsAny<FileHosterLoginDto>(), It.IsAny<CancellationToken>()))
+            .Returns(gate.Task);
+
+        UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
+        FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
+        vm.FileHosters.Add(icer);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        icer.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+
+        // User unchecks BOTH while the refresh is still in flight. A re-fit would put one back (one 80
+        // fits the fresh 100); because the user edited, the landing refresh must NOT re-fit.
+        entry.Files.First().Included = false;
+        entry.Files.Last().Included = false;
+        Assert.True(entry.HasUserEdits);
+
+        gate.SetResult(new StorageUsage(900L, 1000L)); // now the refresh lands (100 free)
+        await vm.PendingStorageRefresh!;
+
+        Assert.Equal(100L, entry.AvailableBytes); // available still updated…
+        Assert.Equal(0, entry.IncludedCount);     // …but the user's selection is untouched (no re-fit)
+    }
+
+    [Fact]
+    public async Task Summary_EditedThenRefreshShrinksBelowSelection_BlocksNext()
+    {
+        TaskCompletionSource<StorageUsage?> gate = new();
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.RefreshStorageAsync("IcerBox", It.IsAny<FileHosterLoginDto>(), It.IsAny<CancellationToken>()))
+            .Returns(gate.Task);
+
+        UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
+        FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
+        vm.FileHosters.Add(icer);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        icer.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.True(entry.IsRefreshing); // in flight (gate not yet set)
+
+        // The user makes an edit (toggle off then back on) so HasUserEdits latches while both stay
+        // checked (160 ≤ snapshot 1000 → fine for now).
+        entry.Files.First().Included = false;
+        entry.Files.First().Included = true;
+        Assert.True(entry.HasUserEdits);
+        Assert.True(vm.CanGoNext);
+
+        // Refresh shrinks available to 100. User edited → NO re-fit → 160 > 100 → over capacity.
+        gate.SetResult(new StorageUsage(900L, 1000L));
+        await vm.PendingStorageRefresh!;
+
+        Assert.False(entry.IsRefreshing);
+        Assert.Equal(100L, entry.AvailableBytes);
+        Assert.Equal(2, entry.IncludedCount);   // not re-fitted (both still checked)
+        Assert.True(entry.IsOverCapacity);
+        Assert.False(vm.CanGoNext);             // blocked by the fresh, smaller available
+    }
+
+    [Fact]
+    public async Task Summary_NonRefreshableHoster_IsNeverRefreshed()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]); // not storage-refreshable
+        Mock<IAccountVerifier> verifier = new();
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry, verifier.Object);
+
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        brupload.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        await vm.PendingStorageRefresh!;
+
+        Assert.False(entry.IsRefreshing);
+        verifier.Verify(
+            v => v.RefreshStorageAsync(It.IsAny<string>(), It.IsAny<FileHosterLoginDto>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     [Fact]
     public void Summary_HosterCountLimit_TruncatesFileListToTheCap()
     {

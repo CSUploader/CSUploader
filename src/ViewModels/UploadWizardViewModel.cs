@@ -30,7 +30,18 @@ public partial class UploadWizardViewModel : ObservableObject
     // flows don't need to construct one. When null, no per-hoster limit validation runs
     // — the pipeline still pre-checks file size at upload time as the safety net.
     private readonly IFileHosterRegistry? _fileHosterRegistry;
+
+    // Optional: when present, the Summary step refreshes each selected account's free space
+    // non-interactively (no WebView) so the capacity fit uses up-to-date numbers. Null in tests.
+    private readonly IAccountVerifier? _accountVerifier;
+
+    // Bumped on every Summary (re)build; a refresh result from a superseded generation is ignored.
+    private int _refreshGeneration;
+
     private static readonly List<FileHosterSelectionViewModel> _stickyHosters = [];
+
+    /// <summary>The in-flight (or last) Summary-page storage refresh, exposed so tests can await it.</summary>
+    internal Task? PendingStorageRefresh { get; private set; }
 
     public UploadWizardViewModel(
         PackageManager packageManager,
@@ -38,7 +49,8 @@ public partial class UploadWizardViewModel : ObservableObject
         IDialogService dialogService,
         IAppLogger logger,
         AppSettings settings,
-        IFileHosterRegistry? fileHosterRegistry = null)
+        IFileHosterRegistry? fileHosterRegistry = null,
+        IAccountVerifier? accountVerifier = null)
     {
         this.packageManager = packageManager;
         this.fileHosterLoginRepository = fileHosterLoginRepository;
@@ -46,6 +58,7 @@ public partial class UploadWizardViewModel : ObservableObject
         this.logger = logger;
         this.settings = settings;
         _fileHosterRegistry = fileHosterRegistry;
+        _accountVerifier = accountVerifier;
 
         // Hook collection-changed once: any new entry into Files / FileHosters has its
         // PropertyChanged subscribed so validation auto-refreshes on selection toggles,
@@ -431,7 +444,8 @@ public partial class UploadWizardViewModel : ObservableObject
                 account.Username ?? string.Empty,
                 items,
                 available,
-                maxFileSize);
+                maxFileSize,
+                account);
 
             // Auto-fit BEFORE wiring the wizard's listener so the initial fit doesn't churn CanGoNext.
             summary.AutoFit();
@@ -447,16 +461,83 @@ public partial class UploadWizardViewModel : ObservableObject
             }
         }
 
-        // Every item starts checked, so anything now unchecked was dropped by the capacity auto-fit
-        // — count the final state rather than trusting AutoFit's per-call return value.
-        int autoUnchecked = Summaries.Sum(s => s.Files.Count(item => !item.Included));
-        AutoFitNotice = autoUnchecked > 0
-            ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], autoUnchecked)
-            : string.Empty;
-
-        RecomputeSummaryCapacity();
+        RecomputeSummaryCapacity(); // also refreshes the page-level "N unchecked" banner
         OnPropertyChanged(nameof(OrphanFilesCount));
         OnPropertyChanged(nameof(HasOrphanFiles));
+
+        // Non-blocking, WebView-free refresh of each selected account's free space so the fit uses
+        // up-to-date numbers. Each hoster updates live as its result lands; failures keep the snapshot.
+        // The generation token makes a result from a superseded (re)build a no-op.
+        PendingStorageRefresh = RefreshSelectedStorageAsync(++_refreshGeneration);
+    }
+
+    /// <summary>
+    /// Refreshes each selected, storage-refreshable account's free space without any interactive
+    /// sign-in, applying each result live as it lands. A failed/null refresh leaves the snapshot.
+    /// Results from a superseded generation (the user changed the selection and we rebuilt) are ignored.
+    /// </summary>
+    private async Task RefreshSelectedStorageAsync(int generation)
+    {
+        if (_accountVerifier is null || _fileHosterRegistry is null)
+        {
+            return;
+        }
+
+        // Mark the refreshable hosters "checking" up front (a real account + a storage-refreshable
+        // pipeline). Snapshot the list so a concurrent rebuild can't mutate it mid-iteration.
+        List<HosterUploadSummary> refreshable = [];
+        foreach (HosterUploadSummary summary in Summaries)
+        {
+            if (summary.Account is { IsAnonymous: false }
+                && _fileHosterRegistry.Find(summary.HosterName) is IStorageRefreshablePipeline)
+            {
+                summary.IsRefreshing = true;
+                refreshable.Add(summary);
+            }
+        }
+
+        await Task.WhenAll(refreshable.Select(summary => RefreshOneAsync(summary, generation)));
+    }
+
+    private async Task RefreshOneAsync(HosterUploadSummary summary, int generation)
+    {
+        StorageUsage? usage = null;
+        try
+        {
+            usage = await _accountVerifier!.RefreshStorageAsync(summary.HosterName, summary.Account!, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.Log(this, LogType.Status, $"Wizard storage refresh failed for {summary.HosterName}: {ex.Message}");
+        }
+
+        // Ignore a result from a superseded build — the summaries it refers to are gone.
+        if (generation != _refreshGeneration)
+        {
+            return;
+        }
+
+        summary.IsRefreshing = false;
+        if (usage is { } fresh)
+        {
+            ApplyRefreshedStorage(summary, fresh);
+        }
+    }
+
+    /// <summary>Writes refreshed usage onto the account DTO (so a later rebuild reuses it) and onto the
+    /// summary's available figure — which live-re-fits the hoster when the user hasn't edited it.</summary>
+    private static void ApplyRefreshedStorage(HosterUploadSummary summary, StorageUsage usage)
+    {
+        if (summary.Account is { } account)
+        {
+            account.StorageUsedBytes = usage.UsedBytes;
+            account.StorageQuotaBytes = usage.QuotaBytes;
+        }
+
+        long? available = usage.QuotaBytes is long quota && usage.UsedBytes is long used
+            ? Math.Max(0L, quota - used)
+            : null;
+        summary.ApplyRefreshedAvailable(available);
     }
 
     private void OnSummaryCapacityChanged(object? sender, EventArgs e) => RecomputeSummaryCapacity();
@@ -465,12 +546,25 @@ public partial class UploadWizardViewModel : ObservableObject
     /// refreshes <see cref="CanGoNext"/> (the Summary step blocks Next while any hoster is over).</summary>
     private void RecomputeSummaryCapacity()
     {
+        RecomputeAutoFitNotice();
+
         bool over = Summaries.Any(s => s.IsOverCapacity);
         if (over != _summaryHasOverCapacity)
         {
             _summaryHasOverCapacity = over;
             OnPropertyChanged(nameof(CanGoNext));
         }
+    }
+
+    /// <summary>Keeps the page-level "N file(s) unchecked to fit" banner in sync with the live total of
+    /// unchecked files — auto-fit drops plus any manual toggles and post-refresh re-fits — so it never
+    /// goes stale when a landing storage refresh shrinks available space. Matches the per-hoster clue.</summary>
+    private void RecomputeAutoFitNotice()
+    {
+        int unchecked_ = Summaries.Sum(s => s.Files.Count(item => !item.Included));
+        AutoFitNotice = unchecked_ > 0
+            ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], unchecked_)
+            : string.Empty;
     }
 
     /// <summary>
@@ -975,10 +1069,12 @@ public sealed partial class HosterUploadSummary : ObservableObject
         string accountUsername,
         IReadOnlyList<SummaryFileItem> files,
         long? availableBytes,
-        long? maxFileSize)
+        long? maxFileSize,
+        FileHosterLoginDto? account = null)
     {
         HosterName = hosterName;
         AccountUsername = accountUsername;
+        Account = account;
         Files = new ObservableCollection<SummaryFileItem>(files);
         AvailableBytes = availableBytes;
         MaxFileSize = maxFileSize;
@@ -998,8 +1094,25 @@ public sealed partial class HosterUploadSummary : ObservableObject
     public ObservableCollection<SummaryFileItem> Files { get; }
 
     /// <summary>Remaining free space on the selected account (quota − used), or null when the hoster
-    /// reports no quota — treated as unlimited, so it never constrains and never auto-fits.</summary>
-    public long? AvailableBytes { get; }
+    /// reports no quota — treated as unlimited, so it never constrains and never auto-fits. Updated in
+    /// place by <see cref="ApplyRefreshedAvailable"/> when a live storage refresh lands.</summary>
+    public long? AvailableBytes { get; private set; }
+
+    /// <summary>The selected account for this hoster, used to refresh its storage on the Summary page.
+    /// Null for a synthetic/anonymous selection (nothing to refresh).</summary>
+    public FileHosterLoginDto? Account { get; }
+
+    /// <summary>True while a live storage refresh for this hoster is in flight — drives the per-hoster
+    /// "checking available space…" indicator.</summary>
+    [ObservableProperty]
+    private bool isRefreshing;
+
+    /// <summary>True once the user has manually toggled a file on this hoster. A landing storage
+    /// refresh then updates the available figure WITHOUT re-running the auto-fit, so it never wipes
+    /// the user's own choices.</summary>
+    public bool HasUserEdits { get; private set; }
+
+    private bool _applyingAutoFit;
 
     /// <summary>Per-file size cap the hoster's pipeline declares, or null when it declares none.</summary>
     public long? MaxFileSize { get; }
@@ -1143,33 +1256,70 @@ public sealed partial class HosterUploadSummary : ObservableObject
             return 0;
         }
 
-        int uncheckedCount = 0;
-        long running = 0;
-        foreach (SummaryFileItem item in Files.OrderByDescending(f => f.Size))
+        // Guard so the auto-fit's own toggles don't register as user edits.
+        _applyingAutoFit = true;
+        try
         {
-            if (running + item.Size <= available)
+            int uncheckedCount = 0;
+            long running = 0;
+            foreach (SummaryFileItem item in Files.OrderByDescending(f => f.Size))
             {
-                running += item.Size;
-                item.Included = true;
-            }
-            else
-            {
-                if (item.Included)
+                if (running + item.Size <= available)
                 {
-                    uncheckedCount++;
+                    running += item.Size;
+                    item.Included = true;
                 }
+                else
+                {
+                    if (item.Included)
+                    {
+                        uncheckedCount++;
+                    }
 
-                item.Included = false;
+                    item.Included = false;
+                }
             }
+
+            return uncheckedCount;
+        }
+        finally
+        {
+            _applyingAutoFit = false;
+        }
+    }
+
+    /// <summary>
+    /// Applies a freshly-refreshed available figure: updates <see cref="AvailableBytes"/> and, when the
+    /// user hasn't manually edited this hoster yet, re-runs the auto-fit against the new number;
+    /// otherwise it leaves their selection alone (the capacity line / over-capacity state still
+    /// reflects the fresh figure). Raises <see cref="CapacityChanged"/> so the wizard re-evaluates Next.
+    /// </summary>
+    public void ApplyRefreshedAvailable(long? newAvailable)
+    {
+        AvailableBytes = newAvailable;
+        OnPropertyChanged(nameof(AvailableBytes));
+        OnPropertyChanged(nameof(HasQuota));
+
+        if (!HasUserEdits)
+        {
+            AutoFit();
         }
 
-        return uncheckedCount;
+        Recompute();
+        CapacityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(SummaryFileItem.Included))
         {
+            // A toggle outside the auto-fit is the user's own edit — remember it so a landing storage
+            // refresh respects their choices rather than re-fitting over them.
+            if (!_applyingAutoFit)
+            {
+                HasUserEdits = true;
+            }
+
             Recompute();
             CapacityChanged?.Invoke(this, EventArgs.Empty);
         }
