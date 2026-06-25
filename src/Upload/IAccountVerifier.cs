@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
+
 namespace CSUploader.Upload;
 
 /// <summary>
@@ -30,4 +32,13 @@ public interface IAccountVerifier
     /// without re-opening the WebView — HitFile re-reads its storage usage through the proxy with it.
     /// </summary>
     Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, string? sessionCookie = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Re-reads an account's current storage usage WITHOUT any interactive sign-in (no WebView) — for
+    /// the upload wizard's Summary page to refresh free-space figures before fitting files. Only
+    /// hosters whose pipeline implements <see cref="Pipeline.IStorageRefreshablePipeline"/> (IcerBox,
+    /// FileBoom, HitFile) can refresh; for any other hoster, a missing/expired stored session, or a
+    /// transport failure it returns null so the caller keeps the last-known snapshot.
+    /// </summary>
+    Task<Pipeline.StorageUsage?> RefreshStorageAsync(string hosterName, FileHosterLoginDto credentials, CancellationToken ct = default);
 }

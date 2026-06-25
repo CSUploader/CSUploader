@@ -228,6 +228,52 @@ public class IcerBoxPipelineTests
         Assert.False(accountCalled);
     }
 
+    [Fact]
+    public async Task RefreshStorageAsync_ReturnsFreshUsageFromLoginAndDu()
+    {
+        IcerBoxPipeline pipeline = new(
+            loginOverride: (_, _) => new HttpResponseSnapshot(200, LoginOkJson, []),
+            getOverride: url => new HttpResponseSnapshot(200, url.EndsWith("/filemanager/du", StringComparison.Ordinal) ? DiskUsageJson : "{}", []));
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            new FileHosterLoginDto { FileHosterName = "IcerBox", Username = "u@e", Password = "p" },
+            MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.NotNull(usage);
+        Assert.Equal(5225142L, usage.Value.UsedBytes);
+        Assert.Equal(1073741824L, usage.Value.QuotaBytes);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_DuFailsAfterLogin_ReturnsNullNotBlankUsage()
+    {
+        // Login works but /du can't be read → return null (couldn't refresh), NOT StorageUsage(null,null)
+        // which would blank the grid's Used/Available instead of keeping the snapshot.
+        IcerBoxPipeline pipeline = new(
+            loginOverride: (_, _) => new HttpResponseSnapshot(200, LoginOkJson, []),
+            getOverride: _ => new HttpResponseSnapshot(500, "server error", []));
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            new FileHosterLoginDto { FileHosterName = "IcerBox", Username = "u@e", Password = "p" },
+            MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.Null(usage);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_LoginFails_ReturnsNull()
+    {
+        IcerBoxPipeline pipeline = new(
+            loginOverride: (_, _) => new HttpResponseSnapshot(401, """{"message":"bad"}""", []),
+            getOverride: _ => new HttpResponseSnapshot(200, DiskUsageJson, []));
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            new FileHosterLoginDto { FileHosterName = "IcerBox", Username = "u@e", Password = "bad" },
+            MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.Null(usage);
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IFileHosterPipeline pipeline, AttemptContext ctx)
     {
         List<UploadEvent> events = [];

@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -66,6 +67,40 @@ public sealed class AccountVerifier(
         catch (Exception ex)
         {
             return new AccountCheckResult(false, AccountType.Free, ex.Message);
+        }
+    }
+
+    public async Task<StorageUsage?> RefreshStorageAsync(string hosterName, FileHosterLoginDto credentials, CancellationToken ct = default)
+    {
+        // Only ever the WebView-free path: a hoster that doesn't implement the storage-refresh
+        // contract simply can't be refreshed here (the caller keeps its snapshot).
+        if (registry.Find(hosterName) is not IStorageRefreshablePipeline pipeline)
+        {
+            return null;
+        }
+
+        // Same proxy discipline as CheckAsync: refuse to leak the real IP when Use Proxies is on
+        // but no usable proxy exists — better a stale snapshot than a bare-IP request.
+        ProxyChoice? proxy = proxySource.Next();
+        if (proxy is null)
+        {
+            return null;
+        }
+
+        using HttpHandler handler = handlerFactory.Create(proxy, logger);
+        try
+        {
+            return await pipeline.RefreshStorageAsync(credentials, handler, proxy, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Best-effort — a failed refresh leaves the snapshot untouched, so log and move on.
+            logger.Log(this, LogType.Status, $"{hosterName}: storage refresh failed: {ex.Message}");
+            return null;
         }
     }
 }

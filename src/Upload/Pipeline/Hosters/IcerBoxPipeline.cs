@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -35,7 +36,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// size cap is exposed, so <see cref="MaxFileSize"/> is null and an oversized file surfaces the
 /// server's own rejection rather than a guessed client-side limit.
 /// </summary>
-public sealed class IcerBoxPipeline : IFileHosterPipeline
+public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private const string ApiBase = "https://icerbox.com/api/v1";
     private const string LoginUrl = ApiBase + "/auth/login";
@@ -242,6 +243,27 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline
         // otherwise-valid account — leave the grid's Used/Available blank instead.
         (long? used, long? quota) = await TryGetStorageAsync(handler, token, ct);
         return result with { StorageUsedBytes = used, StorageQuotaBytes = quota };
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: a fresh credential login (no
+    /// captcha) plus the same <c>/du</c> read <see cref="CheckAccountAsync"/> uses. Returns null on any
+    /// failure (bad/expired creds, transport) so the caller keeps the last-known snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+
+        (string? token, _) = await LoginAsync(handler, credentials.Username ?? string.Empty, credentials.Password ?? string.Empty, ct);
+        if (token is null)
+        {
+            return null;
+        }
+
+        (long? used, long? quota) = await TryGetStorageAsync(handler, token, ct);
+        // Match FileBoom/HitFile: a fully-unknown read is "couldn't refresh" (null) so the caller
+        // keeps its snapshot, rather than a non-null result that would blank Used/Available.
+        return used is null && quota is null ? null : new StorageUsage(used, quota);
     }
 
     /// <summary>

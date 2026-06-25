@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -47,7 +48,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// oversized file surfaces the server's own <c>result:false</c> rejection rather than a guessed
 /// client-side limit that might wrongly block valid uploads.
 /// </summary>
-public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePipeline
+public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePipeline, IStorageRefreshablePipeline
 {
     private const string DiscoveryUrl = "https://app.hitfile.net/api/upload/urls";
 
@@ -404,6 +405,25 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
                 AccountType.Free,
                 "HitFile account valid — the saved login session has expired, so storage usage wasn't refreshed (re-sign-in to update it).",
                 ApiKey: apiKey);
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: re-reads bytes-used with the
+    /// captured <c>.hitfile.net</c> session (the same walk <see cref="RefreshAccountAsync"/> uses) — no
+    /// WebView. HitFile accounts are unlimited, so quota is null. Returns null when there's no saved
+    /// session or the read fails, so the caller keeps the snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+
+        if (string.IsNullOrEmpty(credentials.SessionCookie))
+        {
+            return null;
+        }
+
+        long? used = await ReadStorageViaSessionAsync(credentials.SessionCookie, handler, ct);
+        return used is null ? null : new StorageUsage(used, null);
     }
 
     /// <summary>

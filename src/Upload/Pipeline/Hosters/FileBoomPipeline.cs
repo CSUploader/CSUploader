@@ -73,7 +73,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// fail fast with a clear "session expired" message.
 /// </para>
 /// </remarks>
-public sealed class FileBoomPipeline : IFileHosterPipeline
+public sealed class FileBoomPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private const string ApiBase = "https://api.fboom.me/v1";
     private const string LoginUrl = "https://fboom.me/auth/login";
@@ -483,6 +483,37 @@ public sealed class FileBoomPipeline : IFileHosterPipeline
             DerivedUsername: email,
             StorageUsedBytes: storageUsed,
             StorageQuotaBytes: storageTotal);
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: rehydrate the stored JWT (the
+    /// upload path's <see cref="TryRehydrateFromCredentials"/> logic) and re-read
+    /// <c>/v1/users/me/statistic</c> — no WebView. Returns null when there's no usable token (absent or
+    /// expired) or the read fails, so the caller keeps the snapshot. NB the JWT can be IP-pinned, so a
+    /// refresh routed through a different proxy than the sign-in may legitimately fail and fall back.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+
+        if (string.IsNullOrEmpty(credentials.SessionCookie))
+        {
+            return null;
+        }
+
+        DateTime? expiry = credentials.SessionCookieExpiresUtc ?? TryGetJwtExpiry(credentials.SessionCookie);
+        if (expiry is { } e && e <= DateTime.UtcNow)
+        {
+            return null;
+        }
+
+        Dictionary<string, string>? addl = string.IsNullOrEmpty(credentials.ApiKey)
+            ? null
+            : new(StringComparer.Ordinal) { [PcIdCookieName] = credentials.ApiKey };
+        FileBoomAuthState auth = new(credentials.SessionCookie, addl);
+
+        (long? used, long? total) = await TryFetchStorageStatsAsync(auth, handler, ct);
+        return used is null && total is null ? null : new StorageUsage(used, total);
     }
 
     /// <summary>

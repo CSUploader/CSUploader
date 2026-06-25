@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -57,6 +58,92 @@ public class AccountVerifierTests
 
         Assert.False(result.IsValid);
         Assert.Contains("network down", result.Message, StringComparison.Ordinal);
+    }
+
+    private static Mock<IHttpHandlerFactory> StubHandlerFactory()
+    {
+        Mock<IHttpHandlerFactory> factory = new();
+        factory.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+            .Returns(new HttpHandler(new System.Net.Http.HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+        return factory;
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_HosterNotStorageRefreshable_ReturnsNull()
+    {
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("Rapidgator")).Returns(Mock.Of<IFileHosterPipeline>()); // not IStorageRefreshablePipeline
+
+        AccountVerifier verifier = new(
+            registry.Object, Mock.Of<IHttpHandlerFactory>(), DirectProxySource().Object, Mock.Of<IAppLogger>());
+
+        StorageUsage? usage = await verifier.RefreshStorageAsync("Rapidgator", new FileHosterLoginDto { FileHosterName = "Rapidgator" });
+
+        Assert.Null(usage);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_Refreshable_DelegatesAndReturnsUsage()
+    {
+        Mock<IFileHosterPipeline> pipeline = new();
+        pipeline.As<IStorageRefreshablePipeline>()
+            .Setup(p => p.RefreshStorageAsync(It.IsAny<FileHosterLoginDto>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StorageUsage(123L, 456L));
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("IcerBox")).Returns(pipeline.Object);
+
+        AccountVerifier verifier = new(
+            registry.Object, StubHandlerFactory().Object, DirectProxySource().Object, Mock.Of<IAppLogger>());
+
+        StorageUsage? usage = await verifier.RefreshStorageAsync("IcerBox", new FileHosterLoginDto { FileHosterName = "IcerBox", Username = "u", Password = "p" });
+
+        Assert.NotNull(usage);
+        Assert.Equal(123L, usage.Value.UsedBytes);
+        Assert.Equal(456L, usage.Value.QuotaBytes);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_PipelineThrows_ReturnsNull()
+    {
+        Mock<IFileHosterPipeline> pipeline = new();
+        pipeline.As<IStorageRefreshablePipeline>()
+            .Setup(p => p.RefreshStorageAsync(It.IsAny<FileHosterLoginDto>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("IcerBox")).Returns(pipeline.Object);
+
+        AccountVerifier verifier = new(
+            registry.Object, StubHandlerFactory().Object, DirectProxySource().Object, Mock.Of<IAppLogger>());
+
+        StorageUsage? usage = await verifier.RefreshStorageAsync("IcerBox", new FileHosterLoginDto { FileHosterName = "IcerBox", Username = "u", Password = "p" });
+
+        Assert.Null(usage);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_NoUsableProxy_NeverReachesPipeline()
+    {
+        Mock<IFileHosterPipeline> pipeline = new();
+        bool reached = false;
+        pipeline.As<IStorageRefreshablePipeline>()
+            .Setup(p => p.RefreshStorageAsync(It.IsAny<FileHosterLoginDto>(), It.IsAny<HttpHandler>(), It.IsAny<ProxyChoice>(), It.IsAny<CancellationToken>()))
+            .Callback(() => reached = true)
+            .ReturnsAsync(new StorageUsage(1L, 2L));
+
+        Mock<IFileHosterRegistry> registry = new();
+        registry.Setup(r => r.Find("IcerBox")).Returns(pipeline.Object);
+
+        Mock<IProxySource> noProxy = new();
+        noProxy.Setup(s => s.Next()).Returns((ProxyChoice?)null); // Use Proxies on, none usable
+
+        AccountVerifier verifier = new(registry.Object, StubHandlerFactory().Object, noProxy.Object, Mock.Of<IAppLogger>());
+
+        StorageUsage? usage = await verifier.RefreshStorageAsync("IcerBox", new FileHosterLoginDto { FileHosterName = "IcerBox" });
+
+        Assert.Null(usage);
+        Assert.False(reached); // never leaked the real IP
     }
 
     [Fact]
