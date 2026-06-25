@@ -1236,7 +1236,7 @@ Add anyway?</value>
     <value>{0} to upload</value>
   </data>
   <data name="Wizard_Summary_TotalFooter_Format" xml:space="preserve">
-    <value>{0} file(s) • {1} to upload</value>
+    <value>Total: {0} file(s) • {1} to upload</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Files</value>

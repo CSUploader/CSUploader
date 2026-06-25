@@ -561,7 +561,7 @@ Wizard_Summary_AutoFitNotice_Format = {0} file(s) unchecked to fit the available
 Wizard_Summary_CheckingSpace       = checking available space…                  # per-hoster indicator while a live storage refresh is in flight
 Wizard_Summary_FilesSelected_Format = {0} of {1} files selected                 # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
 Wizard_Summary_ToUpload_Format     = {0} to upload                              # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
-Wizard_Summary_TotalFooter_Format  = {0} file(s) • {1} to upload                # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
+Wizard_Summary_TotalFooter_Format  = Total: {0} file(s) • {1} to upload         # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Mode_Directory        = Upload directory
