@@ -7,6 +7,7 @@ using System.IO;
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
@@ -539,6 +540,68 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.False(entry.IsOverCapacity);
         Assert.True(vm.CanGoNext);                  // within capacity → Next allowed
         Assert.True(vm.HasAutoFitNotice);           // one file was auto-unchecked
+    }
+
+    [Fact]
+    public void Summary_TotalUploadSummary_SumsIncludedAcrossHosters_AndUpdatesLive()
+    {
+        DefaultFileHosterRegistry registry = new(
+        [
+            new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline(),
+            new CSUploader.Upload.Pipeline.Hosters.KatFilePipeline(),
+        ]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        // Both accounts have ample space → no auto-fit; every file is included on every hoster.
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 100_000L, StorageUsedBytes = 0L }]);
+        FileHosterSelectionViewModel katfile = new(
+            "KatFile",
+            [new FileHosterLoginDto { Id = 2, FileHosterName = "KatFile", Username = "k", StorageQuotaBytes = 100_000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.FileHosters.Add(katfile);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        brupload.Use = true;
+        katfile.Use = true;
+
+        List<string> footers = [];
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(UploadWizardViewModel.TotalUploadSummary))
+            {
+                footers.Add(vm.TotalUploadSummary);
+            }
+        };
+
+        vm.CurrentStep = 2;
+
+        // 2 hosters × 2 files = 4 uploads, 2 × (100 + 200) = 600 bytes — the grand total sums across hosters.
+        Assert.Equal(2, vm.Summaries.Count);
+        Assert.Equal(4, vm.Summaries.Sum(s => s.IncludedCount));
+        Assert.Equal(600L, vm.Summaries.Sum(s => s.IncludedBytes));
+
+        string expected = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Summary_TotalFooter_Format"],
+            4,
+            ByteUnit.FromBytes(600L, ByteBase.Binary).ToFriendlyString());
+        Assert.Equal(expected, vm.TotalUploadSummary);
+
+        // Unchecking one file on one hoster drops the grand total to 3 uploads / 500 bytes and re-raises the footer.
+        footers.Clear();
+        vm.Summaries[0].Files.First(f => f.Included && f.Size == 100).Included = false;
+        Assert.Equal(3, vm.Summaries.Sum(s => s.IncludedCount));
+        Assert.Equal(500L, vm.Summaries.Sum(s => s.IncludedBytes));
+
+        string expectedAfter = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Summary_TotalFooter_Format"],
+            3,
+            ByteUnit.FromBytes(500L, ByteBase.Binary).ToFriendlyString());
+        Assert.Equal(expectedAfter, vm.TotalUploadSummary);
+        Assert.Contains(expectedAfter, footers);    // footer raised PropertyChanged on the toggle
     }
 
     [Fact]

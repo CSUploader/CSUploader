@@ -176,6 +176,20 @@ public partial class UploadWizardViewModel : ObservableObject
 
     public bool HasAutoFitNotice => !string.IsNullOrEmpty(AutoFitNotice);
 
+    /// <summary>Grand total across all selected hosters for the Summary page footer: the number of file
+    /// uploads (a file sent to two hosters counts twice) and their combined size. Updated live as files
+    /// are toggled or a landing storage refresh re-fits — nudged from <see cref="RecomputeSummaryCapacity"/>.</summary>
+    public string TotalUploadSummary
+    {
+        get
+        {
+            int files = Summaries.Sum(s => s.IncludedCount);
+            long bytes = Summaries.Sum(s => s.IncludedBytes);
+            string size = ByteUnit.FromBytes(bytes, ByteBase.Binary).ToFriendlyString();
+            return string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_TotalFooter_Format"], files, size);
+        }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsScheduledMode))]
     private UploadStartMode startMode = UploadStartMode.Immediately;
@@ -547,6 +561,7 @@ public partial class UploadWizardViewModel : ObservableObject
     private void RecomputeSummaryCapacity()
     {
         RecomputeAutoFitNotice();
+        OnPropertyChanged(nameof(TotalUploadSummary));
 
         bool over = Summaries.Any(s => s.IsOverCapacity);
         if (over != _summaryHasOverCapacity)
