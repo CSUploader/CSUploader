@@ -559,7 +559,8 @@ Wizard_Summary_SelectedOfFree_Format = {0} selected of {1} free                 
 Wizard_Summary_OverCapacityHint    = Over the available space — uncheck files to continue.
 Wizard_Summary_AutoFitNotice_Format = {0} file(s) unchecked to fit the available space.   # {0} = count of auto-unchecked files
 Wizard_Summary_CheckingSpace       = checking available space…                  # per-hoster indicator while a live storage refresh is in flight
-Wizard_Summary_CountOfTotal_Format = {0} of {1}                                  # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files"
+Wizard_Summary_FilesSelected_Format = {0} of {1} files selected                 # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format     = {0} to upload                              # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
 Wizard_Step_FilesSource            = 1. Files
 
 Wizard_Step0_Mode_Directory        = Upload directory

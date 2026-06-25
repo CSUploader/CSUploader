@@ -1165,14 +1165,19 @@ public sealed partial class HosterUploadSummary : ObservableObject
     {
         get
         {
-            string files = Localizer.Instance["Wizard_Summary_FileCount_Suffix"];
-            string bytes = ByteUnit.FromBytes(IncludedBytes, ByteBase.Binary).ToFriendlyString();
-            // Show "N of M" when only some eligible files are checked, so a header like "0 files • 0 B"
-            // (everything unchecked to fit a full account) reads as a selection — not "no files at all".
-            string count = IncludedCount == FileCount
-                ? IncludedCount.ToString(CultureInfo.CurrentCulture)
-                : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_CountOfTotal_Format"], IncludedCount, FileCount);
-            return string.Format(CultureInfo.CurrentCulture, "•  {0} {1}  •  {2}{3}", count, files, bytes, MaxFileSizeDisplay);
+            // Spell out both halves — "N of M files selected" and "X to upload" — so a header like
+            // "0 of 54 files selected • 0 B to upload" reads unambiguously as the current selection
+            // (e.g. when a full account's auto-fit unchecked everything), not "this hoster has no files".
+            string filesPart = string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Summary_FilesSelected_Format"],
+                IncludedCount,
+                FileCount);
+            string sizePart = string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Summary_ToUpload_Format"],
+                ByteUnit.FromBytes(IncludedBytes, ByteBase.Binary).ToFriendlyString());
+            return string.Format(CultureInfo.CurrentCulture, "•  {0}  •  {1}{2}", filesPart, sizePart, MaxFileSizeDisplay);
         }
     }
 
