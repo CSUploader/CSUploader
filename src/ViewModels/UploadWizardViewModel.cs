@@ -1167,7 +1167,12 @@ public sealed partial class HosterUploadSummary : ObservableObject
         {
             string files = Localizer.Instance["Wizard_Summary_FileCount_Suffix"];
             string bytes = ByteUnit.FromBytes(IncludedBytes, ByteBase.Binary).ToFriendlyString();
-            return string.Format(CultureInfo.CurrentCulture, "•  {0} {1}  •  {2}{3}", IncludedCount, files, bytes, MaxFileSizeDisplay);
+            // Show "N of M" when only some eligible files are checked, so a header like "0 files • 0 B"
+            // (everything unchecked to fit a full account) reads as a selection — not "no files at all".
+            string count = IncludedCount == FileCount
+                ? IncludedCount.ToString(CultureInfo.CurrentCulture)
+                : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_CountOfTotal_Format"], IncludedCount, FileCount);
+            return string.Format(CultureInfo.CurrentCulture, "•  {0} {1}  •  {2}{3}", count, files, bytes, MaxFileSizeDisplay);
         }
     }
 
