@@ -131,4 +131,51 @@ public class HosterUploadSummaryTests
         Assert.Equal(600L, s.IncludedBytes);
         Assert.Equal(1, s.IncludedCount);
     }
+
+    [Fact]
+    public void AutoFit_DroppingFiles_ExposesPerHosterUncheckedClue()
+    {
+        // 1000 free; one 900 + five 200 → auto-fit keeps only the 900, drops 5.
+        HosterUploadSummary s = Summary(
+            1000, Item("a", 900), Item("b", 200), Item("c", 200), Item("d", 200), Item("e", 200), Item("f", 200));
+
+        s.AutoFit();
+
+        Assert.Equal(5, s.UncheckedCount);
+        Assert.True(s.HasUncheckedFiles);
+        Assert.NotEmpty(s.UncheckedDisplay);
+    }
+
+    [Fact]
+    public void UncheckedClue_HidesWhenOverCapacity_AndReturnsWhenBackUnder()
+    {
+        // 1000 free, three 700s → auto-fit keeps one, drops two (within capacity → clue shows).
+        HosterUploadSummary s = Summary(1000, Item("a", 700), Item("b", 700), Item("c", 700));
+        s.AutoFit();
+        Assert.True(s.HasUncheckedFiles);
+        Assert.False(s.IsOverCapacity);
+
+        // Re-check one dropped file → 1400 > 1000 (over). The red hint takes over; the clue hides
+        // even though a file is still unchecked.
+        s.Files.First(f => !f.Included).Included = true;
+        Assert.True(s.IsOverCapacity);
+        Assert.False(s.HasUncheckedFiles);
+
+        // Uncheck it again → back under, clue returns.
+        s.Files.First(f => f.Included).Included = false;
+        Assert.False(s.IsOverCapacity);
+        Assert.True(s.HasUncheckedFiles);
+    }
+
+    [Fact]
+    public void Unlimited_NeverShowsUncheckedClue_EvenAfterManualUncheck()
+    {
+        HosterUploadSummary s = Summary(available: null, Item("a", 100), Item("b", 200));
+        s.AutoFit(); // no-op for unlimited
+
+        s.Files.First().Included = false; // user manually unchecks one
+
+        Assert.False(s.HasUncheckedFiles); // no quota → no capacity-reason clue
+        Assert.Empty(s.UncheckedDisplay);
+    }
 }

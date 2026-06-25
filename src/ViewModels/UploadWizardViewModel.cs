@@ -1024,6 +1024,22 @@ public sealed partial class HosterUploadSummary : ObservableObject
     /// <summary>True when this hoster's account reports a storage quota (so capacity applies).</summary>
     public bool HasQuota => AvailableBytes is not null;
 
+    /// <summary>Number of this hoster's eligible files currently UNchecked. On first show this is the
+    /// auto-fit's drop count, so it doubles as a per-hoster reason for the deselection.</summary>
+    public int UncheckedCount => Files.Count - IncludedCount;
+
+    /// <summary>True for a quota hoster with unchecked files — drives a per-hoster "N unchecked to fit"
+    /// hint so the user sees, on each hoster, why files were deselected there (not just the page-level
+    /// banner). Never shows for an unlimited hoster (no capacity reason to deselect), nor while the
+    /// hoster is over capacity — there the red over-capacity hint stands alone rather than pairing
+    /// with an "unchecked to fit" line that would read oddly against "you're over, uncheck more".</summary>
+    public bool HasUncheckedFiles => HasQuota && UncheckedCount > 0 && !IsOverCapacity;
+
+    /// <summary>"N file(s) unchecked to fit the available space" for this hoster; empty when none.</summary>
+    public string UncheckedDisplay => HasUncheckedFiles
+        ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], UncheckedCount)
+        : string.Empty;
+
     // Total eligible files / bytes (independent of the checkbox state) — kept for the summary header.
     public int FileCount => Files.Count;
 
@@ -1102,11 +1118,15 @@ public sealed partial class HosterUploadSummary : ObservableObject
         IncludedCount = count;
         IsOverCapacity = AvailableBytes is long available && sum > available;
 
-        // CapacityDisplay/CapacityError/IncludedSummary are computed off IncludedBytes/IsOverCapacity
-        // — nudge them so the header + capacity line refresh live as files are toggled.
+        // CapacityDisplay/CapacityError/IncludedSummary/Unchecked* are computed off
+        // IncludedBytes/IncludedCount/IsOverCapacity — nudge them so the header, capacity line and the
+        // per-hoster "N unchecked" hint all refresh live as files are toggled.
         OnPropertyChanged(nameof(CapacityDisplay));
         OnPropertyChanged(nameof(CapacityError));
         OnPropertyChanged(nameof(IncludedSummary));
+        OnPropertyChanged(nameof(UncheckedCount));
+        OnPropertyChanged(nameof(HasUncheckedFiles));
+        OnPropertyChanged(nameof(UncheckedDisplay));
     }
 
     /// <summary>

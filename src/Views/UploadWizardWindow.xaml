@@ -602,6 +602,14 @@
                         </TextBlock.Style>
                       </TextBlock>
 
+                      <!-- Per-hoster deselection clue: how many files were unchecked here to fit the
+                           free space (the auto-fit's drop count on first show). Distinct from the
+                           page-level banner so the reason is visible on each constrained hoster. -->
+                      <TextBlock Margin="28,2,0,0" FontSize="11"
+                                 Foreground="{DynamicResource AccentBrush}"
+                                 Text="{Binding UncheckedDisplay, Mode=OneWay}"
+                                 Visibility="{Binding HasUncheckedFiles, Converter={StaticResource BoolToVisibility}}" />
+
                       <!-- Over-capacity hint (red), shown only when over. -->
                       <TextBlock Margin="28,2,0,0" FontSize="11"
                                  Foreground="{DynamicResource ErrorBrush}"
