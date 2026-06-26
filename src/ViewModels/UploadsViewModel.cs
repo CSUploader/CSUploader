@@ -432,17 +432,45 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private static void OpenSourceDirectory(object? item)
     {
+        // For a single file, open its folder with the file highlighted (explorer /select). A package
+        // spans potentially many files with no single one to point at, and a since-moved/deleted file
+        // can't be selected — both fall through to just opening the shared source folder, as before.
+        if (item is PackageFile file
+            && TryBuildExplorerSelectArgument(file.Path, file.Name, File.Exists) is string selectArg)
+        {
+            Process.Start("explorer.exe", selectArg);
+            return;
+        }
+
         string? dir = item switch
         {
             Package pkg => pkg.Path,
-            PackageFile file => file.Path,
+            PackageFile pf => pf.Path,
             _ => null,
         };
 
         if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
         {
-            System.Diagnostics.Process.Start("explorer.exe", dir);
+            Process.Start("explorer.exe", dir);
         }
+    }
+
+    /// <summary>
+    /// Builds the <c>explorer.exe</c> argument that opens a file's folder with that file selected
+    /// (<c>/select,"&lt;path&gt;"</c>), or null when the directory/name is missing or the file no
+    /// longer exists (so the caller falls back to just opening the folder). The <c>/select</c> comma
+    /// form and the quotes around the path are both required by Explorer. Pure + testable —
+    /// <paramref name="fileExists"/> is injected so tests don't touch the disk.
+    /// </summary>
+    internal static string? TryBuildExplorerSelectArgument(string? directory, string? fileName, Func<string, bool> fileExists)
+    {
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+        {
+            return null;
+        }
+
+        string fullPath = Path.Combine(directory, fileName);
+        return fileExists(fullPath) ? $"/select,\"{fullPath}\"" : null;
     }
 
     [RelayCommand]
