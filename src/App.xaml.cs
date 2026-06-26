@@ -137,6 +137,12 @@ public partial class App : Application
         // my_account), so it runs the base's web-form path: WebView sign-in for the xfss cookie →
         // ?op=upload_form scrape → classic upload.cgi. DI fills its IInteractiveAuthService + repo.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.IsraCloudPipeline>();
+        // Keep2Share is FileBoom's "moneyplatform" sister site (identical /v1 API) — WebView
+        // accessToken sign-in, so it needs IInteractiveAuthService + the repo like FileBoom.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.Keep2SharePipeline(
+                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<FileHosterLoginRepository>()));
         // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
         // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
         // Pro per-user API key is never rendered on my_account, so the api-key bootstrap is

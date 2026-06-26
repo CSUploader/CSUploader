@@ -36,7 +36,7 @@ public partial class EditAccountWindow : Window
     // upload and its XFileSharing Pro per-user API key is never rendered, so there is no usable
     // api-key flow. See HotlinkPipeline.cs class-level remarks for the diagnosis + re-enable checklist.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "FileBoom", "HitFile" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share" };
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
