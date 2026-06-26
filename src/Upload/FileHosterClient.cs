@@ -65,7 +65,7 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // { "Hotlink", "hotlink.cc" },
         { "Hxfile", "hxfile.co" },
         { "IcerBox", "www.icerbox.com" },
-        { "IsraCloud", "www.isra.cloud" },
+        { "Isracloud", "isra.cloud" },
         // Marketed at katfile.com historically; the live web UI + API both serve from
         // katfile.space now (katfile.cloud also serves the API but 301s for the web
         // routes). See KatFilePipeline for the rationale.

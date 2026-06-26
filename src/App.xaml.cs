@@ -133,6 +133,10 @@ public partial class App : Application
         // IcerBox is a clean JSON REST API (email+password login → Bearer JWT → blueimp upload),
         // so it needs no IInteractiveAuthService — unlike the captcha-gated XFS/FileBoom/HitFile hosters.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.IcerBoxPipeline>();
+        // Isracloud is a classic XFileSharing host that DOESN'T expose the REST API (no api-url on
+        // my_account), so it runs the base's web-form path: WebView sign-in for the xfss cookie →
+        // ?op=upload_form scrape → classic upload.cgi. DI fills its IInteractiveAuthService + repo.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.IsraCloudPipeline>();
         // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
         // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
         // Pro per-user API key is never rendered on my_account, so the api-key bootstrap is

@@ -91,6 +91,27 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// </summary>
     public virtual bool SupportsAnonymousUpload => false;
 
+    /// <summary>
+    /// Whether the hoster authenticates uploads through the classic XFileSharing WEB FORM
+    /// (the logged-in <c>?op=upload_form</c> page) rather than the per-account REST API. Defaults
+    /// to false — the family's mainstream path is the API (<c>/api/account/info</c> +
+    /// <c>/api/upload/server</c>). Set true on hosters that DON'T expose that API to their accounts
+    /// — their <c>my_account</c> page renders no <c>api-url</c>/key (verified for isra.cloud
+    /// 2026-06-26). For those:
+    /// <list type="bullet">
+    ///   <item><see cref="RunAsync"/> routes to <see cref="RunWebFormAsync"/>: GET
+    ///   <c>?op=upload_form</c> with the <c>xfss</c> cookie, scrape the form's <c>action</c>
+    ///   (the <c>fsNN/cgi-bin/upload.cgi</c> server) + the hidden <c>sess_id</c>, then reuse the
+    ///   classic multipart POST + <see cref="ParseUploadResponse"/>.</item>
+    ///   <item><see cref="CheckAccountAsync"/> routes to <see cref="CheckAccountViaWebFormAsync"/>:
+    ///   WebView sign-in → <c>my_account</c> HTML scrape for storage/premium. The only persisted
+    ///   credential is the <c>xfss</c> session cookie (no API key).</item>
+    /// </list>
+    /// The cookie acquisition (<see cref="GetOrAcquireXfssCookieAsync"/>), classic upload, and
+    /// progress plumbing are all shared with the API path.
+    /// </summary>
+    protected virtual bool UsesWebFormUpload => false;
+
     /// <summary>Maximum file size — defaults to the standard 1 GiB free-tier cap. Override
     /// for hosters with different free-tier limits.</summary>
     public virtual long? MaxFileSize => 1L * 1024 * 1024 * 1024;
@@ -122,6 +143,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     protected string PublicUrlPrefix => Host + "/";
     protected string ApiAccountInfoUrl => Host + "/api/account/info";
     protected string ApiUploadServerUrl => Host + "/api/upload/server";
+
+    /// <summary>The logged-in web upload form (web-form mode only). Carries the per-session
+    /// upload-server <c>action</c> and the hidden <c>sess_id</c> we scrape in
+    /// <see cref="GetWebFormUploadServerAsync"/>.</summary>
+    protected string UploadFormUrl => Host + "/?op=upload_form";
 
     /// <summary>
     /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
@@ -189,6 +215,33 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         """<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Logged-in web-form upload (isra.cloud, captured 2026-06-26): the ?op=upload_form page renders
+    //   <form id="uploadfile" action="https://fsNN.HOST/cgi-bin/upload.cgi?upload_type=file&utype=reg">
+    //     <input type="hidden" name="sess_id" value="<session>">
+    // _anonUploadActionRegex captures the action (the only upload.cgi form on the page); this pulls
+    // the hidden sess_id. The value equals the xfss session-cookie value, but we read it from the
+    // form so a server that mints a distinct per-session token is honoured verbatim. Handles either
+    // attribute order (name-then-value / value-then-name).
+    private static readonly Regex _sessIdInputRegex = new(
+        """name=["']sess_id["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']sess_id["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // my_account "Used space" scrape (web-form mode — isra.cloud renders, across two sibling divs,
+    //   <div class="txt1">Used space</div> … <div class="txt2">0.00 TB</div>).
+    // The lazy .{0,300}? skip crosses the intervening markup (including the stray digit in the
+    // class="txt2" name) to land on the figure + unit, bounded so it can't grab an unrelated later
+    // number on the page.
+    private static readonly Regex _usedSpaceRegex = new(
+        """Used\s*space\b.{0,300}?([0-9]+(?:[.,][0-9]+)?)\s*(TB|GB|MB|KB)\b""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+    // my_account username scrape (web-form mode): the account menu renders the username immediately
+    // after the user icon — <i class="fa fa-user"></i>pkjmq41030<i …>. Anchor on that icon and
+    // capture the token in front of the next tag.
+    private static readonly Regex _myAccountUsernameRegex = new(
+        """fa-user\b[^>]*></i>\s*([A-Za-z0-9._@\-]+)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>Production ctor — supplied by DI with optional auth + repo.</summary>
     protected XFileSharingApiPipeline(IInteractiveAuthService? authService, FileHosterLoginRepository? loginRepository)
     {
@@ -229,6 +282,19 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         if (SupportsAnonymousUpload && ctx.Credentials.IsAnonymous)
         {
             await foreach (UploadEvent ev in RunAnonymousAsync(ctx, ct))
+            {
+                yield return ev;
+            }
+            yield break;
+        }
+
+        // === Web-form (no-API) logged-in upload ===
+        // For hosters that don't expose the REST API, the upload server + sess_id come from the
+        // logged-in ?op=upload_form page (authenticated by the xfss cookie) rather than
+        // /api/upload/server; the rest reuses the classic multipart upload + ParseUploadResponse.
+        if (UsesWebFormUpload)
+        {
+            await foreach (UploadEvent ev in RunWebFormAsync(ctx, ct))
             {
                 yield return ev;
             }
@@ -733,9 +799,373 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         return result.SessionCookieValue;
     }
 
+    // ======== Web-form (no-API) path ========
+
+    /// <summary>
+    /// Web-form (no-API) logged-in upload. Mirrors <see cref="RunAsync"/>'s upload/progress/parse
+    /// machinery but resolves the upload server from the logged-in <c>?op=upload_form</c> page
+    /// (scraping the form <c>action</c> + hidden <c>sess_id</c>) instead of <c>/api/upload/server</c>,
+    /// and authenticates with the <c>xfss</c> session cookie (no API key). Auth-expiry — the upload
+    /// form bounced us to the login page, or the upload itself returned Unauthorized — clears the
+    /// stored cookie so the next attempt re-signs-in.
+    /// </summary>
+    private async IAsyncEnumerable<UploadEvent> RunWebFormAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
+    {
+        // === Ensure we have a session cookie (sign in via WebView only if we don't) ===
+        bool needSignIn = !HasValidStoredSessionCookie(ctx);
+        if (needSignIn)
+        {
+            yield return new AuthStarted();
+        }
+
+        string? xfss = await GetOrAcquireXfssCookieAsync(ctx, ct);
+        if (xfss is null)
+        {
+            if (needSignIn)
+            {
+                yield return new AuthFailed("sign-in cancelled or no usable proxy available");
+            }
+            yield return new AttemptFailed("not signed in — open Settings → Accounts and sign in", null);
+            yield break;
+        }
+
+        if (needSignIn)
+        {
+            yield return new AuthSucceeded();
+        }
+
+        // === Resolve the upload server from the logged-in upload form ===
+        (string? uploadUrl, string? sessId, string? serverError, bool serverAuthExpired) =
+            await GetWebFormUploadServerAsync(ctx, xfss, ct);
+
+        if (serverAuthExpired)
+        {
+            await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+            yield return new AuthFailed("session expired — sign in again from Settings → Accounts");
+            yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+            yield break;
+        }
+
+        if (uploadUrl is null || sessId is null)
+        {
+            yield return new AttemptFailed(serverError ?? "could not resolve the upload server", null);
+            yield break;
+        }
+
+        // === Upload (identical machinery to the API path) ===
+        bool authExpiredDuringUpload = false;
+        string? attemptFailure = null;
+        bool attemptCancelled = false;
+        Exception? attemptException = null;
+        string? finalUrl = null;
+
+        yield return new TransferStarted(ctx.FileSize);
+
+        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        ctx.Handler.UploadProgress += onProgress;
+
+        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
+
+        _ = uploadTask.ContinueWith(
+            _ => progressChannel.Writer.Complete(),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        {
+            yield return progressEv;
+        }
+
+        ctx.Handler.UploadProgress -= onProgress;
+
+        HttpResponseSnapshot? uploadResponse = null;
+        try
+        {
+            uploadResponse = await uploadTask;
+        }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            attemptCancelled = true;
+        }
+        catch (Exception ex)
+        {
+            attemptException = ex;
+        }
+
+        if (uploadResponse is not null)
+        {
+            (string? Url, string? Error, bool AuthExpired) parsed = ParseUploadResponse(uploadResponse);
+            if (parsed.AuthExpired)
+            {
+                await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                authExpiredDuringUpload = true;
+            }
+            else if (parsed.Error is not null)
+            {
+                attemptFailure = parsed.Error;
+            }
+            else
+            {
+                finalUrl = parsed.Url;
+            }
+        }
+
+        if (authExpiredDuringUpload)
+        {
+            yield return new AuthFailed("session expired mid-upload");
+            yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+            yield break;
+        }
+
+        if (attemptCancelled)
+        {
+            yield return new AttemptCancelled();
+            yield break;
+        }
+
+        if (attemptException is not null)
+        {
+            yield return new AttemptFailed(attemptException.Message, attemptException);
+            yield break;
+        }
+
+        if (attemptFailure is not null)
+        {
+            yield return new AttemptFailed(attemptFailure, null);
+            yield break;
+        }
+
+        if (finalUrl is not null)
+        {
+            yield return new TransferCompleted(finalUrl);
+        }
+    }
+
+    /// <summary>
+    /// GETs the logged-in <c>?op=upload_form</c> page (with the <c>xfss</c> cookie) and scrapes the
+    /// per-session upload server's <c>action</c> URL (<c>fsNN/cgi-bin/upload.cgi?…</c>) + the hidden
+    /// <c>sess_id</c>. A page with no upload form means the cookie no longer authenticates us (the
+    /// server served a logged-out / login page) → reported as auth-expired so the caller clears the
+    /// cookie and re-signs-in. Falls back to the cookie value for <c>sess_id</c> when the form omits
+    /// the hidden input (it equals the cookie in the capture).
+    /// </summary>
+    private async Task<(string? UploadUrl, string? SessId, string? Error, bool AuthExpired)> GetWebFormUploadServerAsync(
+        AttemptContext ctx, string xfss, CancellationToken ct)
+    {
+        string html;
+        try
+        {
+            html = await GetAsync(ctx, UploadFormUrl, BuildCookieHeader(xfss), ct);
+        }
+        catch (Exception ex)
+        {
+            return (null, null, "upload_form fetch failed: " + ex.Message, false);
+        }
+
+        Match action = _anonUploadActionRegex.Match(html);
+        if (!action.Success)
+        {
+            return (null, null, "upload form not found — the session may have expired", true);
+        }
+
+        Match sess = _sessIdInputRegex.Match(html);
+        string sessId = sess.Success
+            ? (sess.Groups[1].Success && sess.Groups[1].Length > 0 ? sess.Groups[1].Value : sess.Groups[2].Value)
+            : string.Empty;
+        if (string.IsNullOrEmpty(sessId))
+        {
+            sessId = xfss;
+        }
+
+        return (action.Groups[1].Value, sessId, null, false);
+    }
+
+    /// <summary>Mirror of the cookie-validity check inside <see cref="GetOrAcquireXfssCookieAsync"/>:
+    /// true when a non-expired session cookie pinned to (or unpinned from) the current proxy is on the
+    /// DTO — i.e. when no WebView pop is needed. Lets <see cref="RunWebFormAsync"/> emit the Auth*
+    /// events only when a sign-in actually happens.</summary>
+    private static bool HasValidStoredSessionCookie(AttemptContext ctx)
+    {
+        bool pinMatches = ctx.Credentials.PinnedProxyId is null || ctx.Credentials.PinnedProxyId == ctx.Proxy.Id;
+        return pinMatches
+            && !string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
+            && ctx.Credentials.SessionCookieExpiresUtc is DateTime expiresUtc
+            && expiresUtc > DateTime.UtcNow;
+    }
+
+    private async Task ClearSessionCookieAsync(FileHosterLoginDto credentials, CancellationToken ct)
+    {
+        credentials.SessionCookie = null;
+        credentials.SessionCookieExpiresUtc = null;
+        credentials.PinnedProxyId = null;
+
+        if (_loginRepository is null)
+        {
+            return;
+        }
+
+        await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Account verification for web-form (no-API) hosters: WebView sign-in to capture the <c>xfss</c>
+    /// cookie, then a <c>my_account</c> HTML scrape for logged-in confirmation, the username, and
+    /// storage usage. No API key is involved; the persisted credential is the session cookie (reused
+    /// by <see cref="RunWebFormAsync"/> and by the non-interactive storage refresh). Quota is always
+    /// null — these hosters don't advertise a cap, so the grid's Available cell shows "Unlimited".
+    /// </summary>
+    private async Task<AccountCheckResult> CheckAccountViaWebFormAsync(string username, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        if (_authService is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
+        }
+
+        InteractiveAuthResult? captured;
+        try
+        {
+            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
+            captured = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
+        }
+        catch (Exception ex)
+        {
+            return new AccountCheckResult(false, AccountType.Free, ex.Message);
+        }
+
+        if (captured is not InteractiveAuthResult auth)
+        {
+            return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
+        }
+
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(auth.SessionCookieValue);
+        string html;
+        string finalUrl;
+        int hops;
+        try
+        {
+            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
+        }
+        catch (Exception ex)
+        {
+            return new AccountCheckResult(false, AccountType.Free, "my_account fetch failed: " + ex.Message);
+        }
+
+        if (!LooksLoggedInToMyAccount(html))
+        {
+            string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
+            string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
+            return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
+        }
+
+        string? scrapedUsername = ExtractMyAccountUsername(html);
+
+        return new AccountCheckResult(
+            IsValid: true,
+            AccountType: AccountType.Free,
+            Message: "Signed in (Free)",
+            SessionCookie: auth.SessionCookieValue,
+            SessionCookieExpiresUtc: DateTime.UtcNow + DefaultCookieLifetime,
+            PinnedProxyId: proxy.Id,
+            DerivedUsername: scrapedUsername ?? (string.IsNullOrEmpty(username) ? null : username),
+            StorageUsedBytes: TryParseUsedSpaceBytes(html),
+            StorageQuotaBytes: null);
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for web-form hosters: GET <c>my_account</c> with the STORED
+    /// <c>xfss</c> cookie (never a WebView) and scrape "Used space". Returns null when there's no
+    /// usable stored cookie, the fetch fails, or the page isn't logged-in — callers keep the
+    /// last-known snapshot. Quota is always null (no advertised cap → "Unlimited"). Subclasses that
+    /// implement <see cref="IStorageRefreshablePipeline"/> delegate here.
+    /// </summary>
+    protected async Task<StorageUsage?> RefreshStorageViaMyAccountAsync(
+        FileHosterLoginDto credentials, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+
+        if (string.IsNullOrEmpty(credentials.SessionCookie))
+        {
+            return null;
+        }
+
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(credentials.SessionCookie);
+        string html;
+        try
+        {
+            (html, _, _) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (!LooksLoggedInToMyAccount(html))
+        {
+            return null;
+        }
+
+        long? used = TryParseUsedSpaceBytes(html);
+        return used is null ? null : new StorageUsage(used, null);
+    }
+
+    /// <summary>True when the fetched <c>my_account</c> HTML is the logged-in page — it carries a
+    /// logout link (or the "Used space" panel). A logged-out fetch lands on the login page, which has
+    /// neither.</summary>
+    private static bool LooksLoggedInToMyAccount(string html)
+        => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase) || _usedSpaceRegex.IsMatch(html);
+
+    private static string? ExtractMyAccountUsername(string html)
+    {
+        Match m = _myAccountUsernameRegex.Match(html);
+        return m.Success && m.Groups[1].Length > 0 ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>Parses the "Used space" figure scraped from <c>my_account</c> into bytes, using
+    /// binary (IEC) multipliers to match the app's storage display. Tolerates a comma decimal
+    /// separator. Returns null when absent or unparseable. Internal for direct unit testing.</summary>
+    internal static long? TryParseUsedSpaceBytes(string html)
+    {
+        Match m = _usedSpaceRegex.Match(html);
+        if (!m.Success)
+        {
+            return null;
+        }
+
+        string num = m.Groups[1].Value.Replace(',', '.');
+        if (!double.TryParse(num, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value) || value < 0)
+        {
+            return null;
+        }
+
+        long multiplier = m.Groups[2].Value.ToUpperInvariant() switch
+        {
+            "TB" => 1L << 40,
+            "GB" => 1L << 30,
+            "MB" => 1L << 20,
+            "KB" => 1L << 10,
+            _ => 1L,
+        };
+
+        return (long)(value * multiplier);
+    }
+
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
         _ = password; // XFileSharing API-mode doesn't validate the password — sign-in goes through the WebView captcha.
+
+        // Web-form (no-API) hosters: there's no API key to validate and no /api/account/info to call.
+        // Sign in via WebView and read identity/storage from the my_account HTML instead.
+        if (UsesWebFormUpload)
+        {
+            return await CheckAccountViaWebFormAsync(username, handler, proxy, ct);
+        }
 
         // API-key-direct path: validate via /api/account/info and surface premium expiry.
         if (!string.IsNullOrEmpty(apiKey))
@@ -1101,7 +1531,15 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
 
-    private static Dictionary<string, string> BuildClassicExtraFields(string sessId) => new(StringComparer.Ordinal)
+    /// <summary>
+    /// Field set the browser posts alongside the file part for a classic logged-in upload.
+    /// <c>protected virtual</c> so web-form hosters whose live capture shows a different set can
+    /// override it (isra.cloud sends an empty <c>file_public</c> and no <c>upload</c> button) —
+    /// the XFileSharing multipart parser is field-presence/value sensitive (see
+    /// <c>brupload-multipart-quirks</c>), so each hoster replicates its own proven set rather than
+    /// risk a wasted upload on a near-miss.
+    /// </summary>
+    protected virtual Dictionary<string, string> BuildClassicExtraFields(string sessId) => new(StringComparer.Ordinal)
     {
         ["sess_id"] = sessId,
         ["utype"] = "reg",

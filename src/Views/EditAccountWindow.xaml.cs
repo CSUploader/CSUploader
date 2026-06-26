@@ -38,6 +38,16 @@ public partial class EditAccountWindow : Window
     private static readonly HashSet<string> ApiKeyHosters =
         new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "FileBoom", "HitFile" };
 
+    /// <summary>
+    /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
+    /// API key to paste (isra.cloud is a classic XFileSharing host that exposes no REST API). The
+    /// dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/> but HIDES the
+    /// "OR paste an API key" box, and keys sign-in success / Save on the captured cookie instead of
+    /// an API key.
+    /// </summary>
+    private static readonly HashSet<string> SessionCookieHosters =
+        new(StringComparer.OrdinalIgnoreCase) { "Isracloud" };
+
     private readonly FileHosterLoginDto _original;
 
     /// <summary>
@@ -65,6 +75,14 @@ public partial class EditAccountWindow : Window
     /// re-read server-side data (storage usage) through the proxy without re-opening the WebView.
     /// Only overwritten by a Sign-in that actually captured one.</summary>
     private string? _sessionCookie;
+
+    /// <summary>Expiry + issuing-proxy pin that travel WITH <see cref="_sessionCookie"/>. Carried so an
+    /// edit-Save (which persists this DTO verbatim — no re-verify) preserves them: the web-form upload
+    /// path treats a cookie with a null/expired <c>SessionCookieExpiresUtc</c> as not-signed-in and
+    /// would pop a needless WebView, and dropping the pin would unbind a proxy-issued session. Only
+    /// overwritten by a Sign-in that actually captured a cookie.</summary>
+    private DateTime? _sessionCookieExpiresUtc;
+    private int? _pinnedProxyId;
 
     /// <summary>"Added at" stamp carried from the existing account so an edit-Save preserves it
     /// (it's set once at insert by the add flow; null for a brand-new account).</summary>
@@ -106,6 +124,8 @@ public partial class EditAccountWindow : Window
         _storageUsedBytes = account.StorageUsedBytes;
         _storageQuotaBytes = account.StorageQuotaBytes;
         _sessionCookie = string.IsNullOrEmpty(account.SessionCookie) ? null : account.SessionCookie;
+        _sessionCookieExpiresUtc = account.SessionCookieExpiresUtc;
+        _pinnedProxyId = account.PinnedProxyId;
         _createdDateTime = account.CreatedDateTime;
 
         EnabledCheck.IsChecked = !account.Disabled;
@@ -126,6 +146,18 @@ public partial class EditAccountWindow : Window
         return hoster is not null && ApiKeyHosters.Contains(hoster);
     }
 
+    /// <summary>WebView-sign-in hoster whose only credential is the session cookie (no pasteable
+    /// API key) — see <see cref="SessionCookieHosters"/>.</summary>
+    private bool IsSessionCookieHoster()
+    {
+        string? hoster = CurrentHoster();
+        return hoster is not null && SessionCookieHosters.Contains(hoster);
+    }
+
+    /// <summary>Either WebView-sign-in family (API-key or session-cookie): both hide username/password
+    /// and surface the Sign-in button.</summary>
+    private bool IsWebViewSignInHoster() => IsApiKeyHoster() || IsSessionCookieHoster();
+
     /// <summary>
     /// Toggles the two credential modes by hoster type. Classic U/P hosters show
     /// editable Username + Password boxes; API-key hosters hide both rows and surface
@@ -136,20 +168,24 @@ public partial class EditAccountWindow : Window
     /// </summary>
     private void RefreshCredentialMode()
     {
-        bool api = IsApiKeyHoster();
-        Visibility classic = api ? Visibility.Collapsed : Visibility.Visible;
-        Visibility key = api ? Visibility.Visible : Visibility.Collapsed;
+        bool webView = IsWebViewSignInHoster();
+        bool sessionCookieOnly = IsSessionCookieHoster();
+        Visibility classic = webView ? Visibility.Collapsed : Visibility.Visible;
+        Visibility signIn = webView ? Visibility.Visible : Visibility.Collapsed;
+        // The "OR paste an API key" affordance applies only to hosters that actually have a
+        // pasteable key — session-cookie hosters (isra) sign in and nothing else.
+        Visibility apiKey = webView && !sessionCookieOnly ? Visibility.Visible : Visibility.Collapsed;
 
         UsernameLabel.Visibility = classic;
         UsernameBox.Visibility = classic;
         PasswordLabel.Visibility = classic;
         PasswordBox.Visibility = classic;
 
-        SignInLabel.Visibility = key;
-        SignInRow.Visibility = key;
-        OrSeparator.Visibility = key;
-        ApiKeyLabel.Visibility = key;
-        ApiKeyBox.Visibility = key;
+        SignInLabel.Visibility = signIn;
+        SignInRow.Visibility = signIn;
+        OrSeparator.Visibility = apiKey;
+        ApiKeyLabel.Visibility = apiKey;
+        ApiKeyBox.Visibility = apiKey;
 
         // Sign-in needs the interactive callback; disable it (with a hint) when unavailable.
         SignInButton.IsEnabled = _interactiveLogin is not null;
@@ -158,7 +194,7 @@ public partial class EditAccountWindow : Window
         // ShowSignInStatus, which clears any leftover "✓ Signed in" / "Error: …" (and the stashed
         // error detail) — that feedback is per-hoster and must not carry over when the combo
         // switches to a different one.
-        if (_interactiveLogin is null && api)
+        if (_interactiveLogin is null && webView)
         {
             ShowSignInStatus(Localizer.Instance["EditAccount_SignIn_Unavailable"], "TextSecondaryBrush");
         }
@@ -231,15 +267,26 @@ public partial class EditAccountWindow : Window
         {
             AccountCheckResult result = await _interactiveLogin(hoster);
 
-            if (result.IsValid && !string.IsNullOrEmpty(result.ApiKey))
+            if (result.IsValid && (!string.IsNullOrEmpty(result.ApiKey) || !string.IsNullOrEmpty(result.SessionCookie)))
             {
-                // Surface the derived key in the box (single source of truth on Save) and
-                // remember the discovered username + storage usage for the saved DTO.
-                ApiKeyBox.Text = result.ApiKey;
+                // The credential is an API key (most XFS hosters) OR a session cookie (isra). Surface
+                // a derived key in the box when present (single source of truth on Save); for a
+                // session-cookie hoster there's no key, and the captured cookie is stashed below.
+                if (!string.IsNullOrEmpty(result.ApiKey))
+                {
+                    ApiKeyBox.Text = result.ApiKey;
+                }
                 _derivedUsername = result.DerivedUsername ?? _derivedUsername;
                 if (result.StorageUsedBytes is { } used) { _storageUsedBytes = used; }
                 if (result.StorageQuotaBytes is { } quota) { _storageQuotaBytes = quota; }
-                if (!string.IsNullOrEmpty(result.SessionCookie)) { _sessionCookie = result.SessionCookie; }
+                if (!string.IsNullOrEmpty(result.SessionCookie))
+                {
+                    // Capture the cookie together with its expiry + proxy pin, so Save persists a
+                    // usable session (the web-form upload path gates on a non-null future expiry).
+                    _sessionCookie = result.SessionCookie;
+                    _sessionCookieExpiresUtc = result.SessionCookieExpiresUtc;
+                    _pinnedProxyId = result.PinnedProxyId;
+                }
 
                 string successText = !string.IsNullOrEmpty(result.DerivedUsername)
                     ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["EditAccount_SignIn_SuccessAs_Format"], result.DerivedUsername)
@@ -268,12 +315,13 @@ public partial class EditAccountWindow : Window
     {
         string? hoster = CurrentHoster();
 
-        if (IsApiKeyHoster())
+        if (IsWebViewSignInHoster())
         {
-            // The API key is the single credential — either pasted manually or derived by
-            // a successful Sign-in (which fills ApiKeyBox). Require one of those.
+            // The credential is either a pasted/derived API key (most XFS hosters) or the session
+            // cookie captured by Sign-in (isra, which has no pasteable key). Require one of them —
+            // for a session-cookie hoster the ApiKeyBox is hidden so apiKey is always empty there.
             string apiKey = ApiKeyBox.Text?.Trim() ?? string.Empty;
-            if (string.IsNullOrEmpty(apiKey))
+            if (string.IsNullOrEmpty(apiKey) && string.IsNullOrEmpty(_sessionCookie))
             {
                 MessageBox.Show(
                     this,
@@ -281,24 +329,33 @@ public partial class EditAccountWindow : Window
                     Localizer.Instance["Common_Error"],
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
-                ApiKeyBox.Focus();
+                // Session-cookie hosters have no ApiKeyBox to focus — point at the Sign-in button.
+                if (IsSessionCookieHoster())
+                {
+                    SignInButton.Focus();
+                }
+                else
+                {
+                    ApiKeyBox.Focus();
+                }
                 return;
             }
 
-            // Username for API-key accounts comes exclusively from the WebView2 sign-in
-            // scrape (held in _derivedUsername). No manual entry path — paste-only
-            // accounts persist a null Username until the user signs in, at which point
-            // the captured identity is written here.
+            // Username for WebView-sign-in accounts comes exclusively from the sign-in scrape
+            // (held in _derivedUsername). No manual entry path — paste-only accounts persist a null
+            // Username until the user signs in, at which point the captured identity is written here.
             //
-            // CurrentHoster() is non-null whenever IsApiKeyHoster() returned true (the
-            // set lookup at line ~91 can't succeed on null).
+            // CurrentHoster() is non-null whenever IsWebViewSignInHoster() returned true (the
+            // set lookup can't succeed on null).
             Result = new FileHosterLoginDto
             {
                 Id = _original.Id,
                 FileHosterName = hoster!,
                 Username = _derivedUsername,
                 Password = string.Empty,
-                ApiKey = apiKey,
+                // Null (not empty) when there's no key, so the DTO reads cleanly for session-cookie
+                // hosters whose credential lives in SessionCookie below.
+                ApiKey = string.IsNullOrEmpty(apiKey) ? null : apiKey,
                 AccountType = _original.AccountType,
                 Disabled = EnabledCheck.IsChecked != true,
                 // Persist storage usage captured at Sign-in (or carried from the existing
@@ -307,9 +364,11 @@ public partial class EditAccountWindow : Window
                 // only chance to hold a usage figure.
                 StorageUsedBytes = _storageUsedBytes,
                 StorageQuotaBytes = _storageQuotaBytes,
-                // Persist the captured login session so "Check / Refresh" can re-read storage
-                // server-side (HitFile) without re-opening the WebView.
+                // Persist the captured login session — with its expiry + proxy pin — so "Check /
+                // Refresh" and the web-form upload path can reuse it without re-opening the WebView.
                 SessionCookie = _sessionCookie,
+                SessionCookieExpiresUtc = _sessionCookieExpiresUtc,
+                PinnedProxyId = _pinnedProxyId,
                 CreatedDateTime = _createdDateTime,
             };
             DialogResult = true;
@@ -346,6 +405,8 @@ public partial class EditAccountWindow : Window
             StorageUsedBytes = _storageUsedBytes,
             StorageQuotaBytes = _storageQuotaBytes,
             SessionCookie = _sessionCookie,
+            SessionCookieExpiresUtc = _sessionCookieExpiresUtc,
+            PinnedProxyId = _pinnedProxyId,
             CreatedDateTime = _createdDateTime,
         };
         DialogResult = true;
