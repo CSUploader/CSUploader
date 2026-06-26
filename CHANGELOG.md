@@ -4,6 +4,30 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-06-26
+
+A new IcerBox hoster, HitFile account uploads, a wizard that fits your selection to each account's live free space, per-file upload order, and a bounded upload-retry layer. See [docs/release-notes/v0.0.4.md](docs/release-notes/v0.0.4.md) for the full notes.
+
+### Added
+
+- **IcerBox** file hoster (custom Bearer-JWT REST API, email / password) with used / available storage reporting.
+- **HitFile registered-account uploads** (previously anonymous-only), with cookie-based storage refresh.
+- **Per-hoster capacity fit on the wizard Summary page**: each selected account's free space is re-checked live (no sign-in window), files that don't fit are unchecked largest-first, over-capacity blocks **Next**, and a per-hoster "N unchecked to fit" clue plus a grand-total footer explain the result.
+- **Numeric per-file upload Order** with Move up / down / to and renumber, editable in the Uploads grid.
+- **"Force start"** to launch a queued upload over the concurrency limit, re-hashing and re-uploading an already-completed file on confirmation.
+- Sign-in failures shown as a compact `Error: …` line with a **Details** dialog carrying the full server response.
+- Account / Added-at / Started-at columns across the grids; Method / URL / Proxy columns and show-hide-reorder for the Logs HTTP grid.
+
+### Changed
+
+- A shared, bounded **upload-retry layer** retries only faults that provably never created a file (mid-send body aborts, connect-phase failures) and never retries a chunked upload mid-stream; Alfafile / Rapidgator auto-retry "state 3" finalize failures and re-authenticate on a mid-upload 401.
+- Replaced the per-package **priority** field with the per-file upload Order.
+- Column renames: Uploads "Duration" → "Elapsed", "Save to" → "Path".
+
+### Removed
+
+- **Hotlink** disabled — free accounts cannot upload and the API key is unobtainable. Retained in-tree pending a usable path.
+
 ## [0.0.3] - 2026-06-14
 
 Ten new file hosters, anonymous uploads, a chunked upload protocol, and account storage reporting. See [docs/release-notes/v0.0.3.md](docs/release-notes/v0.0.3.md) for the full notes.
@@ -65,6 +89,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[0.0.4]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.4
 [0.0.3]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.3
 [0.0.2]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.2
 [0.0.1]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.1
