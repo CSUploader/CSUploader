@@ -149,6 +149,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// <see cref="GetWebFormUploadServerAsync"/>.</summary>
     protected string UploadFormUrl => Host + "/?op=upload_form";
 
+    /// <summary>The logged-in file manager (web-form mode only). Source of the account's storage bar
+    /// (<c>used of total</c>), the username, and the logged-in check — see
+    /// <see cref="CheckAccountViaWebFormAsync"/> / <see cref="RefreshStorageViaMyFilesAsync"/>.</summary>
+    protected string MyFilesUrl => Host + "/?op=my_files";
+
     /// <summary>
     /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
     /// returns a real <c>Max-Age</c>; seven days matches the standard "remember me"
@@ -226,18 +231,21 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         """name=["']sess_id["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']sess_id["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // my_account "Used space" scrape (web-form mode — isra.cloud renders, across two sibling divs,
-    //   <div class="txt1">Used space</div> … <div class="txt2">0.00 TB</div>).
-    // The lazy .{0,300}? skip crosses the intervening markup (including the stray digit in the
-    // class="txt2" name) to land on the figure + unit, bounded so it can't grab an unrelated later
-    // number on the page.
-    private static readonly Regex _usedSpaceRegex = new(
-        """Used\s*space\b.{0,300}?([0-9]+(?:[.,][0-9]+)?)\s*(TB|GB|MB|KB)\b""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+    // my_files storage bar scrape (web-form mode — isra.cloud renders the precise used + quota as
+    //   <span class="storage"><b>705 KB</b> of <b>10.0 MB</b></span>).
+    // The my_account "Used space" panel is useless for this (it shows TB-rounded usage and no cap —
+    // "0.00 TB" for a 10 MB free account), so we read both figures from my_files instead. Anchor on
+    // the storage span and capture used (value+unit) and total/quota (value+unit). Case-insensitive
+    // so the lowercase "of" / any unit casing matches.
+    // [^>]* after the class tolerates any further attributes on the span (e.g. a future id/title)
+    // before its closing '>', matching the slack the api-url/username regexes above already allow.
+    private static readonly Regex _storageBarRegex = new(
+        """class=["']storage["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // my_account username scrape (web-form mode): the account menu renders the username immediately
-    // after the user icon — <i class="fa fa-user"></i>pkjmq41030<i …>. Anchor on that icon and
-    // capture the token in front of the next tag.
+    // Username scrape (web-form mode): the account menu (on both my_account and my_files) renders the
+    // username immediately after the user icon — <i class="fa fa-user"></i>pkjmq41030<i …>. Anchor on
+    // that icon and capture the token in front of the next tag.
     private static readonly Regex _myAccountUsernameRegex = new(
         """fa-user\b[^>]*></i>\s*([A-Za-z0-9._@\-]+)""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -1046,21 +1054,22 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         int hops;
         try
         {
-            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
+            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
         }
         catch (Exception ex)
         {
-            return new AccountCheckResult(false, AccountType.Free, "my_account fetch failed: " + ex.Message);
+            return new AccountCheckResult(false, AccountType.Free, "my_files fetch failed: " + ex.Message);
         }
 
-        if (!LooksLoggedInToMyAccount(html))
+        if (!LooksLoggedIn(html))
         {
             string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-            string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
+            string summary = $"Signed in, but the file manager didn't load as logged-in{trail}. The sign-in may not have completed.";
             return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
         }
 
         string? scrapedUsername = ExtractMyAccountUsername(html);
+        (long? used, long? quota) = TryParseStorageBar(html);
 
         return new AccountCheckResult(
             IsValid: true,
@@ -1070,18 +1079,18 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             SessionCookieExpiresUtc: DateTime.UtcNow + DefaultCookieLifetime,
             PinnedProxyId: proxy.Id,
             DerivedUsername: scrapedUsername ?? (string.IsNullOrEmpty(username) ? null : username),
-            StorageUsedBytes: TryParseUsedSpaceBytes(html),
-            StorageQuotaBytes: null);
+            StorageUsedBytes: used,
+            StorageQuotaBytes: quota);
     }
 
     /// <summary>
-    /// Non-interactive storage refresh for web-form hosters: GET <c>my_account</c> with the STORED
-    /// <c>xfss</c> cookie (never a WebView) and scrape "Used space". Returns null when there's no
-    /// usable stored cookie, the fetch fails, or the page isn't logged-in — callers keep the
-    /// last-known snapshot. Quota is always null (no advertised cap → "Unlimited"). Subclasses that
-    /// implement <see cref="IStorageRefreshablePipeline"/> delegate here.
+    /// Non-interactive storage refresh for web-form hosters: GET <c>my_files</c> with the STORED
+    /// <c>xfss</c> cookie (never a WebView) and scrape the storage bar (used + quota). Returns null
+    /// when there's no usable stored cookie, the fetch fails, the page isn't logged-in, or neither
+    /// figure parsed — callers keep the last-known snapshot. Subclasses that implement
+    /// <see cref="IStorageRefreshablePipeline"/> delegate here.
     /// </summary>
-    protected async Task<StorageUsage?> RefreshStorageViaMyAccountAsync(
+    protected async Task<StorageUsage?> RefreshStorageViaMyFilesAsync(
         FileHosterLoginDto credentials, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
         _ = proxy; // the handler already routes through the chosen proxy.
@@ -1095,7 +1104,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         string html;
         try
         {
-            (html, _, _) = await FetchMyAccountAsync(handler, MyAccountUrl, cookieHeader, ct);
+            (html, _, _) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
         }
         catch (OperationCanceledException)
         {
@@ -1106,20 +1115,19 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        if (!LooksLoggedInToMyAccount(html))
+        if (!LooksLoggedIn(html))
         {
             return null;
         }
 
-        long? used = TryParseUsedSpaceBytes(html);
-        return used is null ? null : new StorageUsage(used, null);
+        (long? used, long? quota) = TryParseStorageBar(html);
+        return used is null && quota is null ? null : new StorageUsage(used, quota);
     }
 
-    /// <summary>True when the fetched <c>my_account</c> HTML is the logged-in page — it carries a
-    /// logout link (or the "Used space" panel). A logged-out fetch lands on the login page, which has
-    /// neither.</summary>
-    private static bool LooksLoggedInToMyAccount(string html)
-        => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase) || _usedSpaceRegex.IsMatch(html);
+    /// <summary>True when a fetched logged-in page (<c>my_account</c> / <c>my_files</c>) carries a
+    /// logout link. A logged-out fetch lands on the login page, which has none.</summary>
+    private static bool LooksLoggedIn(string html)
+        => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase);
 
     private static string? ExtractMyAccountUsername(string html)
     {
@@ -1127,33 +1135,45 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         return m.Success && m.Groups[1].Length > 0 ? m.Groups[1].Value : null;
     }
 
-    /// <summary>Parses the "Used space" figure scraped from <c>my_account</c> into bytes, using
-    /// binary (IEC) multipliers to match the app's storage display. Tolerates a comma decimal
-    /// separator. Returns null when absent or unparseable. Internal for direct unit testing.</summary>
-    internal static long? TryParseUsedSpaceBytes(string html)
+    /// <summary>
+    /// Parses the <c>my_files</c> storage bar (<c>used of total</c>) into (usedBytes, quotaBytes),
+    /// using binary (IEC) multipliers to match the app's storage display. Either may be null when its
+    /// figure is absent/unparseable; both null when the bar isn't present. Internal for direct unit
+    /// testing.
+    /// </summary>
+    internal static (long? Used, long? Quota) TryParseStorageBar(string html)
     {
-        Match m = _usedSpaceRegex.Match(html);
+        Match m = _storageBarRegex.Match(html);
         if (!m.Success)
         {
-            return null;
+            return (null, null);
         }
 
-        string num = m.Groups[1].Value.Replace(',', '.');
+        return (ParseSizeToBytes(m.Groups[1].Value, m.Groups[2].Value),
+                ParseSizeToBytes(m.Groups[3].Value, m.Groups[4].Value));
+    }
+
+    /// <summary>Converts a scraped size figure (e.g. number "10.0", unit "MB") to bytes using binary
+    /// (IEC) multipliers, tolerating a comma decimal separator. Returns null when unparseable.</summary>
+    internal static long? ParseSizeToBytes(string number, string unit)
+    {
+        string num = number.Replace(',', '.');
         if (!double.TryParse(num, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value) || value < 0)
         {
             return null;
         }
 
-        long multiplier = m.Groups[2].Value.ToUpperInvariant() switch
+        long multiplier = unit.ToUpperInvariant() switch
         {
             "TB" => 1L << 40,
             "GB" => 1L << 30,
             "MB" => 1L << 20,
             "KB" => 1L << 10,
-            _ => 1L,
+            "B" => 1L,
+            _ => 0L,
         };
 
-        return (long)(value * multiplier);
+        return multiplier == 0L ? null : (long)(value * multiplier);
     }
 
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
@@ -1161,7 +1181,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         _ = password; // XFileSharing API-mode doesn't validate the password — sign-in goes through the WebView captcha.
 
         // Web-form (no-API) hosters: there's no API key to validate and no /api/account/info to call.
-        // Sign in via WebView and read identity/storage from the my_account HTML instead.
+        // Sign in via WebView and read identity/storage from the my_files HTML instead.
         if (UsesWebFormUpload)
         {
             return await CheckAccountViaWebFormAsync(username, handler, proxy, ct);

@@ -54,10 +54,15 @@ public sealed class IsraCloudPipeline : XFileSharingApiPipeline, IStorageRefresh
     /// <summary>Web-form (no-API) hoster — see <see cref="XFileSharingApiPipeline.UsesWebFormUpload"/>.</summary>
     protected override bool UsesWebFormUpload => true;
 
-    /// <summary>No advertised free-tier per-file cap (the capture didn't expose one), and per the
-    /// "never waste an upload" rule we don't guess one: an oversized file surfaces the server's own
-    /// rejection rather than a client-side block. (Confirmed 2026-06-26.)</summary>
-    public override long? MaxFileSize => null;
+    /// <summary>
+    /// Free-tier per-file cap: 5 MiB. The live server rejects anything larger with HTTP 500
+    /// "Max filesize limit exceeded! Filesize limit: 5 Mb" (observed 2026-06-27) — XFS's clean
+    /// "5 Mb" display means 5 × 1024 × 1024. We cap client-side so the wizard drops an oversized
+    /// file BEFORE streaming its bytes, rather than wasting the whole upload on the server's
+    /// rejection. (Was null until the live limit surfaced — the Fiddler capture only carried a
+    /// tiny .srr, so the cap wasn't visible at integration time.)
+    /// </summary>
+    public override long? MaxFileSize => 5L * 1024 * 1024;
 
     /// <summary>
     /// The exact field set isra.cloud's web uploader posts on a SUCCESSFUL upload (Fiddler capture
@@ -78,10 +83,10 @@ public sealed class IsraCloudPipeline : XFileSharingApiPipeline, IStorageRefresh
     };
 
     /// <summary>
-    /// Non-interactive storage refresh for the wizard Summary page: scrapes <c>my_account</c>'s
-    /// "Used space" with the stored <c>xfss</c> cookie (never a WebView). Delegates to the base
-    /// helper, which returns null when there's no usable stored session.
+    /// Non-interactive storage refresh for the wizard Summary page: scrapes the <c>my_files</c>
+    /// storage bar (used + quota) with the stored <c>xfss</c> cookie (never a WebView). Delegates to
+    /// the base helper, which returns null when there's no usable stored session.
     /// </summary>
     public Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
-        => RefreshStorageViaMyAccountAsync(credentials, handler, proxy, ct);
+        => RefreshStorageViaMyFilesAsync(credentials, handler, proxy, ct);
 }

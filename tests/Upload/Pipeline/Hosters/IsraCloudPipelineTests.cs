@@ -36,35 +36,36 @@ public class IsraCloudPipelineTests
         </body></html>
         """;
 
-    // Logged-in my_account: a logout link, the username after the fa-user icon, and the "Used space"
-    // panel (label + figure in sibling divs, the figure div's class carrying a stray digit).
-    private const string MyAccountHtml = """
+    // Logged-in my_files: a logout link, the username after the fa-user icon, and the storage bar
+    // (used + quota in <b> tags, lowercase "of") — exactly the shape captured from the live site.
+    private const string MyFilesHtml = """
         <!doctype html><html><body>
         <ul class="menu"><li><a href="https://isra.cloud/?op=logout" title="Logout">Logout</a></li></ul>
-        <a class="dropdown" aria-haspopup="true"><i class="fa fa-user"></i>pkjmq41030<i class="fa fa-angle-down"></i></a>
-        <div class="box"><i class="fa fa-server"></i><div class="txtarea">
-          <div class="txt1">Used space</div>
-          <div class="txt2">1.50 TB</div>
-        </div></div>
+        <button data-toggle="dropdown" aria-haspopup="true"><i class="fa fa-user"></i>pkjmq41030<i class="fa fa-angle-down"></i></button>
+        <div class="bottomstorage">
+          <span class="storage"><b>705 KB</b> of <b>10.0 MB</b></span>
+          <span class="total">1 Files</span>
+        </div>
         </body></html>
         """;
 
-    // What my_account looks like when the cookie no longer authenticates us: the login page (no
-    // logout link, no "Used space" panel).
+    // What my_files looks like when the cookie no longer authenticates us: the login page (no
+    // logout link, no storage bar).
     private const string LoginPageHtml = """
         <!doctype html><html><head><title>Sign in</title></head><body>
         <form action="/login.html" method="post"><input name="login"><input name="password" type="password"></form>
         </body></html>
         """;
 
-    private const long OneAndHalfTiB = (long)(1.5 * (1L << 40)); // 1.50 TB scraped, binary units.
+    private const long Used705Kb = 705L * 1024;        // "705 KB" scraped, binary units = 721920
+    private const long Quota10Mb = 10L * 1024 * 1024;  // "10.0 MB" scraped, binary units = 10485760
 
     [Fact]
-    public void NameAndMaxFileSize_AreIsracloudWithNoClientCap()
+    public void NameAndMaxFileSize_AreIsracloudWithFiveMebibyteCap()
     {
         IsraCloudPipeline pipeline = new();
         Assert.Equal("Isracloud", pipeline.Name);
-        Assert.Null(pipeline.MaxFileSize); // "no client cap" — server enforces its own limit.
+        Assert.Equal(5L * 1024 * 1024, pipeline.MaxFileSize); // free-tier per-file cap (server: "5 Mb")
     }
 
     [Fact]
@@ -138,13 +139,13 @@ public class IsraCloudPipelineTests
     }
 
     [Fact]
-    public async Task CheckAccount_WebForm_SignedIn_ScrapesUsernameAndUsedSpace_NoApiKey()
+    public async Task CheckAccount_WebForm_SignedIn_ScrapesUsernameAndStorage_NoApiKey()
     {
         FakeAuthService auth = new("xfss_isra_like");
         IsraCloudPipeline pipeline = new(
             authService: auth,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(MyAccountHtml),
+            getOverride: (_, _) => Task.FromResult(MyFilesHtml),
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
 
         HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
@@ -153,8 +154,8 @@ public class IsraCloudPipelineTests
 
         Assert.True(result.IsValid);
         Assert.Equal("pkjmq41030", result.DerivedUsername);    // scraped from the fa-user menu item
-        Assert.Equal(OneAndHalfTiB, result.StorageUsedBytes);  // "1.50 TB"
-        Assert.Null(result.StorageQuotaBytes);                 // no advertised cap → Unlimited
+        Assert.Equal(Used705Kb, result.StorageUsedBytes);      // "705 KB" from the storage bar
+        Assert.Equal(Quota10Mb, result.StorageQuotaBytes);     // "10.0 MB" free-tier quota
         Assert.Equal("xfss_isra_like", result.SessionCookie);  // the credential is the cookie…
         Assert.Null(result.ApiKey);                            // …not an API key
     }
@@ -178,20 +179,20 @@ public class IsraCloudPipelineTests
     }
 
     [Fact]
-    public async Task RefreshStorage_WithStoredCookie_ScrapesUsedSpace_QuotaNull()
+    public async Task RefreshStorage_WithStoredCookie_ScrapesUsedAndQuota()
     {
         IsraCloudPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(MyAccountHtml),
+            getOverride: (_, _) => Task.FromResult(MyFilesHtml),
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
 
         HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
         StorageUsage? usage = await pipeline.RefreshStorageAsync(ValidCookieCredentials(), handler, ProxyChoice.Direct, CancellationToken.None);
 
         Assert.NotNull(usage);
-        Assert.Equal(OneAndHalfTiB, usage!.Value.UsedBytes);
-        Assert.Null(usage.Value.QuotaBytes);
+        Assert.Equal(Used705Kb, usage!.Value.UsedBytes);
+        Assert.Equal(Quota10Mb, usage.Value.QuotaBytes);
     }
 
     [Fact]
@@ -200,7 +201,7 @@ public class IsraCloudPipelineTests
         IsraCloudPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(MyAccountHtml),
+            getOverride: (_, _) => Task.FromResult(MyFilesHtml),
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
 
         HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
@@ -210,15 +211,71 @@ public class IsraCloudPipelineTests
         Assert.Null(usage); // no stored session → can't refresh; caller keeps its snapshot.
     }
 
+    [Fact]
+    public async Task RunAsync_FileOverFiveMebibyteCap_RejectedBeforeAnyTransfer()
+    {
+        List<UploadCall> calls = [];
+        IsraCloudPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadFormHtml),
+            uploadOverride: (filePath, endpoint, extra, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra), null));
+                return Task.FromResult(new HttpResponseSnapshot(200, "[]", Array.Empty<string>()));
+            });
+
+        // 6 MiB > the 5 MiB free cap → fail fast, never stream the bytes (the whole point of the cap).
+        AttemptContext ctx = MakeContext(ValidCookieCredentials()) with { FileSize = 6L * 1024 * 1024 };
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Empty(events.OfType<TransferStarted>()); // never started transferring
+        Assert.Empty(calls);                            // and never hit the upload endpoint
+    }
+
     [Theory]
-    [InlineData("Used space</td><td>0.00 TB</td>", 0L)]
-    [InlineData("""<div class="txt1">Used space</div><div class="txt2">1.50 TB</div>""", OneAndHalfTiB)]
-    [InlineData("Used space: 512 MB", 512L << 20)]
-    [InlineData("Used space 2 GB", 2L << 30)]
-    [InlineData("Used space 1,25 GB", (long)(1.25 * (1L << 30)))]  // comma decimal separator
-    [InlineData("no figure here", null)]
-    public void TryParseUsedSpaceBytes_ParsesUnitsAndDecimals(string html, long? expected)
-        => Assert.Equal(expected, XFileSharingApiPipeline.TryParseUsedSpaceBytes(html));
+    [InlineData("0", "B", 0L)]
+    [InlineData("705", "KB", 705L << 10)]
+    [InlineData("10.0", "MB", 10L << 20)]
+    [InlineData("2", "GB", 2L << 30)]
+    [InlineData("1,25", "GB", (long)(1.25 * (1L << 30)))]  // comma decimal separator
+    [InlineData("1.5", "TB", (long)(1.5 * (1L << 40)))]
+    [InlineData("oops", "MB", null)]
+    [InlineData("-5", "MB", null)]                         // negative → null
+    [InlineData("5", "PB", null)]                          // unknown unit → null
+    public void ParseSizeToBytes_HandlesUnitsAndDecimals(string number, string unit, long? expected)
+        => Assert.Equal(expected, XFileSharingApiPipeline.ParseSizeToBytes(number, unit));
+
+    [Fact]
+    public void TryParseStorageBar_ParsesUsedAndQuotaFromMyFilesBar()
+    {
+        (long? used, long? quota) = XFileSharingApiPipeline.TryParseStorageBar(MyFilesHtml);
+        Assert.Equal(Used705Kb, used);
+        Assert.Equal(Quota10Mb, quota);
+    }
+
+    [Fact]
+    public void TryParseStorageBar_NoBar_ReturnsNulls()
+    {
+        (long? used, long? quota) = XFileSharingApiPipeline.TryParseStorageBar(LoginPageHtml);
+        Assert.Null(used);
+        Assert.Null(quota);
+    }
+
+    [Fact]
+    public void TryParseStorageBar_SpanWithExtraAttribute_StillMatches()
+    {
+        // The regex tolerates further attributes on the storage span (future-proofing).
+        const string Bar = """<span class="storage" id="bar" title="x"><b>2 GB</b> of <b>5 GB</b></span>""";
+        (long? used, long? quota) = XFileSharingApiPipeline.TryParseStorageBar(Bar);
+        Assert.Equal(2L << 30, used);
+        Assert.Equal(5L << 30, quota);
+    }
 
     [Fact]
     public async Task RunAsync_WebForm_UploadFormWithoutSessIdInput_FallsBackToCookieValue()
