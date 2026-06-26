@@ -37,14 +37,18 @@ public sealed class Keep2SharePipeline : MoneyPlatformPipeline
 
     public override string Name => "Keep2Share";
 
-    // TODO(pending): the free-tier per-file cap isn't confirmed yet (the capture only carried a 5 MB
-    // test file). null = no client-side per-file cap; the base's pre-flight storage check still
-    // blocks any file that won't fit the 10 GiB free quota before sending bytes. Set this to the real
-    // per-file limit once known, so a file under-quota but over the per-file cap is rejected up front.
+    // The free-tier per-file cap is unknown (the capture only carried a 5 MB file) and we're
+    // deliberately NOT guessing one (decided 2026-06-27): null = no client-side per-file cap. The
+    // base's pre-flight storage check still blocks any file that won't fit the 10 GiB free quota
+    // before sending bytes, so over-quota files waste nothing. If a real per-file limit surfaces
+    // (e.g. a server rejection, as happened for isra's 5 MiB), set it here so an under-quota-but-
+    // over-cap file is rejected up front.
     public override long? MaxFileSize => null;
 
     protected override string ApiBase => "https://api.keep2share.cc/v1";
 
+    // SPA login route (confirmed against the live site 2026-06-27) — the WebView opens this and
+    // captures the post-login accessToken cookie.
     protected override string LoginUrl => "https://keep2share.cc/auth/login";
 
     protected override string CookieDomain => ".keep2share.cc";
