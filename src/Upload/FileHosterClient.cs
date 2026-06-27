@@ -72,7 +72,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         { "KatFile", "katfile.space" },
         { "Keep2Share", "k2s.cc" },
         { "NitroFlare", "www.nitroflare.com" },
-        { "Novafile", "novafile.com" },
+        // Novafile REMOVED 2026-06-27 — novafile.com only allows *premium* user registration;
+        // there is no free account to create, so no usable upload path exists. Never had a
+        // pipeline; was metadata-only. Do NOT re-add unless free registration + upload returns.
         { "Openload", "openload.co" },
         { "Rapidgator", "www.rapidgator.net" },
         { "Rapidu", "www.rapidu.net" },

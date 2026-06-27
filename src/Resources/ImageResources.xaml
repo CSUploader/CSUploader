@@ -53,7 +53,6 @@
     <BitmapImage x:Key="FileHosterKatfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_katfile.png" />
     <BitmapImage x:Key="FileHosterKeep2shareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_keep2share.png" />
     <BitmapImage x:Key="FileHosterNitroflareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_nitroflare.png" />
-    <BitmapImage x:Key="FileHosterNovafileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_novafile.png" />
     <BitmapImage x:Key="FileHosterOpenloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_openload.png" />
     <BitmapImage x:Key="FileHosterRapidgatorImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidgator.png" />
     <BitmapImage x:Key="FileHosterRapiduImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidu.png" />
