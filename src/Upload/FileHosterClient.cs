@@ -75,7 +75,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Novafile REMOVED 2026-06-27 — novafile.com only allows *premium* user registration;
         // there is no free account to create, so no usable upload path exists. Never had a
         // pipeline; was metadata-only. Do NOT re-add unless free registration + upload returns.
-        { "Openload", "openload.co" },
+        // Openload REMOVED 2026-06-27 — openload.co was shut down in 2019; the domain is dead
+        // with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
         { "Rapidgator", "www.rapidgator.net" },
         { "Rapidu", "www.rapidu.net" },
         { "RareFile", "www.rarefile.net" },
