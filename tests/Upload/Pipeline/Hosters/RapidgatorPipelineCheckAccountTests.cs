@@ -77,6 +77,64 @@ public class RapidgatorPipelineCheckAccountTests
         Assert.False(result.IsValid);
     }
 
+    [Fact]
+    public async Task CheckAccountAsync_PopulatesStorageFromStorageBlock_UsedIsTotalMinusLeft()
+    {
+        // Exactly the documented shape: total is a JSON STRING, left a NUMBER (both must parse).
+        // total = 4 TiB; used = total - left = 4398046511104 - 4398035213138 = 11297966.
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"email":"u@example.com","is_premium":false,"premium_end_time":null,"folder_id":1,"storage":{"total":"4398046511104","left":4398035213138}}},"status":200,"details":null}""",
+        });
+        RapidgatorPipeline pipeline = new(url => responses.Dequeue());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(4398046511104, result.StorageQuotaBytes);
+        Assert.Equal(11297966, result.StorageUsedBytes);
+    }
+
+    [Theory]
+    // A malformed storage scalar must NOT sink the login envelope: storage rides in the same
+    // /user/login response the upload path parses, so a bad stats field has to degrade to blank
+    // storage on a still-VALID account rather than throw and fail the login (and the upload).
+    [InlineData("\"\"")]      // empty string
+    [InlineData("\"abc\"")]   // non-numeric string
+    [InlineData("1000.5")]    // float
+    [InlineData("true")]      // bool
+    public async Task CheckAccountAsync_MalformedStorageScalar_StaysValidWithNullStorage(string totalJson)
+    {
+        Queue<string> responses = new(new[]
+        {
+            "{\"response\":{\"token\":\"TOK\",\"user\":{\"email\":\"u@example.com\",\"is_premium\":false,\"premium_end_time\":null,\"folder_id\":1,\"storage\":{\"total\":"
+            + totalJson + ",\"left\":400}}},\"status\":200,\"details\":null}",
+        });
+        RapidgatorPipeline pipeline = new(url => responses.Dequeue());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_NoStorageBlock_LeavesStorageNull()
+    {
+        Queue<string> responses = new(new[]
+        {
+            """{"response":{"token":"TOK","user":{"email":"u@example.com","is_premium":false,"premium_end_time":null,"folder_id":1}},"status":200,"details":null}""",
+        });
+        RapidgatorPipeline pipeline = new(url => responses.Dequeue());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "secret", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes);
+    }
+
     private static HttpHandler MakeHandler()
         => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 }

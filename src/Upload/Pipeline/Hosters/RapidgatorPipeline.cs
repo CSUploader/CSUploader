@@ -6,14 +6,16 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib.Extensions;
 using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Upload.Pipeline.Hosters;
 
-public sealed class RapidgatorPipeline : IFileHosterPipeline
+public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private readonly ConcurrentDictionary<int, RapidgatorAuthState> _authByCredentialsId = new();
 
@@ -342,8 +344,87 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, env.Details ?? $"login failed (HTTP {env.Status})");
         }
 
-        return BuildAccountCheckResult(env.Response.User?.IsPremium == true, env.Response.User?.PremiumEndTime);
+        // The login response carries the account's storage block, so we get Used/Available for
+        // free without a second round-trip. A missing/implausible block leaves the figures null
+        // (grid shows blanks) rather than failing an otherwise-valid account.
+        (long? used, long? quota) = MapStorage(env.Response.User?.Storage);
+        return BuildAccountCheckResult(env.Response.User?.IsPremium == true, env.Response.User?.PremiumEndTime)
+            with { StorageUsedBytes = used, StorageQuotaBytes = quota };
     }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: a fresh <c>/user/login</c> with
+    /// the stored username/password (Rapidgator's login is a plain credential POST — no captcha) reads
+    /// the same storage block <see cref="CheckAccountAsync"/> uses. Returns null on any failure
+    /// (bad/expired creds, transport, no storage block) so the caller keeps the last-known snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+
+        // This is a standalone login that deliberately bypasses _loginGates/_authByCredentialsId
+        // (the gate exists to collapse N *parallel upload* logins, which trip Rapidgator's "frequent
+        // logins, wait 20s"). One occasional wizard-refresh login adds negligible pressure, and a
+        // rate-limited refresh just returns null below (snapshot kept) — it never gates an upload.
+        // Same standalone-login shape as IcerBox.RefreshStorageAsync.
+        string url = BuildLoginUrl(credentials.Username, credentials.Password);
+        string body;
+        try
+        {
+            body = _httpOverride is not null ? await _httpOverride(url) : await handler.GetStringAsync(url, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Transient/transport failure — keep the last-known snapshot.
+            return null;
+        }
+
+        if (!JsonHelpers.TryDeserializeObject(body, out LoginEnvelope? env) || env?.Status != 200 || env.Response?.User is null)
+        {
+            return null;
+        }
+
+        (long? used, long? quota) = MapStorage(env.Response.User.Storage);
+        // Match FileBoom/HitFile/IcerBox: a fully-unknown read is "couldn't refresh" (null) so the
+        // caller keeps its snapshot, rather than a non-null result that would blank Used/Available.
+        return used is null && quota is null ? null : new StorageUsage(used, quota);
+    }
+
+    /// <summary>
+    /// Maps Rapidgator's <c>storage</c> block to (used, quota) bytes. Rapidgator reports the cap
+    /// (<c>total</c>) and remaining (<c>left</c>); the app stores <em>used</em>, so used = total − left.
+    /// The two figures are independent: an absent/implausible <c>left</c> (e.g. left &gt; total) still
+    /// yields the quota, just no used. Null inputs collapse to (null, null) → the grid shows blanks.
+    /// </summary>
+    internal static (long? Used, long? Quota) MapStorage(long? total, long? left)
+    {
+        long? quota = total is { } t && t >= 0 ? t : null;
+        long? used = quota is { } q && left is { } l && l >= 0 && l <= q ? q - l : null;
+        return (used, quota);
+    }
+
+    private static (long? Used, long? Quota) MapStorage(RapidgatorStorage? storage)
+        => MapStorage(ReadStorageBytes(storage?.Total), ReadStorageBytes(storage?.Left));
+
+    /// <summary>Reads a byte count from a storage field Rapidgator serializes as either a JSON
+    /// string ("4398046511104") or a JSON number (4398035213138). Modeling the field as
+    /// <see cref="JsonElement"/> (not <c>long?</c>) is deliberate: storage rides inside the same
+    /// /user/login envelope the UPLOAD path parses, so an unexpected scalar shape (empty/"abc"
+    /// string, float, bool, overflow) must yield null here rather than throw during deserialization
+    /// and sink the whole login. Mirrors <c>XFileSharingApiPipeline.TryReadStorageLong</c>.</summary>
+    private static long? ReadStorageBytes(JsonElement? element)
+        => element is not JsonElement e
+            ? null
+            : e.ValueKind switch
+            {
+                JsonValueKind.Number when e.TryGetInt64(out long n) => n,
+                JsonValueKind.String when long.TryParse(e.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long s) => s,
+                _ => null,
+            };
 
     private static string BuildLoginUrl(string? username, string? password)
         => $"https://www.rapidgator.net/api/v2/user/login"
@@ -663,6 +744,19 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline
         // null for free accounts. AllowReadingFromString (configured on the shared
         // JsonHelpers options) also accepts string-encoded numbers.
         [JsonPropertyName("premium_end_time")] public long? PremiumEndTime { get; set; }
+
+        [JsonPropertyName("storage")] public RapidgatorStorage? Storage { get; set; }
+    }
+
+    /// <summary>The <c>user.storage</c> block from /user/login and /user/info, in bytes. Rapidgator
+    /// serializes <c>total</c> as a JSON STRING ("4398046511104") but <c>left</c> as a NUMBER, so the
+    /// fields are typed <see cref="JsonElement"/> and read leniently via <see cref="ReadStorageBytes"/> —
+    /// see that helper for why a tolerant read (not <c>long?</c>) matters here. Either may be absent.</summary>
+    private sealed class RapidgatorStorage
+    {
+        [JsonPropertyName("total")] public JsonElement? Total { get; set; }
+
+        [JsonPropertyName("left")] public JsonElement? Left { get; set; }
     }
 
     private sealed class FolderEnvelope
