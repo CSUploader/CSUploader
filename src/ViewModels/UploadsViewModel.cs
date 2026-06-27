@@ -353,7 +353,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         // Re-uploading an already-completed file spends bandwidth/quota on a file that uploaded
         // successfully — always confirm first (a plain prompt, no opt-out, so it can never happen
         // by accident). Non-completed files force-start without a prompt.
-        int completedCount = items.Sum(CountCompletedFiles);
+        int completedCount = DistinctCompletedCount(items);
         if (completedCount > 0)
         {
             string msg = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_ForceStart_Reupload_Format"], completedCount);
@@ -369,45 +369,55 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static int CountCompletedFiles(object item) => item switch
+    /// <summary>Completed-file count across the selection, de-duplicated so a selected child whose
+    /// package is ALSO selected is counted once (via the package) rather than twice — mirrors
+    /// <see cref="RemoveSelected"/>'s package/loose-file split. Used only to size the re-upload
+    /// confirmation prompts (never to drive what actually runs). Internal for unit testing.</summary>
+    internal static int DistinctCompletedCount(object[] items)
     {
-        Package p => p.Count(f => f.State == FileState.Completed),
-        PackageFile f => f.State == FileState.Completed ? 1 : 0,
-        _ => 0,
-    };
+        HashSet<Package> packages = [.. items.OfType<Package>()];
+        int inPackages = packages.Sum(p => p.Count(f => f.State == FileState.Completed));
+        int looseCompleted = items
+            .OfType<PackageFile>()
+            .Count(f => !packages.Contains(f.Package) && f.State == FileState.Completed);
+        return inPackages + looseCompleted;
+    }
+
+    /// <summary>Snapshots the live grid <c>SelectedItems</c> into a stable array — the context-menu
+    /// commands all operate on the WHOLE selection, and the live collection can shift under us as rows
+    /// transition. A single right-clicked row arrives as a one-element list, so single-select is just
+    /// the N=1 case.</summary>
+    private static object[] Snapshot(IList? selectedItems)
+        => selectedItems is null ? [] : [.. selectedItems.Cast<object>()];
 
     [RelayCommand]
 #pragma warning disable CA1822 // Must be instance method for RelayCommand
-    private void StopSelected(object? item)
+    private void StopSelected(IList? selectedItems)
 #pragma warning restore CA1822
     {
-        if (item is not null)
+        foreach (object item in Snapshot(selectedItems))
         {
             PackageManager.StopPackage(item);
         }
     }
 
     [RelayCommand]
-#pragma warning disable CA1822
-    private void SetSpeedLimit(object? item)
-#pragma warning restore CA1822
+    private void SetSpeedLimit(IList? selectedItems)
     {
-        int? currentLimit;
-        int? inheritedLimit;
-        switch (item)
+        object[] items = Snapshot(selectedItems);
+        if (items.Length == 0)
         {
-            case Package package:
-                currentLimit = package.SpeedLimitKBps;
-                inheritedLimit = _settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null;
-                break;
-            case PackageFile file:
-                currentLimit = file.SpeedLimitKBps;
-                inheritedLimit = file.Package.SpeedLimitKBps
-                    ?? (_settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null);
-                break;
-            default:
-                return;
+            return;
         }
+
+        // Default the dialog from the primary (first) row's effective limit, then apply the chosen
+        // value to EVERY selected row — one prompt, applied across the whole selection.
+        (int? currentLimit, int? inheritedLimit) = items[0] switch
+        {
+            Package package => (package.SpeedLimitKBps, _settings.SpeedLimit is > 0 ? _settings.SpeedLimit : (int?)null),
+            PackageFile file => (file.SpeedLimitKBps, file.Package.SpeedLimitKBps ?? (_settings.SpeedLimit is > 0 ? _settings.SpeedLimit : (int?)null)),
+            _ => ((int?)null, (int?)null),
+        };
 
         int? displayLimit = currentLimit ?? inheritedLimit;
 
@@ -416,7 +426,12 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             Owner = System.Windows.Application.Current.MainWindow,
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        foreach (object item in items)
         {
             if (item is Package pkg)
             {
@@ -430,30 +445,47 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private static void OpenSourceDirectory(object? item)
+    private static void OpenSourceDirectory(IList? selectedItems)
     {
-        // For a single file, open its folder with the file highlighted (explorer /select). A package
-        // spans potentially many files with no single one to point at, and a since-moved/deleted file
-        // can't be selected — both fall through to just opening the shared source folder, as before.
-        if (item is PackageFile file
+        object[] items = Snapshot(selectedItems);
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        // A single file → open its folder with the file highlighted (explorer /select).
+        if (items.Length == 1 && items[0] is PackageFile file
             && TryBuildExplorerSelectArgument(file.Path, file.Name, File.Exists) is string selectArg)
         {
             Process.Start("explorer.exe", selectArg);
             return;
         }
 
-        string? dir = item switch
-        {
-            Package pkg => pkg.Path,
-            PackageFile pf => pf.Path,
-            _ => null,
-        };
-
-        if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+        // Multiple rows (or a package / since-moved file): open each DISTINCT source folder once.
+        // Opening one /select window per file would spam the desktop when the selection shares a
+        // folder (the common case — all files of a package live in one directory).
+        foreach (string dir in SelectedDistinctDirectories(items, Directory.Exists))
         {
             Process.Start("explorer.exe", dir);
         }
     }
+
+    /// <summary>The distinct, existing source directories of the selected rows, in selection order.
+    /// Pure + internal (existence injected) so the open-folders behavior is unit-testable without
+    /// touching the disk or launching Explorer.</summary>
+    internal static IReadOnlyList<string> SelectedDistinctDirectories(IList? selectedItems, Func<string, bool> dirExists)
+        => [.. Snapshot(selectedItems)
+            .Select(DirectoryOf)
+            .Where(d => !string.IsNullOrEmpty(d) && dirExists(d))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    private static string? DirectoryOf(object item) => item switch
+    {
+        Package pkg => pkg.Path,
+        PackageFile pf => pf.Path,
+        _ => null,
+    };
 
     /// <summary>
     /// Builds the <c>explorer.exe</c> argument that opens a file's folder with that file selected
@@ -474,18 +506,19 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private static void SkipUpload(object? item)
+    private static void SkipUpload(IList? selectedItems)
     {
-        if (item is not null)
+        foreach (object item in Snapshot(selectedItems))
         {
             PackageManager.StopPackage(item);
         }
     }
 
     [RelayCommand]
-    private void ResetFile(object? item)
+    private void ResetFile(IList? selectedItems)
     {
-        if (item is null)
+        object[] items = Snapshot(selectedItems);
+        if (items.Length == 0)
         {
             return;
         }
@@ -493,22 +526,19 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         // Resetting a Failed/Cancelled file is the cheap recovery path the user expects on
         // right-click. Resetting a Completed file silently undoes a successful upload —
         // it has to re-hash a (possibly multi-GB) file and re-upload it. Confirm before
-        // doing that, but skip the prompt entirely when no completed file is in scope.
-        int completedCount = item switch
-        {
-            Package p => p.Count(f => f.State == FileState.Completed),
-            PackageFile f => f.State == FileState.Completed ? 1 : 0,
-            _ => 0,
-        };
-
+        // doing that (once for the whole selection), but skip the prompt when no completed
+        // file is in scope.
+        int completedCount = DistinctCompletedCount(items);
         if (completedCount > 0)
         {
-            string msg = item switch
-            {
-                Package p => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_Package_Format"], p.Name, completedCount),
-                PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_File_Format"], f.Name),
-                _ => string.Empty,
-            };
+            string msg = items.Length == 1
+                ? items[0] switch
+                {
+                    Package p => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_Package_Format"], p.Name, completedCount),
+                    PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_File_Format"], f.Name),
+                    _ => string.Empty,
+                }
+                : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_Multi_Format"], items.Length, completedCount);
 
             if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.ResetCompletedUpload, msg, Localizer.Instance["Uploads_Reset_Title"]))
             {
@@ -516,49 +546,14 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             }
         }
 
-        _packageManager.ResetPackage(item);
-    }
-
-    [RelayCommand]
-    private void Remove(object? item)
-    {
-        if (item is null)
+        foreach (object item in items)
         {
-            return;
-        }
-
-        string msg = item switch
-        {
-            Package p => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_Package_Format"], p.Name, p.Count()),
-            PackageFile f => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_File_Format"], f.Name),
-            _ => Localizer.Instance["Uploads_Remove_Generic"],
-        };
-        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
-        {
-            return;
-        }
-
-        if (item is Package package)
-        {
-            // Snapshot the files *before* telling the manager to remove the package,
-            // because PackageManager.RemovePackage clears the package's internal list
-            // and we'd otherwise leave orphan rows in VisibleRows.
-            PackageFile[] files = [.. package];
-            _packageManager.RemovePackage(item);
-            RemovePackageFromView(package, files);
-        }
-        else
-        {
-            _packageManager.RemovePackage(item);
-            if (item is PackageFile file)
-            {
-                VisibleRows.Remove(file);
-            }
+            _packageManager.ResetPackage(item);
         }
     }
 
     /// <summary>
-    /// Multi-select removal — bound to the Delete key and the toolbar X button.
+    /// Multi-select removal — bound to the Delete key, the toolbar X button, and the context menu.
     /// Shows a single confirmation for the whole selection. If a Package and one of its
     /// Files are both selected, removing the Package implicitly handles its files, so
     /// we de-duplicate to avoid double-removal.
@@ -623,32 +618,41 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     public IReadOnlyList<object> SelectedRows { get; set; } = [];
 
     /// <summary>
-    /// Opens the row's <c>FileUrl</c> in the user's default browser. Only enabled for
-    /// <see cref="PackageFile"/> rows with a non-empty URL — Package rows aggregate
-    /// nothing meaningful here so the menu item disables itself for them.
+    /// Opens the <c>FileUrl</c> of every selected <see cref="PackageFile"/> row in the user's default
+    /// browser (distinct URLs only, so duplicates don't open twice). Package rows aggregate no URL, so
+    /// they're skipped; the menu item is enabled only when at least one selected row has a URL.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanOpenUrl))]
-    private static void OpenUrl(object? row)
+    private static void OpenUrl(IList? selectedItems)
     {
-        string? url = (row as PackageFile)?.FileUrl;
-        if (string.IsNullOrEmpty(url))
+        foreach (string url in SelectedDistinctUrls(selectedItems))
         {
-            return;
-        }
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
-        {
-            // Best-effort: the URL came from the hoster API and Process.Start rarely
-            // fails on a valid http(s) link. A failure here shouldn't crash the UI.
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch
+            {
+                // Best-effort: the URL came from the hoster API and Process.Start rarely
+                // fails on a valid http(s) link. A failure here shouldn't crash the UI.
+            }
         }
     }
 
-    private static bool CanOpenUrl(object? row) =>
-        row is PackageFile file && !string.IsNullOrEmpty(file.FileUrl);
+    /// <summary>The distinct, non-empty <c>FileUrl</c>s of the selected <see cref="PackageFile"/> rows,
+    /// in selection order. Package rows have none. Pure + internal so the open-all-URLs behavior is
+    /// unit-testable without launching a browser.</summary>
+    internal static IReadOnlyList<string> SelectedDistinctUrls(IList? selectedItems)
+        => [.. Snapshot(selectedItems)
+            .OfType<PackageFile>()
+            .Select(f => f.FileUrl)
+            .Where(u => !string.IsNullOrEmpty(u))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)];
+
+    internal static bool CanOpenUrl(IList? selectedItems) =>
+        selectedItems is not null
+        && selectedItems.Cast<object>().OfType<PackageFile>().Any(f => !string.IsNullOrEmpty(f.FileUrl));
 
     /// <summary>
     /// Copies the value of <paramref name="columnKey"/> from <see cref="SelectedRow"/>

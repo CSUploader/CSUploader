@@ -225,27 +225,27 @@
                         <MenuItem.Icon><Path Data="{StaticResource ForceStartGeometry}" Fill="{DynamicResource AccentBrush}" Width="16" Height="16" Stretch="Uniform" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_Stop}" Command="{Binding StopSelectedCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               Visibility="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Stoppable}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_SkipUpload}" Command="{Binding SkipUploadCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSkipImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_Reset}" Command="{Binding ResetFileCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionResetImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="{loc:Loc Uploads_Context_OpenSourceDir}" Command="{Binding OpenSourceDirectoryCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionFolderImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Common_Context_OpenUrl}" Command="{Binding OpenUrlCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                     <MenuItem Header="{loc:Loc Uploads_Context_SetSpeedLimit}" Command="{Binding SetSpeedLimitCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                         <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{loc:Loc Uploads_Context_Move}">
@@ -290,8 +290,8 @@
                         <MenuItem Header="{loc:Loc Uploads_Col_Error}" Command="{Binding CopyColumnCommand}" CommandParameter="Error" />
                     </MenuItem>
                     <Separator />
-                    <MenuItem Header="{loc:Loc Uploads_Context_Remove}" Command="{Binding RemoveCommand}"
-                              CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    <MenuItem Header="{loc:Loc Uploads_Context_Remove}" Command="{Binding RemoveSelectedCommand}"
+                              CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 </ContextMenu>
             </DataGrid.ContextMenu>
 

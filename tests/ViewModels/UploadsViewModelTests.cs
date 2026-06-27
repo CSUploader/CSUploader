@@ -4,12 +4,100 @@
 // </copyright>
 
 using System.IO;
+using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Net;
+using CSUploader.Upload;
 using CSUploader.ViewModels;
+using Moq;
 
 namespace CSUploader.Tests.ViewModels;
 
 public class UploadsViewModelTests
 {
+    // ---- Multi-select context-menu helpers (operate on the whole grid selection) ----
+
+    [Fact]
+    public void SelectedDistinctUrls_ReturnsDistinctNonEmptyUrls_SkippingPackagesAndBlanks()
+    {
+        (Package pkg, FileHosterClient h, FileHosterLoginDto l) = MakePackage();
+        PackageFile a = MakeFile(pkg, h, l, @"C:\d\a.bin", "https://x/a");
+        PackageFile b = MakeFile(pkg, h, l, @"C:\d\b.bin", "https://x/b");
+        PackageFile dupUrl = MakeFile(pkg, h, l, @"C:\d\c.bin", "https://x/a"); // same URL as a
+        PackageFile noUrl = MakeFile(pkg, h, l, @"C:\d\d.bin", null);
+
+        IReadOnlyList<string> urls = UploadsViewModel.SelectedDistinctUrls(
+            new List<object> { pkg, a, b, dupUrl, noUrl });
+
+        // Distinct, selection order preserved; the Package row and the URL-less file contribute nothing.
+        Assert.Equal(new[] { "https://x/a", "https://x/b" }, urls);
+    }
+
+    [Fact]
+    public void CanOpenUrl_TrueOnlyWhenSomeSelectedFileHasAUrl()
+    {
+        (Package pkg, FileHosterClient h, FileHosterLoginDto l) = MakePackage();
+        PackageFile withUrl = MakeFile(pkg, h, l, @"C:\d\a.bin", "https://x/a");
+        PackageFile noUrl = MakeFile(pkg, h, l, @"C:\d\b.bin", null);
+
+        Assert.True(UploadsViewModel.CanOpenUrl(new List<object> { noUrl, withUrl }));
+        Assert.False(UploadsViewModel.CanOpenUrl(new List<object> { pkg, noUrl }));
+        Assert.False(UploadsViewModel.CanOpenUrl(null));
+    }
+
+    [Fact]
+    public void SelectedDistinctDirectories_DedupesByDirectory_KeepingExistingOnes()
+    {
+        (Package pkg, FileHosterClient h, FileHosterLoginDto l) = MakePackage();
+        PackageFile a = MakeFile(pkg, h, l, @"C:\src\pd\a.bin", null);  // dir C:\src\pd
+        PackageFile b = MakeFile(pkg, h, l, @"C:\src\pd\b.bin", null);  // same dir
+        PackageFile c = MakeFile(pkg, h, l, @"C:\other\c.bin", null);   // different dir
+        PackageFile gone = MakeFile(pkg, h, l, @"C:\missing\x.bin", null);
+
+        IReadOnlyList<string> dirs = UploadsViewModel.SelectedDistinctDirectories(
+            new List<object> { a, b, c, gone },
+            dir => dir != @"C:\missing"); // pretend C:\missing no longer exists
+
+        // One entry per distinct existing directory, in selection order; the same-folder dup folds.
+        Assert.Equal(new[] { @"C:\src\pd", @"C:\other" }, dirs);
+    }
+
+    [Fact]
+    public void DistinctCompletedCount_CountsPackageAndItsSelectedChildOnce()
+    {
+        (Package pkg, FileHosterClient h, FileHosterLoginDto l) = MakePackage();
+        PackageFile a = MakeFile(pkg, h, l, @"C:\d\a.bin", null);
+        PackageFile b = MakeFile(pkg, h, l, @"C:\d\b.bin", null);
+        pkg.AddPackageFiles(new[] { a, b });
+        a.State = FileState.Completed; // one completed file in the package
+
+        // Selecting the package AND its already-counted completed child must not double-count it.
+        Assert.Equal(1, UploadsViewModel.DistinctCompletedCount(new object[] { pkg, a }));
+        // A loose completed file with no selected parent package counts on its own.
+        Assert.Equal(1, UploadsViewModel.DistinctCompletedCount(new object[] { a }));
+    }
+
+    private static (Package Package, FileHosterClient Hoster, FileHosterLoginDto Login) MakePackage()
+    {
+        FileHosterClient hoster = new("TestHost", Protocol.Http);
+        FileHosterLoginDto login = new() { FileHosterName = "TestHost", IsAnonymous = true };
+        PackageOptions options = new()
+        {
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            Settings = new AppSettings(),
+            FileHosters = new() { { hoster, login } },
+        };
+        return (new Package(options), hoster, login);
+    }
+
+    private static PackageFile MakeFile(Package pkg, FileHosterClient hoster, FileHosterLoginDto login, string path, string? url)
+    {
+        PackageFile file = new(pkg, path, hoster, login);
+        file.FileUrl = url;
+        return file;
+    }
+
     [Fact]
     public void TryBuildExplorerSelectArgument_ExistingFile_ReturnsQuotedSelectArgument()
     {
