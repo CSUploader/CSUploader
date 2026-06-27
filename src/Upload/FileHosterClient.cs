@@ -84,7 +84,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // RareFile REMOVED 2026-06-28 — metadata-only (never had a pipeline); pruned as an
         // unimplemented hoster. rarefile.net is an XFileSharing host, so a re-add would be an
         // XFileSharingApiPipeline shim — but only after confirming the host is live + uploadable.
-        { "ShareOnline", "www.share-online.biz" },
+        // ShareOnline REMOVED 2026-06-28 — share-online.biz shut down in 2019; the domain is dead
+        // with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
         // Live host is the apex domain (takefile.link); www. redirects.
         { "TakeFile", "takefile.link" },
         { "TezFiles", "tezfiles.com" },
