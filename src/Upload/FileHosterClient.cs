@@ -78,7 +78,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Openload REMOVED 2026-06-27 — openload.co was shut down in 2019; the domain is dead
         // with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
         { "Rapidgator", "www.rapidgator.net" },
-        { "Rapidu", "www.rapidu.net" },
+        // Rapidu REMOVED 2026-06-28 — rapidu.net is down (no live site/upload endpoint). Never had
+        // a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and which
+        // protocol family it belongs to.
         { "RareFile", "www.rarefile.net" },
         { "ShareOnline", "www.share-online.biz" },
         // Live host is the apex domain (takefile.link); www. redirects.
