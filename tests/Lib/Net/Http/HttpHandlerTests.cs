@@ -21,6 +21,28 @@ namespace CSUploader.Tests.Lib.Net.Http;
 public class HttpHandlerTests
 {
     [Fact]
+    public void BuildFilePartContentDisposition_NonAsciiFilename_EmitsRawUtf8BytesNotMangled()
+    {
+        const string fileName = "日本語テスト.zip";
+        string cd = HttpHandler.BuildFilePartContentDisposition("files[]", fileName);
+
+        // .NET serializes multipart part headers with Latin-1; the round-trip must yield the
+        // browser-identical RAW UTF-8 filename bytes — not the '?' mangling that produced the
+        // "?????" filenames on the server, and no RFC 5987 filename*.
+        byte[] wire = System.Text.Encoding.Latin1.GetBytes(cd);
+        byte[] expected = System.Text.Encoding.UTF8.GetBytes($"form-data; name=\"files[]\"; filename=\"{fileName}\"");
+        Assert.Equal(expected, wire);
+        Assert.DoesNotContain("filename*", cd, StringComparison.Ordinal);
+        Assert.DoesNotContain("?", cd, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildFilePartContentDisposition_AsciiFilename_PassesThroughUnchanged()
+        => Assert.Equal(
+            "form-data; name=\"file\"; filename=\"movie.avi\"",
+            HttpHandler.BuildFilePartContentDisposition("file", "movie.avi"));
+
+    [Fact]
     public async Task GetStringAsync_NullProxyDescription_LogsTransactionAsDirect()
     {
         TransactionCapture capture = new();
@@ -118,10 +140,12 @@ public class HttpHandlerTests
     }
 
     [Fact]
-    public async Task UploadMultipartAsync_NonAsciiFilename_EmitsFilenameStarFallback()
+    public async Task UploadMultipartAsync_NonAsciiFilename_EmitsRawUtf8FilenameWithoutFilenameStar()
     {
-        // For names that genuinely need RFC 5987, we still emit filename* as the fallback so
-        // the server can recover the original bytes. Mirrors what a browser sends for the same case.
+        // A browser sends the multipart filename as RAW UTF-8 bytes in filename="…" — NOT an RFC 5987
+        // filename*, and NOT Latin-1 (which mangles non-ASCII to '?', the cause of the "?????" the
+        // server stored). CapturingHandler UTF-8-decodes the buffered body, so the readable name
+        // round-trips here only because the wire bytes are genuinely UTF-8.
         using TempFile temp = TempFile.With("bytes", "résumé.pdf");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
@@ -129,7 +153,8 @@ public class HttpHandlerTests
         await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file");
 
         string body = capture.RequestBody ?? string.Empty;
-        Assert.Contains("filename*=utf-8''", body, StringComparison.Ordinal);
+        Assert.Contains("filename=\"résumé.pdf\"", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("filename*", body, StringComparison.Ordinal);
     }
 
     [Fact]

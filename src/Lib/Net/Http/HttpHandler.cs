@@ -752,13 +752,10 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
-    /// Attaches the file part with a <em>browser-shaped</em> <c>Content-Disposition</c>:
-    /// only emits <c>filename*=utf-8''…</c> when the filename actually contains non-ASCII
-    /// bytes. .NET's default <see cref="MultipartFormDataContent.Add(HttpContent, string, string)"/>
-    /// adds the RFC 5987 <c>filename*</c> parameter unconditionally, and some Perl multipart
-    /// parsers (XFileSharing's <c>fs.cgi</c>) misinterpret the duplicate filename and 500
-    /// out. Also stamps the part with a real MIME type guessed from the extension instead
-    /// of the generic <c>application/octet-stream</c>.
+    /// Attaches the file part with a <em>browser-shaped</em> <c>Content-Disposition</c> (see
+    /// <see cref="BuildFilePartContentDisposition"/> for the filename encoding), and stamps the part
+    /// with a real MIME type guessed from the extension instead of the generic
+    /// <c>application/octet-stream</c>.
     /// </summary>
     private static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
     {
@@ -770,10 +767,27 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         multipart.Add(fileContent, fieldName);
         fileContent.Headers.ContentDisposition = null;
 
-        string cdValue = System.Text.Ascii.IsValid(fileName)
-            ? $"form-data; name=\"{fieldName}\"; filename=\"{fileName}\""
-            : $"form-data; name=\"{fieldName}\"; filename=\"{fileName}\"; filename*=utf-8''{Uri.EscapeDataString(fileName)}";
-        fileContent.Headers.TryAddWithoutValidation("Content-Disposition", cdValue);
+        fileContent.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fieldName, fileName));
+    }
+
+    /// <summary>
+    /// Builds the file part's <c>Content-Disposition</c> exactly as a browser does for a multipart
+    /// upload: the filename in a quoted <c>filename="…"</c> carrying its RAW UTF-8 BYTES, with no
+    /// RFC 5987 <c>filename*</c> (browsers omit it here, and the duplicate trips some Perl parsers).
+    /// </summary>
+    /// <remarks>
+    /// .NET serializes multipart part headers with Latin-1 (ISO-8859-1), which would replace every
+    /// non-ASCII character of the name with <c>?</c> — the "?????" filenames hosters stored for, e.g.,
+    /// Japanese names. So for a non-ASCII name we re-encode it as its UTF-8 bytes reinterpreted as
+    /// Latin-1 characters: .NET's Latin-1 wire serialization then emits the original UTF-8 bytes,
+    /// byte-identical to a real browser upload. ASCII names pass through unchanged.
+    /// </remarks>
+    internal static string BuildFilePartContentDisposition(string fieldName, string fileName)
+    {
+        string headerFileName = System.Text.Ascii.IsValid(fileName)
+            ? fileName
+            : Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(fileName));
+        return $"form-data; name=\"{fieldName}\"; filename=\"{headerFileName}\"";
     }
 
     private void LogTransaction(HttpTransaction transaction) => logger.Log(null, LogType.Http, transaction.Summary, httpTransaction: transaction);
