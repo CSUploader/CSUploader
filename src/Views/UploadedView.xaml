@@ -185,7 +185,7 @@
                 </MenuItem>
                 <MenuItem Header="{loc:Loc Common_Context_OpenUrl}"
                           Command="{Binding PlacementTarget.DataContext.OpenUrlCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                          CommandParameter="{Binding PlacementTarget.SelectedItems, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                 <Separator />
                 <MenuItem Header="{loc:Loc Uploaded_Context_Remove}"
                           InputGestureText="{loc:Loc Uploaded_Context_Remove_Gesture}"

@@ -214,6 +214,43 @@ public class UploadedViewModelTests : IDisposable
         Assert.Null(vm.BuildColumnCopyText("URL"));
     }
 
+    // ---- "Open URL" multi-select (operates on the whole grid selection) ----
+
+    [Fact]
+    public void SelectedDistinctUrls_ReturnsDistinctNonEmptyUrls_InSelectionOrder()
+    {
+        IReadOnlyList<string> urls = UploadedViewModel.SelectedDistinctUrls(new List<UploadedFileRow>
+        {
+            new() { FileUrl = "https://h/a" },
+            new() { FileUrl = "https://h/b" },
+            new() { FileUrl = "https://h/a" }, // duplicate URL folds away
+            new() { FileUrl = string.Empty },  // blank contributes nothing
+            new() { FileUrl = null },           // older entry with no URL
+        });
+
+        Assert.Equal(new[] { "https://h/a", "https://h/b" }, urls);
+    }
+
+    [Fact]
+    public void SelectedDistinctUrls_NullSelection_ReturnsEmpty()
+        => Assert.Empty(UploadedViewModel.SelectedDistinctUrls(null));
+
+    [Fact]
+    public void CanOpenUrl_TrueOnlyWhenSomeSelectedRowHasAUrl()
+    {
+        Assert.True(UploadedViewModel.CanOpenUrl(new List<UploadedFileRow>
+        {
+            new() { FileUrl = null },
+            new() { FileUrl = "https://h/a" },
+        }));
+        Assert.False(UploadedViewModel.CanOpenUrl(new List<UploadedFileRow>
+        {
+            new() { FileUrl = null },
+            new() { FileUrl = string.Empty },
+        }));
+        Assert.False(UploadedViewModel.CanOpenUrl(null));
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>());
 

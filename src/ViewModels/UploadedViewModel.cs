@@ -146,28 +146,41 @@ public partial class UploadedViewModel : ObservableObject
     public IReadOnlyList<UploadedFileRow> SelectedRows { get; set; } = [];
 
     /// <summary>
-    /// Opens the row's <c>FileUrl</c> in the default browser. Disabled when the row has
-    /// no URL (e.g. an entry from before URL persistence existed).
+    /// Opens the <c>FileUrl</c> of every selected row in the default browser (distinct URLs only).
+    /// Enabled when at least one selected row has a URL (older entries from before URL persistence
+    /// have none).
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanOpenUrl))]
-    private static void OpenUrl(UploadedFileRow? row)
+    private static void OpenUrl(IList? selectedItems)
     {
-        if (string.IsNullOrEmpty(row?.FileUrl))
+        foreach (string url in SelectedDistinctUrls(selectedItems))
         {
-            return;
-        }
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(row.FileUrl) { UseShellExecute = true });
-        }
-        catch
-        {
-            // Best-effort — see the same swallow in UploadsViewModel.OpenUrl.
+            try
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch
+            {
+                // Best-effort — see the same swallow in UploadsViewModel.OpenUrl.
+            }
         }
     }
 
-    private static bool CanOpenUrl(UploadedFileRow? row) => !string.IsNullOrEmpty(row?.FileUrl);
+    /// <summary>The distinct, non-empty <c>FileUrl</c>s of the selected rows, in selection order.
+    /// Pure + internal so the open-all-URLs behavior is unit-testable without launching a browser.</summary>
+    internal static IReadOnlyList<string> SelectedDistinctUrls(IList? selectedItems)
+        => selectedItems is null
+            ? []
+            : [.. selectedItems
+                .OfType<UploadedFileRow>()
+                .Select(r => r.FileUrl)
+                .Where(u => !string.IsNullOrEmpty(u))
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal)];
+
+    internal static bool CanOpenUrl(IList? selectedItems)
+        => selectedItems is not null
+            && selectedItems.OfType<UploadedFileRow>().Any(r => !string.IsNullOrEmpty(r.FileUrl));
 
     /// <summary>
     /// Copies the value of <paramref name="columnKey"/> for every selected row to the
