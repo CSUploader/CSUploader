@@ -11,9 +11,9 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
 /// Ex-Load. Pure config — the upload protocol lives in
-/// <see cref="XFileSharingApiPipeline"/>. To add another XFileSharing-API hoster (e.g.
-/// RareFile, KatFile, if their APIs match this convention), subclass the base with a
-/// similar two-line shim and register in DI.
+/// <see cref="XFileSharingApiPipeline"/>. To add another XFileSharing-API hoster (if its
+/// API matches this convention), subclass the base with a similar two-line shim and
+/// register in DI.
 /// </summary>
 public sealed class ExLoadPipeline : XFileSharingApiPipeline
 {
