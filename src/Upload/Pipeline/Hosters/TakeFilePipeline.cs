@@ -36,4 +36,8 @@ public sealed class TakeFilePipeline : XFileSharingApiPipeline
     public override string Name => "TakeFile";
 
     protected override string Host => "https://takefile.link";
+
+    /// <summary>TakeFile's sign-in page is <c>/user_login</c>, not the XFS-default
+    /// <c>/login.html</c> — so the WebView sign-in lands on the right page.</summary>
+    protected override string LoginPagePath => "/user_login";
 }
