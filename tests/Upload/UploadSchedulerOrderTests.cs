@@ -78,6 +78,32 @@ public sealed class UploadSchedulerOrderTests : IDisposable
     }
 
     [Fact]
+    public async Task FillSlots_HashingFileAhead_ReservesItsUploadSlot()
+    {
+        // A hash-required file ahead in the queue (Alfafile/Rapidgator — here stuck Hashing) must
+        // RESERVE its upload slot. Without this, the later no-hash files grab every slot while the
+        // (fast) hash runs, stranding the earlier file behind a full queue — the reported
+        // "#1 stays queued while #2.. upload".
+        GatedPipeline pipeline = new("Rapidgator", requiresHash: true);
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 2, fileCount: 3);
+        PackageFile[] files = [.. package];
+
+        // #1 stuck Hashing; #2 and #3 ready to upload. (Non-idle states survive AddPackage.)
+        files[0].State = FileState.Hashing; files[0].QueueOrder = 1;
+        files[1].State = FileState.UploadQueued; files[1].QueueOrder = 2;
+        files[2].State = FileState.UploadQueued; files[2].QueueOrder = 3;
+
+        scheduler.AddPackage(package); // runs FillSlots; non-idle files are left as-is
+
+        // Two slots: #1 (Hashing) reserves one, #2 uploads — and #3 must NOT be promoted into the
+        // slot held for #1.
+        await WaitFor(() => files[1].State == FileState.Uploading);
+        Assert.Equal(FileState.Uploading, files[1].State);
+        Assert.Equal(FileState.Hashing, files[0].State);      // #1 still hashing, its slot held
+        Assert.Equal(FileState.UploadQueued, files[2].State); // #3 waits — slot reserved for #1
+    }
+
+    [Fact]
     public async Task MoveFileTo_RenumbersDense()
     {
         const int n = 4;

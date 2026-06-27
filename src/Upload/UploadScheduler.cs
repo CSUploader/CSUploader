@@ -403,41 +403,43 @@ public class UploadScheduler : IDisposable
             LaunchHash(file);
         }
 
-        // Fill upload slots
-        int uploadRunning = allFiles.Count(f => f.State == FileState.Uploading);
-        int uploadSlots = _settings.MaxConcurrentUploadJobs - uploadRunning;
+        // Fill upload slots in QueueOrder. The N upload slots go to the N lowest-ordered files in
+        // the upload pipeline. Crucially, a file that's currently Hashing — a hash-required hoster
+        // (Alfafile/Rapidgator) ahead in the queue — RESERVES its slot here: without this, the
+        // later no-hash files steal every slot while the (fast) hash runs, leaving the earlier file
+        // stuck behind a full queue (the reported "#1 stays queued while #2.. upload"). The reserved
+        // slot is filled the moment OnHashCompleted flips the file to UploadQueued. Force-started
+        // files jump the limit on their own, so they don't consume a normal reservation.
+        int globalSlots = _settings.MaxConcurrentUploadJobs - allFiles.Count(f => f.State == FileState.Uploading);
+        bool perHostEnabled = _settings.MaxUploadsPerHostEnabled;
 
-        if (_settings.MaxUploadsPerHostEnabled)
+        Dictionary<string, int> hostUsed = allFiles
+            .Where(f => f.State == FileState.Uploading)
+            .GroupBy(f => f.FileHoster.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+        foreach (PackageFile file in allFiles.Where(f => (f.State is FileState.Hashing or FileState.UploadQueued) && !f.ForceStart))
         {
-            var runningPerHost = allFiles
-                .Where(f => f.State == FileState.Uploading)
-                .GroupBy(f => f.FileHoster.Name, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
-
-            foreach (PackageFile file in allFiles.Where(f => f.State == FileState.UploadQueued))
+            if (globalSlots <= 0)
             {
-                if (uploadSlots <= 0)
-                {
-                    break;
-                }
-
-                int hostRunning = runningPerHost.GetValueOrDefault(file.FileHoster.Name, 0);
-                if (hostRunning >= _settings.MaxUploadsPerHost)
-                {
-                    continue;
-                }
-
-                LaunchUpload(file);
-                runningPerHost[file.FileHoster.Name] = hostRunning + 1;
-                uploadSlots--;
+                break;
             }
-        }
-        else
-        {
-            foreach (PackageFile file in allFiles.Where(f => f.State == FileState.UploadQueued).Take(Math.Max(0, uploadSlots)))
+
+            string host = file.FileHoster.Name;
+            if (perHostEnabled && hostUsed.GetValueOrDefault(host, 0) >= _settings.MaxUploadsPerHost)
+            {
+                continue; // this host is at its cap — don't consume a global slot on its behalf
+            }
+
+            // UploadQueued → launch now; Hashing → just reserve the slot (its upload launches from
+            // OnHashCompleted). Either way the file holds one global + one per-host slot.
+            if (file.State == FileState.UploadQueued)
             {
                 LaunchUpload(file);
             }
+
+            globalSlots--;
+            hostUsed[host] = hostUsed.GetValueOrDefault(host, 0) + 1;
         }
     }
 
