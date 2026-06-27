@@ -35,8 +35,9 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <c>{"files":[{"url":"https://nitroflare.com/view/&lt;code&gt;/&lt;name&gt;", ...}]}</c>; the
 ///   <c>url</c> is the share link, used verbatim.</item>
 /// </list>
-/// Free-tier per-file cap is 10 GiB (established 2026-06-27); storage is effectively unlimited, so no
-/// quota is surfaced. No anonymous upload — the user hash requires an account.
+/// Free-tier per-file cap is 10 GiB (established 2026-06-27); storage Used/Capacity (free accounts get
+/// 500 GB) is scraped from the member dashboard at sign-in and surfaced to the grid + wizard. No
+/// anonymous upload — the user hash requires an account.
 /// </summary>
 public sealed class NitroFlarePipeline : IFileHosterPipeline
 {
@@ -52,28 +53,56 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
     private const string CookieDomain = ".nitroflare.com";
     private const string SessionCookieName = "user"; // unused with the probe; the spec requires a name
 
-    // JS run in the signed-in page each poll tick. Fetches the upload form for the durable 40-hex
-    // user hash (only present once authenticated) and the account page for the login email — both
-    // credentialed, same-origin. Returns "" until the hash is known, then a JSON string
-    // {"hash":"…","email":"…"|null}; the WebView completes the moment it returns non-empty. Inits once.
+    // JS run in the signed-in page each poll tick. Once the durable 40-hex user hash is found in the
+    // upload form (only served when authenticated), it credentialed-fetches the account page for the
+    // login email and the member dashboard (/member) for the storage bar — which renders
+    //   <strong>Capacity: </strong><span>500 GB</span> ... <strong>Usage: </strong><span>4.98 MB | …</span>
+    // — converting both to bytes. Returns "" until the hash is known, then a JSON string
+    // {"hash","email","storageUsed","storageTotal"}; the WebView completes the moment it's non-empty.
     private const string HashProbeScript = """
         (function () {
           if (!window.__csuNF) {
             window.__csuNF = true;
             window.__csuNFout = '';
-            var done = function (hash, email) { window.__csuNFout = JSON.stringify({ hash: hash, email: email }); };
-            var getEmail = function (cb) {
+            var done = function (o) { window.__csuNFout = JSON.stringify(o); };
+            var parseSize = function (s) {
+              var m = String(s == null ? '' : s).replace(',', '.').match(/([0-9]+(?:\.[0-9]+)?)\s*([KMGTP]?)B/i);
+              if (!m) { return null; }
+              var n = parseFloat(m[1]);
+              if (!isFinite(n)) { return null; }
+              var mult = { '': 1, K: 1024, M: 1048576, G: 1073741824, T: 1099511627776, P: 1125899906842624 }[(m[2] || '').toUpperCase()] || 1;
+              return Math.round(n * mult);
+            };
+            var collect = function (hash) {
+              var out = { hash: hash, email: null, storageUsed: null, storageTotal: null };
+              var finished = false;
+              var pending = 2;
+              var finish = function () { if (!finished && --pending === 0) { finished = true; done(out); } };
+              // Safety: never hang the sign-in if a member fetch stalls — the hash is already in hand,
+              // so emit what we have after 8s (email/storage may be null).
+              setTimeout(function () { if (!finished) { finished = true; done(out); } }, 8000);
               fetch('/member?s=account', { credentials: 'include' })
                 .then(function (r) { return r.ok ? r.text() : ''; })
-                .then(function (t) { var m = t.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/); cb(m ? m[0] : null); })
-                .catch(function () { cb(null); });
+                .then(function (t) { var m = t.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/); out.email = m ? m[0] : null; })
+                .catch(function () {})
+                .then(finish);
+              fetch('/member', { credentials: 'include' })
+                .then(function (r) { return r.ok ? r.text() : ''; })
+                .then(function (t) {
+                  var cap = t.match(/Capacity:\s*<\/strong>\s*<span>\s*([0-9.,]+\s*[KMGTP]?B)/i);
+                  var use = t.match(/Usage:\s*<\/strong>\s*<span>\s*([0-9.,]+\s*[KMGTP]?B)/i);
+                  out.storageTotal = cap ? parseSize(cap[1]) : null;
+                  out.storageUsed = use ? parseSize(use[1]) : null;
+                })
+                .catch(function () {})
+                .then(finish);
             };
             var getHash = function () {
               fetch('/plugins/fileupload/index.php?time=' + Date.now(), { credentials: 'include' })
                 .then(function (r) { return r.ok ? r.text() : ''; })
                 .then(function (t) {
                   var m = t.match(/user:\s*['"]([a-f0-9]{40})['"]/i);
-                  if (m) { getEmail(function (email) { done(m[1], email); }); }
+                  if (m) { collect(m[1]); }
                   else { setTimeout(getHash, 1500); }
                 })
                 .catch(function () { setTimeout(getHash, 1500); });
@@ -236,7 +265,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "NitroFlare sign-in failed: " + ex.Message);
         }
 
-        (string? hash, string? email) = ParseProbeResult(captured?.ProbeValue);
+        (string? hash, string? email, long? storageUsed, long? storageTotal) = ParseProbeResult(captured?.ProbeValue);
         if (string.IsNullOrEmpty(hash))
         {
             return new AccountCheckResult(
@@ -245,27 +274,32 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
                 "NitroFlare sign-in was cancelled, or didn't complete before the window was closed.");
         }
 
-        // The page returned the account's upload hash (the durable credential) and its login email
-        // (DerivedUsername → the account's displayed name). NitroFlare exposes no upload-storage quota,
-        // so storage stays null → the grid shows no Used/Available for it.
+        // The page returned the account's upload hash (the durable credential), its login email
+        // (DerivedUsername → the displayed name), and its storage Used/Capacity scraped from the
+        // member dashboard. Storage is captured once, here — re-reading it needs the logged-in
+        // session (which we don't keep; only the hash is durable), so re-sign-in to refresh it.
         return new AccountCheckResult(
             true,
             AccountType.Free,
             "Signed in to NitroFlare.",
             ApiKey: hash,
-            DerivedUsername: email);
+            DerivedUsername: email,
+            StorageUsedBytes: storageUsed,
+            StorageQuotaBytes: storageTotal);
     }
 
     /// <summary>
-    /// Parses the probe's JSON payload (<c>{"hash":"&lt;40-hex&gt;","email":"…"|null}</c>) into the
-    /// account's upload hash and login email. Returns nulls for a missing/garbage payload so the
-    /// caller fails the sign-in cleanly.
+    /// Parses the probe's JSON payload
+    /// (<c>{"hash":"&lt;40-hex&gt;","email":"…"|null,"storageUsed":N|null,"storageTotal":N|null}</c>)
+    /// into the account's upload hash, login email, and storage used/total in bytes (scraped from the
+    /// member dashboard). Returns nulls for a missing/garbage payload so the caller fails the sign-in
+    /// cleanly; storage stays null when the dashboard scrape didn't yield a figure.
     /// </summary>
-    internal static (string? Hash, string? Email) ParseProbeResult(string? probeValue)
+    internal static (string? Hash, string? Email, long? StorageUsed, long? StorageTotal) ParseProbeResult(string? probeValue)
     {
         if (string.IsNullOrWhiteSpace(probeValue))
         {
-            return (null, null);
+            return (null, null, null, null);
         }
 
         try
@@ -278,13 +312,27 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
             string? email = root.TryGetProperty("email", out JsonElement e) && e.ValueKind == JsonValueKind.String
                 ? e.GetString() is { Length: > 0 } s ? s.Trim() : null
                 : null;
-            return (string.IsNullOrEmpty(hash) ? null : hash, string.IsNullOrEmpty(email) ? null : email);
+            return (
+                string.IsNullOrEmpty(hash) ? null : hash,
+                string.IsNullOrEmpty(email) ? null : email,
+                ReadStorageLong(root, "storageUsed"),
+                ReadStorageLong(root, "storageTotal"));
         }
         catch (JsonException)
         {
-            return (null, null);
+            return (null, null, null, null);
         }
     }
+
+    /// <summary>Reads a non-negative byte count from a numeric probe field, or null when absent /
+    /// non-numeric (the probe emits JSON null when the dashboard figure didn't parse).</summary>
+    private static long? ReadStorageLong(JsonElement obj, string name)
+        => obj.TryGetProperty(name, out JsonElement el)
+            && el.ValueKind == JsonValueKind.Number
+            && el.TryGetInt64(out long v)
+            && v >= 0
+            ? v
+            : null;
 
     /// <summary>
     /// GETs <c>/plugins/fileupload/getServer</c>, which returns the assigned storage node as a bare

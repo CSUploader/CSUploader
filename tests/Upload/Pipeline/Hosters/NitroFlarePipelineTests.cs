@@ -43,11 +43,23 @@ public class NitroFlarePipelineTests
         => Assert.Equal(expected, NitroFlarePipeline.IsValidUploadServer(url));
 
     [Fact]
-    public void ParseProbeResult_ExtractsHashAndEmail()
+    public void ParseProbeResult_ExtractsHashEmailAndStorage()
     {
-        (string? hash, string? email) = NitroFlarePipeline.ParseProbeResult($$"""{"hash":"{{Hash}}","email":"u@example.net"}""");
+        (string? hash, string? email, long? used, long? total) = NitroFlarePipeline.ParseProbeResult(
+            $$"""{"hash":"{{Hash}}","email":"u@example.net","storageUsed":5221908,"storageTotal":536870912000}""");
         Assert.Equal(Hash, hash);
         Assert.Equal("u@example.net", email);
+        Assert.Equal(5221908L, used);              // "4.98 MB" used
+        Assert.Equal(536870912000L, total);        // "500 GB" capacity (binary)
+    }
+
+    [Fact]
+    public void ParseProbeResult_NullStorageFigures_ReturnNull()
+    {
+        (_, _, long? used, long? total) = NitroFlarePipeline.ParseProbeResult(
+            $$"""{"hash":"{{Hash}}","email":null,"storageUsed":null,"storageTotal":null}""");
+        Assert.Null(used);
+        Assert.Null(total);
     }
 
     [Theory]
@@ -175,6 +187,30 @@ public class NitroFlarePipelineTests
 
         Assert.True(result.IsValid);
         Assert.Equal(Hash, result.ApiKey);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WebViewProbe_SurfacesHashEmailAndStorage()
+    {
+        string probe = $$"""{"hash":"{{Hash}}","email":"nir@example.net","storageUsed":5221908,"storageTotal":536870912000}""";
+        FakeAuthService fake = new(new InteractiveAuthResult(string.Empty, null, null, probe));
+        NitroFlarePipeline pipeline = new(fake);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "", "", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(Hash, result.ApiKey);                       // durable upload credential
+        Assert.Equal("nir@example.net", result.DerivedUsername);
+        Assert.Equal(5221908L, result.StorageUsedBytes);         // Used/Available now populated
+        Assert.Equal(536870912000L, result.StorageQuotaBytes);
+    }
+
+    private sealed class FakeAuthService(InteractiveAuthResult? result) : IInteractiveAuthService
+    {
+        public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(
+            InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+            => Task.FromResult(result);
     }
 
     private static AttemptContext MakeContext(string? apiKey) => new()
