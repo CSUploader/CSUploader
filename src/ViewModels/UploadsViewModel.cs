@@ -597,8 +597,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         foreach (PackageFile file in looseFiles)
         {
-            _packageManager.RemovePackage(file);
-            VisibleRows.Remove(file);
+            // Removing a file that was its package's last one prunes the empty package too, so a
+            // package with a single file disappears entirely when that file is removed (the bug:
+            // it used to leave an empty package row behind).
+            RemoveFileAndPruneEmptyPackage(file);
         }
     }
 
@@ -718,6 +720,25 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void RemovePackageFromView(Package package) => RemovePackageFromView(package, package);
 
+    /// <summary>
+    /// Removes a single file from the manager and the view, and — if that was its package's last
+    /// file — removes the now-empty (and meaningless) package too. Shared by manual removal
+    /// (<see cref="RemoveSelected"/>) and auto-remove-on-complete (<see cref="PackageManager_FileCompleted"/>)
+    /// so the "don't leave an empty package behind" rule can't drift between the two paths.
+    /// </summary>
+    private void RemoveFileAndPruneEmptyPackage(PackageFile file)
+    {
+        Package package = file.Package;
+        _packageManager.RemovePackage(file);
+        VisibleRows.Remove(file);
+
+        if (package.Count() == 0)
+        {
+            _packageManager.RemovePackage(package);
+            RemovePackageFromView(package, []);
+        }
+    }
+
     private void PackageManager_FileCompleted(object? sender, PackageFile file)
     {
         // Immediately mode: drop this single file from the Uploads tab the moment it
@@ -729,19 +750,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-        {
-            Package package = file.Package;
-            _packageManager.RemovePackage(file);
-            VisibleRows.Remove(file);
-
-            // If the package just became empty, clean it up too.
-            if (package.Count() == 0)
-            {
-                _packageManager.RemovePackage(package);
-                RemovePackageFromView(package, []);
-            }
-        });
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => RemoveFileAndPruneEmptyPackage(file));
     }
 
     private void PackageManager_PackageCompleted(object? sender, Package package)
