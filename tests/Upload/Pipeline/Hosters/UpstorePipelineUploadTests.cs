@@ -62,10 +62,10 @@ public class UpstorePipelineUploadTests
     [Fact]
     public async Task RunAsync_FileExceedsAnonymousCap_YieldsAttemptFailedWithoutAnyHttp()
     {
-        // Nothing queued — the 1 GiB pre-check must fail before the homepage GET or the upload.
+        // Nothing queued — the 2 GiB pre-check must fail before the homepage GET or the upload.
         UpstorePipeline pipeline = MakePipeline(new(), new(), out List<UploadCall> calls);
 
-        AttemptContext ctx = MakeContext(fileSize: (1024L * 1024 * 1024) + 1);
+        AttemptContext ctx = MakeContext(fileSize: (2L * 1024 * 1024 * 1024) + 1);
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());

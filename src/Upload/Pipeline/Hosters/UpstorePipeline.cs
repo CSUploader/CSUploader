@@ -35,10 +35,11 @@ public sealed class UpstorePipeline : IFileHosterPipeline
     private const string HomeUrl = Host + "/";
     private const string PublicUrlPrefix = Host + "/";
 
-    /// <summary>Anonymous (guest) per-file cap — 1 GiB. The homepage's Dropzone config declares
-    /// <c>maxFilesize: 1024</c> (MiB) and its messages spell it out: "1GB for guests / 2GB for
-    /// registered / 5GB for premium". Registered/premium (not yet supported) lift this.</summary>
-    private const long AnonymousMaxFileSizeBytes = 1024L * 1024 * 1024;
+    /// <summary>Guest/free per-file cap — 2 GiB (confirmed by the account owner). The homepage's
+    /// Dropzone <c>maxFilesize: 1024</c> (MiB) is only the client-side widget hint; the server
+    /// actually accepts 2 GB for free + guest uploads, and we POST to it directly (not via Dropzone),
+    /// so the server limit is what applies. Premium (not yet supported) lifts this to 5 GB.</summary>
+    private const long AnonymousMaxFileSizeBytes = 2L * 1024 * 1024 * 1024;
 
     // The Dropzone form action points at the rotating upload host (dNN.upstore.net/newupload/).
     // Anchoring on "newupload" keeps us off the page's login/registration forms (/account/...),
