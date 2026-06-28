@@ -231,6 +231,19 @@ public partial class WebViewLoginWindow : Window
             // so the window still waits for the real post-login one.
             WebView.CoreWebView2.CookieManager.DeleteCookies(_cookieName, _loginUrl);
 
+            // When a UA override is in play (Cloudflare cf_clearance mode), ALSO drop the supplementary
+            // cookies before navigating. cf_clearance is bound to the exact UA that solved the
+            // challenge; a value persisted from an earlier sign-in under the WebView's native UA would
+            // be captured stale and rejected the moment the C# handler (our overridden UA) reuses it.
+            // Deleting it forces Cloudflare to re-issue a fresh clearance bound to the override UA.
+            if (!string.IsNullOrEmpty(_userAgentOverride) && _additionalCookieNames is not null)
+            {
+                foreach (string name in _additionalCookieNames)
+                {
+                    WebView.CoreWebView2.CookieManager.DeleteCookies(name, _loginUrl);
+                }
+            }
+
             _initialized = true;
             StatusText.Text = string.Format(
                 CultureInfo.CurrentCulture,
