@@ -105,7 +105,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Do NOT re-add without confirming the managed challenge is gone. See takefile-disabled rationale.
         { "Uploaded", "www.uploaded.net" },
         { "UploadGIG", "www.uploadgig.com" },
-        { "UniBytes", "www.unibytes.com" },
+        // UniBytes REMOVED 2026-06-28 — unibytes.com is down (no live site/upload endpoint). Never
+        // had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and
+        // which protocol family it belongs to.
         { "Upstore", "upstore.net" },
         { "WuShare", "www.wushare.com" },
     }.ToFrozenDictionary(StringComparer.Ordinal);
