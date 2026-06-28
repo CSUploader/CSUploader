@@ -148,6 +148,94 @@ public class UpstorePipelineUploadTests
         Assert.Equal(1, uploadCalls); // single-shot; no in-pipeline retry
     }
 
+    [Fact]
+    public async Task RunAsync_Account_LogsInAndPostsFileWithUsid()
+    {
+        Queue<HttpResponseSnapshot> home = new(new[] { new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()) });
+        Queue<HttpResponseSnapshot> uploads = new(new[] { new HttpResponseSnapshot(200, """{"hash":"acctHash"}""", Array.Empty<string>(), null) });
+        // Login response sets the usid account credential (Set-Cookie), like the real 302.
+        HttpResponseSnapshot loginResp = new(302, string.Empty, new[] { "usid=USID123; path=/; domain=upstore.net; HttpOnly", "upst=sess; path=/" }, "/");
+
+        List<UploadCall> calls = [];
+        List<(string Url, IReadOnlyDictionary<string, string> Form)> logins = [];
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: _ => home.Dequeue(),
+            postFormOverride: (url, form) => { logins.Add((url, new Dictionary<string, string>(form))); return loginResp; },
+            uploadOverride: (filePath, endpoint, extraFields, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extraFields), headers is null ? null : new Dictionary<string, string>(headers)));
+                return Task.FromResult(uploads.Dequeue());
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAccountContext(), CancellationToken.None));
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://upstore.net/acctHash", tc.FileUrl);
+
+        // Logged in to the right endpoint with email/password/send.
+        (string loginUrl, IReadOnlyDictionary<string, string> form) = Assert.Single(logins);
+        Assert.Equal("https://upstore.net/account/login/", loginUrl);
+        Assert.Equal("u@example.com", form["email"]);
+        Assert.Equal("pw", form["password"]);
+        Assert.Equal("Login", form["send"]);
+
+        // The upload carried the usid captured from the login Set-Cookie.
+        UploadCall call = Assert.Single(calls);
+        Assert.Equal("USID123", call.ExtraFields["usid"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_Account_LoginFails_YieldsAttemptFailedWithoutUpload()
+    {
+        // Wrong credentials: the login re-renders the page (200) with NO usid cookie.
+        List<UploadCall> calls = [];
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: _ => new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(200, "<html>login page</html>", Array.Empty<string>(), null),
+            uploadOverride: (filePath, endpoint, extraFields, headers, _) =>
+            {
+                calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extraFields), headers is null ? null : new Dictionary<string, string>(headers)));
+                return Task.FromResult(new HttpResponseSnapshot(200, """{"hash":"x"}""", Array.Empty<string>(), null));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAccountContext(), CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Empty(calls); // never reached the upload
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ValidLogin_ReturnsValidWithEmail()
+    {
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: _ => new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(302, string.Empty, new[] { "usid=USID123; path=/; domain=upstore.net" }, "/"),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run during a check"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "pw", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("u@example.com", result.DerivedUsername);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WrongCredentials_ReturnsInvalid()
+    {
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: _ => new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(200, "<html>login page</html>", Array.Empty<string>(), null),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run during a check"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "wrong", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+    }
+
+    private static HttpHandler MakeHandler()
+        => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];
@@ -185,14 +273,22 @@ public class UpstorePipelineUploadTests
         IReadOnlyDictionary<string, string> ExtraFields,
         IReadOnlyDictionary<string, string>? Headers);
 
-    private static AttemptContext MakeContext(long fileSize = 1_048_576L) => new()
+    private static AttemptContext MakeContext(long fileSize = 1_048_576L) =>
+        MakeContextWith(new FileHosterLoginDto { FileHosterName = "Upstore", IsAnonymous = true }, fileSize);
+
+    private static AttemptContext MakeAccountContext(long fileSize = 1_048_576L) =>
+        MakeContextWith(
+            new FileHosterLoginDto { Id = 51, FileHosterName = "Upstore", Username = "u@example.com", Password = "pw", IsAnonymous = false },
+            fileSize);
+
+    private static AttemptContext MakeContextWith(FileHosterLoginDto credentials, long fileSize) => new()
     {
         AttemptId = Guid.NewGuid(),
         FilePath = @"C:\nope\package1\1mb.bin",
         FileName = "1mb.bin",
         FileSize = fileSize,
         HosterName = "Upstore",
-        Credentials = new FileHosterLoginDto { FileHosterName = "Upstore" },
+        Credentials = credentials,
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),

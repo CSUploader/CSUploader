@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,32 +15,39 @@ using CSUploader.Lib.Net.Http;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Upstore (upstore.net) upload pipeline — anonymous (not-logged-in) uploads only for now.
-/// Verified against a live capture 2026-06-28.
+/// Upstore (upstore.net) upload pipeline — anonymous OR logged-in (email/password) uploads.
+/// Verified against live captures 2026-06-28.
 /// <list type="bullet">
-///   <item><b>Per-upload server assignment.</b> GET <c>https://upstore.net/</c> returns a
-///   Dropzone <c>&lt;form class="dropzone" action="https://dNN.upstore.net/newupload/"&gt;</c>
-///   whose upload host (<c>dNN</c>) rotates — so it's scraped fresh for each file, never cached.</item>
-///   <item><b>The POST is a single-field multipart</b> (<c>name="file"</c>, the file) to the scraped
-///   action — no token, no cookie, no other fields. The browser sends <c>X-Requested-With:
-///   XMLHttpRequest</c> + <c>Accept: application/json</c> with the <c>upstore.net</c> Origin/Referer,
-///   and the upload node is direct nginx (not Cloudflare-fronted).</item>
-///   <item><b>Result.</b> JSON <c>{"hash":"&lt;code&gt;","name":…}</c>; the shareable link is
+///   <item><b>Per-upload server assignment.</b> GET <c>https://upstore.net/</c> returns a Dropzone
+///   <c>&lt;form class="dropzone" action="https://dNN.upstore.net/newupload/"&gt;</c> whose upload
+///   host (<c>dNN</c>) rotates — so it's scraped fresh for each file, never cached.</item>
+///   <item><b>The POST is a multipart</b> to the scraped action: field <c>file</c> (the bytes) plus,
+///   for an account, a <c>usid</c> field that links the upload to the account. The browser sends
+///   <c>X-Requested-With: XMLHttpRequest</c> + <c>Accept: application/json</c> with the
+///   <c>upstore.net</c> Origin/Referer; the upload node is direct nginx (not Cloudflare-fronted).</item>
+///   <item><b>Login.</b> POST <c>https://upstore.net/account/login/</c>
+///   (<c>email</c>/<c>password</c>/<c>send=Login</c>) returns a <c>Set-Cookie: usid=…</c> — that
+///   <c>usid</c> value is the account credential POSTed on uploads. upstore.net isn't behind a
+///   blocking Cloudflare challenge (the capture had no <c>Cf-Mitigated</c>), so this runs in C#
+///   without a WebView. usid is cached in-memory per credentials id (re-login on a cache miss).</item>
+///   <item><b>Result.</b> JSON <c>{"hash":"&lt;code&gt;",…}</c>; the shareable link is
 ///   <c>https://upstore.net/&lt;code&gt;</c>.</item>
 /// </list>
-/// No login, no auth cache, no hashing. Login isn't wired up yet (see <see cref="CheckAccountAsync"/>).
+/// No hashing. Storage usage isn't surfaced yet.
 /// </summary>
 public sealed class UpstorePipeline : IFileHosterPipeline
 {
     private const string Host = "https://upstore.net";
     private const string HomeUrl = Host + "/";
+    private const string LoginUrl = Host + "/account/login/";
     private const string PublicUrlPrefix = Host + "/";
 
-    /// <summary>Guest/free per-file cap — 2 GiB (confirmed by the account owner). The homepage's
-    /// Dropzone <c>maxFilesize: 1024</c> (MiB) is only the client-side widget hint; the server
-    /// actually accepts 2 GB for free + guest uploads, and we POST to it directly (not via Dropzone),
-    /// so the server limit is what applies. Premium (not yet supported) lifts this to 5 GB.</summary>
-    private const long AnonymousMaxFileSizeBytes = 2L * 1024 * 1024 * 1024;
+    /// <summary>Free/guest per-file cap — 2 GiB (confirmed by the account owner). The homepage's
+    /// Dropzone <c>maxFilesize: 1024</c> (MiB) is only the client-side widget hint; the server accepts
+    /// 2 GB for free + guest uploads, and we POST to it directly (not via Dropzone), so the server
+    /// limit applies. Premium (5 GB) isn't distinguished — premium accounts are capped at the free
+    /// value, which only rejects a >2 GB file early; it never lets a too-big file waste bytes.</summary>
+    private const long FreeTierMaxFileSizeBytes = 2L * 1024 * 1024 * 1024;
 
     // The Dropzone form action points at the rotating upload host (dNN.upstore.net/newupload/).
     // Anchoring on "newupload" keeps us off the page's login/registration forms (/account/...),
@@ -48,20 +56,38 @@ public sealed class UpstorePipeline : IFileHosterPipeline
         """action=["']([^"']*newupload[^"']*)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // usid (the account upload credential) cached per credentials id. One login at a time per id so a
+    // batch of N files against the same account does ONE login, not N.
+    private readonly ConcurrentDictionary<int, string> _usidByCredId = new();
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
+
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
+    private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public UpstorePipeline()
     {
     }
 
-    /// <summary>Test ctor — drives the homepage GET and the multipart upload from canned responses
-    /// so the scrape/parse logic can be exercised without the network.</summary>
+    /// <summary>Test ctor (anonymous) — drives the homepage GET and the multipart upload from canned
+    /// responses so the scrape/parse logic can be exercised without the network.</summary>
     internal UpstorePipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
+        _uploadOverride = uploadOverride;
+    }
+
+    /// <summary>Test ctor (account) — also stubs the login form POST so the logged-in flow
+    /// (usid capture + usid-on-upload) can be exercised without the network.</summary>
+    internal UpstorePipeline(
+        Func<string, HttpResponseSnapshot> getSnapshotOverride,
+        Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+    {
+        _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
+        _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
         _uploadOverride = uploadOverride;
     }
 
@@ -71,27 +97,40 @@ public sealed class UpstorePipeline : IFileHosterPipeline
 
     public bool RequiresHashingAfterUpload => false;
 
-    public long? MaxFileSize => AnonymousMaxFileSizeBytes;
+    public long? MaxFileSize => FreeTierMaxFileSizeBytes;
 
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Upstore accepts uploads with no login — the wizard offers it as a built-in
-    /// "Anonymous" option that needs no Accounts/Settings entry.</summary>
+    /// "Anonymous" option. Logged-in uploads (an added account) link to the account via usid.</summary>
     public bool SupportsAnonymousUpload => true;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;
 
-        // === Pre-check: anonymous per-file size cap ===
-        // Failing fast here avoids pushing bytes that the guest tier is guaranteed to reject.
-        if (ctx.FileSize > AnonymousMaxFileSizeBytes)
+        // === Pre-check: per-file size cap (same 2 GiB for guests + free accounts) ===
+        if (ctx.FileSize > FreeTierMaxFileSizeBytes)
         {
             yield return new AttemptFailed(
-                $"File exceeds Upstore's anonymous {ByteUnit.FromBytes(AnonymousMaxFileSizeBytes, ByteBase.Binary).ToFriendlyString()} per-file limit "
+                $"File exceeds Upstore's free/guest {ByteUnit.FromBytes(FreeTierMaxFileSizeBytes, ByteBase.Binary).ToFriendlyString()} per-file limit "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Binary).ToFriendlyString()}).",
                 null);
             yield break;
+        }
+
+        // === Step 0 (account only): obtain the usid that links the upload to the account ===
+        string? usid = null;
+        if (!ctx.Credentials.IsAnonymous)
+        {
+            (string? gotUsid, string? loginError) = await EnsureUsidAsync(ctx);
+            if (gotUsid is null)
+            {
+                yield return new AttemptFailed(loginError ?? "Upstore login failed", null);
+                yield break;
+            }
+
+            usid = gotUsid;
         }
 
         // === Step 1: scrape the rotating upload server from the homepage form action ===
@@ -112,7 +151,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, actionUrl);
+        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, actionUrl, usid);
 
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
@@ -137,6 +176,16 @@ public sealed class UpstorePipeline : IFileHosterPipeline
         (string? url, string? error) = ParseUploadResponse(uploadResponse);
         if (error is not null)
         {
+            // An account upload that's rejected may mean a stale usid (the cached login expired) — drop
+            // it so the next attempt re-logs-in. Remove only the usid WE used (value-matching overload):
+            // a concurrent attempt may have just re-logged-in and installed a fresh one. Anonymous
+            // uploads have nothing to invalidate.
+            if (usid is not null)
+            {
+                ((ICollection<KeyValuePair<int, string>>)_usidByCredId)
+                    .Remove(new KeyValuePair<int, string>(ctx.Credentials.Id, usid));
+            }
+
             yield return new AttemptFailed(error, null);
             yield break;
         }
@@ -145,21 +194,103 @@ public sealed class UpstorePipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// Upstore login isn't wired up yet — uploads use the anonymous path. Surface a clear message
-    /// rather than a silent failure if someone tries to add an Upstore account in Settings.
+    /// Validates an Upstore account by logging in (<c>POST /account/login/</c>): success is a
+    /// <c>Set-Cookie: usid=…</c>. Storage usage isn't surfaced yet (quota null).
     /// </summary>
-    public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
-        _ = username;
-        _ = password;
         _ = apiKey;
-        _ = handler;
         _ = proxy;
-        _ = ct;
-        return Task.FromResult(new AccountCheckResult(
-            false,
-            AccountType.Free,
-            "Upstore login isn't supported yet — uploads use the built-in Anonymous option in the upload wizard."));
+
+        (string? usid, string? error) = await LoginAsync(
+            (url, form) => PostFormAsync(handler, url, form, ct),
+            username,
+            password,
+            ct);
+
+        return usid is null
+            ? new AccountCheckResult(false, AccountType.Free, error ?? "Upstore login failed.")
+            : new AccountCheckResult(true, AccountType.Free, "Signed in (Free)", DerivedUsername: username);
+    }
+
+    /// <summary>Returns the cached usid for the account, logging in once (gated per credentials id) on
+    /// a cache miss. Null + an error message when the login fails.</summary>
+    private async Task<(string? Usid, string? Error)> EnsureUsidAsync(AttemptContext ctx)
+    {
+        int id = ctx.Credentials.Id;
+        if (_usidByCredId.TryGetValue(id, out string? cached))
+        {
+            return (cached, null);
+        }
+
+        SemaphoreSlim gate = _loginGates.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ctx.Cancellation).ConfigureAwait(false);
+        try
+        {
+            if (_usidByCredId.TryGetValue(id, out cached))
+            {
+                return (cached, null);
+            }
+
+            (string? usid, string? error) = await LoginAsync(
+                (url, form) => PostFormAsync(ctx.Handler, url, form, ctx.Cancellation),
+                ctx.Credentials.Username,
+                ctx.Credentials.Password,
+                ctx.Cancellation);
+            if (usid is null)
+            {
+                return (null, error);
+            }
+
+            _usidByCredId[id] = usid;
+            return (usid, null);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>POSTs the login form and pulls the <c>usid</c> account credential out of the
+    /// response's <c>Set-Cookie</c>. A wrong email/password re-renders the login page with no
+    /// usid, which surfaces as a clear failure.</summary>
+    private static async Task<(string? Usid, string? Error)> LoginAsync(
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postForm,
+        string? email,
+        string? password,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+        {
+            return (null, "Upstore account needs an email and password.");
+        }
+
+        Dictionary<string, string> form = new(StringComparer.Ordinal)
+        {
+            ["url"] = HomeUrl,
+            ["email"] = email,
+            ["password"] = password,
+            ["send"] = "Login",
+        };
+
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = await postForm(LoginUrl, form);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, "Upstore login request failed: " + ex.Message);
+        }
+
+        string? usid = ExtractCookieValue(snap.SetCookies, "usid");
+        return usid is not null
+            ? (usid, null)
+            : (null, $"Upstore login failed — check the email and password (HTTP {snap.StatusCode}).");
     }
 
     /// <summary>GETs the homepage and scrapes the rotating Dropzone upload-form action URL.</summary>
@@ -181,10 +312,15 @@ public sealed class UpstorePipeline : IFileHosterPipeline
             : (null, $"Upstore homepage did not contain an upload-form action URL (HTTP {snap.StatusCode}): {Snippet(snap.Body)}");
     }
 
-    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string actionUrl)
+    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string actionUrl, string? usid)
     {
-        // The browser posts ONLY the file (Dropzone), no hidden fields, no cookie.
+        // Anonymous: just the file. Account: the file + the usid that links it to the account.
         Dictionary<string, string> extraFields = new(StringComparer.Ordinal);
+        if (!string.IsNullOrEmpty(usid))
+        {
+            extraFields["usid"] = usid;
+        }
+
         Dictionary<string, string> headers = new(StringComparer.Ordinal)
         {
             ["Origin"] = Host,
@@ -243,6 +379,34 @@ public sealed class UpstorePipeline : IFileHosterPipeline
 
         return (PublicUrlPrefix + result.Hash, null);
     }
+
+    /// <summary>Reads the value of the named cookie from a response's raw <c>Set-Cookie</c> lines
+    /// (<c>name=value; attr=…</c>). Null when absent or empty.</summary>
+    private static string? ExtractCookieValue(IReadOnlyList<string> setCookies, string name)
+    {
+        foreach (string raw in setCookies)
+        {
+            int eq = raw.IndexOf('=', StringComparison.Ordinal);
+            if (eq < 0 || !string.Equals(raw[..eq].Trim(), name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int semi = raw.IndexOf(';', eq);
+            string value = (semi < 0 ? raw[(eq + 1)..] : raw[(eq + 1)..semi]).Trim();
+            if (value.Length > 0)
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private Task<HttpResponseSnapshot> PostFormAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> form, CancellationToken ct)
+        => _postFormOverride is not null
+            ? _postFormOverride(url, form)
+            : handler.PostFormAsync(url, form, ct);
 
     private Task<HttpResponseSnapshot> GetSnapshotAsync(AttemptContext ctx, string url)
         => _getSnapshotOverride is not null
