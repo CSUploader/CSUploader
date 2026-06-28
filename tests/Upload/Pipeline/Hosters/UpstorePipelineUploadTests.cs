@@ -221,6 +221,33 @@ public class UpstorePipelineUploadTests
     }
 
     [Fact]
+    public async Task CheckAccountAsync_ValidLogin_ReportsUsedStorageAndUnlimitedQuota()
+    {
+        const string AccountHtml = "<table><tr><td>Used storage</td><td>5 MB / 1 file</td></tr></table>";
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: url => url.Contains("/account/", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, AccountHtml, Array.Empty<string>())
+                : new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(302, string.Empty, new[] { "usid=USID123; path=/", "upst=SESS; path=/" }, "/"),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run during a check"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("u@example.com", "pw", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(5L * 1024 * 1024, result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes); // free account → Available is Unlimited
+    }
+
+    [Theory]
+    [InlineData("<td>Used storage</td><td>5 MB / 1 file</td>", 5242880L)]
+    [InlineData("<td>Used storage</td>  <td> 1.5 GB / 3 files</td>", 1610612736L)]
+    [InlineData("<td>Used storage</td><td>512 KB / 2 files</td>", 524288L)]
+    [InlineData("<td>Used storage</td><td>0 B / 0 files</td>", 0L)]
+    [InlineData("<p>no storage row here</p>", null)]
+    public void ParseUsedStorage_ParsesBinaryUnits(string html, long? expected)
+        => Assert.Equal(expected, UpstorePipeline.ParseUsedStorage(html));
+
+    [Fact]
     public async Task CheckAccountAsync_WrongCredentials_ReturnsInvalid()
     {
         UpstorePipeline pipeline = new(

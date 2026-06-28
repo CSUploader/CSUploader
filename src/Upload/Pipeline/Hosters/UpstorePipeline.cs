@@ -4,11 +4,13 @@
 // </copyright>
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
 
@@ -33,13 +35,16 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <item><b>Result.</b> JSON <c>{"hash":"&lt;code&gt;",…}</c>; the shareable link is
 ///   <c>https://upstore.net/&lt;code&gt;</c>.</item>
 /// </list>
-/// No hashing. Storage usage isn't surfaced yet.
+/// No hashing. Storage: the <c>/account/</c> page shows "Used storage X MB" (free accounts have no
+/// quota — Available is Unlimited); used is surfaced via <see cref="CheckAccountAsync"/> +
+/// <see cref="IStorageRefreshablePipeline"/>.
 /// </summary>
-public sealed class UpstorePipeline : IFileHosterPipeline
+public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private const string Host = "https://upstore.net";
     private const string HomeUrl = Host + "/";
     private const string LoginUrl = Host + "/account/login/";
+    private const string AccountUrl = Host + "/account/";
     private const string PublicUrlPrefix = Host + "/";
 
     /// <summary>Free/guest per-file cap — 2 GiB (confirmed by the account owner). The homepage's
@@ -54,6 +59,12 @@ public sealed class UpstorePipeline : IFileHosterPipeline
     // and is robust to attribute ordering.
     private static readonly Regex _uploadActionRegex = new(
         """action=["']([^"']*newupload[^"']*)["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // /account/ row: <td>Used storage</td><td>4.98 MB / 1 file</td>. The figure is a rounded display
+    // value (no exact byte count is exposed), parsed best-effort. No quota is shown — free is Unlimited.
+    private static readonly Regex _usedStorageRegex = new(
+        """Used\s*storage\s*</td>\s*<td>\s*([0-9.]+)\s*([KMGT]?B)""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // usid (the account upload credential) cached per credentials id. One login at a time per id so a
@@ -195,22 +206,103 @@ public sealed class UpstorePipeline : IFileHosterPipeline
 
     /// <summary>
     /// Validates an Upstore account by logging in (<c>POST /account/login/</c>): success is a
-    /// <c>Set-Cookie: usid=…</c>. Storage usage isn't surfaced yet (quota null).
+    /// <c>Set-Cookie: usid=…</c>. Then reads "Used storage" off <c>/account/</c> (best-effort; free
+    /// accounts have no quota, so Available stays Unlimited).
     /// </summary>
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
         _ = apiKey;
         _ = proxy;
 
-        (string? usid, string? error) = await LoginAsync(
+        (string? usid, string? upst, string? error) = await LoginAsync(
             (url, form) => PostFormAsync(handler, url, form, ct),
             username,
             password,
             ct);
+        if (usid is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, error ?? "Upstore login failed.");
+        }
 
-        return usid is null
-            ? new AccountCheckResult(false, AccountType.Free, error ?? "Upstore login failed.")
-            : new AccountCheckResult(true, AccountType.Free, "Signed in (Free)", DerivedUsername: username);
+        long? used = await TryReadUsedStorageAsync(handler, usid, upst, ct);
+        return new AccountCheckResult(
+            true,
+            AccountType.Free,
+            "Signed in (Free)",
+            DerivedUsername: username,
+            StorageUsedBytes: used,
+            StorageQuotaBytes: null); // free accounts have no quota → Available shows Unlimited
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: a fresh credential login (no
+    /// captcha/WebView) plus the same <c>/account/</c> "Used storage" read. Returns null on any
+    /// failure (bad/expired creds, transport) so the caller keeps the last-known snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy;
+
+        (string? usid, string? upst, _) = await LoginAsync(
+            (url, form) => PostFormAsync(handler, url, form, ct),
+            credentials.Username,
+            credentials.Password,
+            ct);
+        if (usid is null)
+        {
+            return null;
+        }
+
+        long? used = await TryReadUsedStorageAsync(handler, usid, upst, ct);
+        return used is null ? null : new StorageUsage(used, null);
+    }
+
+    /// <summary>GETs the logged-in <c>/account/</c> page (auth = the <c>usid</c> + <c>upst</c> cookies)
+    /// and scrapes the rounded "Used storage" figure. Returns null on any failure so a transient hiccup
+    /// leaves Used blank rather than failing the account check.</summary>
+    private async Task<long?> TryReadUsedStorageAsync(HttpHandler handler, string usid, string? upst, CancellationToken ct)
+    {
+        string cookie = "usid=" + usid + (string.IsNullOrEmpty(upst) ? string.Empty : "; upst=" + upst);
+        Dictionary<string, string> headers = new(StringComparer.Ordinal) { ["Cookie"] = cookie };
+
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = await GetSnapshotAsync(handler, AccountUrl, headers, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        return ParseUsedStorage(snap.Body);
+    }
+
+    /// <summary>Parses "Used storage</td><td>4.98 MB / 1 file" into bytes (binary units). Null when
+    /// the row is absent or the number/unit doesn't parse.</summary>
+    internal static long? ParseUsedStorage(string html)
+    {
+        Match m = _usedStorageRegex.Match(html);
+        if (!m.Success || !double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || value < 0)
+        {
+            return null;
+        }
+
+        long factor = m.Groups[2].Value.ToUpperInvariant() switch
+        {
+            "B" => 1L,
+            "KB" => 1024L,
+            "MB" => 1024L * 1024,
+            "GB" => 1024L * 1024 * 1024,
+            "TB" => 1024L * 1024 * 1024 * 1024,
+            _ => 0L,
+        };
+
+        return factor == 0 ? null : (long)(value * factor);
     }
 
     /// <summary>Returns the cached usid for the account, logging in once (gated per credentials id) on
@@ -232,7 +324,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline
                 return (cached, null);
             }
 
-            (string? usid, string? error) = await LoginAsync(
+            (string? usid, _, string? error) = await LoginAsync(
                 (url, form) => PostFormAsync(ctx.Handler, url, form, ctx.Cancellation),
                 ctx.Credentials.Username,
                 ctx.Credentials.Password,
@@ -251,10 +343,11 @@ public sealed class UpstorePipeline : IFileHosterPipeline
         }
     }
 
-    /// <summary>POSTs the login form and pulls the <c>usid</c> account credential out of the
-    /// response's <c>Set-Cookie</c>. A wrong email/password re-renders the login page with no
-    /// usid, which surfaces as a clear failure.</summary>
-    private static async Task<(string? Usid, string? Error)> LoginAsync(
+    /// <summary>POSTs the login form and pulls the account credentials out of the response's
+    /// <c>Set-Cookie</c>: <c>usid</c> (the upload credential) and <c>upst</c> (the session cookie the
+    /// <c>/account/</c> page needs). A wrong email/password re-renders the login page with no usid,
+    /// which surfaces as a clear failure.</summary>
+    private static async Task<(string? Usid, string? Upst, string? Error)> LoginAsync(
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postForm,
         string? email,
         string? password,
@@ -262,7 +355,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline
     {
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
         {
-            return (null, "Upstore account needs an email and password.");
+            return (null, null, "Upstore account needs an email and password.");
         }
 
         Dictionary<string, string> form = new(StringComparer.Ordinal)
@@ -284,13 +377,13 @@ public sealed class UpstorePipeline : IFileHosterPipeline
         }
         catch (Exception ex)
         {
-            return (null, "Upstore login request failed: " + ex.Message);
+            return (null, null, "Upstore login request failed: " + ex.Message);
         }
 
         string? usid = ExtractCookieValue(snap.SetCookies, "usid");
         return usid is not null
-            ? (usid, null)
-            : (null, $"Upstore login failed — check the email and password (HTTP {snap.StatusCode}).");
+            ? (usid, ExtractCookieValue(snap.SetCookies, "upst"), null)
+            : (null, null, $"Upstore login failed — check the email and password (HTTP {snap.StatusCode}).");
     }
 
     /// <summary>GETs the homepage and scrapes the rotating Dropzone upload-form action URL.</summary>
@@ -409,9 +502,12 @@ public sealed class UpstorePipeline : IFileHosterPipeline
             : handler.PostFormAsync(url, form, ct);
 
     private Task<HttpResponseSnapshot> GetSnapshotAsync(AttemptContext ctx, string url)
+        => GetSnapshotAsync(ctx.Handler, url, headers: null, ctx.Cancellation);
+
+    private Task<HttpResponseSnapshot> GetSnapshotAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
         => _getSnapshotOverride is not null
             ? _getSnapshotOverride(url)
-            : ctx.Handler.GetSnapshotAsync(url, headers: null, ctx.Cancellation);
+            : handler.GetSnapshotAsync(url, headers, ct);
 
     private static string Snippet(string body)
     {
