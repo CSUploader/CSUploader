@@ -151,6 +151,12 @@ public partial class App : Application
             new Upload.Pipeline.Hosters.Keep2SharePipeline(
                 sp.GetRequiredService<Services.IInteractiveAuthService>(),
                 sp.GetRequiredService<FileHosterLoginRepository>()));
+        // TezFiles — third moneyplatform sister (same /v1 API as FileBoom/Keep2Share); WebView
+        // accessToken sign-in, so it needs IInteractiveAuthService + the repo like the others.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.TezFilesPipeline(
+                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<FileHosterLoginRepository>()));
         // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
         // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
         // Pro per-user API key is never rendered on my_account, so the api-key bootstrap is

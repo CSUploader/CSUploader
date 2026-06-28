@@ -38,7 +38,7 @@ public partial class EditAccountWindow : Window
     // "TakeFile" DISABLED 2026-06-28 (Cloudflare managed-challenge TLS wall — see TakeFilePipeline.cs);
     // removed here alongside its registry + DI entries.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "NitroFlare" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare" };
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
