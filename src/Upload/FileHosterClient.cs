@@ -115,7 +115,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and
         // which protocol family it belongs to.
         { "Upstore", "upstore.net" },
-        { "WuShare", "www.wushare.com" },
+        // WuShare REMOVED 2026-06-28 — wushare.com is dead (refuses connections; no working upload).
+        // Never had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back.
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>
