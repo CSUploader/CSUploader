@@ -56,7 +56,6 @@
     <BitmapImage x:Key="FileHosterRapidgatorImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_rapidgator.png" />
     <BitmapImage x:Key="FileHosterTakefileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_takefile.png" />
     <BitmapImage x:Key="FileHosterTezfilesImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_tezfiles.png" />
-    <BitmapImage x:Key="FileHosterUploadedImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_uploaded.png" />
     <BitmapImage x:Key="FileHosterUploadgigImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_uploadgig.png" />
     <BitmapImage x:Key="FileHosterUpstoreImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_upstore.png" />
     <BitmapImage x:Key="FileHosterWushareImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_wushare.png" />

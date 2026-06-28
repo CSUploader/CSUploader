@@ -103,7 +103,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Cloudflare-protected main domain first, so the open upload node is unreachable. The free tier
         // is also near-useless (1 MB per file AND 1 MB total storage). Never had a pipeline; metadata-only.
         // Do NOT re-add without confirming the managed challenge is gone. See takefile-disabled rationale.
-        { "Uploaded", "www.uploaded.net" },
+        // Uploaded REMOVED 2026-06-28 — uploaded.net (uploaded.to) shut down in 2019; the domain is
+        // dead with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
         { "UploadGIG", "www.uploadgig.com" },
         // UniBytes REMOVED 2026-06-28 — unibytes.com is down (no live site/upload endpoint). Never
         // had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and
