@@ -165,6 +165,8 @@ public partial class App : Application
         // full diagnosis + re-enable checklist.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
+        // Upstore — anonymous-only Dropzone upload (no login), same standalone shape as GigaPeta.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
                 sp.GetRequiredService<Services.IInteractiveAuthService>()));
