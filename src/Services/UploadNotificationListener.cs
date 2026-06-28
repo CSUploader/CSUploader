@@ -17,7 +17,7 @@ public sealed class UploadNotificationListener : IDisposable
 {
     private readonly UploadScheduler _scheduler;
     private readonly IToastNotificationService _toasts;
-    private readonly ConditionalWeakTable<Package, object> _summaryShown = new();
+    private readonly ConditionalWeakTable<Package, object> _summaryShown = [];
     private static readonly object SummaryFiredSentinel = new();
     private volatile bool _disposed;
 
@@ -55,7 +55,10 @@ public sealed class UploadNotificationListener : IDisposable
         foreach (PackageFile f in pkg)
         {
             total++;
-            if (f.State == FileState.Completed) succeeded++;
+            if (f.State == FileState.Completed)
+            {
+                succeeded++;
+            }
         }
 
         if (succeeded == 0)
@@ -71,7 +74,11 @@ public sealed class UploadNotificationListener : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _scheduler.FileStateChanged -= HandleFileStateChanged;
     }
@@ -83,7 +90,10 @@ public sealed class UploadNotificationListener : IDisposable
     {
         foreach (PackageFile f in pkg)
         {
-            if (!IsTerminal(f.State)) return false;
+            if (!IsTerminal(f.State))
+            {
+                return false;
+            }
         }
         return true;
     }

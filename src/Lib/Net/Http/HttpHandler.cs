@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.IO;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -95,7 +94,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <summary>
     /// GET overload that lets the caller attach per-request headers (e.g. <c>Cookie</c>
     /// for hoster pipelines that authenticate via session cookies). Header values are
-    /// added with <see cref="System.Net.Http.Headers.HttpHeaders.TryAddWithoutValidation(string, string?)"/>
+    /// added with <see cref="HttpHeaders.TryAddWithoutValidation(string, string?)"/>
     /// so non-standard cookie values aren't rejected by the framework.
     /// </summary>
     public async Task<string> GetStringAsync(string url, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken = default)
@@ -133,7 +132,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = result;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(result);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(result);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -190,7 +189,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -240,7 +239,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -313,7 +312,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -407,7 +406,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -539,7 +538,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(body);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -598,7 +597,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     private static void AddChunkFilePart(MultipartFormDataContent multipart, HttpContent chunkContent, int chunkIndex)
     {
         string fileName = $"file_{chunkIndex}";
-        chunkContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+        chunkContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
         multipart.Add(chunkContent, "file");
         chunkContent.Headers.ContentDisposition = null;
@@ -654,7 +653,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = result;
-            transaction.ResponseBodyBytes = System.Text.Encoding.UTF8.GetBytes(result);
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(result);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -706,7 +705,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         // The ticks suffix keeps each request unique. .NET will still quote-wrap on
         // construction; we strip the quotes below.
         boundary = $"----CSUploaderBoundary{DateTime.Now.Ticks:x}";
-        MultipartFormDataContent content = new(boundary);
+        MultipartFormDataContent content = [with(boundary)];
 
         // Re-add the boundary parameter unquoted. NameValueHeaderValue only quotes values
         // that contain non-token characters, so a token-only boundary stays bare.
@@ -784,7 +783,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// </remarks>
     internal static string BuildFilePartContentDisposition(string fieldName, string fileName)
     {
-        string headerFileName = System.Text.Ascii.IsValid(fileName)
+        string headerFileName = Ascii.IsValid(fileName)
             ? fileName
             : Encoding.Latin1.GetString(Encoding.UTF8.GetBytes(fileName));
         return $"form-data; name=\"{fieldName}\"; filename=\"{headerFileName}\"";
@@ -792,7 +791,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
     private void LogTransaction(HttpTransaction transaction) => logger.Log(null, LogType.Http, transaction.Summary, httpTransaction: transaction);
 
-    private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content, System.Net.Http.Headers.HttpRequestHeaders? requestHeaders = null)
+    private void CaptureRequestHeaders(HttpTransaction transaction, HttpContent? content, HttpRequestHeaders? requestHeaders = null)
     {
         // Capture in three passes so per-request headers override client-default headers
         // (matches what actually goes on the wire — request.Headers wins for any header

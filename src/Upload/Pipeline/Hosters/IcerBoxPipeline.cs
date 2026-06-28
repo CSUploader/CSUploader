@@ -50,7 +50,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
     private const string FileFieldName = "files[]";
     private const string AppLang = "en_US";
 
-    private static readonly IReadOnlyDictionary<string, string> NoExtraFields =
+    private static readonly IReadOnlyDictionary<string, string> _noExtraFields =
         new Dictionary<string, string>(StringComparer.Ordinal);
 
     private readonly ConcurrentDictionary<int, IcerBoxAuthState> _authByCredentialsId = new();
@@ -161,8 +161,8 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
         // The upload runs concurrently; progress callbacks write into an unbounded channel this
         // iterator drains. Can't yield from inside the event handler, hence the channel.
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadEndpoint, auth.Token);
@@ -483,14 +483,14 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         if (_uploadOverride is not null)
         {
-            return _uploadOverride(ctx.FilePath, endpoint, NoExtraFields, headers, ctx.SpeedLimitProvider);
+            return _uploadOverride(ctx.FilePath, endpoint, _noExtraFields, headers, ctx.SpeedLimitProvider);
         }
 
         return ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             endpoint,
             fileFieldName: FileFieldName,
-            extraFields: NoExtraFields,
+            extraFields: _noExtraFields,
             headers: headers,
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);

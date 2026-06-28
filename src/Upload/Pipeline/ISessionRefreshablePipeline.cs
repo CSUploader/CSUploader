@@ -40,5 +40,5 @@ public interface ISessionRefreshablePipeline
     /// <param name="proxy">The proxy the handler routes through (kept for parity with
     /// <see cref="IFileHosterPipeline.CheckAccountAsync"/>; the session's issuing IP is the proxy IP).</param>
     /// <param name="ct">Cancellation.</param>
-    Task<AccountCheckResult> RefreshAccountAsync(string? apiKey, string sessionCookie, HttpHandler handler, ProxyChoice proxy, CancellationToken ct);
+    public Task<AccountCheckResult> RefreshAccountAsync(string? apiKey, string sessionCookie, HttpHandler handler, ProxyChoice proxy, CancellationToken ct);
 }

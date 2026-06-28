@@ -114,7 +114,7 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ExLoadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.FileBoomPipeline(
-                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<IInteractiveAuthService>(),
                 sp.GetRequiredService<FileHosterLoginRepository>()));
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.KatFilePipeline>();
         // FlashBit DISABLED 2026-06-05. The storage subdomain (fs1.flashbit.cc) ships
@@ -149,13 +149,13 @@ public partial class App : Application
         // accessToken sign-in, so it needs IInteractiveAuthService + the repo like FileBoom.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.Keep2SharePipeline(
-                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<IInteractiveAuthService>(),
                 sp.GetRequiredService<FileHosterLoginRepository>()));
         // TezFiles — third moneyplatform sister (same /v1 API as FileBoom/Keep2Share); WebView
         // accessToken sign-in, so it needs IInteractiveAuthService + the repo like the others.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.TezFilesPipeline(
-                sp.GetRequiredService<Services.IInteractiveAuthService>(),
+                sp.GetRequiredService<IInteractiveAuthService>(),
                 sp.GetRequiredService<FileHosterLoginRepository>()));
         // Hotlink DISABLED 2026-06-23. hotlink.cc free accounts can't upload (op=upload →
         // "You are not allowed to upload files"; uploading is premium-only) AND its XFileSharing
@@ -169,12 +169,12 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
-                sp.GetRequiredService<Services.IInteractiveAuthService>()));
+                sp.GetRequiredService<IInteractiveAuthService>()));
         // NitroFlare: reCAPTCHA-gated WebView sign-in yields a durable 40-hex upload hash (HitFile
         // shape), so it needs IInteractiveAuthService.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.NitroFlarePipeline(
-                sp.GetRequiredService<Services.IInteractiveAuthService>()));
+                sp.GetRequiredService<IInteractiveAuthService>()));
         // ExtMatrix DISABLED 2026-06-07. Their /api/upload.php endpoint hits the origin
         // nginx's client_max_body_size cap below ~27 MiB (clean 413 Payload Too Large
         // back from nginx, fronted by Cloudflare). Their web UI works around this with a
@@ -186,7 +186,7 @@ public partial class App : Application
         // and land a chunked protocol implementation. See ExtMatrixPipeline.cs
         // class-level remarks for the full re-enable checklist.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ExtMatrixPipeline>();
-        services.AddSingleton<Upload.IAccountVerifier, Upload.AccountVerifier>();
+        services.AddSingleton<IAccountVerifier, AccountVerifier>();
 
         // Services
         services.AddSingleton<IDialogService, DialogService>();
@@ -197,9 +197,9 @@ public partial class App : Application
         services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationService(
             sp.GetRequiredService<AppSettings>(),
             sp.GetRequiredService<IToastWindowFactory>(),
-            workAreaProvider: () => System.Windows.SystemParameters.WorkArea,
+            workAreaProvider: () => SystemParameters.WorkArea,
             activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
-            dispatchToUi: action => System.Windows.Application.Current?.Dispatcher.BeginInvoke(action)));
+            dispatchToUi: action => Current?.Dispatcher.BeginInvoke(action)));
         services.AddSingleton<UploadNotificationListener>();
 
         // ViewModels

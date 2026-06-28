@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.IO;
 using System.Windows.Data;
 
 namespace CSUploader.Converters;
@@ -25,32 +24,68 @@ public class FileTypeIconConverter : IValueConverter
     private static readonly Dictionary<string, string> ExtensionMap = new(StringComparer.Ordinal)
     {
         // Video
-        ["mkv"] = "video", ["mp4"] = "video", ["avi"] = "video", ["mov"] = "video",
-        ["wmv"] = "video", ["flv"] = "video", ["vob"] = "video", ["m4v"] = "video",
-        ["webm"] = "video", ["mpg"] = "video", ["mpeg"] = "video", ["ts"] = "video",
+        ["mkv"] = "video",
+        ["mp4"] = "video",
+        ["avi"] = "video",
+        ["mov"] = "video",
+        ["wmv"] = "video",
+        ["flv"] = "video",
+        ["vob"] = "video",
+        ["m4v"] = "video",
+        ["webm"] = "video",
+        ["mpg"] = "video",
+        ["mpeg"] = "video",
+        ["ts"] = "video",
 
         // Audio
-        ["mp3"] = "audio", ["wav"] = "audio", ["flac"] = "audio", ["aac"] = "audio",
-        ["ogg"] = "audio", ["m4a"] = "audio", ["opus"] = "audio", ["wma"] = "audio",
+        ["mp3"] = "audio",
+        ["wav"] = "audio",
+        ["flac"] = "audio",
+        ["aac"] = "audio",
+        ["ogg"] = "audio",
+        ["m4a"] = "audio",
+        ["opus"] = "audio",
+        ["wma"] = "audio",
 
         // Archives (vscode-icons has a "zip" icon shared across archive types)
-        ["zip"] = "zip", ["rar"] = "zip", ["7z"] = "zip", ["tar"] = "zip",
-        ["gz"] = "zip", ["bz2"] = "zip", ["xz"] = "zip", ["iso"] = "zip",
+        ["zip"] = "zip",
+        ["rar"] = "zip",
+        ["7z"] = "zip",
+        ["tar"] = "zip",
+        ["gz"] = "zip",
+        ["bz2"] = "zip",
+        ["xz"] = "zip",
+        ["iso"] = "zip",
 
         // Images
-        ["jpg"] = "image", ["jpeg"] = "image", ["png"] = "image", ["gif"] = "image",
-        ["bmp"] = "image", ["tiff"] = "image", ["tif"] = "image", ["webp"] = "image",
-        ["heic"] = "image", ["raw"] = "image",
+        ["jpg"] = "image",
+        ["jpeg"] = "image",
+        ["png"] = "image",
+        ["gif"] = "image",
+        ["bmp"] = "image",
+        ["tiff"] = "image",
+        ["tif"] = "image",
+        ["webp"] = "image",
+        ["heic"] = "image",
+        ["raw"] = "image",
 
         // Documents
         ["pdf"] = "pdf",
-        ["doc"] = "word", ["docx"] = "word",
-        ["xls"] = "excel", ["xlsx"] = "excel", ["csv"] = "excel",
-        ["ppt"] = "powerpoint", ["pptx"] = "powerpoint",
+        ["doc"] = "word",
+        ["docx"] = "word",
+        ["xls"] = "excel",
+        ["xlsx"] = "excel",
+        ["csv"] = "excel",
+        ["ppt"] = "powerpoint",
+        ["pptx"] = "powerpoint",
 
         // Text / scene info files (.nfo / .srr / .srs are scene release metadata — text-like)
-        ["txt"] = "text", ["log"] = "text", ["md"] = "text",
-        ["nfo"] = "text", ["srr"] = "text", ["srs"] = "text",
+        ["txt"] = "text",
+        ["log"] = "text",
+        ["md"] = "text",
+        ["nfo"] = "text",
+        ["srr"] = "text",
+        ["srs"] = "text",
     };
 
     public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

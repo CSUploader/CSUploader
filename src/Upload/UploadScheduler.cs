@@ -23,7 +23,7 @@ public class UploadScheduler : IDisposable
     private readonly List<Package> _packages = [];
     private readonly Lock _packagesLock = new();
     private Task? _loopTask;
-    private CancellationTokenSource _loopCts = new();
+    private readonly CancellationTokenSource _loopCts = new();
     private bool _disposed;
 
     /// <summary>

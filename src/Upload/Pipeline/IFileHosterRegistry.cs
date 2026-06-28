@@ -7,5 +7,5 @@ namespace CSUploader.Upload.Pipeline;
 
 public interface IFileHosterRegistry
 {
-    IFileHosterPipeline? Find(string hosterName);
+    public IFileHosterPipeline? Find(string hosterName);
 }

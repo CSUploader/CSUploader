@@ -3,10 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using CSUploader.Converters;
@@ -38,7 +35,7 @@ public partial class EditAccountWindow : Window
     // "TakeFile" DISABLED 2026-06-28 (Cloudflare managed-challenge TLS wall — see TakeFilePipeline.cs);
     // removed here alongside its registry + DI entries.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare" };
+        [with(StringComparer.OrdinalIgnoreCase), "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
@@ -48,7 +45,7 @@ public partial class EditAccountWindow : Window
     /// an API key.
     /// </summary>
     private static readonly HashSet<string> SessionCookieHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Isracloud" };
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud"];
 
     private readonly FileHosterLoginDto _original;
 
@@ -88,7 +85,7 @@ public partial class EditAccountWindow : Window
 
     /// <summary>"Added at" stamp carried from the existing account so an edit-Save preserves it
     /// (it's set once at insert by the add flow; null for a brand-new account).</summary>
-    private DateTime? _createdDateTime;
+    private readonly DateTime? _createdDateTime;
 
     /// <summary>Full text of the last sign-in failure (summary plus any raw response body),
     /// stashed for the "Details" link. The status row only shows a height-capped preview so a
@@ -279,8 +276,10 @@ public partial class EditAccountWindow : Window
                     ApiKeyBox.Text = result.ApiKey;
                 }
                 _derivedUsername = result.DerivedUsername ?? _derivedUsername;
-                if (result.StorageUsedBytes is { } used) { _storageUsedBytes = used; }
-                if (result.StorageQuotaBytes is { } quota) { _storageQuotaBytes = quota; }
+                if (result.StorageUsedBytes is { } used)
+                { _storageUsedBytes = used; }
+                if (result.StorageQuotaBytes is { } quota)
+                { _storageQuotaBytes = quota; }
                 if (!string.IsNullOrEmpty(result.SessionCookie))
                 {
                     // Capture the cookie together with its expiry + proxy pin, so Save persists a

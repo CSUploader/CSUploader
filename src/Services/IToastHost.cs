@@ -16,31 +16,31 @@ public interface IToastHost
     /// The toast's height in DIPs. Production reads this from the WPF window after layout;
     /// tests can return a fixed value.
     /// </summary>
-    double Height { get; }
+    public double Height { get; }
 
     /// <summary>
     /// Top-edge position in screen coordinates. The service writes this when stacking
     /// or re-flowing toasts.
     /// </summary>
-    double Top { get; set; }
+    public double Top { get; set; }
 
     /// <summary>
     /// Left-edge position in screen coordinates.
     /// </summary>
-    double Left { get; set; }
+    public double Left { get; set; }
 
     /// <summary>
     /// Raised when the toast is dismissed (auto-timeout, close button, or click).
     /// </summary>
-    event EventHandler? Closed;
+    public event EventHandler? Closed;
 
     /// <summary>
     /// Shows the toast non-modally.
     /// </summary>
-    void Show();
+    public void Show();
 
     /// <summary>
     /// Closes the toast.
     /// </summary>
-    void Close();
+    public void Close();
 }

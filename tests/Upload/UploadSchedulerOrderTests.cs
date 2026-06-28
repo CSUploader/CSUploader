@@ -47,7 +47,9 @@ public sealed class UploadSchedulerOrderTests : IDisposable
             scheduler.Dispose();
         }
 
-        try { Directory.Delete(_tempDir, recursive: true); } catch { }
+        try
+        { Directory.Delete(_tempDir, recursive: true); }
+        catch { }
     }
 
     [Fact]
@@ -89,9 +91,12 @@ public sealed class UploadSchedulerOrderTests : IDisposable
         PackageFile[] files = [.. package];
 
         // #1 stuck Hashing; #2 and #3 ready to upload. (Non-idle states survive AddPackage.)
-        files[0].State = FileState.Hashing; files[0].QueueOrder = 1;
-        files[1].State = FileState.UploadQueued; files[1].QueueOrder = 2;
-        files[2].State = FileState.UploadQueued; files[2].QueueOrder = 3;
+        files[0].State = FileState.Hashing;
+        files[0].QueueOrder = 1;
+        files[1].State = FileState.UploadQueued;
+        files[1].QueueOrder = 2;
+        files[2].State = FileState.UploadQueued;
+        files[2].QueueOrder = 3;
 
         scheduler.AddPackage(package); // runs FillSlots; non-idle files are left as-is
 

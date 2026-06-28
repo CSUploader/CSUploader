@@ -40,7 +40,8 @@ public class FakeCookieHosterPipelineTests
 
     private static async Task Drain(IAsyncEnumerable<UploadEvent> stream)
     {
-        await foreach (UploadEvent _ in stream) { }
+        await foreach (UploadEvent _ in stream)
+        { }
     }
 
     private static AttemptContext MakeContext() => new()

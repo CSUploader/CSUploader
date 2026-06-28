@@ -169,8 +169,8 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
             // === Multipart upload bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
             var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            void onProgress(object? _, Lib.OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
             ctx.Handler.UploadProgress += onProgress;
 
             Task uploadTask = UploadBytesAsync(ctx, uploadUrl);
@@ -489,7 +489,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out FolderInfoEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
+            if (env?.Status == 401)
+            {
+                throw new AuthExpiredException();
+            }
+
             return (null, FormatApiError("folder/info failed", env?.Details, env?.Status, body));
         }
 
@@ -533,7 +537,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
         if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
+            if (env?.Status == 401)
+            {
+                throw new AuthExpiredException();
+            }
+
             if (env?.Status == 404 && (env.Details?.Contains("folder", StringComparison.OrdinalIgnoreCase) ?? false))
             {
                 throw new FolderGoneException();
@@ -590,11 +598,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
                     throw new AuthExpiredException();
                 }
 
-                AlfafileAuthState? refreshed = await ReauthenticateAsync(ctx, auth);
-                if (refreshed is null)
-                {
-                    throw new AuthExpiredException();
-                }
+                AlfafileAuthState? refreshed = await ReauthenticateAsync(ctx, auth) ?? throw new AuthExpiredException();
 
                 auth = refreshed;
                 continue; // re-poll the same upload_id with the fresh token

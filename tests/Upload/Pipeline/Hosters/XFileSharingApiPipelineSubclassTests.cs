@@ -109,7 +109,7 @@ public class XFileSharingApiPipelineSubclassTests
         // TakeFile shape: the WebView captures xfss AND cf_clearance; the C# my_account scrape must
         // forward BOTH (otherwise Cloudflare serves the "Just a moment…" page), and the sign-in spec
         // must request cf_clearance + pin the UA so the captured clearance is reusable from C#.
-        List<IReadOnlyDictionary<string, string>?> seenHeaders = new();
+        List<IReadOnlyDictionary<string, string>?> seenHeaders = [];
         CapturingAuthService auth = new(
             cookie: "xfsval",
             additional: new Dictionary<string, string>(StringComparer.Ordinal) { ["cf_clearance"] = "CFVAL" });
@@ -142,7 +142,7 @@ public class XFileSharingApiPipelineSubclassTests
     {
         // Regression guard for the 5 classic XFS hosters: even if the jar happened to hold a
         // cf_clearance, classic mode must NOT request it, must NOT pin a UA, and must send ONLY xfss.
-        List<IReadOnlyDictionary<string, string>?> seenHeaders = new();
+        List<IReadOnlyDictionary<string, string>?> seenHeaders = [];
         CapturingAuthService auth = new(
             cookie: "xfsval",
             additional: new Dictionary<string, string>(StringComparer.Ordinal) { ["cf_clearance"] = "CFVAL" });
@@ -193,7 +193,8 @@ public class XFileSharingApiPipelineSubclassTests
             });
 
         FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "DowngradingXfsHost", ApiKey = "k" };
-        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None))
+        { }
 
         UploadCall call = Assert.Single(calls);
         // Opt-in + host differs from API host test-xfs.example → downgraded.
@@ -228,7 +229,8 @@ public class XFileSharingApiPipelineSubclassTests
             });
 
         FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "TestXfsHost", ApiKey = "k" };
-        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None))
+        { }
 
         // Host differs from the API host, but the default respects the API's scheme → stays https.
         Assert.Equal("https://fs1.test-xfs.example/cgi-bin/upload.cgi", Assert.Single(calls).Endpoint);
@@ -263,7 +265,8 @@ public class XFileSharingApiPipelineSubclassTests
             });
 
         FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "TestXfsHost", ApiKey = "k" };
-        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(credentials), CancellationToken.None))
+        { }
 
         Assert.Equal("https://test-xfs.example/cgi-bin/upload.cgi", Assert.Single(calls).Endpoint);
     }

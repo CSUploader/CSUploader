@@ -31,7 +31,7 @@ public interface IAccountVerifier
     /// a <see cref="Pipeline.ISessionRefreshablePipeline"/> re-validate / refresh server-side data
     /// without re-opening the WebView — HitFile re-reads its storage usage through the proxy with it.
     /// </summary>
-    Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, string? sessionCookie = null, CancellationToken ct = default);
+    public Task<AccountCheckResult> CheckAsync(string hosterName, string username, string password, string? apiKey = null, string? sessionCookie = null, CancellationToken ct = default);
 
     /// <summary>
     /// Re-reads an account's current storage usage WITHOUT any interactive sign-in (no WebView) — for
@@ -40,5 +40,5 @@ public interface IAccountVerifier
     /// FileBoom, HitFile) can refresh; for any other hoster, a missing/expired stored session, or a
     /// transport failure it returns null so the caller keeps the last-known snapshot.
     /// </summary>
-    Task<Pipeline.StorageUsage?> RefreshStorageAsync(string hosterName, FileHosterLoginDto credentials, CancellationToken ct = default);
+    public Task<Pipeline.StorageUsage?> RefreshStorageAsync(string hosterName, FileHosterLoginDto credentials, CancellationToken ct = default);
 }

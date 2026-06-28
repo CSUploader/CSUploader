@@ -37,7 +37,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// drives a WebView2 sign-in (<see cref="IInteractiveAuthService"/>) to capture the
 /// <c>.hitfile.net</c> session cookies, then POSTs <c>/api/user/app/id</c> (cookies, empty body) →
 /// <c>{"appId":"&lt;32-hex&gt;"}</c>. That <c>appId</c> is the stable per-account upload token; it is
-/// persisted in <see cref="Dal.FileHosterLoginDto.ApiKey"/> (the generic secondary-credential slot)
+/// persisted in <see cref="FileHosterLoginDto.ApiKey"/> (the generic secondary-credential slot)
 /// and attached as <c>user_id</c> on every upload — auth is purely cookie-based and bearer-free, but
 /// the appId (not the cookies) is the durable credential, so uploads never re-open the WebView.
 /// The signed-in account's login email rides on that same <c>/api/user/app/id</c> response as a
@@ -48,7 +48,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// oversized file surfaces the server's own <c>result:false</c> rejection rather than a guessed
 /// client-side limit that might wrongly block valid uploads.
 /// </summary>
-public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePipeline, IStorageRefreshablePipeline
+public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePipeline, IStorageRefreshablePipeline
 {
     private const string DiscoveryUrl = "https://app.hitfile.net/api/upload/urls";
 
@@ -243,8 +243,8 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel
         // (can't yield from inside the event handler).
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, userId);
@@ -291,7 +291,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
     /// simply confirms the account WITHOUT re-opening a browser. Storage usage is therefore captured
     /// once, at sign-in — re-reading it would need the logged-in session, so re-sign-in to update it.
     /// </summary>
-    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
     {
         _ = password;
         _ = handler; // the embedded page fetches the appId itself (AppIdProbeScript); no C# HTTP needed
@@ -608,7 +608,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
             return 0;
         }
 
-        Match m = Regex.Match(s.Replace(',', '.'), @"([0-9]+(?:\.[0-9]+)?)\s*([KMGTP]?)b", RegexOptions.IgnoreCase);
+        Match m = MyRegex().Match(s.Replace(',', '.'));
         if (!m.Success || !double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double value))
         {
             return 0;
@@ -792,4 +792,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
+
+    [GeneratedRegex(@"([0-9]+(?:\.[0-9]+)?)\s*([KMGTP]?)b", RegexOptions.IgnoreCase, "ja-JP")]
+    private static partial Regex MyRegex();
 }

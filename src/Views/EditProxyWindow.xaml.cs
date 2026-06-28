@@ -92,7 +92,11 @@ public partial class EditProxyWindow : Window
             else
             {
                 string firstLine = (result.Message ?? string.Empty).Split('\n')[0];
-                if (firstLine.Length > 200) firstLine = firstLine[..200] + "…";
+                if (firstLine.Length > 200)
+                {
+                    firstLine = firstLine[..200] + "…";
+                }
+
                 SetStatus(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["EditProxy_Status_Failed_Format"], firstLine), isError: true);
             }
 

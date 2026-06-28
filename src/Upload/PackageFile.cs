@@ -143,7 +143,7 @@ public class PackageFile : INotifyPropertyChanged
     /// notification is needed.
     /// </summary>
     public string AccountDisplay => FileHosterLogin.IsAnonymous
-        ? CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
+        ? Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
         : (string.IsNullOrWhiteSpace(FileHosterLogin.Username) ? string.Empty : FileHosterLogin.Username);
 
     /// <summary>

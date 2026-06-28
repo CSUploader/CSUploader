@@ -4,8 +4,6 @@
 // </copyright>
 
 using System.Net;
-using CSUploader.Lib;
-using CSUploader.Lib.Net;
 using CSUploader.Upload;
 
 namespace CSUploader.Lib.Net.Http;

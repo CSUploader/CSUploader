@@ -55,7 +55,9 @@ public sealed class UploadSchedulerForceStartTests : IDisposable
             scheduler.Dispose();
         }
 
-        try { Directory.Delete(_tempDir, recursive: true); } catch { }
+        try
+        { Directory.Delete(_tempDir, recursive: true); }
+        catch { }
     }
 
     [Fact]

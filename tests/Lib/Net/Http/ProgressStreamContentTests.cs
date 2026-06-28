@@ -107,7 +107,7 @@ public class ProgressStreamContentTests
     }
 
     /// <summary>
-    /// A write-only sink whose <see cref="WriteAsync(System.ReadOnlyMemory{byte}, CancellationToken)"/>
+    /// A write-only sink whose <see cref="WriteAsync(ReadOnlyMemory{byte}, CancellationToken)"/>
     /// (and the legacy <c>byte[]</c> overload) always fault with the supplied exception, simulating a
     /// server RST mid-body. Everything else is a no-op.
     /// </summary>
@@ -143,7 +143,7 @@ public class ProgressStreamContentTests
     }
 
     /// <summary>
-    /// A readable source whose <see cref="ReadAsync(System.Memory{byte}, CancellationToken)"/> (and the
+    /// A readable source whose <see cref="ReadAsync(Memory{byte}, CancellationToken)"/> (and the
     /// legacy <c>byte[]</c> overload) always fault with the supplied exception, simulating a local file
     /// read error. Mirrors <see cref="ThrowOnWriteStream"/>. Everything else is a no-op.
     /// </summary>

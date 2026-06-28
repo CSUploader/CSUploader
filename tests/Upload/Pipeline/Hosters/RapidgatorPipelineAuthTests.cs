@@ -31,7 +31,10 @@ public class RapidgatorPipelineAuthTests
         await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
         {
             events.Add(ev);
-            if (ev is AuthSucceeded) break; // stop at auth stage; folder+transfer tested separately
+            if (ev is AuthSucceeded)
+            {
+                break; // stop at auth stage; folder+transfer tested separately
+            }
         }
 
         Assert.Contains(events, e => e is AuthStarted);
@@ -56,14 +59,20 @@ public class RapidgatorPipelineAuthTests
         // First call: consume through TransferStarted so folder response is used
         await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
         {
-            if (ev is TransferStarted) break;
+            if (ev is TransferStarted)
+            {
+                break;
+            }
         }
 
         List<UploadEvent> second = [];
         await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
         {
             second.Add(ev);
-            if (ev is TransferStarted) break; // cached auth — no login call
+            if (ev is TransferStarted)
+            {
+                break; // cached auth — no login call
+            }
         }
 
         Assert.DoesNotContain(second, e => e is AuthStarted);
@@ -104,7 +113,10 @@ public class RapidgatorPipelineAuthTests
                 AttemptContext ctx = MakeContext();
                 await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
                 {
-                    if (ev is TransferStarted) break;
+                    if (ev is TransferStarted)
+                    {
+                        break;
+                    }
                 }
             });
         }

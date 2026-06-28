@@ -447,42 +447,48 @@ public partial class SettingsViewModel(
 
     partial void OnMaxConcurrentCPUJobsChanged(int value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.MaxConcurrentCPUJobs = value;
         _ = AutoSaveAsync(SettingKey.MaxConcurrentCPUJobs, value.ToString(CultureInfo.InvariantCulture));
     }
 
     partial void OnMaxConcurrentUploadJobsChanged(int value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.MaxConcurrentUploadJobs = value;
         _ = AutoSaveAsync(SettingKey.MaxConcurrentUploadJobs, value.ToString(CultureInfo.InvariantCulture));
     }
 
     partial void OnMaxUploadsPerHostEnabledChanged(bool value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.MaxUploadsPerHostEnabled = value;
         _ = AutoSaveAsync(SettingKey.MaxUploadsPerHostEnabled, value ? "true" : "false");
     }
 
     partial void OnMaxUploadsPerHostChanged(int value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.MaxUploadsPerHost = value;
         _ = AutoSaveAsync(SettingKey.MaxUploadsPerHost, value.ToString(CultureInfo.InvariantCulture));
     }
 
     partial void OnRemoveFinishedUploadsChanged(RemoveFinishedUploadsMode value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.RemoveFinishedUploads = value;
         _ = AutoSaveAsync(SettingKey.RemoveFinishedUploads, value.ToString());
     }
 
     partial void OnGridFontFamilyChanged(string value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.GridFontFamily = value;
         ApplyGridFontResources();
         _ = AutoSaveAsync(SettingKey.GridFontFamily, value);
@@ -490,7 +496,8 @@ public partial class SettingsViewModel(
 
     partial void OnGridFontSizeChanged(double value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.GridFontSize = value;
         ApplyGridFontResources();
         _ = AutoSaveAsync(SettingKey.GridFontSize, value.ToString(CultureInfo.InvariantCulture));
@@ -498,28 +505,32 @@ public partial class SettingsViewModel(
 
     partial void OnIfFileExistsChanged(IfFileExistsBehavior value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.IfFileExists = value;
         _ = AutoSaveAsync(SettingKey.IfFileExists, value.ToString());
     }
 
     partial void OnAutostartUploadsChanged(AutostartUploadsMode value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.AutostartUploads = value;
         _ = AutoSaveAsync(SettingKey.AutostartUploads, value.ToString());
     }
 
     partial void OnSpeedLimitEnabledChanged(bool value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.SpeedLimit = value ? SpeedLimitValue : null;
         _ = AutoSaveAsync(SettingKey.SpeedLimit, value ? SpeedLimitValue.ToString(CultureInfo.InvariantCulture) : "0");
     }
 
     partial void OnSpeedLimitValueChanged(int value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         if (SpeedLimitEnabled)
         {
             _settings.SpeedLimit = value;
@@ -530,14 +541,16 @@ public partial class SettingsViewModel(
 
     partial void OnUseMockServerChanged(bool value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.UseMockServer = value;
         _ = AutoSaveAsync(SettingKey.UseMockServer, value ? "true" : "false");
     }
 
     partial void OnMinimizeToTrayChanged(bool value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.MinimizeToTray = value;
         _trayIconManager?.UpdateVisibility();
         _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
@@ -545,14 +558,16 @@ public partial class SettingsViewModel(
 
     partial void OnShowCompletionToastsChanged(bool value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.ShowCompletionToasts = value;
         _ = AutoSaveAsync(SettingKey.ShowCompletionToasts, value ? "true" : "false");
     }
 
     partial void OnCloseActionChanged(CloseAction value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.CloseAction = value;
         _trayIconManager?.UpdateVisibility();
         _ = AutoSaveAsync(SettingKey.CloseAction, value.ToString());
@@ -560,7 +575,8 @@ public partial class SettingsViewModel(
 
     partial void OnLanguageChanged(string value)
     {
-        if (_suppressAutoSave) return;
+        if (_suppressAutoSave)
+            return;
         _settings.Language = value;
         // Apply immediately so the open Settings page (and every other tab) re-renders
         // in the new language without a restart. Open dialogs keep whatever language
@@ -1015,7 +1031,8 @@ public partial class SettingsViewModel(
                 account.LastRefreshedDateTime = refreshedAt;
                 // Persist the timestamp even on transport failure. Swallow secondary DB
                 // errors so they don't mask the original verifier exception in the UI.
-                try { await _accountRepository.UpdateAsync(account, cancellationToken); }
+                try
+                { await _accountRepository.UpdateAsync(account, cancellationToken); }
                 catch { /* keep the primary failure visible */ }
             }
 
@@ -1336,7 +1353,8 @@ public partial class SettingsViewModel(
             // Persist the timestamp even on transport failure. Swallow secondary DB
             // errors so they don't mask the verifier exception that's about to surface
             // in the row's status cell.
-            try { await _accountRepository.UpdateAsync(account, cancellationToken); }
+            try
+            { await _accountRepository.UpdateAsync(account, cancellationToken); }
             catch { /* keep the primary failure visible */ }
             CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
             return new RowStatus(AccountCheckStatus.Failed, ex.Message, refreshedAt);

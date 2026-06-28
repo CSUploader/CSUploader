@@ -15,7 +15,7 @@ namespace CSUploader.Upload.Pipeline;
 /// <remarks>
 /// <para>
 /// Cross-cutting concerns the runner has already handled before <see cref="RunAsync"/>:
-/// proxy selection, <see cref="Lib.Net.Http.HttpHandler"/> construction, logging hookup,
+/// proxy selection, <see cref="HttpHandler"/> construction, logging hookup,
 /// cancellation propagation. Implementations must use <c>ctx.Handler</c> for all HTTP —
 /// it is non-null by type and pre-configured with the chosen proxy.
 /// </para>
@@ -42,13 +42,13 @@ namespace CSUploader.Upload.Pipeline;
 public interface IFileHosterPipeline
 {
     /// <summary>Hoster name, must match the key used by <see cref="IFileHosterRegistry"/>.</summary>
-    string Name { get; }
+    public string Name { get; }
 
     /// <summary>True when the hoster needs the file's content hash before upload (e.g. Rapidgator MD5).</summary>
-    bool RequiresHashingBeforeUpload { get; }
+    public bool RequiresHashingBeforeUpload { get; }
 
     /// <summary>True when the hoster computes a hash post-upload (rare, usually false).</summary>
-    bool RequiresHashingAfterUpload { get; }
+    public bool RequiresHashingAfterUpload { get; }
 
     /// <summary>
     /// Maximum file size (in bytes) the hoster accepts, or null when no hard limit is
@@ -57,14 +57,14 @@ public interface IFileHosterPipeline
     /// Free vs. premium splits aren't modelled here — the most restrictive (free-tier)
     /// limit is what callers should treat as authoritative.
     /// </summary>
-    long? MaxFileSize { get; }
+    public long? MaxFileSize { get; }
 
     /// <summary>
     /// Maximum number of files per package the hoster's upload session accepts, or null
     /// when no limit applies. Enforced at wizard time; the runner doesn't know the
     /// package shape so this is purely a UX-side guard.
     /// </summary>
-    int? MaxFilesPerPackage { get; }
+    public int? MaxFilesPerPackage { get; }
 
     /// <summary>
     /// True when the hoster accepts uploads with no account/login. The upload wizard offers
@@ -73,7 +73,7 @@ public interface IFileHosterPipeline
     /// pipeline takes its anonymous path. Defaults to false; only hosters that genuinely
     /// support unauthenticated upload (currently GigaPeta) override it.
     /// </summary>
-    bool SupportsAnonymousUpload => false;
+    public bool SupportsAnonymousUpload => false;
 
     /// <summary>
     /// Per-file size cap (bytes, null = none) for a specific selected account. Defaults to the
@@ -82,7 +82,7 @@ public interface IFileHosterPipeline
     /// consult it with the attempt's credentials — e.g. Hexload's anonymous tier allows 2 GiB
     /// where its API tier uses the smaller default.
     /// </summary>
-    long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => MaxFileSize;
+    public long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => MaxFileSize;
 
     /// <summary>
     /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
@@ -90,7 +90,7 @@ public interface IFileHosterPipeline
     /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the
     /// <see cref="AttemptCompleted"/> envelope itself.
     /// </summary>
-    IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, CancellationToken ct);
+    public IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, CancellationToken ct);
 
     /// <summary>
     /// Verifies a set of credentials against the hoster. Used by the Settings UI to confirm
@@ -109,5 +109,5 @@ public interface IFileHosterPipeline
     /// <paramref name="username"/>/<paramref name="password"/> and may derive an API key
     /// from them — when it does, the resulting key is surfaced on
     /// <see cref="AccountCheckResult.ApiKey"/> so the caller can persist it onto the DTO.</param>
-    Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct);
+    public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct);
 }

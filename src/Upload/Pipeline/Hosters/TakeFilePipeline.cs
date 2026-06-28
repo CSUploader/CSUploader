@@ -78,5 +78,5 @@ public sealed class TakeFilePipeline : XFileSharingApiPipeline
 
     /// <summary>Cloudflare managed-challenge clearance lasts ≈30 min; re-sign-in a bit sooner so the
     /// forwarded cf_clearance is always fresh.</summary>
-    protected override System.TimeSpan SignInSessionLifetime => System.TimeSpan.FromMinutes(20);
+    protected override TimeSpan SignInSessionLifetime => TimeSpan.FromMinutes(20);
 }

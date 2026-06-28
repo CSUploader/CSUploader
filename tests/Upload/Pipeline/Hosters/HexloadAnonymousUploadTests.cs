@@ -8,7 +8,6 @@ using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
-using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.Upload.Pipeline.Hosters;
 using Moq;

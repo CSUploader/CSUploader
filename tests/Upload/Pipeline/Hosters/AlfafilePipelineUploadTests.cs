@@ -247,9 +247,11 @@ public class AlfafilePipelineUploadTests
         AttemptContext ctx2 = MakeContext() with { Credentials = creds, FileName = "y.iso", FilePath = @"C:\pkg\y.iso" };
 
         // File 1
-        await foreach (UploadEvent _ in pipeline.RunAsync(ctx1, CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx1, CancellationToken.None))
+        { }
         // File 2 — must hit the folder cache, skip the folder/create round-trip
-        await foreach (UploadEvent _ in pipeline.RunAsync(ctx2, CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx2, CancellationToken.None))
+        { }
 
         Assert.Equal(1, folderCreateCalls);
         Assert.Empty(responses);

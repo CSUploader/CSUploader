@@ -271,7 +271,7 @@ public class PackageTests
             StubRegistry registry = new(new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase)
             {
                 ["Rapidgator"] = 0,    // any non-empty file is over the cap → filtered out
-                ["BRupload"]   = null, // no cap declared → kept
+                ["BRupload"] = null, // no cap declared → kept
             });
             Mock<IAppLogger> logger = new();
 
@@ -417,14 +417,14 @@ public class PackageTests
             public long? MaxFileSize => maxFileSize;
             public int? MaxFilesPerPackage => null;
             public IAsyncEnumerable<CSUploader.Upload.Pipeline.UploadEvent> RunAsync(CSUploader.Upload.Pipeline.AttemptContext ctx, CancellationToken ct) => throw new NotImplementedException();
-            public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, CSUploader.Lib.Net.Http.HttpHandler handler, ProxyChoice proxy, CancellationToken ct) => throw new NotImplementedException();
+            public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct) => throw new NotImplementedException();
         }
     }
 
     [Fact]
     public void Path_NoFiles_ReturnsNull()
     {
-        Package package = new(new PackageOptions { Title = "t", FileHosters = new() });
+        Package package = new(new PackageOptions { Title = "t", FileHosters = [] });
 
         Assert.Null(package.Path);
     }

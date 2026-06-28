@@ -7,7 +7,6 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Threading;
-using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Upload;

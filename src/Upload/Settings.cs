@@ -150,7 +150,7 @@ public class AppSettings
     public bool ShowCompletionToasts { get; set; } = DefaultShowCompletionToasts;
 
     /// <summary>
-    /// When true, the upload pipeline's <see cref="System.Net.Http.HttpClient"/> instances
+    /// When true, the upload pipeline's <see cref="HttpClient"/> instances
     /// accept ANY server certificate without validating the name or chain. Defaults to
     /// false. Intended as an opt-in workaround for hosters whose storage CDN edges (e.g.
     /// FileBoom's <c>cmb-*.filestore.app</c> nodes) ship certs that fail standard
@@ -174,5 +174,5 @@ public class AppSettings
     /// Confirmation-dialog keys for which the user has ticked "Don't ask me again".
     /// Stored as a comma-separated setting; kept as a HashSet at runtime for O(1) lookup.
     /// </summary>
-    public HashSet<string> SuppressedConfirmations { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> SuppressedConfirmations { get; } = [with(StringComparer.Ordinal)];
 }

@@ -13,5 +13,5 @@ public interface IToastWindowFactory
     /// Builds an <see cref="IToastHost"/> for the given view-model. The host is not yet
     /// shown — the service positions it before calling <see cref="IToastHost.Show"/>.
     /// </summary>
-    IToastHost Create(ToastViewModel viewModel);
+    public IToastHost Create(ToastViewModel viewModel);
 }

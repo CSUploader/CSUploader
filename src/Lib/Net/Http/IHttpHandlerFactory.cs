@@ -3,8 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using CSUploader.Lib.Net;
-
 namespace CSUploader.Lib.Net.Http;
 
 /// <summary>
@@ -15,5 +13,5 @@ namespace CSUploader.Lib.Net.Http;
 /// </summary>
 public interface IHttpHandlerFactory
 {
-    HttpHandler Create(ProxyChoice proxy, IAppLogger logger);
+    public HttpHandler Create(ProxyChoice proxy, IAppLogger logger);
 }

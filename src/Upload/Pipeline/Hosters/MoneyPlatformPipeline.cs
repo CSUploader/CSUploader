@@ -228,8 +228,8 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
 
             // === Multipart upload ===
             var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
             ctx.Handler.UploadProgress += onProgress;
 
             Task<HttpResponseSnapshot> uploadTask = UploadBytesAsync(ctx, endpoint);
@@ -367,8 +367,15 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
             // Fetch storage stats opportunistically. Failure here is non-fatal — the upload doesn't
             // need quota info; we use it only for the wizard's queue-time filter and the grid status.
             (long? used, long? total) = await TryFetchStorageStatsAsync(fresh, ctx.Handler, ct).ConfigureAwait(false);
-            if (used is not null) ctx.Credentials.StorageUsedBytes = used;
-            if (total is not null) ctx.Credentials.StorageQuotaBytes = total;
+            if (used is not null)
+            {
+                ctx.Credentials.StorageUsedBytes = used;
+            }
+
+            if (total is not null)
+            {
+                ctx.Credentials.StorageQuotaBytes = total;
+            }
 
             if (_loginRepository is not null)
             {
@@ -793,9 +800,21 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
     internal static DateTime? TryGetJwtExpiry(string jwt)
     {
         JsonElement? payload = TryDecodeJwtPayload(jwt);
-        if (payload is not { } p) return null;
-        if (!p.TryGetProperty("exp", out JsonElement exp)) return null;
-        if (!exp.TryGetInt64(out long unix)) return null;
+        if (payload is not { } p)
+        {
+            return null;
+        }
+
+        if (!p.TryGetProperty("exp", out JsonElement exp))
+        {
+            return null;
+        }
+
+        if (!exp.TryGetInt64(out long unix))
+        {
+            return null;
+        }
+
         return DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime;
     }
 
@@ -806,7 +825,10 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
     private static (string? Email, bool IsPremium, DateTime? Expiry) DecodeUserClaimsOrDefault(string jwt)
     {
         JsonElement? payload = TryDecodeJwtPayload(jwt);
-        if (payload is not { } p) return (null, false, null);
+        if (payload is not { } p)
+        {
+            return (null, false, null);
+        }
 
         string? email = p.TryGetProperty("name", out JsonElement name) && name.ValueKind == JsonValueKind.String
             ? name.GetString()
@@ -825,15 +847,27 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
         try
         {
             string[] parts = jwt.Split('.');
-            if (parts.Length != 3) return null;
+            if (parts.Length != 3)
+            {
+                return null;
+            }
 
             string base64Url = parts[1];
             // base64url → base64: replace - with +, _ with /, then pad to multiple of 4.
             string padded = base64Url.Replace('-', '+').Replace('_', '/');
             int rem = padded.Length % 4;
-            if (rem == 2) padded += "==";
-            else if (rem == 3) padded += "=";
-            else if (rem == 1) return null; // invalid base64url length
+            if (rem == 2)
+            {
+                padded += "==";
+            }
+            else if (rem == 3)
+            {
+                padded += "=";
+            }
+            else if (rem == 1)
+            {
+                return null; // invalid base64url length
+            }
 
             byte[] bytes = Convert.FromBase64String(padded);
             using var doc = JsonDocument.Parse(bytes);

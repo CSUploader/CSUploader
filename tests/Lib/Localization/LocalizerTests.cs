@@ -60,7 +60,7 @@ public class LocalizerTests : IDisposable
         Localizer.Instance.Culture = new CultureInfo("en");
 
         List<string?> raised = [];
-        PropertyChangedEventHandler handler = (_, e) => raised.Add(e.PropertyName);
+        void handler(object? _, PropertyChangedEventArgs e) => raised.Add(e.PropertyName);
         Localizer.Instance.PropertyChanged += handler;
 
         try
@@ -84,7 +84,7 @@ public class LocalizerTests : IDisposable
         Localizer.Instance.Culture = culture;
 
         int count = 0;
-        PropertyChangedEventHandler handler = (_, _) => count++;
+        void handler(object? _, PropertyChangedEventArgs __) => count++;
         Localizer.Instance.PropertyChanged += handler;
 
         try

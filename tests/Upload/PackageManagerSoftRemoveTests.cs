@@ -200,7 +200,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -227,7 +229,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -251,7 +255,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -277,7 +283,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -303,7 +311,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -329,7 +339,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -409,7 +421,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -460,7 +474,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -506,7 +522,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -573,7 +591,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -662,7 +682,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -712,7 +734,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -764,7 +788,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -808,7 +834,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -859,7 +887,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -896,7 +926,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -939,7 +971,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -983,7 +1017,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -1032,7 +1068,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -1076,7 +1114,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -1102,7 +1142,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -1126,7 +1168,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 
@@ -1150,7 +1194,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
         }
     }
 

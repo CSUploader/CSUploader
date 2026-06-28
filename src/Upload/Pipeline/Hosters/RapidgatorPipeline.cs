@@ -175,8 +175,8 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
             // channel that this iterator drains. The upload task's completion (including its
             // exceptions) is surfaced after the channel is fully drained.
             var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            void onProgress(object? _, Lib.OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
             ctx.Handler.UploadProgress += onProgress;
 
             Task uploadTask = UploadBytesAsync(ctx, uploadUrl);
@@ -349,7 +349,8 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
         // (grid shows blanks) rather than failing an otherwise-valid account.
         (long? used, long? quota) = MapStorage(env.Response.User?.Storage);
         return BuildAccountCheckResult(env.Response.User?.IsPremium == true, env.Response.User?.PremiumEndTime)
-            with { StorageUsedBytes = used, StorageQuotaBytes = quota };
+            with
+        { StorageUsedBytes = used, StorageQuotaBytes = quota };
     }
 
     /// <summary>
@@ -461,7 +462,11 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
 
         if (!JsonHelpers.TryDeserializeObject(body, out FolderEnvelope? env) || env?.Status != 200 || env.Response?.Folder is null)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
+            if (env?.Status == 401)
+            {
+                throw new AuthExpiredException();
+            }
+
             return (null, FormatApiError("folder/create failed", env?.Details, env?.Status, body));
         }
 
@@ -511,7 +516,11 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
 
         if (!JsonHelpers.TryDeserializeObject(body, out UploadUrlEnvelope? env) || env?.Status != 200 || env.Response?.Upload is null)
         {
-            if (env?.Status == 401) throw new AuthExpiredException();
+            if (env?.Status == 401)
+            {
+                throw new AuthExpiredException();
+            }
+
             return new UploadUrlResult(null, null, null, FormatApiError("file/upload failed", env?.Details, env?.Status, body));
         }
 
@@ -570,11 +579,7 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
                     throw new AuthExpiredException();
                 }
 
-                RapidgatorAuthState? refreshed = await ReauthenticateAsync(ctx, auth);
-                if (refreshed is null)
-                {
-                    throw new AuthExpiredException();
-                }
+                RapidgatorAuthState? refreshed = await ReauthenticateAsync(ctx, auth) ?? throw new AuthExpiredException();
 
                 auth = refreshed;
                 continue; // re-poll the same upload_id with the fresh token

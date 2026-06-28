@@ -52,7 +52,11 @@ public class ProxyManagerSourceTests : IDisposable
         // a disabled toggle means the user is opting into direct on purpose.
         await SeedProxyAsync(new ProxySettingDto
         {
-            Type = ProxyType.Http, Host = "1.2.3.4", Port = 8080, Enabled = true, Priority = 0,
+            Type = ProxyType.Http,
+            Host = "1.2.3.4",
+            Port = 8080,
+            Enabled = true,
+            Priority = 0,
         });
         AppSettings settings = new() { ProxiesEnabled = false };
         ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
@@ -71,7 +75,11 @@ public class ProxyManagerSourceTests : IDisposable
         // choice and must still translate to Direct, NOT to a null refusal.
         await SeedProxyAsync(new ProxySettingDto
         {
-            Type = ProxyType.None, Host = string.Empty, Port = 0, Enabled = true, Priority = 0,
+            Type = ProxyType.None,
+            Host = string.Empty,
+            Port = 0,
+            Enabled = true,
+            Priority = 0,
         });
         AppSettings settings = new() { ProxiesEnabled = true };
         ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
@@ -87,7 +95,11 @@ public class ProxyManagerSourceTests : IDisposable
     {
         await SeedProxyAsync(new ProxySettingDto
         {
-            Type = ProxyType.Http, Host = "10.0.0.1", Port = 3128, Enabled = true, Priority = 0,
+            Type = ProxyType.Http,
+            Host = "10.0.0.1",
+            Port = 3128,
+            Enabled = true,
+            Priority = 0,
         });
         AppSettings settings = new() { ProxiesEnabled = true };
         ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
@@ -119,7 +131,11 @@ public class ProxyManagerSourceTests : IDisposable
     {
         await SeedProxyAsync(new ProxySettingDto
         {
-            Type = ProxyType.Http, Host = "10.0.0.5", Port = 3128, Enabled = true, Priority = 0,
+            Type = ProxyType.Http,
+            Host = "10.0.0.5",
+            Port = 3128,
+            Enabled = true,
+            Priority = 0,
         });
         AppSettings settings = new() { ProxiesEnabled = true };
         ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
@@ -141,7 +157,11 @@ public class ProxyManagerSourceTests : IDisposable
         // (which would invalidate the IP-bound session cookie).
         await SeedProxyAsync(new ProxySettingDto
         {
-            Type = ProxyType.Http, Host = "10.0.0.5", Port = 3128, Enabled = false, Priority = 0,
+            Type = ProxyType.Http,
+            Host = "10.0.0.5",
+            Port = 3128,
+            Enabled = false,
+            Priority = 0,
         });
         AppSettings settings = new() { ProxiesEnabled = true };
         ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);

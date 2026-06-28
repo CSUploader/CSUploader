@@ -414,9 +414,9 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         // value to EVERY selected row — one prompt, applied across the whole selection.
         (int? currentLimit, int? inheritedLimit) = items[0] switch
         {
-            Package package => (package.SpeedLimitKBps, _settings.SpeedLimit is > 0 ? _settings.SpeedLimit : (int?)null),
-            PackageFile file => (file.SpeedLimitKBps, file.Package.SpeedLimitKBps ?? (_settings.SpeedLimit is > 0 ? _settings.SpeedLimit : (int?)null)),
-            _ => ((int?)null, (int?)null),
+            Package package => (package.SpeedLimitKBps, _settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null),
+            PackageFile file => (file.SpeedLimitKBps, file.Package.SpeedLimitKBps ?? (_settings.SpeedLimit is > 0 ? _settings.SpeedLimit : null)),
+            _ => (null, null),
         };
 
         int? displayLimit = currentLimit ?? inheritedLimit;

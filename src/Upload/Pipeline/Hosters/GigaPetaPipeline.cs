@@ -31,7 +31,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   and the file as <c>file_0</c>. The homepage's <c>Set-Cookie</c>s (<c>auth_token3</c> etc.,
 ///   scoped to <c>.gigapeta.com</c>) are echoed back on the POST.</item>
 ///   <item><b>Never send <c>Expect: 100-continue</c>.</b> The upload nodes (<c>nginx/1.2.3</c>)
-///   reply 403 if it's present. .NET's <see cref="System.Net.Http.HttpClient"/> doesn't add it by
+///   reply 403 if it's present. .NET's <see cref="HttpClient"/> doesn't add it by
 ///   default, so <see cref="HttpHandler.UploadMultipartAsync"/> is already safe — but don't ever
 ///   flip <c>ExpectContinue</c> on for this host.</item>
 ///   <item><b>Result.</b> Success is a <c>302</c> whose <c>Location</c> is
@@ -41,7 +41,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// No login, no auth cache, no hashing. The <c>adv_sess</c>/login path is intentionally stubbed
 /// (see <see cref="CheckAccountAsync"/>) until a real account is available to verify it.
 /// </summary>
-public sealed class GigaPetaPipeline : IFileHosterPipeline
+public sealed partial class GigaPetaPipeline : IFileHosterPipeline
 {
     private const string Host = "http://gigapeta.com";
     private const string HomeUrl = Host + "/";
@@ -55,19 +55,13 @@ public sealed class GigaPetaPipeline : IFileHosterPipeline
     // The upload form's action points at the rotating upload host (gNN.upload.gigapeta.com).
     // Anchoring on that host keeps us from matching the page's login form, and is robust to
     // attribute ordering (id-before-action vs action-before-id across template versions).
-    private static readonly Regex _uploadActionRegex = new(
-        """action=["']([^"']*upload\.gigapeta\.com[^"']*)["']""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _uploadActionRegex = UploadActionRegex();
 
-    private static readonly Regex _maxFileSizeRegex = new(
-        """name=["']MAX_FILE_SIZE["'][^>]*?value=["'](\d+)["']|value=["'](\d+)["'][^>]*?name=["']MAX_FILE_SIZE["']""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _maxFileSizeRegex = MaxFileSizeRegex();
 
     // Fallback link extractor: the upload response body echoes the clean download URL even
     // when (for whatever reason) the Location header is absent.
-    private static readonly Regex _downloadLinkRegex = new(
-        """https?://(?:www\.)?gigapeta\.com/dl/[0-9a-zA-Z]+""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _downloadLinkRegex = DownloadLinkRegex();
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
@@ -130,8 +124,8 @@ public sealed class GigaPetaPipeline : IFileHosterPipeline
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel,
         // same pattern as the other pipelines (can't yield from inside the event handler).
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, actionUrl, maxFileSizeField, cookieHeader);
@@ -335,4 +329,11 @@ public sealed class GigaPetaPipeline : IFileHosterPipeline
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
+
+    [GeneratedRegex("""action=["']([^"']*upload\.gigapeta\.com[^"']*)["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex UploadActionRegex();
+    [GeneratedRegex("""name=["']MAX_FILE_SIZE["'][^>]*?value=["'](\d+)["']|value=["'](\d+)["'][^>]*?name=["']MAX_FILE_SIZE["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex MaxFileSizeRegex();
+    [GeneratedRegex("""https?://(?:www\.)?gigapeta\.com/dl/[0-9a-zA-Z]+""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex DownloadLinkRegex();
 }

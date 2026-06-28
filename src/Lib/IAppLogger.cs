@@ -10,9 +10,9 @@ namespace CSUploader.Lib;
 
 public interface IAppLogger
 {
-    event LogEventHandler? OnLogOutput;
+    public event LogEventHandler? OnLogOutput;
 
-    void Log(
+    public void Log(
         object? sender,
         LogType logType,
         string text,

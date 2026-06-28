@@ -43,7 +43,7 @@ public class FileBoomPipelineTests
     public void IsUserScopedAccessToken_OnUserAudPayload_ReturnsTrue()
     {
         string jwt = MakeJwt(new { sub = "68627552", aud = "user", role = "registered", exp = FutureUnix() });
-        Assert.True(FileBoomPipeline.IsUserScopedAccessToken(jwt));
+        Assert.True(MoneyPlatformPipeline.IsUserScopedAccessToken(jwt));
     }
 
     [Fact]
@@ -53,15 +53,15 @@ public class FileBoomPipelineTests
         // This is the case the validator MUST reject so the WebView doesn't close on
         // the first NavigationCompleted.
         string jwt = MakeJwt(new { sub = "5b46fd6bfc4e", aud = "client", exp = FutureUnix() });
-        Assert.False(FileBoomPipeline.IsUserScopedAccessToken(jwt));
+        Assert.False(MoneyPlatformPipeline.IsUserScopedAccessToken(jwt));
     }
 
     [Fact]
     public void IsUserScopedAccessToken_OnMalformedJwt_ReturnsFalseWithoutThrowing()
     {
-        Assert.False(FileBoomPipeline.IsUserScopedAccessToken("not.a.jwt"));
-        Assert.False(FileBoomPipeline.IsUserScopedAccessToken("only-one-segment"));
-        Assert.False(FileBoomPipeline.IsUserScopedAccessToken(""));
+        Assert.False(MoneyPlatformPipeline.IsUserScopedAccessToken("not.a.jwt"));
+        Assert.False(MoneyPlatformPipeline.IsUserScopedAccessToken("only-one-segment"));
+        Assert.False(MoneyPlatformPipeline.IsUserScopedAccessToken(""));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class FileBoomPipelineTests
         long unix = FutureUnix(daysFromNow: 7);
         string jwt = MakeJwt(new { sub = "x", aud = "user", exp = unix });
 
-        DateTime? actual = FileBoomPipeline.TryGetJwtExpiry(jwt);
+        DateTime? actual = MoneyPlatformPipeline.TryGetJwtExpiry(jwt);
 
         Assert.NotNull(actual);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime, actual!.Value);
@@ -335,7 +335,8 @@ public class FileBoomPipelineTests
             });
 
         AttemptContext ctx = MakeContextWithCachedJwt(jwt) with { FileName = "movie.avi", FileSize = 5_225_142L };
-        await foreach (UploadEvent _ in pipeline.RunAsync(ctx, CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx, CancellationToken.None))
+        { }
 
         Assert.NotNull(captured);
         Assert.Equal("HEX", captured!["signature"]);
@@ -480,7 +481,11 @@ public class FileBoomPipelineTests
             loginRepository: null,
             getOverride: (url, headers) =>
             {
-                if (url.Contains("/upload-url", StringComparison.Ordinal)) capturedUploadUrlHeaders = headers;
+                if (url.Contains("/upload-url", StringComparison.Ordinal))
+                {
+                    capturedUploadUrlHeaders = headers;
+                }
+
                 return Task.FromResult(RouteGet(url, uploadUrlResponses, storageUsed: null, storageTotal: null));
             },
             uploadOverride: (_, _, _, _, _) => Task.FromResult(Json("""{"status":"success","success":true,"link":"https://fboom.me/file/y"}""")));
@@ -488,7 +493,8 @@ public class FileBoomPipelineTests
         AttemptContext ctx = MakeContextWithCachedJwt(jwt, pinnedProxyId: 7);
         ctx = ctx with { Proxy = new ProxyChoice(9, null, "https://other.example:8080") };
 
-        await foreach (UploadEvent _ in pipeline.RunAsync(ctx, CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx, CancellationToken.None))
+        { }
 
         Assert.Equal(1, fake.CallCount);
         // Cookie header carries the FRESH jwt, not the stale one.
@@ -645,8 +651,10 @@ public class FileBoomPipelineTests
         AttemptContext c1 = MakeContext() with { Credentials = creds, FileName = "a.bin", FilePath = @"C:\pkg\a.bin" };
         AttemptContext c2 = MakeContext() with { Credentials = creds, FileName = "b.bin", FilePath = @"C:\pkg\b.bin" };
 
-        await foreach (UploadEvent _ in pipeline.RunAsync(c1, CancellationToken.None)) { }
-        await foreach (UploadEvent _ in pipeline.RunAsync(c2, CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(c1, CancellationToken.None))
+        { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(c2, CancellationToken.None))
+        { }
 
         Assert.Equal(1, fake.CallCount); // WebView opens once across BOTH files
         Assert.Empty(uploadUrlResponses);
@@ -715,7 +723,7 @@ public class FileBoomPipelineTests
     private static AttemptContext MakeContextWithCachedJwt(string jwt, int pinnedProxyId = 0)
     {
         AttemptContext baseCtx = MakeContext();
-        DateTime? exp = FileBoomPipeline.TryGetJwtExpiry(jwt);
+        DateTime? exp = MoneyPlatformPipeline.TryGetJwtExpiry(jwt);
         baseCtx.Credentials.SessionCookie = jwt;
         baseCtx.Credentials.SessionCookieExpiresUtc = exp ?? DateTime.UtcNow.AddDays(1);
         baseCtx.Credentials.PinnedProxyId = pinnedProxyId;

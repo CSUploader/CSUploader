@@ -35,5 +35,5 @@ public interface IHashingService
     /// optional <see cref="HashProgress"/> events, and finally either a
     /// <see cref="HashCompleted"/> or <see cref="HashFailed"/> terminal event.
     /// </returns>
-    IAsyncEnumerable<HashEvent> HashFileAsync(string filePath, HashAlgorithmName algorithm, CancellationToken ct);
+    public IAsyncEnumerable<HashEvent> HashFileAsync(string filePath, HashAlgorithmName algorithm, CancellationToken ct);
 }

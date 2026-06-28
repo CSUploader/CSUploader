@@ -304,7 +304,8 @@ public class IsraCloudPipelineTests
                 return Task.FromResult(uploads.Dequeue());
             });
 
-        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(ValidCookieCredentials()), CancellationToken.None)) { }
+        await foreach (UploadEvent _ in pipeline.RunAsync(MakeContext(ValidCookieCredentials()), CancellationToken.None))
+        { }
 
         // No hidden sess_id on the form → the stored cookie value ("xfss_isra_like") is used.
         Assert.Equal("xfss_isra_like", Assert.Single(calls).ExtraFields["sess_id"]);

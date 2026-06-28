@@ -3,12 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System;
 using System.IO;
-using System.Threading.Tasks;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
-using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -108,7 +105,8 @@ public class StartupDISmokeTests
         {
             // Best-effort cleanup — the SQLite file may or may not exist depending on whether
             // resolution touched the DB context factory.
-            try { Directory.Delete(tempDir, recursive: true); }
+            try
+            { Directory.Delete(tempDir, recursive: true); }
             catch { /* leave the temp tree if Windows still has a handle; cleanup is best-effort */ }
         }
     }

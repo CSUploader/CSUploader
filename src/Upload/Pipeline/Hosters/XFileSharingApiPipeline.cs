@@ -50,7 +50,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// during the brief bootstrap window and cleared once the API key is in hand.
 /// </para>
 /// </remarks>
-public abstract class XFileSharingApiPipeline : IFileHosterPipeline
+public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
 {
     /// <summary>Hoster origin, e.g. <c>"https://ex-load.com"</c>. Must not end with a slash.</summary>
     protected abstract string Host { get; }
@@ -229,9 +229,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     // Hidden-input regex for the CSRF token on the my_account page. Same shape every
     // XFileSharing variant renders for its `token` fields — handles attribute order
     // variation.
-    private static readonly Regex _csrfTokenRegex = new(
-        """name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _csrfTokenRegex = MyRegex();
 
     // The API key is rendered in one of four shapes across the XFileSharing family —
     // we accept all four:
@@ -415,8 +413,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         yield return new TransferStarted(ctx.FileSize);
 
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
@@ -450,19 +448,19 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         if (uploadResponse is not null)
         {
-            (string? Url, string? Error, bool AuthExpired) parsed = ParseUploadResponse(uploadResponse);
-            if (parsed.AuthExpired)
+            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+            if (AuthExpired)
             {
                 await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
                 authExpiredDuringUpload = true;
             }
-            else if (parsed.Error is not null)
+            else if (Error is not null)
             {
-                attemptFailure = parsed.Error;
+                attemptFailure = Error;
             }
             else
             {
-                finalUrl = parsed.Url;
+                finalUrl = Url;
             }
         }
 
@@ -515,7 +513,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     {
         yield return new TransferStarted(ctx.FileSize);
 
-        System.Net.Http.HttpRequestException? lastUnreachable = null;
+        HttpRequestException? lastUnreachable = null;
 
         for (int attempt = 0; attempt < AnonymousServerAttempts; attempt++)
         {
@@ -528,8 +526,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
             // Progress bridge (same pattern as the API path).
             var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-            EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
             ctx.Handler.UploadProgress += onProgress;
 
             Task<HttpResponseSnapshot> uploadTask = AnonymousUploadAsync(ctx, uploadUrl);
@@ -559,7 +557,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             {
                 cancelled = true;
             }
-            catch (System.Net.Http.HttpRequestException hre) when (IsServerUnreachable(hre))
+            catch (HttpRequestException hre) when (IsServerUnreachable(hre))
             {
                 // The assigned upload server didn't resolve/connect — no bytes were sent, so
                 // grabbing a fresh server and retrying wastes nothing.
@@ -663,8 +661,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// a freshly-assigned server. A mid-stream failure (bytes already in flight) is NOT this and
     /// is surfaced as a normal failure so a partially-uploaded file is never re-sent.
     /// </summary>
-    private static bool IsServerUnreachable(System.Net.Http.HttpRequestException ex)
-        => ex.HttpRequestError is System.Net.Http.HttpRequestError.NameResolutionError or System.Net.Http.HttpRequestError.ConnectionError
+    private static bool IsServerUnreachable(HttpRequestException ex)
+        => ex.HttpRequestError is HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
            || ex.InnerException is System.Net.Sockets.SocketException;
 
     private Task<HttpResponseSnapshot> AnonymousUploadAsync(AttemptContext ctx, string uploadUrl)
@@ -923,8 +921,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         yield return new TransferStarted(ctx.FileSize);
 
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
@@ -958,19 +956,19 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         if (uploadResponse is not null)
         {
-            (string? Url, string? Error, bool AuthExpired) parsed = ParseUploadResponse(uploadResponse);
-            if (parsed.AuthExpired)
+            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+            if (AuthExpired)
             {
                 await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
                 authExpiredDuringUpload = true;
             }
-            else if (parsed.Error is not null)
+            else if (Error is not null)
             {
-                attemptFailure = parsed.Error;
+                attemptFailure = Error;
             }
             else
             {
-                finalUrl = parsed.Url;
+                finalUrl = Url;
             }
         }
 
@@ -1573,18 +1571,14 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         if (UsesChunkedUpload)
         {
-            HttpResponseSnapshot? chunkedResult = await TryChunkedUploadAsync(ctx, uploadUrl, sessId);
-            if (chunkedResult is null)
-            {
-                // Subclass declared chunked but the hoster's up.cgi rejected the probe.
-                // No fallback — fail loudly so the misdeclaration gets fixed at its source
-                // (override UsesChunkedUpload to false) instead of silently masking the
-                // real protocol with classic.
-                throw new InvalidOperationException(
-                    $"{Name}: declared UsesChunkedUpload=true but up.cgi did not accept chunk 0. "
-                    + $"Either the hoster removed chunked support (override UsesChunkedUpload to false) "
-                    + $"or the API-supplied upload URL ({uploadUrl}) isn't a chunked endpoint.");
-            }
+            // Subclass declared chunked but the hoster's up.cgi rejected the probe.
+            // No fallback — fail loudly so the misdeclaration gets fixed at its source
+            // (override UsesChunkedUpload to false) instead of silently masking the
+            // real protocol with classic.
+            HttpResponseSnapshot? chunkedResult = await TryChunkedUploadAsync(ctx, uploadUrl, sessId) ?? throw new InvalidOperationException(
+                $"{Name}: declared UsesChunkedUpload=true but up.cgi did not accept chunk 0. "
+                + $"Either the hoster removed chunked support (override UsesChunkedUpload to false) "
+                + $"or the API-supplied upload URL ({uploadUrl}) isn't a chunked endpoint.");
             return chunkedResult;
         }
 
@@ -1854,7 +1848,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         byte[] buf = new byte[6];
         System.Security.Cryptography.RandomNumberGenerator.Fill(buf);
         long n = 0;
-        foreach (byte b in buf) n = (n << 8) | b;
+        foreach (byte b in buf)
+        {
+            n = (n << 8) | b;
+        }
+
         n &= 0xFFFFFFFFFFFFL; // 48 bits → up to ~2.8e14, 12-15 decimal digits typically.
         return n.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
@@ -1885,7 +1883,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
     private static string ChunkSnippet(string body)
     {
-        if (string.IsNullOrWhiteSpace(body)) return "(empty)";
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "(empty)";
+        }
+
         string s = body.Replace('\n', ' ').Replace('\r', ' ');
         return s.Length > 200 ? s[..200] + "…" : s;
     }
@@ -1967,7 +1969,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     private static string? ExtractCsrfToken(string html)
     {
         Match m = _csrfTokenRegex.Match(html);
-        if (!m.Success) return null;
+        if (!m.Success)
+        {
+            return null;
+        }
+
         string captured = m.Groups[1].Success && m.Groups[1].Length > 0
             ? m.Groups[1].Value
             : m.Groups[2].Value;
@@ -1976,7 +1982,10 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
     private static string Snippet(string body)
     {
-        if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return string.Empty;
+        }
 
         string trimmed = body.Trim()
             .Replace("\r", " ", StringComparison.Ordinal)
@@ -2104,7 +2113,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// map. Returns an empty map when the header dict has no Cookie entry.</summary>
     private static Dictionary<string, string> ParseCookieHeader(IReadOnlyDictionary<string, string>? headers)
     {
-        Dictionary<string, string> jar = new(StringComparer.Ordinal);
+        Dictionary<string, string> jar = [with(StringComparer.Ordinal)];
         if (headers is null || !headers.TryGetValue("Cookie", out string? cookie) || string.IsNullOrEmpty(cookie))
         {
             return jar;
@@ -2155,8 +2164,10 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// other header the caller set (Origin, etc.).</summary>
     private static Dictionary<string, string> RebuildHeadersWithCookies(IReadOnlyDictionary<string, string> baseHeaders, Dictionary<string, string> jar)
     {
-        Dictionary<string, string> rebuilt = new(baseHeaders, StringComparer.Ordinal);
-        rebuilt["Cookie"] = string.Join("; ", jar.Select(kv => kv.Key + "=" + kv.Value));
+        Dictionary<string, string> rebuilt = new(baseHeaders, StringComparer.Ordinal)
+        {
+            ["Cookie"] = string.Join("; ", jar.Select(kv => kv.Key + "=" + kv.Value))
+        };
         return rebuilt;
     }
 
@@ -2327,4 +2338,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         [JsonPropertyName("file_code")] public string? Code { get; set; }
         [JsonPropertyName("file_status")] public string? Status { get; set; }
     }
+
+    [GeneratedRegex("""name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex MyRegex();
 }

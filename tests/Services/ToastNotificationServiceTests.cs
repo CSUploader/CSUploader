@@ -9,7 +9,6 @@ using CSUploader.Dal;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
-using Moq;
 
 namespace CSUploader.Tests.Services;
 
@@ -123,7 +122,11 @@ public class ToastNotificationServiceTests
         FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         // Use a temp file so FileInfo doesn't throw — toast service never reads its size.
         string tempPath = Path.Combine(Path.GetTempPath(), name);
-        if (!File.Exists(tempPath)) File.WriteAllText(tempPath, "x");
+        if (!File.Exists(tempPath))
+        {
+            File.WriteAllText(tempPath, "x");
+        }
+
         PackageFile file = new(pkg, tempPath, hoster, login);
         return file;
     }
@@ -132,7 +135,7 @@ public class ToastNotificationServiceTests
 
     private sealed class FakeToastWindowFactory : IToastWindowFactory
     {
-        public List<FakeToastHost> Created { get; } = new();
+        public List<FakeToastHost> Created { get; } = [];
 
         public IToastHost Create(ToastViewModel viewModel)
         {

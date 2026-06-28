@@ -38,11 +38,15 @@ public sealed class ToastNotificationService(
 {
     internal const double ToastWidth = 360;
     internal const double Margin = 12;
-    private readonly List<IToastHost> _activeToasts = new();
+    private readonly List<IToastHost> _activeToasts = [];
 
     public void ShowFileCompleted(PackageFile file)
     {
-        if (!settings.ShowCompletionToasts) return;
+        if (!settings.ShowCompletionToasts)
+        {
+            return;
+        }
+
         string body = string.Format(
             CultureInfo.CurrentCulture,
             Localizer.Instance["Toast_FileCompleted_Body"],
@@ -55,7 +59,10 @@ public sealed class ToastNotificationService(
 
     public void ShowPackageCompleted(Package package, int succeeded, int total)
     {
-        if (!settings.ShowCompletionToasts) return;
+        if (!settings.ShowCompletionToasts)
+        {
+            return;
+        }
 
         string body = string.Format(
             CultureInfo.CurrentCulture,

@@ -61,7 +61,7 @@ public class HashingServiceTests
         {
             HashingService sut = new(TimeSpan.Zero);
 
-            List<HashEvent> events = new();
+            List<HashEvent> events = [];
             await foreach (HashEvent e in sut.HashFileAsync(tempFile, HashAlgorithmName.MD5, CancellationToken.None))
             {
                 events.Add(e);

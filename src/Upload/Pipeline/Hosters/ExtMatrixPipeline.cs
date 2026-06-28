@@ -82,7 +82,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   the DTO.</item>
 /// </list>
 /// </remarks>
-public sealed class ExtMatrixPipeline : IFileHosterPipeline
+public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
 {
     private const string Host = "https://www.extmatrix.com";
 
@@ -124,7 +124,7 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
     /// away once an API key is in hand, so this only matters when a user signs in via U/P
     /// but cancels before my_account is scraped — the next attempt can reuse the cookie
     /// within this window. Matches <see cref="XFileSharingApiPipeline"/>'s default.</summary>
-    private static readonly TimeSpan DefaultCookieLifetime = TimeSpan.FromDays(7);
+    private static readonly TimeSpan _defaultCookieLifetime = TimeSpan.FromDays(7);
 
     /// <summary>One bootstrap at a time per credentials id — prevents N parallel uploads
     /// on a brand-new account from each popping their own WebView.</summary>
@@ -153,12 +153,7 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
     /// All branches are case-insensitive; the label-anchored branch uses
     /// <see cref="RegexOptions.Singleline"/> so <c>.</c> matches the newlines between the
     /// label cell and the input cell.</summary>
-    private static readonly Regex _apiKeyRegex = new(
-        """API\s+Key\s*:[^<]*<[^>]*>(?:[^<]|<(?!input))*?<input[^>]*?\bvalue\s*=\s*["']([^"']+)["']""" +
-        """|name=["']api[_-]?key["'][^>]*?value=["']([^"']+)["']""" +
-        """|value=["']([^"']+)["'][^>]*?name=["']api[_-]?key["']""" +
-        """|[?&]api[_-]?key=([A-Za-z0-9._-]+)""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+    private static readonly Regex _apiKeyRegex = MyRegex();
 
     /// <summary>URL extractor used to recover the public download URL from the
     /// <c>upload_success</c> body. Permissive on purpose — the docs don't quote the exact
@@ -167,9 +162,7 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
     /// inline-separator characters <c>|</c> and <c>,</c> some XFS-derived deployments
     /// use between marker and URL — without those, a pipe-separated success body
     /// (<c>upload_success|URL1|URL2</c>) would be matched as one giant glued URL.</summary>
-    private static readonly Regex _httpUrlRegex = new(
-        @"https?://[^\s""'<>|,]+",
-        RegexOptions.Compiled);
+    private static readonly Regex _httpUrlRegex = HttpUrlRegEx();
 
     public ExtMatrixPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
     {
@@ -260,8 +253,8 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
         yield return new TransferStarted(ctx.FileSize);
 
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, apiKey);
@@ -295,19 +288,19 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
 
         if (uploadResponse is not null)
         {
-            (string? Url, string? Error, bool Invalid) parsed = ParseUploadResponse(uploadResponse);
-            if (parsed.Invalid)
+            (string? Url, string? Error, bool Invalid) = ParseUploadResponse(uploadResponse);
+            if (Invalid)
             {
                 await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
                 authExpired = true;
             }
-            else if (parsed.Error is not null)
+            else if (Error is not null)
             {
-                attemptFailure = parsed.Error;
+                attemptFailure = Error;
             }
             else
             {
-                finalUrl = parsed.Url;
+                finalUrl = Url;
             }
         }
 
@@ -498,7 +491,7 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
         }
 
         ctx.Credentials.SessionCookie = result.SessionCookieValue;
-        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
+        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + _defaultCookieLifetime;
         ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
         if (result.CapturedUsername is not null)
         {
@@ -711,7 +704,10 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
 
     private static string Snippet(string? body)
     {
-        if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return string.Empty;
+        }
 
         string trimmed = body.Trim()
             .Replace("\r", " ", StringComparison.Ordinal)
@@ -751,4 +747,9 @@ public sealed class ExtMatrixPipeline : IFileHosterPipeline
 
         await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
     }
+
+    [GeneratedRegex(@"API\s+Key\s*:[^<]*<[^>]*>(?:[^<]|<(?!input))*?<input[^>]*?\bvalue\s*=\s*[""']([^""']+)[""']|name=[""']api[_-]?key[""'][^>]*?value=[""']([^""']+)[""']|value=[""']([^""']+)[""'][^>]*?name=[""']api[_-]?key[""']|[?&]api[_-]?key=([A-Za-z0-9._-]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.Singleline, "ja-JP")]
+    private static partial Regex MyRegex();
+    [GeneratedRegex(@"https?://[^\s""'<>|,]+", RegexOptions.Compiled)]
+    private static partial Regex HttpUrlRegEx();
 }

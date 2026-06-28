@@ -19,7 +19,10 @@ public sealed class UploadProcessingFailedException(string message) : Exception(
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
-            if (e is UploadProcessingFailedException) return true;
+            if (e is UploadProcessingFailedException)
+            {
+                return true;
+            }
         }
         return false;
     }

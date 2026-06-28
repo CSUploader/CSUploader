@@ -39,7 +39,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// quota — Available is Unlimited); used is surfaced via <see cref="CheckAccountAsync"/> +
 /// <see cref="IStorageRefreshablePipeline"/>.
 /// </summary>
-public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePipeline
+public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private const string Host = "https://upstore.net";
     private const string HomeUrl = Host + "/";
@@ -57,9 +57,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePi
     // The Dropzone form action points at the rotating upload host (dNN.upstore.net/newupload/).
     // Anchoring on "newupload" keeps us off the page's login/registration forms (/account/...),
     // and is robust to attribute ordering.
-    private static readonly Regex _uploadActionRegex = new(
-        """action=["']([^"']*newupload[^"']*)["']""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _uploadActionRegex = MyRegex();
 
     // /account/ row: <td>Used storage</td><td>4.98 MB / 1 file</td>. The figure is a rounded display
     // value (no exact byte count is exposed), parsed best-effort. No quota is shown — free is Unlimited.
@@ -158,8 +156,8 @@ public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePi
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel (can't
         // yield from inside the event handler) — same pattern as the other pipelines.
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, actionUrl, usid);
@@ -408,7 +406,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePi
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string actionUrl, string? usid)
     {
         // Anonymous: just the file. Account: the file + the usid that links it to the account.
-        Dictionary<string, string> extraFields = new(StringComparer.Ordinal);
+        Dictionary<string, string> extraFields = [with(StringComparer.Ordinal)];
         if (!string.IsNullOrEmpty(usid))
         {
             extraFields["usid"] = usid;
@@ -529,4 +527,7 @@ public sealed class UpstorePipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         [JsonPropertyName("error")] public string? Error { get; set; }
     }
+
+    [GeneratedRegex("""action=["']([^"']*newupload[^"']*)["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex MyRegex();
 }

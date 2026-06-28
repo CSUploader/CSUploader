@@ -8,8 +8,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -48,15 +46,16 @@ public partial class ConnectionManagerViewModel : ObservableObject
     /// an auto-save when they change. Transient fields (TestStatus, TestOutcome,
     /// TestTransaction, IsTesting) are deliberately excluded.
     /// </summary>
-    private static readonly HashSet<string> PersistedItemProperties = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> PersistedItemProperties =
+    [
+        with(StringComparer.Ordinal),
         nameof(ProxySettingItem.Enabled),
         nameof(ProxySettingItem.Type),
         nameof(ProxySettingItem.Host),
         nameof(ProxySettingItem.Port),
         nameof(ProxySettingItem.Username),
         nameof(ProxySettingItem.Password),
-    };
+    ];
 
     private readonly SemaphoreSlim _testSemaphore = new(MaxConcurrentTests, MaxConcurrentTests);
     private readonly SemaphoreSlim _saveLock = new(1, 1);
@@ -124,7 +123,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
 
     /// <summary>
     /// Bound to the "Accept invalid server certificates" checkbox. When ticked, the
-    /// upload pipeline's <see cref="System.Net.Http.HttpClient"/> accepts ANY server cert
+    /// upload pipeline's <see cref="HttpClient"/> accepts ANY server cert
     /// without validating the name or chain. Opt-in workaround for hosters whose storage
     /// CDN edges (e.g. FileBoom's <c>cmb-*.filestore.app</c>) ship certs that fail
     /// standard validation. Mirrored into <see cref="AppSettings.AllowInvalidServerCertificates"/>

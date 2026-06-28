@@ -230,9 +230,9 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
                 (ByteBase.Decimal, ByteUnitPrefix.Yotta, ByteUnitSymbol.YB),
             ];
 
-            Dictionary<ByteUnitSymbol, ByteUnit> bySymbol = new(defs.Length);
-            Dictionary<ByteUnitPrefix, ByteUnit> byPrefix = new(defs.Length);
-            List<UnitMeta> metas = new(defs.Length);
+            Dictionary<ByteUnitSymbol, ByteUnit> bySymbol = [with(defs.Length)];
+            Dictionary<ByteUnitPrefix, ByteUnit> byPrefix = [with(defs.Length)];
+            List<UnitMeta> metas = [with(defs.Length)];
             foreach ((ByteBase b, ByteUnitPrefix p, ByteUnitSymbol s) in defs)
             {
                 ByteUnit u = new(MultiplierFor(b, p), b);
@@ -256,7 +256,7 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
             // Regex per symbol — compiled once. "B" / "Byte" symbols don't get the
             // "?" trailer (the symbol must be present); every other symbol is
             // optional so "1.5 KiB" and "1.5KiB" both parse.
-            Dictionary<ByteUnitSymbol, Regex> regexes = new(defs.Length);
+            Dictionary<ByteUnitSymbol, Regex> regexes = [with(defs.Length)];
             foreach ((_, _, ByteUnitSymbol s) in defs)
             {
                 string symbolName = Enum.GetName(s) ?? string.Empty;

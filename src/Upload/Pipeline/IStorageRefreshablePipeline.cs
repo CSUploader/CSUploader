@@ -24,7 +24,7 @@ public interface IStorageRefreshablePipeline
     /// error, or the hoster doesn't expose usage) — callers keep the last-known snapshot. Throws
     /// only <see cref="OperationCanceledException"/>; all other failures collapse to <c>null</c>.
     /// </summary>
-    Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct);
+    public Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, ProxyChoice proxy, CancellationToken ct);
 }
 
 /// <summary>Current storage usage for an account, in bytes. Either field may be null when the hoster

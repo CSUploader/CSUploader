@@ -290,7 +290,11 @@ public partial class UploadWizardViewModel : ObservableObject
             // Unknown hoster — no declared limits, so it accepts every selected file.
             if (pipeline is null)
             {
-                if (selected.Length > 0) anyHosterCanUploadSomething = true;
+                if (selected.Length > 0)
+                {
+                    anyHosterCanUploadSomething = true;
+                }
+
                 continue;
             }
 
@@ -306,7 +310,10 @@ public partial class UploadWizardViewModel : ObservableObject
                 List<string> oversizedNames = [];
                 foreach (FileEntry f in selected)
                 {
-                    if (f.Size > maxBytes) oversizedNames.Add(f.FileName);
+                    if (f.Size > maxBytes)
+                    {
+                        oversizedNames.Add(f.FileName);
+                    }
                 }
                 if (oversizedNames.Count > 0)
                 {
@@ -595,7 +602,7 @@ public partial class UploadWizardViewModel : ObservableObject
             return null;
         }
 
-        Dictionary<string, HashSet<string>> includedPerHoster = new(StringComparer.Ordinal);
+        Dictionary<string, HashSet<string>> includedPerHoster = [with(StringComparer.Ordinal)];
         foreach (HosterUploadSummary summary in Summaries)
         {
             includedPerHoster[summary.HosterName] =
@@ -688,7 +695,7 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 string folderName = Path.GetFileName(Path.GetDirectoryName(filePath) ?? string.Empty);
                 display = string.Format(
-                    System.Globalization.CultureInfo.CurrentCulture,
+                    CultureInfo.CurrentCulture,
                     Localizer.Instance["Wizard_Step1_DuplicateFilenameSuffixFormat"],
                     fi.Name,
                     folderName);
@@ -815,7 +822,7 @@ public partial class UploadWizardViewModel : ObservableObject
         catch (Exception ex)
         {
             logger.Log(this, LogType.Error, $"Failed to save new {hoster.FileHosterName} account: {ex}");
-            dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            dialogService.ShowError(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return;
         }
 
@@ -1010,7 +1017,7 @@ public partial class UploadWizardViewModel : ObservableObject
         catch (Exception ex)
         {
             logger.Log(this, LogType.Error, $"Failed to add upload job: {ex}");
-            dialogService.ShowError(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            dialogService.ShowError(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return false;
         }
     }
@@ -1090,7 +1097,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
         HosterName = hosterName;
         AccountUsername = accountUsername;
         Account = account;
-        Files = new ObservableCollection<SummaryFileItem>(files);
+        Files = [with(files)];
         AvailableBytes = availableBytes;
         MaxFileSize = maxFileSize;
 

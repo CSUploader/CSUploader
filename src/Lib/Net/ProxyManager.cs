@@ -5,7 +5,6 @@
 
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib.Net.Http;
 

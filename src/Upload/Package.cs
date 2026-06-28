@@ -289,7 +289,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         {
             FileHosterLoginDto login = FileHosterLogins.Values.First();
             return login.IsAnonymous
-                ? CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
+                ? Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
                 : (string.IsNullOrWhiteSpace(login.Username) ? string.Empty : login.Username);
         }
     }
@@ -677,7 +677,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     {
         return FileHosterClient.FileHosters
             .Where(fh => fh.Key == kvp.Key.Name)
-            .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger ?? Lib.Logger.Current))
+            .Select(fh => FileHosterClient.FindByHost(fh.Key, kvp.Key.Protocol, Options.Logger ?? Logger.Current))
             .FirstOrDefault();
     }
 

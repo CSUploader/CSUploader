@@ -81,7 +81,7 @@ public class StorageAvailableDisplayMultiConverterTests
 
     // Mirror what a MultiBinding hands the converter for a null long? source: the binding
     // contributes a null array slot, not a boxed default.
-    private static object BoxOrNull(long? v) => v is long l ? l : (object)null!;
+    private static object BoxOrNull(long? v) => v is long l ? l : null!;
 
     [Fact]
     public void Convert_KnownQuota_RendersRemainingBytes()
@@ -390,21 +390,21 @@ public class AccountCheckStatusToColorConverterTests
         ((System.Windows.Media.SolidColorBrush)_converter.Convert(value, typeof(System.Windows.Media.Brush), null!, CultureInfo.InvariantCulture)).Color;
 
     [Theory]
-    [InlineData(CSUploader.Dal.AccountCheckStatus.Valid)]
-    public void Convert_Valid_PicksSuccess(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(SuccessColor, ConvertToColor(s));
+    [InlineData(AccountCheckStatus.Valid)]
+    public void Convert_Valid_PicksSuccess(AccountCheckStatus s) => Assert.Equal(SuccessColor, ConvertToColor(s));
 
     [Theory]
-    [InlineData(CSUploader.Dal.AccountCheckStatus.Failed)]
-    public void Convert_Failed_PicksError(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(ErrorColor, ConvertToColor(s));
+    [InlineData(AccountCheckStatus.Failed)]
+    public void Convert_Failed_PicksError(AccountCheckStatus s) => Assert.Equal(ErrorColor, ConvertToColor(s));
 
     [Theory]
-    [InlineData(CSUploader.Dal.AccountCheckStatus.Checking)]
-    public void Convert_Checking_PicksWarning(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(WarningColor, ConvertToColor(s));
+    [InlineData(AccountCheckStatus.Checking)]
+    public void Convert_Checking_PicksWarning(AccountCheckStatus s) => Assert.Equal(WarningColor, ConvertToColor(s));
 
     [Theory]
-    [InlineData(CSUploader.Dal.AccountCheckStatus.NotChecked)]
-    [InlineData(CSUploader.Dal.AccountCheckStatus.Unsupported)]
-    public void Convert_NeutralStates_PickDisabled(CSUploader.Dal.AccountCheckStatus s) => Assert.Equal(DisabledColor, ConvertToColor(s));
+    [InlineData(AccountCheckStatus.NotChecked)]
+    [InlineData(AccountCheckStatus.Unsupported)]
+    public void Convert_NeutralStates_PickDisabled(AccountCheckStatus s) => Assert.Equal(DisabledColor, ConvertToColor(s));
 
     [Fact]
     public void Convert_NonEnumInput_FallsBackToDisabledGreyInsteadOfThrowing()

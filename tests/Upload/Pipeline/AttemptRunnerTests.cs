@@ -584,7 +584,7 @@ public class AttemptRunnerTests
 
         public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
         {
-            int attempt = ++this.Invocations;
+            int attempt = ++Invocations;
             PipelineBehavior behavior = behaviorFor(attempt);
 
             yield return new TransferStarted(ctx.FileSize);

@@ -95,7 +95,13 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     {
         get => _storageUsedBytes;
         // StorageAvailableBytes is computed from this, so cascade its notification too.
-        set { if (SetField(ref _storageUsedBytes, value)) OnPropertyChanged(nameof(StorageAvailableBytes)); }
+        set
+        {
+            if (SetField(ref _storageUsedBytes, value))
+            {
+                OnPropertyChanged(nameof(StorageAvailableBytes));
+            }
+        }
     }
 
     private long? _storageQuotaBytes;
@@ -106,7 +112,13 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     {
         get => _storageQuotaBytes;
         // StorageAvailableBytes is computed from this, so cascade its notification too.
-        set { if (SetField(ref _storageQuotaBytes, value)) OnPropertyChanged(nameof(StorageAvailableBytes)); }
+        set
+        {
+            if (SetField(ref _storageQuotaBytes, value))
+            {
+                OnPropertyChanged(nameof(StorageAvailableBytes));
+            }
+        }
     }
 
     /// <summary>Computed remaining storage = <see cref="StorageQuotaBytes"/> − <see cref="StorageUsedBytes"/>,

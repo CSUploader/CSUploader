@@ -5,7 +5,6 @@
 
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 
@@ -78,7 +77,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             yield return new AttemptFailed(reason, null);
             AttemptCompleted noProxy = new(Success: false, ProxyId: 0, FileUrl: null);
             yield return noProxy;
-            this.AttemptCompleted?.Invoke(this, noProxy);
+            AttemptCompleted?.Invoke(this, noProxy);
             yield break;
         }
 
@@ -94,7 +93,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             yield return new AttemptFailed(reason, null);
             AttemptCompleted terminal = new(Success: false, ProxyId: proxy.Id, FileUrl: null);
             yield return terminal;
-            this.AttemptCompleted?.Invoke(this, terminal);
+            AttemptCompleted?.Invoke(this, terminal);
             yield break;
         }
 
@@ -157,7 +156,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
                 {
                     channel.Writer.Complete();
                 }
-            });
+            }, ct);
 
             await foreach (UploadEvent ev in channel.Reader.ReadAllAsync(CancellationToken.None))
             {
@@ -240,7 +239,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
 
         AttemptCompleted finalEvent = new(Success: success, ProxyId: proxy.Id, FileUrl: finalUrl);
         yield return finalEvent;
-        this.AttemptCompleted?.Invoke(this, finalEvent);
+        AttemptCompleted?.Invoke(this, finalEvent);
     }
 
     /// <summary>

@@ -103,8 +103,8 @@ public class ExLoadPipelineTests
         Assert.DoesNotContain(events, e => e is AuthStarted);
 
         // Single API GET to /api/upload/server with the API key as a query param.
-        (string Url, IReadOnlyDictionary<string, string>? Headers) serverCall = Assert.Single(getCalls);
-        Assert.StartsWith("https://ex-load.com/api/upload/server?key=key_pasted_by_user", serverCall.Url, StringComparison.Ordinal);
+        (string Url, IReadOnlyDictionary<string, string>? Headers) = Assert.Single(getCalls);
+        Assert.StartsWith("https://ex-load.com/api/upload/server?key=key_pasted_by_user", Url, StringComparison.Ordinal);
 
         // Upload landed on the per-user subdomain returned by the API, with sess_id passed through.
         UploadCall up = Assert.Single(uploadCalls);

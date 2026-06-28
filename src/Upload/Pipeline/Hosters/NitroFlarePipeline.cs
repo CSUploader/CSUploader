@@ -5,7 +5,6 @@
 
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using CSUploader.Dal;
 using CSUploader.Lib;
@@ -19,7 +18,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// NitroFlare (nitroflare.com) upload pipeline. Architecturally a twin of <see cref="HitFilePipeline"/>:
 /// a reCAPTCHA-gated WebView sign-in yields a stable, per-account <b>40-hex user hash</b> that is the
 /// entire durable upload credential (no cookies ride the upload), persisted in
-/// <see cref="Dal.FileHosterLoginDto.ApiKey"/>. Verified against the live site (capture 2026-06-27):
+/// <see cref="FileHosterLoginDto.ApiKey"/>. Verified against the live site (capture 2026-06-27):
 /// <list type="number">
 ///   <item><b>Sign-in.</b> Login at <c>nitroflare.com/login</c> is Google-reCAPTCHA gated, so this
 ///   drives a WebView2 sign-in (<see cref="IInteractiveAuthService"/>). The signed-in page then
@@ -182,8 +181,8 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel
         // (can't yield from inside the event handler).
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, userHash);
@@ -226,7 +225,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
     /// <paramref name="apiKey"/>: the hash is the entire durable upload credential and there's nothing
     /// to re-validate offline, so the account stays valid WITHOUT re-opening a browser.
     /// </summary>
-    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
     {
         _ = password;
         _ = handler; // the embedded page fetches the hash itself (HashProbeScript); no C# HTTP needed

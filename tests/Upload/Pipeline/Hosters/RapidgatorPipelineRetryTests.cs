@@ -31,14 +31,18 @@ public class RapidgatorPipelineRetryTests
         RapidgatorPipeline pipeline = new(url => responses.Dequeue());
 
         AttemptContext ctx1 = MakeContext();
-        await foreach (UploadEvent _ in pipeline.RunAsync(ctx1, CancellationToken.None)) { /* drain */ }
+        await foreach (UploadEvent _ in pipeline.RunAsync(ctx1, CancellationToken.None))
+        { /* drain */ }
 
         AttemptContext ctx2 = MakeContext();
         List<UploadEvent> attempt2 = [];
         await foreach (UploadEvent ev in pipeline.RunAsync(ctx2, CancellationToken.None))
         {
             attempt2.Add(ev);
-            if (ev is AuthSucceeded) break;
+            if (ev is AuthSucceeded)
+            {
+                break;
+            }
         }
 
         Assert.Contains(attempt2, e => e is AuthStarted);

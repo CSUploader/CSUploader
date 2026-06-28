@@ -14,29 +14,29 @@ public interface IUpdateService
     /// <summary>
     /// Gets the running app's version (from the assembly).
     /// </summary>
-    string CurrentVersion { get; }
+    public string CurrentVersion { get; }
 
     /// <summary>
     /// Gets a value indicating whether the app was launched from a Velopack-installed
     /// location. False during <c>dotnet run</c> or when running the loose build output —
     /// in which case <see cref="ApplyAndRestart"/> is a no-op.
     /// </summary>
-    bool IsInstalled { get; }
+    public bool IsInstalled { get; }
 
     /// <summary>
     /// Polls the GitHub Releases endpoint. Returns null when no newer release is
     /// available, or when the app isn't running from a Velopack-installed location.
     /// </summary>
-    Task<UpdateAvailableInfo?> CheckAsync(CancellationToken cancellationToken = default);
+    public Task<UpdateAvailableInfo?> CheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Downloads the update bundle into the local Velopack cache. Reports byte progress
     /// (0-100) via <paramref name="progress"/>.
     /// </summary>
-    Task DownloadAsync(UpdateAvailableInfo info, IProgress<int>? progress, CancellationToken cancellationToken = default);
+    public Task DownloadAsync(UpdateAvailableInfo info, IProgress<int>? progress, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Applies the previously downloaded update and restarts the process.
     /// </summary>
-    void ApplyAndRestart(UpdateAvailableInfo info);
+    public void ApplyAndRestart(UpdateAvailableInfo info);
 }

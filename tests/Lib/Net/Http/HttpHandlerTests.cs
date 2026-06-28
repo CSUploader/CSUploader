@@ -272,8 +272,8 @@ public class HttpHandlerTests
         // null), so the fault is a LOCAL setup error, not a network "nothing committed" case. It must
         // NOT be reclassified as retryable. Locks the guard against a future refactor that eagerly
         // initializes progressContent. The inner handler never even runs — the throw is pre-send.
-        string missingPath = System.IO.Path.Combine(
-            System.IO.Path.GetTempPath(), "csu-does-not-exist-" + Guid.NewGuid().ToString("N") + ".bin");
+        string missingPath = Path.Combine(
+            Path.GetTempPath(), "csu-does-not-exist-" + Guid.NewGuid().ToString("N") + ".bin");
         HttpHandler handler = new(
             new HttpClient(new ConnectFailHandler(new HttpRequestException("should never be reached"))),
             Mock.Of<IAppLogger>(),

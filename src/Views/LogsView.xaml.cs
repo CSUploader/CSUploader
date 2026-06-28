@@ -18,7 +18,7 @@ public partial class LogsView : UserControl
 {
     // XAML defaults per grid, captured at first Loaded before any persisted overrides are
     // applied, so "Reset columns" can restore the developer's shipped layout per grid.
-    private readonly Dictionary<DataGrid, Dictionary<string, DataGridColumnVisibilityPersistence.ColumnState>> _defaultColumnState = new();
+    private readonly Dictionary<DataGrid, Dictionary<string, DataGridColumnVisibilityPersistence.ColumnState>> _defaultColumnState = [];
 
     public LogsView()
     {

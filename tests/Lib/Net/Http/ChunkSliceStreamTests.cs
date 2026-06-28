@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.IO;
-using System.Threading.Tasks;
 using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Tests.Lib.Net.Http;
@@ -22,7 +21,11 @@ public class ChunkSliceStreamTests
     public void Read_LimitsToSliceLength_EvenWhenInnerStreamHasMore()
     {
         byte[] source = new byte[1000];
-        for (int i = 0; i < source.Length; i++) source[i] = (byte)(i & 0xff);
+        for (int i = 0; i < source.Length; i++)
+        {
+            source[i] = (byte)(i & 0xff);
+        }
+
         using MemoryStream inner = new(source);
 
         ChunkSliceStream slice = new(inner, sliceLength: 100);
@@ -31,7 +34,11 @@ public class ChunkSliceStreamTests
         while (true)
         {
             int n = slice.Read(buf, total, buf.Length - total);
-            if (n == 0) break;
+            if (n == 0)
+            {
+                break;
+            }
+
             total += n;
         }
 
@@ -62,7 +69,11 @@ public class ChunkSliceStreamTests
         // The realistic scenario: open a file once, slice it twice for two consecutive
         // chunks. The second slice picks up where the first left off — no extra plumbing.
         byte[] source = new byte[300];
-        for (int i = 0; i < source.Length; i++) source[i] = (byte)i;
+        for (int i = 0; i < source.Length; i++)
+        {
+            source[i] = (byte)i;
+        }
+
         using MemoryStream inner = new(source);
 
         byte[] firstChunk = ReadFully(new ChunkSliceStream(inner, 100));

@@ -4,8 +4,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.IO;
-using System.Net;
 using System.Windows;
 using System.Windows.Threading;
 using CSUploader.Lib.Localization;
@@ -372,7 +370,7 @@ public partial class WebViewLoginWindow : Window
     /// <c>document.cookie</c>). Returns null when the jar is empty.</summary>
     private async Task<string?> BuildCookieHeaderAsync(string url)
     {
-        System.Collections.Generic.IReadOnlyList<CoreWebView2Cookie> cookies =
+        IReadOnlyList<CoreWebView2Cookie> cookies =
             await WebView.CoreWebView2!.CookieManager.GetCookiesAsync(url);
 
         List<string> pairs = [];
@@ -426,7 +424,7 @@ public partial class WebViewLoginWindow : Window
             // so subdomain cookies (set on `.ex-load.com`) and host-only cookies both appear.
             // Critically, HttpOnly cookies (FileBoom's accessToken) are included — the
             // HttpOnly flag is a document.cookie restriction, not a CookieManager one.
-            System.Collections.Generic.IReadOnlyList<CoreWebView2Cookie> cookies =
+            IReadOnlyList<CoreWebView2Cookie> cookies =
                 await WebView.CoreWebView2.CookieManager.GetCookiesAsync(_loginUrl);
 
             CoreWebView2Cookie? sessionCookie = null;
@@ -454,7 +452,7 @@ public partial class WebViewLoginWindow : Window
                     {
                         if (string.Equals(c.Name, name, StringComparison.Ordinal))
                         {
-                            additionalCookies ??= new(StringComparer.Ordinal);
+                            additionalCookies ??= [with(StringComparer.Ordinal)];
                             additionalCookies.TryAdd(c.Name, c.Value);
                             break;
                         }

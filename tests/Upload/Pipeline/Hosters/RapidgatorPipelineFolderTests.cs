@@ -31,7 +31,10 @@ public class RapidgatorPipelineFolderTests
         await foreach (UploadEvent ev in pipeline.RunAsync(ctx, CancellationToken.None))
         {
             events.Add(ev);
-            if (ev is TransferStarted) break; // stop at the bridge into transfer; full transfer in Task 2.4
+            if (ev is TransferStarted)
+            {
+                break; // stop at the bridge into transfer; full transfer in Task 2.4
+            }
         }
 
         Assert.Contains(events, e => e is TransferStarted);

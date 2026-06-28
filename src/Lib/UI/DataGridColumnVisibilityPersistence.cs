@@ -42,7 +42,7 @@ public static class DataGridColumnVisibilityPersistence
     public static async Task<Dictionary<string, ColumnState>> LoadOverridesAsync(SettingRepository repo, string settingKey, CancellationToken cancellationToken = default)
     {
         SettingDto? row = await repo.FindByKeyAsync(settingKey, cancellationToken);
-        Dictionary<string, ColumnState> map = new(StringComparer.Ordinal);
+        Dictionary<string, ColumnState> map = [with(StringComparer.Ordinal)];
         if (row?.Value is not { Length: > 0 })
         {
             return map;
@@ -169,7 +169,7 @@ public static class DataGridColumnVisibilityPersistence
     /// </summary>
     public static Dictionary<string, ColumnState> CaptureCurrentState(DataGrid grid)
     {
-        Dictionary<string, ColumnState> map = new(StringComparer.Ordinal);
+        Dictionary<string, ColumnState> map = [with(StringComparer.Ordinal)];
         for (int i = 0; i < grid.Columns.Count; i++)
         {
             DataGridColumn column = grid.Columns[i];
@@ -238,7 +238,7 @@ public static class DataGridColumnVisibilityPersistence
     /// </summary>
     public static Task PersistAsync(DataGrid grid, SettingRepository repo, string settingKey, CancellationToken cancellationToken = default)
     {
-        Dictionary<string, ColumnState> overrides = new(StringComparer.Ordinal);
+        Dictionary<string, ColumnState> overrides = [with(StringComparer.Ordinal)];
         foreach (DataGridColumn column in grid.Columns)
         {
             string header = column.Header?.ToString() ?? string.Empty;

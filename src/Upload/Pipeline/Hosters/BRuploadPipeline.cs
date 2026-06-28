@@ -35,7 +35,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// </list>
 /// No hashing, no folder, no post-upload polling.
 /// </summary>
-public sealed class BRuploadPipeline : IFileHosterPipeline
+public sealed partial class BRuploadPipeline : IFileHosterPipeline
 {
     private const string Host = "https://www.brupload.net";
     private const string LoginPageUrl = Host + "/login.html";
@@ -64,9 +64,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     // ordering and quoting so it works whether the upload form has id="uploadfile" first,
     // method="POST" first, etc. The `upload.cgi` substring keeps us from matching the
     // outer my-files form.
-    private static readonly Regex _uploadFormActionRegex = new(
-        """<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex _uploadFormActionRegex = MyRegex();
 
     // Matches BRupload's storage-quota line on the /?op=my_files page:
     //   "Espaço utilizado:\n<strong>0.74 de 100 GB</strong>"
@@ -189,8 +187,8 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
         // Bridge UploadProgress -> TransferProgress events via an unbounded channel,
         // same pattern as the other pipelines.
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
+        void onProgress(object? _, OperationProgressEventArgs e) =>
+            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
         Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, auth);
@@ -224,19 +222,19 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
 
         if (uploadResponse is not null)
         {
-            (string? Url, string? Error, bool AuthExpired) parsed = ParseUploadResponse(uploadResponse);
-            if (parsed.AuthExpired)
+            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+            if (AuthExpired)
             {
                 _authByCredentialsId.TryRemove(ctx.Credentials.Id, out _);
                 authExpired = true;
             }
-            else if (parsed.Error is not null)
+            else if (Error is not null)
             {
-                attemptFailure = parsed.Error;
+                attemptFailure = Error;
             }
             else
             {
-                finalUrl = parsed.Url;
+                finalUrl = Url;
             }
         }
 
@@ -648,7 +646,10 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
     private static string? ExtractHiddenInput(Regex regex, string html)
     {
         Match m = regex.Match(html);
-        if (!m.Success) return null;
+        if (!m.Success)
+        {
+            return null;
+        }
 
         string captured = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
         return string.IsNullOrEmpty(captured) ? null : captured;
@@ -690,7 +691,10 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
 
     private static string Snippet(string body)
     {
-        if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return string.Empty;
+        }
 
         string trimmed = body.Trim()
             .Replace("\r", " ", StringComparison.Ordinal)
@@ -715,4 +719,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
 
         [JsonPropertyName("file_status")] public string? Status { get; set; }
     }
+
+    [GeneratedRegex("""<form\b[^>]*?\baction=["']([^"']*upload\.cgi[^"']*)["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex MyRegex();
 }

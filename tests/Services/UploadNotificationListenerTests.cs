@@ -137,13 +137,17 @@ public class UploadNotificationListenerTests : IDisposable
     private static Package BuildPackage(string name, int fileCount)
     {
         Package pkg = new(new PackageOptions { Title = name });
-        FileHosterClient hoster = new("Rapidgator", CSUploader.Lib.Net.Protocol.Http);
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
         FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
-        List<PackageFile> files = new();
+        List<PackageFile> files = [];
         for (int i = 0; i < fileCount; i++)
         {
             string path = Path.Combine(Path.GetTempPath(), $"{name}_{i}.zip");
-            if (!File.Exists(path)) File.WriteAllText(path, "x");
+            if (!File.Exists(path))
+            {
+                File.WriteAllText(path, "x");
+            }
+
             files.Add(new PackageFile(pkg, path, hoster, login));
         }
         pkg.AddPackageFiles(files.ToArray());

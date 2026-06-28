@@ -16,7 +16,7 @@ public interface IToastNotificationService
     /// <summary>
     /// Raises a per-file "upload finished" toast.
     /// </summary>
-    void ShowFileCompleted(PackageFile file);
+    public void ShowFileCompleted(PackageFile file);
 
     /// <summary>
     /// Raises a per-package summary toast.
@@ -24,5 +24,5 @@ public interface IToastNotificationService
     /// <param name="package">The package whose run finished.</param>
     /// <param name="succeeded">Files that reached <see cref="FileState.Completed"/>.</param>
     /// <param name="total">Total files in the package.</param>
-    void ShowPackageCompleted(Package package, int succeeded, int total);
+    public void ShowPackageCompleted(Package package, int succeeded, int total);
 }

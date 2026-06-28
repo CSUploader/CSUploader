@@ -22,7 +22,7 @@ namespace CSUploader.Lib.Net;
 /// </remarks>
 public interface IProxySource
 {
-    ProxyChoice? Next();
+    public ProxyChoice? Next();
 
     /// <summary>
     /// Looks up a specific proxy by its DB id. Used to honour per-account proxy pinning
@@ -35,5 +35,5 @@ public interface IProxySource
     /// pin was set). Caller must decide whether to fall back to rotation or fail —
     /// <see cref="Upload.Pipeline.AttemptRunner"/> chooses to fail rather than rotate
     /// off-pin and burn the session cookie.</returns>
-    ProxyChoice? GetById(int id);
+    public ProxyChoice? GetById(int id);
 }

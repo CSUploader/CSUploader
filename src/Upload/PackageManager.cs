@@ -215,7 +215,7 @@ public class PackageManager
         // every PackageFile for the same hoster shares the same login instance —
         // and we only hit the DB once per hoster instead of once per file.
         Dictionary<FileHosterClient, FileHosterLoginDto> fileHosterLogins = [];
-        Dictionary<string, FileHosterLoginDto> resolvedLogins = new(StringComparer.Ordinal);
+        Dictionary<string, FileHosterLoginDto> resolvedLogins = [with(StringComparer.Ordinal)];
 
         foreach (UploadPackageFileDto fileDto in pkgDto.Files)
         {

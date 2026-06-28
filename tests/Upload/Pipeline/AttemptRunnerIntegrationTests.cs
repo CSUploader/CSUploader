@@ -43,7 +43,8 @@ public class AttemptRunnerIntegrationTests
             SpeedLimitProvider = () => null,
         };
 
-        await foreach (UploadEvent _ in runner.RunAsync(inputs, CancellationToken.None)) { /* drain */ }
+        await foreach (UploadEvent _ in runner.RunAsync(inputs, CancellationToken.None))
+        { /* drain */ }
 
         Assert.NotNull(captured);
         Assert.True(captured!.Success);
