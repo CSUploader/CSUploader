@@ -60,6 +60,11 @@ namespace CSUploader.Services;
 /// HitFile's "Check / Refresh", which re-reads storage usage directly from C# through the proxy
 /// using these cookies (<c>https://app.hitfile.net/</c>). Null for hosters that don't need the raw
 /// jar (the probe value alone is their whole credential).</param>
+/// <param name="UserAgentOverride">Optional User-Agent the embedded browser should present for the
+/// whole sign-in. Hosters behind a Cloudflare managed challenge issue a <c>cf_clearance</c> cookie
+/// bound to the EXACT User-Agent that solved the challenge; for the captured clearance to be reusable
+/// from the C# HTTP stack, the WebView must sign in with the SAME UA the handler sends (TakeFile sets
+/// this to <c>DefaultHttpHandlerFactory.DefaultUserAgent</c>). Null leaves the WebView2 default UA.</param>
 public readonly record struct InteractiveAuthSpec(
     string HosterName,
     string LoginUrl,
@@ -69,7 +74,8 @@ public readonly record struct InteractiveAuthSpec(
     Func<string, bool>? CookieValueValidator = null,
     IReadOnlyList<string>? AdditionalCookieNames = null,
     string? SuccessProbeScript = null,
-    string? CookieCaptureUrl = null);
+    string? CookieCaptureUrl = null,
+    string? UserAgentOverride = null);
 
 /// <summary>
 /// Outcome of a successful <see cref="IInteractiveAuthService.AcquireSessionCookieAsync"/>

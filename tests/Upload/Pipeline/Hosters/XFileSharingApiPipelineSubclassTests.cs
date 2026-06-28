@@ -81,6 +81,90 @@ public class XFileSharingApiPipelineSubclassTests
         protected override bool DowngradeUploadServerToHttp => true;
     }
 
+    /// <summary>A cf_clearance-mode subclass (TakeFile shape): behind a Cloudflare managed challenge,
+    /// so it captures cf_clearance and pins the sign-in UA.</summary>
+    private sealed class CloudflareXfsHostPipeline : XFileSharingApiPipeline
+    {
+        public CloudflareXfsHostPipeline(
+            IInteractiveAuthService? authService,
+            FileHosterLoginRepository? loginRepository,
+            Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
+            Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+            : base(authService, loginRepository, getOverride, uploadOverride)
+        {
+        }
+
+        public override string Name => "CfXfsHost";
+
+        protected override string Host => "https://test-xfs.example";
+
+        protected override bool RequiresCloudflareClearance => true;
+
+        protected override string? SignInUserAgentOverride => "UA-TEST/1.0";
+    }
+
+    [Fact]
+    public async Task CloudflareClearance_SignIn_ForwardsBothCookies_AndPinsSpecCookieAndUserAgent()
+    {
+        // TakeFile shape: the WebView captures xfss AND cf_clearance; the C# my_account scrape must
+        // forward BOTH (otherwise Cloudflare serves the "Just a moment…" page), and the sign-in spec
+        // must request cf_clearance + pin the UA so the captured clearance is reusable from C#.
+        List<IReadOnlyDictionary<string, string>?> seenHeaders = new();
+        CapturingAuthService auth = new(
+            cookie: "xfsval",
+            additional: new Dictionary<string, string>(StringComparer.Ordinal) { ["cf_clearance"] = "CFVAL" });
+        CloudflareXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, headers) => { seenHeaders.Add(headers); return Task.FromResult(MyAccountWithApiKeyHtml); },
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
+
+        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+
+        // Spec: requested the cf_clearance cookie and pinned the browser UA to ours.
+        Assert.NotNull(auth.LastSpec);
+        Assert.Contains("cf_clearance", auth.LastSpec!.Value.AdditionalCookieNames ?? Array.Empty<string>());
+        Assert.Equal("UA-TEST/1.0", auth.LastSpec.Value.UserAgentOverride);
+
+        // The my_account GET forwarded BOTH the session and the clearance in one Cookie header.
+        Assert.Contains(seenHeaders, h => h is not null
+            && h.TryGetValue("Cookie", out string? c)
+            && c.Contains("xfss=xfsval", StringComparison.Ordinal)
+            && c.Contains("cf_clearance=CFVAL", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ClassicMode_SignIn_ForwardsOnlyXfss_AndLeavesSpecDefaults()
+    {
+        // Regression guard for the 5 classic XFS hosters: even if the jar happened to hold a
+        // cf_clearance, classic mode must NOT request it, must NOT pin a UA, and must send ONLY xfss.
+        List<IReadOnlyDictionary<string, string>?> seenHeaders = new();
+        CapturingAuthService auth = new(
+            cookie: "xfsval",
+            additional: new Dictionary<string, string>(StringComparer.Ordinal) { ["cf_clearance"] = "CFVAL" });
+        TestXfsHostPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, headers) => { seenHeaders.Add(headers); return Task.FromResult(MyAccountWithApiKeyHtml); },
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
+
+        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+        _ = await pipeline.CheckAccountAsync("u@example.com", "p", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.NotNull(auth.LastSpec);
+        Assert.Null(auth.LastSpec!.Value.AdditionalCookieNames);
+        Assert.Null(auth.LastSpec.Value.UserAgentOverride);
+
+        IReadOnlyDictionary<string, string>? myAccountHeaders = seenHeaders.Find(h =>
+            h is not null && h.TryGetValue("Cookie", out string? c) && c.Contains("xfss=", StringComparison.Ordinal));
+        Assert.NotNull(myAccountHeaders);
+        Assert.Equal("xfss=xfsval", myAccountHeaders!["Cookie"]);
+    }
+
     [Fact]
     public async Task GetUploadServer_StorageSubdomainHttps_WhenDowngradeOptedIn_DowngradedToHttp()
     {
@@ -505,6 +589,20 @@ public class XFileSharingApiPipelineSubclassTests
                 ? null
                 : new InteractiveAuthResult(cannedCookie, CapturedUsername: null);
             return Task.FromResult(result);
+        }
+    }
+
+    /// <summary>Auth service that records the spec it was handed and returns a result with optional
+    /// additional cookies — used to assert cf_clearance capture + UA pinning + cookie forwarding.</summary>
+    private sealed class CapturingAuthService(string cookie, IReadOnlyDictionary<string, string>? additional) : IInteractiveAuthService
+    {
+        public InteractiveAuthSpec? LastSpec { get; private set; }
+
+        public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+        {
+            LastSpec = spec;
+            return Task.FromResult<InteractiveAuthResult?>(
+                new InteractiveAuthResult(cookie, CapturedUsername: null, AdditionalCookies: additional));
         }
     }
 }

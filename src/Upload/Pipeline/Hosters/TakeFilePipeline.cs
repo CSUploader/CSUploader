@@ -40,4 +40,20 @@ public sealed class TakeFilePipeline : XFileSharingApiPipeline
     /// <summary>TakeFile's sign-in page is <c>/user_login</c>, not the XFS-default
     /// <c>/login.html</c> — so the WebView sign-in lands on the right page.</summary>
     protected override string LoginPagePath => "/user_login";
+
+    // ---- Cloudflare managed-challenge clearance (see XFileSharingApiPipeline) ----
+    // takefile.link's whole domain is behind a Cloudflare managed challenge: the C# my_account
+    // scrape gets the "Just a moment…" interstitial. We capture cf_clearance during the WebView
+    // sign-in and forward it on every request, with the WebView pinned to the handler's UA so the
+    // clearance is reusable, and a short session window so we re-sign-in before clearance expires.
+
+    protected override bool RequiresCloudflareClearance => true;
+
+    /// <summary>Sign the WebView in with the exact UA the C# handler sends, so the captured
+    /// cf_clearance is valid when the handler reuses it.</summary>
+    protected override string? SignInUserAgentOverride => DefaultHttpHandlerFactory.DefaultUserAgent;
+
+    /// <summary>Cloudflare managed-challenge clearance lasts ≈30 min; re-sign-in a bit sooner so the
+    /// forwarded cf_clearance is always fresh.</summary>
+    protected override System.TimeSpan SignInSessionLifetime => System.TimeSpan.FromMinutes(20);
 }

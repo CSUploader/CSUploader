@@ -60,6 +60,7 @@ public partial class WebViewLoginWindow : Window
     private readonly IReadOnlyList<string>? _additionalCookieNames;
     private readonly string? _successProbeScript;
     private readonly string? _cookieCaptureUrl;
+    private readonly string? _userAgentOverride;
     private readonly bool _allowInvalidCertificates;
     private readonly ProxyChoice? _proxy;
     private readonly ProxyCredentials? _proxyCredentials;
@@ -87,6 +88,7 @@ public partial class WebViewLoginWindow : Window
         IReadOnlyList<string>? additionalCookieNames = null,
         string? successProbeScript = null,
         string? cookieCaptureUrl = null,
+        string? userAgentOverride = null,
         bool allowInvalidCertificates = false)
     {
         _hosterName = hosterName;
@@ -98,6 +100,7 @@ public partial class WebViewLoginWindow : Window
         _cookieValueValidator = cookieValueValidator;
         _additionalCookieNames = additionalCookieNames;
         _successProbeScript = successProbeScript;
+        _userAgentOverride = userAgentOverride;
         _allowInvalidCertificates = allowInvalidCertificates;
         _proxy = proxy;
         _proxyCredentials = proxyCredentials;
@@ -174,6 +177,15 @@ public partial class WebViewLoginWindow : Window
                 options: options);
 
             await WebView.EnsureCoreWebView2Async(env);
+
+            // Pin the browser UA before any navigation, when the spec asks for it. Cloudflare's
+            // managed challenge binds the cf_clearance cookie to the EXACT UA that solved it, so a
+            // cf_clearance-mode hoster (TakeFile) signs in with the same UA the C# handler sends —
+            // otherwise the captured clearance is rejected the moment the handler reuses it.
+            if (!string.IsNullOrEmpty(_userAgentOverride))
+            {
+                WebView.CoreWebView2.Settings.UserAgent = _userAgentOverride;
+            }
 
             WebView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
             WebView.CoreWebView2.SourceChanged += CoreWebView2_SourceChanged;

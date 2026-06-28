@@ -102,6 +102,7 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService, 
             additionalCookieNames: spec.AdditionalCookieNames,
             successProbeScript: spec.SuccessProbeScript,
             cookieCaptureUrl: spec.CookieCaptureUrl,
+            userAgentOverride: spec.UserAgentOverride,
             allowInvalidCertificates: _settings.AllowInvalidServerCertificates)
         {
             Owner = Application.Current?.MainWindow,

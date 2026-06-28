@@ -163,6 +163,59 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
     /// </summary>
     private static readonly TimeSpan DefaultCookieLifetime = TimeSpan.FromDays(7);
 
+    // ---- Cloudflare managed-challenge clearance (opt-in; default off) ----
+    //
+    // Hosters whose whole domain sits behind a Cloudflare *managed challenge* (TakeFile) return the
+    // "Just a moment…" interstitial to the C# HTTP stack — the WebView solved the challenge during
+    // sign-in and holds a cf_clearance cookie, but the handler is a separate stack and doesn't. When
+    // RequiresCloudflareClearance is on we (1) sign the WebView in with our handler's UA so the
+    // issued clearance matches (SignInUserAgentOverride), (2) ALSO capture the cf_clearance cookie,
+    // (3) store it combined with xfss so BuildCookieHeader forwards both on every request, and
+    // (4) use a short session lifetime so we re-sign-in before the clearance (≈30 min) expires.
+    // Everything is gated on the flag — classic XFS hosters are byte-for-byte unaffected.
+
+    /// <summary>Override true for a hoster behind a Cloudflare managed challenge (see the block above).</summary>
+    protected virtual bool RequiresCloudflareClearance => false;
+
+    /// <summary>UA the sign-in WebView presents. Must equal the C# handler's UA so a captured
+    /// cf_clearance is reusable. Null leaves the WebView2 default. Only consulted when
+    /// <see cref="RequiresCloudflareClearance"/> is true.</summary>
+    protected virtual string? SignInUserAgentOverride => null;
+
+    /// <summary>Lifetime stamped on a freshly captured session. Defaults to the 7-day bootstrap
+    /// window; cf_clearance-mode hosters shorten it so the stored session expires (forcing a
+    /// re-sign-in that re-acquires clearance) before Cloudflare's clearance does.</summary>
+    protected virtual TimeSpan SignInSessionLifetime => DefaultCookieLifetime;
+
+    /// <summary>Cookie name Cloudflare uses for managed-challenge clearance.</summary>
+    private const string CloudflareClearanceCookieName = "cf_clearance";
+
+    /// <summary>Sign-in spec for the WebView. In cf_clearance mode it also captures the
+    /// <c>cf_clearance</c> cookie and pins the browser UA so the clearance is reusable from C#.</summary>
+    private InteractiveAuthSpec BuildSignInSpec()
+        => RequiresCloudflareClearance
+            ? new(Name, LoginUrl, CookieDomain, CookieName,
+                AdditionalCookieNames: [CloudflareClearanceCookieName],
+                UserAgentOverride: SignInUserAgentOverride)
+            : new(Name, LoginUrl, CookieDomain, CookieName);
+
+    /// <summary>The value to persist as the session credential. Classic hosters store the bare
+    /// <c>xfss</c> value; cf_clearance-mode stores a full <c>"xfss=…; cf_clearance=…"</c> Cookie
+    /// header so <see cref="BuildCookieHeader"/> forwards both. Falls back to the bare value when
+    /// the clearance cookie wasn't captured.</summary>
+    private string ComposeStoredSession(InteractiveAuthResult result)
+    {
+        if (RequiresCloudflareClearance
+            && result.AdditionalCookies is { } extra
+            && extra.TryGetValue(CloudflareClearanceCookieName, out string? cf)
+            && !string.IsNullOrEmpty(cf))
+        {
+            return $"{CookieName}={result.SessionCookieValue}; {CloudflareClearanceCookieName}={cf}";
+        }
+
+        return result.SessionCookieValue;
+    }
+
     /// <summary>One bootstrap at a time per credentials id — prevents N parallel uploads
     /// on a brand-new account from all popping their own WebView.</summary>
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _bootstrapGates = new();
@@ -361,7 +414,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         yield return new TransferStarted(ctx.FileSize);
 
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
@@ -474,7 +527,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             }
 
             // Progress bridge (same pattern as the API path).
-            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
             EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
                 progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
             ctx.Handler.UploadProgress += onProgress;
@@ -775,12 +828,11 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         // UsernameCookieName: null — XFileSharing-family hosters don't put the identity
         // in the cookie jar; their /api/account/info endpoint returns the email instead.
-        InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
         InteractiveAuthResult? captured;
         try
         {
             captured = await _authService.AcquireSessionCookieAsync(
-                spec,
+                BuildSignInSpec(),
                 ctx.Credentials.Username ?? string.Empty,
                 ctx.Proxy,
                 ct);
@@ -795,8 +847,9 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        ctx.Credentials.SessionCookie = result.SessionCookieValue;
-        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + DefaultCookieLifetime;
+        string stored = ComposeStoredSession(result);
+        ctx.Credentials.SessionCookie = stored;
+        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + SignInSessionLifetime;
         ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
 
         if (_loginRepository is not null)
@@ -804,7 +857,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false);
         }
 
-        return result.SessionCookieValue;
+        return stored;
     }
 
     // ======== Web-form (no-API) path ========
@@ -869,7 +922,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
 
         yield return new TransferStarted(ctx.FileSize);
 
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
@@ -1035,8 +1088,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         InteractiveAuthResult? captured;
         try
         {
-            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
-            captured = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
+            captured = await _authService.AcquireSessionCookieAsync(BuildSignInSpec(), username, proxy, ct);
         }
         catch (Exception ex)
         {
@@ -1048,7 +1100,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
         }
 
-        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(auth.SessionCookieValue);
+        string storedSession = ComposeStoredSession(auth);
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(storedSession);
         string html;
         string finalUrl;
         int hops;
@@ -1075,8 +1128,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             IsValid: true,
             AccountType: AccountType.Free,
             Message: "Signed in (Free)",
-            SessionCookie: auth.SessionCookieValue,
-            SessionCookieExpiresUtc: DateTime.UtcNow + DefaultCookieLifetime,
+            SessionCookie: storedSession,
+            SessionCookieExpiresUtc: DateTime.UtcNow + SignInSessionLifetime,
             PinnedProxyId: proxy.Id,
             DerivedUsername: scrapedUsername ?? (string.IsNullOrEmpty(username) ? null : username),
             StorageUsedBytes: used,
@@ -1230,8 +1283,7 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         try
         {
             // UsernameCookieName: null — XFS identity comes from /api/account/info, not a cookie.
-            InteractiveAuthSpec spec = new(Name, LoginUrl, CookieDomain, CookieName);
-            captured = await _authService.AcquireSessionCookieAsync(spec, username, proxy, ct);
+            captured = await _authService.AcquireSessionCookieAsync(BuildSignInSpec(), username, proxy, ct);
         }
         catch (Exception ex)
         {
@@ -1243,7 +1295,8 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
         }
 
-        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(auth.SessionCookieValue);
+        string storedSession = ComposeStoredSession(auth);
+        IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(storedSession);
         string html;
         string finalUrl;
         int hops;
@@ -1328,11 +1381,12 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
             AccountType: derivedType,
             Message: derivedMessage,
             PremiumExpiry: derivedInfo is null ? null : ClassifyPremium(derivedInfo).Expiry,
-            // Persist the freshly captured xfss cookie too — RunAsync's upload path reuses
-            // it, and a refresh can reuse it without re-popping the WebView. The base
-            // 7-day expiry matches RunAsync's auth-cache lifetime.
-            SessionCookie: auth.SessionCookieValue,
-            SessionCookieExpiresUtc: DateTime.UtcNow + DefaultCookieLifetime,
+            // Persist the freshly captured session too — RunAsync's upload path reuses it, and a
+            // refresh can reuse it without re-popping the WebView. In cf_clearance mode this carries
+            // the combined xfss+cf_clearance header and a shorter lifetime (so it re-signs-in before
+            // the clearance expires); classic mode stores the bare xfss with the 7-day window.
+            SessionCookie: storedSession,
+            SessionCookieExpiresUtc: DateTime.UtcNow + SignInSessionLifetime,
             PinnedProxyId: proxy.Id,
             ApiKey: derivedKey,
             DerivedUsername: derivedInfo?.Email,
@@ -1836,8 +1890,16 @@ public abstract class XFileSharingApiPipeline : IFileHosterPipeline
         return s.Length > 200 ? s[..200] + "…" : s;
     }
 
-    private Dictionary<string, string> BuildCookieHeader(string xfss)
-        => new(StringComparer.Ordinal) { ["Cookie"] = CookieName + "=" + xfss };
+    private Dictionary<string, string> BuildCookieHeader(string session)
+        // A combined cf_clearance-mode session is already a full "name=value; name=value" Cookie
+        // header (it contains '='); forward it verbatim. A classic session is a bare xfss token
+        // (alphanumeric, never '=') that we wrap. The '=' test cleanly distinguishes the two.
+        => new(StringComparer.Ordinal)
+        {
+            ["Cookie"] = session.Contains('=', StringComparison.Ordinal)
+                ? session
+                : CookieName + "=" + session,
+        };
 
     private (string? Url, string? Error, bool AuthExpired) ParseUploadResponse(HttpResponseSnapshot response)
     {
