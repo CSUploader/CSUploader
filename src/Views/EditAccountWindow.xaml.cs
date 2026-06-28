@@ -35,8 +35,10 @@ public partial class EditAccountWindow : Window
     // "Hotlink" intentionally absent — DISABLED 2026-06-23. hotlink.cc free accounts can't
     // upload and its XFileSharing Pro per-user API key is never rendered, so there is no usable
     // api-key flow. See HotlinkPipeline.cs class-level remarks for the diagnosis + re-enable checklist.
+    // "TakeFile" DISABLED 2026-06-28 (Cloudflare managed-challenge TLS wall — see TakeFilePipeline.cs);
+    // removed here alongside its registry + DI entries.
     private static readonly HashSet<string> ApiKeyHosters =
-        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "TakeFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "NitroFlare" };
+        new(StringComparer.OrdinalIgnoreCase) { "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "NitroFlare" };
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no

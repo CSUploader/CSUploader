@@ -10,13 +10,36 @@ using CSUploader.Services;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// TakeFile. Standard XFileSharingPro API — confirmed via the 2026-05-26 probe sweep
-/// after sending a realistic browser User-Agent (TakeFile is behind a Cloudflare
-/// challenge that rejects bare API clients; the
-/// <see cref="Lib.Net.Http.DefaultHttpHandlerFactory.DefaultUserAgent"/> already in
-/// place satisfies it). Only Name + Host needed; protocol lives in
-/// <see cref="XFileSharingApiPipeline"/>.
+/// TakeFile. Standard XFileSharingPro API; protocol lives in <see cref="XFileSharingApiPipeline"/>.
 /// </summary>
+/// <remarks>
+/// DISABLED 2026-06-28 — the class is retained (registry entry, DI registration, and the
+/// EditAccount ApiKeyHosters entry are commented out; the smoke test asserts it is absent from the
+/// registry) so a re-enable is low-churn.
+/// <para>
+/// Why: takefile.link's whole domain is behind a Cloudflare <b>managed</b> challenge
+/// (<c>cType:'managed'</c>). The C# my_account scrape — and every other request to the domain —
+/// gets served the "Just a moment…" interstitial instead of the page. The 2026-05-26 probe sweep
+/// "worked" only because the challenge wasn't being enforced that day; it is now.
+/// </para>
+/// <para>
+/// What we tried (and why it didn't work): the opt-in cf_clearance path on the base
+/// (<see cref="RequiresCloudflareClearance"/> / <see cref="SignInUserAgentOverride"/> /
+/// <see cref="SignInSessionLifetime"/>, all still wired below). The WebView solves the challenge
+/// and holds a <c>cf_clearance</c> cookie; we pin the WebView UA to the handler's, capture the
+/// clearance, and forward it (with xfss) on every request. Verified against a real browser capture.
+/// But a <i>managed</i> challenge also validates the browser's TLS/JA-fingerprint, which a .NET
+/// <c>HttpClient</c> can't reproduce, so Cloudflare rejects the request even with a valid
+/// clearance + matching UA + IP. (The cf_clearance machinery is kept on the base because it WOULD
+/// defeat a lighter, non-managed Cloudflare challenge — it just can't beat a managed one.)
+/// </para>
+/// <para>
+/// Re-enable checklist (only after confirming takefile.link no longer serves a managed challenge to
+/// non-browser clients): (1) un-comment the FileHosterClient registry entry; (2) un-comment the DI
+/// registration in App.xaml.cs; (3) re-add "TakeFile" to EditAccountWindow.ApiKeyHosters; (4) flip
+/// the smoke test back to asserting the registry contains it.
+/// </para>
+/// </remarks>
 public sealed class TakeFilePipeline : XFileSharingApiPipeline
 {
     public TakeFilePipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)

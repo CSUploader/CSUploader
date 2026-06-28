@@ -127,7 +127,15 @@ public partial class App : Application
         // protocol shapes we already implement. See FlashBitPipeline.cs class-level
         // remarks for the full diagnosis chain.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FlashBitPipeline>();
-        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
+        // TakeFile DISABLED 2026-06-28. takefile.link's whole domain sits behind a Cloudflare
+        // *managed* challenge: the C# my_account scrape gets the "Just a moment…" interstitial.
+        // We implemented + tested cf_clearance forwarding (capture the WebView's clearance, pin the
+        // UA, forward both cookies) but a managed challenge ALSO validates the browser TLS
+        // fingerprint, which a .NET HttpClient can't reproduce — so even a valid clearance + matching
+        // UA + IP is rejected. Same wall as ExtMatrix/Hotlink/FlashBit. The pipeline (incl. the
+        // cf_clearance overrides + /user_login login path) is retained; re-enable only if TakeFile
+        // drops the managed challenge. See TakeFilePipeline.cs class-level remarks.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HxfilePipeline>();
         // IcerBox is a clean JSON REST API (email+password login → Bearer JWT → blueimp upload),

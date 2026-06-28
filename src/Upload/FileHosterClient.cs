@@ -86,8 +86,15 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // XFileSharingApiPipeline shim — but only after confirming the host is live + uploadable.
         // ShareOnline REMOVED 2026-06-28 — share-online.biz shut down in 2019; the domain is dead
         // with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
-        // Live host is the apex domain (takefile.link); www. redirects.
-        { "TakeFile", "takefile.link" },
+        // TakeFile DISABLED 2026-06-28 — takefile.link's whole domain is behind a Cloudflare
+        // *managed* challenge that fingerprints the TLS stack, so the C# my_account scrape (and
+        // every other request) gets the "Just a moment…" interstitial. cf_clearance forwarding was
+        // implemented + tested but a managed challenge rejects a .NET client even with a valid
+        // clearance + matching UA + IP. Pipeline DI registration + the EditAccount ApiKeyHosters
+        // entry are commented out alongside this. Do NOT re-add without confirming TakeFile dropped
+        // the managed challenge. See TakeFilePipeline.cs class-level remarks. (Live host was the apex
+        // takefile.link; www. redirected.)
+        // { "TakeFile", "takefile.link" },
         { "TezFiles", "tezfiles.com" },
         { "UbiqFile", "www.ubiqfile.com" },
         { "Uploaded", "www.uploaded.net" },
