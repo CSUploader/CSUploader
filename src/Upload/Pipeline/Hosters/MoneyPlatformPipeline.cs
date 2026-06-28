@@ -227,7 +227,7 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
             yield return new TransferStarted(ctx.FileSize);
 
             // === Multipart upload ===
-            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
             EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
                 progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
             ctx.Handler.UploadProgress += onProgress;
@@ -836,7 +836,7 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
             else if (rem == 1) return null; // invalid base64url length
 
             byte[] bytes = Convert.FromBase64String(padded);
-            using JsonDocument doc = JsonDocument.Parse(bytes);
+            using var doc = JsonDocument.Parse(bytes);
             // Clone before disposing the document so the returned element stays valid.
             return doc.RootElement.Clone();
         }

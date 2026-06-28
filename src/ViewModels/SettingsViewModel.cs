@@ -1277,7 +1277,7 @@ public partial class SettingsViewModel(
     /// </summary>
     private async Task<RowStatus> RefreshSingleAccountAsync(FileHosterLoginDto account, int oneBasedIndex, int total, CancellationToken cancellationToken)
     {
-        FileHosterClient? client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+        var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
         if (client is null)
         {
             string noImpl = LocF("Settings_Accounts_Status_NoImpl_Format", account.FileHosterName);

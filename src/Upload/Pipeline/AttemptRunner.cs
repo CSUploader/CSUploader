@@ -136,11 +136,11 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             finalUrl = null;
             bool cancelledByPipeline = false;
 
-            Channel<UploadEvent> channel = Channel.CreateUnbounded<UploadEvent>(
+            var channel = Channel.CreateUnbounded<UploadEvent>(
                 new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
             Exception? fault = null;
 
-            Task pump = Task.Run(async () =>
+            var pump = Task.Run(async () =>
             {
                 try
                 {

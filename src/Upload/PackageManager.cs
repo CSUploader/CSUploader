@@ -563,7 +563,7 @@ public class PackageManager
 
     private void OnQueueOrderChanged(object? sender, IReadOnlyList<PackageFile> files)
     {
-        Dictionary<int, int> orders = files
+        var orders = files
             .Where(f => f.DbId is not null)
             .ToDictionary(f => f.DbId!.Value, f => f.QueueOrder);
         if (orders.Count == 0)
@@ -652,7 +652,7 @@ public class PackageManager
         // or the Add could land after the removal continuation — either way leaving a stale entry or
         // missing one. Releasing the gate after the Add makes the add-then-remove order deterministic.
         TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task task = Task.Run(async () =>
+        var task = Task.Run(async () =>
         {
             await gate.Task;
             await body();

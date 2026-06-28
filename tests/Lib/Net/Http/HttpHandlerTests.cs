@@ -110,7 +110,7 @@ public class HttpHandlerTests
     {
         // RFC 2046 allows `boundary="..."` but XFileSharing's Perl multipart parser treats the
         // quotes as part of the delimiter. The browser never emits the quoted form, so we don't either.
-        using TempFile temp = TempFile.With("hello-bytes");
+        using var temp = TempFile.With("hello-bytes");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
@@ -128,7 +128,7 @@ public class HttpHandlerTests
     {
         // Browsers only emit filename*=utf-8''... when the filename contains non-ASCII bytes.
         // .NET's MultipartFormDataContent adds it unconditionally and that confused fs.cgi.
-        using TempFile temp = TempFile.With("hello-bytes", "ascii-name.mp4");
+        using var temp = TempFile.With("hello-bytes", "ascii-name.mp4");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
@@ -146,7 +146,7 @@ public class HttpHandlerTests
         // filename*, and NOT Latin-1 (which mangles non-ASCII to '?', the cause of the "?????" the
         // server stored). CapturingHandler UTF-8-decodes the buffered body, so the readable name
         // round-trips here only because the wire bytes are genuinely UTF-8.
-        using TempFile temp = TempFile.With("bytes", "résumé.pdf");
+        using var temp = TempFile.With("bytes", "résumé.pdf");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
@@ -162,7 +162,7 @@ public class HttpHandlerTests
     {
         // application/octet-stream is the lowest-information answer and lets a server
         // confuse the upload with an unrecognised binary. Match what the browser sends.
-        using TempFile temp = TempFile.With("bytes", "movie.mp4");
+        using var temp = TempFile.With("bytes", "movie.mp4");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
@@ -183,7 +183,7 @@ public class HttpHandlerTests
         //      upload.cgi never sees sess_id → user looks anonymous → "uploads not enabled".
         //   2. No `Content-Type: text/plain; charset=utf-8` on the part — browsers send
         //      form-field parts bare and .NET's default added one.
-        using TempFile temp = TempFile.With("bytes", "x.mp4");
+        using var temp = TempFile.With("bytes", "x.mp4");
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
@@ -227,7 +227,7 @@ public class HttpHandlerTests
         // connect-phase failure (DNS/TCP/TLS) where ProgressStreamContent.SerializeToStreamAsync
         // never runs, so BodyFullySent stays false. Zero bytes were sent → server committed
         // nothing → the shared retry layer must be allowed to re-send.
-        using TempFile temp = TempFile.With("payload-bytes");
+        using var temp = TempFile.With("payload-bytes");
         HttpHandler handler = new(
             new HttpClient(new ConnectFailHandler(new HttpRequestException("No connection could be made"))),
             Mock.Of<IAppLogger>(),
@@ -249,7 +249,7 @@ public class HttpHandlerTests
         // runs to completion and sets BodyFullySent), THEN throws — simulating the response being
         // lost AFTER the whole body was sent. The server may have committed the upload, so this
         // must NOT be reclassified as retryable, or AttemptRunner could double-create the file.
-        using TempFile temp = TempFile.With("payload-bytes");
+        using var temp = TempFile.With("payload-bytes");
         HttpHandler handler = new(
             new HttpClient(new DrainThenThrowHandler(new HttpRequestException("connection closed while receiving response"))),
             Mock.Of<IAppLogger>(),

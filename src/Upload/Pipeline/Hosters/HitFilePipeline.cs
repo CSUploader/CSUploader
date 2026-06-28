@@ -242,7 +242,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
 
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel
         // (can't yield from inside the event handler).
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
@@ -541,7 +541,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(json);
             JsonElement root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object
                 || !root.TryGetProperty("items", out JsonElement items)
@@ -645,7 +645,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(probeValue);
+            using var doc = JsonDocument.Parse(probeValue);
             JsonElement root = doc.RootElement;
             string? appId = root.TryGetProperty("appId", out JsonElement a) && a.ValueKind == JsonValueKind.String
                 ? a.GetString()
@@ -688,7 +688,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             // Guard the element kind before GetString(): on a type mismatch it throws
             // InvalidOperationException (not JsonException), which would escape the catch
             // below and surface as a raw "pipeline crashed" instead of the clean error.
@@ -758,7 +758,7 @@ public sealed class HitFilePipeline : IFileHosterPipeline, ISessionRefreshablePi
     {
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             JsonElement root = doc.RootElement;
             // ValueKind-guard every GetString(): a mismatch throws InvalidOperationException
             // (not JsonException), which would otherwise escape the catch below — and here that

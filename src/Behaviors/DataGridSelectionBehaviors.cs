@@ -79,7 +79,7 @@ public static class DataGridSelectionBehaviors
             return;
         }
 
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
         while (source is not null)
         {
             switch (source)
@@ -139,7 +139,7 @@ public static class DataGridSelectionBehaviors
             return;
         }
 
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
         while (source is not null and not DataGridRow)
         {
             source = VisualTreeHelper.GetParent(source);

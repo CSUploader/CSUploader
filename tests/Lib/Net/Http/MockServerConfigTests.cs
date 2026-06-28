@@ -15,7 +15,7 @@ public class MockServerConfigTests
     {
         AppSettings settings = new() { UseMockServer = true, MockServerBaseUrl = "http://localhost:8080" };
 
-        MockServerConfig snap = MockServerConfig.FromAppSettings(settings);
+        var snap = MockServerConfig.FromAppSettings(settings);
 
         Assert.True(snap.Enabled);
         Assert.Equal("http://localhost:8080", snap.BaseUrl);

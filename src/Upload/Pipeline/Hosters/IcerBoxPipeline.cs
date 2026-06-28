@@ -160,7 +160,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
         // === Upload the bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
         // The upload runs concurrently; progress callbacks write into an unbounded channel this
         // iterator drains. Can't yield from inside the event handler, hence the channel.
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
@@ -295,7 +295,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             JsonElement root = doc.RootElement;
             long? used = ReadNonNegativeLong(root, "files_size");
             long? capacity = ReadNonNegativeLong(root, "capacity");
@@ -403,7 +403,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             JsonElement root = doc.RootElement;
             if (root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("token", out JsonElement tokenEl)
@@ -447,7 +447,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             if (doc.RootElement.TryGetProperty("data", out JsonElement data) && data.ValueKind == JsonValueKind.Object)
             {
                 // Block ONLY on an explicit upload:false (don't false-block when the field is absent).
@@ -510,7 +510,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             JsonElement root = doc.RootElement;
             if (root.TryGetProperty("files", out JsonElement files)
                 && files.ValueKind == JsonValueKind.Array
@@ -541,7 +541,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             if (!doc.RootElement.TryGetProperty("data", out JsonElement data) || data.ValueKind != JsonValueKind.Object)
             {
                 return new AccountCheckResult(false, AccountType.Free, $"icerbox account check: unexpected response: {Snippet(snap.Body)}");

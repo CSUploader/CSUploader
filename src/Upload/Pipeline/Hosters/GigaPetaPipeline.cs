@@ -129,7 +129,7 @@ public sealed class GigaPetaPipeline : IFileHosterPipeline
 
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel,
         // same pattern as the other pipelines (can't yield from inside the event handler).
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;

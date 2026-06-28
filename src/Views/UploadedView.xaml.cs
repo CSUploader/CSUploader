@@ -188,7 +188,7 @@ public partial class UploadedView : UserControl
     /// </summary>
     private void FilesGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
 
         DataGridRow? row = FindAncestor<DataGridRow>(source);
         if (row is not null)
@@ -222,7 +222,7 @@ public partial class UploadedView : UserControl
     /// </summary>
     private void FilesGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
 
         // Column headers have their own ContextMenu (the show/hide menu, set via the
         // cloned ColumnHeaderStyle in FilesGrid_Loaded). The ContextMenuOpening event

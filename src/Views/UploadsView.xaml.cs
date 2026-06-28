@@ -284,7 +284,7 @@ public partial class UploadsView : UserControl
     /// </summary>
     private void UploadsGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
 
         // Column headers have their own ContextMenu (the show/hide menu, set via the
         // cloned ColumnHeaderStyle in UploadsGrid_Loaded). The ContextMenuOpening event
@@ -409,7 +409,7 @@ public partial class UploadsView : UserControl
     /// </summary>
     private void PremiumAccountLink_Click(object sender, MouseButtonEventArgs e)
     {
-        Window? window = Window.GetWindow(this);
+        var window = Window.GetWindow(this);
         if (window?.DataContext is MainViewModel main)
         {
             main.SelectedTabIndex = 2; // Settings tab

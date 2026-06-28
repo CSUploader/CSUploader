@@ -181,7 +181,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
 
         // Bridge HttpHandler.UploadProgress -> TransferProgress via an unbounded channel
         // (can't yield from inside the event handler).
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;
@@ -304,7 +304,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(probeValue);
+            using var doc = JsonDocument.Parse(probeValue);
             JsonElement root = doc.RootElement;
             string? hash = root.TryGetProperty("hash", out JsonElement h) && h.ValueKind == JsonValueKind.String
                 ? h.GetString()
@@ -414,7 +414,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
     {
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             JsonElement root = doc.RootElement;
             if (root.ValueKind == JsonValueKind.Object
                 && root.TryGetProperty("files", out JsonElement files)

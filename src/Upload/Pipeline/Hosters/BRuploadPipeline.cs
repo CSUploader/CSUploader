@@ -188,7 +188,7 @@ public sealed class BRuploadPipeline : IFileHosterPipeline
 
         // Bridge UploadProgress -> TransferProgress events via an unbounded channel,
         // same pattern as the other pipelines.
-        Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
         EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
         ctx.Handler.UploadProgress += onProgress;

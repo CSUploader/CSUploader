@@ -96,7 +96,7 @@ public class RapidgatorPipelineAuthTests
 
         RapidgatorPipeline pipeline = new(Respond);
 
-        Task[] tasks = new Task[parallel];
+        var tasks = new Task[parallel];
         for (int i = 0; i < parallel; i++)
         {
             tasks[i] = Task.Run(async () =>

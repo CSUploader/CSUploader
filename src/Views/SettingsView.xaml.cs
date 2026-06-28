@@ -95,7 +95,7 @@ public partial class SettingsView : UserControl
     /// </summary>
     private void AccountsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        DependencyObject? source = e.OriginalSource as DependencyObject;
+        var source = e.OriginalSource as DependencyObject;
         while (source is not null and not DataGridRow)
         {
             source = VisualTreeHelper.GetParent(source);

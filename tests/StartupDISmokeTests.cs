@@ -66,7 +66,7 @@ public class StartupDISmokeTests
             ServiceCollection services = new();
             App.ConfigureServices(services, tempDir);
 
-            Task resolveTask = Task.Run(() =>
+            var resolveTask = Task.Run(() =>
             {
                 using ServiceProvider sp = services.BuildServiceProvider();
 

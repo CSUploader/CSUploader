@@ -168,7 +168,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
             }
 
             // === Multipart upload bytes — bridge HttpHandler.UploadProgress to TransferProgress events ===
-            Channel<UploadEvent> progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
             EventHandler<Lib.OperationProgressEventArgs> onProgress = (_, e) =>
                 progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, (double)e.Speed));
             ctx.Handler.UploadProgress += onProgress;
@@ -649,7 +649,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
                 throw;
             }
 
-            TimeSpan next = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * 2);
+            var next = TimeSpan.FromMilliseconds(delay.TotalMilliseconds * 2);
             delay = next > _uploadInfoPollMaxDelay ? _uploadInfoPollMaxDelay : next;
         }
     }

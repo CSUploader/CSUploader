@@ -413,7 +413,7 @@ public class UploadScheduler : IDisposable
         int globalSlots = _settings.MaxConcurrentUploadJobs - allFiles.Count(f => f.State == FileState.Uploading);
         bool perHostEnabled = _settings.MaxUploadsPerHostEnabled;
 
-        Dictionary<string, int> hostUsed = allFiles
+        var hostUsed = allFiles
             .Where(f => f.State == FileState.Uploading)
             .GroupBy(f => f.FileHoster.Name, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);

@@ -223,7 +223,7 @@ public class ProxyManagerTests : IDisposable
     [Fact]
     public static void Ok_BodyIsRealIp_PopulatesDetectedIp()
     {
-        ProxyTestResult result = ProxyTestResult.Ok(123, "1.2.3.4");
+        var result = ProxyTestResult.Ok(123, "1.2.3.4");
 
         Assert.True(result.Success);
         Assert.Equal("1.2.3.4", result.DetectedIp);
@@ -238,7 +238,7 @@ public class ProxyManagerTests : IDisposable
         // DetectedIp when the body is a parseable IP; everything else is Body-only.
         const string html = "<html><head><title>ERROR</title></head><body>blocked</body></html>";
 
-        ProxyTestResult result = ProxyTestResult.Ok(123, html);
+        var result = ProxyTestResult.Ok(123, html);
 
         Assert.True(result.Success);
         Assert.Null(result.DetectedIp);
@@ -248,7 +248,7 @@ public class ProxyManagerTests : IDisposable
     [Fact]
     public static void Failed_StoresMessageInBothMessageAndBody()
     {
-        ProxyTestResult result = ProxyTestResult.Failed("Connection refused.");
+        var result = ProxyTestResult.Failed("Connection refused.");
 
         Assert.False(result.Success);
         Assert.Equal("Connection refused.", result.Message);

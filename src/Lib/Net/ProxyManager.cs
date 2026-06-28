@@ -200,7 +200,7 @@ public class ProxyManager : IProxySource
         // rewritten to localhost:8080/api in DEBUG builds, which defeats the whole point.
         HttpHandler httpHandler = new(client, capturingLogger, proxyDescription, MockServerConfig.Disabled, bypassMockServer: true);
 
-        Stopwatch sw = Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
         try
         {
             string body = await httpHandler.GetStringAsync(TestEndpoint, cancellationToken).ConfigureAwait(false);

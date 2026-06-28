@@ -77,7 +77,7 @@ public sealed class DefaultHttpHandlerFactory(AppSettings settings) : IHttpHandl
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
         }
 
-        MockServerConfig snap = MockServerConfig.FromAppSettings(settings);
+        var snap = MockServerConfig.FromAppSettings(settings);
         return new HttpHandler(client, logger, proxy.Description, snap);
     }
 }
