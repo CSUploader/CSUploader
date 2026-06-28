@@ -96,7 +96,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // takefile.link; www. redirected.)
         // { "TakeFile", "takefile.link" },
         { "TezFiles", "tezfiles.com" },
-        { "UbiqFile", "www.ubiqfile.com" },
+        // UbiqFile REMOVED 2026-06-28 — ubiqfile.com's main domain is behind a Cloudflare *managed*
+        // challenge (cType:'managed', same TLS-fingerprint wall TakeFile hit), so the C# my_account /
+        // upload-form scrape can't pass it even with cf_clearance. Its upload servers (uNN.ubiqfile.com)
+        // are direct nginx, but the rotating upload server + sess_id must be scraped from the
+        // Cloudflare-protected main domain first, so the open upload node is unreachable. The free tier
+        // is also near-useless (1 MB per file AND 1 MB total storage). Never had a pipeline; metadata-only.
+        // Do NOT re-add without confirming the managed challenge is gone. See takefile-disabled rationale.
         { "Uploaded", "www.uploaded.net" },
         { "UploadGIG", "www.uploadgig.com" },
         { "UniBytes", "www.unibytes.com" },
