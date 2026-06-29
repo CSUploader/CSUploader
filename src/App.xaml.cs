@@ -171,6 +171,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
+        // filehoster.io — anonymous-only XFileSharing "xfspro" chunked upload (start_upload → put_chunk → import_file).
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilehosterIoPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
                 sp.GetRequiredService<IInteractiveAuthService>()));

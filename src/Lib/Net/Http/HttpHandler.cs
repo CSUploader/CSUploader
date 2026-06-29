@@ -564,6 +564,112 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
+    /// PUTs a single chunk as a <em>raw octet-stream body</em> to <paramref name="endpoint"/> — the
+    /// shape the XFileSharing "xfspro" upload plugin uses (<c>put_chunk.cgi</c>, captured from
+    /// filehoster.io 2026-06-29): each chunk is a bare <c>PUT</c> carrying an <c>X-Upload-SID</c> header
+    /// (passed via <paramref name="headers"/>), and the server appends chunks in order under that SID.
+    /// Progress is file-cumulative via <paramref name="basePosition"/> (same translation as
+    /// <see cref="PostChunkAsync"/>). The caller slices the file (see <see cref="ChunkSliceStream"/>).
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="PostChunkAsync"/> (the up.cgi protocol, which commits each chunk into the final
+    /// file and therefore STRIPS the retry marker), xfspro chunks accumulate under a <em>disposable,
+    /// client-chosen SID</em> and only the later <c>import_file</c> creates the file record. So a
+    /// body-not-fully-sent fault is safe for the shared retry layer to re-run the WHOLE pipeline — which
+    /// picks a FRESH SID, orphaning the partial upload and never double-creating. This is the
+    /// <see cref="UploadPutAsync"/>/storage.to model, so the same <c>BodyFullySent</c> reclassification
+    /// applies here.
+    /// </remarks>
+    public async Task<HttpResponseSnapshot> PutChunkAsync(
+        string endpoint,
+        Stream chunkData,
+        long chunkLength,
+        long basePosition,
+        long totalFileSize,
+        DateTime dateTimeStarted,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "PUT",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = dateTimeStarted,
+            RequestBody = $"[PUT chunk @ {basePosition}: {chunkLength} bytes]",
+        };
+
+        ProgressStreamContent? progressContent = null;
+
+        try
+        {
+            Stream chunkStream = getBytesPerSecond is not null
+                ? new ThrottledStream(chunkData, getBytesPerSecond)
+                : chunkData;
+            progressContent = new(
+                chunkStream,
+                // Per-chunk → file-cumulative progress so the UI sees one monotonic stream.
+                (_, bytesInThisChunk) => UploadProgress?.Invoke(
+                    this,
+                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                cancellationToken);
+            progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+
+            using HttpRequestMessage request = new(HttpMethod.Put, endpoint) { Content = progressContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, progressContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+
+            // xfspro chunks are whole-pipeline-retry-safe (fresh SID discards the partial), so reclassify
+            // a body-not-fully-sent fault exactly like UploadPutAsync — do NOT strip the marker the way
+            // PostChunkAsync (commit-per-chunk) must.
+            if (progressContent is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
+            {
+                throw new UploadBodyTransferException(ex);
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
     /// POSTs a single chunk of a file as a multipart body to <paramref name="endpoint"/>.
     /// Body shape (matches the modern XFileSharing CDN protocol, captured from hxfile.co
     /// on 2026-06-01):

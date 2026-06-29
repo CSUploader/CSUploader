@@ -369,6 +369,69 @@ public class HttpHandlerTests
         Assert.Equal("application/octet-stream", capture.RequestContentType);
     }
 
+    // ---- PutChunkAsync (the xfspro raw-PUT chunk used by filehoster.io). Unlike PostChunkAsync
+    // (up.cgi, commit-per-chunk → strips the marker), xfspro chunks accumulate under a disposable SID
+    // and only import_file creates the record, so a body-not-fully-sent fault IS whole-pipeline-retry-
+    // safe (fresh SID) — same reclassification as UploadPutAsync. ----
+
+    [Fact]
+    public async Task PutChunkAsync_ConnectPhaseFailure_ReclassifiedAsRetryableBodyTransferAbort()
+    {
+        using MemoryStream chunk = new([1, 2, 3, 4, 5]);
+        HttpHandler handler = new(
+            new HttpClient(new ConnectFailHandler(new HttpRequestException("No connection could be made"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, basePosition: 0, totalFileSize: chunk.Length, DateTime.Now));
+
+        Assert.True(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"An xfspro chunk connect-phase failure should be retryable (fresh-SID re-run). Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task PutChunkAsync_PostBodyFailure_NotReclassified_StaysTerminalFault()
+    {
+        using MemoryStream chunk = new([1, 2, 3, 4, 5]);
+        HttpHandler handler = new(
+            new HttpClient(new DrainThenThrowHandler(new HttpRequestException("connection closed while receiving response"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, 0, chunk.Length, DateTime.Now));
+
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A chunk failure after the body was fully sent must stay terminal. Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task PutChunkAsync_ReportsFileCumulativeProgress()
+    {
+        // The per-chunk byte count must be translated to whole-file progress via basePosition so the UI
+        // sees one monotonic stream across chunks (here: chunk of 50 bytes at offset 200 of a 1000-byte
+        // file → final progress 250/1000).
+        using MemoryStream chunk = new(new byte[50]);
+        HttpHandler handler = new(new HttpClient(new CapturingHandler()), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+        long lastProcessed = 0;
+        long lastTotal = 0;
+        handler.UploadProgress += (_, e) =>
+        {
+            lastProcessed = e.BytesProcessed;
+            lastTotal = e.Size;
+        };
+
+        await handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, 50, basePosition: 200, totalFileSize: 1000, DateTime.Now);
+
+        Assert.Equal(1000, lastTotal);
+        Assert.Equal(250, lastProcessed);
+    }
+
     // ---- Chunked uploads must NEVER be whole-pipeline retried by the shared retry layer (each
     // chunk commits server-side: up.cgi per chunk + api.cgi finalize → re-sending could
     // double-commit). PostChunkAsync therefore STRIPS any UploadBodyTransferException marker so the

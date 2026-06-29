@@ -39,6 +39,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // upload endpoint and walking the re-enable checklist in ExtMatrixPipeline.cs.
         // { "ExtMatrix", "www.extmatrix.com" },
         { "FileBoom", "www.fileboom.me" },
+        // filehoster.io is an XFileSharing host on the "xfspro" chunked-upload plugin; anonymous, no
+        // login (start_upload → put_chunk.cgi → import_file). See FilehosterIoPipeline.cs.
+        { "Filehoster.io", "filehoster.io" },
         // Filecloud REMOVED 2026-06-10 — filecloud.io is dead (site down, no live upload
         // endpoint). Never had a pipeline; was metadata-only. Do NOT re-add without
         // confirming the host is back and which protocol family it belongs to.
