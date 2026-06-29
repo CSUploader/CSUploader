@@ -61,6 +61,12 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         """name=["']token["'][^>]*?\bvalue=["']([a-fA-F0-9]+)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Login re-render shows the reason in an alert box: <div class="alert alert-danger">Incorrect Login
+    // or Password</div>. Surfacing it turns a bare HTTP code into an actionable message.
+    private static readonly Regex _loginErrorRegex = new(
+        """<div[^>]*\balert-danger\b[^>]*>\s*([^<]+?)\s*</div>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
     // /account/ dashboard: <div ...>Used space</div> <div class="fs-4 ...">0.06</div> — a GiB figure.
     // Anchored on the value div's distinctive fs-4 class so the page's two "Used space" occurrences can't
     // confuse it (the decoy's following div has no fs-4), and tolerant of an inner span/icon before the
@@ -399,9 +405,31 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         }
 
         string? xfss = ExtractCookieValue(snap.SetCookies, "xfss");
-        return xfss is not null
-            ? (xfss, null)
-            : (null, $"filehoster.io login failed — check the username and password (HTTP {snap.StatusCode}).");
+        if (xfss is not null)
+        {
+            return (xfss, null);
+        }
+
+        // Surface the server's own reason (XFS renders it in an alert box) so a wrong password vs a
+        // rate-limit vs a WAF page is obvious, rather than a bare HTTP code.
+        string? reason = ExtractLoginError(snap.Body);
+        return (null, reason is not null
+            ? $"filehoster.io login failed: {reason}"
+            : $"filehoster.io login failed — check the username and password (HTTP {snap.StatusCode}).");
+    }
+
+    /// <summary>Pulls the XFS login error out of the re-rendered login page's alert box (e.g. "Incorrect
+    /// Login or Password"). Null when no alert is present.</summary>
+    private static string? ExtractLoginError(string body)
+    {
+        Match m = _loginErrorRegex.Match(body);
+        if (!m.Success)
+        {
+            return null;
+        }
+
+        string text = System.Net.WebUtility.HtmlDecode(m.Groups[1].Value).Trim();
+        return text.Length > 0 ? text : null;
     }
 
     /// <summary>GETs the logged-in <c>/account/</c> page (auth = the xfss cookie) and scrapes the rounded

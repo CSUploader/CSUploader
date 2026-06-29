@@ -349,17 +349,19 @@ public class FilehosterIoPipelineUploadTests
     }
 
     [Fact]
-    public async Task CheckAccountAsync_WrongPassword_ReturnsInvalid()
+    public async Task CheckAccountAsync_WrongPassword_ReturnsInvalidWithServerReason()
     {
-        // A wrong password re-renders the login page as 200 with no xfss Set-Cookie.
+        // A wrong password re-renders the login page as 200 (no xfss) with the reason in an alert box.
+        // The failure message must surface that reason, not a bare HTTP code.
         FilehosterIoPipeline pipeline = new(
             getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
-            postFormOverride: (_, _) => new HttpResponseSnapshot(200, """<form name="FL">bad login</form>""", []),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(200, """<form name="FL"><div class="alert alert-danger">Incorrect Login or Password</div></form>""", []),
             chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
 
         AccountCheckResult result = await pipeline.CheckAccountAsync("user", "wrong", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
+        Assert.Contains("Incorrect Login or Password", result.Message, StringComparison.Ordinal);
     }
 
     [Fact]
