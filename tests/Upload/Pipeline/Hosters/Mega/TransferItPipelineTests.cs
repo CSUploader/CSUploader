@@ -87,6 +87,22 @@ public class TransferItPipelineTests
         Assert.False(uploadRan);
     }
 
+    [Fact]
+    public async Task RunAsync_UploadFault_PropagatesAsRetryableBodyTransfer()
+    {
+        // Session + xn + usc succeed, then the WS upload faults. The file node (xp) never ran, so the
+        // fault must surface as UploadBodyTransferException → the retry layer re-runs on a fresh transfer.
+        MegaApi api = StubApi(["[\"HANDLE\"]", null!, "[[0,[\"XHaaaaaaaaaa\",\"ROOThndl\"]]]", "[[[\"h1\",\"ul/u1\",0]]]"]);
+        TransferItPipeline pipeline = new(
+            _ => api,
+            (pool, ctx, ulKey, progress, ct) =>
+                Task.FromException<(byte[], List<uint[]>)>(new System.Net.WebSockets.WebSocketException("connection dropped")));
+
+        UploadBodyTransferException ex = await Assert.ThrowsAsync<UploadBodyTransferException>(
+            async () => await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None)));
+        Assert.True(UploadBodyTransferException.IsInChain(ex));
+    }
+
     /// <summary>Builds a <see cref="MegaApi"/> over canned responses with fixed keys; a null entry at
     /// index 1 is replaced by a tsid valid for the injected master key (so the session ceremony's
     /// verification passes).</summary>

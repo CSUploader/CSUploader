@@ -29,11 +29,18 @@ internal readonly record struct MegaWsMessage(MegaWsMsgType Type, long Pos, byte
 /// (bdl4.js) and the transfer-it-cli reference speak: per chunk, a 20-byte little-endian header
 /// (<c>fileno | pos | length | crc</c>) followed by the AES-CTR ciphertext frame; the server replies
 /// with chunk acks and a final <c>COMPLETE</c> carrying the completion token. This v1 uses a single
-/// connection (the reference fans out to 8 with reconnect-replay) — a transport failure propagates so
-/// the pipeline's retry layer re-runs the whole upload against a fresh node, which never double-creates.
+/// connection (the reference fans out to 8 with reconnect-replay) and a 120 s idle watchdog; on a
+/// transport failure it throws, and the transfer.it pipeline wraps that as a
+/// <see cref="CSUploader.Lib.Net.Http.UploadBodyTransferException"/> so the retry layer re-runs the
+/// whole upload against a fresh transfer — which never double-creates (the file node is only made by
+/// the later <c>xp</c>).
 /// </summary>
 internal static class MegaWebSocketUploader
 {
+    /// <summary>Abort the upload if the server sends nothing (no ack, no COMPLETE) for this long.
+    /// Resets on every server message, so it only trips on a genuinely stalled/dead connection.</summary>
+    private const int IdleTimeoutMs = 120_000;
+
     /// <summary>Builds the 20-byte chunk header: fileno, pos, length (all little-endian) and the
     /// CRC of <c>header[:16]</c> chained over the ciphertext.</summary>
     internal static byte[] BuildChunkHeader(uint fileno, long pos, int length, byte[] ciphertext)
@@ -104,67 +111,108 @@ internal static class MegaWebSocketUploader
         Dictionary<long, int> lengthByPos = work.ToDictionary(c => c.Pos, c => c.Len);
         SortedDictionary<long, uint[]> macsByOffset = [];
         byte[]? token = null;
-        TaskCompletionSource completed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Exception? fault = null;
         HashSet<long> ackedPos = [];
         long ackedBytes = 0;
+        long lastActivity = Environment.TickCount64;
+        bool idle = false;
 
+        // A single 'stop' signal for both loops: the user's token, a receive-loop fault (the loop's
+        // finally cancels it), or the idle watchdog. Both SendAsync and ReceiveAsync honor cts.Token
+        // so a fault/timeout aborts a send wedged on TCP back-pressure instead of hanging.
         using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         async Task ReceiveLoop()
         {
-            byte[] buf = new byte[16384];
-            using MemoryStream acc = new();
-            while (!cts.IsCancellationRequested)
+            try
             {
-                acc.SetLength(0);
-                WebSocketReceiveResult r;
-                do
+                byte[] buf = new byte[16384];
+                using MemoryStream acc = new();
+                while (!cts.IsCancellationRequested)
                 {
-                    r = await ws.ReceiveAsync(buf, cts.Token).ConfigureAwait(false);
-                    if (r.MessageType == WebSocketMessageType.Close)
+                    acc.SetLength(0);
+                    WebSocketReceiveResult r;
+                    do
                     {
-                        return;
-                    }
-
-                    acc.Write(buf, 0, r.Count);
-                }
-                while (!r.EndOfMessage);
-
-                byte[] msg = acc.ToArray();
-                if (msg.Length < 14)
-                {
-                    continue;
-                }
-
-                MegaWsMessage m = ParseServerMessage(msg);
-                switch (m.Type)
-                {
-                    case MegaWsMsgType.ChunkAck:
-                    case MegaWsMsgType.ChunkAlready:
-                    case MegaWsMsgType.ChunkAckAlt:
-                        if (ackedPos.Add(m.Pos) && lengthByPos.TryGetValue(m.Pos, out int len))
+                        r = await ws.ReceiveAsync(buf, cts.Token).ConfigureAwait(false);
+                        if (r.MessageType == WebSocketMessageType.Close)
                         {
-                            long total = Interlocked.Add(ref ackedBytes, len);
-                            progress?.Invoke(Math.Min(total, size), size);
+                            return;
                         }
 
-                        break;
-                    case MegaWsMsgType.Complete:
-                        token = m.Token;
-                        completed.TrySetResult();
-                        return;
-                    case MegaWsMsgType.Shed:
-                        throw new MegaApiException(0, "MEGA upload: server requested reconnect (shed)");
-                    case MegaWsMsgType.Backoff:
-                        await Task.Delay((int)Math.Max(0, m.Pos), cts.Token).ConfigureAwait(false);
-                        break;
-                    case MegaWsMsgType.CrcFail:
-                        throw new MegaApiException(0, $"MEGA upload: server reports chunk CRC fail at offset {m.Pos}");
+                        acc.Write(buf, 0, r.Count);
+                    }
+                    while (!r.EndOfMessage);
+
+                    Volatile.Write(ref lastActivity, Environment.TickCount64);
+                    byte[] msg = acc.ToArray();
+                    if (msg.Length < 14)
+                    {
+                        continue;
+                    }
+
+                    MegaWsMessage m = ParseServerMessage(msg);
+                    switch (m.Type)
+                    {
+                        case MegaWsMsgType.ChunkAck:
+                        case MegaWsMsgType.ChunkAlready:
+                        case MegaWsMsgType.ChunkAckAlt:
+                            if (ackedPos.Add(m.Pos) && lengthByPos.TryGetValue(m.Pos, out int len))
+                            {
+                                long total = Interlocked.Add(ref ackedBytes, len);
+                                progress?.Invoke(Math.Min(total, size), size);
+                            }
+
+                            break;
+                        case MegaWsMsgType.Complete:
+                            token = m.Token;
+                            return;
+                        case MegaWsMsgType.Shed:
+                            throw new MegaApiException(0, "MEGA upload: server requested reconnect (shed)");
+                        case MegaWsMsgType.Backoff:
+                            await Task.Delay((int)Math.Max(0, m.Pos), cts.Token).ConfigureAwait(false);
+                            break;
+                        case MegaWsMsgType.CrcFail:
+                            throw new MegaApiException(0, $"MEGA upload: server reports chunk CRC fail at offset {m.Pos}");
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // cts tripped (fault elsewhere / idle / user cancel) — normal unwind.
+            }
+            catch (Exception ex)
+            {
+                fault ??= ex;
+            }
+            finally
+            {
+                cts.Cancel(); // unblock a send wedged on back-pressure
             }
         }
 
-        Task recvTask = Task.Run(ReceiveLoop, cts.Token);
+        async Task Watchdog()
+        {
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    await Task.Delay(5000, cts.Token).ConfigureAwait(false);
+                    if (Environment.TickCount64 - Volatile.Read(ref lastActivity) > IdleTimeoutMs)
+                    {
+                        idle = true;
+                        await cts.CancelAsync().ConfigureAwait(false);
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        Task recvTask = Task.Run(ReceiveLoop, CancellationToken.None);
+        Task watchdogTask = Task.Run(Watchdog, CancellationToken.None);
 
         try
         {
@@ -176,46 +224,61 @@ internal static class MegaWebSocketUploader
                 macsByOffset[pos] = mac;
 
                 byte[] header = BuildChunkHeader(fileno, pos, chunkLen, cipher);
-                await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, ct).ConfigureAwait(false);
+                await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
                 if (cipher.Length > 0)
                 {
-                    await ws.SendAsync(cipher, WebSocketMessageType.Binary, endOfMessage: true, ct).ConfigureAwait(false);
-                }
-
-                if (completed.Task.IsCompleted || recvTask.IsFaulted)
-                {
-                    break;
+                    await ws.SendAsync(cipher, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
                 }
             }
-
-            Task finished = await Task.WhenAny(completed.Task, recvTask).ConfigureAwait(false);
-            if (finished == recvTask)
-            {
-                await recvTask.ConfigureAwait(false); // surface a receive-loop fault / unexpected close
-                throw new MegaApiException(0, "MEGA upload: WebSocket closed before completion");
-            }
-
-            await completed.Task.ConfigureAwait(false);
         }
-        finally
+        catch (OperationCanceledException)
         {
-            cts.Cancel();
-            try
-            {
-                await recvTask.ConfigureAwait(false);
-            }
-            catch
-            {
-                // Receive loop unwinding on cancellation — already handled the meaningful outcome above.
-            }
+            // Receive loop finished/faulted, the watchdog tripped, or the user cancelled — stop sending;
+            // the outcome is decided below.
         }
-
-        if (token is null)
+        catch (Exception ex)
         {
-            throw new MegaApiException(0, "MEGA upload ended without a completion token");
+            fault ??= ex; // a transport fault mid-send (WebSocketException / IOException)
+            await cts.CancelAsync().ConfigureAwait(false);
         }
 
-        return (token, [.. macsByOffset.Values]);
+        // Let the receive loop settle on COMPLETE / fault / idle / cancel, then decide the outcome.
+        try
+        {
+            await recvTask.ConfigureAwait(false);
+        }
+        catch
+        {
+            // ReceiveLoop never re-throws (it routes faults to `fault`); guard defensively anyway.
+        }
+
+        await cts.CancelAsync().ConfigureAwait(false);
+        try
+        {
+            await watchdogTask.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Watchdog unwinding on cancellation.
+        }
+
+        if (token is not null)
+        {
+            return (token, [.. macsByOffset.Values]);
+        }
+
+        if (fault is not null)
+        {
+            throw fault;
+        }
+
+        if (idle)
+        {
+            throw new MegaApiException(0, "MEGA upload: no response from the server (idle timeout)");
+        }
+
+        ct.ThrowIfCancellationRequested(); // user cancel → OperationCanceledException
+        throw new MegaApiException(0, "MEGA upload ended without a completion token");
     }
 
     private static byte[] ReadExact(FileStream fs, long pos, int length)

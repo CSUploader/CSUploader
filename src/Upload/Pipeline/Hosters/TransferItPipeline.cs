@@ -115,9 +115,26 @@ public sealed class TransferItPipeline : IFileHosterPipeline
             yield return ev;
         }
 
-        // A failed WS upload created no file node (xp runs below), so re-running the whole pipeline is
-        // safe — the exception propagates to the shared retry layer, which makes a fresh transfer.
-        (byte[] token, List<uint[]> macs) = await uploadTask;
+        // A failed WS upload created no file node (xp runs only below), so re-running is safe and never
+        // double-creates. Wrap the fault as a body-transfer abort so the shared retry layer (AttemptRunner)
+        // re-runs the whole pipeline against a FRESH transfer.
+        byte[] token;
+        List<uint[]> macs;
+        try
+        {
+            (token, macs) = await uploadTask;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new Lib.Net.Http.UploadBodyTransferException(ex);
+        }
+
+        // Land the bar on 100% even if COMPLETE raced ahead of the last chunk's ack.
+        yield return new TransferProgress(ctx.FileSize, ctx.FileSize, ctx.FileSize / Math.Max(0.001, stopwatch.Elapsed.TotalSeconds));
 
         // === Phase 3: finalise the file node + close the transfer ===
         string? finaliseError = null;
