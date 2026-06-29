@@ -3,11 +3,14 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
 
@@ -32,18 +35,39 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   → <c>{"file_code":"…","links":{"download_link":"…"}}</c>. The share link is
 ///   <c>links.download_link</c> (<c>https://filehoster.io/&lt;file_code&gt;/&lt;name&gt;.html</c>).</item>
 /// </list>
-/// No hashing, no cookies (anonymous needs none). Anonymous cap is 10 GB. <c>import_file</c> is the only
-/// record-creating step — a failed chunk before it leaves only orphaned temp data, so a mid-send abort
-/// is safe to retry the whole pipeline (a fresh SID discards the partial; see
-/// <see cref="HttpHandler.PutChunkAsync"/>). The account path isn't wired up (uploads use the wizard's
-/// built-in Anonymous option).
+/// No hashing. Anonymous cap is 10 GB. <c>import_file</c> is the only record-creating step — a failed
+/// chunk before it leaves only orphaned temp data, so a mid-send abort is safe to retry the whole
+/// pipeline (a fresh SID discards the partial; see <see cref="HttpHandler.PutChunkAsync"/>).
+/// <para><b>Accounts.</b> Standard XFileSharing login (GET <c>/login/</c> for the token → POST
+/// <c>op=login</c> → <c>Set-Cookie: xfss</c> on a 302; a wrong password re-renders the page as 200 with
+/// no <c>xfss</c>). The <c>xfss</c> session is cached per credentials id and used two ways: as the
+/// <c>Cookie</c> when reading the <c>/account/</c> "Used space" panel (a GiB figure; no quota is shown,
+/// so Available is Unlimited), and as <c>import_file</c>'s <c>sess_id</c> to attribute an upload to the
+/// account — verified live that <c>sess_id</c> alone suffices, no cookie is needed on the upload
+/// requests. Anonymous uploads send an empty <c>sess_id</c>.</para>
 /// </summary>
-public sealed class FilehosterIoPipeline : IFileHosterPipeline
+public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private const string Host = "https://filehoster.io";
     private const string HomeUrl = Host + "/";
+    private const string LoginPageUrl = Host + "/login/";
+    private const string AccountUrl = Host + "/account/";
     private const string PutChunkPath = "/put_chunk.cgi";
     private const string ApiPath = "/api.cgi";
+
+    // Login form's anti-CSRF token: <input ... name="token" value="<hex>">. The [^>]*? tolerates other
+    // attributes between name and value (e.g. an id), staying within the one tag.
+    private static readonly Regex _tokenRegex = new(
+        """name=["']token["'][^>]*?\bvalue=["']([a-fA-F0-9]+)["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // /account/ dashboard: <div ...>Used space</div> <div class="fs-4 ...">0.06</div> — a GiB figure.
+    // Anchored on the value div's distinctive fs-4 class so the page's two "Used space" occurrences can't
+    // confuse it (the decoy's following div has no fs-4), and tolerant of an inner span/icon before the
+    // number.
+    private static readonly Regex _usedSpaceRegex = new(
+        """Used\s*space\s*</div>\s*<div[^>]*\bfs-4\b[^>]*>\s*(?:<[^>]+>\s*)*([0-9]+(?:\.[0-9]+)?)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     /// <summary>Anonymous per-file cap — 10 GB ("Max file size: 10GB" on the upload page). The server
     /// is the real gate; this fails fast on an obviously-too-big file. Decimal GB to match the page.</summary>
@@ -53,6 +77,12 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
     /// to. Files larger than this are split into multiple sequential PUTs under one SID.</summary>
     private const long ChunkSizeBytes = 100L * 1024 * 1024;
 
+    // xfss session cached per credentials id; one login at a time per id (a batch of N files against the
+    // same account does ONE login, not N). Same shape as Upstore's usid cache.
+    private readonly ConcurrentDictionary<int, string> _xfssByCredId = new();
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
+
+    private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
     private readonly Func<string, string, long, long, long, Action<long, long>, Task<HttpResponseSnapshot>>? _chunkPutOverride;
 
@@ -60,13 +90,25 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
     {
     }
 
-    /// <summary>Test ctor — drives the two form POSTs (start_upload, import_file) and the per-chunk PUT
-    /// from canned responses so the orchestration runs without the network. The chunk override is handed
-    /// the SID, the chunk's base offset/length, and the progress callback.</summary>
+    /// <summary>Test ctor (anonymous) — drives the two form POSTs (start_upload, import_file) and the
+    /// per-chunk PUT from canned responses so the orchestration runs without the network. The chunk
+    /// override is handed the SID, the chunk's base offset/length, and the progress callback.</summary>
     internal FilehosterIoPipeline(
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
         Func<string, string, long, long, long, Action<long, long>, HttpResponseSnapshot> chunkPutOverride)
     {
+        _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
+        _chunkPutOverride = (url, sid, basePos, len, total, progress) => Task.FromResult(chunkPutOverride(url, sid, basePos, len, total, progress));
+    }
+
+    /// <summary>Test ctor (account) — also stubs the GETs (login page, /account/) so the login + storage
+    /// flow and the logged-in upload (sess_id wiring) can be exercised without the network.</summary>
+    internal FilehosterIoPipeline(
+        Func<string, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot> getOverride,
+        Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
+        Func<string, string, long, long, long, Action<long, long>, HttpResponseSnapshot> chunkPutOverride)
+    {
+        _getOverride = (url, headers) => Task.FromResult(getOverride(url, headers));
         _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
         _chunkPutOverride = (url, sid, basePos, len, total, progress) => Task.FromResult(chunkPutOverride(url, sid, basePos, len, total, progress));
     }
@@ -99,6 +141,22 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
             yield break;
         }
 
+        // === Step 0 (account only): obtain the xfss session that attributes the upload to the account ===
+        // Anonymous uploads send an empty sess_id; a logged-in upload sends the xfss as sess_id (verified
+        // live that sess_id alone attributes the file — no cookie is needed on the upload requests).
+        string sessId = string.Empty;
+        if (!ctx.Credentials.IsAnonymous)
+        {
+            (string? xfss, string? loginError) = await EnsureSessionAsync(ctx);
+            if (xfss is null)
+            {
+                yield return new AttemptFailed(loginError ?? "filehoster.io login failed", null);
+                yield break;
+            }
+
+            sessId = xfss;
+        }
+
         // A fresh SID per attempt is what makes a retry safe: re-running picks a new SID and the previous
         // partial upload is orphaned, so import_file (the only record-creating step) never double-creates.
         string sid = GenerateSid();
@@ -108,7 +166,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
         string? startRequestError = null;
         try
         {
-            startResponse = await PostFormAsync(ctx, HomeUrl, BuildStartUploadForm(ctx));
+            startResponse = await PostFormAsync(ctx.Handler, HomeUrl, BuildStartUploadForm(ctx), ctx.Cancellation);
         }
         catch (OperationCanceledException)
         {
@@ -173,7 +231,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
         string? importRequestError = null;
         try
         {
-            importResponse = await PostFormAsync(ctx, baseUrl + ApiPath, BuildImportFileForm(ctx, sid));
+            importResponse = await PostFormAsync(ctx.Handler, baseUrl + ApiPath, BuildImportFileForm(ctx, sid, sessId), ctx.Cancellation);
         }
         catch (OperationCanceledException)
         {
@@ -193,6 +251,14 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
         (string? shareUrl, string? importError) = ParseImportFile(importResponse);
         if (shareUrl is null)
         {
+            // A rejected account import may mean a stale xfss (the cached session expired) — drop the one
+            // WE used (value-matching) so the next attempt re-logs-in. Anonymous has nothing to invalidate.
+            if (sessId.Length > 0)
+            {
+                ((ICollection<KeyValuePair<int, string>>)_xfssByCredId)
+                    .Remove(new KeyValuePair<int, string>(ctx.Credentials.Id, sessId));
+            }
+
             yield return new AttemptFailed(importError ?? "filehoster.io import_file returned no link", null);
             yield break;
         }
@@ -201,21 +267,201 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// filehoster.io login isn't wired up — uploads use the anonymous path. Surface a clear message
-    /// rather than a silent failure if someone tries to add a filehoster.io account in Settings.
+    /// Validates a filehoster.io account by logging in (<c>op=login</c> → a <c>Set-Cookie: xfss</c>),
+    /// then reads "Used space" off <c>/account/</c> (best-effort; no quota is shown, so Available stays
+    /// Unlimited). filehoster.io accounts are free-tier here — premium isn't distinguished.
     /// </summary>
-    public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
-        _ = username;
-        _ = password;
         _ = apiKey;
-        _ = handler;
         _ = proxy;
-        _ = ct;
-        return Task.FromResult(new AccountCheckResult(
-            false,
+
+        (string? xfss, string? error) = await LoginAsync(handler, username, password, ct);
+        if (xfss is null)
+        {
+            return new AccountCheckResult(false, AccountType.Free, error ?? "filehoster.io login failed.");
+        }
+
+        long? used = await TryReadUsedSpaceAsync(handler, xfss, ct);
+        return new AccountCheckResult(
+            true,
             AccountType.Free,
-            "filehoster.io login isn't supported yet — uploads use the built-in Anonymous option in the upload wizard."));
+            "Signed in (Free)",
+            DerivedUsername: username,
+            StorageUsedBytes: used,
+            StorageQuotaBytes: null); // no quota shown → Available is Unlimited
+    }
+
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: a fresh credential login plus the
+    /// same <c>/account/</c> "Used space" read. Returns null on any failure (bad/expired creds, transport)
+    /// so the caller keeps the last-known snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(FileHosterLoginDto credentials, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy;
+
+        (string? xfss, _) = await LoginAsync(handler, credentials.Username, credentials.Password, ct);
+        if (xfss is null)
+        {
+            return null;
+        }
+
+        long? used = await TryReadUsedSpaceAsync(handler, xfss, ct);
+        return used is null ? null : new StorageUsage(used, null);
+    }
+
+    /// <summary>Returns the cached xfss for the account, logging in once (gated per credentials id) on a
+    /// cache miss. Null + an error message when the login fails.</summary>
+    private async Task<(string? Xfss, string? Error)> EnsureSessionAsync(AttemptContext ctx)
+    {
+        int id = ctx.Credentials.Id;
+        if (_xfssByCredId.TryGetValue(id, out string? cached))
+        {
+            return (cached, null);
+        }
+
+        SemaphoreSlim gate = _loginGates.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ctx.Cancellation).ConfigureAwait(false);
+        try
+        {
+            if (_xfssByCredId.TryGetValue(id, out cached))
+            {
+                return (cached, null);
+            }
+
+            (string? xfss, string? error) = await LoginAsync(ctx.Handler, ctx.Credentials.Username, ctx.Credentials.Password, ctx.Cancellation);
+            if (xfss is null)
+            {
+                return (null, error);
+            }
+
+            _xfssByCredId[id] = xfss;
+            return (xfss, null);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>XFileSharing web login: GET <c>/login/</c> for the anti-CSRF token, then POST
+    /// <c>op=login</c>. Success sets <c>Set-Cookie: xfss</c> on the 302 (the runner's handler doesn't
+    /// follow redirects, so it's captured); a wrong password re-renders the page as 200 with no xfss.</summary>
+    private async Task<(string? Xfss, string? Error)> LoginAsync(HttpHandler handler, string? username, string? password, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            return (null, "filehoster.io account needs a username/email and password.");
+        }
+
+        string token = string.Empty;
+        try
+        {
+            HttpResponseSnapshot page = await GetAsync(handler, LoginPageUrl, null, ct);
+            Match m = _tokenRegex.Match(page.Body);
+            if (m.Success)
+            {
+                token = m.Groups[1].Value;
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, "filehoster.io login page fetch failed: " + ex.Message);
+        }
+
+        Dictionary<string, string> form = new(StringComparer.Ordinal)
+        {
+            ["op"] = "login",
+            ["login"] = username,
+            ["password"] = password,
+            ["token"] = token,
+            ["rand"] = string.Empty,
+            ["redirect"] = AccountUrl,
+        };
+
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = await PostFormAsync(handler, HomeUrl, form, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, "filehoster.io login request failed: " + ex.Message);
+        }
+
+        string? xfss = ExtractCookieValue(snap.SetCookies, "xfss");
+        return xfss is not null
+            ? (xfss, null)
+            : (null, $"filehoster.io login failed — check the username and password (HTTP {snap.StatusCode}).");
+    }
+
+    /// <summary>GETs the logged-in <c>/account/</c> page (auth = the xfss cookie) and scrapes the rounded
+    /// "Used space" GiB figure. Returns null on any failure so a transient hiccup leaves Used blank.</summary>
+    private async Task<long?> TryReadUsedSpaceAsync(HttpHandler handler, string xfss, CancellationToken ct)
+    {
+        Dictionary<string, string> headers = new(StringComparer.Ordinal) { ["Cookie"] = "xfss=" + xfss };
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = await GetAsync(handler, AccountUrl, headers, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+
+        return ParseUsedSpace(snap.Body);
+    }
+
+    /// <summary>Parses the dashboard's "Used space" value (a GiB figure, ceil-rounded to 2 decimals) into
+    /// bytes. Null when the panel is absent or the number doesn't parse.</summary>
+    internal static long? ParseUsedSpace(string html)
+    {
+        Match m = _usedSpaceRegex.Match(html);
+        if (!m.Success
+            || !double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double gib)
+            || gib < 0)
+        {
+            return null;
+        }
+
+        return (long)(gib * (1L << 30));
+    }
+
+    /// <summary>Reads the value of the named cookie from a response's raw <c>Set-Cookie</c> lines
+    /// (<c>name=value; attr=…</c>). Null when absent or empty.</summary>
+    private static string? ExtractCookieValue(IReadOnlyList<string> setCookies, string name)
+    {
+        foreach (string raw in setCookies)
+        {
+            int eq = raw.IndexOf('=', StringComparison.Ordinal);
+            if (eq < 0 || !string.Equals(raw[..eq].Trim(), name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            int semi = raw.IndexOf(';', eq);
+            string value = (semi < 0 ? raw[(eq + 1)..] : raw[(eq + 1)..semi]).Trim();
+            if (value.Length > 0)
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Mints a 16-digit decimal upload SID, matching <c>upload-xfspro.js</c>
@@ -382,12 +628,12 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
         ["file_size"] = ctx.FileSize.ToString(CultureInfo.InvariantCulture),
     };
 
-    private static Dictionary<string, string> BuildImportFileForm(AttemptContext ctx, string sid) => new(StringComparer.Ordinal)
+    private static Dictionary<string, string> BuildImportFileForm(AttemptContext ctx, string sid, string sessId) => new(StringComparer.Ordinal)
     {
         ["op"] = "import_file",
         ["sid"] = sid,
         ["fname"] = ctx.FileName,
-        ["sess_id"] = string.Empty, // empty = anonymous
+        ["sess_id"] = sessId, // empty = anonymous; the account's xfss attributes the file to the account
         ["file_descr"] = string.Empty,
         ["file_public"] = "1",
         ["link_rcpt"] = string.Empty,
@@ -395,10 +641,15 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline
         ["to_folder"] = string.Empty,
     };
 
-    private Task<HttpResponseSnapshot> PostFormAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string> form)
+    private Task<HttpResponseSnapshot> PostFormAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> form, CancellationToken ct)
         => _postFormOverride is not null
             ? _postFormOverride(url, form)
-            : ctx.Handler.PostFormAsync(url, form, ctx.Cancellation);
+            : handler.PostFormAsync(url, form, ct);
+
+    private Task<HttpResponseSnapshot> GetAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
+        => _getOverride is not null
+            ? _getOverride(url, headers)
+            : handler.GetSnapshotAsync(url, headers, ct);
 
     private static string Snippet(string body)
     {

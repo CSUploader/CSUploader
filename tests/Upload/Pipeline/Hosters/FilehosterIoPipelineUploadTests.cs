@@ -325,6 +325,197 @@ public class FilehosterIoPipelineUploadTests
         Assert.True(UploadBodyTransferException.IsInChain(ex));
     }
 
+    // ---- Account login + storage ----
+
+    private const string LoginPageHtml = """<form name="FL"><input type="hidden" name="token" value="abc123def4560789"><input name="login" value=""></form>""";
+    private const string AccountHtml = """<div class="text-dark small">Used space</div> <div class="fs-4 fw-bold text-dark">0.06</div>""";
+
+    [Fact]
+    public async Task CheckAccountAsync_ValidCredentials_SignedInWithUsedSpace()
+    {
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (url, _) => url.Contains("/login/", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, LoginPageHtml, [])
+                : new HttpResponseSnapshot(200, AccountHtml, []),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(302, string.Empty, ["xfss=SESSION123; path=/; HttpOnly"], "https://filehoster.io/account/"),
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException("no chunk during CheckAccount"));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("user@x.com", "pw", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("user@x.com", result.DerivedUsername);
+        Assert.Equal((long)(0.06 * (1L << 30)), result.StorageUsedBytes);
+        Assert.Null(result.StorageQuotaBytes); // no quota shown → Unlimited
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WrongPassword_ReturnsInvalid()
+    {
+        // A wrong password re-renders the login page as 200 with no xfss Set-Cookie.
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(200, """<form name="FL">bad login</form>""", []),
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("user", "wrong", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_MissingCredentials_ReturnsInvalidWithoutNetwork()
+    {
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => throw new InvalidOperationException("no network for empty creds"),
+            postFormOverride: (_, _) => throw new InvalidOperationException("no network for empty creds"),
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(string.Empty, string.Empty, null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task RefreshStorageAsync_ParsesUsedSpaceWithUnlimitedQuota()
+    {
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (url, _) => url.Contains("/login/", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, LoginPageHtml, [])
+                : new HttpResponseSnapshot(200, AccountHtml, []),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(302, string.Empty, ["xfss=S"], "https://filehoster.io/account/"),
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            new FileHosterLoginDto { FileHosterName = "Filehoster.io", Username = "u", Password = "p" },
+            DummyHandler(),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
+        Assert.NotNull(usage);
+        Assert.Equal((long)(0.06 * (1L << 30)), usage!.Value.UsedBytes);
+        Assert.Null(usage.Value.QuotaBytes);
+    }
+
+    [Theory]
+    [InlineData("""<div class="small">Used space</div> <div class="fs-4 fw-bold">2.00</div>""", 2147483648L)] // 2 GiB
+    [InlineData("""<div>Used space</div><div>Buy more!</div><div class="small">Used space</div> <div class="fs-4 fw-bold">0.50</div>""", 536870912L)] // decoy "Used space" first → fs-4 anchor lands on the real panel
+    [InlineData("""<div class="small">Used space</div> <div class="fs-4"><span>3.00</span></div>""", 3221225472L)] // nested span before the number
+    [InlineData("""<div class="small">Used space</div> <div class="fs-4">N/A</div>""", null)] // non-numeric value
+    [InlineData("<div>no storage panel here</div>", null)] // panel absent
+    public void ParseUsedSpace_ReadsGiBValueOrNull(string html, long? expected)
+    {
+        Assert.Equal(expected, FilehosterIoPipeline.ParseUsedSpace(html));
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_LoginOkButStorageReadFails_StillValidWithNullUsed()
+    {
+        // Login succeeds (xfss captured) but the /account/ GET throws — a transient storage hiccup must
+        // NOT invalidate a good account; it returns IsValid=true with Used=null.
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (url, _) => url.Contains("/login/", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, LoginPageHtml, [])
+                : throw new HttpRequestException("account page down"),
+            postFormOverride: (_, _) => new HttpResponseSnapshot(302, string.Empty, ["xfss=SESSION123"], "https://filehoster.io/account/"),
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync("user", "pw", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.StorageUsedBytes);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ForwardsScrapedTokenInLoginForm()
+    {
+        string? sentToken = null;
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
+            postFormOverride: (_, form) =>
+            {
+                sentToken = form.TryGetValue("token", out string? t) ? t : null;
+                return new HttpResponseSnapshot(302, string.Empty, ["xfss=S"], "https://filehoster.io/account/");
+            },
+            chunkPutOverride: (_, _, _, _, _, _) => throw new InvalidOperationException());
+
+        await pipeline.CheckAccountAsync("user", "pw", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.Equal("abc123def4560789", sentToken); // the token scraped from the login page is POSTed
+    }
+
+    [Fact]
+    public async Task RunAsync_AccountUpload_SendsXfssAsSessId()
+    {
+        AccountUpCalls calls = new();
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
+            postFormOverride: (_, form) =>
+            {
+                switch (form["op"])
+                {
+                    case "login": return new HttpResponseSnapshot(302, string.Empty, ["xfss=ACCT_SESS"], "https://filehoster.io/account/");
+                    case "import_file": calls.ImportForm = new Dictionary<string, string>(form); return new HttpResponseSnapshot(200, ImportJson, []);
+                    default: return new HttpResponseSnapshot(200, StartJson, []); // start_upload
+                }
+            },
+            chunkPutOverride: (_, sid, _, _, _, progress) =>
+            {
+                calls.ChunkSid = sid;
+                progress(1L, 1L);
+                return new HttpResponseSnapshot(200, ChunkOk, []);
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(anonymous: false), CancellationToken.None));
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("ACCT_SESS", calls.ImportForm!["sess_id"]); // the account's xfss rides as sess_id
+        Assert.Equal(calls.ChunkSid, calls.ImportForm["sid"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_AccountLoginFails_YieldsAttemptFailedWithoutUpload()
+    {
+        AccountUpCalls calls = new();
+        FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
+            postFormOverride: (_, form) =>
+            {
+                if (form["op"] == "login")
+                {
+                    return new HttpResponseSnapshot(200, "login page again", []); // no xfss → login failed
+                }
+
+                calls.NonLoginPosts++;
+                return new HttpResponseSnapshot(200, StartJson, []);
+            },
+            chunkPutOverride: (_, _, _, _, _, _) =>
+            {
+                calls.Chunks++;
+                return new HttpResponseSnapshot(200, ChunkOk, []);
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(anonymous: false), CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+        Assert.Equal(0, calls.NonLoginPosts); // never reached start_upload
+        Assert.Equal(0, calls.Chunks);
+    }
+
+    private static HttpHandler DummyHandler() => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+    private sealed class AccountUpCalls
+    {
+        public Dictionary<string, string>? ImportForm { get; set; }
+
+        public string? ChunkSid { get; set; }
+
+        public int NonLoginPosts { get; set; }
+
+        public int Chunks { get; set; }
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];
@@ -364,14 +555,21 @@ public class FilehosterIoPipelineUploadTests
         public List<(string Url, string Sid, long BasePos, long Len, long Total)> Chunks { get; } = [];
     }
 
-    private static AttemptContext MakeContext(long fileSize = 1_048_576L) => new()
+    private static AttemptContext MakeContext(long fileSize = 1_048_576L, bool anonymous = true) => new()
     {
         AttemptId = Guid.NewGuid(),
         FilePath = @"C:\nope\package1\x.bin",
         FileName = "x.bin",
         FileSize = fileSize,
         HosterName = "Filehoster.io",
-        Credentials = new FileHosterLoginDto { FileHosterName = "Filehoster.io", IsAnonymous = true },
+        Credentials = new FileHosterLoginDto
+        {
+            Id = 7,
+            FileHosterName = "Filehoster.io",
+            IsAnonymous = anonymous,
+            Username = "acctuser",
+            Password = "acctpass",
+        },
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
