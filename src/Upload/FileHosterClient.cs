@@ -96,6 +96,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // takefile.link; www. redirected.)
         // { "TakeFile", "takefile.link" },
         { "TezFiles", "tezfiles.com" },
+        // transfer.it is a frontend over MEGA — uploads use MEGA's end-to-end-encrypted protocol
+        // (anonymous ephemeral session). See TransferItPipeline.cs + the Mega/ helpers.
+        { "Transfer.it", "transfer.it" },
         // UbiqFile REMOVED 2026-06-28 — ubiqfile.com's main domain is behind a Cloudflare *managed*
         // challenge (cType:'managed', same TLS-fingerprint wall TakeFile hit), so the C# my_account /
         // upload-form scrape can't pass it even with cf_clearance. Its upload servers (uNN.ubiqfile.com)
