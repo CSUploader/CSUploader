@@ -288,6 +288,87 @@ public class HttpHandlerTests
             $"A local file-open failure (progressContent never created) must stay a terminal fault, not be reclassified as retryable. Got: {thrown}");
     }
 
+    // ---- The same connect-phase reclassification for the raw-PUT path (UploadPutAsync) — the shared
+    // primitive storage.to's presigned-R2 upload rides. The both-directions safety property must hold
+    // identically to UploadMultipartAsync: body-not-fully-sent → retryable; post-body → terminal (the
+    // never-double-create guard); local file-open failure → terminal. ----
+
+    [Fact]
+    public async Task UploadPutAsync_ConnectPhaseFailure_ReclassifiedAsRetryableBodyTransferAbort()
+    {
+        using var temp = TempFile.With("payload-bytes");
+        HttpHandler handler = new(
+            new HttpClient(new ConnectFailHandler(new HttpRequestException("No connection could be made"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream"));
+
+        Assert.True(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A raw-PUT connect-phase failure should be reclassified as a retryable body-transfer abort. Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task UploadPutAsync_PostBodyFailure_NotReclassified_StaysTerminalFault()
+    {
+        // SAFETY TEST: body fully sent (DrainThenThrowHandler reads it → BodyFullySent set) before the
+        // fault, so the R2 target may have committed — must stay terminal, or the retry layer could
+        // double-upload.
+        using var temp = TempFile.With("payload-bytes");
+        HttpHandler handler = new(
+            new HttpClient(new DrainThenThrowHandler(new HttpRequestException("connection closed while receiving response"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream"));
+
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A raw-PUT failure after the body was fully sent must stay a terminal fault (target may have committed). Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task UploadPutAsync_LocalFileOpenFails_NotReclassified_StaysTerminalFault()
+    {
+        // SAFETY NEGATIVE for the `progressContent is not null` half of the guard: a non-existent source
+        // makes `new FileStream(...)` throw BEFORE progressContent is assigned, so the fault is a LOCAL
+        // setup error, not a network "nothing committed" case — must NOT be reclassified.
+        string missingPath = Path.Combine(
+            Path.GetTempPath(), "csu-does-not-exist-" + Guid.NewGuid().ToString("N") + ".bin");
+        HttpHandler handler = new(
+            new HttpClient(new ConnectFailHandler(new HttpRequestException("should never be reached"))),
+            Mock.Of<IAppLogger>(),
+            null,
+            MockServerConfig.Disabled);
+
+        Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
+            () => handler.UploadPutAsync(missingPath, "https://example.test/u", "application/octet-stream"));
+
+        Assert.False(
+            UploadBodyTransferException.IsInChain(thrown),
+            $"A raw-PUT local file-open failure (progressContent never created) must stay a terminal fault. Got: {thrown}");
+    }
+
+    [Fact]
+    public async Task UploadPutAsync_SendsDefiniteContentLength_NotChunked()
+    {
+        // R2 presigned PUT (UNSIGNED-PAYLOAD) needs a definite Content-Length, not Transfer-Encoding:
+        // chunked. ProgressStreamContent.TryComputeLength returns the file length, so the header is set.
+        using var temp = TempFile.With("twelve-bytes");
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream");
+
+        Assert.Equal(new FileInfo(temp.Path).Length, capture.RequestContentLength);
+        Assert.Equal("application/octet-stream", capture.RequestContentType);
+    }
+
     // ---- Chunked uploads must NEVER be whole-pipeline retried by the shared retry layer (each
     // chunk commits server-side: up.cgi per chunk + api.cgi finalize → re-sending could
     // double-commit). PostChunkAsync therefore STRIPS any UploadBodyTransferException marker so the
@@ -385,6 +466,8 @@ public class HttpHandlerTests
     {
         public string? RequestContentType { get; private set; }
 
+        public long? RequestContentLength { get; private set; }
+
         public string? RequestBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -392,6 +475,7 @@ public class HttpHandlerTests
             if (request.Content is not null)
             {
                 RequestContentType = request.Content.Headers.ContentType?.ToString();
+                RequestContentLength = request.Content.Headers.ContentLength;
 
                 // ReadAsByteArrayAsync buffers the entire body (including the streamed file
                 // part). Files used in tests are tiny so this is fine.

@@ -169,6 +169,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // Upstore — anonymous-only Dropzone upload (no login), same standalone shape as GigaPeta.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
+        // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
                 sp.GetRequiredService<IInteractiveAuthService>()));

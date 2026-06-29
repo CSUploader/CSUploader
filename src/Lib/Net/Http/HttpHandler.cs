@@ -458,6 +458,112 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
+    /// PUTs a file's raw bytes as the request body to <paramref name="endpoint"/> (no multipart
+    /// wrapper) — the shape an S3-compatible <em>presigned</em> upload URL expects (e.g. storage.to's
+    /// Cloudflare R2 target, whose query-string signature covers only the host, so the bytes go up
+    /// with a plain <c>Content-Type</c> and no auth header). Progress is reported via the shared
+    /// <see cref="UploadProgress"/> event, and a connect-phase/mid-send transport fault is reclassified
+    /// as a safe-to-retry <see cref="UploadBodyTransferException"/> exactly like
+    /// <see cref="UploadMultipartAsync"/>: a presigned PUT commits nothing until the body finishes, so a
+    /// connect-phase/mid-send fault is safe for the shared retry layer to re-run. (Whether the re-run is
+    /// non-double-creating is the caller's concern — e.g. storage.to's uploaded object only becomes a
+    /// downloadable file via a separate confirm step that a failed PUT never reaches.)
+    /// </summary>
+    public async Task<HttpResponseSnapshot> UploadPutAsync(
+        string filePath,
+        string endpoint,
+        string contentType,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime dateTimeStarted = DateTime.Now;
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "PUT",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = dateTimeStarted,
+            RequestBody = $"[Raw PUT file upload: {Path.GetFileName(filePath)}]",
+        };
+
+        // Null until the FileStream is opened + the content created — a fault while it's still null is a
+        // local setup error (source file gone), NOT a network "nothing committed" case. See the matching
+        // guard in UploadMultipartAsync.
+        ProgressStreamContent? progressContent = null;
+
+        try
+        {
+            FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
+            Stream fileStream = getBytesPerSecond is not null
+                ? new ThrottledStream(rawStream, getBytesPerSecond)
+                : rawStream;
+            using Stream disposeFileStream = fileStream;
+            progressContent = new(
+                fileStream,
+                (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
+                cancellationToken);
+            progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+            // HttpRequestMessage.Dispose() disposes its Content for us — no separate using on the
+            // content (that'd double-dispose). Mirrors UploadMultipartAsync.
+            using HttpRequestMessage request = new(HttpMethod.Put, endpoint) { Content = progressContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, progressContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(response.IsSuccessStatusCode, body, dateTimeStarted));
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+
+            // Same reclassification as UploadMultipartAsync: until the body is fully sent the presigned
+            // target committed nothing, so a transport fault is a safe-to-retry body-transfer abort.
+            // Guard on progressContent being non-null so a pre-creation setup fault (file gone) stays a
+            // plain terminal error.
+            if (progressContent is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
+            {
+                throw new UploadBodyTransferException(ex);
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
     /// POSTs a single chunk of a file as a multipart body to <paramref name="endpoint"/>.
     /// Body shape (matches the modern XFileSharing CDN protocol, captured from hxfile.co
     /// on 2026-06-01):

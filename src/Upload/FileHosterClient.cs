@@ -95,6 +95,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // the managed challenge. See TakeFilePipeline.cs class-level remarks. (Live host was the apex
         // takefile.link; www. redirected.)
         // { "TakeFile", "takefile.link" },
+        // storage.to is a Laravel front end that hands bytes to Cloudflare R2 via a presigned PUT
+        // (anonymous, no login). See StorageToPipeline.cs.
+        { "Storage.to", "storage.to" },
         { "TezFiles", "tezfiles.com" },
         // transfer.it is a frontend over MEGA — uploads use MEGA's end-to-end-encrypted protocol
         // (anonymous ephemeral session). See TransferItPipeline.cs + the Mega/ helpers.
