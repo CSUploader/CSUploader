@@ -17,9 +17,9 @@ using CSUploader.Lib.Net.Http;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// filehoster.io upload pipeline — anonymous (no-login) uploads. filehoster.io is an XFileSharing host
-/// running the "xfspro" chunked-upload plugin; uploading needs no account (verified against a live
-/// anonymous round-trip 2026-06-29). Per file:
+/// filehoster.io upload pipeline — an XFileSharing host running the "xfspro" chunked-upload plugin.
+/// Uploads REQUIRE an account: anonymous uploads aren't offered (the 10 GB per-file cap is the free
+/// REGISTERED tier, not an anonymous allowance). Per file (after the xfss session is resolved):
 /// <list type="number">
 ///   <item><b>SID.</b> The client mints a 16-digit random upload SID (matches
 ///   <c>upload-xfspro.js</c>).</item>
@@ -31,20 +31,20 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <c>application/octet-stream</c> body carrying an <c>X-Upload-SID</c> header. Each replies
 ///   <c>{"status":"OK"}</c>; the server appends by SID (no offset/range is sent).</item>
 ///   <item><b>import_file.</b> POST <c>&lt;url&gt;/api.cgi</c> (form-urlencoded
-///   <c>op=import_file&amp;sid&amp;fname&amp;sess_id=&amp;…</c>; <c>sess_id</c> is empty for anonymous)
-///   → <c>{"file_code":"…","links":{"download_link":"…"}}</c>. The share link is
+///   <c>op=import_file&amp;sid&amp;fname&amp;sess_id=&lt;xfss&gt;&amp;…</c>) →
+///   <c>{"file_code":"…","links":{"download_link":"…"}}</c>. The share link is
 ///   <c>links.download_link</c> (<c>https://filehoster.io/&lt;file_code&gt;/&lt;name&gt;.html</c>).</item>
 /// </list>
-/// No hashing. Anonymous cap is 10 GB. <c>import_file</c> is the only record-creating step — a failed
+/// No hashing. Free-tier cap is 10 GB. <c>import_file</c> is the only record-creating step — a failed
 /// chunk before it leaves only orphaned temp data, so a mid-send abort is safe to retry the whole
 /// pipeline (a fresh SID discards the partial; see <see cref="HttpHandler.PutChunkAsync"/>).
-/// <para><b>Accounts.</b> Standard XFileSharing login (GET <c>/login/</c> for the token → POST
+/// <para><b>Login.</b> Standard XFileSharing login (GET <c>/login/</c> for the token → POST
 /// <c>op=login</c> → <c>Set-Cookie: xfss</c> on a 302; a wrong password re-renders the page as 200 with
-/// no <c>xfss</c>). The <c>xfss</c> session is cached per credentials id and used two ways: as the
-/// <c>Cookie</c> when reading the <c>/account/</c> "Used space" panel (a GiB figure; no quota is shown,
-/// so Available is Unlimited), and as <c>import_file</c>'s <c>sess_id</c> to attribute an upload to the
-/// account — verified live that <c>sess_id</c> alone suffices, no cookie is needed on the upload
-/// requests. Anonymous uploads send an empty <c>sess_id</c>.</para>
+/// no <c>xfss</c>, the reason in an alert box). The <c>xfss</c> session is cached per credentials id and
+/// used two ways: as the <c>Cookie</c> when reading the <c>/account/</c> "Used space" panel (a GiB
+/// figure; no quota is shown, so Available is Unlimited), and as <c>import_file</c>'s <c>sess_id</c> to
+/// attribute the upload to the account — verified live that <c>sess_id</c> alone suffices, no cookie is
+/// needed on the upload requests.</para>
 /// </summary>
 public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
@@ -75,9 +75,10 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         """Used\s*space\s*</div>\s*<div[^>]*\bfs-4\b[^>]*>\s*(?:<[^>]+>\s*)*([0-9]+(?:\.[0-9]+)?)""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-    /// <summary>Anonymous per-file cap — 10 GB ("Max file size: 10GB" on the upload page). The server
-    /// is the real gate; this fails fast on an obviously-too-big file. Decimal GB to match the page.</summary>
-    private const long AnonymousMaxFileSizeBytes = 10L * 1000 * 1000 * 1000;
+    /// <summary>Free-tier per-file cap — 10 GB ("Max file size: 10GB" on the upload page; this is the
+    /// free REGISTERED allowance, not an anonymous one). The server is the real gate; this fails fast on
+    /// an obviously-too-big file. Decimal GB to match the page.</summary>
+    private const long FreeMaxFileSizeBytes = 10L * 1000 * 1000 * 1000;
 
     /// <summary>Chunk size — 100 MiB, the Cloudflare request-body cap <c>upload-xfspro.js</c> defaults
     /// to. Files larger than this are split into multiple sequential PUTs under one SID.</summary>
@@ -125,43 +126,46 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
 
     public bool RequiresHashingAfterUpload => false;
 
-    public long? MaxFileSize => AnonymousMaxFileSizeBytes;
+    public long? MaxFileSize => FreeMaxFileSizeBytes;
 
     public int? MaxFilesPerPackage => null;
 
-    /// <summary>filehoster.io accepts uploads with no login — the wizard offers it as a built-in
-    /// "Anonymous" option that needs no Accounts/Settings entry.</summary>
-    public bool SupportsAnonymousUpload => true;
+    /// <summary>filehoster.io requires an account to upload — anonymous uploads aren't offered (the 10 GB
+    /// cap is the free registered tier). The wizard won't show the built-in "Anonymous" option for it.</summary>
+    public bool SupportsAnonymousUpload => false;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;
 
-        // === Pre-check: anonymous per-file size cap ===
-        if (ctx.FileSize > AnonymousMaxFileSizeBytes)
+        // filehoster.io requires an account — anonymous uploads aren't supported (SupportsAnonymousUpload
+        // is false, so the wizard won't offer it; this guards a stale/forced anonymous attempt).
+        if (ctx.Credentials.IsAnonymous)
+        {
+            yield return new AttemptFailed("filehoster.io needs an account — add one in Settings; it doesn't allow anonymous uploads.", null);
+            yield break;
+        }
+
+        // === Pre-check: per-file size cap (free registered tier) ===
+        if (ctx.FileSize > FreeMaxFileSizeBytes)
         {
             yield return new AttemptFailed(
-                $"File exceeds filehoster.io's anonymous {ByteUnit.FromBytes(AnonymousMaxFileSizeBytes, ByteBase.Decimal).ToFriendlyString()} per-file limit "
+                $"File exceeds filehoster.io's {ByteUnit.FromBytes(FreeMaxFileSizeBytes, ByteBase.Decimal).ToFriendlyString()} per-file limit "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Decimal).ToFriendlyString()}).",
                 null);
             yield break;
         }
 
-        // === Step 0 (account only): obtain the xfss session that attributes the upload to the account ===
-        // Anonymous uploads send an empty sess_id; a logged-in upload sends the xfss as sess_id (verified
-        // live that sess_id alone attributes the file — no cookie is needed on the upload requests).
-        string sessId = string.Empty;
-        if (!ctx.Credentials.IsAnonymous)
+        // === Step 0: resolve the xfss session that attributes the upload to the account ===
+        // Verified live that sess_id alone attributes the file — no cookie is needed on the upload requests.
+        (string? xfss, string? loginError) = await EnsureSessionAsync(ctx);
+        if (xfss is null)
         {
-            (string? xfss, string? loginError) = await EnsureSessionAsync(ctx);
-            if (xfss is null)
-            {
-                yield return new AttemptFailed(loginError ?? "filehoster.io login failed", null);
-                yield break;
-            }
-
-            sessId = xfss;
+            yield return new AttemptFailed(loginError ?? "filehoster.io login failed", null);
+            yield break;
         }
+
+        string sessId = xfss;
 
         // A fresh SID per attempt is what makes a retry safe: re-running picks a new SID and the previous
         // partial upload is orphaned, so import_file (the only record-creating step) never double-creates.
@@ -661,7 +665,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         ["op"] = "import_file",
         ["sid"] = sid,
         ["fname"] = ctx.FileName,
-        ["sess_id"] = sessId, // empty = anonymous; the account's xfss attributes the file to the account
+        ["sess_id"] = sessId, // the account's xfss — attributes the upload to the account
         ["file_descr"] = string.Empty,
         ["file_public"] = "1",
         ["link_rcpt"] = string.Empty,

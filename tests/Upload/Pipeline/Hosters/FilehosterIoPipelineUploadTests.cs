@@ -18,16 +18,19 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Orchestration tests for <see cref="FilehosterIoPipeline"/> — the anonymous XFileSharing "xfspro"
-/// flow (start_upload → put_chunk.cgi ×N → import_file). The network is stubbed via the internal test
-/// ctor, so these lock in the event sequence, the multi-chunk split, the single-SID invariant, the
-/// share link, and the failure branches. Verified against a live anonymous round-trip 2026-06-29.
+/// Orchestration tests for <see cref="FilehosterIoPipeline"/> — the account-only XFileSharing "xfspro"
+/// flow (login → start_upload → put_chunk.cgi ×N → import_file). The network is stubbed via the internal
+/// test ctor, so these lock in the event sequence, the multi-chunk split, the single-SID invariant, the
+/// share link, account login/storage, and the failure branches. Verified live 2026-06-29.
 /// </summary>
 public class FilehosterIoPipelineUploadTests
 {
     private const string StartJson = """{"url":"https://filehoster.io/cgi-bin","plugin":"xfspro"}""";
     private const string ChunkOk = """{"status":"OK"}""";
     private const string ImportJson = """{"file_code":"5t9zsw3wnl0h","links":{"download_link":"https://filehoster.io/5t9zsw3wnl0h/x.bin.html","delete_link":"https://filehoster.io/5t9zsw3wnl0h/x.bin.html?killcode=zz"},"status":"OK"}""";
+
+    // The xfss the stubbed login hands back (MakePipeline); uploads carry it as import_file's sess_id.
+    private const string LoginXfss = "TESTSESS";
 
     [Fact]
     public void Properties_DeclareFilehosterIoConfig()
@@ -36,9 +39,25 @@ public class FilehosterIoPipelineUploadTests
         Assert.Equal("Filehoster.io", pipeline.Name);
         Assert.Equal(10L * 1000 * 1000 * 1000, pipeline.MaxFileSize);
         Assert.Null(pipeline.MaxFilesPerPackage);
-        Assert.True(pipeline.SupportsAnonymousUpload);
+        Assert.False(pipeline.SupportsAnonymousUpload); // account-only
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.True(FileHosterClient.FileHosters.ContainsKey("Filehoster.io"));
+    }
+
+    [Fact]
+    public async Task RunAsync_AnonymousCredentials_RejectedWithoutUpload()
+    {
+        // Anonymous isn't supported — a forced/stale anonymous attempt must fail fast, no login, no upload.
+        FhCalls calls = new();
+        FilehosterIoPipeline pipeline = MakePipeline(calls, new(200, StartJson, []), new(200, ImportJson, []), _ => new(200, ChunkOk, []));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(anonymous: true), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("account", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+        Assert.Empty(calls.Forms);
+        Assert.Empty(calls.Chunks);
     }
 
     [Fact]
@@ -67,10 +86,10 @@ public class FilehosterIoPipelineUploadTests
         Assert.Equal("x.bin", calls.Forms[0].Form["file_name"]);
         Assert.Equal("1048576", calls.Forms[0].Form["file_size"]);
 
-        // import_file: empty sess_id (anonymous) and the SAME SID the chunk used.
+        // import_file: the account's xfss as sess_id, and the SAME SID the chunk used.
         Assert.Equal("import_file", calls.Forms[1].Form["op"]);
         Assert.Equal("x.bin", calls.Forms[1].Form["fname"]);
-        Assert.Equal(string.Empty, calls.Forms[1].Form["sess_id"]);
+        Assert.Equal(LoginXfss, calls.Forms[1].Form["sess_id"]);
         Assert.Equal(chunkSid, calls.Forms[1].Form["sid"]);
     }
 
@@ -100,7 +119,7 @@ public class FilehosterIoPipelineUploadTests
     }
 
     [Fact]
-    public async Task RunAsync_FileExceedsAnonymousCap_YieldsAttemptFailedWithoutAnyHttp()
+    public async Task RunAsync_FileExceedsCap_YieldsAttemptFailedWithoutAnyHttp()
     {
         FhCalls calls = new();
         FilehosterIoPipeline pipeline = MakePipeline(calls, new(200, StartJson, []), new(200, ImportJson, []), _ => new(200, ChunkOk, []));
@@ -196,10 +215,16 @@ public class FilehosterIoPipelineUploadTests
     {
         FhCalls calls = new();
         FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
             postFormOverride: (url, form) =>
             {
+                if (form["op"] == "login")
+                {
+                    return new HttpResponseSnapshot(302, string.Empty, ["xfss=" + LoginXfss], "https://filehoster.io/account/");
+                }
+
                 calls.Forms.Add((url, new Dictionary<string, string>(form)));
-                throw new HttpRequestException("network down");
+                throw new HttpRequestException("network down"); // start_upload throws
             },
             chunkPutOverride: (url, sid, basePos, len, total, progress) =>
             {
@@ -221,8 +246,14 @@ public class FilehosterIoPipelineUploadTests
     {
         FhCalls calls = new();
         FilehosterIoPipeline pipeline = new(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
             postFormOverride: (url, form) =>
             {
+                if (form["op"] == "login")
+                {
+                    return new HttpResponseSnapshot(302, string.Empty, ["xfss=" + LoginXfss], "https://filehoster.io/account/");
+                }
+
                 calls.Forms.Add((url, new Dictionary<string, string>(form)));
                 if (form["op"] == "import_file")
                 {
@@ -310,9 +341,13 @@ public class FilehosterIoPipelineUploadTests
         // A mid-send chunk reset must PROPAGATE (retryable) so the shared retry layer re-runs against a
         // fresh SID — import_file never ran, so nothing was committed.
         FilehosterIoPipeline pipeline = new(
-            postFormOverride: (_, form) => form["op"] == "start_upload"
-                ? new HttpResponseSnapshot(200, StartJson, [])
-                : new HttpResponseSnapshot(200, ImportJson, []),
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []),
+            postFormOverride: (_, form) => form["op"] switch
+            {
+                "login" => new HttpResponseSnapshot(302, string.Empty, ["xfss=" + LoginXfss], "https://filehoster.io/account/"),
+                "start_upload" => new HttpResponseSnapshot(200, StartJson, []),
+                _ => new HttpResponseSnapshot(200, ImportJson, []),
+            },
             chunkPutOverride: (_, _, _, _, _, _) =>
                 throw new HttpRequestException(
                     "Error while copying content to a stream",
@@ -537,10 +572,22 @@ public class FilehosterIoPipelineUploadTests
     {
         int chunkIndex = 0;
         return new FilehosterIoPipeline(
+            getOverride: (_, _) => new HttpResponseSnapshot(200, LoginPageHtml, []), // GET /login/ token page
             postFormOverride: (url, form) =>
             {
-                calls.Forms.Add((url, new Dictionary<string, string>(form)));
-                return form["op"] == "start_upload" ? start : import;
+                switch (form["op"])
+                {
+                    case "login":
+                        // Login is handled transparently (not recorded in Forms) so Forms[0]/Forms[1]
+                        // stay start_upload/import_file for the assertions below.
+                        return new HttpResponseSnapshot(302, string.Empty, ["xfss=" + LoginXfss], "https://filehoster.io/account/");
+                    case "start_upload":
+                        calls.Forms.Add((url, new Dictionary<string, string>(form)));
+                        return start;
+                    default: // import_file
+                        calls.Forms.Add((url, new Dictionary<string, string>(form)));
+                        return import;
+                }
             },
             chunkPutOverride: (url, sid, basePos, len, total, progress) =>
             {
@@ -557,7 +604,7 @@ public class FilehosterIoPipelineUploadTests
         public List<(string Url, string Sid, long BasePos, long Len, long Total)> Chunks { get; } = [];
     }
 
-    private static AttemptContext MakeContext(long fileSize = 1_048_576L, bool anonymous = true) => new()
+    private static AttemptContext MakeContext(long fileSize = 1_048_576L, bool anonymous = false) => new()
     {
         AttemptId = Guid.NewGuid(),
         FilePath = @"C:\nope\package1\x.bin",
