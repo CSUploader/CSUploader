@@ -165,6 +165,75 @@ internal static class WormholeCrypto
         return output;
     }
 
+    /// <summary>
+    /// STREAMING RFC 8188 ece encryption: reads <paramref name="plaintextLength"/> bytes from
+    /// <paramref name="plaintext"/>, writes the ciphertext to <paramref name="ciphertextOut"/>, and hashes
+    /// the ciphertext into torrent pieces of <paramref name="pieceLength"/> in the SAME pass (so a multi-GB
+    /// file is never buffered in RAM). Returns (total ciphertext length, concatenated 20-byte piece SHA-1s).
+    /// Uses long record indices/offsets throughout and guards the nonce-uniqueness invariant (records must
+    /// stay below 2^32). Same wire output as <see cref="EceEncrypt(ReadOnlySpan{byte}, byte[], byte[])"/>.
+    /// </summary>
+    public static (long CiphertextLength, byte[] PieceHashes) EceEncryptStream(
+        Stream plaintext,
+        long plaintextLength,
+        byte[] mainKey,
+        byte[] headerSalt,
+        long pieceLength,
+        Stream ciphertextOut,
+        Action<long>? onProgress = null)
+    {
+        long records = plaintextLength == 0 ? 0 : (plaintextLength + RecordPlaintext - 1) / RecordPlaintext;
+        if (records > uint.MaxValue)
+        {
+            // The per-record GCM nonce = baseNonce XOR (uint32 seq); >= 2^32 records would wrap it and reuse
+            // a (key,nonce) pair — catastrophic. Unreachable under any real file size, asserted regardless.
+            throw new InvalidOperationException("wormhole ece: input too large (record count exceeds 2^32).");
+        }
+
+        PieceHasher hasher = new(pieceLength);
+        long written = 0;
+        void Emit(ReadOnlySpan<byte> data)
+        {
+            ciphertextOut.Write(data);
+            hasher.Update(data);
+            written += data.Length;
+            onProgress?.Invoke(written);
+        }
+
+        // Header: salt(16) || rs(4, BE) || idlen(1, =0).
+        byte[] header = new byte[HeaderLength];
+        headerSalt.CopyTo(header, 0);
+        BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(KeyLength, 4), RecordSize);
+        Emit(header);
+
+        if (records > 0)
+        {
+            byte[] cek = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, headerSalt, InfoCek);
+            byte[] baseNonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, 12, headerSalt, InfoNonce);
+            using AesGcm aes = new(cek, TagLength);
+
+            byte[] recordPlain = new byte[RecordPlaintext + 1];
+            byte[] recordCipher = new byte[RecordPlaintext + 1];
+            byte[] tag = new byte[TagLength];
+            Span<byte> nonce = stackalloc byte[12];
+
+            for (long seq = 0; seq < records; seq++)
+            {
+                int dataLen = (int)Math.Min(RecordPlaintext, plaintextLength - (seq * RecordPlaintext));
+                plaintext.ReadExactly(recordPlain, 0, dataLen);
+                recordPlain[dataLen] = (byte)(seq == records - 1 ? 2 : 1);
+
+                DeriveRecordNonce(baseNonce, seq, nonce);
+                aes.Encrypt(nonce, recordPlain.AsSpan(0, dataLen + 1), recordCipher.AsSpan(0, dataLen + 1), tag);
+
+                Emit(recordCipher.AsSpan(0, dataLen + 1));
+                Emit(tag);
+            }
+        }
+
+        return (written, hasher.Finish());
+    }
+
     /// <summary>Per-record nonce = base nonce with its last 4 bytes XORed with the record sequence number
     /// (read/written big-endian), per RFC 8188 / wormhole-crypto's ece.js.</summary>
     private static void DeriveRecordNonce(byte[] baseNonce, long seq, Span<byte> nonce)
@@ -334,6 +403,47 @@ internal static class WormholeCrypto
         }
 
         z.CopyTo(x);
+    }
+
+    /// <summary>Hashes a byte stream into torrent pieces: emits a 20-byte SHA-1 for every
+    /// <paramref name="pieceLength"/> bytes fed via <see cref="Update"/> (the final piece may be short).</summary>
+    private sealed class PieceHasher(long pieceLength)
+    {
+        private readonly IncrementalHash _sha1 = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+        private readonly MemoryStream _hashes = new();
+        private long _inPiece;
+
+        public void Update(ReadOnlySpan<byte> data)
+        {
+            while (!data.IsEmpty)
+            {
+                int take = (int)Math.Min(data.Length, pieceLength - _inPiece);
+                _sha1.AppendData(data[..take]);
+                _inPiece += take;
+                data = data[take..];
+                if (_inPiece == pieceLength)
+                {
+                    Flush();
+                }
+            }
+        }
+
+        public byte[] Finish()
+        {
+            if (_inPiece > 0)
+            {
+                Flush();
+            }
+
+            _sha1.Dispose();
+            return _hashes.ToArray();
+        }
+
+        private void Flush()
+        {
+            _hashes.Write(_sha1.GetHashAndReset());
+            _inPiece = 0;
+        }
     }
 
     // ===== base64url helpers =====

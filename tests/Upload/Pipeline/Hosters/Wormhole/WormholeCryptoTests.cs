@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using CSUploader.Upload.Pipeline.Hosters.Wormhole;
@@ -92,6 +93,43 @@ public class WormholeCryptoTests
         Assert.Equal(
             "7fee5613c8b6486034703178b87288c3ec1a840e0a08bda46dd7b299fd002b25983e7ad31e0e2896e352c83e994b3873aedeb10f2460cdd71e288edda896e6b19511f27b3641d95ad82da0",
             Hex(enc));
+    }
+
+    // ===== Streaming ece: must equal the whole-buffer output byte-for-byte + hash pieces correctly =====
+
+    [Theory]
+    [InlineData(0)]      // header only
+    [InlineData(15)]     // 1 record
+    [InlineData(65519)]  // exactly 1 full record
+    [InlineData(65520)]  // 2 records
+    [InlineData(200000)] // 4 records, many 16 KiB pieces
+    public void EceEncryptStream_MatchesWholeBufferAndHashesPieces(int n)
+    {
+        byte[] pt = Pattern(n);
+        const long PieceLen = 16384;
+
+        byte[] wholeBuffer = WormholeCrypto.EceEncrypt(pt, Key, Salt);
+
+        using MemoryStream outMs = new();
+        (long len, byte[] pieceHashes) = WormholeCrypto.EceEncryptStream(new MemoryStream(pt), n, Key, Salt, PieceLen, outMs);
+        byte[] streamed = outMs.ToArray();
+
+        Assert.Equal(wholeBuffer, streamed); // identical wire output
+        Assert.Equal(wholeBuffer.Length, len);
+        Assert.Equal(ExpectedPieceHashes(streamed, PieceLen), pieceHashes);
+    }
+
+    /// <summary>Reference piece hashing: SHA-1 of each pieceLength-byte slice of the ciphertext.</summary>
+    private static byte[] ExpectedPieceHashes(byte[] ciphertext, long pieceLength)
+    {
+        using MemoryStream hs = new();
+        for (long off = 0; off < ciphertext.Length; off += pieceLength)
+        {
+            int slice = (int)Math.Min(pieceLength, ciphertext.Length - off);
+            hs.Write(SHA1.HashData(ciphertext.AsSpan((int)off, slice)));
+        }
+
+        return hs.ToArray();
     }
 
     // ===== Independent confirmation: RFC 8188 §3.1 (single record) and §3.2 (multiple records, keyid) =====
