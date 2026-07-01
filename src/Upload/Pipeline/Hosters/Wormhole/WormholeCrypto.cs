@@ -38,10 +38,10 @@ internal static class WormholeCrypto
     // Plaintext bytes per ece record: rs minus the 16-byte tag and the 1-byte record delimiter.
     private const int RecordPlaintext = RecordSize - TagLength - 1; // 65519
 
-    private static readonly byte[] InfoAuth = Encoding.ASCII.GetBytes("authentication");
-    private static readonly byte[] InfoMeta = Encoding.ASCII.GetBytes("metadata");
-    private static readonly byte[] InfoCek = Encoding.ASCII.GetBytes("Content-Encoding: aes128gcm\0");
-    private static readonly byte[] InfoNonce = Encoding.ASCII.GetBytes("Content-Encoding: nonce\0");
+    private static readonly byte[] _infoAuth = Encoding.ASCII.GetBytes("authentication");
+    private static readonly byte[] _infoMeta = Encoding.ASCII.GetBytes("metadata");
+    private static readonly byte[] _infoCek = Encoding.ASCII.GetBytes("Content-Encoding: aes128gcm\0");
+    private static readonly byte[] _infoNonce = Encoding.ASCII.GetBytes("Content-Encoding: nonce\0");
 
     // ===== Random material =====
     public static byte[] RandomKey() => RandomNumberGenerator.GetBytes(KeyLength);
@@ -63,11 +63,11 @@ internal static class WormholeCrypto
 
     /// <summary>readerToken = HKDF-SHA256(mainKey, salt, "authentication", 16). Sent to the server.</summary>
     public static byte[] DeriveReaderToken(byte[] mainKey, byte[] salt)
-        => HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, salt, InfoAuth);
+        => HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, salt, _infoAuth);
 
     /// <summary>metadata key = HKDF-SHA256(mainKey, salt, "metadata", 16). AES-128-GCM key for the .torrent.</summary>
     public static byte[] DeriveMetadataKey(byte[] mainKey, byte[] salt)
-        => HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, salt, InfoMeta);
+        => HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, salt, _infoMeta);
 
     // ===== Size math (RFC 8188 framing overhead) =====
 
@@ -79,25 +79,10 @@ internal static class WormholeCrypto
     private static long RecordCount(long plaintextSize)
         => plaintextSize == 0 ? 0 : (plaintextSize + RecordPlaintext - 1) / RecordPlaintext;
 
-    // ===== Backblaze B2 blob layout =====
-
-    /// <summary>The fixed B2 object cap wormhole slices the ciphertext into: 5,013,504 = 306 × 16384.
-    /// Blobs are a FLAT byte slice of the continuous ece ciphertext (NOT ece-record aligned), stored as
-    /// "&lt;roomId&gt;/&lt;index&gt;".</summary>
-    public const long B2BlobSize = 306 * 16384; // 5,013,504
-
-    /// <summary>Number of B2 objects a ciphertext of <paramref name="ciphertextLength"/> splits into (the
-    /// last is short).</summary>
-    public static int BlobCount(long ciphertextLength)
-        => ciphertextLength <= 0 ? 0 : (int)((ciphertextLength + B2BlobSize - 1) / B2BlobSize);
-
-    /// <summary>Byte length of blob <paramref name="index"/> (0-based) for a ciphertext of the given
-    /// length — <see cref="B2BlobSize"/> for every blob but the last, which holds the remainder.</summary>
-    public static int BlobSizeAt(long ciphertextLength, int index)
-    {
-        long start = (long)index * B2BlobSize;
-        return (int)Math.Clamp(ciphertextLength - start, 0, B2BlobSize);
-    }
+    // The Backblaze B2 object layout lives in WormholeTorrent: wormhole stores ONE B2 object per torrent
+    // piece, named "<roomId>/<pieceIndex>", each holding exactly that piece's ciphertext bytes. The
+    // recipient reads the piece length from the (decrypted) torrent and fetches "<roomId>/<i>" for every
+    // piece, so the B2 object boundaries MUST equal the torrent piece boundaries.
 
     // ===== RFC 8188 content encryption =====
 
@@ -128,15 +113,15 @@ internal static class WormholeCrypto
         headerSalt.CopyTo(outSpan);
         BinaryPrimitives.WriteUInt32BigEndian(outSpan.Slice(KeyLength, 4), (uint)recordSize);
         outSpan[KeyLength + 4] = (byte)keyId.Length;
-        keyId.CopyTo(outSpan.Slice(KeyLength + 5));
+        keyId.CopyTo(outSpan[(KeyLength + 5)..]);
 
         if (plaintext.Length == 0)
         {
             return output; // header only — matches wormhole-crypto for an empty input.
         }
 
-        byte[] cek = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, headerSalt, InfoCek);
-        byte[] baseNonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, 12, headerSalt, InfoNonce);
+        byte[] cek = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, headerSalt, _infoCek);
+        byte[] baseNonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, 12, headerSalt, _infoNonce);
 
         using AesGcm aes = new(cek, TagLength);
         Span<byte> nonce = stackalloc byte[12];
@@ -208,8 +193,8 @@ internal static class WormholeCrypto
 
         if (records > 0)
         {
-            byte[] cek = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, headerSalt, InfoCek);
-            byte[] baseNonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, 12, headerSalt, InfoNonce);
+            byte[] cek = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, KeyLength, headerSalt, _infoCek);
+            byte[] baseNonce = HKDF.DeriveKey(HashAlgorithmName.SHA256, mainKey, 12, headerSalt, _infoNonce);
             using AesGcm aes = new(cek, TagLength);
 
             byte[] recordPlain = new byte[RecordPlaintext + 1];
@@ -270,7 +255,7 @@ internal static class WormholeCrypto
     /// <c>encryptMeta</c> KAT.</summary>
     internal static (byte[] Ciphertext, byte[] Tag) GcmEncryptAnyIv(byte[] key, byte[] iv, ReadOnlySpan<byte> plaintext)
     {
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
         aes.Key = key;

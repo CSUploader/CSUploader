@@ -53,38 +53,43 @@ public class WormholeTorrentTests
             Hex(torrent));
     }
 
-    // ===== B2 blob layout (verified against the real capture) =====
+    // ===== B2 blob layout: ONE object per torrent piece, piece length == B2 object size == 5,013,504
+    // (verified against a real wormhole.app upload+download — the recipient fetches "<roomId>/<pieceIndex>"
+    // directly from Backblaze, deriving the count from length / piece length, so the object split MUST equal
+    // the torrent piece split or it requests blob indices that were never uploaded). =====
 
     [Fact]
-    public void B2BlobSize_Is5013504()
-        => Assert.Equal(5_013_504L, WormholeCrypto.B2BlobSize);
+    public void B2BlockSize_MatchesWormholeFixedPieceLength()
+        => Assert.Equal(5_013_504L, WormholeTorrent.B2BlockSize); // 306 × 16384
 
     [Theory]
-    [InlineData(5_226_523, 2)] // the real 5 MB capture: 5,013,504 + 213,019
-    [InlineData(5_013_504, 1)] // exactly one blob
-    [InlineData(5_013_505, 2)] // one byte over
-    [InlineData(100, 1)]
-    public void BlobCount_MatchesLayout(long ciphertextLength, int expected)
-        => Assert.Equal(expected, WormholeCrypto.BlobCount(ciphertextLength));
+    [InlineData(2038, 1)]        // the real single-piece 2 KB capture: one object <room>/0
+    [InlineData(12_003_149, 3)]  // the real 12 MB capture: 3 objects <room>/0..2
+    [InlineData(5_013_504, 1)]   // exactly one full piece
+    [InlineData(5_013_505, 2)]   // one byte over → two objects
+    [InlineData(0, 0)]
+    public void PieceCount_CountsB2ObjectsAtBlockSize(long ciphertextLength, long expected)
+        => Assert.Equal(expected, WormholeTorrent.PieceCount(ciphertextLength, WormholeTorrent.B2BlockSize));
 
     [Fact]
-    public void BlobSizeAt_SplitsLikeTheCapture()
+    public void PieceSizeAt_SplitsCiphertextIntoBlockSizedObjects()
     {
-        const long Total = 5_226_523; // blob0 + blob1 from the capture
-        Assert.Equal(5_013_504, WormholeCrypto.BlobSizeAt(Total, 0));
-        Assert.Equal(213_019, WormholeCrypto.BlobSizeAt(Total, 1));
-        Assert.Equal(0, WormholeCrypto.BlobSizeAt(Total, 2)); // past the end
-    }
+        const long Total = 12_003_149; // the real 12 MB ciphertext → 3 pieces at the 5,013,504 block size
+        long block = WormholeTorrent.B2BlockSize;
+        Assert.Equal(5_013_504, WormholeTorrent.PieceSizeAt(Total, block, 0));
+        Assert.Equal(5_013_504, WormholeTorrent.PieceSizeAt(Total, block, 1));
+        Assert.Equal(1_976_141, WormholeTorrent.PieceSizeAt(Total, block, 2)); // last, short (matches the capture)
+        Assert.Equal(0, WormholeTorrent.PieceSizeAt(Total, block, 3)); // past the end
 
-    [Theory]
-    [InlineData(5_226_523)]
-    [InlineData(16_384)]
-    [InlineData(50_000_000)]
-    public void ChoosePieceLength_IsValidPowerOfTwoInRange(long ciphertextLength)
-    {
-        long p = WormholeTorrent.ChoosePieceLength(ciphertextLength);
-        Assert.InRange(p, 16 * 1024, 4L * 1024 * 1024);
-        Assert.Equal(0, p & (p - 1)); // power of two
+        // The per-object sizes tile the whole ciphertext exactly — no bytes dropped or duplicated.
+        long sum = 0;
+        long count = WormholeTorrent.PieceCount(Total, block);
+        for (long i = 0; i < count; i++)
+        {
+            sum += WormholeTorrent.PieceSizeAt(Total, block, i);
+        }
+
+        Assert.Equal(Total, sum);
     }
 
     private static string Hex(byte[] bytes) => Convert.ToHexStringLower(bytes);

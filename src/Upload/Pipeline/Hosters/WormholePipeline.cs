@@ -116,7 +116,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
         }
 
         long ciphertextLength = WormholeCrypto.EncryptedSize(ctx.FileSize);
-        long pieceLength = WormholeTorrent.ChoosePieceLength(ciphertextLength);
+        long pieceLength = WormholeTorrent.B2BlockSize; // piece length == B2 object size; recipient fetches one blob per piece
         string tempPath = Path.Combine(Path.GetTempPath(), "wh-" + roomId + ".enc");
 
         // Everything after the temp file exists runs inside try/finally so the ciphertext is always cleaned
@@ -169,8 +169,8 @@ public sealed class WormholePipeline : IFileHosterPipeline
             }
             else
             {
-                // === Step 4: get B2 upload tokens, then stream the blobs up ===
-                int blobCount = WormholeCrypto.BlobCount(ciphertextLength);
+                // === Step 4: get B2 upload tokens, then stream the blobs up (one B2 object per piece) ===
+                int blobCount = (int)WormholeTorrent.PieceCount(ciphertextLength, pieceLength);
                 string authJson = JsonSerializer.Serialize(new { numTokens = blobCount });
                 (HttpResponseSnapshot? authResp, string? authReqErr) =
                     await TrySendJson(ctx, HttpMethod.Post, $"{Api}/api/room/{roomId}/b2/auth-upload", authJson, AuthHeaders(writerToken));
@@ -199,7 +199,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
                         progressChannel.Writer.TryWrite(new TransferProgress(sent, total, sent / Math.Max(0.001, stopwatch.Elapsed.TotalSeconds)));
 
                     Task<(bool Ok, string? Error, bool Propagate)> blobTask =
-                        UploadBlobsAsync(ctx, tempPath, roomId, ciphertextLength, tokens, Progress);
+                        UploadBlobsAsync(ctx, tempPath, roomId, ciphertextLength, pieceLength, tokens, Progress);
                     _ = blobTask.ContinueWith(
                         _ => progressChannel.Writer.Complete(),
                         CancellationToken.None,
@@ -275,13 +275,15 @@ public sealed class WormholePipeline : IFileHosterPipeline
             "wormhole.app has no account sign-in — upload with the built-in Anonymous option in the wizard."));
     }
 
-    /// <summary>Uploads the ciphertext temp file to Backblaze B2 as 5,013,504-byte blobs. Returns
-    /// (ok, error, propagate): propagate=true means a retryable mid-send abort that should re-run the whole
-    /// pipeline (finish-upload never ran, so nothing was committed).</summary>
+    /// <summary>Uploads the ciphertext temp file to Backblaze B2 as one object per torrent piece — object
+    /// <c>&lt;roomId&gt;/&lt;i&gt;</c> holds piece <c>i</c>'s bytes (<paramref name="pieceLength"/> each, last
+    /// short). The recipient fetches these blobs back by piece index, so the split MUST match the torrent's.
+    /// Returns (ok, error, propagate): propagate=true means a retryable mid-send abort that should re-run the
+    /// whole pipeline (finish-upload never ran, so nothing was committed).</summary>
     private async Task<(bool Ok, string? Error, bool Propagate)> UploadBlobsAsync(
-        AttemptContext ctx, string cipherPath, string roomId, long ciphertextLength, List<(string Url, string Token)> tokens, Action<long, long> progress)
+        AttemptContext ctx, string cipherPath, string roomId, long ciphertextLength, long pieceLength, List<(string Url, string Token)> tokens, Action<long, long> progress)
     {
-        int blobCount = WormholeCrypto.BlobCount(ciphertextLength);
+        int blobCount = (int)WormholeTorrent.PieceCount(ciphertextLength, pieceLength);
         long baseOffset = 0;
 
         await using FileStream? fs = _uploadBlobOverride is null ? File.OpenRead(cipherPath) : null;
@@ -289,7 +291,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
         {
             for (int i = 0; i < blobCount; i++)
             {
-                int blobSize = WormholeCrypto.BlobSizeAt(ciphertextLength, i);
+                int blobSize = WormholeTorrent.PieceSizeAt(ciphertextLength, pieceLength, i);
                 byte[] blob = new byte[blobSize];
                 if (fs is not null)
                 {
@@ -404,7 +406,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             JsonElement root = doc.RootElement;
             string? id = root.TryGetProperty("id", out JsonElement idEl) ? idEl.GetString() : null;
             string? writer = root.TryGetProperty("writerToken", out JsonElement wt) ? wt.GetString() : null;
@@ -431,7 +433,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             if (doc.RootElement.ValueKind == JsonValueKind.Array)
             {
                 foreach (JsonElement e in doc.RootElement.EnumerateArray())
