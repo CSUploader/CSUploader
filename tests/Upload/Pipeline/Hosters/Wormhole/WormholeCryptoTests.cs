@@ -134,14 +134,23 @@ public class WormholeCryptoTests
 
     // ===== Cross-check the hand-rolled GCM against the BCL for the 12-byte-IV case =====
 
-    [Fact]
-    public void GcmEncryptAnyIv_With12ByteIv_MatchesBclAesGcm()
+    [Theory]
+    [InlineData(0)]   // empty → tag only (GHASH over just the length block)
+    [InlineData(1)]   // sub-block
+    [InlineData(16)]  // exactly one block (no GHASH zero-pad)
+    [InlineData(32)]  // exactly two blocks
+    [InlineData(59)]  // non-block-aligned, multi-block
+    public void GcmEncryptAnyIv_With12ByteIv_MatchesBclAesGcm(int length)
     {
         byte[] key = Hex("00112233445566778899aabbccddeeff");
-        byte[] iv = Hex("000102030405060708090a0b"); // 12 bytes
-        byte[] plaintext = Encoding.ASCII.GetBytes("wormhole metadata cross-check payload, several blocks long!!");
+        byte[] iv = Hex("000102030405060708090a0b"); // 12 bytes → same J0 path as the BCL
+        byte[] plaintext = new byte[length];
+        for (int i = 0; i < length; i++)
+        {
+            plaintext[i] = (byte)((i * 5) + 1);
+        }
 
-        byte[] bclCt = new byte[plaintext.Length];
+        byte[] bclCt = new byte[length];
         byte[] bclTag = new byte[16];
         using (AesGcm bcl = new(key, 16))
         {
