@@ -274,7 +274,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <c>Content-Type</c> (mirrors a browser <c>fetch(POST)</c> with no body — HitFile's
     /// <c>/api/user/app/id</c>), so a strict body/CSRF validator can't reject an unexpected entity.
     /// </summary>
-    public async Task<HttpResponseSnapshot> PostJsonAsync(string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+    public Task<HttpResponseSnapshot> PostJsonAsync(string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+        => SendJsonAsync(HttpMethod.Post, url, jsonBody, headers, cancellationToken);
+
+    /// <summary>Like <see cref="PostJsonAsync(string, string?, IReadOnlyDictionary{string, string}?, CancellationToken)"/>
+    /// but for any HTTP method — e.g. a <c>PATCH</c> with a JSON body + a bearer <c>Authorization</c>
+    /// header (wormhole.app's room manifest / heartbeat). Does not throw on non-2xx.</summary>
+    public async Task<HttpResponseSnapshot> SendJsonAsync(HttpMethod method, string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -285,7 +291,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         StringContent? content = jsonBody is null ? null : new StringContent(jsonBody, Encoding.UTF8, "application/json");
         HttpTransaction transaction = new()
         {
-            Method = "POST",
+            Method = method.Method,
             Url = url,
             Proxy = _proxyDescription,
             StartTime = DateTime.Now,
@@ -294,7 +300,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            using HttpRequestMessage request = new(HttpMethod.Post, url) { Content = content };
+            using HttpRequestMessage request = new(method, url) { Content = content };
             if (headers is not null)
             {
                 foreach (KeyValuePair<string, string> h in headers)
@@ -554,6 +560,98 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             // target committed nothing, so a transport fault is a safe-to-retry body-transfer abort.
             // Guard on progressContent being non-null so a pre-creation setup fault (file gone) stays a
             // plain terminal error.
+            if (progressContent is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
+            {
+                throw new UploadBodyTransferException(ex);
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Uploads an in-memory body via <paramref name="method"/> to <paramref name="url"/> with the given
+    /// <c>Content-Type</c> + headers — used for a single Backblaze B2 blob (a ≤5 MB slice of the encrypted
+    /// stream, POSTed to <c>b2_upload_file</c>). Progress via <see cref="UploadProgress"/>; a
+    /// connect-phase/mid-send fault is reclassified as a retryable
+    /// <see cref="UploadBodyTransferException"/> exactly like <see cref="UploadPutAsync"/> (a failed B2
+    /// blob commits nothing — wormhole's file record is only made by the later finish-upload — so a
+    /// whole-pipeline retry against a fresh room never double-creates).
+    /// </summary>
+    public async Task<HttpResponseSnapshot> UploadBytesAsync(
+        HttpMethod method,
+        string url,
+        byte[] body,
+        string contentType,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        DateTime dateTimeStarted = DateTime.Now;
+        url = MaybeRewriteToMockServer(url);
+
+        HttpTransaction transaction = new()
+        {
+            Method = method.Method,
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = dateTimeStarted,
+            RequestBody = $"[Raw {method.Method}: {body.Length} bytes]",
+        };
+
+        ProgressStreamContent? progressContent = null;
+        try
+        {
+            MemoryStream rawStream = new(body, 0, body.Length, writable: false);
+            Stream bodyStream = getBytesPerSecond is not null ? new ThrottledStream(rawStream, getBytesPerSecond) : rawStream;
+            using Stream disposeBodyStream = bodyStream;
+            progressContent = new(
+                bodyStream,
+                (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
+                cancellationToken);
+            progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+            using HttpRequestMessage request = new(method, url) { Content = progressContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, progressContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = responseBody;
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(responseBody);
+            CaptureResponseHeaders(transaction, response);
+
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(response.IsSuccessStatusCode, responseBody, dateTimeStarted));
+
+            return new HttpResponseSnapshot((int)response.StatusCode, responseBody, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            UploadFinished?.Invoke(this, new ProtocolUploadFinishedEventArgs(false, ex.Message, dateTimeStarted));
+
             if (progressContent is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
             {
                 throw new UploadBodyTransferException(ex);

@@ -173,6 +173,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
         // filehoster.io — account-only XFileSharing "xfspro" chunked upload (login → start_upload → put_chunk → import_file).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilehosterIoPipeline>();
+        // wormhole.app — anonymous WebTorrent + RFC 8188 E2E + Backblaze B2 (room → encrypt → manifest → B2 → finish).
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.WormholePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
                 sp.GetRequiredService<IInteractiveAuthService>()));

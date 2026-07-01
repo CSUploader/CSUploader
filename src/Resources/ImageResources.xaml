@@ -61,6 +61,7 @@
     <BitmapImage x:Key="FileHosterTransfer.itImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_transfer.it.png" />
     <BitmapImage x:Key="FileHosterUploadgigImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_uploadgig.png" />
     <BitmapImage x:Key="FileHosterUpstoreImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_upstore.png" />
+    <BitmapImage x:Key="FileHosterWormholeImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_wormhole.png" />
 
     <!-- Logo Images -->
     <BitmapImage x:Key="LogoCsLogo128Image" UriSource="pack://application:,,,/Properties/Images/Logo/cs_logo_128_128.png" />
