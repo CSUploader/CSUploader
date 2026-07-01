@@ -79,6 +79,26 @@ internal static class WormholeCrypto
     private static long RecordCount(long plaintextSize)
         => plaintextSize == 0 ? 0 : (plaintextSize + RecordPlaintext - 1) / RecordPlaintext;
 
+    // ===== Backblaze B2 blob layout =====
+
+    /// <summary>The fixed B2 object cap wormhole slices the ciphertext into: 5,013,504 = 306 × 16384.
+    /// Blobs are a FLAT byte slice of the continuous ece ciphertext (NOT ece-record aligned), stored as
+    /// "&lt;roomId&gt;/&lt;index&gt;".</summary>
+    public const long B2BlobSize = 306 * 16384; // 5,013,504
+
+    /// <summary>Number of B2 objects a ciphertext of <paramref name="ciphertextLength"/> splits into (the
+    /// last is short).</summary>
+    public static int BlobCount(long ciphertextLength)
+        => ciphertextLength <= 0 ? 0 : (int)((ciphertextLength + B2BlobSize - 1) / B2BlobSize);
+
+    /// <summary>Byte length of blob <paramref name="index"/> (0-based) for a ciphertext of the given
+    /// length — <see cref="B2BlobSize"/> for every blob but the last, which holds the remainder.</summary>
+    public static int BlobSizeAt(long ciphertextLength, int index)
+    {
+        long start = (long)index * B2BlobSize;
+        return (int)Math.Clamp(ciphertextLength - start, 0, B2BlobSize);
+    }
+
     // ===== RFC 8188 content encryption =====
 
     /// <summary>Encrypts <paramref name="plaintext"/> as one RFC 8188 aes128gcm stream, generating a
