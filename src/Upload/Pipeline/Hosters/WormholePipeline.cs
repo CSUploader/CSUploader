@@ -41,6 +41,12 @@ public sealed class WormholePipeline : IFileHosterPipeline
     /// this v1 doesn't do.</summary>
     private const long MaxCloudSize = 5_500_000_000;
 
+    /// <summary>How many Backblaze B2 upload URLs to request from <c>b2/auth-upload</c> at once. The server
+    /// 500s on a large count (a 21-object file asking for 21 tokens fails; the real client asks for 5 and
+    /// reuses each URL for several sequential objects — B2 upload URLs are reusable). We request
+    /// min(objectCount, this) and cycle the returned tokens across all objects.</summary>
+    private const int MaxUploadTokens = 5;
+
     private readonly Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _sendJsonOverride;
     private readonly Func<string, byte[], IReadOnlyDictionary<string, string>, Action<long>, Task<HttpResponseSnapshot>>? _uploadBlobOverride;
     private readonly Func<int, byte[]>? _randBytesOverride;
@@ -171,7 +177,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
             {
                 // === Step 4: get B2 upload tokens, then stream the blobs up (one B2 object per piece) ===
                 int blobCount = (int)WormholeTorrent.PieceCount(ciphertextLength, pieceLength);
-                string authJson = JsonSerializer.Serialize(new { numTokens = blobCount });
+                string authJson = JsonSerializer.Serialize(new { numTokens = Math.Min(blobCount, MaxUploadTokens) });
                 (HttpResponseSnapshot? authResp, string? authReqErr) =
                     await TrySendJson(ctx, HttpMethod.Post, $"{Api}/api/room/{roomId}/b2/auth-upload", authJson, AuthHeaders(writerToken));
 
@@ -299,7 +305,10 @@ public sealed class WormholePipeline : IFileHosterPipeline
                 }
 
                 string sha1 = Convert.ToHexStringLower(SHA1.HashData(blob));
-                (string url, string token) = tokens[Math.Min(i, tokens.Count - 1)];
+
+                // Fewer tokens than objects (the server caps the pool): reuse each B2 upload URL for its
+                // share of objects, round-robin. Sequential reuse of a B2 upload URL is allowed.
+                (string url, string token) = tokens[i % tokens.Count];
                 Dictionary<string, string> headers = new(StringComparer.Ordinal)
                 {
                     ["Authorization"] = token,

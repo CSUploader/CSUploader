@@ -6,6 +6,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text.Json;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
@@ -29,7 +30,6 @@ public class WormholePipelineTests
     // Fixed key/salt/header-salt so the link is deterministic (key 00..0f → base64url "AAECAwQFBgcICQoLDA0ODw").
     private const string ExpectedFragment = "AAECAwQFBgcICQoLDA0ODw";
     private const string RoomJson = """{"id":"TESTROOM","writerToken":"WTOK","maxCloudSize":5500000000,"maxDownloads":100,"lifetime":86400}""";
-    private const string AuthJson = """[{"uploadUrl":"https://pod.mock/b2_upload_file","authorizationToken":"B2TOK"}]""";
 
     [Fact]
     public void Properties_DeclareWormholeConfig()
@@ -46,7 +46,7 @@ public class WormholePipelineTests
     [Fact]
     public async Task RunAsync_HappyPath_UploadsAndReturnsWormholeLinkWithKeyFragment()
     {
-        using TempFile file = TempFile.OfSize(2000); // small → 1 blob
+        using var file = TempFile.OfSize(2000); // small → 1 blob
         WormholeCalls calls = new();
         WormholePipeline pipeline = MakePipeline(calls);
 
@@ -81,6 +81,38 @@ public class WormholePipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_ManyObjectFile_CapsTokenRequestAndUploadsEveryObject()
+    {
+        // A file whose ciphertext spans 6 B2 objects (> the 5-token pool). wormhole's server 500s if we ask
+        // for one token per object (a real 21-object file failed exactly here), so the request must cap at 5
+        // and the upload must reuse URLs to still put up all 6 objects, contiguously named TESTROOM/0..5.
+        const int SixObjects = 26_000_000; // ciphertext ≈ 26.0 MB → ceil(/5,013,504) = 6 objects
+        using var file = TempFile.OfSize(SixObjects);
+        WormholeCalls calls = new();
+        WormholePipeline pipeline = MakePipeline(calls);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(file.Path, SixObjects), CancellationToken.None));
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Empty(events.OfType<AttemptFailed>());
+
+        // capped at the 5-token pool, NOT one token per object
+        Assert.Contains("\"numTokens\":5", calls.AuthBody, StringComparison.Ordinal);
+
+        // every object uploaded, contiguously named /0../5 so the recipient can fetch each piece by index
+        Assert.Equal(6, calls.Blobs.Count);
+        for (int i = 0; i < 6; i++)
+        {
+            Assert.Equal($"TESTROOM/{i}", calls.Blobs[i].FileName);
+        }
+
+        // URLs cycle round-robin across the 5 tokens: object 5 wraps back to object 0's URL, but 0 ≠ 1
+        Assert.Equal(calls.Blobs[0].Url, calls.Blobs[5].Url);
+        Assert.NotEqual(calls.Blobs[0].Url, calls.Blobs[1].Url);
+        Assert.True(calls.Finished);
+    }
+
+    [Fact]
     public async Task RunAsync_FileExceedsCloudCap_YieldsAttemptFailedWithoutAnyHttp()
     {
         WormholeCalls calls = new();
@@ -97,7 +129,7 @@ public class WormholePipelineTests
     [Fact]
     public async Task RunAsync_RoomCreateFails_YieldsAttemptFailedWithoutUpload()
     {
-        using TempFile file = TempFile.OfSize(100);
+        using var file = TempFile.OfSize(100);
         WormholeCalls calls = new();
         WormholePipeline pipeline = MakePipeline(calls, roomResponse: new HttpResponseSnapshot(500, "server error", []));
 
@@ -111,7 +143,7 @@ public class WormholePipelineTests
     [Fact]
     public async Task RunAsync_BlobRejected_YieldsAttemptFailedWithoutFinish()
     {
-        using TempFile file = TempFile.OfSize(100);
+        using var file = TempFile.OfSize(100);
         WormholeCalls calls = new();
         WormholePipeline pipeline = MakePipeline(calls, blobResult: (_, _, _, progress) => { progress(1); return new HttpResponseSnapshot(401, "bad token", []); });
 
@@ -127,7 +159,7 @@ public class WormholePipelineTests
     {
         // A mid-send B2 abort must PROPAGATE (retryable) so the shared retry layer re-runs against a fresh
         // room — finish-upload never ran, so nothing was committed.
-        using TempFile file = TempFile.OfSize(100);
+        using var file = TempFile.OfSize(100);
         WormholeCalls calls = new();
         WormholePipeline pipeline = MakePipeline(calls, blobResult: (_, _, _, _) =>
             throw new HttpRequestException("reset", new UploadBodyTransferException(new IOException("conn reset", new SocketException(10054)))));
@@ -175,7 +207,7 @@ public class WormholePipelineTests
                 if (url.Contains("/b2/auth-upload", StringComparison.Ordinal))
                 {
                     calls.AuthBody = json;
-                    return new HttpResponseSnapshot(200, AuthJson, []);
+                    return new HttpResponseSnapshot(200, BuildAuthResponse(json), []);
                 }
 
                 if (url.Contains("/b2/finish-upload", StringComparison.Ordinal))
@@ -197,6 +229,25 @@ public class WormholePipelineTests
                 return new HttpResponseSnapshot(200, """{"contentSha1":"ok"}""", []);
             }),
             randBytes: _ => rand.Dequeue());
+    }
+
+    // Mirrors wormhole's b2/auth-upload: hands back exactly the requested number of B2 upload URLs. Token 0
+    // keeps the legacy mock URL so the single-object happy path's assertions still hold; the rest are
+    // distinct so a test can see the pipeline cycle URLs across the pool.
+    private static string BuildAuthResponse(string? authJson)
+    {
+        int n = 1;
+        if (authJson is not null)
+        {
+            using JsonDocument doc = JsonDocument.Parse(authJson);
+            n = doc.RootElement.GetProperty("numTokens").GetInt32();
+        }
+
+        IEnumerable<string> entries = Enumerable.Range(0, Math.Max(1, n)).Select(k =>
+            k == 0
+                ? """{"uploadUrl":"https://pod.mock/b2_upload_file","authorizationToken":"B2TOK"}"""
+                : $$"""{"uploadUrl":"https://pod.mock/u{{k}}","authorizationToken":"B2TOK{{k}}"}""");
+        return "[" + string.Join(",", entries) + "]";
     }
 
     private sealed class WormholeCalls
