@@ -167,6 +167,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
         // transfer.it (MEGA backend) — anonymous, no auth service needed.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
+        // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.MegaPipeline>();
         // Upstore — anonymous-only Dropzone upload (no login), same standalone shape as GigaPeta.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.

@@ -74,6 +74,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // routes). See KatFilePipeline for the rationale.
         { "KatFile", "katfile.space" },
         { "Keep2Share", "k2s.cc" },
+        // mega.nz account upload — MEGA's end-to-end-encrypted protocol (g.api.mega.co.nz), the same
+        // WebSocket chunk upload transfer.it uses but into a real account's Cloud Drive. See MegaPipeline.cs
+        // + the Mega/ helpers. (Transfer.it is the anonymous/ephemeral sibling.)
+        { "MEGA", "mega.nz" },
         { "NitroFlare", "www.nitroflare.com" },
         // Novafile REMOVED 2026-06-27 — novafile.com only allows *premium* user registration;
         // there is no free account to create, so no usable upload path exists. Never had a
