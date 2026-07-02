@@ -540,6 +540,8 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.False(entry.IsOverCapacity);
         Assert.True(vm.CanGoNext);                  // within capacity → Next allowed
         Assert.True(vm.HasAutoFitNotice);           // one file was auto-unchecked
+        // Single constrained hoster → the banner names its free space so the user sees what it fit to.
+        Assert.Contains("free", vm.AutoFitNotice, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

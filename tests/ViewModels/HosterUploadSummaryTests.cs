@@ -147,6 +147,21 @@ public class HosterUploadSummaryTests
     }
 
     [Fact]
+    public void UncheckedDisplay_NamesTheAccountsFreeSpace()
+    {
+        // 10 GiB free; a 9 GiB + two 1 GiB → auto-fit keeps the 9 GiB, drops the rest.
+        const long Gib = 1024L * 1024 * 1024;
+        HosterUploadSummary s = Summary(10 * Gib, Item("big", 9 * Gib), Item("a", Gib), Item("b", Gib));
+
+        s.AutoFit();
+
+        Assert.True(s.HasUncheckedFiles);
+        Assert.Contains("unchecked", s.UncheckedDisplay, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("10 GiB", s.UncheckedDisplay, StringComparison.Ordinal); // the account's free space
+        Assert.Contains("free", s.UncheckedDisplay, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void UncheckedClue_HidesWhenOverCapacity_AndReturnsWhenBackUnder()
     {
         // 1000 free, three 700s → auto-fit keeps one, drops two (within capacity → clue shows).

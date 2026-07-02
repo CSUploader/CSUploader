@@ -1229,6 +1229,9 @@ Add anyway?</value>
   <data name="Wizard_Summary_AutoFitNotice_Format" xml:space="preserve">
     <value>{0} file(s) unchecked to fit the available space.</value>
   </data>
+  <data name="Wizard_Summary_AutoFitNoticeWithFree_Format" xml:space="preserve">
+    <value>{0} file(s) unchecked to fit the available space ({1} free).</value>
+  </data>
   <data name="Wizard_Summary_CheckingSpace" xml:space="preserve">
     <value>checking available space…</value>
   </data>

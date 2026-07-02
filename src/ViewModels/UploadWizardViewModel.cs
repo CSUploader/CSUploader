@@ -583,10 +583,24 @@ public partial class UploadWizardViewModel : ObservableObject
     /// goes stale when a landing storage refresh shrinks available space. Matches the per-hoster clue.</summary>
     private void RecomputeAutoFitNotice()
     {
-        int unchecked_ = Summaries.Sum(s => s.Files.Count(item => !item.Included));
-        AutoFitNotice = unchecked_ > 0
-            ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], unchecked_)
-            : string.Empty;
+        List<HosterUploadSummary> constrained = [.. Summaries.Where(s => s.Files.Any(item => !item.Included))];
+        int unchecked_ = constrained.Sum(s => s.Files.Count(item => !item.Included));
+        if (unchecked_ == 0)
+        {
+            AutoFitNotice = string.Empty;
+            return;
+        }
+
+        // When a SINGLE quota hoster drove the unchecking, name its free space so the banner answers
+        // "unchecked to fit WHAT". Multiple constrained hosters have no single free figure, so fall back
+        // to the plain count.
+        AutoFitNotice = constrained.Count == 1 && constrained[0].AvailableBytes is long available
+            ? string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Summary_AutoFitNoticeWithFree_Format"],
+                unchecked_,
+                ByteUnit.FromBytes(available, ByteBase.Binary).ToFriendlyString())
+            : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], unchecked_);
     }
 
     /// <summary>
@@ -1177,9 +1191,14 @@ public sealed partial class HosterUploadSummary : ObservableObject
     /// with an "unchecked to fit" line that would read oddly against "you're over, uncheck more".</summary>
     public bool HasUncheckedFiles => HasQuota && UncheckedCount > 0 && !IsOverCapacity;
 
-    /// <summary>"N file(s) unchecked to fit the available space" for this hoster; empty when none.</summary>
-    public string UncheckedDisplay => HasUncheckedFiles
-        ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Summary_AutoFitNotice_Format"], UncheckedCount)
+    /// <summary>"N file(s) unchecked to fit the available space (X free)" for this hoster; empty when
+    /// none. HasUncheckedFiles implies HasQuota, so AvailableBytes is always present here.</summary>
+    public string UncheckedDisplay => HasUncheckedFiles && AvailableBytes is long available
+        ? string.Format(
+            CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Summary_AutoFitNoticeWithFree_Format"],
+            UncheckedCount,
+            ByteUnit.FromBytes(available, ByteBase.Binary).ToFriendlyString())
         : string.Empty;
 
     // Total eligible files / bytes (independent of the checkbox state) — kept for the summary header.
