@@ -21,10 +21,11 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// reaches the server. Requires an account (2FA-protected accounts are not supported); wire
 /// shapes reconciled against a live mega.nz web capture.
 /// </summary>
-public sealed class MegaPipeline : IFileHosterPipeline
+public sealed class MegaPipeline : IFileHosterPipeline, IStorageRefreshablePipeline
 {
     private readonly Func<AttemptContext, MegaApi>? _apiFactory;
     private readonly Func<MegaUploadPool, AttemptContext, uint[], Action<long, long>, CancellationToken, Task<(byte[] Token, List<uint[]> Macs)>>? _uploadFunc;
+    private readonly Func<MegaApi>? _accountApiFactory;
 
     public MegaPipeline()
     {
@@ -32,13 +33,17 @@ public sealed class MegaPipeline : IFileHosterPipeline
 
     /// <summary>Test ctor — substitutes the <see cref="MegaApi"/> and the WebSocket upload so the
     /// orchestration (event sequence, share URL, error handling) runs without the live MEGA
-    /// backend. The WS transfer itself is covered by <c>MegaWebSocketFramingTests</c>.</summary>
+    /// backend. The WS transfer itself is covered by <c>MegaWebSocketFramingTests</c>.
+    /// <paramref name="accountApiFactory"/> stubs the non-upload (login + quota) path used by
+    /// <see cref="CheckAccountAsync"/> and <see cref="RefreshStorageAsync"/>.</summary>
     internal MegaPipeline(
         Func<AttemptContext, MegaApi> apiFactory,
-        Func<MegaUploadPool, AttemptContext, uint[], Action<long, long>, CancellationToken, Task<(byte[] Token, List<uint[]> Macs)>> uploadFunc)
+        Func<MegaUploadPool, AttemptContext, uint[], Action<long, long>, CancellationToken, Task<(byte[] Token, List<uint[]> Macs)>> uploadFunc,
+        Func<MegaApi>? accountApiFactory = null)
     {
         _apiFactory = apiFactory;
         _uploadFunc = uploadFunc;
+        _accountApiFactory = accountApiFactory;
     }
 
     public string Name => "MEGA";
@@ -170,9 +175,7 @@ public sealed class MegaPipeline : IFileHosterPipeline
     {
         _ = apiKey;
         _ = proxy;
-        var api = new MegaApi(
-            (url, body, c) => handler.PostJsonAsync(url, body, null, c),
-            MegaApi.MegaNzApiBase);
+        MegaApi api = MakeAccountApi(handler);
 
         try
         {
@@ -202,8 +205,40 @@ public sealed class MegaPipeline : IFileHosterPipeline
         }
     }
 
+    /// <summary>
+    /// Non-interactive storage refresh for the wizard's Summary page: a fresh login + <c>uq</c> read
+    /// with the stored email/password (MEGA's login is a plain credential ceremony — no captcha). This
+    /// matters here because the free tier's 10 GiB quota is tight, so the capacity fit needs live
+    /// numbers. Returns null on any failure so the caller keeps the last-known snapshot.
+    /// </summary>
+    public async Task<StorageUsage?> RefreshStorageAsync(Dal.FileHosterLoginDto credentials, Lib.Net.Http.HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = proxy; // the handler already routes through the chosen proxy.
+        MegaApi api = MakeAccountApi(handler);
+        try
+        {
+            await api.LoginAsync(credentials.Username ?? string.Empty, credentials.Password ?? string.Empty, ct);
+            (long used, long total, _) = await api.QuotaAsync(ct);
+            return new StorageUsage(used, total);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Bad/expired creds, rate-limit, transport, or an unexpected shape — keep the snapshot.
+            return null;
+        }
+    }
+
     private MegaApi MakeApi(AttemptContext ctx)
         => _apiFactory is not null
             ? _apiFactory(ctx)
             : new MegaApi((url, body, c) => ctx.Handler.PostJsonAsync(url, body, null, c), MegaApi.MegaNzApiBase);
+
+    private MegaApi MakeAccountApi(Lib.Net.Http.HttpHandler handler)
+        => _accountApiFactory is not null
+            ? _accountApiFactory()
+            : new MegaApi((url, body, c) => handler.PostJsonAsync(url, body, null, c), MegaApi.MegaNzApiBase);
 }

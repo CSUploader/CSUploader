@@ -117,6 +117,83 @@ public class MegaPipelineTests
         Assert.True(UploadBodyTransferException.IsInChain(ex));
     }
 
+    // ===== account check + storage refresh (the non-upload path) =====
+
+    [Fact]
+    public async Task CheckAccount_ValidLogin_ReportsStorageAndTier()
+    {
+        MegaApi api = StubApi(LoginResponses("[{\"cstrg\":5368709120,\"mstrg\":10737418240,\"utype\":0}]"));
+        MegaPipeline pipeline = AccountPipeline(() => api);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user@example.com", Password, null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(AccountType.Free, result.AccountType);
+        Assert.Equal(5368709120L, result.StorageUsedBytes);
+        Assert.Equal(10737418240L, result.StorageQuotaBytes); // the 10 GiB free cap
+    }
+
+    [Fact]
+    public async Task CheckAccount_TwoFactorAccount_IsInvalidWithPointedMessage()
+    {
+        MegaApi api = StubApi([$"[{{\"s\":\"{FixtureSaltB64}\",\"v\":2}}]", "-26"]); // us → EMFAREQUIRED
+        MegaPipeline pipeline = AccountPipeline(() => api);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user@example.com", Password, null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("two-factor", result.Message!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckAccount_WrongPassword_IsInvalid()
+    {
+        MegaApi api = StubApi([$"[{{\"s\":\"{FixtureSaltB64}\",\"v\":2}}]", "-9"]);
+        MegaPipeline pipeline = AccountPipeline(() => api);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user@example.com", "wrong", null, DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public async Task RefreshStorage_ValidLogin_ReturnsFreshUsage()
+    {
+        MegaApi api = StubApi(LoginResponses("[{\"cstrg\":1024,\"mstrg\":10737418240}]"));
+        MegaPipeline pipeline = AccountPipeline(() => api);
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            Creds(), DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.NotNull(usage);
+        Assert.Equal(1024L, usage!.Value.UsedBytes);
+        Assert.Equal(10737418240L, usage.Value.QuotaBytes);
+    }
+
+    [Fact]
+    public async Task RefreshStorage_LoginFails_ReturnsNullSoSnapshotIsKept()
+    {
+        MegaApi api = StubApi([$"[{{\"s\":\"{FixtureSaltB64}\",\"v\":2}}]", "-9"]);
+        MegaPipeline pipeline = AccountPipeline(() => api);
+
+        StorageUsage? usage = await pipeline.RefreshStorageAsync(
+            Creds(), DummyHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.Null(usage);
+    }
+
+    private static MegaPipeline AccountPipeline(Func<MegaApi> accountApi) => new(
+        _ => throw new InvalidOperationException("upload API not used on the account path"),
+        (_, _, _, _, _) => throw new InvalidOperationException("upload not used on the account path"),
+        accountApi);
+
+    private static HttpHandler DummyHandler() => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+    private static FileHosterLoginDto Creds() => new() { FileHosterName = "MEGA", Username = "user@example.com", Password = Password };
+
     /// <summary>The two login responses (us0 salt/version + us with the fixture k/privk/csid),
     /// followed by whatever post-login responses the test needs.</summary>
     private static string[] LoginResponses(params string[] afterLogin)
