@@ -535,14 +535,16 @@
                    TextWrapping="Wrap" Margin="0,0,0,12" />
 
         <StackPanel Grid.Row="2">
-          <!-- Auto-fit notice (info) — files were unchecked to keep a hoster within its free space. -->
+          <!-- Auto-fit notice (warning amber) — files were unchecked to keep a hoster within its free
+               space. Amber (not the info-blue accent) so it stands out as "we changed your selection".
+               Matches the orphan-files warning banner below. -->
           <Border Visibility="{Binding HasAutoFitNotice, Converter={StaticResource BoolToVisibility}}"
                   Background="{DynamicResource SurfaceAltBrush}"
-                  BorderBrush="{DynamicResource AccentBrush}"
+                  BorderBrush="{DynamicResource WarningBrush}"
                   BorderThickness="1" CornerRadius="3"
                   Padding="10,8" Margin="0,0,0,12">
             <TextBlock Text="{Binding AutoFitNotice}"
-                       Foreground="{DynamicResource AccentBrush}"
+                       Foreground="{DynamicResource WarningBrush}"
                        FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
           </Border>
 
@@ -636,7 +638,7 @@
                            free space (the auto-fit's drop count on first show). Distinct from the
                            page-level banner so the reason is visible on each constrained hoster. -->
                       <TextBlock Margin="28,2,0,0" FontSize="11"
-                                 Foreground="{DynamicResource AccentBrush}"
+                                 Foreground="{DynamicResource WarningBrush}"
                                  Text="{Binding UncheckedDisplay, Mode=OneWay}"
                                  Visibility="{Binding HasUncheckedFiles, Converter={StaticResource BoolToVisibility}}" />
 
