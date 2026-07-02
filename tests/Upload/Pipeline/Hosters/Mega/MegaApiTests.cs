@@ -231,6 +231,8 @@ public class MegaApiTests
     [Theory]
     [InlineData("[{\"cstrg\":123456,\"mstrg\":21474836480,\"utype\":0}]", 123456L, 21474836480L, false)]
     [InlineData("[{\"cstrg\":999,\"mstrg\":2199023255552,\"utype\":4}]", 999L, 2199023255552L, true)]
+    // The real free-account capture: cstrg/mstrg present, utype omitted → Free.
+    [InlineData("[{\"mstrg\":10737418240,\"usl\":0,\"cstrg\":0,\"uslw\":9000,\"balance\":[],\"plans\":[]}]", 0L, 10737418240L, false)]
     public async Task Quota_ParsesStorageAndTier(string response, long used, long total, bool paid)
     {
         MegaApi api = Make(new([response]));

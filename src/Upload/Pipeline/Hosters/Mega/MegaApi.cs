@@ -296,7 +296,9 @@ internal sealed class MegaApi
     /// paid tier (<c>utype</c> &gt; 0).</summary>
     public async Task<(long UsedBytes, long TotalBytes, bool IsPaid)> QuotaAsync(CancellationToken ct)
     {
-        JsonElement res = await ReqAsync(new { a = "uq", strg = 1 }, ct).ConfigureAwait(false);
+        // pro:1 + v:2 mirror the web client's uq — they surface utype for paid tiers (a free account's
+        // response simply omits it, and IsPaid stays false).
+        JsonElement res = await ReqAsync(new { a = "uq", strg = 1, pro = 1, v = 2 }, ct).ConfigureAwait(false);
         if (res.ValueKind != JsonValueKind.Object
             || !res.TryGetProperty("cstrg", out JsonElement used)
             || !res.TryGetProperty("mstrg", out JsonElement total))
