@@ -21,10 +21,12 @@ internal sealed class MegaApiException(int code, string? message = null)
     {
         -3 => "MEGA server busy (EAGAIN)",
         -8 => "transfer expired",
-        -9 => "transfer not found (ENOENT)",
+        -9 => "not found (ENOENT)",
         -11 => "access denied (EACCESS)",
         -15 => "invalid session (ESID)",
+        -16 => "account blocked (EBLOCKED)",
         -17 => "quota exceeded (EOVERQUOTA)",
+        -26 => "two-factor authentication required (EMFAREQUIRED)",
         _ => $"MEGA API error {code}",
     };
 }
@@ -34,17 +36,24 @@ internal sealed class MegaApiException(int code, string? message = null)
 internal readonly record struct MegaUploadPool(string Host, string Uri, long Limit);
 
 /// <summary>
-/// Stateful client for MEGA's bt7 API used by transfer.it (<c>bt7.api.mega.co.nz/cs</c>). Ported
-/// from the transfer-it-cli reference (<c>api.py</c>), with the wire shapes reconciled against a live
-/// transfer.it capture: anonymous ephemeral-account handshake (<c>up</c>/<c>us</c>), transfer verbs
-/// (<c>xn</c>/<c>xp</c>/<c>xc</c>), and the upload-pool list (<c>usc</c>). All crypto lives in
-/// <see cref="MegaCrypto"/>. Requests are POSTed via an injected delegate so the app's HttpHandler
-/// (proxy + UA) carries them and so the parsing is unit-testable.
+/// Stateful client for MEGA's command API, serving two frontends: transfer.it
+/// (<c>bt7.api.mega.co.nz</c> — anonymous ephemeral handshake <c>up</c>/<c>us</c> + transfer verbs
+/// <c>xn</c>/<c>xp</c>/<c>xc</c>, ported from the transfer-it-cli reference) and mega.nz proper
+/// (<c>g.api.mega.co.nz</c> — password login <c>us0</c>/<c>us</c>, node verbs <c>f</c>/<c>p</c>/<c>l</c>,
+/// quota <c>uq</c>, wire shapes reconciled against a live mega.nz web capture). The upload-pool
+/// list (<c>usc</c>) and the WebSocket chunk upload are shared by both. All crypto lives in
+/// <see cref="MegaCrypto"/>/<see cref="MegaLoginCrypto"/>. Requests are POSTed via an injected
+/// delegate so the app's HttpHandler (proxy + UA) carries them and so the parsing is unit-testable.
 /// </summary>
 internal sealed class MegaApi
 {
     public const string ApiBase = "https://bt7.api.mega.co.nz/";
     public const string ShareBase = "https://transfer.it";
+
+    /// <summary>mega.nz proper (account uploads) speaks to <c>g.api</c>, not transfer.it's
+    /// <c>bt7.api</c>. Same command plumbing, different host.</summary>
+    public const string MegaNzApiBase = "https://g.api.mega.co.nz/";
+    public const string MegaNzShareBase = "https://mega.nz";
 
     private readonly Func<string, string, CancellationToken, Task<HttpResponseSnapshot>> _postJson;
     private readonly Func<uint[]> _randKey;
@@ -87,7 +96,7 @@ internal sealed class MegaApi
                 throw new MegaApiException(0, $"MEGA API HTTP {snap.StatusCode}: {Snippet(snap.Body)}");
             }
 
-            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            using var doc = JsonDocument.Parse(snap.Body);
             JsonElement root = doc.RootElement;
 
             int? code = ErrorCode(root);
@@ -161,6 +170,142 @@ internal sealed class MegaApi
 
         Sid = tsidB64;
         return masterKey;
+    }
+
+    // ------------------------------------------------------------------ mega.nz account session
+
+    /// <summary>
+    /// Log in to a real mega.nz account (<c>us0</c> → derive → <c>us</c>) and attach the session
+    /// id. Returns the account master key (bytes). v2 accounts use the PBKDF2 derivation with the
+    /// server salt; anything else falls back to the v1 legacy derivation. 2FA-protected accounts
+    /// fail with <see cref="MegaApiException"/> −26.
+    /// </summary>
+    public async Task<byte[]> LoginAsync(string email, string password, CancellationToken ct)
+    {
+        email = email.Trim().ToLowerInvariant();
+
+        int version = 1;
+        string? saltB64 = null;
+        try
+        {
+            JsonElement pre = await ReqAsync(new { a = "us0", user = email }, ct).ConfigureAwait(false);
+            if (pre.ValueKind == JsonValueKind.Object)
+            {
+                version = pre.TryGetProperty("v", out JsonElement v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 1;
+                saltB64 = pre.TryGetProperty("s", out JsonElement s) ? s.GetString() : null;
+            }
+        }
+        catch (MegaApiException)
+        {
+            // us0 unsupported / unknown for this account shape — treat as a v1 legacy login.
+        }
+
+        byte[] pwKey;
+        string uh;
+        if (version == 2 && saltB64 is not null)
+        {
+            (pwKey, uh) = MegaLoginCrypto.DeriveV2(password, MegaCrypto.B64UrlDecode(saltB64));
+        }
+        else
+        {
+            pwKey = MegaLoginCrypto.PrepareKeyV1(password);
+            uh = MegaLoginCrypto.StringHashV1(email, pwKey);
+        }
+
+        JsonElement us = await ReqAsync(new { a = "us", user = email, uh }, ct).ConfigureAwait(false);
+        if (us.ValueKind != JsonValueKind.Object
+            || !us.TryGetProperty("k", out JsonElement kEl)
+            || !us.TryGetProperty("privk", out JsonElement privkEl)
+            || !us.TryGetProperty("csid", out JsonElement csidEl))
+        {
+            throw new MegaApiException(0, $"us returned unexpected: {us}");
+        }
+
+        byte[] masterKey = MegaLoginCrypto.DecryptMasterKey(kEl.GetString()!, pwKey);
+        Sid = MegaLoginCrypto.DecryptSessionId(privkEl.GetString()!, csidEl.GetString()!, masterKey);
+        return masterKey;
+    }
+
+    /// <summary>Fetch the account's node tree (<c>f</c>) and return the Cloud Drive root handle
+    /// (the node with type 2) — the upload target for new files.</summary>
+    public async Task<string> FetchCloudRootAsync(CancellationToken ct)
+    {
+        JsonElement res = await ReqAsync(new { a = "f", c = 1 }, ct).ConfigureAwait(false);
+        if (res.ValueKind == JsonValueKind.Object && res.TryGetProperty("f", out JsonElement nodes) && nodes.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement node in nodes.EnumerateArray())
+            {
+                if (node.TryGetProperty("t", out JsonElement t) && t.ValueKind == JsonValueKind.Number && t.GetInt32() == 2
+                    && node.TryGetProperty("h", out JsonElement h))
+                {
+                    return h.GetString()!;
+                }
+            }
+        }
+
+        throw new MegaApiException(0, "f returned no Cloud Drive root node");
+    }
+
+    /// <summary>
+    /// Attach a freshly-uploaded file to the account's Cloud Drive (<c>p</c>, classic synchronous
+    /// shape — no <c>i</c>/<c>v</c> so the new node comes back in <c>f</c> instead of deferring to
+    /// the action-packet channel). The node key is the condensed-MAC file key wrapped with the
+    /// account master key. Returns the new node's handle and the (plain) file key for the share
+    /// link fragment.
+    /// </summary>
+    public async Task<(string NodeHandle, uint[] FileKey)> PutFileNodeAsync(
+        string parentHandle, byte[] completionToken, uint[] ulKey, IReadOnlyList<uint[]> macsOrdered, string filename, byte[] masterKey, CancellationToken ct)
+    {
+        uint[] mac = MegaCrypto.CondenseMacs(macsOrdered, ulKey);
+        uint[] fileKey = MegaCrypto.BuildFileKey(ulKey, mac);
+
+        string at = MegaCrypto.B64UrlEncode(MegaCrypto.EncryptAttr(new { n = filename }, fileKey));
+        string k = MegaCrypto.A32ToB64(MegaCrypto.EncryptKeyEcb(masterKey, fileKey));
+        string h = MegaCrypto.B64UrlEncode(completionToken);
+
+        JsonElement res = await ReqAsync(
+            new { a = "p", t = parentHandle, n = new[] { new { t = 0, h, a = at, k } } },
+            ct).ConfigureAwait(false);
+
+        if (res.ValueKind != JsonValueKind.Object
+            || !res.TryGetProperty("f", out JsonElement f)
+            || f.ValueKind != JsonValueKind.Array
+            || f.GetArrayLength() == 0
+            || !f[0].TryGetProperty("h", out JsonElement nodeH))
+        {
+            throw new MegaApiException(0, $"p returned unexpected: {res}");
+        }
+
+        return (nodeH.GetString()!, fileKey);
+    }
+
+    /// <summary>Create (or fetch) the node's public link handle (<c>l</c>). The share link is
+    /// <c>https://mega.nz/file/&lt;ph&gt;#&lt;fileKeyB64&gt;</c> — the key never reaches the server.</summary>
+    public async Task<string> ExportNodeAsync(string nodeHandle, CancellationToken ct)
+    {
+        JsonElement res = await ReqAsync(new { a = "l", n = nodeHandle }, ct).ConfigureAwait(false);
+        if (res.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(res.GetString()))
+        {
+            return res.GetString()!;
+        }
+
+        throw new MegaApiException(0, $"l returned unexpected: {res}");
+    }
+
+    /// <summary>Storage numbers (<c>uq</c>): used bytes, total bytes, and whether the account is a
+    /// paid tier (<c>utype</c> &gt; 0).</summary>
+    public async Task<(long UsedBytes, long TotalBytes, bool IsPaid)> QuotaAsync(CancellationToken ct)
+    {
+        JsonElement res = await ReqAsync(new { a = "uq", strg = 1 }, ct).ConfigureAwait(false);
+        if (res.ValueKind != JsonValueKind.Object
+            || !res.TryGetProperty("cstrg", out JsonElement used)
+            || !res.TryGetProperty("mstrg", out JsonElement total))
+        {
+            throw new MegaApiException(0, $"uq returned unexpected: {res}");
+        }
+
+        bool paid = res.TryGetProperty("utype", out JsonElement utype) && utype.ValueKind == JsonValueKind.Number && utype.GetInt32() > 0;
+        return (used.GetInt64(), total.GetInt64(), paid);
     }
 
     // ------------------------------------------------------------------ transfer verbs
