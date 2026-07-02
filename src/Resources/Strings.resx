@@ -1172,6 +1172,12 @@ Add anyway?</value>
   <data name="Logs_Col_Method" xml:space="preserve">
     <value>Method</value>
   </data>
+  <data name="Logs_ResetColumns_Title" xml:space="preserve">
+    <value>Reset columns</value>
+  </data>
+  <data name="Logs_ResetColumns_Message" xml:space="preserve">
+    <value>Reset the Logs columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
+  </data>
   <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
     <value>No URLs in selection; clipboard cleared</value>
   </data>
@@ -1183,12 +1189,6 @@ Add anyway?</value>
   </data>
   <data name="Logs_Status_ExportedPackages_Format" xml:space="preserve">
     <value>Exported {0} package(s) to {1}</value>
-  </data>
-  <data name="Logs_ResetColumns_Title" xml:space="preserve">
-    <value>Reset columns</value>
-  </data>
-  <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>Reset the Logs columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
   </data>
   <data name="Wizard_Title" xml:space="preserve">
     <value>Upload Wizard</value>
@@ -1306,6 +1306,12 @@ Add anyway?</value>
   </data>
   <data name="Wizard_Step2_Col_Account" xml:space="preserve">
     <value>Account</value>
+  </data>
+  <data name="Wizard_Step2_Col_MaxFileSize" xml:space="preserve">
+    <value>Max file size</value>
+  </data>
+  <data name="Wizard_Step2_NoLimit" xml:space="preserve">
+    <value>No limit</value>
   </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(anonymous)</value>

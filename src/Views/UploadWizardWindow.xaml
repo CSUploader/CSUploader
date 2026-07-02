@@ -459,6 +459,29 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- Per-file size cap for the selected account (re-resolves when the account
+                 dropdown changes — tiers can differ). Same formatting as the oversize warning. -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxFileSize}" Width="110" IsReadOnly="True"
+                                    SortMemberPath="MaxFileSizeBytes"
+                                    ClipboardContentBinding="{Binding MaxFileSizeDisplay}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding MaxFileSizeDisplay}" FontSize="12"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding CanUse}" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
 

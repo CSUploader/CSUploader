@@ -5,6 +5,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CSUploader.Dal;
+using CSUploader.Lib;
 using CSUploader.Lib.Localization;
 
 namespace CSUploader.ViewModels;
@@ -22,11 +23,22 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     // IsAnonymous flag; its Username carries the localized "(anonymous)" label for display.
     private readonly FileHosterLoginDto? _anonymousOption;
 
-    public FileHosterSelectionViewModel(string fileHosterName, FileHosterLoginDto[] accounts, bool supportsAnonymous = false)
+    // Resolves the hoster's per-file size cap (bytes, null = no cap) for a given account —
+    // the cap can vary by tier (e.g. Hexload's anonymous tier differs from its API tier), so
+    // the "Max file size" column re-resolves whenever the account dropdown changes. Null when
+    // the wizard has no pipeline registry (tests).
+    private readonly Func<FileHosterLoginDto?, long?>? _maxFileSizeResolver;
+
+    public FileHosterSelectionViewModel(
+        string fileHosterName,
+        FileHosterLoginDto[] accounts,
+        bool supportsAnonymous = false,
+        Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null)
     {
         FileHosterName = fileHosterName;
         Accounts = accounts;
         SupportsAnonymous = supportsAnonymous;
+        _maxFileSizeResolver = maxFileSizeResolver;
 
         _anonymousOption = supportsAnonymous
             ? new FileHosterLoginDto
@@ -73,6 +85,34 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     public string AccountDisplayText => HasAccounts
         ? (SelectedAccount?.Username ?? Localizer.Instance["Wizard_Step2_AccountSelect"])
         : Localizer.Instance["Wizard_Step2_AccountAnonymous"];
+
+    /// <summary>
+    /// The hoster's per-file size cap in bytes for the currently selected account, or null when
+    /// the hoster has no cap (or no resolver was supplied). Drives the "Max file size" column's
+    /// sort order; the cell text comes from <see cref="MaxFileSizeDisplay"/>.
+    /// </summary>
+    public long? MaxFileSizeBytes => _maxFileSizeResolver?.Invoke(SelectedAccount);
+
+    /// <summary>
+    /// Friendly per-file size cap for the "Max file size" column (e.g. "5.12 GiB"), or the
+    /// localized "No limit" when the hoster doesn't cap. Empty when no resolver was supplied.
+    /// Same binary-unit formatting as the step-2 oversize warning, so the column and the
+    /// warning never show two different numbers for the same cap.
+    /// </summary>
+    public string MaxFileSizeDisplay
+    {
+        get
+        {
+            if (_maxFileSizeResolver is null)
+            {
+                return string.Empty;
+            }
+
+            return MaxFileSizeBytes is long maxBytes
+                ? ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString()
+                : Localizer.Instance["Wizard_Step2_NoLimit"];
+        }
+    }
 
     /// <summary>
     /// Replaces the available accounts (e.g. after the user adds one through the
@@ -130,5 +170,10 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     partial void OnSelectedAccountChanged(FileHosterLoginDto? value)
     {
         OnPropertyChanged(nameof(AccountDisplayText));
+
+        // The size cap can differ per account tier — keep the "Max file size" column in sync
+        // with the dropdown.
+        OnPropertyChanged(nameof(MaxFileSizeBytes));
+        OnPropertyChanged(nameof(MaxFileSizeDisplay));
     }
 }

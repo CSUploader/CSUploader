@@ -927,12 +927,19 @@ public partial class UploadWizardViewModel : ObservableObject
         foreach (string fileHosterName in FileHosterClient.NamesAlphabetical)
         {
             FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(fileHosterName);
-            bool supportsAnonymous = _fileHosterRegistry?.Find(fileHosterName)?.SupportsAnonymousUpload ?? false;
+            IFileHosterPipeline? pipeline = _fileHosterRegistry?.Find(fileHosterName);
+            bool supportsAnonymous = pipeline?.SupportsAnonymousUpload ?? false;
+
+            // Same account-vs-fallback rule RecomputeHosterValidation applies, so the "Max file
+            // size" column always shows the number the oversize warning would enforce.
+            Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = pipeline is null
+                ? null
+                : account => account is not null ? pipeline.MaxFileSizeFor(account) : pipeline.MaxFileSize;
 
             FileHosterSelectionViewModel? sticky = _stickyHosters.Find(
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
 
-            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous);
+            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver);
             if (sticky is not null)
             {
                 vm.Use = sticky.Use;

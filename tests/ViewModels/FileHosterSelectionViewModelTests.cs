@@ -4,6 +4,8 @@
 // </copyright>
 
 using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.ViewModels;
 
 namespace CSUploader.Tests.ViewModels;
@@ -161,6 +163,58 @@ public class FileHosterSelectionViewModelTests
 
         FileHosterLoginDto only = Assert.Single(vm.AccountOptions);
         Assert.False(only.IsAnonymous);
+    }
+
+    [Fact]
+    public void MaxFileSize_WithoutResolver_IsEmpty()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", []);
+
+        Assert.Null(vm.MaxFileSizeBytes);
+        Assert.Equal(string.Empty, vm.MaxFileSizeDisplay);
+    }
+
+    [Fact]
+    public void MaxFileSize_WithCap_FormatsLikeTheOversizeWarning()
+    {
+        const long Cap = 5_500_000_000;
+        FileHosterSelectionViewModel vm = new("Wormhole", [], supportsAnonymous: true, maxFileSizeResolver: _ => Cap);
+
+        Assert.Equal(Cap, vm.MaxFileSizeBytes);
+        Assert.Equal(ByteUnit.FromBytes(Cap, ByteBase.Binary).ToFriendlyString(), vm.MaxFileSizeDisplay);
+    }
+
+    [Fact]
+    public void MaxFileSize_WithoutCap_ShowsLocalizedNoLimit()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", [Login(1, "alice")], maxFileSizeResolver: _ => null);
+
+        Assert.Null(vm.MaxFileSizeBytes);
+        Assert.Equal(Localizer.Instance["Wizard_Step2_NoLimit"], vm.MaxFileSizeDisplay);
+    }
+
+    [Fact]
+    public void MaxFileSize_ReResolvesAndNotifies_WhenAccountChanges()
+    {
+        // Tier-dependent cap (the Hexload shape): the anonymous option allows more than the account.
+        FileHosterLoginDto[] accounts = [Login(1, "alice")];
+        FileHosterSelectionViewModel vm = new(
+            "Hexload",
+            accounts,
+            supportsAnonymous: true,
+            maxFileSizeResolver: acct => acct?.IsAnonymous == true ? 2L * 1024 * 1024 * 1024 : 1L * 1024 * 1024 * 1024);
+
+        Assert.Same(accounts[0], vm.SelectedAccount); // real account preferred at construction
+        Assert.Equal(1L * 1024 * 1024 * 1024, vm.MaxFileSizeBytes);
+
+        List<string?> changed = [];
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.SelectedAccount = vm.AccountOptions[^1]; // the synthetic anonymous entry
+
+        Assert.Equal(2L * 1024 * 1024 * 1024, vm.MaxFileSizeBytes);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.MaxFileSizeBytes), changed);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.MaxFileSizeDisplay), changed);
     }
 
     private static FileHosterLoginDto Login(int id, string username) => new()

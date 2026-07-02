@@ -1262,6 +1262,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Col_Account" xml:space="preserve">
     <value>계정</value>
   </data>
+  <data name="Wizard_Step2_Col_MaxFileSize" xml:space="preserve">
+    <value>최대 파일 크기</value>
+  </data>
+  <data name="Wizard_Step2_NoLimit" xml:space="preserve">
+    <value>제한 없음</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(익명)</value>
   </data>
