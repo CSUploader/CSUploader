@@ -76,7 +76,11 @@ public sealed class WormholePipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxCloudSize;
 
-    public int? MaxFilesPerPackage => 1; // v1: single file per link
+    /// <summary>No per-package cap. Each selected file uploads independently to its own wormhole link (one
+    /// room per file — the runner calls <see cref="RunAsync"/> once per file), so a package can hold as many
+    /// files as the user selects; they show as N package files, each with its own link, exactly like every
+    /// other single-file hoster. "single file per link" is a link property, not a package limit.</summary>
+    public int? MaxFilesPerPackage => null;
 
     /// <summary>wormhole.app needs no account — the wizard offers it as a built-in "Anonymous" option.</summary>
     public bool SupportsAnonymousUpload => true;

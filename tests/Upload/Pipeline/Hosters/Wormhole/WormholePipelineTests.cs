@@ -37,7 +37,7 @@ public class WormholePipelineTests
         WormholePipeline pipeline = new();
         Assert.Equal("Wormhole", pipeline.Name);
         Assert.Equal(5_500_000_000L, pipeline.MaxFileSize);
-        Assert.Equal(1, pipeline.MaxFilesPerPackage);
+        Assert.Null(pipeline.MaxFilesPerPackage); // each file uploads to its own link; no per-package cap
         Assert.True(pipeline.SupportsAnonymousUpload);
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.True(FileHosterClient.FileHosters.ContainsKey("Wormhole"));
