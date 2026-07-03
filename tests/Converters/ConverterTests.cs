@@ -76,8 +76,8 @@ public class StorageAvailableDisplayMultiConverterTests
 {
     private readonly StorageAvailableDisplayMultiConverter _converter = new();
 
-    private object Convert(long? used, long? quota)
-        => _converter.Convert([BoxOrNull(used), BoxOrNull(quota)], typeof(string), null!, CultureInfo.InvariantCulture);
+    private object Convert(long? used, long? quota, string? hosterName = null)
+        => _converter.Convert([BoxOrNull(used), BoxOrNull(quota), hosterName!], typeof(string), null!, CultureInfo.InvariantCulture);
 
     // Mirror what a MultiBinding hands the converter for a null long? source: the binding
     // contributes a null array slot, not a boxed default.
@@ -119,12 +119,24 @@ public class StorageAvailableDisplayMultiConverterTests
     }
 
     [Fact]
-    public void Convert_NoStorageInfo_RendersBlank()
+    public void Convert_NoStorageInfo_RendersDash()
     {
-        // Neither used nor quota known (hoster doesn't report storage) → blank cell.
-        object result = Convert(used: null, quota: null);
+        // Neither used nor quota known, and not a known-unlimited hoster → we couldn't retrieve it: "-".
+        object result = Convert(used: null, quota: null, hosterName: "Rapidgator");
 
-        Assert.Equal(string.Empty, result);
+        Assert.Equal("-", result);
+    }
+
+    [Fact]
+    public void Convert_KnownUnlimitedHosterWithNoUsage_RendersUnlimited()
+    {
+        // catbox reports neither used nor quota but IS unlimited → "Unlimited", not "-".
+        object result = Convert(used: null, quota: null, hosterName: "Catbox");
+
+        string text = Assert.IsType<string>(result);
+        Assert.NotEqual("-", text);
+        Assert.False(string.IsNullOrEmpty(text));
+        Assert.DoesNotContain("iB", text, StringComparison.Ordinal); // the localized word, not bytes
     }
 
     [Fact]

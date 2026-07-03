@@ -25,4 +25,12 @@ public class FileHosterClientTests
         Assert.Equal(names.Distinct(StringComparer.Ordinal).Count(), names.Count);
         Assert.All(names, n => Assert.True(FileHosterClient.FileHosters.ContainsKey(n)));
     }
+
+    [Theory]
+    [InlineData("Catbox", true)]     // unlimited storage, exposes no usage figure → Available shows "Unlimited"
+    [InlineData("Rapidgator", false)]
+    [InlineData("Upstore", false)]   // reports used (no cap) → already "Unlimited" via the used-known path
+    [InlineData(null, false)]
+    public void HasUnlimitedStorage_FlagsOnlyTheKnownUnlimitedHosters(string? hoster, bool expected)
+        => Assert.Equal(expected, FileHosterClient.HasUnlimitedStorage(hoster));
 }

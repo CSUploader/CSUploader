@@ -149,6 +149,22 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         [.. FileHosters.Keys.OrderBy(static n => n, StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>
+    /// Hosters with genuinely unlimited storage that expose NO usage figure — so the Accounts grid's
+    /// "Available" cell should read "Unlimited" (the account is fine; there's just no number to compute
+    /// remaining space from), distinct from a hoster whose usage we simply couldn't retrieve (which
+    /// shows "-"). catbox.moe: files never expire, no cap, and no used/quota metric on the account page.
+    /// A hoster that DOES report a used figure but no cap (Upstore, GigaPeta) already shows "Unlimited"
+    /// via the used-known-no-quota path and needn't be listed here.
+    /// </summary>
+    private static readonly FrozenSet<string> UnlimitedStorageHosters =
+        new HashSet<string>(StringComparer.Ordinal) { "Catbox" }.ToFrozenSet(StringComparer.Ordinal);
+
+    /// <summary>True when the hoster has unlimited storage but reports no usage figure — see
+    /// <see cref="UnlimitedStorageHosters"/>.</summary>
+    public static bool HasUnlimitedStorage(string? hosterName)
+        => hosterName is not null && UnlimitedStorageHosters.Contains(hosterName);
+
+    /// <summary>
     /// Gets the name of the file hoster.
     /// </summary>
     public string Name { get; } = name;

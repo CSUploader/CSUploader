@@ -943,31 +943,31 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="80" />
-                    <!-- Storage usage columns. Bound to StorageUsedBytes / StorageAvailableBytes
-                         (both long?) via ByteUnitConverter which yields formatted strings like
-                         "663 MiB" or "9.4 GiB", and renders blank for hosters that don't report
-                         quota (FileBoom does; XFS family currently doesn't). -->
+                    <!-- Storage usage columns. Used: formatted bytes (via ByteUnitConverter) when known,
+                         "-" (via TargetNullValue, which short-circuits the converter) when we couldn't
+                         retrieve a usage figure. Available: see the MultiConverter comment below. -->
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Used}"
-                                        Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}}"
+                                        Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}, TargetNullValue='-'}"
                                         Width="90" IsReadOnly="True" />
                     <!-- Fixed width on Available (not Width="*") so the grid's total
                          column width can exceed the viewport and the horizontal
                          scrollbar actually has something to scroll over. The * setting
                          used to shrink Available to whatever space was left, which made
                          the cell unreadable on narrow windows without surfacing a scrollbar.
-                         MultiBinding over the two NOTIFYING source properties
-                         (StorageUsedBytes / StorageQuotaBytes) — NOT an empty-path
-                         {Binding} over the whole row, which only re-evaluates when the item
-                         instance is replaced and so showed stale data once refresh started
-                         updating the row in place. The converter renders "Unlimited" when the
-                         hoster reports usage but no cap (Ex-Load), formatted bytes when the cap
-                         is known, or blank when there's no storage info at all. -->
+                         MultiBinding over the NOTIFYING source properties (StorageUsedBytes /
+                         StorageQuotaBytes) + FileHosterName — NOT an empty-path {Binding} over the
+                         whole row, which only re-evaluates when the item instance is replaced and so
+                         showed stale data once refresh started updating the row in place. The converter
+                         renders remaining bytes when the cap is known, "Unlimited" when the hoster
+                         reports usage but no cap (Ex-Load) or is a known-unlimited hoster with no usage
+                         figure (catbox), or "-" when we couldn't retrieve any storage info. -->
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}"
                                         Width="110" IsReadOnly="True">
                         <DataGridTextColumn.Binding>
                             <MultiBinding Converter="{StaticResource StorageAvailableDisplayMulti}">
                                 <Binding Path="StorageUsedBytes" />
                                 <Binding Path="StorageQuotaBytes" />
+                                <Binding Path="FileHosterName" />
                             </MultiBinding>
                         </DataGridTextColumn.Binding>
                     </DataGridTextColumn>
