@@ -173,6 +173,8 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         // catbox.moe — anonymous-only single multipart POST to /user/api.php; response is the plain URL.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.CatboxPipeline>();
+        // gofile.io — anonymous guest upload (create account → folder → multipart uploadfile).
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GofilePipeline>();
         // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
         // filehoster.io — account-only XFileSharing "xfspro" chunked upload (login → start_upload → put_chunk → import_file).

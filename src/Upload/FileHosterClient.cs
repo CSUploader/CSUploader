@@ -58,6 +58,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // resolved. See FlashBitPipeline.cs class-level remarks for the full chain.
         // { "FlashBit", "flashbit.cc" },
         { "GigaPeta", "gigapeta.com" },
+        // gofile.io anonymous upload — guest account (POST /accounts) → createfolder → multipart
+        // upload.gofile.io/uploadfile; share link is the response's downloadPage. See GofilePipeline.cs.
+        { "Gofile", "gofile.io" },
         // Hexload + hexupload.net (alias) — both API and web 301 from .net → .com,
         // so a single Hexload entry covers traffic addressed to either domain.
         { "Hexload", "hexload.com" },

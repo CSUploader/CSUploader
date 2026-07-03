@@ -45,6 +45,7 @@
     <BitmapImage x:Key="FileHosterFileboomImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_fileboom.png" />
     <BitmapImage x:Key="FileHosterFlashbitImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_flashbit.png" />
     <BitmapImage x:Key="FileHosterGigapetaImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_gigapeta.png" />
+    <BitmapImage x:Key="FileHosterGofileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_gofile.png" />
     <BitmapImage x:Key="FileHosterHexloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hexload.png" />
     <BitmapImage x:Key="FileHosterHitfileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hitfile.png" />
     <BitmapImage x:Key="FileHosterHotlinkImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_hotlink.png" />
