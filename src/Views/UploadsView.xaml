@@ -185,7 +185,7 @@
                   SelectionMode="Extended"
                   SelectionUnit="FullRow"
                   HeadersVisibility="Column"
-                  ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                   ScrollViewer.VerticalScrollBarVisibility="Auto"
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
