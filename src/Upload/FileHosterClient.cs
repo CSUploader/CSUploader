@@ -31,6 +31,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     {
         { "Alfafile", "www.alfafile.net" },
         { "BRupload", "www.brupload.net" },
+        // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
+        // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
+        { "Catbox", "catbox.moe" },
         { "Ex-Load", "www.ex-load.com" },
         // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
         // the web UI's chunked protocol can't be captured (UI also failing). Pipeline
