@@ -16,10 +16,8 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// gofile.io upload pipeline — anonymous (guest account), no login. Mirrors the flow gofile's own
 /// site JS performs (each step's wire shape reconciled against a live capture + the site bundle):
 /// <list type="number">
-///   <item><c>POST https://api.gofile.io/accounts</c> (no body) → a guest account with a
-///   <c>token</c>.</item>
-///   <item><c>GET https://api.gofile.io/accounts/website</c> (<c>Bearer token</c>) → the account
-///   info, whose <c>rootFolder</c> is the parent for the upload folder.</item>
+///   <item><c>POST https://api.gofile.io/accounts</c> (no body) → a guest account whose
+///   <c>token</c> and <c>rootFolder</c> come back together.</item>
 ///   <item><c>POST https://api.gofile.io/contents/createfolder</c> (<c>Bearer token</c>,
 ///   <c>{parentFolderId: rootFolder, public: true}</c>) → a fresh public folder (its <c>id</c> is the
 ///   upload target, its <c>code</c> is the share slug).</item>
@@ -27,8 +25,9 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <c>file</c>) → the file; the share link is the response's <c>downloadPage</c>
 ///   (<c>https://gofile.io/d/&lt;code&gt;</c>).</item>
 /// </list>
-/// The first three steps create no file, so a mid-send upload fault is safe to retry (a fresh guest
-/// account + folder). No hashing, no account, no size cap (gofile enforces its own).
+/// The first two steps create no file, so a mid-send upload fault is safe to retry (a fresh guest
+/// account + folder). No hashing, no account, no size cap (gofile enforces its own). Verified
+/// end-to-end against the live API.
 /// </summary>
 public sealed class GofilePipeline : IFileHosterPipeline
 {
@@ -38,20 +37,30 @@ public sealed class GofilePipeline : IFileHosterPipeline
 
     private readonly Func<HttpMethod, string, string?, string?, Task<HttpResponseSnapshot>>? _apiOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<int, CancellationToken, Task> _retryDelay;
+
+    // ONE guest account is created and reused across every anonymous upload (matching gofile's site,
+    // which caches a single guest account per browser). Creating one PER FILE would trip gofile's
+    // per-IP account-creation rate limit (it 502s after a few). Gated so a burst of files does one
+    // account creation, not N; invalidated if the token ever stops working.
+    private readonly SemaphoreSlim _guestGate = new(1, 1);
+    private (string Token, string RootFolder)? _guest;
 
     public GofilePipeline()
     {
+        _retryDelay = static (attempt, ct) => Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct);
     }
 
-    /// <summary>Test ctor — stubs the JSON API calls (accounts / accounts-website / createfolder) and
-    /// the multipart upload so the orchestration runs without the network. The <c>api</c> stub receives
-    /// (method, url, jsonBody, bearerToken).</summary>
+    /// <summary>Test ctor — stubs the JSON API calls (accounts / createfolder) and the multipart upload
+    /// so the orchestration runs without the network, and zeroes the retry backoff. The <c>api</c> stub
+    /// receives (method, url, jsonBody, bearerToken).</summary>
     internal GofilePipeline(
         Func<HttpMethod, string, string?, string?, HttpResponseSnapshot> api,
         Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, HttpResponseSnapshot> upload)
     {
         _apiOverride = (m, u, j, t) => Task.FromResult(api(m, u, j, t));
         _uploadOverride = (fp, u, f, h, s) => Task.FromResult(upload(fp, u, f, h, s));
+        _retryDelay = static (_, _) => Task.CompletedTask;
     }
 
     public string Name => "Gofile";
@@ -72,14 +81,14 @@ public sealed class GofilePipeline : IFileHosterPipeline
     {
         _ = ct;
 
-        // === Phase 1: guest account → rootFolder → a fresh public folder to upload into ===
+        // === Phase 1: guest account (token + rootFolder, cached+reused) → a fresh public folder ===
         string? token = null;
         string? folderId = null;
         string? setupError = null;
         try
         {
-            token = await CreateGuestAccountAsync(ctx);
-            string rootFolder = await FetchRootFolderAsync(ctx, token);
+            (string t, string rootFolder) = await EnsureGuestAsync(ctx);
+            token = t;
             folderId = await CreateFolderAsync(ctx, token, rootFolder);
         }
         catch (OperationCanceledException)
@@ -150,27 +159,72 @@ public sealed class GofilePipeline : IFileHosterPipeline
 
     // ------------------------------------------------------------------ phase-1 API steps
 
-    /// <summary>POST /accounts (no body) → a guest account; returns its token.</summary>
-    private async Task<string> CreateGuestAccountAsync(AttemptContext ctx)
+    /// <summary>The cached guest account (token + rootFolder), created once on first use and reused for
+    /// every subsequent upload. Gated so a burst of files does a single account creation, not one each
+    /// (which would trip gofile's per-IP account-creation rate limit).</summary>
+    private async Task<(string Token, string RootFolder)> EnsureGuestAsync(AttemptContext ctx)
     {
-        HttpResponseSnapshot snap = await ApiAsync(ctx, HttpMethod.Post, ApiBase + "/accounts", json: null, bearer: null);
-        return RequireDataString(snap, "token", "accounts");
+        if (_guest is { } cached)
+        {
+            return cached;
+        }
+
+        await _guestGate.WaitAsync(ctx.Cancellation).ConfigureAwait(false);
+        try
+        {
+            if (_guest is { } c)
+            {
+                return c;
+            }
+
+            (string Token, string RootFolder) guest = await CreateGuestAccountAsync(ctx);
+            _guest = guest;
+            return guest;
+        }
+        finally
+        {
+            _guestGate.Release();
+        }
     }
 
-    /// <summary>GET /accounts/website (Bearer) → account info; returns its rootFolder id.</summary>
-    private async Task<string> FetchRootFolderAsync(AttemptContext ctx, string token)
+    /// <summary>POST /accounts (no body) → a guest account; returns its token + rootFolder (both in the
+    /// same response).</summary>
+    private async Task<(string Token, string RootFolder)> CreateGuestAccountAsync(AttemptContext ctx)
     {
-        HttpResponseSnapshot snap = await ApiAsync(ctx, HttpMethod.Get, ApiBase + "/accounts/website", json: null, bearer: token);
-        return RequireDataString(snap, "rootFolder", "accounts/website");
+        HttpResponseSnapshot snap = await ApiWithRetryAsync(ctx, HttpMethod.Post, ApiBase + "/accounts", json: null, bearer: null);
+        return (RequireDataString(snap, "token", "accounts"), RequireDataString(snap, "rootFolder", "accounts"));
     }
 
-    /// <summary>POST /contents/createfolder (Bearer) → a fresh public folder; returns its id.</summary>
+    /// <summary>POST /contents/createfolder (Bearer) → a fresh public folder; returns its id. A 401/403
+    /// means the cached guest token went stale — drop it so the next attempt mints a fresh account.</summary>
     private async Task<string> CreateFolderAsync(AttemptContext ctx, string token, string rootFolder)
     {
         string body = JsonSerializer.Serialize(new { parentFolderId = rootFolder, @public = true });
-        HttpResponseSnapshot snap = await ApiAsync(ctx, HttpMethod.Post, ApiBase + "/contents/createfolder", body, bearer: token);
+        HttpResponseSnapshot snap = await ApiWithRetryAsync(ctx, HttpMethod.Post, ApiBase + "/contents/createfolder", body, bearer: token);
+        if (snap.StatusCode is 401 or 403)
+        {
+            _guest = null;
+        }
+
         return RequireDataString(snap, "id", "createfolder");
     }
+
+    /// <summary>Issues an API call, retrying on a transient gateway failure (429 or 5xx) with backoff —
+    /// gofile's own client classifies those as retryable (its guest API 502s under load). A success or a
+    /// non-transient 4xx returns immediately.</summary>
+    private async Task<HttpResponseSnapshot> ApiWithRetryAsync(AttemptContext ctx, HttpMethod method, string url, string? json, string? bearer)
+    {
+        HttpResponseSnapshot snap = await ApiAsync(ctx, method, url, json, bearer);
+        for (int attempt = 0; IsTransient(snap.StatusCode) && attempt < 3; attempt++)
+        {
+            await _retryDelay(attempt, ctx.Cancellation).ConfigureAwait(false);
+            snap = await ApiAsync(ctx, method, url, json, bearer);
+        }
+
+        return snap;
+    }
+
+    private static bool IsTransient(int status) => status == 429 || status is >= 500 and < 600;
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string token, string folderId)
     {

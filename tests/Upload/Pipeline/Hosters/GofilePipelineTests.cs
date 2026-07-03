@@ -50,12 +50,8 @@ public class GofilePipelineTests
                 api.Add(new ApiCall(method.Method, url, json, bearer));
                 if (url.EndsWith("/accounts", StringComparison.Ordinal))
                 {
-                    return Ok("""{"status":"ok","data":{"token":"GUEST_TOKEN"}}""");
-                }
-
-                if (url.EndsWith("/accounts/website", StringComparison.Ordinal))
-                {
-                    return Ok("""{"status":"ok","data":{"rootFolder":"ROOT-FOLDER-ID","email":"guest123"}}""");
+                    // /accounts returns both the token and the rootFolder together (verified live).
+                    return Ok("""{"status":"ok","data":{"id":"acc1","tier":"guest","token":"GUEST_TOKEN","rootFolder":"ROOT-FOLDER-ID"}}""");
                 }
 
                 // createfolder
@@ -74,23 +70,71 @@ public class GofilePipelineTests
         Assert.Equal("https://gofile.io/d/VCkQzq", done.FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
 
-        // The four steps in order, with the right method + auth.
-        Assert.Equal(3, api.Count);
+        // Two API steps: unauthenticated account creation, then the Bearer-authed folder create.
+        Assert.Equal(2, api.Count);
         Assert.Equal("POST", api[0].Method);
         Assert.EndsWith("/accounts", api[0].Url, StringComparison.Ordinal);
         Assert.Null(api[0].Bearer);                                   // account creation is unauthenticated
-        Assert.Equal("GET", api[1].Method);
-        Assert.EndsWith("/accounts/website", api[1].Url, StringComparison.Ordinal);
+        Assert.EndsWith("/contents/createfolder", api[1].Url, StringComparison.Ordinal);
         Assert.Equal("GUEST_TOKEN", api[1].Bearer);                  // token from step 1
-        Assert.EndsWith("/contents/createfolder", api[2].Url, StringComparison.Ordinal);
-        Assert.Equal("GUEST_TOKEN", api[2].Bearer);
-        Assert.Contains("ROOT-FOLDER-ID", api[2].Json!, StringComparison.Ordinal); // parentFolderId = rootFolder
-        Assert.Contains("\"public\":true", api[2].Json!, StringComparison.Ordinal);
+        Assert.Contains("ROOT-FOLDER-ID", api[1].Json!, StringComparison.Ordinal); // parentFolderId = rootFolder
+        Assert.Contains("\"public\":true", api[1].Json!, StringComparison.Ordinal);
 
         // The upload carried the token + the created folder id.
         Dictionary<string, string> fields = Assert.Single(uploadFields);
         Assert.Equal("GUEST_TOKEN", fields["token"]);
         Assert.Equal("NEW-FOLDER-ID", fields["folderId"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_TransientAccount502_RetriesThenSucceeds()
+    {
+        // gofile's guest API 502s under load; the setup steps retry transient gateway failures.
+        int accountsCalls = 0;
+        GofilePipeline pipeline = new(
+            api: (method, url, json, bearer) =>
+            {
+                if (url.EndsWith("/accounts", StringComparison.Ordinal))
+                {
+                    accountsCalls++;
+                    return accountsCalls < 3
+                        ? new HttpResponseSnapshot(502, "<html>502 Bad Gateway</html>", [])
+                        : Ok("""{"status":"ok","data":{"token":"T","rootFolder":"R"}}""");
+                }
+
+                return Ok("""{"status":"ok","data":{"id":"F","code":"C"}}""");
+            },
+            upload: (_, _, _, _, _) => Ok("""{"status":"ok","data":{"downloadPage":"https://gofile.io/d/C"}}"""));
+
+        List<UploadEvent> events = await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(3, accountsCalls); // 502, 502, ok
+    }
+
+    [Fact]
+    public async Task RunAsync_ReusesGuestAccountAcrossUploads()
+    {
+        int accountsCalls = 0;
+        GofilePipeline pipeline = new(
+            api: (method, url, json, bearer) =>
+            {
+                if (url.EndsWith("/accounts", StringComparison.Ordinal))
+                {
+                    accountsCalls++;
+                    return Ok("""{"status":"ok","data":{"token":"T","rootFolder":"R"}}""");
+                }
+
+                return Ok("""{"status":"ok","data":{"id":"F","code":"C"}}""");
+            },
+            upload: (_, _, _, _, _) => Ok("""{"status":"ok","data":{"downloadPage":"https://gofile.io/d/C"}}"""));
+
+        await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        // ONE guest account created and reused for the second upload (avoids gofile's per-IP rate limit).
+        Assert.Equal(1, accountsCalls);
     }
 
     [Fact]
@@ -153,9 +197,9 @@ public class GofilePipelineTests
     }
 
     private static string SetupResponse(string url) =>
-        url.EndsWith("/accounts", StringComparison.Ordinal) ? """{"status":"ok","data":{"token":"T"}}"""
-        : url.EndsWith("/accounts/website", StringComparison.Ordinal) ? """{"status":"ok","data":{"rootFolder":"R"}}"""
-        : """{"status":"ok","data":{"id":"F","code":"C"}}""";
+        url.EndsWith("/accounts", StringComparison.Ordinal)
+            ? """{"status":"ok","data":{"token":"T","rootFolder":"R"}}"""
+            : """{"status":"ok","data":{"id":"F","code":"C"}}""";
 
     private static HttpResponseSnapshot Ok(string body) => new(200, body, []);
 
