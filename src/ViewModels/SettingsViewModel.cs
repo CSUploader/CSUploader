@@ -206,10 +206,6 @@ public partial class SettingsViewModel(
 
     public static string[] AvailableHosters => [.. FileHosterClient.NamesAlphabetical];
 
-#pragma warning disable CA1822
-    public AccountType[] AccountTypes => [AccountType.Free, AccountType.Premium];
-#pragma warning restore CA1822
-
     // ── Load ──
 
     public async Task LoadAsync(CancellationToken cancellationToken = default)
