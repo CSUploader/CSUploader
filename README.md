@@ -7,8 +7,8 @@ CSUploader is a Windows desktop application for uploading files to file hosting 
 ## Features
 
 - **Upload Wizard** — Guided flow for picking a directory, selecting files, choosing file hosters and accounts, and starting the upload.
-- **Upload Queue** — Concurrent jobs with pause/resume, priority ordering, and a global speed limit.
-- **File Hosters** — Pluggable architecture with twenty-seven hosters shipping: Alfafile, BRupload, catbox.moe, Ex-Load, FileBoom, File Garden, Filehoster.io, GigaPeta, gofile.io, Hexload, HitFile, Hxfile, IcerBox, Isracloud, KatFile, Keep2Share, MEGA, MediaFire, NitroFlare, Pixeldrain, Rapidgator, Storage.to, TezFiles, transfer.it, ufile.io, Upstore, and wormhole.app. Per-hoster account management with credential verification, plus anonymous (no-login) uploads for catbox.moe, GigaPeta, gofile.io, Hexload, HitFile, Storage.to, transfer.it, ufile.io, Upstore, and wormhole.app — three of them (transfer.it, MEGA, wormhole.app) end-to-end encrypted.
+- **Upload Queue** — Concurrent jobs with pause/resume, per-file upload order, and a global speed limit.
+- **File Hosters** — Pluggable architecture with twenty-seven hosters shipping: Alfafile, BRupload, catbox.moe, Ex-Load, FileBoom, File Garden, Filehoster.io, GigaPeta, gofile.io, Hexload, HitFile, Hxfile, IcerBox, Isracloud, KatFile, Keep2Share, MEGA, MediaFire, NitroFlare, Pixeldrain, Rapidgator, Storage.to, TezFiles, transfer.it, ufile.io, Upstore, and wormhole.app. Per-hoster account management with credential verification, plus anonymous (no-login) uploads for catbox.moe, GigaPeta, gofile.io, Hexload, HitFile, Storage.to, transfer.it, ufile.io, Upstore, and wormhole.app. Three hosters upload with end-to-end encryption: transfer.it and wormhole.app (anonymous) and MEGA (into your account).
 - **Connection Manager** — Optional proxy support with priority ordering, automatic rotation on retry, and connectivity testing.
 - **Dark / Light Themes** — Choose your preferred theme; the choice persists between sessions.
 - **System Tray** — Optional minimize-to-tray and close-to-tray with a first-run prompt to choose the close button's behaviour.
