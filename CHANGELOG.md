@@ -4,6 +4,48 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-07-05
+
+Eleven new file hosters (including three end-to-end-encrypted, no-login services), byte-weighted package progress and ETA, a per-hoster max-file-size column in the wizard, and a SQLite security fix. See [docs/release-notes/v0.0.6.md](docs/release-notes/v0.0.6.md) for the full notes.
+
+### Added
+
+- **Eleven new file hosters**: **transfer.it**, **mega.nz**, and **wormhole.app** (all end-to-end-encrypted); **Storage.to**, **catbox.moe**, **gofile.io**, and **ufile.io** (anonymous, several also logged-in); and **MediaFire**, **Pixeldrain**, **File Garden**, and **Filehoster.io** (account uploads).
+- **ufile.io tiered accounts** (Free / Pro / Business) with per-tier max file size, simultaneous-upload limits, and storage reporting — backed by a new per-pipeline concurrent-upload cap and two new `AccountType` values.
+- **"Max file size" column** on the wizard's hoster step.
+- **Instant-link de-duplication** for MediaFire (identical content links without re-uploading) and a pre-upload existence check for File Garden.
+
+### Changed
+
+- **Package progress and ETA are byte-weighted** across the whole package instead of averaging per-file percentages, so a part-way-through large file reports true completion and a whole-package time-remaining.
+- Accounts grid shows **"-"** when a hoster reports no Used figure and **"Unlimited"** for capless hosts (e.g. catbox); the wizard Summary names the account's free space in an amber auto-fit notice.
+- The Uploads grid shows a **horizontal scrollbar** on column overflow rather than clipping.
+
+### Security
+
+- Cleared **CVE-2025-6965** (high-severity SQLite memory corruption, `NU1903`) by updating the bundled SQLite native library past the fix (SQLite 3.50.4).
+
+## [0.0.5] - 2026-06-29
+
+Five new file hosters, Rapidgator storage reporting, a non-ASCII filename fix, and a dead-hoster cleanup. See [docs/release-notes/v0.0.5.md](docs/release-notes/v0.0.5.md) for the full notes.
+
+### Added
+
+- **Five new file hosters**: **Isracloud** (XFileSharing web-form, session sign-in), **Keep2Share** and **TezFiles** (shared "moneyplatform" backend), **NitroFlare** (reCAPTCHA sign-in, account hash), and **Upstore** (anonymous *and* logged-in).
+- **Rapidgator storage reporting** (used / available) in the Accounts grid and the upload wizard.
+
+### Fixed
+
+- **Non-ASCII upload filenames** (Japanese, etc.) no longer arrive on the server as `?????` — multipart filenames are sent as raw UTF-8, the way a browser does.
+- **Upload order is respected** when the first file needs hashing before upload — it no longer leapfrogs a queued #1 to start #2.
+- **Removing a package's only file** now removes the empty package row too.
+- **Uploads / History context menus** apply every action to all selected rows, not just the focused one.
+
+### Removed
+
+- **Disabled** (retained in-tree): **TakeFile** (Cloudflare managed-challenge TLS fingerprinting) and **UploadGIG** (no working upload capture).
+- **Removed** dead / premium-only / unusable hosts: Novafile, Openload, Rapidu, RareFile, ShareOnline, UbiqFile, UniBytes, Uploaded, and WuShare.
+
 ## [0.0.4] - 2026-06-26
 
 A new IcerBox hoster, HitFile account uploads, a wizard that fits your selection to each account's live free space, per-file upload order, and a bounded upload-retry layer. See [docs/release-notes/v0.0.4.md](docs/release-notes/v0.0.4.md) for the full notes.
@@ -89,6 +131,8 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[0.0.6]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.6
+[0.0.5]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.5
 [0.0.4]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.4
 [0.0.3]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.3
 [0.0.2]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.2
