@@ -525,6 +525,52 @@ public class PackageTests
     }
 
     [Fact]
+    public void Progress_IsByteWeightedAcrossAllFiles_IncludingQueued()
+    {
+        // Regression: package Progress was an UNWEIGHTED average of per-file percentages, and LINQ's
+        // Average over double? silently skips queued files (their Progress is null) — so a package with
+        // one done file (100%) and one half-done file (50%) plus a big queued file read 75%, hiding the
+        // queued work. Byte-weighting (bytes uploaded / total size) reports the true 45%.
+        Package package = MakePackageWithFiles(FileState.Completed, FileState.Uploading, FileState.Idle);
+        PackageFile[] files = [.. package];
+        Configure(files[0], size: 800 * Mib, loaded: 800 * Mib, remaining: null, progress: 100, speed: null);
+        Configure(files[1], size: 200 * Mib, loaded: 100 * Mib, remaining: 100 * Mib, progress: 50, speed: 10 * Mib);
+        Configure(files[2], size: 1000 * Mib, loaded: null, remaining: 1000 * Mib, progress: null, speed: null);
+
+        Assert.NotNull(package.Progress);
+        Assert.Equal(45.0, package.Progress!.Value, 3); // 900 MiB / 2000 MiB — NOT avg(100, 50) = 75
+    }
+
+    [Fact]
+    public void TimeRemaining_CoversQueuedFiles_NotJustActiveUploads()
+    {
+        // Regression: ETA summed the remaining bytes of only the currently-Uploading files, so it timed
+        // the active batch and ignored everything still queued. It now mirrors the overview bar:
+        // total remaining bytes / aggregate speed.
+        Package package = MakePackageWithFiles(FileState.Completed, FileState.Uploading, FileState.Idle);
+        PackageFile[] files = [.. package];
+        Configure(files[0], size: 800 * Mib, loaded: 800 * Mib, remaining: null, progress: 100, speed: null);
+        Configure(files[1], size: 200 * Mib, loaded: 100 * Mib, remaining: 100 * Mib, progress: 50, speed: 10 * Mib);
+        Configure(files[2], size: 1000 * Mib, loaded: null, remaining: 1000 * Mib, progress: null, speed: null);
+
+        // 1100 MiB remaining (active 100 + queued 1000) at 10 MiB/s → 110 s, not the ~10 s the old formula
+        // gave by counting only the active file's 100 MiB.
+        Assert.NotNull(package.TimeRemaining);
+        Assert.Equal(110.0, package.TimeRemaining!.Value.TotalSeconds, 0);
+    }
+
+    private const long Mib = 1024 * 1024;
+
+    private static void Configure(PackageFile pf, long size, long? loaded, long? remaining, double? progress, long? speed)
+    {
+        pf.Size = size;
+        pf.BytesLoaded = loaded;
+        pf.BytesRemaining = remaining;
+        pf.Progress = progress;
+        pf.Speed = speed;
+    }
+
+    [Fact]
     public void AccountDisplay_RegisteredAccount_ShowsUsernameOnPackageFileAndCopyColumn()
     {
         Package package = MakePackageWithLogin(

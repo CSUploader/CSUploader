@@ -153,46 +153,15 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     {
         get
         {
-            PackageFile[] files;
-            lock (_filesLock)
-            { files = [.. PackageFiles]; }
-
-            long totalBytesRemaining = 0;
-            long totalBytesLoaded = 0;
-            double totalTimeElapsed = 0.0;
-            bool haveRunning = false;
-
-            foreach (PackageFile pf in files)
-            {
-                if (pf.State is not (FileState.Hashing or FileState.Uploading))
-                {
-                    continue;
-                }
-
-                haveRunning = true;
-
-                if (pf.BytesRemaining.HasValue)
-                {
-                    totalBytesRemaining += pf.BytesRemaining.Value;
-                }
-
-                if (pf.BytesLoaded.HasValue)
-                {
-                    totalBytesLoaded += pf.BytesLoaded.Value;
-                }
-
-                if (pf.Duration.HasValue)
-                {
-                    totalTimeElapsed += pf.Duration.Value.TotalSeconds;
-                }
-            }
-
-            if (haveRunning && totalBytesLoaded > 0 && totalBytesRemaining > 0)
-            {
-                return TimeSpan.FromSeconds(totalTimeElapsed / totalBytesLoaded * totalBytesRemaining);
-            }
-
-            return null;
+            // ETA for the WHOLE package (queued files included), computed the same way as the Upload
+            // Overview bar: total remaining bytes / current aggregate speed. The previous version summed
+            // the remaining bytes of only the currently-Uploading/Hashing files, so it reported the time
+            // to finish the active batch — far shorter than reality while files are still queued.
+            long? remaining = BytesRemaining;
+            long? speed = Speed;
+            return remaining is > 0 && speed is > 0
+                ? TimeSpan.FromSeconds(remaining.Value / (double)speed.Value)
+                : null;
         }
     }
 
@@ -220,7 +189,27 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             PackageFile[] files;
             lock (_filesLock)
             { files = [.. PackageFiles]; }
-            return files.DefaultIfEmpty().Average(u => u?.Progress);
+
+            if (files.Length == 0)
+            {
+                return null;
+            }
+
+            // Byte-weighted over the WHOLE package (bytes uploaded / total size). A per-file average
+            // (a) weighted a tiny finished file the same as a huge queued one and (b) silently dropped
+            // queued files — LINQ Average over double? skips nulls, and a queued file's per-file Progress
+            // is null — so the package % was the mean of only the STARTED files, wildly inflating it while
+            // large files were still queued. Byte-weighting matches the Bytes Loaded / Size columns and
+            // the overview. (Completed files set BytesLoaded = Size, so they contribute their full size.)
+            long totalSize = files.Sum(pf => pf.Size ?? 0);
+            if (totalSize <= 0)
+            {
+                // Sizes unknown — fall back to the per-file average of whatever progress exists.
+                return files.DefaultIfEmpty().Average(u => u?.Progress);
+            }
+
+            long loaded = files.Sum(pf => pf.BytesLoaded ?? 0);
+            return (double)loaded / totalSize * 100.0;
         }
     }
 
