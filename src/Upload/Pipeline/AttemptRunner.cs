@@ -156,7 +156,12 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
                 {
                     channel.Writer.Complete();
                 }
-            }, ct);
+            });
+            // NOTE: do NOT pass `ct` to Task.Run above. When `ct` is already cancelled (a
+            // cancel that lands before the attempt starts), Task.Run(action, ct) is born
+            // Canceled and NEVER runs the delegate — so the finally that Completes the channel
+            // never fires, and the ReadAllAsync loop below blocks forever. Cancellation is
+            // observed INSIDE the pump via pipeline.RunAsync(ctx, ct); the pump must always run.
 
             await foreach (UploadEvent ev in channel.Reader.ReadAllAsync(CancellationToken.None))
             {
