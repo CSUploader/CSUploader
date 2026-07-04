@@ -108,7 +108,7 @@ internal static class MegaWebSocketUploader
             work.Add((size, 0));
         }
 
-        Dictionary<long, int> lengthByPos = work.ToDictionary(c => c.Pos, c => c.Len);
+        var lengthByPos = work.ToDictionary(c => c.Pos, c => c.Len);
         SortedDictionary<long, uint[]> macsByOffset = [];
         byte[]? token = null;
         Exception? fault = null;
@@ -120,7 +120,7 @@ internal static class MegaWebSocketUploader
         // A single 'stop' signal for both loops: the user's token, a receive-loop fault (the loop's
         // finally cancels it), or the idle watchdog. Both SendAsync and ReceiveAsync honor cts.Token
         // so a fault/timeout aborts a send wedged on TCP back-pressure instead of hanging.
-        using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         async Task ReceiveLoop()
         {
@@ -211,8 +211,8 @@ internal static class MegaWebSocketUploader
             }
         }
 
-        Task recvTask = Task.Run(ReceiveLoop, CancellationToken.None);
-        Task watchdogTask = Task.Run(Watchdog, CancellationToken.None);
+        var recvTask = Task.Run(ReceiveLoop, CancellationToken.None);
+        var watchdogTask = Task.Run(Watchdog, CancellationToken.None);
 
         try
         {

@@ -339,7 +339,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         entry = default;
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(body);
+            using var doc = JsonDocument.Parse(body);
             JsonElement root = doc.RootElement;
             if (root.TryGetProperty("success", out JsonElement ok) && ok.ValueKind == JsonValueKind.False)
             {

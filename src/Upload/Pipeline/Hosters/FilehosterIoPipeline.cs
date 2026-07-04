@@ -521,7 +521,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         {
             for (int i = 0; i < chunkCount; i++)
             {
-                long basePos = (long)i * ChunkSizeBytes;
+                long basePos = i * ChunkSizeBytes;
                 long len = Math.Min(ChunkSizeBytes, total - basePos);
                 HttpResponseSnapshot resp = await _chunkPutOverride(chunkUrl, sid, basePos, len, total, progress);
                 (bool ok, string? error) = CheckChunkResponse(resp, i);
@@ -543,7 +543,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
             await using FileStream fs = new(ctx.FilePath, FileMode.Open, FileAccess.Read);
             for (int i = 0; i < chunkCount; i++)
             {
-                long basePos = (long)i * ChunkSizeBytes;
+                long basePos = i * ChunkSizeBytes;
                 long len = Math.Min(ChunkSizeBytes, total - basePos);
 
                 // ChunkSliceStream serves exactly `len` bytes from the shared FileStream (whose position
@@ -580,7 +580,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
         // some other field — e.g. {"status":"error","note":"OK"} — can't be read as success.
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(resp.Body);
+            using var doc = JsonDocument.Parse(resp.Body);
             if (doc.RootElement.TryGetProperty("status", out JsonElement status)
                 && string.Equals(status.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
             {
@@ -604,7 +604,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             if (doc.RootElement.TryGetProperty("url", out JsonElement url) && url.GetString() is { Length: > 0 } baseUrl)
             {
                 return (baseUrl.TrimEnd('/'), null);
@@ -627,7 +627,7 @@ public sealed class FilehosterIoPipeline : IFileHosterPipeline, IStorageRefresha
 
         try
         {
-            using JsonDocument doc = JsonDocument.Parse(response.Body);
+            using var doc = JsonDocument.Parse(response.Body);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("links", out JsonElement links)

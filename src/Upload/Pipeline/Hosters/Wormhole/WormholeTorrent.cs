@@ -23,6 +23,7 @@ internal static class WormholeTorrent
     /// (decrypted) torrent and fetches exactly that many blobs. Confirmed from a live 12 MB round-trip:
     /// <c>piece length = 5013504</c>, 3 pieces, 3 B2 objects.</summary>
     public const long B2BlockSize = 306 * 16384; // 5,013,504
+
     /// <summary>
     /// Bencodes a single-file torrent over the ciphertext and returns (torrent bytes, 20-byte infoHash).
     /// </summary>

@@ -82,7 +82,7 @@ internal static class MegaCrypto
 
     private static uint[] EcbTransform(byte[] keyBytes, uint[] dataA32, bool encrypt)
     {
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = keyBytes;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
@@ -114,7 +114,7 @@ internal static class MegaCrypto
         byte[] buf = new byte[padded];
         raw.CopyTo(buf, 0);
 
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = AttrKey(keyA32);
         return aes.EncryptCbc(buf, new byte[16], PaddingMode.None);
     }
@@ -143,7 +143,7 @@ internal static class MegaCrypto
             byte[] macIv = new byte[16];
             nonce.CopyTo(macIv, 0);
             nonce.CopyTo(macIv, 8);
-            using Aes aes = Aes.Create();
+            using var aes = Aes.Create();
             aes.Key = keyBytes;
             byte[] cbc = aes.EncryptCbc(buf, macIv, PaddingMode.None);
             macBytes = cbc[^16..];
@@ -163,7 +163,7 @@ internal static class MegaCrypto
     private static byte[] AesCtr(byte[] keyBytes, byte[] nonce, long initialCounter, byte[] data)
     {
         byte[] output = new byte[data.Length];
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = keyBytes;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
@@ -195,7 +195,7 @@ internal static class MegaCrypto
     {
         uint[] acc = [0, 0, 0, 0];
         byte[] keyBytes = A32ToBytes(ulKey[..4]);
-        using Aes aes = Aes.Create();
+        using var aes = Aes.Create();
         aes.Key = keyBytes;
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
