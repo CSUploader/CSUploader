@@ -169,6 +169,19 @@ public partial class App : Application
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.MegaPipeline>();
+        // MediaFire — account-only REST upload: web login (user cookie) → session token → SHA-256
+        // hash-dedup check → instant link or raw simple.php byte upload + poll. No captcha/WebView.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.MediaFirePipeline>();
+        // Pixeldrain — account-only: login (pd_auth_key cookie) → PUT /api/file/<name> raw body → {"id":...}.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PixeldrainPipeline>();
+        // File Garden — account-only: login (api.filegarden.com/token → auth cookie + userId) → raw POST
+        // /users/<userId>/pipe with an X-Data metadata header → {"id","path"}. No captcha on login.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileGardenPipeline>();
+        // ufile.io — anonymous OR registered chunked upload (GET csrf/session → select_storage →
+        // create_session → 99 MB chunks → finalise). Registered adds x-api-key + a dashboard finalise;
+        // the api_key comes from a reCAPTCHA WebView sign-in, so it needs IInteractiveAuthService.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.UfileIoPipeline(sp.GetRequiredService<IInteractiveAuthService>()));
         // Upstore — anonymous-only Dropzone upload (no login), same standalone shape as GigaPeta.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         // catbox.moe — anonymous-only single multipart POST to /user/api.php; response is the plain URL.

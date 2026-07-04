@@ -42,6 +42,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // upload endpoint and walking the re-enable checklist in ExtMatrixPipeline.cs.
         // { "ExtMatrix", "www.extmatrix.com" },
         { "FileBoom", "www.fileboom.me" },
+        // filegarden.com account upload — login (POST api.filegarden.com/token → auth cookie + userId) →
+        // POST /users/<userId>/pipe (raw body + X-Data header) → {"id","path"}; link filegarden.com/<userId>/<path>.
+        { "FileGarden", "filegarden.com" },
         // filehoster.io is an XFileSharing host on the "xfspro" chunked-upload plugin; account-only
         // (login → start_upload → put_chunk.cgi → import_file). See FilehosterIoPipeline.cs.
         { "Filehoster.io", "filehoster.io" },
@@ -84,7 +87,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // WebSocket chunk upload transfer.it uses but into a real account's Cloud Drive. See MegaPipeline.cs
         // + the Mega/ helpers. (Transfer.it is the anonymous/ephemeral sibling.)
         { "MEGA", "mega.nz" },
+        // mediafire.com account upload — web login (user cookie) → session token → SHA-256 hash-dedup
+        // check → instant link OR raw simple.php byte upload + poll. See MediaFirePipeline.cs.
+        { "MediaFire", "www.mediafire.com" },
         { "NitroFlare", "www.nitroflare.com" },
+        // pixeldrain.com account upload — login (pd_auth_key cookie) → PUT /api/file/<name> raw body →
+        // {"id":...}; share link pixeldrain.com/u/<id>. Anonymous upload was removed. See PixeldrainPipeline.cs.
+        { "Pixeldrain", "pixeldrain.com" },
         // Novafile REMOVED 2026-06-27 — novafile.com only allows *premium* user registration;
         // there is no free account to create, so no usable upload path exists. Never had a
         // pipeline; was metadata-only. Do NOT re-add unless free registration + upload returns.
@@ -133,6 +142,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // UniBytes REMOVED 2026-06-28 — unibytes.com is down (no live site/upload endpoint). Never
         // had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and
         // which protocol family it belongs to.
+        // ufile.io anonymous chunked upload — GET / (csrf+session) → select_storage → create_session →
+        // 99 MB multipart chunks → finalise → ufile.io/<slug>. See UfileIoPipeline.cs.
+        { "Ufile", "ufile.io" },
         { "Upstore", "upstore.net" },
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the
         // link carries the decryption key in its #fragment. See WormholePipeline.cs + the Wormhole/ helpers.

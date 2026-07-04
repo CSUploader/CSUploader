@@ -288,6 +288,30 @@ public sealed class UploadSchedulerOrderTests : IDisposable
         Assert.Equal(Enumerable.Range(1, 3), orders);
     }
 
+    [Fact]
+    public async Task PipelineMaxConcurrentUploads_CapsThatHosterBelowTheGlobalLimit()
+    {
+        // Global limit is 10, but the hoster declares MaxConcurrentUploads = 2 (ufile's free-tier shape),
+        // so only 2 of its 5 files upload at once — the per-hoster cap wins over the higher global limit.
+        GatedPipeline pipeline = new("Rapidgator", maxConcurrent: 2);
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 10, fileCount: 5);
+        PackageFile[] files = [.. package];
+        for (int i = 0; i < files.Length; i++)
+        {
+            files[i].State = FileState.UploadQueued;
+            files[i].QueueOrder = i + 1;
+        }
+
+        scheduler.AddPackage(package);
+
+        await WaitFor(() => CountState(package, FileState.Uploading) == 2);
+        await Task.Delay(150); // give the scheduler a chance to (wrongly) launch more
+        Assert.Equal(2, CountState(package, FileState.Uploading));   // capped at 2, NOT the global 10
+        Assert.Equal(3, CountState(package, FileState.UploadQueued)); // the other 3 wait for a slot
+
+        // The gated uploads are cancelled by the fixture's scheduler.Dispose() teardown.
+    }
+
     private static bool IsContiguousPermutation(int[] orders, int n)
         => orders.Length == n && orders.OrderBy(o => o).SequenceEqual(Enumerable.Range(1, n));
 
@@ -357,7 +381,7 @@ public sealed class UploadSchedulerOrderTests : IDisposable
     /// called for that file (keyed by file name). Mirrors the harness in
     /// <c>UploadSchedulerForceStartTests</c>.
     /// </summary>
-    private sealed class GatedPipeline(string name, bool requiresHash = false) : IFileHosterPipeline
+    private sealed class GatedPipeline(string name, bool requiresHash = false, int? maxConcurrent = null) : IFileHosterPipeline
     {
         private readonly ConcurrentDictionary<string, TaskCompletionSource> _gates = new(StringComparer.Ordinal);
         private int _runCount;
@@ -371,6 +395,8 @@ public sealed class UploadSchedulerOrderTests : IDisposable
         public long? MaxFileSize => null;
 
         public int? MaxFilesPerPackage => null;
+
+        public int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => maxConcurrent;
 
         public int RunCount => Volatile.Read(ref _runCount);
 

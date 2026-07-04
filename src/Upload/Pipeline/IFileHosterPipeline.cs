@@ -67,6 +67,14 @@ public interface IFileHosterPipeline
     public int? MaxFilesPerPackage { get; }
 
     /// <summary>
+    /// Maximum number of this hoster's uploads that may run SIMULTANEOUSLY for the given account, or null
+    /// when no per-hoster limit applies (the default). The upload scheduler never launches more than this
+    /// many concurrent uploads for the hoster — on top of the global and (optional) per-host concurrency
+    /// settings. Varies by tier for some hosters (e.g. ufile: free 10, pro 30, business 99).
+    /// </summary>
+    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => null;
+
+    /// <summary>
     /// True when the hoster accepts uploads with no account/login. The upload wizard offers
     /// such hosters a built-in "Anonymous" option that needs no Accounts/Settings entry — the
     /// runner passes a blank <see cref="Dal.FileHosterLoginDto"/> (no username) and the

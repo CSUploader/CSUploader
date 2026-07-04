@@ -212,13 +212,22 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// throw on non-2xx — callers handle their own status (e.g. BRupload's login flow
     /// returns 302 on success).
     /// </summary>
-    public async Task<HttpResponseSnapshot> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, CancellationToken cancellationToken = default)
+    public Task<HttpResponseSnapshot> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, CancellationToken cancellationToken = default)
+        => PostFormAsync(url, form, headers: null, cancellationToken);
+
+    /// <summary>
+    /// POSTs an <c>application/x-www-form-urlencoded</c> body with optional per-request headers
+    /// (e.g. a <c>Cookie</c> for a login that validates a page-scoped token against a session cookie —
+    /// MediaFire's <c>client_login</c>). Like the no-header overload, doesn't throw on non-2xx.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         url = MaybeRewriteToMockServer(url);
 
-        using FormUrlEncodedContent content = new(form);
+        // The HttpRequestMessage owns the content and disposes it; no separate `using`.
+        FormUrlEncodedContent content = new(form);
         HttpTransaction transaction = new()
         {
             Method = "POST",
@@ -230,9 +239,18 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            CaptureRequestHeaders(transaction, content);
+            using HttpRequestMessage request = new(HttpMethod.Post, url) { Content = content };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
 
-            using HttpResponseMessage response = await HttpClient.PostAsync(url, content, cancellationToken);
+            CaptureRequestHeaders(transaction, content, request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
 
             transaction.EndTime = DateTime.Now;
@@ -280,7 +298,12 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <summary>Like <see cref="PostJsonAsync(string, string?, IReadOnlyDictionary{string, string}?, CancellationToken)"/>
     /// but for any HTTP method — e.g. a <c>PATCH</c> with a JSON body + a bearer <c>Authorization</c>
     /// header (wormhole.app's room manifest / heartbeat). Does not throw on non-2xx.</summary>
-    public async Task<HttpResponseSnapshot> SendJsonAsync(HttpMethod method, string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+    /// <param name="jsonCharsetUtf8">When true (default) the body's Content-Type is
+    /// <c>application/json; charset=utf-8</c> — .NET's <see cref="StringContent"/> default. When false it
+    /// is the bare <c>application/json</c> (RFC-8259 form; JSON is always UTF-8, so the parameter is
+    /// redundant). Some strict servers — File Garden's <c>/token</c> — reject the charset parameter and
+    /// fail to parse the body, so those callers opt out.</param>
+    public async Task<HttpResponseSnapshot> SendJsonAsync(HttpMethod method, string url, string? jsonBody, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken, bool jsonCharsetUtf8 = true)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -289,6 +312,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         // No `using` on content: the HttpRequestMessage below owns it and disposes it (a
         // separate using would double-dispose). Mirrors UploadMultipartAsync's note.
         StringContent? content = jsonBody is null ? null : new StringContent(jsonBody, Encoding.UTF8, "application/json");
+        if (content is not null && !jsonCharsetUtf8)
+        {
+            // Drop the "; charset=utf-8" parameter — a bare application/json (the request bytes stay UTF-8).
+            content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        }
         HttpTransaction transaction = new()
         {
             Method = method.Method,
@@ -475,7 +503,27 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// non-double-creating is the caller's concern — e.g. storage.to's uploaded object only becomes a
     /// downloadable file via a separate confirm step that a failed PUT never reaches.)
     /// </summary>
-    public async Task<HttpResponseSnapshot> UploadPutAsync(
+    public Task<HttpResponseSnapshot> UploadPutAsync(
+        string filePath,
+        string endpoint,
+        string contentType,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+        => UploadFileBodyAsync(HttpMethod.Put, filePath, endpoint, contentType, headers, getBytesPerSecond, cancellationToken);
+
+    /// <summary>
+    /// Streams a file as the raw request body via an arbitrary <paramref name="method"/> — the
+    /// method-parameterized core behind <see cref="UploadPutAsync"/>. MediaFire's
+    /// <c>upload/simple.php</c> wants a <b>POST</b> of the raw bytes (Content-Type
+    /// <c>application/octet-stream</c>) with <c>x-filename</c>/<c>x-filesize</c>/<c>x-filehash</c>
+    /// headers and the <c>session_token</c> in the query string; the server rejects a multipart body
+    /// because it validates <c>x-filesize</c> against the exact body length. Progress via
+    /// <see cref="UploadProgress"/>; a connect-phase/mid-send fault is reclassified as a retryable
+    /// <see cref="UploadBodyTransferException"/> exactly as for a raw PUT.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> UploadFileBodyAsync(
+        HttpMethod method,
         string filePath,
         string endpoint,
         string contentType,
@@ -488,11 +536,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         HttpTransaction transaction = new()
         {
-            Method = "PUT",
+            Method = method.Method,
             Url = endpoint,
             Proxy = _proxyDescription,
             StartTime = dateTimeStarted,
-            RequestBody = $"[Raw PUT file upload: {Path.GetFileName(filePath)}]",
+            RequestBody = $"[Raw {method.Method} file upload: {Path.GetFileName(filePath)}]",
         };
 
         // Null until the FileStream is opened + the content created — a fault while it's still null is a
@@ -515,7 +563,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
             // HttpRequestMessage.Dispose() disposes its Content for us — no separate using on the
             // content (that'd double-dispose). Mirrors UploadMultipartAsync.
-            using HttpRequestMessage request = new(HttpMethod.Put, endpoint) { Content = progressContent };
+            using HttpRequestMessage request = new(method, endpoint) { Content = progressContent };
             if (headers is not null)
             {
                 foreach (KeyValuePair<string, string> h in headers)
@@ -892,6 +940,114 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                     // retryable type even if a marker ever lacked an inner.
                     throw marker.InnerException ?? new IOException(marker.Message);
                 }
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// POSTs a chunk as browser-shaped <c>multipart/form-data</c> with caller-chosen string fields plus a
+    /// file part carrying the <em>real</em> filename — the generalized cousin of <see cref="PostChunkAsync"/>
+    /// (ufile.io's <c>/v1/upload/chunk</c>: fields <c>chunk_index</c>/<c>fuid</c> + a <c>file</c> part).
+    /// Progress is file-cumulative via <paramref name="basePosition"/>. UNLIKE <see cref="PostChunkAsync"/>,
+    /// a mid-send fault is reclassified as a retryable <see cref="UploadBodyTransferException"/> (like
+    /// <see cref="UploadPutAsync"/>): callers of this method create a fresh upload session per attempt, so a
+    /// whole-pipeline retry re-uploads under a new id and never double-commits (nothing is committed until a
+    /// separate finalise call). The caller slices the file (see <see cref="ChunkSliceStream"/>).
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostFileChunkAsync(
+        string endpoint,
+        IReadOnlyDictionary<string, string> fields,
+        string fileFieldName,
+        string fileName,
+        Stream chunkData,
+        long chunkLength,
+        long basePosition,
+        long totalFileSize,
+        DateTime dateTimeStarted,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = $"[File chunk: {chunkLength} bytes, {fileName}]",
+        };
+
+        // Null until the ProgressStreamContent is created — a fault before then is a setup error, not a
+        // mid-send body abort (mirrors UploadPutAsync's guard).
+        ProgressStreamContent? chunkPart = null;
+
+        try
+        {
+            using MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
+            foreach (KeyValuePair<string, string> field in fields)
+            {
+                AddBareStringPart(multipartContent, field.Key, field.Value);
+            }
+
+            Stream chunkStream = getBytesPerSecond is not null
+                ? new ThrottledStream(chunkData, getBytesPerSecond)
+                : chunkData;
+            chunkPart = new(
+                chunkStream,
+                (_, bytesInThisChunk) => UploadProgress?.Invoke(
+                    this,
+                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                cancellationToken);
+            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            multipartContent.Add(chunkPart, fileFieldName);
+            chunkPart.Headers.ContentDisposition = null;
+            chunkPart.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fileFieldName, fileName));
+
+            using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipartContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+
+            if (chunkPart is { BodyFullySent: false } && !UploadBodyTransferException.IsInChain(ex))
+            {
+                throw new UploadBodyTransferException(ex);
             }
 
             throw;

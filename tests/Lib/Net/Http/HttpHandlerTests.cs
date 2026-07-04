@@ -369,6 +369,31 @@ public class HttpHandlerTests
         Assert.Equal("application/octet-stream", capture.RequestContentType);
     }
 
+    [Fact]
+    public async Task SendJsonAsync_Default_SendsApplicationJsonWithCharset()
+    {
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.SendJsonAsync(HttpMethod.Post, "https://example.test/x", """{"a":1}""", null, CancellationToken.None);
+
+        // .NET's StringContent default: application/json; charset=utf-8.
+        Assert.Equal("application/json; charset=utf-8", capture.RequestContentType);
+    }
+
+    [Fact]
+    public async Task SendJsonAsync_JsonCharsetUtf8False_SendsBareApplicationJson()
+    {
+        // File Garden's /token 400s ("That is not a valid email.") when the Content-Type carries a
+        // charset parameter — the body must be a bare application/json, matching the browser.
+        CapturingHandler capture = new();
+        HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        await handler.SendJsonAsync(HttpMethod.Post, "https://example.test/x", """{"a":1}""", null, CancellationToken.None, jsonCharsetUtf8: false);
+
+        Assert.Equal("application/json", capture.RequestContentType);
+    }
+
     // ---- PutChunkAsync (the xfspro raw-PUT chunk used by filehoster.io). Unlike PostChunkAsync
     // (up.cgi, commit-per-chunk → strips the marker), xfspro chunks accumulate under a disposable SID
     // and only import_file creates the record, so a body-not-fully-sent fault IS whole-pipeline-retry-

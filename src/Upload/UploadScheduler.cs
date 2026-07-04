@@ -426,9 +426,24 @@ public class UploadScheduler : IDisposable
             }
 
             string host = file.FileHoster.Name;
-            if (perHostEnabled && hostUsed.GetValueOrDefault(host, 0) >= _settings.MaxUploadsPerHost)
+
+            // Effective per-host concurrency cap = the smaller of the user's per-host setting (if enabled)
+            // and the hoster's own declared limit (e.g. ufile allows 10 simultaneous uploads). A file that
+            // would exceed it doesn't consume a global slot on this host's behalf.
+            int hostCap = int.MaxValue;
+            if (perHostEnabled)
             {
-                continue; // this host is at its cap — don't consume a global slot on its behalf
+                hostCap = _settings.MaxUploadsPerHost;
+            }
+
+            if (_registry.Find(host)?.MaxConcurrentUploadsFor(file.FileHosterLogin) is int hosterCap)
+            {
+                hostCap = Math.Min(hostCap, hosterCap);
+            }
+
+            if (hostUsed.GetValueOrDefault(host, 0) >= hostCap)
+            {
+                continue;
             }
 
             // UploadQueued → launch now; Hashing → just reserve the slot (its upload launches from
