@@ -944,10 +944,12 @@
                     </DataGridTextColumn>
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}" Binding="{Binding AccountType}" Width="80" />
                     <!-- Storage usage columns. Used: formatted bytes (via ByteUnitConverter) when known,
-                         "-" (via TargetNullValue, which short-circuits the converter) when we couldn't
-                         retrieve a usage figure. Available: see the MultiConverter comment below. -->
+                         "-" when we couldn't retrieve a usage figure. The dash comes from ConverterParameter
+                         (NOT TargetNullValue): with a converter in the binding the null StorageUsedBytes
+                         reaches ByteUnitConverter.Convert first, which honours the parameter as its "unknown"
+                         display. Available: see the MultiConverter comment below. -->
                     <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Used}"
-                                        Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}, TargetNullValue='-'}"
+                                        Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}, ConverterParameter='-'}"
                                         Width="90" IsReadOnly="True" />
                     <!-- Fixed width on Available (not Width="*") so the grid's total
                          column width can exceed the viewport and the horizontal
