@@ -458,7 +458,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
         foreach (byte b in bytes)
         {
             char c = (char)b;
-            if (b < 0x80 && (char.IsAsciiLetterOrDigit(c) || EncodeUriComponentKeep.Contains(c)))
+            if (b < 0x80 && (char.IsAsciiLetterOrDigit(c) || EncodeUriComponentKeep.Contains(c, StringComparison.Ordinal)))
             {
                 sb.Append(c);
             }
@@ -491,7 +491,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
         foreach (byte b in bytes)
         {
             char c = (char)b;
-            if (b < 0x80 && (char.IsAsciiLetterOrDigit(c) || EncodeUriKeep.Contains(c)))
+            if (b < 0x80 && (char.IsAsciiLetterOrDigit(c) || EncodeUriKeep.Contains(c, StringComparison.Ordinal)))
             {
                 sb.Append(c);
             }
