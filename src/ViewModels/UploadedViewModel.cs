@@ -33,7 +33,7 @@ public partial class UploadedViewModel : ObservableObject
 
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
-    /// via <see cref="Lib.UI.DataGridColumnVisibilityPersistence"/>. Optional in tests.
+    /// via the head-side <c>DataGridColumnVisibilityPersistence</c> helper. Optional in tests.
     /// </summary>
     internal SettingRepository? SettingRepo { get; }
 
