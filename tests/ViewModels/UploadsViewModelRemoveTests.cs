@@ -99,9 +99,12 @@ public class UploadsViewModelRemoveTests : IDisposable
         Mock<IDialogService> dialog = new();
         dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
 
-        UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object, new WpfUiDispatcher(), Mock.Of<IClipboardService>());
-        // Mirror the grid state the PackageAdded handler would build (its Dispatcher.BeginInvoke is a
-        // no-op in a headless test), so RemoveSelected operates on a populated, expanded package.
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object, new InlineUiDispatcher(), Mock.Of<IClipboardService>());
+        // These tests build the Package directly and never route it through the manager, so
+        // PackageManager.PackageAdded never fires — mirror the grid state the PackageAdded handler
+        // would build so RemoveSelected operates on a populated, expanded package. (The real
+        // Post-routed PackageAdded/FileCompleted/PackageCompleted paths are covered end-to-end in
+        // UploadsViewModelPackageEventTests, which drives the manager for real.)
         vm.Packages.Add(pkg);
         vm.VisibleRows.Add(pkg);
         foreach (PackageFile f in files)

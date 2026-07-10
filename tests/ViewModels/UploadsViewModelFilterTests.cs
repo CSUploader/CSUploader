@@ -126,7 +126,7 @@ public class UploadsViewModelFilterTests : IDisposable
     }
 
     private UploadsViewModel CreateVm()
-        => new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), new WpfUiDispatcher(), Mock.Of<IClipboardService>());
+        => new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), new InlineUiDispatcher(), Mock.Of<IClipboardService>());
 
     private static (Package Package, FileHosterClient Hoster, FileHosterLoginDto Login) MakePackage(string name)
     {

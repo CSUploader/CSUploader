@@ -59,7 +59,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<ProxyManager>();
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
-        sc.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+        sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
         sc.AddSingleton<IClipboardService, WpfClipboardService>();
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();

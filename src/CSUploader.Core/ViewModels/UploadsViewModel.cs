@@ -277,25 +277,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private void SetOrder((PackageFile File, int Target) arg)
         => _packageManager.MoveFileTo(arg.File, arg.Target);
 
-    private void RebuildVisibleRows()
-    {
-        // Snapshot expansion state, rebuild VisibleRows in package order, restore expansion.
-        VisibleRows.Clear();
-        foreach (Package package in Packages)
-        {
-            VisibleRows.Add(package);
-            if (package.IsExpanded)
-            {
-                foreach (PackageFile file in package)
-                {
-                    VisibleRows.Add(file);
-                }
-            }
-        }
-
-        FilterInvalidated?.Invoke(this, EventArgs.Empty);
-    }
-
     [RelayCommand]
     private void Retry(object? item)
     {
