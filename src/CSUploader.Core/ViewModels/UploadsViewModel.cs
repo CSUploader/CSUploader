@@ -127,10 +127,11 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private string filterText = string.Empty;
 
     /// <summary>
-    /// Raised whenever the filter result may have changed: when <see cref="FilterText"/> is edited and
-    /// whenever <see cref="VisibleRows"/> is rebuilt. Each head re-evaluates its collection view's
-    /// filter in response (WPF: <c>ICollectionView.Refresh</c>). This replaces the VM owning an
-    /// <c>ICollectionView</c> directly, so the ViewModel stays framework-free.
+    /// Raised when <see cref="FilterText"/> is edited (the only site where the filter result can
+    /// change — <see cref="VisibleRows"/> mutations add/remove concrete rows and need no re-filter).
+    /// Each head re-evaluates its collection view's filter in response (WPF:
+    /// <c>ICollectionView.Refresh</c>). This replaces the VM owning an <c>ICollectionView</c>
+    /// directly, so the ViewModel stays framework-free.
     /// </summary>
     public event EventHandler? FilterInvalidated;
 
