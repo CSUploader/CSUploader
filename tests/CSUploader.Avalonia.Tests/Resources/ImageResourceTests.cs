@@ -3,6 +3,9 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -22,9 +25,35 @@ namespace CSUploader.Tests.Avalonia.Resources;
 public class ImageResourceTests
 {
     [AvaloniaFact]
-    public void EveryBitmapEntry_ResolvesToALoadedBitmap()
+    public void PortedKeys_MatchWpfImageResources_AndBitmapsLoad()
     {
-        Assert.Equal(69, BitmapImageResources.Entries.Length); // count pinned to ImageResources.xaml:8-88
+        // Real drift gate (replaces the old self-referential count pin): parse the WPF
+        // ImageResources.xaml x:Key set (bitmaps AND geometries) and assert it is set-equal to the
+        // Avalonia port — BitmapImageResources.Entries keys plus the merged ImageGeometries.axaml
+        // keys. A WPF-side key addition that is not mirrored here (the Buzzheavier master-merge
+        // scenario) now FAILS this test instead of silently rendering a blank icon. Source files are
+        // located via CallerFilePath (OutDir-independent — the repo builds to a temp OutDir; same
+        // pattern as I18nRegenGateTests.FindRepoRoot).
+        string root = FindRepoRoot();
+        HashSet<string> wpfKeys = ParseXamlKeys(Path.Combine(root, "src", "Resources", "ImageResources.xaml"));
+        HashSet<string> geometryKeys = ParseXamlKeys(
+            Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"));
+        HashSet<string> portedKeys = BitmapImageResources.Entries
+            .Select(e => e.Key)
+            .Concat(geometryKeys)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Symmetric-difference reporting so a drift names the offending key(s).
+        List<string> missing = wpfKeys.Except(portedKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        List<string> stale = portedKeys.Except(wpfKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        Assert.True(
+            missing.Count == 0,
+            $"WPF ImageResources.xaml keys not ported (add to BitmapImageResources.Entries or ImageGeometries.axaml): {string.Join(", ", missing)}");
+        Assert.True(
+            stale.Count == 0,
+            $"Ported keys with no WPF source (stale port): {string.Join(", ", stale)}");
+
+        // Runtime check: every bitmap entry resolves to an actually-loaded Bitmap.
         foreach ((string key, _) in BitmapImageResources.Entries)
         {
             Assert.True(Application.Current!.TryFindResource(key, out object? value), $"missing resource: {key}");
@@ -53,5 +82,30 @@ public class ImageResourceTests
             Assert.True(Application.Current!.TryFindResource(key, out object? value), $"missing resource: {key}");
             Assert.IsAssignableFrom<global::Avalonia.Media.Geometry>(value);
         }
+    }
+
+    // Every x:Key in a XAML resource dictionary. The keys sit one-per-line in both the WPF
+    // ImageResources.xaml and the Avalonia ImageGeometries.axaml, so a flat scan is exact; the
+    // root ResourceDictionary element carries xmlns:x but no x:Key, so it does not match.
+    private static HashSet<string> ParseXamlKeys(string path)
+    {
+        string xaml = File.ReadAllText(path);
+        return Regex.Matches(xaml, "x:Key=\"([^\"]+)\"")
+            .Select(m => m.Groups[1].Value)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    // CallerFilePath, NOT AppContext.BaseDirectory: the repo builds to a temp OutDir
+    // (D:\temp2\...) to dodge bin locks, so the binary's directory is outside the repo.
+    // Same pattern + rationale as I18nRegenGateTests.FindRepoRoot.
+    private static string FindRepoRoot([CallerFilePath] string thisFilePath = "")
+    {
+        DirectoryInfo? dir = Directory.GetParent(thisFilePath);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CSUploader.sln")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName ?? throw new InvalidOperationException("repo root not found from " + thisFilePath);
     }
 }

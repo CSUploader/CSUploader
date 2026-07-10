@@ -50,8 +50,13 @@ Conventions for writing tests in this project. Inherits everything from the root
   once in `CSUploader.Tests` against Core.
 - Tests run on a headless Avalonia UI thread: mark them `[AvaloniaFact]` / `[AvaloniaTheory]`
   (from `Avalonia.Headless.XUnit`), **not** `[Fact]`. A single per-assembly headless session is
-  configured by `TestAppBuilder` (a bare `TestApp : Application` via `AppBuilder.Configure<TestApp>().UseHeadless(...)`),
-  registered with the assembly-level `[AvaloniaTestApplication(typeof(TestAppBuilder))]` attribute.
+  configured by `TestAppBuilder`, which boots the **real** `App` via `AppBuilder.Configure<App>().UseHeadless(...)`
+  (the throwaway `TestApp` was deleted), registered with the assembly-level
+  `[AvaloniaTestApplication(typeof(TestAppBuilder))]` attribute. Booting the real App gives tests its
+  full XAML resource surface (FluentTheme, DataGrid styles, the geometry + bitmap dictionaries merged in
+  `App.Initialize`). `App.OnFrameworkInitializationCompleted`'s DI composition still never runs headless:
+  it is guarded by `IClassicDesktopStyleApplicationLifetime`, which the headless session is not — the DI
+  smoke composes `App.ConfigureServices` directly instead.
 - The headless dispatcher does not pump on its own. Anything the SUT routes through
   `Dispatcher.UIThread.Post` (e.g. `AvaloniaUiDispatcher.Post`, a `DispatcherTimer` tick) only runs
   after you call `Dispatcher.UIThread.RunJobs()` — see `AvaloniaUiDispatcherTests` (assert not-run,
