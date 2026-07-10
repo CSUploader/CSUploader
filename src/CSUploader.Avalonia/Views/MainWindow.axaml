@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CSUploader.Views.MainWindow"
+        Title="CSUploader"
+        Width="1024" Height="800"
+        WindowStartupLocation="CenterScreen"
+        Icon="avares://CSUploader.Avalonia/Assets/icon.ico">
+  <!-- TODO(phase3): loc:Loc headers; TODO(phase5/6): real views -->
+  <TabControl>
+    <TabItem Header="Uploads">
+      <Border />
+    </TabItem>
+    <TabItem Header="Uploaded">
+      <Border />
+    </TabItem>
+    <TabItem Header="Settings">
+      <Border />
+    </TabItem>
+    <TabItem Header="Logs">
+      <Border />
+    </TabItem>
+  </TabControl>
+</Window>

@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+    <RootNamespace>CSUploader</RootNamespace>
+    <AssemblyName>CSUploader.Avalonia</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>preview</LangVersion>
+    <!-- WebView2's managed API marshals COM; required for the Phase 2 spike + Phase 8 login host. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- Parity-first migration: the WPF XAML being ported uses reflection bindings throughout.
+         Compiled bindings (x:DataType everywhere) are a deliberate opt-in AFTER the port. -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>..\Properties\Images\Logo\icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
+    <!-- DataGrid's 11.x line ends at 11.3.13; its dependency range accepts the 11.3.18 core.
+         Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
+         cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSUploader.Core\CSUploader.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reuse the WPF head's icon; no duplication. If the Link'd avares path does not resolve
+         at runtime (verify with AssetLoader in Step 5), copy the .ico to Assets\ instead. -->
+    <AvaloniaResource Include="..\Properties\Images\Logo\icon.ico" Link="Assets\icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CSUploader.Avalonia.Tests" />
+  </ItemGroup>
+
+</Project>
