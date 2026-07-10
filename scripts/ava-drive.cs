@@ -1,0 +1,66 @@
+#!/usr/bin/env dotnet
+// Direct-TCP driver for AvaDevBridge — used until the MCP server is loaded (session restart).
+// Usage: dotnet run scripts/ava-drive.cs -- <tool> [json-args] [--out <file>]
+//   e.g. dotnet run scripts/ava-drive.cs -- ava_windows
+//        dotnet run scripts/ava-drive.cs -- ava_screenshot '{"maxWidth":2500}' --out shot.png
+//   Auto-discovers the newest live handshake; a screenshot's base64 payload is saved to --out
+//   (default shot.png) and the printed envelope carries the file path instead.
+#:project ../../../avalonia-agent-mcp/AvaDevProtocol/AvaDevProtocol.csproj
+
+using System.Net.Sockets;
+using System.Text.Json;
+using AvaDevProtocol;
+
+string? tool = args.FirstOrDefault(a => !a.StartsWith('-'));
+if (tool is null)
+{
+    Console.Error.WriteLine("usage: ava-drive <tool> [json-args] [--out file]");
+    return 2;
+}
+
+string? argsJson = args.Skip(Array.IndexOf(args, tool) + 1).FirstOrDefault(a => !a.StartsWith('-'));
+string outPath = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault() ?? "shot.png";
+
+HandshakeInfo? hs = HandshakeFile.Discover().OrderByDescending(h => h.StartedUtc).FirstOrDefault();
+if (hs is null)
+{
+    Console.Error.WriteLine("no live bridge app found (is the Avalonia app running in Debug?)");
+    return 3;
+}
+
+using TcpClient client = new();
+try
+{
+    await client.ConnectAsync("127.0.0.1", hs.Port);
+}
+catch (SocketException)
+{
+    Console.Error.WriteLine($"no live bridge app found (stale handshake for pid {hs.Pid})");
+    return 3;
+}
+
+NetworkStream stream = client.GetStream();
+
+Dictionary<string, object?> request = new()
+{
+    ["token"] = hs.Token,
+    ["tool"] = tool,
+    ["args"] = argsJson is null ? null : JsonSerializer.Deserialize<JsonElement>(argsJson),
+};
+await FrameProtocol.WriteAsync(
+    stream,
+    JsonSerializer.SerializeToUtf8Bytes(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+    CancellationToken.None);
+byte[] payload = await FrameProtocol.ReadAsync(stream, FrameProtocol.MaxResponse, CancellationToken.None);
+
+JsonElement env = JsonSerializer.Deserialize<JsonElement>(payload);
+if (env.TryGetProperty("result", out JsonElement result) && result.ValueKind == JsonValueKind.Object
+    && result.TryGetProperty("base64", out JsonElement b64))
+{
+    File.WriteAllBytes(outPath, Convert.FromBase64String(b64.GetString()!));
+    Console.WriteLine($"{{\"ok\":true,\"savedTo\":\"{outPath.Replace("\\", "/", StringComparison.Ordinal)}\",\"mime\":{result.GetProperty("mime").GetRawText()}}}");
+    return 0;
+}
+
+Console.WriteLine(env.GetRawText());
+return env.TryGetProperty("ok", out JsonElement ok) && ok.GetBoolean() ? 0 : 1;
