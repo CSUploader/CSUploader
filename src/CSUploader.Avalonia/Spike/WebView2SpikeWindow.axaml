@@ -1,0 +1,44 @@
+<!-- THROWAWAY — Phase 2 WebView2 spike; superseded by the Phase 8 login host. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:spike="clr-namespace:CSUploader.Spike"
+        x:Class="CSUploader.Spike.WebView2SpikeWindow"
+        Title="WebView2 Spike"
+        Width="1100" Height="760"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- URL bar -->
+    <DockPanel Grid.Row="0" Margin="8" LastChildFill="True">
+      <Button DockPanel.Dock="Right" x:Name="GoButton" Content="Go" Width="70" Margin="8,0,0,0" />
+      <TextBox x:Name="UrlBox" Text="https://hitfile.net/login" VerticalAlignment="Center" />
+    </DockPanel>
+
+    <!-- Content: native WebView host (left) + bridge-readable diagnostics (right) -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,360">
+      <Border Grid.Column="0" BorderBrush="#888" BorderThickness="1" Margin="8,0,4,8">
+        <spike:WebView2HwndHost x:Name="Host" />
+      </Border>
+
+      <Grid Grid.Column="1" Margin="4,0,8,8" RowDefinitions="Auto,Auto,Auto,Auto,*">
+        <TextBlock Grid.Row="0" x:Name="StatusText" Text="Initializing…"
+                   TextWrapping="Wrap" FontSize="12" Margin="0,0,0,6" />
+        <TextBlock Grid.Row="1" x:Name="BoundsText" Text="bounds: (pending)"
+                   TextWrapping="Wrap" FontSize="11" Foreground="#555" Margin="0,0,0,8" />
+
+        <WrapPanel Grid.Row="2" Margin="0,0,0,8">
+          <Button x:Name="FocusButton" Content="Focus field" Margin="0,0,6,6" />
+          <Button x:Name="ProbeButton" Content="Probe" Margin="0,0,6,6" />
+          <Button x:Name="CookiesButton" Content="Cookies" Margin="0,0,6,6" />
+          <Button x:Name="CaptureButton" Content="Capture" Margin="0,0,6,6" />
+        </WrapPanel>
+
+        <TextBlock Grid.Row="3" Text="Probe output (bridge-readable):" FontSize="11" Margin="0,0,0,2" />
+        <TextBox Grid.Row="4" x:Name="ProbeOutput"
+                 IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                 FontFamily="Consolas" FontSize="11" />
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

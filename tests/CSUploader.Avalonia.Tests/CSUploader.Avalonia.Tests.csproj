@@ -36,4 +36,15 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- WebView2's WPF + WinForms wrapper references flow transitively from the head (via its
+       Microsoft.Web.WebView2 reference); the WPF wrapper pulls in WPF's WindowsBase 5.0 →
+       MSB3277 here too. Drop both desktop wrappers before RAR, same as the head. This test
+       project uses none of WebView2 directly (headless DI/dispatcher tests). -->
+  <Target Name="_DropWebView2DesktopWrappers" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference->WithMetadataValue('Filename','Microsoft.Web.WebView2.Wpf'))" />
+      <Reference Remove="@(Reference->WithMetadataValue('Filename','Microsoft.Web.WebView2.WinForms'))" />
+    </ItemGroup>
+  </Target>
+
 </Project>

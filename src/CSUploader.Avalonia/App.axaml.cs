@@ -70,6 +70,10 @@ public partial class App : Application
                 e.Handled = true;
             };
 
+            // THROWAWAY (Phase 2): the WebView2 GO/NO-GO spike. Debug + --webview-spike only; the
+            // window opens modally from the Opened hook below (ShowDialog needs a SHOWN owner).
+            bool webviewSpike = desktop.Args?.Contains("--webview-spike", StringComparer.Ordinal) == true;
+
             Views.MainWindow mainWindow = new()
             {
                 DataContext = _serviceProvider.GetRequiredService<MainViewModel>(),
@@ -86,6 +90,15 @@ public partial class App : Application
                 }
 
                 _serviceProvider.GetRequiredService<ITrayIconService>().UpdateVisibility();
+
+#if DEBUG
+                if (webviewSpike)
+                {
+                    // Modal-from-birth over the shown MainWindow (verify point c). ShowDialog awaits
+                    // until the spike window closes; the guard flag keeps every non-spike launch clean.
+                    await new Spike.WebView2SpikeWindow().ShowDialog(mainWindow);
+                }
+#endif
             };
 
             desktop.MainWindow = mainWindow;
