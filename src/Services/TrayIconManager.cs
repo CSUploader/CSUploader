@@ -20,7 +20,7 @@ namespace CSUploader.Services;
 /// Single-click and the "Show CSUploader" menu item restore the window; "Exit" tears down
 /// the application via <see cref="Application.Shutdown()"/>.
 /// </summary>
-public sealed class TrayIconManager(AppSettings settings, IAppLogger logger) : IDisposable
+public sealed class TrayIconManager(AppSettings settings, IAppLogger logger) : IDisposable, ITrayIconService
 {
     private NotifyIcon? _notifyIcon;
     private bool _disposed;

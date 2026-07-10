@@ -60,6 +60,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+        sc.AddSingleton<IClipboardService, WpfClipboardService>();
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
         sc.AddSingleton<SettingsViewModel>();

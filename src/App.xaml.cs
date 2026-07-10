@@ -66,8 +66,15 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IUpdateProgressSink, WpfUpdateProgressSink>();
         services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+        services.AddSingleton<IClipboardService, WpfClipboardService>();
+        services.AddSingleton<IUiShell, WpfUiShell>();
+        services.AddSingleton<IFontEnumerationService, WpfFontEnumerationService>();
+        services.AddSingleton<IThemeApplier, WpfThemeApplier>();
         services.AddSingleton<IInteractiveAuthService, WebViewInteractiveAuthService>();
         services.AddSingleton<TrayIconManager>();
+        // Same singleton instance is reachable through the Core interface too, so the
+        // shared ViewModels can depend on ITrayIconService instead of the WinForms type.
+        services.AddSingleton<ITrayIconService>(sp => sp.GetRequiredService<TrayIconManager>());
         services.AddSingleton<IToastWindowFactory, DefaultToastWindowFactory>();
         services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationService(
             sp.GetRequiredService<AppSettings>(),

@@ -6,7 +6,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -25,7 +24,9 @@ public partial class SettingsViewModel(
     IDialogService dialogService,
     IAppLogger logger,
     IAccountVerifier accountVerifier,
-    TrayIconManager? trayIconManager = null,
+    ITrayIconService? trayIconManager = null,
+    IFontEnumerationService? fontEnumerationService = null,
+    IThemeApplier? themeApplier = null,
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
     LogsViewModel? logsViewModel = null) : ObservableObject
@@ -35,7 +36,8 @@ public partial class SettingsViewModel(
     private readonly AppSettings _settings = settings;
     private readonly IDialogService _dialogService = dialogService;
     private readonly IAppLogger _logger = logger;
-    private readonly TrayIconManager? _trayIconManager = trayIconManager;
+    private readonly ITrayIconService? _trayIconManager = trayIconManager;
+    private readonly IThemeApplier? _themeApplier = themeApplier;
     private readonly IAccountVerifier _accountVerifier = accountVerifier;
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.
@@ -79,14 +81,12 @@ public partial class SettingsViewModel(
 
     /// <summary>
     /// All font families installed on the system, sorted by display name. Resolved
-    /// via <see cref="Fonts.SystemFontFamilies"/> so the dropdown reflects whatever
-    /// the user currently has installed instead of a curated subset.
+    /// via <see cref="IFontEnumerationService"/> so the dropdown reflects whatever
+    /// the user currently has installed instead of a curated subset. Instance (not static)
+    /// so it can be fed from DI; empty when no font service is supplied (headless tests).
     /// </summary>
-    public static string[] GridFontFamilyOptions { get; } = [.. Fonts.SystemFontFamilies
-        .Select(f => f.Source)
-        .Where(s => !string.IsNullOrWhiteSpace(s))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)];
+    public IReadOnlyList<string> GridFontFamilyOptions { get; } =
+        fontEnumerationService?.GetSystemFontFamilyNames() ?? [];
 
     [ObservableProperty]
     private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
@@ -414,27 +414,11 @@ public partial class SettingsViewModel(
     }
 
     /// <summary>
-    /// Pushes the current grid font settings into <see cref="System.Windows.Application.Resources"/>
-    /// so that <c>DynamicResource</c> bindings on the DataGrids pick up the change live.
+    /// Pushes the current grid font settings into the app resources (via
+    /// <see cref="IThemeApplier"/>) so that <c>DynamicResource</c> bindings on the DataGrids
+    /// pick up the change live. No-op when no applier is supplied (headless tests).
     /// </summary>
-    private void ApplyGridFontResources()
-    {
-        System.Windows.Application app = System.Windows.Application.Current;
-        if (app is null)
-        {
-            return;
-        }
-
-        try
-        {
-            app.Resources["GridFontFamily"] = new FontFamily(GridFontFamily);
-            app.Resources["GridFontSize"] = GridFontSize;
-        }
-        catch (Exception ex)
-        {
-            _logger.Log(this, LogType.Error, $"Failed to apply grid font: {ex.Message}");
-        }
-    }
+    private void ApplyGridFontResources() => _themeApplier?.ApplyGridFont(GridFontFamily, GridFontSize);
 
     // ── Auto-save partial-method hooks ──
     // Every editable property persists immediately on change (no Save button). The

@@ -7,7 +7,6 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Globalization;
@@ -30,6 +29,7 @@ public partial class UploadedViewModel : ObservableObject
     private readonly UploadPackageFileRepository _uploadPackageFileRepository;
     private readonly IAppLogger _logger;
     private readonly IUiDispatcher _uiDispatcher;
+    private readonly IClipboardService _clipboardService;
 
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
@@ -50,6 +50,7 @@ public partial class UploadedViewModel : ObservableObject
         IDialogService dialogService,
         IAppLogger logger,
         IUiDispatcher uiDispatcher,
+        IClipboardService clipboardService,
         SettingRepository? settingRepo = null)
     {
         _uploadPackageRepository = uploadPackageRepository;
@@ -57,6 +58,7 @@ public partial class UploadedViewModel : ObservableObject
         DialogServiceForView = dialogService;
         _logger = logger;
         _uiDispatcher = uiDispatcher;
+        _clipboardService = clipboardService;
         SettingRepo = settingRepo;
         packageManager.PackageCompleted += OnPackageCompleted;
         packageManager.FileCompleted += OnFileCompleted;
@@ -101,7 +103,7 @@ public partial class UploadedViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void CopyUrls(IList? selectedItems)
+    private async Task CopyUrlsAsync(IList? selectedItems)
     {
         if (selectedItems is null)
         {
@@ -118,12 +120,12 @@ public partial class UploadedViewModel : ObservableObject
         {
             if (urls.Length == 0)
             {
-                Clipboard.Clear();
+                await _clipboardService.ClearAsync();
                 _logger.Log(this, LogType.Status, Localizer.Instance["Logs_Status_NoUrlsClipboardCleared"]);
                 return;
             }
 
-            Clipboard.SetText(string.Join(Environment.NewLine, urls));
+            await _clipboardService.SetTextAsync(string.Join(Environment.NewLine, urls));
             _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_CopiedUrls_Format"], urls.Length));
         }
         catch (Exception ex)
@@ -189,7 +191,7 @@ public partial class UploadedViewModel : ObservableObject
     /// clipboard (one per line). Column keys mirror the resx <c>Uploaded_Col_*</c> suffix.
     /// </summary>
     [RelayCommand]
-    private void CopyColumn(string? columnKey)
+    private async Task CopyColumnAsync(string? columnKey)
     {
         if (BuildColumnCopyText(columnKey) is not { } text)
         {
@@ -198,11 +200,11 @@ public partial class UploadedViewModel : ObservableObject
 
         try
         {
-            Clipboard.SetText(text);
+            await _clipboardService.SetTextAsync(text);
         }
         catch
         {
-            // Swallow contention errors from Clipboard.SetText — copying must never crash the UI thread.
+            // Swallow contention errors from the clipboard — copying must never crash the UI thread.
         }
     }
 

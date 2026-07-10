@@ -24,6 +24,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private readonly PackageManager _packageManager;
     private readonly AppSettings _settings;
     private readonly IUiDispatcher _uiDispatcher;
+    private readonly IClipboardService _clipboardService;
     private readonly IUiTimer _refreshTimer;
     private bool _disposed;
 
@@ -39,11 +40,12 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// </summary>
     internal IDialogService DialogServiceForView { get; }
 
-    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, IUiDispatcher uiDispatcher, SettingRepository? settingRepo = null)
+    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, IUiDispatcher uiDispatcher, IClipboardService clipboardService, SettingRepository? settingRepo = null)
     {
         _packageManager = packageManager;
         _settings = settings;
         _uiDispatcher = uiDispatcher;
+        _clipboardService = clipboardService;
         DialogServiceForView = dialogService;
         SettingRepo = settingRepo;
         _packageManager.PackageAdded += PackageManager_PackageAdded;
@@ -656,7 +658,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// XAML can drive the submenu without a separate enum.
     /// </summary>
     [RelayCommand]
-    private void CopyColumn(string? columnKey)
+    private async Task CopyColumnAsync(string? columnKey)
     {
         if (BuildColumnCopyText(columnKey) is not { } text)
         {
@@ -665,11 +667,11 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         try
         {
-            System.Windows.Clipboard.SetText(text);
+            await _clipboardService.SetTextAsync(text);
         }
         catch
         {
-            // Clipboard.SetText can throw on rare contention with another app —
+            // Clipboard writes can throw on rare contention with another app —
             // swallow rather than crash the UI thread for a copy operation.
         }
     }

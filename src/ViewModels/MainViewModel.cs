@@ -3,8 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Collections.ObjectModel;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -145,7 +143,7 @@ public partial class MainViewModel : ObservableObject
 
     public void ActivateAndShowUploadedTab()
     {
-        _services.GetService<Services.TrayIconManager>()?.ShowMainWindow();
+        _services.GetService<Services.ITrayIconService>()?.ShowMainWindow();
         SelectedTabIndex = 1; // Uploaded tab (order: Uploads, Uploaded, Settings, Logs).
     }
 
@@ -261,7 +259,9 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnIsDarkModeChanged(bool value)
     {
-        ApplyTheme(value);
+        // No-op when no theme applier is registered (headless tests), exactly as the old
+        // Application.Current-null guard did.
+        _services.GetService<Services.IThemeApplier>()?.ApplyTheme(value);
 
         // Re-apply the immersive dark title bar to every currently open window.
         // Newly opened windows pick this up via the global Window.Loaded handler.
@@ -296,43 +296,6 @@ public partial class MainViewModel : ObservableObject
                 _logger.Log(this, LogType.Error, $"Failed to persist dark mode preference: {ex.Message}");
             }
         });
-    }
-
-    private static void ApplyTheme(bool dark)
-    {
-        Application app = Application.Current;
-        if (app == null)
-        {
-            return;
-        }
-
-        Collection<ResourceDictionary> mergedDicts = app.Resources.MergedDictionaries;
-
-        // Find and remove the current theme dictionary.
-        ResourceDictionary? existingTheme = null;
-        foreach (ResourceDictionary? dict in mergedDicts)
-        {
-            if (dict.Source != null &&
-                (dict.Source.OriginalString.Contains("Theme.Light", StringComparison.Ordinal) ||
-                 dict.Source.OriginalString.Contains("Theme.Dark", StringComparison.Ordinal)))
-            {
-                existingTheme = dict;
-                break;
-            }
-        }
-
-        if (existingTheme != null)
-        {
-            mergedDicts.Remove(existingTheme);
-        }
-
-        // Add the new theme dictionary.
-        string themeFile = dark ? "Resources/Theme.Dark.xaml" : "Resources/Theme.Light.xaml";
-        var newTheme = new ResourceDictionary
-        {
-            Source = new Uri(themeFile, UriKind.Relative),
-        };
-        mergedDicts.Add(newTheme);
     }
 
     private void Logger_OnLogOutput(object? sender, LogEvent e) => _uiDispatcher.Post(() => LogsViewModel.AddLogEntry(e));
