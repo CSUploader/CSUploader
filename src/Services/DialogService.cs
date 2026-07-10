@@ -101,6 +101,51 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.FileNames : null);
     }
 
+    public Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null)
+    {
+        Microsoft.Win32.OpenFileDialog dialog = new()
+        {
+            Title = title ?? Localizer.Instance["Common_SelectFiles"],
+        };
+
+        if (!string.IsNullOrEmpty(filter))
+        {
+            dialog.Filter = filter;
+        }
+
+        if (!string.IsNullOrEmpty(defaultExt))
+        {
+            dialog.DefaultExt = defaultExt;
+        }
+
+        return Task.FromResult(dialog.ShowDialog() == true ? dialog.FileName : null);
+    }
+
+    public Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null)
+    {
+        Microsoft.Win32.SaveFileDialog dialog = new()
+        {
+            AddExtension = true,
+        };
+
+        if (!string.IsNullOrEmpty(suggestedFileName))
+        {
+            dialog.FileName = suggestedFileName;
+        }
+
+        if (!string.IsNullOrEmpty(filter))
+        {
+            dialog.Filter = filter;
+        }
+
+        if (!string.IsNullOrEmpty(defaultExt))
+        {
+            dialog.DefaultExt = defaultExt;
+        }
+
+        return Task.FromResult(dialog.ShowDialog() == true ? dialog.FileName : null);
+    }
+
     public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, string? title = null)
     {
         FileHosterLoginDto seed = new()

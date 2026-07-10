@@ -38,6 +38,21 @@ public interface IDialogService
     public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null);
 
     /// <summary>
+    /// Opens a single-select "open file" dialog. <paramref name="filter"/> follows full Win32
+    /// filter syntax; <paramref name="defaultExt"/> is appended when the user types a bare name.
+    /// Returns the chosen full path, or <c>null</c> on cancel.
+    /// </summary>
+    public Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null);
+
+    /// <summary>
+    /// Opens a "save file" dialog seeded with <paramref name="suggestedFileName"/>.
+    /// <paramref name="filter"/> follows full Win32 filter syntax; <paramref name="defaultExt"/> is
+    /// appended when the typed name has no extension. Returns the chosen full path, or <c>null</c>
+    /// on cancel.
+    /// </summary>
+    public Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null);
+
+    /// <summary>
     /// Opens the add-account editor preselected to <paramref name="hosterName"/> (locked
     /// when only one hoster is provided). Returns the new account when the user clicks
     /// Save, or null if the dialog was cancelled.

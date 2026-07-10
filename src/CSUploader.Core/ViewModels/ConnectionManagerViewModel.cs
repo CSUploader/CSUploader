@@ -607,20 +607,18 @@ public partial class ConnectionManagerViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportFromFile()
     {
-        Microsoft.Win32.OpenFileDialog dialog = new()
-        {
-            Filter = Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
-            DefaultExt = ".txt",
-            Title = Localizer.Instance["Settings_Conn_ImportProxies_FileDialogTitle"],
-        };
-        if (dialog.ShowDialog() != true)
+        string? path = await _dialogService.BrowseOpenFileAsync(
+            title: Localizer.Instance["Settings_Conn_ImportProxies_FileDialogTitle"],
+            filter: Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
+            defaultExt: ".txt");
+        if (path is null)
         {
             return;
         }
 
         try
         {
-            string[] lines = await File.ReadAllLinesAsync(dialog.FileName);
+            string[] lines = await File.ReadAllLinesAsync(path);
             int added = AppendFromLines(lines);
             SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Imported_Format"], added);
         }
@@ -736,14 +734,11 @@ public partial class ConnectionManagerViewModel : ObservableObject
             ProxyExportKind.Selected => "-selected",
             _ => string.Empty,
         };
-        Microsoft.Win32.SaveFileDialog dialog = new()
-        {
-            FileName = $"csuploader-proxies{suffix}-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
-            Filter = Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
-            DefaultExt = ".txt",
-            AddExtension = true,
-        };
-        if (dialog.ShowDialog() != true)
+        string? path = await _dialogService.BrowseSaveFileAsync(
+            suggestedFileName: $"csuploader-proxies{suffix}-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+            filter: Localizer.Instance["Settings_Conn_ImportProxies_FileFilter"],
+            defaultExt: ".txt");
+        if (path is null)
         {
             return;
         }
@@ -751,8 +746,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
         try
         {
             string[] lines = [.. BuildExportLines(items)];
-            await File.WriteAllLinesAsync(dialog.FileName, lines);
-            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ExportedToFile_Format"], lines.Length, Path.GetFileName(dialog.FileName));
+            await File.WriteAllLinesAsync(path, lines);
+            SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_ExportedToFile_Format"], lines.Length, Path.GetFileName(path));
         }
         catch (Exception ex)
         {

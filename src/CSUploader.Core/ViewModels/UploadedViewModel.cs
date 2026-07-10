@@ -278,15 +278,12 @@ public partial class UploadedViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportJsonAsync()
     {
-        Microsoft.Win32.SaveFileDialog dialog = new()
-        {
-            FileName = $"csuploader-uploaded-{DateTime.Now:yyyyMMdd-HHmmss}.json",
-            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
-            DefaultExt = ".json",
-            AddExtension = true,
-        };
+        string? path = await DialogServiceForView.BrowseSaveFileAsync(
+            suggestedFileName: $"csuploader-uploaded-{DateTime.Now:yyyyMMdd-HHmmss}.json",
+            filter: "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            defaultExt: ".json");
 
-        if (dialog.ShowDialog() != true)
+        if (path is null)
         {
             return;
         }
@@ -295,8 +292,8 @@ public partial class UploadedViewModel : ObservableObject
         {
             UploadPackageDto[] packages = await _uploadPackageRepository.GetCompletedAsync();
             string json = JsonSerializer.Serialize(packages, JsonOptions);
-            await File.WriteAllTextAsync(dialog.FileName, json);
-            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_ExportedPackages_Format"], packages.Length, dialog.FileName));
+            await File.WriteAllTextAsync(path, json);
+            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_ExportedPackages_Format"], packages.Length, path));
         }
         catch (Exception ex)
         {
