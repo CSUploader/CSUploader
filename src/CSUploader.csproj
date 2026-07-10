@@ -27,12 +27,12 @@
 
   <!-- EF Core, Hosting, the SQLite CVE-pins and Velopack are pure runtime libraries whose
        assemblies now flow transitively from CSUploader.Core (see its csproj), so they no
-       longer need declaring here. CommunityToolkit.Mvvm STAYS: it ships a source generator
-       ([RelayCommand]/[ObservableProperty]), and analyzers/source-generators do NOT flow
-       transitively through a ProjectReference. The five ViewModels still in this head use it;
-       it can be dropped once they move to Core in Task 10. -->
+       longer need declaring here. CommunityToolkit.Mvvm was dropped once the ViewModels moved
+       to Core (Task 10): its [RelayCommand]/[ObservableProperty] source generator only runs
+       where those attributes are used, which is now exclusively Core — and source generators
+       do NOT flow transitively through a ProjectReference, so Core declares it for itself.
+       The head has no remaining CommunityToolkit.Mvvm usage. -->
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
     <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
