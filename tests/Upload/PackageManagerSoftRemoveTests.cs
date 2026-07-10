@@ -262,6 +262,40 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_ForceAutostartNever_OverridesAlwaysMode_DoesNotSchedule()
+    {
+        // The Avalonia head's --agent guard. Even with the persisted policy set to Always — which
+        // WOULD schedule a queued package on load (see _AutostartAlways_SchedulesQueuedPackages) —
+        // a latched AppSettings makes AutostartUploads report Never, so LoadPersistedPackagesAsync
+        // leaves the package unscheduled. Belt-and-braces vs. PauseAll: latching alone stops the
+        // queuing here; PauseAll alone would leave files queued and one FillAvailableSlots/StartAll
+        // away from really uploading, which is why the head applies both.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
+            settings.ForceAutostartUploadsNever(); // the --agent latch
+            DefaultFileHosterRegistry reg = new([]);
+            PackageManager manager = NewLocalManager(settings, reg, out UploadScheduler scheduler);
+
+            int packageId = await InsertPackageAsync("queued");
+            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+
+            await manager.LoadPersistedPackagesAsync();
+
+            Assert.Equal(0, scheduler.RegisteredPackageCount);
+            Assert.Single(manager.Packages); // still loaded — just not scheduled
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
     public async Task LoadPersistedPackagesAsync_AutostartOnlyIfRunning_ActiveState_SchedulesPackage()
     {
         // OnlyIfRunningAtLastSession + a file in an active state (Uploading) → schedule.

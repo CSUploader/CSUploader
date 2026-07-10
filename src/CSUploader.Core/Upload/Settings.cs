@@ -105,11 +105,29 @@ public class AppSettings
 
     public IfFileExistsBehavior IfFileExists { get; set; } = DefaultIfFileExists;
 
+    private AutostartUploadsMode? autostartUploads;
+    private bool forceAutostartNever;
+
     /// <summary>
     /// Auto-start policy for pending uploads at app launch. <see cref="AutostartUploadsMode.Never"/>
-    /// keeps loaded packages idle until the user clicks Start.
+    /// keeps loaded packages idle until the user clicks Start. The getter honours the
+    /// <see cref="ForceAutostartUploadsNever"/> latch; the setter always records the user's value
+    /// so the Settings UI and DB persistence are unaffected.
     /// </summary>
-    public AutostartUploadsMode AutostartUploads { get; set; } = DefaultAutostartUploads;
+    public AutostartUploadsMode AutostartUploads
+    {
+        get => forceAutostartNever ? AutostartUploadsMode.Never : autostartUploads ?? DefaultAutostartUploads;
+        set => autostartUploads = value;
+    }
+
+    /// <summary>
+    /// One-way latch for agent-driven dev sessions (the Avalonia head's --agent switch):
+    /// after this call the getter reports Never regardless of later writes, so the
+    /// settings-load during MainViewModel.InitializeAsync cannot re-enable autostart before
+    /// LoadPersistedPackagesAsync honours it. The setter still records the user's value —
+    /// the Settings UI and DB persistence are unaffected.
+    /// </summary>
+    public void ForceAutostartUploadsNever() => forceAutostartNever = true;
 
     /// <summary>
     /// Active UI language as a BCP-47 tag (e.g. "en", "zh-Hans", "ko", "ja"). Empty

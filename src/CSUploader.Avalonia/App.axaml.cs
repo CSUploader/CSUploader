@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using CSUploader.Lib;
 using CSUploader.Services;
+using CSUploader.Upload;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 #if AVA_BRIDGE
@@ -34,6 +35,28 @@ public partial class App : Application
             // Bridge the pipeline into the proxy health tracker and eagerly resolve the upload
             // notification listener — shared with the WPF head, so it lives in Core.
             ServiceRegistration.WireRuntime(_serviceProvider);
+
+            // Agent-safety guard (design §The Avalonia head). --agent means a bridge/ava-drive
+            // session is driving the head, so pending uploads must never auto-start. Two
+            // belt-and-braces measures, applied BEFORE MainViewModel (and therefore
+            // PackageManager, which starts the scheduler loop) is resolved for MainWindow's
+            // DataContext below:
+            //   1. Latch AutostartUploads to Never. The settings-load inside InitializeAsync
+            //      would otherwise copy the persisted policy back over any plain assignment
+            //      (SettingsViewModel's unconditional VM→settings write at load), so a latch —
+            //      which wins over every later write while leaving the setter/persistence
+            //      untouched — is required. This alone stops LoadPersistedPackagesAsync queuing.
+            //   2. PauseAll() so even a manually-queued file can't run: the post is buffered on
+            //      the not-yet-started scheduler channel (FIFO) and drains as IsPaused=true the
+            //      moment PackageManager's ctor calls Start().
+            if (desktop.Args?.Contains("--agent", StringComparer.Ordinal) == true)
+            {
+                AppSettings settings = _serviceProvider.GetRequiredService<AppSettings>();
+                settings.ForceAutostartUploadsNever();
+                _serviceProvider.GetRequiredService<UploadScheduler>().PauseAll();
+                _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Status,
+                    "--agent: AutostartUploads forced to Never; scheduler started paused.");
+            }
 
             // Global UI-thread exception handler. AvaloniaUiDispatcher's marshaled path deliberately
             // lets an unsunk exception propagate into the dispatcher loop; without this wiring that
