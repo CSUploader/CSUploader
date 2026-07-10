@@ -31,3 +31,13 @@ dotnet test
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## UI agent tooling (dev only)
+
+`.mcp.json` wires the avalonia-agent-mcp DevTools bridge (`ava_attach`, `ava_screenshot`,
+`ava_tree`, ...) into Claude Code sessions opened in this repo. One-time setup:
+`dotnet build -c Release E:/Projects/avalonia-agent-mcp/AvaDevMcp/AvaDevMcp.csproj`, then start
+(or restart) the session. Rebuild after pulling tooling-repo changes (a stale exe fails loudly
+at `ava_attach` with a protocol-version error). The Avalonia head only starts the in-app bridge
+when built on a machine that has the tooling repo (see `Directory.Build.local.props`, introduced
+in migration Phase 2).

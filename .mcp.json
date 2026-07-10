@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "ava-desktop": {
+      "command": "E:/Projects/avalonia-agent-mcp/AvaDevMcp/bin/Release/net10.0/AvaDevMcp.exe"
+    }
+  }
+}
