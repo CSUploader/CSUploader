@@ -11,18 +11,23 @@ using Avalonia.Headless;
 namespace CSUploader.Tests.Avalonia;
 
 /// <summary>
-/// Headless Avalonia session for the test assembly. Uses a bare <see cref="TestApp"/> — the DI smoke
-/// composes the real <c>App.ConfigureServices</c> graph directly, so the real head's desktop-lifetime
-/// startup never runs under test. <see cref="AvaloniaHeadlessPlatformOptions"/> defaults (no
-/// <c>UseSkia</c>) are enough here: these tests resolve services and drive the dispatcher, they render
-/// no bitmaps.
+/// Headless Avalonia session for the test assembly. Boots the REAL <see cref="global::CSUploader.App"/>
+/// (Task 3 swap) so its XAML resource surface — FluentTheme, the DataGrid Fluent styles, and the
+/// geometry + bitmap resource dictionaries merged in <c>App.Initialize</c> — is present under test,
+/// identical to what the shipping head composes. <c>App.OnFrameworkInitializationCompleted</c>'s DI
+/// startup still never runs: the headless session is not an
+/// <see cref="global::Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime"/>,
+/// so its desktop-lifetime guard short-circuits (the DI smoke composes <c>App.ConfigureServices</c>
+/// directly instead).
 /// </summary>
+/// <remarks>
+/// <see cref="AvaloniaHeadlessPlatformOptions"/> keeps <c>UseSkia</c> OFF: no Phase 3 test asserts
+/// rendered pixels, and headless bitmap loading is stubbed — so the <c>new Bitmap(stream)</c> calls in
+/// <c>BitmapImageResources.MergeInto</c> return stubs instead of throwing. Flip to
+/// <c>UseHeadlessDrawing = false</c> + <c>.UseSkia()</c> only when a test actually asserts rendering.
+/// </remarks>
 public class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<TestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
-}
-
-public class TestApp : Application
-{
+        => AppBuilder.Configure<global::CSUploader.App>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
 }

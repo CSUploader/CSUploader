@@ -63,6 +63,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The WPF head's image tree is the single source of truth; linked, not copied.
+         avares URIs: /Assets/Images/<subpath> (root-relative in XAML; full avares:// with
+         the assembly name code-side — the Phase 2 gate convention). BitmapImageResources
+         merges the keyed subset (ImageResources.xaml parity); extra unkeyed PNGs ride along
+         harmlessly, exactly as the WPF head embeds the whole folder. -->
+    <AvaloniaResource Include="..\Properties\Images\**\*" Link="Assets\Images\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="CSUploader.Avalonia.Tests" />
   </ItemGroup>
 

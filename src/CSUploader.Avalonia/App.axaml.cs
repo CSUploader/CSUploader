@@ -18,7 +18,26 @@ public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+
+        // Bitmaps merge in code (no XAML form for keyed bitmap resources); geometries and the
+        // theme dictionaries merge in App.axaml. Initialize (not OnFrameworkInitializationCompleted)
+        // so the headless test session gets the identical resource surface — the latter is guarded
+        // by IClassicDesktopStyleApplicationLifetime and never runs under test.
+        Resources.MergedDictionaries.Add(BuildBitmapDictionary());
+    }
+
+    private static ResourceDictionary BuildBitmapDictionary()
+    {
+        ResourceDictionary dict = new();
+
+        // Fully qualified: inside App, the bare identifier `Resources` resolves to the
+        // Application.Resources property, not the CSUploader.Resources namespace.
+        CSUploader.Resources.BitmapImageResources.MergeInto(dict);
+        return dict;
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
