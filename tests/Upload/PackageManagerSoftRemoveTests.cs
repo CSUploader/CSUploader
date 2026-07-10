@@ -178,7 +178,15 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         Directory.CreateDirectory(tempDir);
         try
         {
-            AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup };
+            // AutostartUploads=Never: the default OnlyIfRunningAtLastSession would schedule the
+            // reloaded Uploading file (c.iso) → EnsureQueueOrdered → a fire-and-forget
+            // UpdateQueueOrderAsync that opens an explicit transaction on the shared per-test
+            // SqliteConnection, racing this test's own unsynchronized FindAsync reads below.
+            AppSettings settings = new()
+            {
+                RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup,
+                AutostartUploads = AutostartUploadsMode.Never,
+            };
             DefaultFileHosterRegistry reg1 = new([]);
             PackageManager manager = NewLocalManager(settings, reg1);
 
@@ -190,6 +198,10 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             await InsertFileAtAsync(tempDir, activeId, "c.iso", FileState.Uploading);
 
             await manager.LoadPersistedPackagesAsync();
+
+            // Belt-and-braces: drain any in-flight fire-and-forget persistence so the DB reads
+            // below can't observe a half-written row (or race the write's transaction).
+            await manager.DrainPendingPersistenceAsync();
 
             UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
             UploadPackageDto? activeRow = await _packageRepo.FindAsync(activeId);

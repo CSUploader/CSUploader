@@ -36,6 +36,31 @@ Conventions for writing tests in this project. Inherits everything from the root
     `Dispose()` closes the connection. The continuation throws (silently — `Mock.Of<IAppLogger>()`
     swallows it) but congests the thread pool enough that test N+1's polling assertions
     intermittently time out. Symptom: full-suite flakes that vanish in isolation and on re-run.
+    The same hazard also bites *within* a single test: unsynchronized reads on the shared
+    `SqliteConnection` can race an in-flight fire-and-forget `UpdateQueueOrderAsync` transaction
+    that a reloaded/queued file triggers. Avoid it by not provoking scheduling in the first place
+    (`AutostartUploads = AutostartUploadsMode.Never`) or by `await manager.DrainPendingPersistenceAsync()`
+    before any DB-read assert.
+
+## Avalonia head tests
+
+- `tests/CSUploader.Avalonia.Tests` covers the Avalonia head (`src/CSUploader.Avalonia`). It is a
+  separate assembly from the WPF `CSUploader.Tests`; only head-specific types live here (the
+  Avalonia UI-service implementations and the head DI smoke) — everything framework-free is tested
+  once in `CSUploader.Tests` against Core.
+- Tests run on a headless Avalonia UI thread: mark them `[AvaloniaFact]` / `[AvaloniaTheory]`
+  (from `Avalonia.Headless.XUnit`), **not** `[Fact]`. A single per-assembly headless session is
+  configured by `TestAppBuilder` (a bare `TestApp : Application` via `AppBuilder.Configure<TestApp>().UseHeadless(...)`),
+  registered with the assembly-level `[AvaloniaTestApplication(typeof(TestAppBuilder))]` attribute.
+- The headless dispatcher does not pump on its own. Anything the SUT routes through
+  `Dispatcher.UIThread.Post` (e.g. `AvaloniaUiDispatcher.Post`, a `DispatcherTimer` tick) only runs
+  after you call `Dispatcher.UIThread.RunJobs()` — see `AvaloniaUiDispatcherTests` (assert not-run,
+  `RunJobs()`, assert run) and its `PumpAsync` helper (real `Task.Delay` for timers, then `RunJobs()`).
+- ViewModel constructors create real Avalonia `DispatcherTimer`s, so the DI smoke resolves the graph
+  **inline on the UI thread** (`AvaloniaStartupDISmokeTests`) rather than under a `Task.Run` watchdog
+  like the WPF smoke.
+- Build/run this project with its **own** `OutDir` (e.g. `-p:OutDir=D:/temp2/cbuild-mig/ava-tests`)
+  to sidestep the bin lock the running app / VS holds on the head's default output.
 
 ## Repository tests
 
