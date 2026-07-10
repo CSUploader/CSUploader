@@ -6,6 +6,9 @@
 //   Auto-discovers the newest live handshake; a screenshot's base64 payload is saved to --out
 //   (default shot.png) and the printed envelope carries the file path instead.
 #:project ../../../avalonia-agent-mcp/AvaDevProtocol/AvaDevProtocol.csproj
+// .NET 10 file-based apps run with reflection-based System.Text.Json disabled; AvaDevProtocol's
+// HandshakeFile.Discover deserializes a POCO reflectively, so re-enable the runtime switch here.
+#:property JsonSerializerIsReflectionEnabledByDefault=true
 
 using System.Net.Sockets;
 using System.Text.Json;
@@ -59,7 +62,10 @@ Dictionary<string, object?> request = new()
 {
     ["token"] = hs.Token,
     ["tool"] = tool,
-    ["args"] = argsJson is null ? null : JsonSerializer.Deserialize<JsonElement>(argsJson),
+    // Default to an empty object, not null: bridge tools call args.TryGetProperty(...), which
+    // throws on a JSON null (ava_tree/ava_screenshot). This matches how the MCP client always
+    // sends an arguments object for no-arg tools.
+    ["args"] = JsonSerializer.Deserialize<JsonElement>(argsJson ?? "{}"),
 };
 await FrameProtocol.WriteAsync(
     stream,
