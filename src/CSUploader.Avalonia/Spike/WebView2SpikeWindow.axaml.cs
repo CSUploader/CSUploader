@@ -51,6 +51,10 @@ public partial class WebView2SpikeWindow : Window
             SyncBounds();
             _controller?.NotifyParentWindowPositionChanged();
         };
+        // A pure DPI change (dragging to a differently-scaled monitor — the 125%/150% DPI test)
+        // changes RenderScaling WITHOUT a layout pass, so LayoutUpdated alone would leave the
+        // controller bounds stale. _lastBounds guards the redundant sets.
+        ScalingChanged += (_, _) => SyncBounds();
 
         Closed += (_, _) => TeardownController();
     }
