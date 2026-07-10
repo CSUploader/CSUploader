@@ -44,6 +44,19 @@ public partial class App : Application
 
         MainWindow mainWindow = new(_serviceProvider);
         mainWindow.Show();
+
+#if DEBUG
+        // DEBUG-only reference-shot capture: --shots [dir]. Fire-and-forget by design —
+        // the capture task ends with Application.Shutdown().
+        int shotsIdx = Array.IndexOf(e.Args, "--shots");
+        if (shotsIdx >= 0)
+        {
+            string shotsDir = shotsIdx + 1 < e.Args.Length && !e.Args[shotsIdx + 1].StartsWith('-')
+                ? e.Args[shotsIdx + 1]
+                : @"D:\temp2\cbuild-mig\shots";
+            _ = new Services.ReferenceShotCapture(_serviceProvider!).RunAndShutdownAsync(mainWindow, shotsDir);
+        }
+#endif
     }
 
     protected override void OnExit(ExitEventArgs e)
