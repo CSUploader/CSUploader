@@ -13,12 +13,17 @@ namespace CSUploader.Services;
 /// </summary>
 public interface IUiDispatcher
 {
-    /// <summary>Fire-and-forget marshal to the UI thread (WPF Dispatcher.BeginInvoke).</summary>
+    /// <summary>
+    /// Fire-and-forget marshal to the UI thread: queued-never-inline on a live UI thread,
+    /// and a no-op when no UI thread exists.
+    /// </summary>
     void Post(Action action);
 
     /// <summary>
     /// Marshals <paramref name="action"/> to the UI thread and completes once it has run.
-    /// Runs inline when already on the UI thread, or when no UI thread exists.
+    /// Runs inline when already on the UI thread, or when no UI thread exists — inline
+    /// execution throws to the awaiter. Marshaled execution routes exceptions to the
+    /// framework's unhandled-exception path, and the returned Task must NOT fault.
     /// </summary>
     Task InvokeAsync(Action action);
 

@@ -84,7 +84,7 @@ public partial class App : Application
                 return new DipRect(wa.X, wa.Y, wa.Width, wa.Height);
             },
             activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
-            dispatchToUi: sp.GetRequiredService<IUiDispatcher>().Post));
+            dispatcher: sp.GetRequiredService<IUiDispatcher>()));
 
         // ViewModels are registered by AddCoreServices — they are framework-free now and shared
         // with the Avalonia head. This head only supplies the UI-interface implementations above.

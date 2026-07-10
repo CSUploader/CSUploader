@@ -20,7 +20,7 @@ public class ToastNotificationServiceTests
     private readonly DipRect _workArea = new(0, 0, 1920, 1040);
 
     private ToastNotificationService CreateService()
-        => new(_settings, _factory, () => _workArea, activate: () => { }, dispatchToUi: action => action());
+        => new(_settings, _factory, () => _workArea, activate: () => { }, dispatcher: new InlineUiDispatcher());
 
     [Fact]
     public void ShowFileCompleted_WhenSettingDisabled_DoesNotCreateToast()
@@ -104,7 +104,7 @@ public class ToastNotificationServiceTests
     {
         _settings.ShowCompletionToasts = true;
         bool activated = false;
-        ToastNotificationService service = new(_settings, _factory, () => _workArea, activate: () => activated = true, dispatchToUi: action => action());
+        ToastNotificationService service = new(_settings, _factory, () => _workArea, activate: () => activated = true, dispatcher: new InlineUiDispatcher());
 
         service.ShowFileCompleted(BuildFile("foo.zip"));
         _factory.Created[0].ViewModel.ActivateCommand.Execute(null);
@@ -131,6 +131,22 @@ public class ToastNotificationServiceTests
     }
 
     private static Package BuildPackage(string name) => new(new PackageOptions { Title = name });
+
+    // The toast service marshals its stacking/re-flow work through IUiDispatcher.Post; run it
+    // inline so the assertions see the final positions synchronously (matching the old
+    // dispatchToUi: action => action() seam). The service never creates timers.
+    private sealed class InlineUiDispatcher : IUiDispatcher
+    {
+        public void Post(Action action) => action();
+
+        public Task InvokeAsync(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        public IUiTimer CreateTimer(TimeSpan interval, Action onTick) => throw new NotSupportedException();
+    }
 
     private sealed class FakeToastWindowFactory : IToastWindowFactory
     {

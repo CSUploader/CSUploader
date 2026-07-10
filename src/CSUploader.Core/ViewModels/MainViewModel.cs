@@ -80,6 +80,9 @@ public partial class MainViewModel : ObservableObject
 
         // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
         // so this stays a no-op there just as the old Application.Current guard did.
+        // The tick discards the task (fire-and-forget) — harmonized with the startup check in
+        // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (its awaits are
+        // try/caught or route via IUiDispatcher).
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync());
         _updateTimer.Start();
     }
