@@ -369,7 +369,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private static void ShowTestDetails(ProxySettingItem? item)
+    private async Task ShowTestDetails(ProxySettingItem? item)
     {
         if (item?.TestTransaction is null)
         {
@@ -378,11 +378,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
 
         // Reuses the Logs tab's request/response viewer so proxy tests get the same
         // headers/body/hex tabs as upload traffic — no separate UI to maintain.
-        Views.HttpDetailsWindow window = new(item.TestTransaction)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-        window.ShowDialog();
+        await _dialogService.ShowHttpDetailsAsync(item.TestTransaction);
     }
 
     private async Task RunTestAsync(ProxySettingItem item)
@@ -638,22 +634,19 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ImportFromText()
+    private async Task ImportFromText()
     {
-        Views.ProxyTextDialog dialog = new(
+        string? result = await _dialogService.ShowProxyTextDialogAsync(
             Localizer.Instance["Settings_Conn_ImportProxies_DialogTitle"],
             Localizer.Instance["Settings_Conn_ImportProxies_DialogDesc"],
             initialText: string.Empty,
-            readOnly: false)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-        if (dialog.ShowDialog() != true)
+            readOnly: false);
+        if (result is null)
         {
             return;
         }
 
-        string[] lines = (dialog.ResultText ?? string.Empty)
+        string[] lines = result
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
         int added = AppendFromLines(lines);
         SaveStatus = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_Status_Imported_Format"], added);
@@ -680,18 +673,15 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ExportAllToText()
-        => ShowExportDialog(Proxies, ProxyExportKind.All);
+    private async Task ExportAllToText()
+        => await ShowExportDialogAsync(Proxies, ProxyExportKind.All);
 
     [RelayCommand]
-    private void ExportOkToText()
-        => ShowExportDialog(Proxies.Where(p => p.TestOutcome == ProxyTestOutcome.Ok), ProxyExportKind.Ok);
+    private async Task ExportOkToText()
+        => await ShowExportDialogAsync(Proxies.Where(p => p.TestOutcome == ProxyTestOutcome.Ok), ProxyExportKind.Ok);
 
-    // CA1822 disabled: [RelayCommand] requires an instance method so the generator can
-    // expose ExportSelectedToTextCommand as an instance property.
-#pragma warning disable CA1822
     [RelayCommand]
-    private void ExportSelectedToText(IList? selectedItems)
+    private async Task ExportSelectedToText(IList? selectedItems)
     {
         ProxySettingItem[] items = SelectedProxies(selectedItems);
         if (items.Length == 0)
@@ -699,9 +689,8 @@ public partial class ConnectionManagerViewModel : ObservableObject
             return;
         }
 
-        ShowExportDialog(items, ProxyExportKind.Selected);
+        await ShowExportDialogAsync(items, ProxyExportKind.Selected);
     }
-#pragma warning restore CA1822
 
     private static ProxySettingItem[] SelectedProxies(IList? selectedItems)
         => selectedItems?.OfType<ProxySettingItem>().ToArray() ?? [];
@@ -774,7 +763,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
     }
 
-    private static void ShowExportDialog(IEnumerable<ProxySettingItem> items, ProxyExportKind kind)
+    private async Task ShowExportDialogAsync(IEnumerable<ProxySettingItem> items, ProxyExportKind kind)
     {
         string[] lines = [.. BuildExportLines(items)];
         string text = string.Join(Environment.NewLine, lines);
@@ -784,15 +773,11 @@ public partial class ConnectionManagerViewModel : ObservableObject
             ProxyExportKind.Selected => ("Settings_Conn_ExportSelected_DialogTitle", "Settings_Conn_ExportSelected_Desc_Format"),
             _ => ("Settings_Conn_ExportAll_DialogTitle", "Settings_Conn_ExportAll_Desc_Format"),
         };
-        Views.ProxyTextDialog dialog = new(
+        await _dialogService.ShowProxyTextDialogAsync(
             Localizer.Instance[titleKey],
             string.Format(CultureInfo.CurrentCulture, Localizer.Instance[descKey], lines.Length),
             text,
-            readOnly: true)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-        };
-        dialog.ShowDialog();
+            readOnly: true);
     }
 
     /// <summary>

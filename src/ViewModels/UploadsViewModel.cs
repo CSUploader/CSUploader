@@ -402,7 +402,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void SetSpeedLimit(IList? selectedItems)
+    private async Task SetSpeedLimit(IList? selectedItems)
     {
         object[] items = Snapshot(selectedItems);
         if (items.Length == 0)
@@ -421,25 +421,22 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         int? displayLimit = currentLimit ?? inheritedLimit;
 
-        var dialog = new Views.SpeedLimitDialog(displayLimit)
-        {
-            Owner = System.Windows.Application.Current.MainWindow,
-        };
-
-        if (dialog.ShowDialog() != true)
+        SpeedLimitSelection? selection = await DialogServiceForView.ShowSpeedLimitDialogAsync(displayLimit);
+        if (selection is null)
         {
             return;
         }
 
+        int? chosen = selection.Value.LimitKBps;
         foreach (object item in items)
         {
             if (item is Package pkg)
             {
-                pkg.SpeedLimitKBps = dialog.Result;
+                pkg.SpeedLimitKBps = chosen;
             }
             else if (item is PackageFile pf)
             {
-                pf.SpeedLimitKBps = dialog.Result;
+                pf.SpeedLimitKBps = chosen;
             }
         }
     }

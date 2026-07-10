@@ -743,7 +743,7 @@ public partial class SettingsViewModel(
     }
 
     [RelayCommand]
-    private void AddAccountDialog()
+    private async Task AddAccountDialog()
     {
         // Open EditAccountWindow in "add" mode with empty fields
         FileHosterLoginDto newAccount = new()
@@ -752,13 +752,10 @@ public partial class SettingsViewModel(
             AccountType = AccountType.Free,
         };
 
-        var dialog = new Views.EditAccountWindow(newAccount, AvailableHosters, InteractiveLoginAsync)
-        {
-            Title = Loc("EditAccount_AddTitle"),
-            Owner = System.Windows.Application.Current.MainWindow,
-        };
+        FileHosterLoginDto? result = await _dialogService.ShowEditAccountDialogAsync(
+            newAccount, AvailableHosters, InteractiveLoginAsync, Loc("EditAccount_AddTitle"));
 
-        if (dialog.ShowDialog() == true && dialog.Result is { } addResult)
+        if (result is { } addResult)
         {
             _ = AddAccountFromDialogAsync(addResult);
         }
@@ -1212,20 +1209,18 @@ public partial class SettingsViewModel(
             : [.. selectedItems.OfType<FileHosterLoginDto>()];
 
     [RelayCommand]
-    private void EditAccount()
+    private async Task EditAccount()
     {
         if (SelectedAccount is null)
         {
             return;
         }
 
-        // Open edit dialog
-        var dialog = new Views.EditAccountWindow(SelectedAccount, AvailableHosters, InteractiveLoginAsync)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
+        // Open edit dialog. No title override → the window keeps its XAML default title.
+        FileHosterLoginDto? result = await _dialogService.ShowEditAccountDialogAsync(
+            SelectedAccount, AvailableHosters, InteractiveLoginAsync);
 
-        if (dialog.ShowDialog() == true && dialog.Result is { } editResult)
+        if (result is { } editResult)
         {
             // Save changes
             _ = SaveEditedAccountAsync(editResult);

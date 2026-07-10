@@ -148,15 +148,54 @@ public class MainViewModelUpdateTests : IDisposable
         Assert.True(vm.InstallUpdateCommand.CanExecute(null));
     }
 
-    private MainViewModel CreateVm(IUpdateService updater)
+    [Fact]
+    public async Task InstallUpdateCommand_DrivesUpdateProgressSink()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object());
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(info);
+        updater
+            .Setup(u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()))
+            .Returns((UpdateAvailableInfo _, IProgress<int>? p, CancellationToken _) =>
+            {
+                p?.Report(100);
+                return Task.CompletedTask;
+            });
+
+        FakeUpdateProgressSink sink = new();
+        MainViewModel vm = CreateVm(updater.Object, sink);
+
+        await vm.CheckForUpdatesAsync();
+        await vm.InstallUpdateCommand.ExecuteAsync(null);
+
+        // The window is shown once, entirely through the sink — the VM no longer touches any Window.
+        Assert.Equal(1, sink.OpenCount);
+
+        // Two status transitions on the success path: "downloading v9.9.9" then "restarting"
+        // (the mock's ApplyAndRestart is a no-op, so no real restart occurs).
+        Assert.True(sink.Statuses.Count >= 2);
+        Assert.Contains(sink.Statuses, s => s.Contains("9.9.9", StringComparison.Ordinal));
+
+        // Progress pumps through the sink. Report arrives via Progress<int>, which marshals off the
+        // captured synchronization context onto the thread pool, so wait rather than assert inline.
+        Assert.True(sink.WaitForAnyReport(TimeSpan.FromSeconds(5)));
+        Assert.Contains(100, sink.Reports);
+
+        // The WPF install flow never programmatically closes the window (success restarts the
+        // process; failure leaves the error visible), so the sink is never Closed. This asserts the
+        // behavior was preserved by the reroute.
+        Assert.Equal(0, sink.CloseCount);
+    }
+
+    private MainViewModel CreateVm(IUpdateService updater, IUpdateProgressSink? sink = null)
     {
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
-        ServiceProvider scoped = BuildScopedProvider(updater);
+        ServiceProvider scoped = BuildScopedProvider(updater, sink ?? Mock.Of<IUpdateProgressSink>());
         return new MainViewModel(scoped);
     }
 
-    private ServiceProvider BuildScopedProvider(IUpdateService updater)
+    private ServiceProvider BuildScopedProvider(IUpdateService updater, IUpdateProgressSink sink)
     {
         ServiceCollection sc = new();
         sc.AddSingleton(_services.GetRequiredService<IAppLogger>());
@@ -178,6 +217,57 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<ConnectionManagerViewModel>());
         sc.AddSingleton(_services.GetRequiredService<LogsViewModel>());
         sc.AddSingleton(updater);
+        sc.AddSingleton(sink);
         return sc.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Records the update-progress sink's calls so the install flow can be asserted without a
+    /// real <c>UpdateProgressWindow</c>. Thread-safe because <see cref="IProgress{T}"/> marshals
+    /// <see cref="Report"/> off the captured synchronization context onto the thread pool.
+    /// </summary>
+    private sealed class FakeUpdateProgressSink : IUpdateProgressSink
+    {
+        private readonly ManualResetEventSlim _reported = new();
+        private readonly object _gate = new();
+        private readonly List<int> _reports = [];
+        private readonly List<string> _statuses = [];
+
+        public int OpenCount { get; private set; }
+
+        public int CloseCount { get; private set; }
+
+        public IReadOnlyList<int> Reports
+        {
+            get { lock (_gate) { return [.. _reports]; } }
+        }
+
+        public IReadOnlyList<string> Statuses
+        {
+            get { lock (_gate) { return [.. _statuses]; } }
+        }
+
+        public void Open()
+        {
+            lock (_gate) { OpenCount++; }
+        }
+
+        public void SetStatus(string status)
+        {
+            lock (_gate) { _statuses.Add(status); }
+        }
+
+        public void Report(int percent)
+        {
+            lock (_gate) { _reports.Add(percent); }
+            _reported.Set();
+        }
+
+        public void Close()
+        {
+            lock (_gate) { CloseCount++; }
+        }
+
+        public bool WaitForAnyReport(TimeSpan timeout) => _reported.Wait(timeout);
     }
 }

@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IServiceProvider _services;
     private readonly IAppLogger _logger;
     private readonly IUpdateService _updateService;
+    private readonly Services.IUpdateProgressSink _updateProgressSink;
     private readonly DispatcherTimer? _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
@@ -60,6 +61,7 @@ public partial class MainViewModel : ObservableObject
         _services = services;
         _logger = services.GetRequiredService<IAppLogger>();
         _updateService = services.GetRequiredService<IUpdateService>();
+        _updateProgressSink = services.GetRequiredService<Services.IUpdateProgressSink>();
 
         UploadsViewModel = services.GetRequiredService<UploadsViewModel>();
         UploadedViewModel = services.GetRequiredService<UploadedViewModel>();
@@ -140,25 +142,21 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        Views.UpdateProgressWindow window = new()
-        {
-            Owner = Application.Current?.MainWindow,
-        };
-        window.Show();
+        _updateProgressSink.Open();
 
-        Progress<int> progress = new(p => window.SetProgress(p));
+        Progress<int> progress = new(_updateProgressSink.Report);
         try
         {
-            window.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));
+            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));
             await _updateService.DownloadAsync(_availableUpdate, progress).ConfigureAwait(true);
 
-            window.SetStatus(Localizer.Instance["UpdateProgress_StatusRestarting"]);
+            _updateProgressSink.SetStatus(Localizer.Instance["UpdateProgress_StatusRestarting"]);
             _updateService.ApplyAndRestart(_availableUpdate);
         }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Update install failed: {ex.Message}");
-            window.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusFailed_Format"], ex.Message));
+            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusFailed_Format"], ex.Message));
         }
     }
 

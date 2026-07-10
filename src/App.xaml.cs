@@ -64,6 +64,7 @@ public partial class App : Application
 
         // UI services (WPF-specific implementations of Core interfaces)
         services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IUpdateProgressSink, WpfUpdateProgressSink>();
         services.AddSingleton<IInteractiveAuthService, WebViewInteractiveAuthService>();
         services.AddSingleton<TrayIconManager>();
         services.AddSingleton<IToastWindowFactory, DefaultToastWindowFactory>();

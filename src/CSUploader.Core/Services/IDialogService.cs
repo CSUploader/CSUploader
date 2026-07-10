@@ -4,6 +4,8 @@
 // </copyright>
 
 using CSUploader.Dal;
+using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
 
 namespace CSUploader.Services;
 
@@ -48,4 +50,46 @@ public interface IDialogService
     /// proxy when the user clicks Save, or null if cancelled.
     /// </summary>
     public Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null);
+
+    /// <summary>
+    /// Shows the request/response viewer (the Logs tab's HTTP details window) for a single
+    /// captured transaction — used by the Connection Manager's per-row proxy-test "Details".
+    /// Modal; completes when the window closes.
+    /// </summary>
+    public Task ShowHttpDetailsAsync(HttpTransaction transaction);
+
+    /// <summary>
+    /// Shows the Connection Manager's dual-purpose text dialog. In editable mode
+    /// (<paramref name="readOnly"/> false) it gathers typed proxy lines and returns them, or
+    /// null if cancelled; in read-only mode it displays <paramref name="initialText"/> for
+    /// copy-out and returns null (the caller ignores the result).
+    /// </summary>
+    public Task<string?> ShowProxyTextDialogAsync(string title, string description, string initialText, bool readOnly);
+
+    /// <summary>
+    /// Prompts for a per-selection upload speed limit (KB/s), seeded with
+    /// <paramref name="currentLimit"/>. Returns null when cancelled (leave limits untouched);
+    /// otherwise a <see cref="SpeedLimitSelection"/> whose <see cref="SpeedLimitSelection.LimitKBps"/>
+    /// is the chosen limit, or itself null when the user cleared it (revert to the global/inherited value).
+    /// </summary>
+    public Task<SpeedLimitSelection?> ShowSpeedLimitDialogAsync(int? currentLimit);
+
+    /// <summary>
+    /// Opens the account editor for <paramref name="account"/> (a fresh DTO for add, an existing
+    /// one for edit), offering <paramref name="hosters"/> in the add flow's picker and wiring the
+    /// WebView "Sign in" button to <paramref name="interactiveLogin"/>. When
+    /// <paramref name="title"/> is null the window keeps its default title (the edit flow).
+    /// Returns the populated DTO when the user clicks Save, or null if cancelled.
+    /// </summary>
+    public Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null);
 }
+
+/// <summary>
+/// Outcome of <see cref="IDialogService.ShowSpeedLimitDialogAsync"/>. A null return from that
+/// method means "cancelled — leave limits untouched"; a non-null value carries the chosen limit,
+/// where <see cref="LimitKBps"/> is itself null when the user cleared the limit (revert to the
+/// global/inherited value). The two-level nullability preserves the WPF dialog's distinction
+/// between Cancel (DialogResult false) and Clear (DialogResult true, Result null), which a bare
+/// <c>int?</c> return could not express.
+/// </summary>
+public readonly record struct SpeedLimitSelection(int? LimitKBps);
