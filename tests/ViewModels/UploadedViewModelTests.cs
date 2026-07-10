@@ -68,7 +68,7 @@ public class UploadedViewModelTests : IDisposable
         int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
 
         UploadedViewModel vm = CreateVm(dialog.Object);
         await vm.LoadAsync();
@@ -89,7 +89,7 @@ public class UploadedViewModelTests : IDisposable
         int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(false);
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(false);
 
         UploadedViewModel vm = CreateVm(dialog.Object);
         await vm.LoadAsync();
@@ -111,7 +111,7 @@ public class UploadedViewModelTests : IDisposable
         int fileId = await InsertFileAsync(packageId, "only.iso", FileState.Completed);
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
 
         UploadedViewModel vm = CreateVm(dialog.Object);
         await vm.LoadAsync();
@@ -131,7 +131,7 @@ public class UploadedViewModelTests : IDisposable
 
         await vm.RemoveSelectedCommand.ExecuteAsync(new List<UploadedFileRow>());
 
-        dialog.Verify(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        dialog.Verify(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

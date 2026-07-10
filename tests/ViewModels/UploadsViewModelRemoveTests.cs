@@ -59,7 +59,7 @@ public class UploadsViewModelRemoveTests : IDisposable
     }
 
     [Fact]
-    public void RemoveSelected_LastFileOfPackage_RemovesTheEmptyPackageToo()
+    public async Task RemoveSelected_LastFileOfPackage_RemovesTheEmptyPackageToo()
     {
         (Package pkg, FileHosterClient hoster, FileHosterLoginDto login) = MakePackage();
         PackageFile only = MakeFile(pkg, hoster, login, @"C:\d\a.bin");
@@ -67,7 +67,7 @@ public class UploadsViewModelRemoveTests : IDisposable
 
         UploadsViewModel vm = CreateVmShowing(pkg, only);
 
-        vm.RemoveSelectedCommand.Execute(new List<object> { only });
+        await vm.RemoveSelectedCommand.ExecuteAsync(new List<object> { only });
 
         // The lone file AND its now-empty package are both gone from the grid.
         Assert.DoesNotContain(only, vm.VisibleRows);
@@ -76,7 +76,7 @@ public class UploadsViewModelRemoveTests : IDisposable
     }
 
     [Fact]
-    public void RemoveSelected_OneOfSeveralFiles_KeepsPackageAndSiblings()
+    public async Task RemoveSelected_OneOfSeveralFiles_KeepsPackageAndSiblings()
     {
         (Package pkg, FileHosterClient hoster, FileHosterLoginDto login) = MakePackage();
         PackageFile a = MakeFile(pkg, hoster, login, @"C:\d\a.bin");
@@ -85,7 +85,7 @@ public class UploadsViewModelRemoveTests : IDisposable
 
         UploadsViewModel vm = CreateVmShowing(pkg, a, b);
 
-        vm.RemoveSelectedCommand.Execute(new List<object> { a });
+        await vm.RemoveSelectedCommand.ExecuteAsync(new List<object> { a });
 
         // Only the removed file disappears; the package (still has b) and the sibling stay.
         Assert.DoesNotContain(a, vm.VisibleRows);
@@ -97,7 +97,7 @@ public class UploadsViewModelRemoveTests : IDisposable
     private UploadsViewModel CreateVmShowing(Package pkg, params PackageFile[] files)
     {
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowOptOutConfirmation(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
 
         UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object);
         // Mirror the grid state the PackageAdded handler would build (its Dispatcher.BeginInvoke is a

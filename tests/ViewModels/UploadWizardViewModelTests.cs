@@ -67,8 +67,8 @@ public class UploadWizardViewModelTests : IDisposable
     public async Task AddAccountForHoster_WhenDialogCancelled_LeavesRowEmpty()
     {
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowAddAccountDialog(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()))
-            .Returns((FileHosterLoginDto?)null);
+        dialog.Setup(d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()))
+            .ReturnsAsync((FileHosterLoginDto?)null);
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
         FileHosterSelectionViewModel row = new("Rapidgator", []);
@@ -93,8 +93,8 @@ public class UploadWizardViewModelTests : IDisposable
         };
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowAddAccountDialog("Rapidgator", It.IsAny<string[]>(), It.IsAny<string?>()))
-            .Returns(saved);
+        dialog.Setup(d => d.ShowAddAccountDialogAsync("Rapidgator", It.IsAny<string[]>(), It.IsAny<string?>()))
+            .ReturnsAsync(saved);
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
         FileHosterSelectionViewModel row = new("Rapidgator", []);
@@ -123,7 +123,7 @@ public class UploadWizardViewModelTests : IDisposable
         await vm.AddAccountForHosterCommand.ExecuteAsync(null);
 
         dialog.Verify(
-            d => d.ShowAddAccountDialog(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()),
+            d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()),
             Times.Never);
     }
 
@@ -137,24 +137,24 @@ public class UploadWizardViewModelTests : IDisposable
         await vm.GoNextCommand.ExecuteAsync(null);
 
         Assert.Equal(0, vm.CurrentStep);
-        dialog.Verify(d => d.ShowError(It.IsAny<string>(), It.IsAny<string?>()), Times.Once);
+        dialog.Verify(d => d.ShowErrorAsync(It.IsAny<string>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
-    public void BrowseFiles_PopulatesFilesAndDefaultsTitle()
+    public async Task BrowseFiles_PopulatesFilesAndDefaultsTitle()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         File.WriteAllText(tempA, "x");
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA]);
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([tempA]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
 
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
 
             Assert.Single(vm.Files);
             Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
@@ -173,11 +173,11 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA]);
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([tempA]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
             // PackageTitle was defaulted from filename by BrowseFiles; leave it intact
 
             await vm.GoNextCommand.ExecuteAsync(null);
@@ -191,21 +191,21 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void BrowseFiles_AppendsAndDedupesByFullPath_CaseInsensitive()
+    public async Task BrowseFiles_AppendsAndDedupesByFullPath_CaseInsensitive()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         File.WriteAllText(tempA, "x");
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA])
-                .Returns([tempA.ToUpperInvariant()]);
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([tempA])
+                .ReturnsAsync([tempA.ToUpperInvariant()]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
-            vm.BrowseFilesCommand.Execute(null);
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
 
             Assert.Single(vm.Files);
         }
@@ -216,7 +216,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void BrowseFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
+    public async Task BrowseFiles_DuplicateFilenameDifferentFolder_ShowsFolderSuffix()
     {
         string dirA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         string dirB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
@@ -229,14 +229,14 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([fileA])
-                .Returns([fileB]);
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([fileA])
+                .ReturnsAsync([fileB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
-            vm.BrowseFilesCommand.Execute(null);
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
 
             Assert.Equal(2, vm.Files.Count);
             Assert.Contains(vm.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
@@ -249,7 +249,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void BrowseFiles_DoesNotClearExistingFiles()
+    public async Task BrowseFiles_DoesNotClearExistingFiles()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         string tempB = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
@@ -258,16 +258,16 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA])
-                .Returns([tempB]);
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([tempA])
+                .ReturnsAsync([tempB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
             Assert.Single(vm.Files);
 
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
 
             Assert.Equal(2, vm.Files.Count);
         }
@@ -303,19 +303,19 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void ModeChange_ClearsFilesAndDirectoryPath()
+    public async Task ModeChange_ClearsFilesAndDirectoryPath()
     {
         string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
         File.WriteAllText(tempA, "x");
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFiles(It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns([tempA]);
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([tempA]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             vm.Mode = UploadWizardMode.Files;
-            vm.BrowseFilesCommand.Execute(null);
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
             vm.DirectoryPath = "C:\\should-be-cleared";
             Assert.Single(vm.Files);
 

@@ -135,7 +135,7 @@ public partial class UploadedView : UserControl
                 return;
             }
 
-            if (!vm.DialogServiceForView.ShowOptOutConfirmation(
+            if (!await vm.DialogServiceForView.ShowOptOutConfirmationAsync(
                     Services.ConfirmationKeys.ResetColumns,
                     Localizer.Instance["Uploaded_ResetColumns_Message"],
                     Localizer.Instance["Uploaded_ResetColumns_Title"]))

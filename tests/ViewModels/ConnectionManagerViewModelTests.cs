@@ -61,7 +61,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         new(_repo, _manager, MakeDialogWithEchoingProxyAdd(), Mock.Of<IAppLogger>());
 
     [Fact]
-    public void AddCommand_OpensEditDialog_AppendsRowOnlyOnSave()
+    public async Task AddCommand_OpensEditDialog_AppendsRowOnlyOnSave()
     {
         ProxySettingDto editedSeed = new()
         {
@@ -74,34 +74,34 @@ public class ConnectionManagerViewModelTests : IDisposable
         };
 
         Mock<IDialogService> dialog = new();
-        dialog.SetupSequence(d => d.ShowEditProxyDialog(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
-            .Returns(editedSeed)
-            .Returns((ProxySettingDto?)null);
+        dialog.SetupSequence(d => d.ShowEditProxyDialogAsync(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
+            .ReturnsAsync(editedSeed)
+            .ReturnsAsync((ProxySettingDto?)null);
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
 
         // First click: dialog returns Save → row appears with the user-entered values.
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         Assert.Single(vm.Proxies);
         Assert.Equal("proxy.example.org", vm.Proxies[0].Host);
         Assert.Equal(ProxyType.Socks5, vm.Proxies[0].Type);
         Assert.Equal(1080, vm.Proxies[0].Port);
 
         // Second click: dialog cancelled → no row added.
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         Assert.Single(vm.Proxies);
     }
 
     /// <summary>
-    /// Builds an IDialogService mock whose ShowEditProxyDialog echoes its seed back, so
+    /// Builds an IDialogService mock whose ShowEditProxyDialogAsync echoes its seed back, so
     /// AddCommand still adds a default row (matching the pre-dialog behavior the tests
     /// were written against). Optional <paramref name="configure"/> lets a caller add
-    /// extra setups like ShowOptOutConfirmation.
+    /// extra setups like ShowOptOutConfirmationAsync.
     /// </summary>
     internal static IDialogService MakeDialogWithEchoingProxyAdd(Action<Mock<IDialogService>>? configure = null)
     {
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowEditProxyDialog(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
-            .Returns<ProxySettingDto, string?>((seed, _) => seed);
+        dialog.Setup(d => d.ShowEditProxyDialogAsync(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
+            .ReturnsAsync((ProxySettingDto seed, string? _) => seed);
         configure?.Invoke(dialog);
         return dialog.Object;
     }
@@ -124,8 +124,8 @@ public class ConnectionManagerViewModelTests : IDisposable
     public async Task SaveAsync_InsertsNewProxiesAndAssignsIds()
     {
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].Host = "first";
         vm.Proxies[1].Host = "second";
 
@@ -202,7 +202,7 @@ public class ConnectionManagerViewModelTests : IDisposable
     public async Task SaveAsync_ReloadsProxyManagerSoNewProxiesEnterRotation()
     {
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].Host = "fresh";
         vm.Proxies[0].Port = 8080;
 
@@ -258,17 +258,17 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     [Fact]
-    public void RemoveFailedCommand_RemovesOnlyRowsWithFailedTestOutcome()
+    public async Task RemoveFailedCommand_RemovesOnlyRowsWithFailedTestOutcome()
     {
         IDialogService dialog = MakeDialogWithEchoingProxyAdd(d =>
-            d.Setup(s => s.ShowOptOutConfirmation(
+            d.Setup(s => s.ShowOptOutConfirmationAsync(
                     ConfirmationKeys.RemoveProxy, It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(true));
+                .ReturnsAsync(true));
 
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>());
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
 
         // Manually paint test outcomes so we don't need a real network round-trip.
         vm.Proxies[0].TestStatus = "OK 100ms";
@@ -278,45 +278,45 @@ public class ConnectionManagerViewModelTests : IDisposable
         vm.Proxies[2].TestStatus = string.Empty; // untested
         vm.Proxies[1].Host = "bad-proxy";
 
-        vm.RemoveFailedCommand.Execute(null);
+        await vm.RemoveFailedCommand.ExecuteAsync(null);
 
         Assert.Equal(2, vm.Proxies.Count);
         Assert.DoesNotContain(vm.Proxies, p => p.Host == "bad-proxy");
     }
 
     [Fact]
-    public void RemoveFailedCommand_WhenUserDeclines_KeepsAllRows()
+    public async Task RemoveFailedCommand_WhenUserDeclines_KeepsAllRows()
     {
         IDialogService dialog = MakeDialogWithEchoingProxyAdd(d =>
-            d.Setup(s => s.ShowOptOutConfirmation(
+            d.Setup(s => s.ShowOptOutConfirmationAsync(
                     ConfirmationKeys.RemoveProxy, It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(false));
+                .ReturnsAsync(false));
 
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>());
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].TestStatus = "Failed: dead";
         vm.Proxies[0].TestOutcome = ProxyTestOutcome.Failed;
 
-        vm.RemoveFailedCommand.Execute(null);
+        await vm.RemoveFailedCommand.ExecuteAsync(null);
 
         Assert.Single(vm.Proxies);
     }
 
     [Fact]
-    public void RemoveFailedCommand_NoFailedRows_DoesNotPromptOrRemove()
+    public async Task RemoveFailedCommand_NoFailedRows_DoesNotPromptOrRemove()
     {
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowEditProxyDialog(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
-            .Returns<ProxySettingDto, string?>((seed, _) => seed);
+        dialog.Setup(d => d.ShowEditProxyDialogAsync(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
+            .ReturnsAsync((ProxySettingDto seed, string? _) => seed);
         ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].TestStatus = "OK 100ms";
         vm.Proxies[0].TestOutcome = ProxyTestOutcome.Ok;
 
-        vm.RemoveFailedCommand.Execute(null);
+        await vm.RemoveFailedCommand.ExecuteAsync(null);
 
         Assert.Single(vm.Proxies);
-        dialog.Verify(d => d.ShowOptOutConfirmation(
+        dialog.Verify(d => d.ShowOptOutConfirmationAsync(
             It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -326,7 +326,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         // A failed test should uncheck the row so subsequent uploads don't pick the
         // bad proxy. User still has to Save to persist.
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         ProxySettingItem item = vm.Proxies[0];
         item.Type = ProxyType.Http;
         item.Host = "127.0.0.1";
@@ -347,7 +347,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         // flip red so the user knows the proxy failed.
         ConnectionManagerViewModel vm = CreateVm();
         vm.AutoDisableFailingProxies = false;
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         ProxySettingItem item = vm.Proxies[0];
         item.Type = ProxyType.Http;
         item.Host = "127.0.0.1";
@@ -507,7 +507,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         // captured on the row so the Details button can open the same request/response
         // viewer the Logs tab uses.
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         ProxySettingItem item = vm.Proxies[0];
         item.Type = ProxyType.Http;
         item.Host = "127.0.0.1";
@@ -525,7 +525,7 @@ public class ConnectionManagerViewModelTests : IDisposable
     public async Task TestCommand_UpdatesStatusToFailedForObviouslyDeadProxy()
     {
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
         ProxySettingItem item = vm.Proxies[0];
         item.Type = ProxyType.Http;
         item.Host = "127.0.0.1";
@@ -556,9 +556,9 @@ public class ConnectionManagerViewModelTests : IDisposable
         // IList of ProxySettingItem). The command should fan out and exercise every row,
         // not just the first.
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
         foreach (ProxySettingItem item in vm.Proxies)
         {
             item.Type = ProxyType.Http;
@@ -580,8 +580,8 @@ public class ConnectionManagerViewModelTests : IDisposable
     public async Task TestAllCommand_RunsAgainstEveryRow()
     {
         ConnectionManagerViewModel vm = CreateVm();
-        vm.AddCommand.Execute(null);
-        vm.AddCommand.Execute(null);
+        await vm.AddCommand.ExecuteAsync(null);
+        await vm.AddCommand.ExecuteAsync(null);
         foreach (ProxySettingItem item in vm.Proxies)
         {
             item.Type = ProxyType.Http;

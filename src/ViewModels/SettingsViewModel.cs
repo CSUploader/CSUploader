@@ -672,7 +672,7 @@ public partial class SettingsViewModel(
             return;
         }
 
-        if (!_dialogService.ShowConfirmation(
+        if (!await _dialogService.ShowConfirmationAsync(
                 Loc("Settings_General_Database_ConfirmMessage"),
                 Loc("Settings_General_Database_ConfirmTitle")))
         {
@@ -707,7 +707,7 @@ public partial class SettingsViewModel(
             return;
         }
 
-        if (!_dialogService.ShowConfirmation(
+        if (!await _dialogService.ShowConfirmationAsync(
                 Loc("Settings_General_Database_ConfirmClearLogsMessage"),
                 Loc("Settings_General_Database_ConfirmClearLogsTitle")))
         {
@@ -1048,7 +1048,7 @@ public partial class SettingsViewModel(
     {
         if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
         {
-            _dialogService.ShowError(Loc("Settings_Accounts_Validation_FillHosterUser"));
+            await _dialogService.ShowErrorAsync(Loc("Settings_Accounts_Validation_FillHosterUser"));
             return;
         }
 
@@ -1093,7 +1093,7 @@ public partial class SettingsViewModel(
             || string.IsNullOrWhiteSpace(NewAccountUsername)
             || string.IsNullOrWhiteSpace(NewAccountPassword))
         {
-            _dialogService.ShowError(Loc("Settings_Accounts_Validation_FillHosterUser"));
+            await _dialogService.ShowErrorAsync(Loc("Settings_Accounts_Validation_FillHosterUser"));
             return;
         }
 
@@ -1120,7 +1120,7 @@ public partial class SettingsViewModel(
                 else
                 {
                     CheckAccountStatus = LocF("Settings_Accounts_Status_Warning_Format", result.Message);
-                    if (!_dialogService.ShowConfirmation(LocF("Settings_Accounts_Check_FailedAddAnyway_Format", result.Message), Loc("Settings_Accounts_Check_DialogTitle")))
+                    if (!await _dialogService.ShowConfirmationAsync(LocF("Settings_Accounts_Check_FailedAddAnyway_Format", result.Message), Loc("Settings_Accounts_Check_DialogTitle")))
                     {
                         IsCheckingAccount = false;
                         return;
@@ -1130,7 +1130,7 @@ public partial class SettingsViewModel(
             catch (Exception ex)
             {
                 CheckAccountStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
-                if (!_dialogService.ShowConfirmation(LocF("Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format", ex.Message), Loc("Settings_Accounts_Check_DialogTitle")))
+                if (!await _dialogService.ShowConfirmationAsync(LocF("Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format", ex.Message), Loc("Settings_Accounts_Check_DialogTitle")))
                 {
                     IsCheckingAccount = false;
                     return;
@@ -1185,7 +1185,7 @@ public partial class SettingsViewModel(
             ? LocF("Settings_Accounts_Remove_Message_Format", targets[0].Username, targets[0].FileHosterName)
             : LocF("Settings_Accounts_Remove_MessageBulk_Format", targets.Length);
 
-        if (!_dialogService.ShowOptOutConfirmation(
+        if (!await _dialogService.ShowOptOutConfirmationAsync(
                 ConfirmationKeys.RemoveFileHosterAccount,
                 message,
                 Loc("Settings_Accounts_Remove_Title")))

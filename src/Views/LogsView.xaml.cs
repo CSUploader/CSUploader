@@ -102,7 +102,7 @@ public partial class LogsView : UserControl
                 return;
             }
 
-            if (!vm.DialogServiceForView.ShowOptOutConfirmation(
+            if (!await vm.DialogServiceForView.ShowOptOutConfirmationAsync(
                     ConfirmationKeys.ResetColumns,
                     Localizer.Instance["Logs_ResetColumns_Message"],
                     Localizer.Instance["Logs_ResetColumns_Title"]))

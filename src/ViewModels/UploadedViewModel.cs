@@ -246,7 +246,7 @@ public partial class UploadedViewModel : ObservableObject
         string msg = rows.Length == 1
             ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Single_Format"], rows[0].FileName)
             : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploaded_Remove_Many_Format"], rows.Length);
-        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadedEntry, msg, Localizer.Instance["Uploaded_Remove_Title"]))
+        if (!await DialogServiceForView.ShowOptOutConfirmationAsync(ConfirmationKeys.RemoveUploadedEntry, msg, Localizer.Instance["Uploaded_Remove_Title"]))
         {
             return;
         }

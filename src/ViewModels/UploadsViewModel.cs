@@ -341,7 +341,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// already running or completed, so a mixed selection is safe.
     /// </summary>
     [RelayCommand]
-    private void ForceStartSelected(IList? selectedItems)
+    private async Task ForceStartSelectedAsync(IList? selectedItems)
     {
         if (selectedItems is null || selectedItems.Count == 0)
         {
@@ -357,7 +357,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         if (completedCount > 0)
         {
             string msg = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_ForceStart_Reupload_Format"], completedCount);
-            if (!DialogServiceForView.ShowConfirmation(msg, Localizer.Instance["Uploads_ForceStart_Reupload_Title"]))
+            if (!await DialogServiceForView.ShowConfirmationAsync(msg, Localizer.Instance["Uploads_ForceStart_Reupload_Title"]))
             {
                 return;
             }
@@ -515,7 +515,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void ResetFile(IList? selectedItems)
+    private async Task ResetFileAsync(IList? selectedItems)
     {
         object[] items = Snapshot(selectedItems);
         if (items.Length == 0)
@@ -540,7 +540,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
                 }
                 : string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Reset_Multi_Format"], items.Length, completedCount);
 
-            if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.ResetCompletedUpload, msg, Localizer.Instance["Uploads_Reset_Title"]))
+            if (!await DialogServiceForView.ShowOptOutConfirmationAsync(ConfirmationKeys.ResetCompletedUpload, msg, Localizer.Instance["Uploads_Reset_Title"]))
             {
                 return;
             }
@@ -559,7 +559,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// we de-duplicate to avoid double-removal.
     /// </summary>
     [RelayCommand]
-    private void RemoveSelected(IList? selectedItems)
+    private async Task RemoveSelectedAsync(IList? selectedItems)
     {
         if (selectedItems is null || selectedItems.Count == 0)
         {
@@ -583,7 +583,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             _ => string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_Remove_PackagesAndFiles_Format"], packages.Length, looseFiles.Length, totalFiles),
         };
 
-        if (!DialogServiceForView.ShowOptOutConfirmation(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
+        if (!await DialogServiceForView.ShowOptOutConfirmationAsync(ConfirmationKeys.RemoveUploadPackageOrFile, msg, Localizer.Instance["Uploads_Remove_Title"]))
         {
             return;
         }

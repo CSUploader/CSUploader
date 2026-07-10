@@ -65,8 +65,11 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService, 
                 return null;
             }
 
-            return await dispatcher.InvokeAsync(
-                () => ShowLoginWindow(spec, proxy),
+            // Double-await: InvokeAsync marshals onto the UI thread and hands back the Task the
+            // async ShowLoginWindowAsync returns; the inner await unwraps its result. The window
+            // is still shown modally on the UI thread, so ordering is unchanged.
+            return await await dispatcher.InvokeAsync(
+                () => ShowLoginWindowAsync(spec, proxy),
                 DispatcherPriority.Normal,
                 cancellationToken);
         }
@@ -76,7 +79,7 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService, 
         }
     }
 
-    private InteractiveAuthResult? ShowLoginWindow(InteractiveAuthSpec spec, ProxyChoice proxy)
+    private async Task<InteractiveAuthResult?> ShowLoginWindowAsync(InteractiveAuthSpec spec, ProxyChoice proxy)
     {
         ProxyCredentials? proxyCredentials = ResolveProxyCredentials(proxy, out string? refusalReason);
         if (refusalReason is not null)
@@ -85,7 +88,9 @@ public sealed class WebViewInteractiveAuthService(IDialogService dialogService, 
             // exposes no way to satisfy the auth challenge). Tell the user clearly rather
             // than silently bypassing the auth (which would leak the request to the proxy
             // unauthenticated) and return null so the pipeline surfaces a failed sign-in.
-            _dialogService.ShowError(refusalReason, Localizer.Instance["WebViewLogin_Error_UnsupportedProxy_Title"]);
+            // The error is awaited so it is surfaced before we return null (WPF MessageBox is
+            // modal and completes synchronously on this UI thread).
+            await _dialogService.ShowErrorAsync(refusalReason, Localizer.Instance["WebViewLogin_Error_UnsupportedProxy_Title"]);
             return null;
         }
 

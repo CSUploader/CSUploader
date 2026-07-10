@@ -227,7 +227,7 @@ public class SettingsViewModelTests : IDisposable
         await logRepo.InsertAsync(new LogEntryDto { DateTime = DateTime.Now, LogType = LogType.Error, Message = "new" });
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string?>())).Returns(true);
+        dialog.Setup(d => d.ShowConfirmationAsync(It.IsAny<string>(), It.IsAny<string?>())).ReturnsAsync(true);
 
         SettingsViewModel vm = CreateVm(dialog.Object, logRepo);
 
@@ -244,7 +244,7 @@ public class SettingsViewModelTests : IDisposable
         await logRepo.InsertAsync(new LogEntryDto { DateTime = DateTime.Now, LogType = LogType.Status, Message = "kept" });
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowConfirmation(It.IsAny<string>(), It.IsAny<string?>())).Returns(false);
+        dialog.Setup(d => d.ShowConfirmationAsync(It.IsAny<string>(), It.IsAny<string?>())).ReturnsAsync(false);
 
         SettingsViewModel vm = CreateVm(dialog.Object, logRepo);
 

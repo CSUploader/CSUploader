@@ -223,7 +223,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Add()
+    private async Task AddAsync()
     {
         // Seed an empty DTO with sensible defaults and let the user fill it in via the
         // modal editor. The grid row is only created when the dialog returns Save —
@@ -238,7 +238,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
             Priority = Proxies.Count,
         };
 
-        ProxySettingDto? edited = _dialogService.ShowEditProxyDialog(seed);
+        ProxySettingDto? edited = await _dialogService.ShowEditProxyDialogAsync(seed);
         if (edited is null)
         {
             return;
@@ -249,7 +249,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveSelected(IList? selectedItems)
+    private async Task RemoveSelectedAsync(IList? selectedItems)
     {
         if (selectedItems is null || selectedItems.Count == 0)
         {
@@ -262,7 +262,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
             return;
         }
 
-        if (!_dialogService.ShowOptOutConfirmation(
+        if (!await _dialogService.ShowOptOutConfirmationAsync(
                 ConfirmationKeys.RemoveProxy,
                 items.Length == 1
                     ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveProxy_One_Format"], items[0].Host, items[0].Port)
@@ -279,7 +279,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemoveFailed()
+    private async Task RemoveFailedAsync()
     {
         ProxySettingItem[] failing = [.. Proxies.Where(p => p.TestOutcome == ProxyTestOutcome.Failed)];
         if (failing.Length == 0)
@@ -287,7 +287,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
             return;
         }
 
-        if (!_dialogService.ShowOptOutConfirmation(
+        if (!await _dialogService.ShowOptOutConfirmationAsync(
                 ConfirmationKeys.RemoveProxy,
                 failing.Length == 1
                     ? string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Settings_Conn_RemoveFailedProxy_One_Format"], failing[0].Host, failing[0].Port)

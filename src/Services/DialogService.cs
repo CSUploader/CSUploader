@@ -24,27 +24,34 @@ namespace CSUploader.Services;
 // lookup is a simple lazy fetch.
 public class DialogService(AppSettings settings, SettingRepository settingRepository, IServiceProvider services) : IDialogService
 {
-    public void ShowError(string message, string? title = null) =>
-        MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
-
-    public bool ShowConfirmation(string message, string? title = null)
+    // These stay fully synchronous under the covers — WPF dialogs are modal and block on the
+    // UI thread. The interface is Task-returning only so the Avalonia head (whose dialogs are
+    // genuinely async) can share it; here we wrap the completed result. No Task.Run: launching
+    // a dialog off the UI thread would throw.
+    public Task ShowErrorAsync(string message, string? title = null)
     {
-        MessageBoxResult result = MessageBox.Show(message, title ?? Localizer.Instance["Common_Confirm"], MessageBoxButton.YesNo, MessageBoxImage.Question);
-        return result == MessageBoxResult.Yes;
+        MessageBox.Show(message, title ?? Localizer.Instance["Common_Error"], MessageBoxButton.OK, MessageBoxImage.Error);
+        return Task.CompletedTask;
     }
 
-    public bool ShowOptOutConfirmation(string confirmationKey, string message, string? title = null)
+    public Task<bool> ShowConfirmationAsync(string message, string? title = null)
+    {
+        MessageBoxResult result = MessageBox.Show(message, title ?? Localizer.Instance["Common_Confirm"], MessageBoxButton.YesNo, MessageBoxImage.Question);
+        return Task.FromResult(result == MessageBoxResult.Yes);
+    }
+
+    public Task<bool> ShowOptOutConfirmationAsync(string confirmationKey, string message, string? title = null)
     {
         if (settings.SuppressedConfirmations.Contains(confirmationKey))
         {
-            return true;
+            return Task.FromResult(true);
         }
 
         ConfirmationDialog dialog = new(message, title ?? Localizer.Instance["Common_Confirm"]);
         bool? result = dialog.ShowDialog();
         if (result != true || !dialog.Confirmed)
         {
-            return false;
+            return Task.FromResult(false);
         }
 
         if (dialog.DontAskAgain)
@@ -56,10 +63,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             _ = PersistSuppressedAsync();
         }
 
-        return true;
+        return Task.FromResult(true);
     }
 
-    public string? BrowseFolder(string? initialDirectory = null, string? title = null)
+    public Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null)
     {
         VistaFolderBrowserDialog dialog = new()
         {
@@ -73,10 +80,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
         }
 
         bool? dialogResult = dialog.ShowDialog();
-        return dialogResult == true ? dialog.SelectedPath : null;
+        return Task.FromResult(dialogResult == true ? dialog.SelectedPath : null);
     }
 
-    public string[]? BrowseFiles(string? title = null, string? filter = null)
+    public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null)
     {
         Microsoft.Win32.OpenFileDialog dialog = new()
         {
@@ -90,10 +97,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             dialog.Filter = filter;
         }
 
-        return dialog.ShowDialog() == true ? dialog.FileNames : null;
+        return Task.FromResult(dialog.ShowDialog() == true ? dialog.FileNames : null);
     }
 
-    public FileHosterLoginDto? ShowAddAccountDialog(string hosterName, string[] availableHosters, string? title = null)
+    public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, string? title = null)
     {
         FileHosterLoginDto seed = new()
         {
@@ -114,10 +121,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             Owner = Application.Current.MainWindow,
         };
 
-        return dialog.ShowDialog() == true ? dialog.Result : null;
+        return Task.FromResult(dialog.ShowDialog() == true ? dialog.Result : null);
     }
 
-    public ProxySettingDto? ShowEditProxyDialog(ProxySettingDto seed, string? title = null)
+    public Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null)
     {
         EditProxyWindow dialog = new(seed, settings.AllowInvalidServerCertificates)
         {
@@ -125,7 +132,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             Owner = Application.Current.MainWindow,
         };
 
-        return dialog.ShowDialog() == true ? dialog.Result : null;
+        return Task.FromResult(dialog.ShowDialog() == true ? dialog.Result : null);
     }
 
     private async Task PersistSuppressedAsync()

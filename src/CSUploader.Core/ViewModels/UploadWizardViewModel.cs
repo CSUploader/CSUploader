@@ -659,9 +659,9 @@ public partial class UploadWizardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void BrowseDirectory()
+    private async Task BrowseDirectoryAsync()
     {
-        string? folder = dialogService.BrowseFolder(
+        string? folder = await dialogService.BrowseFolderAsync(
             string.IsNullOrEmpty(DirectoryPath) ? null : DirectoryPath,
             Localizer.Instance["Wizard_Step0_BrowseDialogTitle"]);
 
@@ -672,9 +672,9 @@ public partial class UploadWizardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void BrowseFiles()
+    private async Task BrowseFilesAsync()
     {
-        string[]? picked = dialogService.BrowseFiles(
+        string[]? picked = await dialogService.BrowseFilesAsync(
             Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
 
         if (picked is null || picked.Length == 0)
@@ -739,7 +739,7 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
                 {
-                    dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickValidDir"]);
+                    await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickValidDir"]);
                     return;
                 }
 
@@ -754,20 +754,20 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 if (Files.Count == 0)
                 {
-                    dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
+                    await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
                     return;
                 }
             }
 
             if (string.IsNullOrWhiteSpace(PackageTitle))
             {
-                dialogService.ShowError(Localizer.Instance["Wizard_Validation_TitleRequired"]);
+                await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_TitleRequired"]);
                 return;
             }
 
             if (!Files.Any(f => f.IsSelected))
             {
-                dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickFile"]);
+                await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickFile"]);
                 return;
             }
 
@@ -819,7 +819,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
 
         string[] availableHosters = [hoster.FileHosterName];
-        FileHosterLoginDto? result = dialogService.ShowAddAccountDialog(
+        FileHosterLoginDto? result = await dialogService.ShowAddAccountDialogAsync(
             hoster.FileHosterName,
             availableHosters,
             Localizer.Instance["EditAccount_AddTitle"]);
@@ -836,7 +836,7 @@ public partial class UploadWizardViewModel : ObservableObject
         catch (Exception ex)
         {
             logger.Log(this, LogType.Error, $"Failed to save new {hoster.FileHosterName} account: {ex}");
-            dialogService.ShowError(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            await dialogService.ShowErrorAsync(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return;
         }
 
@@ -1002,7 +1002,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
         if (options.FileHosters.Count == 0)
         {
-            dialogService.ShowError(Localizer.Instance["Wizard_Validation_PickHoster"]);
+            await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickHoster"]);
             return false;
         }
 
@@ -1038,7 +1038,7 @@ public partial class UploadWizardViewModel : ObservableObject
         catch (Exception ex)
         {
             logger.Log(this, LogType.Error, $"Failed to add upload job: {ex}");
-            dialogService.ShowError(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
+            await dialogService.ShowErrorAsync(string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Wizard_Error_Format"], ex.Message));
             return false;
         }
     }
