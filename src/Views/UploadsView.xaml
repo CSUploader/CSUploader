@@ -8,7 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
-             xmlns:vm="clr-namespace:CSUploader.ViewModels"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              mc:Ignorable="d"

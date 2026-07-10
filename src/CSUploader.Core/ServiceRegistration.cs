@@ -8,6 +8,7 @@ using CSUploader.Lib;
 using CSUploader.Lib.Update;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -175,6 +176,17 @@ public static class ServiceRegistration
         // Services (framework-free)
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<UploadNotificationListener>();
+
+        // ViewModels. Now framework-free, so both heads share these registrations; each head
+        // supplies its own implementations of the UI interfaces the VMs depend on (IDialogService,
+        // IUiDispatcher, IClipboardService, IThemeApplier, ITrayIconService, IFontEnumerationService,
+        // IUpdateProgressSink, IUiShell), which is why those registrations stay head-side.
+        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<UploadsViewModel>();
+        services.AddSingleton<UploadedViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<ConnectionManagerViewModel>();
+        services.AddSingleton<LogsViewModel>();
 
         return services;
     }

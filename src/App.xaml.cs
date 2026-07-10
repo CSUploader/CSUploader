@@ -87,13 +87,7 @@ public partial class App : Application
             activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
             dispatchToUi: sp.GetRequiredService<IUiDispatcher>().Post));
 
-        // ViewModels
-        services.AddSingleton<MainViewModel>();
-
-        services.AddSingleton<UploadsViewModel>();
-        services.AddSingleton<UploadedViewModel>();
-        services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<ConnectionManagerViewModel>();
-        services.AddSingleton<LogsViewModel>();
+        // ViewModels are registered by AddCoreServices — they are framework-free now and shared
+        // with the Avalonia head. This head only supplies the UI-interface implementations above.
     }
 }
