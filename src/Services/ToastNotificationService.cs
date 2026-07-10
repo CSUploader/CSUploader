@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Windows;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Lib.Localization;
 using CSUploader.Upload;
@@ -32,7 +31,7 @@ namespace CSUploader.Services;
 public sealed class ToastNotificationService(
     AppSettings settings,
     IToastWindowFactory factory,
-    Func<Rect> workAreaProvider,
+    Func<DipRect> workAreaProvider,
     Action activate,
     Action<Action> dispatchToUi) : IToastNotificationService
 {
@@ -110,7 +109,7 @@ public sealed class ToastNotificationService(
 
     private void Reflow()
     {
-        Rect work = workAreaProvider();
+        DipRect work = workAreaProvider();
         double cumulative = 0;
         foreach (IToastHost h in _activeToasts)
         {

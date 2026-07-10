@@ -4,7 +4,6 @@
 // </copyright>
 
 using System.IO;
-using System.Windows;
 using CSUploader.Dal;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -18,7 +17,7 @@ public class ToastNotificationServiceTests
 
     private readonly AppSettings _settings = new();
     private readonly FakeToastWindowFactory _factory = new();
-    private readonly Rect _workArea = new(0, 0, 1920, 1040);
+    private readonly DipRect _workArea = new(0, 0, 1920, 1040);
 
     private ToastNotificationService CreateService()
         => new(_settings, _factory, () => _workArea, activate: () => { }, dispatchToUi: action => action());

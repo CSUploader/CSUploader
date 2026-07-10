@@ -79,7 +79,11 @@ public partial class App : Application
         services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationService(
             sp.GetRequiredService<AppSettings>(),
             sp.GetRequiredService<IToastWindowFactory>(),
-            workAreaProvider: () => SystemParameters.WorkArea,
+            workAreaProvider: () =>
+            {
+                Rect wa = SystemParameters.WorkArea;
+                return new DipRect(wa.X, wa.Y, wa.Width, wa.Height);
+            },
             activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
             dispatchToUi: sp.GetRequiredService<IUiDispatcher>().Post));
 
