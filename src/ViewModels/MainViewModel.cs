@@ -260,12 +260,9 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsDarkModeChanged(bool value)
     {
         // No-op when no theme applier is registered (headless tests), exactly as the old
-        // Application.Current-null guard did.
+        // Application.Current-null guard did. The WPF applier also flips the immersive
+        // dark title bar (see WpfThemeApplier.ApplyTheme).
         _services.GetService<Services.IThemeApplier>()?.ApplyTheme(value);
-
-        // Re-apply the immersive dark title bar to every currently open window.
-        // Newly opened windows pick this up via the global Window.Loaded handler.
-        Lib.UI.ImmersiveDarkMode.SetIsDark(value);
 
         if (_suppressDarkModePersist)
         {

@@ -74,5 +74,10 @@ public sealed class WpfThemeApplier(IAppLogger logger) : IThemeApplier
             Source = new Uri(themeFile, UriKind.Relative),
         };
         mergedDicts.Add(newTheme);
+
+        // Re-apply the immersive dark title bar to every currently open window (newly
+        // opened windows pick this up via the global Window.Loaded handler). Runs after
+        // the dictionary swap, mirroring the former MainViewModel ordering.
+        Lib.UI.ImmersiveDarkMode.SetIsDark(isDark);
     }
 }
