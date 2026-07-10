@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,10 +26,48 @@ public partial class UploadsView : UserControl
     // the grid back the way the developer shipped it.
     private Dictionary<string, Lib.UI.DataGridColumnVisibilityPersistence.ColumnState>? _defaultColumnState;
 
+    // The grid's collection view, owned by the head (the ViewModel is framework-free and only
+    // exposes the raw VisibleRows collection + a MatchesFilter predicate + a FilterInvalidated
+    // signal). Tracked alongside the VM it was built for so a DataContext change can unsubscribe
+    // the old VM's event before wiring the new one.
+    private ICollectionView? _rowsView;
+    private UploadsViewModel? _wiredViewModel;
+
     public UploadsView()
     {
         InitializeComponent();
+        DataContextChanged += UploadsView_DataContextChanged;
     }
+
+    /// <summary>
+    /// Builds the DataGrid's collection view in the head. <see cref="CollectionViewSource.GetDefaultView(object)"/>
+    /// returns the single shared default view for <see cref="UploadsViewModel.VisibleRows"/> — the same
+    /// instance the ViewModel used to create internally — so filtering/sorting semantics are unchanged.
+    /// The head assigns the VM's <see cref="UploadsViewModel.MatchesFilter"/> predicate as the view's
+    /// filter and refreshes the view whenever the VM raises <see cref="UploadsViewModel.FilterInvalidated"/>.
+    /// </summary>
+    private void UploadsView_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_wiredViewModel is not null)
+        {
+            _wiredViewModel.FilterInvalidated -= ViewModel_FilterInvalidated;
+            _wiredViewModel = null;
+            _rowsView = null;
+        }
+
+        if (DataContext is not UploadsViewModel vm)
+        {
+            return;
+        }
+
+        _rowsView = CollectionViewSource.GetDefaultView(vm.VisibleRows);
+        _rowsView.Filter = vm.MatchesFilter;
+        vm.FilterInvalidated += ViewModel_FilterInvalidated;
+        _wiredViewModel = vm;
+        uploadsGrid.ItemsSource = _rowsView;
+    }
+
+    private void ViewModel_FilterInvalidated(object? sender, EventArgs e) => _rowsView?.Refresh();
 
     private void ExpandToggle_Click(object sender, RoutedEventArgs e)
     {

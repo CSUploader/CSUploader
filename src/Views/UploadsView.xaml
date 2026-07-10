@@ -174,7 +174,6 @@
                   ContextMenuOpening="UploadsGrid_ContextMenuOpening"
                   beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
                   beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
-                  ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   IsReadOnly="False"
                   CanUserAddRows="False"

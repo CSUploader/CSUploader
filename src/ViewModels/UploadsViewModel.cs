@@ -8,7 +8,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -128,24 +127,20 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private string filterText = string.Empty;
 
     /// <summary>
-    /// Wraps <see cref="VisibleRows"/> with a name-filter applied on top of <see cref="FilterText"/>.
-    /// Bound by the DataGrid as its ItemsSource.
+    /// Raised whenever the filter result may have changed: when <see cref="FilterText"/> is edited and
+    /// whenever <see cref="VisibleRows"/> is rebuilt. Each head re-evaluates its collection view's
+    /// filter in response (WPF: <c>ICollectionView.Refresh</c>). This replaces the VM owning an
+    /// <c>ICollectionView</c> directly, so the ViewModel stays framework-free.
     /// </summary>
-    public ICollectionView FilteredRows
-    {
-        get
-        {
-            if (field is null)
-            {
-                field = CollectionViewSource.GetDefaultView(VisibleRows);
-                field.Filter = MatchesFilter;
-            }
+    public event EventHandler? FilterInvalidated;
 
-            return field;
-        }
-    }
-
-    private bool MatchesFilter(object item)
+    /// <summary>
+    /// The name-filter predicate applied on top of <see cref="FilterText"/> — each head assigns it to
+    /// its native collection view's filter (WPF: <c>ICollectionView.Filter</c>). Package rows match on
+    /// package name and file rows on file name (case-insensitive, trimmed); an empty or whitespace
+    /// filter matches every row.
+    /// </summary>
+    public bool MatchesFilter(object item)
     {
         if (string.IsNullOrWhiteSpace(FilterText))
         {
@@ -162,7 +157,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         return haystack is not null && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
     }
 
-    partial void OnFilterTextChanged(string value) => FilteredRows.Refresh();
+    partial void OnFilterTextChanged(string value) => FilterInvalidated?.Invoke(this, EventArgs.Empty);
 
     // -- Summary properties for status bar --
 
@@ -298,7 +293,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             }
         }
 
-        FilteredRows.Refresh();
+        FilterInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand]
