@@ -1,0 +1,161 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using CSUploader.Lib;
+using CSUploader.Lib.Localization;
+using CSUploader.Upload;
+
+namespace CSUploader.Services;
+
+/// <summary>
+/// Avalonia implementation of <see cref="ITrayIconService"/> over the built-in
+/// <see cref="TrayIcon"/>. Mirrors the WPF head's <c>TrayIconManager</c>: visibility is driven by
+/// <see cref="AppSettings.MinimizeToTray"/> and <see cref="AppSettings.CloseAction"/> (the icon
+/// only appears when at least one routes the window into the tray); single-click and the "Show
+/// CSUploader" menu item restore the window; "Exit" shuts the app down.
+/// </summary>
+public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger logger) : IDisposable, ITrayIconService
+{
+    private static readonly Uri IconUri = new("avares://CSUploader.Avalonia/Assets/icon.ico");
+
+    private TrayIcon? _trayIcon;
+    private bool _disposed;
+
+    /// <summary>
+    /// Reads <see cref="AppSettings"/> and creates/destroys the tray icon to match. Call after
+    /// startup load and after the Settings page saves changes.
+    /// </summary>
+    public void UpdateVisibility()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        bool needIcon = settings.MinimizeToTray
+            || settings.CloseAction == CloseAction.MinimizeToTray;
+
+        if (needIcon)
+        {
+            EnsureIcon();
+        }
+        else
+        {
+            DisposeIcon();
+        }
+    }
+
+    /// <summary>
+    /// No-op until Phase 7. Avalonia's <see cref="TrayIcon"/> exposes no balloon-tip API, so the
+    /// WPF head's one-shot "we're in the tray" notification has no equivalent yet; Phase 7 routes
+    /// it through the app's own toast system (design §The Avalonia head).
+    /// </summary>
+    public void NotifyHidden()
+    {
+    }
+
+    /// <summary>
+    /// Restores the main window from minimized/hidden state and brings it to front. Safe to call
+    /// from background threads — marshals onto the UI dispatcher. Mirrors <c>TrayIconManager</c>'s
+    /// restore sequence exactly.
+    /// </summary>
+    public void ShowMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+            || desktop.MainWindow is not { } window)
+        {
+            return;
+        }
+
+        void Restore()
+        {
+            window.Show();
+            if (window.WindowState == WindowState.Minimized)
+            {
+                window.WindowState = WindowState.Normal;
+            }
+
+            window.Activate();
+            window.Topmost = true;
+            window.Topmost = false;
+            window.Focus();
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Restore();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(Restore);
+        }
+    }
+
+    private void EnsureIcon()
+    {
+        if (_trayIcon is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            using Stream iconStream = AssetLoader.Open(IconUri);
+            _trayIcon = new TrayIcon
+            {
+                Icon = new WindowIcon(iconStream),
+                ToolTipText = Localizer.Instance["Tray_Tooltip"],
+                IsVisible = true,
+            };
+            _trayIcon.Clicked += (_, _) => ShowMainWindow();
+
+            NativeMenu menu = new();
+            NativeMenuItem showItem = new(Localizer.Instance["Tray_Menu_Show"]);
+            showItem.Click += (_, _) => ShowMainWindow();
+            menu.Add(showItem);
+            menu.Add(new NativeMenuItemSeparator());
+            NativeMenuItem exitItem = new(Localizer.Instance["Tray_Menu_Exit"]);
+            exitItem.Click += (_, _) => ExitApplication();
+            menu.Add(exitItem);
+            _trayIcon.Menu = menu;
+        }
+        catch (Exception ex)
+        {
+            logger.Log(this, LogType.Error, $"Failed to create tray icon: {ex.Message}");
+            DisposeIcon();
+        }
+    }
+
+    private static void ExitApplication()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
+    }
+
+    private void DisposeIcon()
+    {
+        if (_trayIcon is null)
+        {
+            return;
+        }
+
+        _trayIcon.IsVisible = false;
+        _trayIcon.Dispose();
+        _trayIcon = null;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        DisposeIcon();
+    }
+}
