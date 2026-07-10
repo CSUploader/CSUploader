@@ -1,0 +1,139 @@
+# CSUploader WPF → Avalonia Migration — Design
+
+Date: 2026-07-10. Status: reviewed (4-lens adversarial panel, all findings incorporated; see §Review record).
+
+## Goal
+
+Replace the WPF UI of CSUploader (Windows-only .NET 10 upload manager; ~9k lines XAML/code-behind, 20 views, 8 DataGrids, WebView2 sign-in flows) with Avalonia UI at feature and visual parity, wiring in `E:\Projects\avalonia-agent-mcp` (AvaDevBridge/AvaDevMcp) so the agent can see and drive the app during development. Non-UI code (upload pipeline, DAL, services) must not regress; the existing test suite stays green after every phase.
+
+## Strategy: strangler with shared Core + two heads
+
+- Extract `CSUploader.Core` (non-UI code + purified ViewModels). The WPF head keeps building and running throughout — it is the living visual reference and the regression net.
+- Grow a new Avalonia head view-by-view, verifying each against the WPF original via bridge screenshots.
+- Delete the WPF head only after a staged, update-tested cutover.
+
+Rejected alternatives: in-place big-bang (nothing compiles until everything converts; no incremental verification; MCP can't screenshot a non-building app); Avalonia-inside-WPF interop (no supported free host).
+
+## Hard constraints
+
+- **Avalonia 11.3.18 + Avalonia.Controls.DataGrid 11.3.13** (DataGrid's 11.x line ends at 11.3.13; its dependency range allows the newer core). 11.3.18 matches AvaDevBridge's pin — the MCP dev loop is a primary requirement, and the bridge internals are spike-verified against it. Avalonia 12 is a separate later project (bridge included).
+- **Velopack continuity**: packId `CSUploader` (release.yml:62), mainExe `CSUploader.exe`, implicit `win` channel, GithubSource. The Avalonia head ships with `AssemblyName=CSUploader` and the same packId or updates break.
+- **i18n**: `Strings*.resx` are GENERATED from `docs/i18n-inventory*.md` via `scripts/md-to-resx.py`. Rule: never hand-edit or hand-merge resx; edit the md and regenerate. New/retired keys go through md → regen with temp+diff verification.
+- **LangVersion**: keep explicit (`preview`) in every new csproj (CommunityToolkit.Mvvm 8.4.x source-gen breaks on .NET 10 defaults otherwise).
+- The main working tree has uncommitted in-flight work (Buzzheavier) → migration runs in a **persistent sibling git worktree**, branch `avalonia-migration`, forked from `master`. the maintainer's tree is never touched.
+
+## End-state project layout
+
+```
+src/CSUploader.Core/       net10.0-windows; NO UseWPF. Dal, Lib (minus Lib/UI WPF files),
+                           Upload, Localization core (Localizer/LocalizedOption + resx),
+                           AppSettings, Logger, service interfaces + framework-free services,
+                           ViewModels (purified), ConfigureCoreServices + shared bootstrap.
+                           RootNamespace=CSUploader (no C# namespace churn — file moves only).
+                           InternalsVisibleTo: CSUploader.Tests, CSUploader.
+src/CSUploader.Avalonia/   Avalonia head; becomes THE app at cutover (AssemblyName=CSUploader).
+src/CSUploader.csproj      WPF head; shrinks to Views/converters/behaviors/UI services; deleted at cutover.
+tests/CSUploader.Tests     keeps referencing the WPF head until cutover (Core arrives transitively;
+                           InternalsVisibleTo from both). Retargets to Core + Avalonia head at cutover.
+tests/CSUploader.Avalonia.Tests   new: Avalonia.Headless.XUnit 11.3.18 (+ DataGrid 11.3.13 if needed).
+```
+
+Note: "no namespace churn" is a C#-only claim. ~9 WPF-head XAML files map moved namespaces via assembly-less `clr-namespace:` (MainWindow, Uploads/Uploaded/Settings/LogsView, UploadWizardWindow, ToastWindow, LogDetailsWindow ×vm; LogsView ×upload) and need `;assembly=CSUploader.Core` appended. `xmlns:loc` must KEEP resolving to the head-local LocExtension (Localizer moves to Core; LocExtension does not).
+
+## Phase 1 purification (exhaustive; WPF stays green throughout)
+
+New abstractions in Core, implemented per-head:
+
+1. **IDialogService moves to Core and goes fully async** (every member becomes Task-returning — Avalonia has no synchronous ShowDialog/StorageProvider; same day-one-async rationale as the clipboard). WPF impl wraps existing sync dialogs (`Task.FromResult`). ~25 call sites across 6 VMs + WebViewInteractiveAuthService convert to await in the per-VM purification commits.
+2. **IDialogService grows the missing dialogs** — the VMs construct WPF windows directly at 7 sites, all must go behind it:
+   - ConnectionManagerViewModel: HttpDetailsWindow (:381), ProxyTextDialog ×2 (:643, :787 — read-only and editable modes)
+   - SettingsViewModel: EditAccountWindow ×2 (:755, :1223 — edit-existing overload with InteractiveLoginAsync callback)
+   - UploadsViewModel: SpeedLimitDialog (:424)
+   - MainViewModel: UpdateProgressWindow (:143) — non-modal, `Progress<int>`-pumped → separate `IUpdateProgressSink` (open/report/close), not a dialog method.
+3. **IUiDispatcher** (BeginInvoke/InvokeAsync + timer factory) — replaces Dispatcher/DispatcherTimer in Main/Uploads/Uploaded/ConnectionManager VMs; fixes UploadsViewModel's unconditional-DispatcherTimer test hazard.
+4. **IClipboardService** (SetTextAsync).
+5. **IUiShell** — activate main window, shutdown, dialog-owner handle (opaque).
+6. **ITrayIconService** (UpdateVisibility, NotifyHidden, ShowMainWindow) — SettingsViewModel takes the WinForms-backed TrayIconManager directly (:28, :551, :568); it must be behind this interface.
+7. **IFontEnumerationService** + **IThemeApplier** — SettingsViewModel's `Fonts.SystemFontFamilies` + `Application.Current.Resources["GridFontFamily"]` writes.
+8. **UploadsViewModel sheds ICollectionView**: `FilteredRows` (public ICollectionView via CollectionViewSource.GetDefaultView + Filter, :135-147, Refresh at :166/:302) is replaced by the raw ObservableCollection + a `MatchesFilter` predicate + a filter-changed signal; EACH HEAD builds its native view (WPF CollectionViewSource / Avalonia DataGridCollectionView). UploadsView.xaml rebinds; tests asserting on FilteredRows adapt.
+9. **ToastNotificationService**: `System.Windows.Rect` → framework-free struct. **Contract: all toast geometry (work area, Top/Left/Height) is in DIPs**; the Avalonia host converts via `Screen.Scaling` both directions (Avalonia WorkingArea/Position are physical pixels). Carry over ShowActivated=False + ShowInTaskbar=False.
+10. **Shared bootstrap**: the three load-bearing OnStartup pieces OUTSIDE ConfigureServices move to a Core bootstrap both heads call: AttemptRunner.AttemptCompleted → ProxyManager.ReportResult bridge; eager UploadNotificationListener resolve; provider disposal on exit. The vestigial `AppDomain.SetData("DataDirectory", ...)` (nothing reads it; connection string is absolute) is dropped deliberately.
+11. **Tests**: Core gets `InternalsVisibleTo("CSUploader.Tests")` in the first move commit. StartupDISmokeTests splits into a Core-registration smoke test + thin head-composition test. ConverterTests stays against the WPF head until cutover (then ports to Avalonia converters); DataGridColumnVisibilityPersistenceTests stays against the head (its WPF half) until cutover; ToastNotificationServiceTests adapts to the new struct in Phase 1.
+
+**Commit discipline**: file moves are PURE RENAME commits (100% similarity, zero content edits); purification lands in separate follow-up commits. This keeps git rename detection working for merges (see §Merge protocol).
+
+## The Avalonia head
+
+- **Shell**: Program.cs (`VelopackApp.Build().Run()` first line, before AppBuilder) → App.axaml (FluentTheme base + ported tokens/themes); DI = Core ConfigureCoreServices + head registrations + shared bootstrap; TrayIcon (Avalonia built-in; UseWindowsForms dropped at cutover); ShutdownMode.OnMainWindowClose; global unhandled-exception logging (parity: none today — keep parity, just log).
+- **Bridge wiring (CI-safe)**: ProjectReference to AvaDevBridge guarded `'$(Configuration)'=='Debug' AND Exists('$(AvaDevBridgeDir)...')` with the path in a git-ignored `Directory.Build.local.props`; emit `AVA_BRIDGE` define only when the reference resolves; `#if AVA_BRIDGE this.AttachAgentBridge(o => o.EnableMutations = true)`. Bare `dotnet restore` on CI (no tooling repo, Debug default) must succeed — verified against release.yml:42-44.
+- **Agent-safety guard**: a `--agent` startup switch (forwardable via ava_launch `args`): forces AutostartUploads=Never and starts UploadScheduler globally paused — launching the app must never auto-resume persisted real uploads (PackageManager.LoadPersistedPackagesAsync honours AutostartUploads; default is OnlyIfRunningAtLastSession). Operating rules: agent drives the wizard up to but NEVER through the final start action (anonymous pipelines would really upload); dev DBs are per-bin scratch by construction (DB lives beside the exe); never copy the real CSUploader.db into a bridge-enabled build; grid data comes from a fake-data seed script (bogus credentials only); wire a trivial ISensitiveDataRedactor as belt-and-braces.
+- **Theming**: FluentTheme base; port Tokens.xaml palette/spacing as resources; Theme.Light/Dark → ThemeVariant dictionaries (runtime switch via RequestedThemeVariant replaces merged-dict swap + SystemColors.*BrushKey overrides). Re-template controls only where Fluent visibly diverges (screenshot-compared). Dark title bar: automatic on Win11; keep the DWM P/Invoke as Win10 fallback via TryGetPlatformHandle.
+- **DataGrids**: DataGridCollectionView for UploadedView grouping (prototype early — Phase 5 starts with it); editable-Order-column via BeginningEdit guard; column visibility/order/width persistence re-implemented on Avalonia column APIs; ClipboardContentBinding copy → explicit code-behind copy; custom column-header template (lock toggle + resize thumbs) re-authored; Logs zebra striping (AlternatingRowBackground has no Avalonia equivalent) via LoadingRow/UnloadingRow index-based classes (recycling-safe).
+- **Behaviors** (Phase 3 primitives, not screenshot-verifiable — interaction checklist instead): DataGridSelectionBehaviors (right-click-selects-row for context-menu targeting; clear-selection-on-empty-click) rebuilt on PointerPressed/ContextRequested — Avalonia has no PreviewMouseRightButtonDown/ContextMenuOpening; the SelectedRows-snapshot timing guarantee must be re-established at ContextRequested. AutoScrollBehavior rebuilt. UploadsView's whitespace-suppressed context menu + LogsView Enter/double-click-opens-details re-implemented.
+- **SVG icons**: Avalonia.Svg.Skia 11.3.x; vscode-icons submodule SVGs as AvaloniaResource; FileTypeIconConverter returns SvgImage.
+- **Images**: pack:// → avares://; ImageResources.xaml (~33 logos, 8 geometries) converted mechanically.
+- **Localization**: LocExtension re-authored Avalonia-idiomatically (markup extension returning a Binding to Localizer.Instance[key]; live switching preserved). Same resx, same keys.
+- **Dialogs**: StorageProvider pickers replace Ookii + Microsoft.Win32; MessageBox.Show sites → small custom message-box window (no MsBox.Avalonia dep); custom modal dialogs → `ShowDialog<T>` (async — call sites already async from Phase 1).
+- **Tray balloon tip**: Avalonia TrayIcon has no balloon API → NotifyHidden routes through the app's own toast system (consistent styling); i18n keys stay.
+- **WebView2 login**: `WebView2Host : NativeControlHost` (child HWND → CoreWebView2Environment.CreateAsync → CreateCoreWebView2ControllerAsync(hwnd)); same managed CoreWebView2 API (CookieManager, BasicAuthenticationRequested, ServerCertificateErrorDetected, ExecuteScriptAsync) so the capture/probe/proxy logic transplants. Explicit adaptation list (NOT verbatim): DispatcherTimer → Avalonia DispatcherTimer; MessageBox on init-failure → custom message box; WPF DialogResult flips + "throws once closing" race guard → Avalonia Close(result) completion plumbing rethought (single-completion guard kept); Loaded → Opened; EnsureCoreWebView2Async/WebView.Dispose → controller create/Close (user-data-folder lock release). WebViewInteractiveAuthService sheds its WPF dispatcher via IUiDispatcher.
+
+## MCP dev loop
+
+- `.mcp.json` (repo root, committed; Claude Code `mcpServers` shape) points at the PRE-BUILT exe: `E:/Projects/avalonia-agent-mcp/AvaDevMcp/bin/Release/net10.0/AvaDevMcp.exe` — no dotnet-run build latency, no MSBuild stdout polluting stdio, immune to the tooling repo's TreatWarningsAsErrors drift. One-time `dotnet build -c Release` documented; protocol-2 attach fails loudly on staleness.
+- `ava_launch` targets the BUILT app exe (agent builds via Bash first, seeing errors properly); csproj-launch only for warm iterations (30s handshake deadline).
+- This session (MCP not yet registered): `scripts/ava-drive.cs` — .NET 10 file-based console client, `#:project` reference to AvaDevProtocol (verified dependency-free). Wire shapes: request `{token, tool, args}` camelCase; response `{ok, result, error}`; ava_screenshot result `{mime, base64}` (32 MB frame cap) → decode, save PNG, Read renders it. Single-driver lock: ava-drive and a live MCP session exclude each other; the CLI releases the lock on exit.
+- **WPF reference screenshots**: DEBUG-only in-app capture hook (WPF RenderTargetBitmap → PNG via startup arg/hotkey) — NOT PrintWindow (black frames without PW_RENDERFULLCONTENT; captures chrome + physical pixels). Both sides thus produce 96-DPI render-tree client-area shots.
+- **Screenshot normalization**: pin each view's window to a fixed logical size before capture; capture light+dark where themed; always pass explicit maxWidth (e.g. 2500) to ava_screenshot for wide views (default 1600 downscales the DataGrid views).
+- **WebView2 limitation**: native child HWNDs don't appear in bridge screenshots/tree. Phase 8 verification = host window opens + navigation events fire (exposed on the login VM so ava_vm reads them); rendering + real sign-in are the maintainer's manual step.
+
+## Phases
+
+Each phase: implement → build + full suite green → MCP visual/interaction checks where applicable → reviewer → commit(s). Per-view commits; screenshot review batched per phase via a persisted HTML contact sheet (WPF|Avalonia pairs, light+dark); individual per-view sign-off only for UploadsView, SettingsView, UploadWizardWindow, UploadedView, ToastWindow, WebViewLoginWindow.
+
+- **Phase 0 — Infrastructure**: sibling worktree + branch; `git submodule update --init --recursive` in the worktree + MSBuild guard erroring on empty vscode-icons glob (both heads); `.mcp.json`; ava-drive script; md-to-resx.py `--check` mode + CI/test wiring; design doc + plan committed.
+- **Phase 1 — Core split + purification**: pure-rename move commits, then per-VM purification commits (§Phase 1 list). WPF head fully working; suite green; DI smoke split. **Merge back to master once reviewed** (see §Merge protocol).
+- **Phase 2 — Avalonia shell + WebView2 GO/NO-GO SPIKE**: project, Program/App, DI+bootstrap, theme skeleton, empty MainWindow tabs, TrayIcon, bridge wired, `--agent` guard; ava_launch + screenshot proves the loop. Then the **throwaway WebView2 spike** (gate for everything after): NativeControlHost child HWND + controller; verify (a) keyboard/typing into a real hoster login incl. a Turnstile challenge, (b) bounds sync at 125%/150% DPI + resize, (c) ShowDialog modal ownership, (d) Controller.Close() releases the user-data-folder lock, (e) CookieManager reads. **Abort criterion**: if any fails unfixably → fall back to a tiny WPF-hosted login helper process (separate exe, same IInteractiveAuthService contract) and re-scope Phase 8 accordingly; the migration continues either way — the gate decides the login architecture, not the project.
+- **Phase 3 — Primitives**: converters, LocExtension, ImageResources, SVG pipeline, theme dictionaries, shared styles, the two behaviors. Behaviors get their interaction verification when their first consuming grid ships (Phase 5), not only at the Phase 9 sweep.
+- **Phase 4 — Simple dialogs**: Confirmation/CloseAction/SpeedLimit/ProxyText/ErrorDetails/Progress/UpdateProgress/About/LogDetails/HttpDetails.
+- **Phase 5 — Medium views**: UploadedView grouping FIRST (DataGridCollectionView risk probe), LogsView (zebra striping), EditProxyWindow, EditAccountWindow.
+- **Phase 6 — Hard views**: SettingsView, UploadWizardWindow, UploadsView.
+- **Phase 7 — Shell behaviors**: ToastWindow + notifications (DIP contract), close/minimize-to-tray, balloon→toast routing, column persistence, dark-title-bar Win10 fallback.
+- **Phase 8 — WebView login**: port WebViewLoginWindow logic onto the spiked host + WebViewInteractiveAuthService; agent verifies window/navigation events; unit tests for cookie/probe logic.
+- **Phase 9 — Staged cutover**:
+  1. Parity sweep (menus, context menus, key bindings, per-grid interaction checklist: right-click targeting, empty-click clear, Delete key, Enter/double-click open, auto-scroll, settings persistence).
+  2. the maintainer's manual smoke on the Avalonia head (E2E upload + one WebView sign-in) **while the WPF head still exists**.
+  3. Cutover commits: delete WPF head; Avalonia head takes AssemblyName/packId `CSUploader`; release.yml re-pointed; README/docs; i18n --check green; final whole-diff review.
+  4. Tag last WPF commit (`last-wpf`) for emergency re-release.
+  5. Stage the release as a GitHub **prerelease** (UpdateService passes prerelease:false, so installs don't see it); verify update-in-place from a real existing install against the prerelease assets; only then promote to a full release.
+
+## Merge protocol (two-head period)
+
+- Fork from master. In-flight master work (e.g. Buzzheavier, uncommitted at fork time) lands later via `git merge master`: content edits follow pure renames automatically; new files under wholesale-moved directories (src/Upload → Core) relocate via merge-ort directory-rename detection.
+- **Phase 1 merges back to master as soon as it's reviewed** (it's WPF-green by design) so both lines share one layout, future hoster work is authored against Core paths, and mid-migration abandonment leaves master strictly better (purified VMs, async dialogs, fixed test hazard).
+- resx/i18n merge conflicts are NEVER hand-merged: merge the md, rerun scripts/md-to-resx.py, verify with --check.
+- A new hoster landing on master after Phase 3 brings a PNG + an ImageResources.xaml entry that rename detection does NOT map to the Avalonia head — merging it requires a manual avares:// ImageResources addition there (checklist item on every master merge).
+- No feature work on the migration branch; the WPF head stays authoritative for behavior.
+
+## Testing strategy
+
+- Existing suite green after every phase (regression net for split + purification).
+- New Avalonia converter/headless tests in CSUploader.Avalonia.Tests.
+- md-to-resx --check as a permanent gate (CI + local).
+- MCP-driven per-view checks: visual tree assertions, ava_vm binding probes, screenshots into phase contact sheets.
+- No live-hoster uploads by the agent, ever. One manual E2E + sign-in by the maintainer at cutover (step 2 above).
+
+## Risks (post-review)
+
+1. WebView2-in-NativeControlHost — de-risked by the Phase 2 gate with a pre-agreed fallback (WPF login helper exe).
+2. Tokens.xaml visual drift — contact-sheet comparison; "close and consistent" over pixel-perfect; reviewer arbitrates.
+3. DataGrid gaps (grouping fidelity, column persistence APIs) — UploadedView grouping prototyped first in Phase 5; fallback: ItemsControl-based grouped list.
+4. Two-head drift — early Phase-1 merge-back + merge protocol + i18n --check gate.
+5. MCP single-driver lock — serialize UI-driving work; one app instance.
+
+## Out of scope (parity-first)
+
+Single-instance enforcement, drag-drop, new features, Avalonia 12, non-Windows targets.
+
+## Review record
+
+2026-07-10 adversarial panel (feasibility, risk/ordering, completeness, dev-loop): 1 blocker (WebView spike ordering — fixed: Phase 2 gate), all majors incorporated ( VM window-construction sites, async IDialogService, ICollectionView purge, test-retarget corrections, TrayIcon abstraction + balloon decision, OnStartup bootstrap, behaviors, Buzzheavier merge protocol + early merge-back, CI-safe bridge reference, submodule guard, i18n --check, staged cutover, prebuilt-exe MCP wiring, agent-safety guard, RTB reference shots), minors folded in (xmlns edits, DIP contract, DataGrid 11.3.13 pin + zebra striping, screenshot normalization, WebView verification wording, dev-data policy).
