@@ -60,4 +60,12 @@
     </Resource>
   </ItemGroup>
 
+  <!-- A fresh worktree/clone without submodule init leaves the icons glob empty, which
+       silently ships an app with no file-type icons (a glob matching zero files is not
+       an MSBuild error). Fail the build instead. -->
+  <Target Name="EnsureVsCodeIconsSubmodule" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('..\external\vscode-icons\icons\file_type_json.svg')"
+           Text="vscode-icons submodule not initialized — run: git submodule update --init --recursive" />
+  </Target>
+
 </Project>
