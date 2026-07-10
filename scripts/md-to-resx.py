@@ -105,23 +105,30 @@ RESX_HEADER = """<?xml version="1.0" encoding="utf-8"?>
 RESX_FOOTER = "</root>\n"
 
 
+def render_resx(entries: dict[str, str]) -> str:
+    parts: list[str] = [RESX_HEADER]
+    for key, value in entries.items():
+        escaped = xml_escape(value)
+        # xml:space="preserve" so leading/trailing whitespace and embedded newlines survive round-trips.
+        parts.append(f'  <data name="{key}" xml:space="preserve">\n')
+        parts.append(f"    <value>{escaped}</value>\n")
+        parts.append("  </data>\n")
+    parts.append(RESX_FOOTER)
+    return "".join(parts)
+
+
 def write_resx(entries: dict[str, str], out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8", newline="\n") as f:
-        f.write(RESX_HEADER)
-        for key, value in entries.items():
-            escaped = xml_escape(value)
-            # xml:space="preserve" so leading/trailing whitespace and embedded newlines survive round-trips.
-            f.write(f'  <data name="{key}" xml:space="preserve">\n')
-            f.write(f"    <value>{escaped}</value>\n")
-            f.write("  </data>\n")
-        f.write(RESX_FOOTER)
+        f.write(render_resx(entries))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="path to the inventory .md file")
     parser.add_argument("output", type=Path, help="path to the .resx to write")
+    parser.add_argument("--check", action="store_true",
+                        help="verify the resx matches a regen of the md instead of writing")
     args = parser.parse_args()
 
     if not args.input.is_file():
@@ -129,6 +136,17 @@ def main() -> int:
         return 1
 
     entries = parse_md(args.input)
+    if args.check:
+        expected = render_resx(entries)
+        # Plain read_text: universal-newline mode normalizes the committed CRLF resx to LF,
+        # matching the LF render. Do NOT pass newline="" — that would defeat it.
+        actual = args.output.read_text(encoding="utf-8") if args.output.is_file() else ""
+        if actual == expected:
+            print(f"OK: {args.output} matches regen of {args.input}")
+            return 0
+        print(f"DRIFT: {args.output} does not match regen of {args.input} — "
+              f"edit the .md and regenerate; never hand-edit resx", file=sys.stderr)
+        return 1
     write_resx(entries, args.output)
     print(f"wrote {len(entries)} entries to {args.output}")
     return 0
