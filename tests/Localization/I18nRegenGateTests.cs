@@ -47,7 +47,14 @@ public class I18nRegenGateTests
         using Process? proc = TryStart(psi);
         if (proc is null)
         {
-            return; // python not on PATH — the gate still runs on any machine that has it (incl. CI)
+            // Locally a missing python just skips the gate; on CI it MUST run, so fail loudly
+            // rather than let a silent skip mask i18n drift.
+            if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+            {
+                Assert.Fail("python is required for the i18n gate on CI");
+            }
+
+            return; // python not on PATH locally — the gate still runs on any machine that has it
         }
 
         // Drain BOTH redirected streams before waiting — an undrained pipe past ~64KB

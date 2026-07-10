@@ -119,25 +119,48 @@ public class StartupDISmokeTests
     /// the head implements. The Avalonia head will lean on exactly this — Core services plus its
     /// own UI implementations. If a genuinely head-only dependency leaks into a Core registration,
     /// this fails where the full-head smoke test (which supplies real WPF implementations) would
-    /// still pass.
+    /// still pass. It also resolves the six shared ViewModels, so a VM constructor that gains a
+    /// head-only dependency outside the documented UI-interface set is caught here.
     /// </summary>
     [Fact]
     public void AddCoreServices_ResolvesCoreGraphWithoutUiRegistrations()
     {
+        _ = _velopackInit; // MainViewModel resolves IUpdateService, whose ctor queries the locator
+
         ServiceCollection services = new();
         services.AddCoreServices(Path.GetTempPath());
 
-        // Head-implemented interfaces get test doubles so the core singletons that depend on them
-        // resolve: IInteractiveAuthService feeds the captcha-gated hoster pipelines, and
-        // IToastNotificationService feeds UploadNotificationListener (resolved by WireRuntime).
+        // Stand in for every head-supplied interface the Core graph consumes. The Avalonia head
+        // registers its own implementations of exactly these. IInteractiveAuthService feeds the
+        // captcha-gated hoster pipelines and IToastNotificationService feeds UploadNotificationListener
+        // (resolved by WireRuntime); the remainder are the UI interfaces the shared ViewModels depend
+        // on (see ServiceRegistration's ViewModel comment).
         services.AddSingleton(Mock.Of<IInteractiveAuthService>());
         services.AddSingleton(Mock.Of<IToastNotificationService>());
+        services.AddSingleton(Mock.Of<IDialogService>());
+        // Real (inert without an Application) dispatcher, not a bare mock: the VM ctors call
+        // CreateTimer(...).Start(), and a mock's CreateTimer would return a null IUiTimer and NRE.
+        services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
+        services.AddSingleton(Mock.Of<IClipboardService>());
+        services.AddSingleton(Mock.Of<IThemeApplier>());
+        services.AddSingleton(Mock.Of<ITrayIconService>());
+        services.AddSingleton(Mock.Of<IFontEnumerationService>());
+        services.AddSingleton(Mock.Of<IUpdateProgressSink>());
         using ServiceProvider provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<PackageManager>());
         Assert.NotNull(provider.GetRequiredService<UploadScheduler>());
         Assert.NotNull(provider.GetRequiredService<AttemptRunner>());
         Assert.NotEmpty(provider.GetServices<IFileHosterPipeline>());
+
+        // The six shared ViewModels must resolve from Core + the head doubles alone.
+        Assert.NotNull(provider.GetRequiredService<MainViewModel>());
+        Assert.NotNull(provider.GetRequiredService<UploadsViewModel>());
+        Assert.NotNull(provider.GetRequiredService<UploadedViewModel>());
+        Assert.NotNull(provider.GetRequiredService<SettingsViewModel>());
+        Assert.NotNull(provider.GetRequiredService<ConnectionManagerViewModel>());
+        Assert.NotNull(provider.GetRequiredService<LogsViewModel>());
+
         ServiceRegistration.WireRuntime(provider); // must not throw
     }
 }

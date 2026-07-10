@@ -44,7 +44,8 @@ Conventions for writing tests in this project. Inherits everything from the root
 
 ## ViewModel tests
 
-- Mock `IDialogService` and `IAppLogger` with Moq. Set up `ShowOptOutConfirmation` to return the value the test needs.
+- Mock `IDialogService` and `IAppLogger` with Moq. `IDialogService` is fully async — set up its dialog methods with `ReturnsAsync` (e.g. `ShowOptOutConfirmationAsync`, `ShowConfirmationAsync`) to return the value the test needs.
+- ViewModels that marshal to the UI thread or create UI-thread timers take `IUiDispatcher`; construct them with `new WpfUiDispatcher()`, **not** `Mock.Of<IUiDispatcher>()`. The real dispatcher is inert without a running `Application` — `Post` is a no-op, `InvokeAsync` runs inline, and `CreateTimer` yields an inert timer — which is exactly the headless-test behaviour the VMs rely on; a bare mock would return a null timer/`Task` and NRE in the constructor. Clipboard-touching VMs take `IClipboardService`; `Mock.Of<IClipboardService>()` is fine (its async members return completed tasks).
 - For ViewModels that take `PackageManager`, construct a real one with in-memory repos and a real `UploadScheduler` — the scheduler's background loop is idle until packages are added, so it doesn't interfere with tests.
 - Invoke `[RelayCommand]` methods through their generated command (`vm.SomeCommand.ExecuteAsync(parameter)`), not via reflection.
 - Pass `IList`-style parameters as `new List<T> { ... }` to mirror what the DataGrid binding sends at runtime.
