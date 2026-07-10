@@ -22,12 +22,12 @@ public class I18nRegenGateTests
 {
     public static TheoryData<string, string> Languages => new()
     {
-        { "docs/i18n-inventory.md", "src/Resources/Strings.resx" },
-        { "docs/i18n-inventory.zh-Hans.md", "src/Resources/Strings.zh-Hans.resx" },
-        { "docs/i18n-inventory.ko.md", "src/Resources/Strings.ko.resx" },
-        { "docs/i18n-inventory.ja.md", "src/Resources/Strings.ja.resx" },
-        { "docs/i18n-inventory.vi.md", "src/Resources/Strings.vi.resx" },
-        { "docs/i18n-inventory.fil.md", "src/Resources/Strings.fil.resx" },
+        { "docs/i18n-inventory.md", "src/CSUploader.Core/Resources/Strings.resx" },
+        { "docs/i18n-inventory.zh-Hans.md", "src/CSUploader.Core/Resources/Strings.zh-Hans.resx" },
+        { "docs/i18n-inventory.ko.md", "src/CSUploader.Core/Resources/Strings.ko.resx" },
+        { "docs/i18n-inventory.ja.md", "src/CSUploader.Core/Resources/Strings.ja.resx" },
+        { "docs/i18n-inventory.vi.md", "src/CSUploader.Core/Resources/Strings.vi.resx" },
+        { "docs/i18n-inventory.fil.md", "src/CSUploader.Core/Resources/Strings.fil.resx" },
     };
 
     [Theory]

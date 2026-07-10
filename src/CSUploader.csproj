@@ -11,6 +11,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>preview</LangVersion>
+    <!-- CSUploader.Core lives at src/CSUploader.Core (nested under this project's directory),
+         so the SDK's default **/*.cs and **/*.resx globs would otherwise pull Core's sources
+         into this assembly too. Exclude the nested project's folder from all default item globs. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);CSUploader.Core\**</DefaultItemExcludes>
     <Version>0.0.6</Version>
     <AssemblyVersion>0.0.6.0</AssemblyVersion>
     <FileVersion>0.0.6.0</FileVersion>
@@ -18,24 +22,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CSUploader.Core\CSUploader.Core.csproj" />
+    <ProjectReference Include="CSUploader.Core\CSUploader.Core.csproj" />
   </ItemGroup>
 
+  <!-- EF Core, Hosting, the SQLite CVE-pins and Velopack are pure runtime libraries whose
+       assemblies now flow transitively from CSUploader.Core (see its csproj), so they no
+       longer need declaring here. CommunityToolkit.Mvvm STAYS: it ships a source generator
+       ([RelayCommand]/[ObservableProperty]), and analyzers/source-generators do NOT flow
+       transitively through a ProjectReference. The five ViewModels still in this head use it;
+       it can be dropped once they move to Core in Task 10. -->
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
     <PackageReference Include="Ookii.Dialogs.Wpf" Version="5.0.1" />
     <PackageReference Include="SharpVectors.Reloaded" Version="1.8.5" />
-    <!-- EF Core 10 pulls SQLitePCLRaw.bundle_e_sqlite3 2.1.11 transitively, which drags in the
-         deprecated, vulnerable SQLitePCLRaw.lib.e_sqlite3 2.1.11 (CVE-2025-6965 / NU1903). Bundle 3.0.2
-         renamed that native package to SourceGear.sqlite3 (SQLite 3.50.4, past the 3.50.2 fix), so
-         pinning the bundle directly drops the flagged package from the restore graph. -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
-    <PackageReference Include="SourceGear.sqlite3" Version="3.50.4.5" />
-    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>
