@@ -11,15 +11,29 @@ using System.Net.Sockets;
 using System.Text.Json;
 using AvaDevProtocol;
 
-string? tool = args.FirstOrDefault(a => !a.StartsWith('-'));
+// Strip "--out <value>" first, THEN derive tool/json-args from the remainder — otherwise
+// the value after --out is mistaken for the json-args (or even the tool name).
+string outPath = "shot.png";
+List<string> rest = [];
+for (int i = 0; i < args.Length; i++)
+{
+    if (args[i] == "--out" && i + 1 < args.Length)
+    {
+        outPath = args[++i];
+        continue;
+    }
+
+    rest.Add(args[i]);
+}
+
+string? tool = rest.FirstOrDefault(a => !a.StartsWith('-'));
 if (tool is null)
 {
     Console.Error.WriteLine("usage: ava-drive <tool> [json-args] [--out file]");
     return 2;
 }
 
-string? argsJson = args.Skip(Array.IndexOf(args, tool) + 1).FirstOrDefault(a => !a.StartsWith('-'));
-string outPath = args.SkipWhile(a => a != "--out").Skip(1).FirstOrDefault() ?? "shot.png";
+string? argsJson = rest.Skip(rest.IndexOf(tool) + 1).FirstOrDefault(a => !a.StartsWith('-'));
 
 HandshakeInfo? hs = HandshakeFile.Discover().OrderByDescending(h => h.StartedUtc).FirstOrDefault();
 if (hs is null)
@@ -49,7 +63,7 @@ Dictionary<string, object?> request = new()
 };
 await FrameProtocol.WriteAsync(
     stream,
-    JsonSerializer.SerializeToUtf8Bytes(request, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }),
+    JsonSerializer.SerializeToUtf8Bytes(request),
     CancellationToken.None);
 byte[] payload = await FrameProtocol.ReadAsync(stream, FrameProtocol.MaxResponse, CancellationToken.None);
 

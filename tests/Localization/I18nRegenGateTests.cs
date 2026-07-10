@@ -50,7 +50,10 @@ public class I18nRegenGateTests
             return; // python not on PATH — the gate still runs on any machine that has it (incl. CI)
         }
 
+        // Drain BOTH redirected streams before waiting — an undrained pipe past ~64KB
+        // deadlocks the child (stdout is one OK line today, but cheap insurance).
         string stderr = proc.StandardError.ReadToEnd();
+        proc.StandardOutput.ReadToEnd();
         Assert.True(proc.WaitForExit(30_000), "md-to-resx.py --check timed out");
         Assert.True(proc.ExitCode == 0, $"i18n drift for {resx}: {stderr}");
     }
