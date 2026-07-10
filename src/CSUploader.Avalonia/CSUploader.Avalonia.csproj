@@ -43,6 +43,12 @@
          Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- File-type SVG rendering (FileTypeIconConverter → cached SvgImage). 11.3.0 is the only
+         11.3-line release; its Avalonia floor (>= 11.3.0) accepts our 11.3.18. It depends on
+         Svg.Skia 3.0.2 + SkiaSharp >= 3.116.1, which UPLIFTS the app's SkiaSharp above
+         Avalonia.Skia 11.3.18's own 2.88.9 build — verified to render at runtime (live Skia proof),
+         not by faith. Pre-agreed fallback if the uplift breaks rendering: Avalonia.Svg.Skia 11.2.0.3. -->
+    <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
     <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -70,6 +76,21 @@
          harmlessly, exactly as the WPF head embeds the whole folder. -->
     <AvaloniaResource Include="..\Properties\Images\**\*" Link="Assets\Images\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- vscode-icons file-type SVGs from the git submodule, embedded as AvaloniaResource so
+         Svg.Skia renders them by avares URI (avares://…/FileTypes/<name>.svg). Mirror of the WPF
+         head's glob (src/CSUploader.csproj), one directory deeper — hence ..\..\external. -->
+    <AvaloniaResource Include="..\..\external\vscode-icons\icons\*.svg" Link="FileTypes\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- A fresh worktree/clone without submodule init leaves the glob empty, which silently ships an
+       app with no file-type icons (a glob matching zero files is not an MSBuild error). Fail the
+       build instead — same guard as the WPF head. -->
+  <Target Name="EnsureVsCodeIconsSubmodule" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('..\..\external\vscode-icons\icons\file_type_json.svg')"
+           Text="vscode-icons submodule not initialized — run: git submodule update --init --recursive" />
+  </Target>
 
   <ItemGroup>
     <InternalsVisibleTo Include="CSUploader.Avalonia.Tests" />
