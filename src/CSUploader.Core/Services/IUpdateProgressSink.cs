@@ -7,11 +7,13 @@ namespace CSUploader.Services;
 
 /// <summary>
 /// Non-modal update-download progress surface. WPF: <c>UpdateProgressWindow</c>;
-/// the Avalonia head supplies its own. Open/SetStatus/Report/Close are UI-thread-safe.
+/// the Avalonia head supplies its own. All members must be called on the UI thread (see remarks).
 /// </summary>
 /// <remarks>
-/// Mirrors the WPF update flow exactly: <see cref="Open"/> shows the window,
-/// <see cref="SetStatus"/> swaps the status line (downloading / restarting / failed),
+/// Contract: callers must be on the UI thread. <see cref="Open"/> replaces any prior surface and
+/// is called at most once per install attempt; <see cref="Report"/> and <see cref="SetStatus"/>
+/// target the most recently opened surface. Mirrors the WPF update flow: <see cref="Open"/> shows
+/// the window, <see cref="SetStatus"/> swaps the status line (downloading / restarting / failed),
 /// and <see cref="Report"/> pumps the progress bar. The WPF flow never programmatically
 /// <see cref="Close"/>s the window — on success the process restarts, on failure the window
 /// stays open showing the error — so <see cref="Close"/> exists for the Avalonia head but is

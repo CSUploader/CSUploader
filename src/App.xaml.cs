@@ -67,7 +67,6 @@ public partial class App : Application
         services.AddSingleton<IUpdateProgressSink, WpfUpdateProgressSink>();
         services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
         services.AddSingleton<IClipboardService, WpfClipboardService>();
-        services.AddSingleton<IUiShell, WpfUiShell>();
         services.AddSingleton<IFontEnumerationService, WpfFontEnumerationService>();
         services.AddSingleton<IThemeApplier, WpfThemeApplier>();
         services.AddSingleton<IInteractiveAuthService, WebViewInteractiveAuthService>();

@@ -819,9 +819,20 @@ public partial class UploadWizardViewModel : ObservableObject
         }
 
         string[] availableHosters = [hoster.FileHosterName];
+
+        // The account dialog's "Sign in" delegate is supplied here rather than resolved inside
+        // DialogService. Constructor-injecting IAccountVerifier into DialogService would close a
+        // DI cycle (DialogService → IAccountVerifier → IFileHosterRegistry → IFileHosterPipeline[]
+        // → ExLoadPipeline → IInteractiveAuthService → WebViewInteractiveAuthService → IDialogService)
+        // that MS.Extensions.DependencyInjection's cycle detector can't see — it closes through
+        // sp.GetServices<IFileHosterPipeline>() inside a factory, which the detector treats as opaque,
+        // so startup loops instead of throwing. The cycle only bites during singleton ctor-graph
+        // construction; this VM is `new`-constructed after the graph is built and already holds the
+        // verifier, so supplying the delegate at command time is safe.
         FileHosterLoginDto? result = await dialogService.ShowAddAccountDialogAsync(
             hoster.FileHosterName,
             availableHosters,
+            h => _accountVerifier!.CheckAsync(h, string.Empty, string.Empty, null),
             Localizer.Instance["EditAccount_AddTitle"]);
 
         if (result is null)

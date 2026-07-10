@@ -13,34 +13,34 @@ namespace CSUploader.Services;
 public interface IToastHost
 {
     /// <summary>
-    /// The toast's height in DIPs. Production reads this from the WPF window after layout;
-    /// tests can return a fixed value.
+    /// The toast's height in DIPs. Must return the final DIP height before <see cref="Show"/>
+    /// (fixed-size or pre-measured), because the service positions the stack from it.
     /// </summary>
-    public double Height { get; }
+    double Height { get; }
 
     /// <summary>
     /// Top-edge position in screen coordinates. The service writes this when stacking
     /// or re-flowing toasts.
     /// </summary>
-    public double Top { get; set; }
+    double Top { get; set; }
 
     /// <summary>
     /// Left-edge position in screen coordinates.
     /// </summary>
-    public double Left { get; set; }
+    double Left { get; set; }
 
     /// <summary>
     /// Raised when the toast is dismissed (auto-timeout, close button, or click).
     /// </summary>
-    public event EventHandler? Closed;
+    event EventHandler? Closed;
 
     /// <summary>
     /// Shows the toast non-modally.
     /// </summary>
-    public void Show();
+    void Show();
 
     /// <summary>
     /// Closes the toast.
     /// </summary>
-    public void Close();
+    void Close();
 }

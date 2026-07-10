@@ -67,7 +67,7 @@ public class UploadWizardViewModelTests : IDisposable
     public async Task AddAccountForHoster_WhenDialogCancelled_LeavesRowEmpty()
     {
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()))
+        dialog.Setup(d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<Func<string, Task<AccountCheckResult>>>(), It.IsAny<string?>()))
             .ReturnsAsync((FileHosterLoginDto?)null);
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
@@ -93,7 +93,7 @@ public class UploadWizardViewModelTests : IDisposable
         };
 
         Mock<IDialogService> dialog = new();
-        dialog.Setup(d => d.ShowAddAccountDialogAsync("Rapidgator", It.IsAny<string[]>(), It.IsAny<string?>()))
+        dialog.Setup(d => d.ShowAddAccountDialogAsync("Rapidgator", It.IsAny<string[]>(), It.IsAny<Func<string, Task<AccountCheckResult>>>(), It.IsAny<string?>()))
             .ReturnsAsync(saved);
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
@@ -123,7 +123,7 @@ public class UploadWizardViewModelTests : IDisposable
         await vm.AddAccountForHosterCommand.ExecuteAsync(null);
 
         dialog.Verify(
-            d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<string?>()),
+            d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<Func<string, Task<AccountCheckResult>>>(), It.IsAny<string?>()),
             Times.Never);
     }
 

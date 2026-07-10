@@ -180,7 +180,7 @@ public static class ServiceRegistration
         // ViewModels. Now framework-free, so both heads share these registrations; each head
         // supplies its own implementations of the UI interfaces the VMs depend on (IDialogService,
         // IUiDispatcher, IClipboardService, IThemeApplier, ITrayIconService, IFontEnumerationService,
-        // IUpdateProgressSink, IUiShell), which is why those registrations stay head-side.
+        // IUpdateProgressSink), which is why those registrations stay head-side.
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<UploadsViewModel>();
         services.AddSingleton<UploadedViewModel>();

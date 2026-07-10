@@ -9,22 +9,19 @@ using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Upload;
 using CSUploader.Views;
-using Microsoft.Extensions.DependencyInjection;
 using Ookii.Dialogs.Wpf;
 
 namespace CSUploader.Services;
 
-// IAccountVerifier is resolved lazily via IServiceProvider rather than constructor-injected.
-// Direct injection would close a DI cycle: DialogService → IAccountVerifier → IFileHosterRegistry
-// → IFileHosterPipeline[] → ExLoadPipeline → IInteractiveAuthService → WebViewInteractiveAuthService
-// → IDialogService. MS.Extensions.DependencyInjection's cycle detector only sees constructor-arg
-// edges; the cycle here closes through `sp.GetServices<IFileHosterPipeline>()` inside the
-// IFileHosterRegistry factory, which the detector treats as opaque — so instead of throwing on
-// startup it loops infinitely (no main window, process pegs CPU). Resolving the verifier at
-// click-time (the Sign-in button) breaks the cycle: by then the graph is fully built and the
-// lookup is a simple lazy fetch.
-public class DialogService(AppSettings settings, SettingRepository settingRepository, IServiceProvider services) : IDialogService
+public class DialogService(AppSettings settings, SettingRepository settingRepository)
+    : DialogServiceBase(settings, settingRepository), IDialogService
 {
+    // Parent every dialog to the currently-active window rather than the main window: a dialog
+    // opened from the modal upload wizard must own the wizard (WPF thread-modality would otherwise
+    // render the child invisible / off-centre). Mirrors ConfirmationDialog's owner resolution.
+    private static Window? ActiveOwner =>
+        Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+
     // These stay fully synchronous under the covers — WPF dialogs are modal and block on the
     // UI thread. The interface is Task-returning only so the Avalonia head (whose dialogs are
     // genuinely async) can share it; here we wrap the completed result. No Task.Run: launching
@@ -41,30 +38,12 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
         return Task.FromResult(result == MessageBoxResult.Yes);
     }
 
-    public Task<bool> ShowOptOutConfirmationAsync(string confirmationKey, string message, string? title = null)
+    protected override Task<(bool Confirmed, bool DontAskAgain)> ShowOptOutConfirmationCoreAsync(string message, string title)
     {
-        if (settings.SuppressedConfirmations.Contains(confirmationKey))
-        {
-            return Task.FromResult(true);
-        }
-
-        ConfirmationDialog dialog = new(message, title ?? Localizer.Instance["Common_Confirm"]);
+        ConfirmationDialog dialog = new(message, title);
         bool? result = dialog.ShowDialog();
-        if (result != true || !dialog.Confirmed)
-        {
-            return Task.FromResult(false);
-        }
-
-        if (dialog.DontAskAgain)
-        {
-            settings.SuppressedConfirmations.Add(confirmationKey);
-
-            // Fire-and-forget the DB write; if it fails the user will just be asked again
-            // on next action, which is an acceptable fallback.
-            _ = PersistSuppressedAsync();
-        }
-
-        return Task.FromResult(true);
+        bool confirmed = result == true && dialog.Confirmed;
+        return Task.FromResult((confirmed, dialog.DontAskAgain));
     }
 
     public Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null)
@@ -146,7 +125,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.FileName : null);
     }
 
-    public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, string? title = null)
+    public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null)
     {
         FileHosterLoginDto seed = new()
         {
@@ -154,17 +133,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
             AccountType = AccountType.Free,
         };
 
-        EditAccountWindow dialog = new(
-            seed,
-            availableHosters,
-            // Interactive sign-in for XFileSharing-API hosters: runs the no-API-key verify
-            // flow (captcha WebView → my_account scrape → derive key). Same call the
-            // Settings VM wires in for its own add/edit dialogs. Resolved lazily — see
-            // the class comment for why direct ctor injection would deadlock startup.
-            hoster => services.GetRequiredService<IAccountVerifier>().CheckAsync(hoster, string.Empty, string.Empty, null))
+        EditAccountWindow dialog = new(seed, availableHosters, interactiveLogin)
         {
             Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
-            Owner = Application.Current.MainWindow,
+            Owner = ActiveOwner,
         };
 
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.Result : null);
@@ -172,10 +144,10 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
 
     public Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null)
     {
-        EditProxyWindow dialog = new(seed, settings.AllowInvalidServerCertificates)
+        EditProxyWindow dialog = new(seed, Settings.AllowInvalidServerCertificates)
         {
             Title = title ?? Localizer.Instance[seed.Id == 0 ? "EditProxy_AddTitle" : "EditProxy_EditTitle"],
-            Owner = Application.Current.MainWindow,
+            Owner = ActiveOwner,
         };
 
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.Result : null);
@@ -185,7 +157,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
     {
         HttpDetailsWindow window = new(transaction)
         {
-            Owner = Application.Current?.MainWindow,
+            Owner = ActiveOwner,
         };
         window.ShowDialog();
         return Task.CompletedTask;
@@ -195,7 +167,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
     {
         ProxyTextDialog dialog = new(title, description, initialText, readOnly)
         {
-            Owner = Application.Current?.MainWindow,
+            Owner = ActiveOwner,
         };
 
         // Editable mode returns the typed text on OK / null on cancel; read-only (export) mode
@@ -207,7 +179,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
     {
         SpeedLimitDialog dialog = new(currentLimit)
         {
-            Owner = Application.Current.MainWindow,
+            Owner = ActiveOwner,
         };
 
         // Distinguish Cancel (null) from Clear (a selection whose LimitKBps is null) — the
@@ -219,7 +191,7 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
     {
         EditAccountWindow dialog = new(account, hosters, interactiveLogin)
         {
-            Owner = Application.Current.MainWindow,
+            Owner = ActiveOwner,
         };
 
         // The add flow passes an explicit title; the edit flow passes null so the window keeps
@@ -230,27 +202,5 @@ public class DialogService(AppSettings settings, SettingRepository settingReposi
         }
 
         return Task.FromResult(dialog.ShowDialog() == true ? dialog.Result : null);
-    }
-
-    private async Task PersistSuppressedAsync()
-    {
-        try
-        {
-            string value = string.Join(",", settings.SuppressedConfirmations);
-            SettingDto? existing = await settingRepository.FindByKeyAsync(SettingKey.SuppressedConfirmations);
-            if (existing is not null)
-            {
-                existing.Value = value;
-                await settingRepository.UpdateAsync(existing);
-            }
-            else
-            {
-                await settingRepository.InsertAsync(new SettingDto { Key = SettingKey.SuppressedConfirmations, Value = value });
-            }
-        }
-        catch
-        {
-            // Best-effort persistence.
-        }
     }
 }

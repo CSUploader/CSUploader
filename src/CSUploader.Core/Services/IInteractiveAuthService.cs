@@ -140,5 +140,5 @@ public interface IInteractiveAuthService
     /// concurrent calls so two simultaneous uploads on the same hoster don't pop two
     /// modal windows on top of each other.
     /// </remarks>
-    public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken);
+    Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken);
 }
