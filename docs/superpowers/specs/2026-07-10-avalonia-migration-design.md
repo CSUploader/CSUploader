@@ -51,6 +51,7 @@ New abstractions in Core, implemented per-head:
    - UploadsViewModel: SpeedLimitDialog (:424)
    - MainViewModel: UpdateProgressWindow (:143) — non-modal, `Progress<int>`-pumped → separate `IUpdateProgressSink` (open/report/close), not a dialog method.
 3. **IUiDispatcher** (BeginInvoke/InvokeAsync + timer factory) — replaces Dispatcher/DispatcherTimer in Main/Uploads/Uploaded/ConnectionManager VMs; fixes UploadsViewModel's unconditional-DispatcherTimer test hazard.
+   ⚠ Avalonia-impl note (Task 6 review, empirically probed): the WPF semantics being preserved are ASYMMETRIC — InvokeAsync's inline path throws to the awaiter, but its background path routes exceptions to DispatcherUnhandledException and the awaited Task does NOT fault; Post is a no-op when headless. The Avalonia IUiDispatcher must replicate this routing (a naive InvokeAsync that faults the Task on all paths diverges).
 4. **IClipboardService** (SetTextAsync).
 5. **IUiShell** — activate main window, shutdown, dialog-owner handle (opaque).
 6. **ITrayIconService** (UpdateVisibility, NotifyHidden, ShowMainWindow) — SettingsViewModel takes the WinForms-backed TrayIconManager directly (:28, :551, :568); it must be behind this interface.
