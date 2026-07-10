@@ -18,7 +18,11 @@ namespace CSUploader.Services;
 /// </summary>
 public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger logger) : IDisposable, ITrayIconService
 {
-    private static readonly Uri IconUri = new("avares://CSUploader.Avalonia/Assets/icon.ico");
+    // Rename-proof: derive the avares authority from the running assembly's name rather than
+    // hard-coding "CSUploader.Avalonia", so an eventual assembly rename can't silently break the
+    // tray icon lookup. typeof(App) resolves to CSUploader.App in the head assembly.
+    private static readonly Uri IconUri =
+        new($"avares://{typeof(App).Assembly.GetName().Name}/Assets/icon.ico");
 
     private TrayIcon? _trayIcon;
     private bool _disposed;

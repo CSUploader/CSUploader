@@ -49,13 +49,12 @@ public partial class App : Application
             //   2. PauseAll() so even a manually-queued file can't run: the post is buffered on
             //      the not-yet-started scheduler channel (FIFO) and drains as IsPaused=true the
             //      moment PackageManager's ctor calls Start().
-            if (desktop.Args?.Contains("--agent", StringComparer.Ordinal) == true)
+            bool isAgent = desktop.Args?.Contains("--agent", StringComparer.Ordinal) == true;
+            if (isAgent)
             {
                 AppSettings settings = _serviceProvider.GetRequiredService<AppSettings>();
                 settings.ForceAutostartUploadsNever();
                 _serviceProvider.GetRequiredService<UploadScheduler>().PauseAll();
-                _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Status,
-                    "--agent: AutostartUploads forced to Never; scheduler started paused.");
             }
 
             // Global UI-thread exception handler. AvaloniaUiDispatcher's marshaled path deliberately
@@ -79,14 +78,40 @@ public partial class App : Application
                 DataContext = _serviceProvider.GetRequiredService<MainViewModel>(),
             };
 
+            // Emit the --agent confirmation only AFTER MainViewModel is resolved: its ctor is what
+            // subscribes to IAppLogger.OnLogOutput (via LogsViewModel), so a Status line logged
+            // before this point has no listener and is silently dropped. The latch + PauseAll above
+            // must still run before MainViewModel (they gate the scheduler its PackageManager starts),
+            // so only the log — which has no ordering constraint against the scheduler — moves here.
+            if (isAgent)
+            {
+                _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Status,
+                    "--agent: AutostartUploads forced to Never; scheduler started paused.");
+            }
+
             // Mirror the WPF head's MainWindow.Loaded trigger (MainWindow.xaml.cs:40-49): hydrate the
             // ViewModel (DB init, settings/proxies/packages/uploaded), then sync the tray icon to the
             // now-loaded AppSettings. Same awaited/fire-and-forget shape (async void event handler).
             mainWindow.Opened += async (_, _) =>
             {
-                if (mainWindow.DataContext is MainViewModel viewModel)
+                try
                 {
-                    await viewModel.InitializeAsync();
+                    if (mainWindow.DataContext is MainViewModel viewModel)
+                    {
+                        await viewModel.InitializeAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Startup hydration (DB init, settings/proxies/packages load) failed. Surface it
+                    // instead of leaving a half-initialized window silently up: log it and mark the
+                    // title so the failure is visible. Skip the post-init steps below (tray sync,
+                    // spike) — they assume a hydrated ViewModel. Phase 4 upgrades this to a modal
+                    // error dialog once IDialogService is real.
+                    _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Error,
+                        $"Startup initialization failed: {ex}");
+                    mainWindow.Title = "CSUploader — startup failed (see logs)";
+                    return;
                 }
 
                 _serviceProvider.GetRequiredService<ITrayIconService>().UpdateVisibility();
@@ -110,7 +135,10 @@ public partial class App : Application
             // Attaching here subscribes to desktop.Startup, which fires after this method returns.
             this.AttachAgentBridge(o =>
             {
-                o.EnableMutations = true;
+                // Read-only bridge inspection for casual Debug runs; mutations (ava_action driving
+                // controls) require the guarded --agent mode, which also applied the latch + PauseAll
+                // above — so nothing an agent clicks can kick off a real upload.
+                o.EnableMutations = isAgent;
                 o.Redactor = new Diagnostics.BridgeRedactor();
             });
 #endif

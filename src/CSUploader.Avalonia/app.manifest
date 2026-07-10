@@ -2,10 +2,21 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="CSUploader.Avalonia"/>
 
-  <!-- Windows supportedOS declaration. REQUIRED for Avalonia's Win32 NativeControlHost: without
+  <!-- Run at the invoking user's privilege level; never silently elevate. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!-- Windows supportedOS declaration. REQUIRED by Avalonia's Win32 NativeControlHost: without
        it, Win32NativeControlHost.DumbWindow (the child-window attachment surface WebView2 is
        parented into) fails to create ("Application manifest with supported OS list might be
-       required"). The WPF head gets this implicitly; a fresh Avalonia head must declare it.
+       required"). This is a NativeControlHost/DumbWindow requirement, NOT a WPF one — ordinary WPF
+       windows don't need supportedOS and WPF doesn't declare it implicitly; the constraint is
+       specific to the DumbWindow host surface this Avalonia head uses for WebView2.
        DPI awareness stays PROGRAMMATIC (Avalonia sets PerMonitorV2 via Win32PlatformOptions),
        matching the default Avalonia app template — do not add a <dpiAware> section here. -->
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

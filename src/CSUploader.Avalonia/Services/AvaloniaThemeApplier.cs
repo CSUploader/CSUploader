@@ -16,7 +16,9 @@ public sealed class AvaloniaThemeApplier : IThemeApplier
 
     public void ApplyTheme(bool isDark)
     {
-        // TODO(phase3): swap the light/dark theme dictionary at runtime.
+        // TODO(phase3): set Application.RequestedThemeVariant to Light/Dark and let the app's
+        // ThemeVariant token dictionaries follow — the Avalonia mechanism, NOT a merged-dictionary
+        // swap (that is the WPF head's WpfThemeApplier).
         // TODO(phase7): apply the immersive dark window chrome to open/new windows.
     }
 }

@@ -21,10 +21,11 @@ public interface IThemeApplier
     void ApplyGridFont(string family, double size);
 
     /// <summary>
-    /// Swaps the light/dark theme resource dictionary at runtime. Mirrors the former
-    /// <c>MainViewModel.ApplyTheme</c>: removes the current Theme.Light/Theme.Dark merged
-    /// dictionary and merges the other. (App.xaml merges Theme.Light at startup; this handles
-    /// the user toggling the theme afterwards.)
+    /// Applies the light or dark theme to the app's live resource surface so already-open windows
+    /// and controls re-render. The contract is head-agnostic; each head owns its own mechanism: the
+    /// WPF head swaps a Theme.Light/Theme.Dark merged dictionary, while the Avalonia head sets
+    /// <c>Application.RequestedThemeVariant</c> and lets its ThemeVariant token dictionaries follow.
+    /// Handles the user toggling the theme after startup.
     /// </summary>
     void ApplyTheme(bool isDark);
 }

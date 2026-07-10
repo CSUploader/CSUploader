@@ -4,7 +4,7 @@
         Title="{Binding WindowTitle}"
         Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
-        Icon="avares://CSUploader.Avalonia/Assets/icon.ico">
+        Icon="/Assets/icon.ico">
   <!-- TODO(phase3): loc:Loc headers; TODO(phase5/6): real views -->
   <TabControl SelectedIndex="{Binding SelectedTabIndex}">
     <TabItem Header="Uploads">
