@@ -64,6 +64,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     private readonly SettingRepository? _settingRepo;
     private readonly ProxyManager _proxyManager;
     private readonly IDialogService _dialogService;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly IAppLogger _logger;
     private readonly AppSettings? _appSettings;
 
@@ -78,6 +79,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         ProxyManager proxyManager,
         IDialogService dialogService,
         IAppLogger logger,
+        IUiDispatcher uiDispatcher,
         SettingRepository? settingRepo = null,
         AppSettings? appSettings = null)
     {
@@ -85,6 +87,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
         _settingRepo = settingRepo;
         _proxyManager = proxyManager;
         _dialogService = dialogService;
+        _uiDispatcher = uiDispatcher;
         _logger = logger;
         _appSettings = appSettings;
 
@@ -211,15 +214,9 @@ public partial class ConnectionManagerViewModel : ObservableObject
             }
         }
 
-        System.Windows.Threading.Dispatcher? dispatcher = System.Windows.Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            Apply();
-        }
-        else
-        {
-            dispatcher.BeginInvoke(Apply);
-        }
+        // InvokeAsync runs Apply inline when already on the UI thread (or headless) and
+        // marshals it otherwise — the same fast-path/BeginInvoke split this used to inline.
+        _ = _uiDispatcher.InvokeAsync(Apply);
     }
 
     [RelayCommand]

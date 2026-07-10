@@ -58,7 +58,7 @@ public class ConnectionManagerViewModelTests : IDisposable
     }
 
     private ConnectionManagerViewModel CreateVm() =>
-        new(_repo, _manager, MakeDialogWithEchoingProxyAdd(), Mock.Of<IAppLogger>());
+        new(_repo, _manager, MakeDialogWithEchoingProxyAdd(), Mock.Of<IAppLogger>(), new WpfUiDispatcher());
 
     [Fact]
     public async Task AddCommand_OpensEditDialog_AppendsRowOnlyOnSave()
@@ -77,7 +77,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         dialog.SetupSequence(d => d.ShowEditProxyDialogAsync(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
             .ReturnsAsync(editedSeed)
             .ReturnsAsync((ProxySettingDto?)null);
-        ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
+        ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>(), new WpfUiDispatcher());
 
         // First click: dialog returns Save → row appears with the user-entered values.
         await vm.AddCommand.ExecuteAsync(null);
@@ -265,7 +265,7 @@ public class ConnectionManagerViewModelTests : IDisposable
                     ConfirmationKeys.RemoveProxy, It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true));
 
-        ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>());
+        ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>(), new WpfUiDispatcher());
         await vm.AddCommand.ExecuteAsync(null);
         await vm.AddCommand.ExecuteAsync(null);
         await vm.AddCommand.ExecuteAsync(null);
@@ -292,7 +292,7 @@ public class ConnectionManagerViewModelTests : IDisposable
                     ConfirmationKeys.RemoveProxy, It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(false));
 
-        ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>());
+        ConnectionManagerViewModel vm = new(_repo, _manager, dialog, Mock.Of<IAppLogger>(), new WpfUiDispatcher());
         await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].TestStatus = "Failed: dead";
         vm.Proxies[0].TestOutcome = ProxyTestOutcome.Failed;
@@ -308,7 +308,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         Mock<IDialogService> dialog = new();
         dialog.Setup(d => d.ShowEditProxyDialogAsync(It.IsAny<ProxySettingDto>(), It.IsAny<string?>()))
             .ReturnsAsync((ProxySettingDto seed, string? _) => seed);
-        ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>());
+        ConnectionManagerViewModel vm = new(_repo, _manager, dialog.Object, Mock.Of<IAppLogger>(), new WpfUiDispatcher());
         await vm.AddCommand.ExecuteAsync(null);
         vm.Proxies[0].TestStatus = "OK 100ms";
         vm.Proxies[0].TestOutcome = ProxyTestOutcome.Ok;
@@ -412,7 +412,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         AppSettings settings = new();
         ConnectionManagerViewModel vm = new(
             _repo, _manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
-            new SettingRepository(_factory), settings);
+            new WpfUiDispatcher(), new SettingRepository(_factory), settings);
 
         await vm.LoadAsync();
         vm.ProxiesEnabled = false;
@@ -432,7 +432,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         AppSettings settings = new();
         ConnectionManagerViewModel vm = new(
             _repo, _manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
-            new SettingRepository(_factory), settings);
+            new WpfUiDispatcher(), new SettingRepository(_factory), settings);
 
         await vm.LoadAsync();
         vm.AutoDisableFailingProxies = false;
@@ -452,7 +452,7 @@ public class ConnectionManagerViewModelTests : IDisposable
         AppSettings settings = new();
         ConnectionManagerViewModel vm = new(
             _repo, _manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
-            new SettingRepository(_factory), settings);
+            new WpfUiDispatcher(), new SettingRepository(_factory), settings);
 
         await vm.LoadAsync();
         Assert.False(vm.AllowInvalidServerCertificates); // default

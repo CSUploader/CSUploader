@@ -59,6 +59,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton<ProxyManager>();
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
+        sc.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
         sc.AddSingleton<SettingsViewModel>();
@@ -211,6 +212,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<ProxyManager>());
         sc.AddSingleton(_services.GetRequiredService<IDialogService>());
         sc.AddSingleton(_services.GetRequiredService<IAccountVerifier>());
+        sc.AddSingleton(_services.GetRequiredService<IUiDispatcher>());
         sc.AddSingleton(_services.GetRequiredService<UploadsViewModel>());
         sc.AddSingleton(_services.GetRequiredService<UploadedViewModel>());
         sc.AddSingleton(_services.GetRequiredService<SettingsViewModel>());

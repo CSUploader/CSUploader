@@ -252,7 +252,7 @@ public class UploadedViewModelTests : IDisposable
     }
 
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
-        new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>());
+        new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>(), new WpfUiDispatcher());
 
     private async Task<int> InsertPackageAsync(string name)
     {

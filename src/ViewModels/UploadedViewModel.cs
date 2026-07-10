@@ -29,6 +29,7 @@ public partial class UploadedViewModel : ObservableObject
     private readonly UploadPackageRepository _uploadPackageRepository;
     private readonly UploadPackageFileRepository _uploadPackageFileRepository;
     private readonly IAppLogger _logger;
+    private readonly IUiDispatcher _uiDispatcher;
 
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
@@ -48,12 +49,14 @@ public partial class UploadedViewModel : ObservableObject
         PackageManager packageManager,
         IDialogService dialogService,
         IAppLogger logger,
+        IUiDispatcher uiDispatcher,
         SettingRepository? settingRepo = null)
     {
         _uploadPackageRepository = uploadPackageRepository;
         _uploadPackageFileRepository = uploadPackageFileRepository;
         DialogServiceForView = dialogService;
         _logger = logger;
+        _uiDispatcher = uiDispatcher;
         SettingRepo = settingRepo;
         packageManager.PackageCompleted += OnPackageCompleted;
         packageManager.FileCompleted += OnFileCompleted;
@@ -305,7 +308,7 @@ public partial class UploadedViewModel : ObservableObject
 
     private void RefreshOnUiThread()
     {
-        Application.Current?.Dispatcher.BeginInvoke(async () =>
+        _uiDispatcher.Post(async () =>
         {
             try
             {

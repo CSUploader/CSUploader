@@ -65,6 +65,7 @@ public partial class App : Application
         // UI services (WPF-specific implementations of Core interfaces)
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IUpdateProgressSink, WpfUpdateProgressSink>();
+        services.AddSingleton<IUiDispatcher, WpfUiDispatcher>();
         services.AddSingleton<IInteractiveAuthService, WebViewInteractiveAuthService>();
         services.AddSingleton<TrayIconManager>();
         services.AddSingleton<IToastWindowFactory, DefaultToastWindowFactory>();
@@ -73,7 +74,7 @@ public partial class App : Application
             sp.GetRequiredService<IToastWindowFactory>(),
             workAreaProvider: () => SystemParameters.WorkArea,
             activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
-            dispatchToUi: action => Current?.Dispatcher.BeginInvoke(action)));
+            dispatchToUi: sp.GetRequiredService<IUiDispatcher>().Post));
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

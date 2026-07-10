@@ -9,7 +9,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows.Data;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -24,7 +23,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 {
     private readonly PackageManager _packageManager;
     private readonly AppSettings _settings;
-    private readonly DispatcherTimer _refreshTimer;
+    private readonly IUiDispatcher _uiDispatcher;
+    private readonly IUiTimer _refreshTimer;
     private bool _disposed;
 
     /// <summary>
@@ -39,21 +39,18 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// </summary>
     internal IDialogService DialogServiceForView { get; }
 
-    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, SettingRepository? settingRepo = null)
+    public UploadsViewModel(PackageManager packageManager, AppSettings settings, IDialogService dialogService, IUiDispatcher uiDispatcher, SettingRepository? settingRepo = null)
     {
         _packageManager = packageManager;
         _settings = settings;
+        _uiDispatcher = uiDispatcher;
         DialogServiceForView = dialogService;
         SettingRepo = settingRepo;
         _packageManager.PackageAdded += PackageManager_PackageAdded;
         _packageManager.FileCompleted += PackageManager_FileCompleted;
         _packageManager.PackageCompleted += PackageManager_PackageCompleted;
 
-        _refreshTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(200),
-        };
-        _refreshTimer.Tick += RefreshTimer_Tick;
+        _refreshTimer = _uiDispatcher.CreateTimer(TimeSpan.FromMilliseconds(200), RefreshTimerTick);
         _refreshTimer.Start();
     }
 
@@ -747,7 +744,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => RemoveFileAndPruneEmptyPackage(file));
+        _uiDispatcher.Post(() => RemoveFileAndPruneEmptyPackage(file));
     }
 
     private void PackageManager_PackageCompleted(object? sender, Package package)
@@ -767,7 +764,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             }
         }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        _uiDispatcher.Post(() =>
         {
             PackageFile[] files = [.. package];
             _packageManager.RemovePackage(package);
@@ -782,7 +779,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        _uiDispatcher.Post(() =>
         {
             foreach (Package package in e.Packages)
             {
@@ -801,7 +798,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     {
         if (e.PropertyName == nameof(Package.IsExpanded) && sender is Package package)
         {
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            _uiDispatcher.Post(() =>
             {
                 if (package.IsExpanded)
                 {
@@ -822,7 +819,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        _uiDispatcher.Post(() =>
         {
             if (package.IsExpanded)
             {
@@ -868,7 +865,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void RefreshTimer_Tick(object? sender, EventArgs e)
+    private void RefreshTimerTick()
     {
         // Have each Package (and its files) raise PropertyChanged for display props.
         // This updates cells in place without affecting row state.

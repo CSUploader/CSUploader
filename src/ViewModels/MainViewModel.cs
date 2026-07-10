@@ -5,7 +5,6 @@
 
 using System.Collections.ObjectModel;
 using System.Windows;
-using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -25,7 +24,8 @@ public partial class MainViewModel : ObservableObject
     private readonly IAppLogger _logger;
     private readonly IUpdateService _updateService;
     private readonly Services.IUpdateProgressSink _updateProgressSink;
-    private readonly DispatcherTimer? _updateTimer;
+    private readonly Services.IUiDispatcher _uiDispatcher;
+    private readonly Services.IUiTimer _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
 
@@ -62,6 +62,7 @@ public partial class MainViewModel : ObservableObject
         _logger = services.GetRequiredService<IAppLogger>();
         _updateService = services.GetRequiredService<IUpdateService>();
         _updateProgressSink = services.GetRequiredService<Services.IUpdateProgressSink>();
+        _uiDispatcher = services.GetRequiredService<Services.IUiDispatcher>();
 
         UploadsViewModel = services.GetRequiredService<UploadsViewModel>();
         UploadedViewModel = services.GetRequiredService<UploadedViewModel>();
@@ -79,16 +80,10 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(WindowTitle));
         };
 
-        // DispatcherTimer is null when the WPF dispatcher isn't running (e.g. unit tests).
-        if (Application.Current?.Dispatcher is { } dispatcher)
-        {
-            _updateTimer = new DispatcherTimer(DispatcherPriority.Background, dispatcher)
-            {
-                Interval = UpdateCheckInterval,
-            };
-            _updateTimer.Tick += async (_, _) => await CheckForUpdatesAsync().ConfigureAwait(false);
-            _updateTimer.Start();
-        }
+        // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
+        // so this stays a no-op there just as the old Application.Current guard did.
+        _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync());
+        _updateTimer.Start();
     }
 
     /// <summary>
@@ -109,7 +104,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         _availableUpdate = info;
-        await DispatchAsync(() =>
+        await _uiDispatcher.InvokeAsync(() =>
         {
             IsUpdateAvailable = info is not null;
             AvailableVersion = info?.NewVersion;
@@ -118,18 +113,6 @@ public partial class MainViewModel : ObservableObject
                 _logger.Log(this, LogType.Status, $"Update available: v{info.NewVersion} (current v{_updateService.CurrentVersion})");
             }
         });
-    }
-
-    private static Task DispatchAsync(Action action)
-    {
-        Dispatcher? d = Application.Current?.Dispatcher;
-        if (d is null || d.CheckAccess())
-        {
-            action();
-            return Task.CompletedTask;
-        }
-
-        return d.BeginInvoke(action).Task;
     }
 
     private bool CanInstallUpdate() => IsUpdateAvailable && _availableUpdate is not null;
@@ -352,5 +335,5 @@ public partial class MainViewModel : ObservableObject
         mergedDicts.Add(newTheme);
     }
 
-    private void Logger_OnLogOutput(object? sender, LogEvent e) => Application.Current?.Dispatcher.BeginInvoke(() => LogsViewModel.AddLogEntry(e));
+    private void Logger_OnLogOutput(object? sender, LogEvent e) => _uiDispatcher.Post(() => LogsViewModel.AddLogEntry(e));
 }

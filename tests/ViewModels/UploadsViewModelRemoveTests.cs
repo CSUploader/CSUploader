@@ -99,7 +99,7 @@ public class UploadsViewModelRemoveTests : IDisposable
         Mock<IDialogService> dialog = new();
         dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
 
-        UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object);
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object, new WpfUiDispatcher());
         // Mirror the grid state the PackageAdded handler would build (its Dispatcher.BeginInvoke is a
         // no-op in a headless test), so RemoveSelected operates on a populated, expanded package.
         vm.Packages.Add(pkg);
