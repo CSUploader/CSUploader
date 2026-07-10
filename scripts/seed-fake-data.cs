@@ -57,6 +57,14 @@ using CSUploaderDbContext ctx = new(options);
 // FirstRun runs the same EnsureCreated + additive migrations, which are no-ops afterwards.
 ctx.Database.EnsureCreated();
 
+// HARD GUARD: never seed a real profile DB (design dev-data policy). A real install's
+// accounts aren't fake_-prefixed; refuse rather than mixing fake rows into real data.
+if (ctx.FileHosterLogins.Any(l => !l.Username.StartsWith("fake_")))
+{
+    Console.Error.WriteLine($"{dbPath} has real (non-fake_) accounts — refusing to seed a real profile DB. Point the arg at a scratch build dir.");
+    return 1;
+}
+
 if (ctx.FileHosterLogins.Any(l => l.Username.StartsWith("fake_")))
 {
     Console.WriteLine($"{dbPath} is already seeded — nothing to do.");
@@ -100,6 +108,13 @@ ctx.SaveChanges(); // ids assigned below
 // IsHashingComplete. QueueOrder is a real column the scheduler renumbers on load; set for parity.
 UploadPackageFileDbm File1(string name, int mib, FileState state, int login, string hoster, int order, string? error = null, string? url = null)
 {
+    // RUNTIME GUARD for the settled-states safety invariant: anything outside this set can
+    // auto-start a REAL upload on the guard-less WPF head (PackageManager.cs:287-291, :341-351).
+    if (state is not (FileState.Paused or FileState.Failed or FileState.Completed or FileState.Cancelled))
+    {
+        throw new ArgumentException($"seed writes settled states only; {state} would auto-start on the WPF head", nameof(state));
+    }
+
     string path = MakeFile(name, mib);
     return new UploadPackageFileDbm
     {
@@ -118,6 +133,8 @@ UploadPackageFileDbm File1(string name, int mib, FileState state, int login, str
         StartDateTime = state == FileState.Completed ? DateTime.Now.AddHours(-2) : default,
         FinishedDateTime = state == FileState.Completed ? DateTime.Now.AddHours(-1) : default,
         IsHashingComplete = state == FileState.Completed,
+        // Fake-but-plausible MD5 so the Hash column isn't blank in reference shots.
+        FileHash = state == FileState.Completed ? "d41d8cd98f00b204e9800998ecf8427e" : null,
     };
 }
 
