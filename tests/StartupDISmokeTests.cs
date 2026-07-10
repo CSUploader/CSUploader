@@ -6,9 +6,11 @@
 using System.IO;
 using CSUploader.Lib.Net;
 using CSUploader.Services;
+using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Velopack;
 
 namespace CSUploader.Tests;
@@ -109,5 +111,33 @@ public class StartupDISmokeTests
             { Directory.Delete(tempDir, recursive: true); }
             catch { /* leave the temp tree if Windows still has a handle; cleanup is best-effort */ }
         }
+    }
+
+    /// <summary>
+    /// Guards the Core/head DI boundary: <see cref="ServiceRegistration.AddCoreServices"/> must
+    /// build a complete, resolvable graph on its own, given only test doubles for the interfaces
+    /// the head implements. The Avalonia head will lean on exactly this — Core services plus its
+    /// own UI implementations. If a genuinely head-only dependency leaks into a Core registration,
+    /// this fails where the full-head smoke test (which supplies real WPF implementations) would
+    /// still pass.
+    /// </summary>
+    [Fact]
+    public void AddCoreServices_ResolvesCoreGraphWithoutUiRegistrations()
+    {
+        ServiceCollection services = new();
+        services.AddCoreServices(Path.GetTempPath());
+
+        // Head-implemented interfaces get test doubles so the core singletons that depend on them
+        // resolve: IInteractiveAuthService feeds the captcha-gated hoster pipelines, and
+        // IToastNotificationService feeds UploadNotificationListener (resolved by WireRuntime).
+        services.AddSingleton(Mock.Of<IInteractiveAuthService>());
+        services.AddSingleton(Mock.Of<IToastNotificationService>());
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<PackageManager>());
+        Assert.NotNull(provider.GetRequiredService<UploadScheduler>());
+        Assert.NotNull(provider.GetRequiredService<AttemptRunner>());
+        Assert.NotEmpty(provider.GetServices<IFileHosterPipeline>());
+        ServiceRegistration.WireRuntime(provider); // must not throw
     }
 }
