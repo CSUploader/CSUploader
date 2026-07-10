@@ -400,6 +400,9 @@ FodyWeavers.xsd
 # Claude Code runtime state (per-session lock)
 .claude/scheduled_tasks.lock
 
+# Dev-only AvaDevBridge location — machine-specific; copy Directory.Build.local.props.sample to enable
+/Directory.Build.local.props
+
 # Playwright MCP server's per-session artifact captures (snapshots, console logs)
 .playwright-mcp/
 

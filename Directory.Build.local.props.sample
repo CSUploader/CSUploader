@@ -1,0 +1,17 @@
+<!--
+  Directory.Build.local.props.sample — machine-specific dev-loop configuration TEMPLATE.
+
+  Copy this file to "Directory.Build.local.props" (same directory; the real name is gitignored)
+  to enable the Debug-only AvaDevBridge agent dev loop for the CSUploader.Avalonia head, then
+  point AvaDevBridgeCsproj at your local clone of the avalonia-agent-mcp tooling repo.
+
+  MSBuild auto-imports only Directory.Build.props, never *.local.props, so this file is picked
+  up by an explicit <Import> in src/CSUploader.Avalonia/CSUploader.Avalonia.csproj (guarded on
+  Exists). When the real file is absent — as on CI — Debug and Release builds are unaffected: no
+  bridge ProjectReference and no AVA_BRIDGE define, so the build stays fully self-contained.
+-->
+<Project>
+  <PropertyGroup>
+    <AvaDevBridgeCsproj>E:\Projects\avalonia-agent-mcp\AvaDevBridge\AvaDevBridge.csproj</AvaDevBridgeCsproj>
+  </PropertyGroup>
+</Project>

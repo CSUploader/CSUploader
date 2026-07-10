@@ -7,6 +7,9 @@ using CSUploader.Lib;
 using CSUploader.Services;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+#if AVA_BRIDGE
+using AvaDevBridge;
+#endif
 
 namespace CSUploader;
 
@@ -63,6 +66,18 @@ public partial class App : Application
             };
 
             desktop.MainWindow = mainWindow;
+
+#if AVA_BRIDGE
+            // Debug-only, opt-in (Directory.Build.local.props present) agent dev-loop bridge.
+            // EnableMutations lets the ava_* tools drive controls; the redactor adds CSUploader's
+            // cookie/userhash credential shapes on top of the bridge's built-in secret masking.
+            // Attaching here subscribes to desktop.Startup, which fires after this method returns.
+            this.AttachAgentBridge(o =>
+            {
+                o.EnableMutations = true;
+                o.Redactor = new Diagnostics.BridgeRedactor();
+            });
+#endif
 
             // Mirror App.OnExit: dispose the provider (and its IDisposable singletons — tray icon,
             // DbContext factory) when the app exits.
