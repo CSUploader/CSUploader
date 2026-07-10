@@ -405,7 +405,8 @@ public readonly record struct DipRect(double X, double Y, double Width, double H
 **Interfaces:**
 - Produces: `grep -r "System.Windows" src/CSUploader.Core/` → ZERO hits (the phase gate). All ViewModels resolve from Core registrations.
 
-- [ ] **Step 1:** Pre-move gate: `grep -n "System.Windows\|CSUploader.Views" src/ViewModels/*.cs` → must be empty. If not, a prior task leaked — fix there first.
+- [ ] **Step 0 (added after Task 7):** MainViewModel still calls the head-local `Lib.UI.ImmersiveDarkMode.SetIsDark` (~:268) — fold the dark-title-bar flip into `WpfThemeApplier.ApplyTheme(bool)` (verify against the actual call site: both the dictionary swap and SetIsDark fire on the same IsDarkMode change — mirror the exact ordering), then delete the MainViewModel reference. Also note IThemeApplier gained `ApplyTheme(bool isDark)` in Task 7 (the plan's earlier "no theme swap exists" claim was wrong — the swap lives in MainViewModel, not SettingsViewModel).
+- [ ] **Step 1:** Pre-move gate: `grep -n "System.Windows\|CSUploader.Views\|Lib\.UI\." src/ViewModels/*.cs` → must be empty. If not, a prior task leaked — fix there first.
 - [ ] **Step 2:** Pure-rename commit, then a compile-fix commit (registration move + xmlns collapse), full suite green between/after as in Task 2's pattern.
 - [ ] **Step 3:** App smoke: full manual pass — every tab renders, upload wizard opens, settings panels switch, logs populate, toasts fire (use the fake-data seed if present; otherwise a paused local-file package).
 - [ ] **Step 4: Commit(s)** — `"refactor: move purified ViewModels to Core (pure renames)"` + `"refactor: VM registrations live in AddCoreServices"`
