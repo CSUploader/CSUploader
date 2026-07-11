@@ -4,11 +4,11 @@
 // </copyright>
 
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using CSUploader.Views;
+using static CSUploader.Tests.Avalonia.HeadlessInput;
 
 namespace CSUploader.Tests.Avalonia.Views;
 
@@ -187,11 +187,6 @@ public class MessageBoxWindowTests
         Assert.Equal(new MessageBoxOutcome(Confirmed: false, DontAskAgain: false), box.Outcome);
     }
 
-    // The non-obsolete KeyPress overload (physical key + key symbol). Enter/Esc carry the logical Key
-    // the default/cancel button handlers listen for; the physical key + null symbol satisfy the API.
-    private static void Press(Window window, Key key, PhysicalKey physical)
-        => window.KeyPress(key, RawInputModifiers.None, physical, null);
-
     // ── Modal path: ShowDialog<MessageBoxOutcome> returns the button outcome ──
 
     [AvaloniaFact]
@@ -212,6 +207,67 @@ public class MessageBoxWindowTests
             Dispatcher.UIThread.RunJobs();
 
             MessageBoxOutcome outcome = await dialog;
+            Assert.Equal(new MessageBoxOutcome(Confirmed: true, DontAskAgain: false), outcome);
+            Assert.Equal(outcome, box.Outcome); // the modal result equals the Outcome property
+        }
+        finally
+        {
+            box.Close();
+            owner.Close();
+        }
+    }
+
+    // ── ShowCoreAsync seam: the split show/await half, driven through both owner branches ──
+
+    [AvaloniaFact]
+    public async Task ShowCoreAsync_NullOwner_ShowsOwnerlessWithTaskbar_EnterCompletes()
+    {
+        // The ownerless branch (tray-hidden main / headless): ShowCoreAsync shows the box itself, flips
+        // ShowInTaskbar on so a tray-hidden user can re-find it, and completes when the box closes. Enter
+        // routes to the Ok box's default button (OK is IsDefault+IsCancel) → Ok_Click → (true, false).
+        var box = new MessageBoxWindow("Done.", "Notice", MessageBoxMode.Ok);
+        try
+        {
+            Task<MessageBoxOutcome> pending = MessageBoxWindow.ShowCoreAsync(null, box);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(box.ShowInTaskbar); // ownerless branch gave it a taskbar entry
+            Assert.True(box.IsVisible);
+
+            Press(box, Key.Enter, PhysicalKey.Enter);
+            Dispatcher.UIThread.RunJobs();
+
+            MessageBoxOutcome outcome = await pending;
+            Assert.Equal(new MessageBoxOutcome(Confirmed: true, DontAskAgain: false), outcome);
+        }
+        finally
+        {
+            box.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ShowCoreAsync_WithOwner_ShowsModal_KeepsTaskbarFalse_EnterCompletes()
+    {
+        // The owned branch: ShowCoreAsync goes through modal ShowDialog<T>, whose result carries the
+        // outcome, and leaves ShowInTaskbar at the XAML-default False (the box rides its parent). Same
+        // Enter drive, same outcome — only the branch differs.
+        var owner = new Window { Width = 200, Height = 200 };
+        var box = new MessageBoxWindow("Done.", "Notice", MessageBoxMode.Ok);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Task<MessageBoxOutcome> pending = MessageBoxWindow.ShowCoreAsync(owner, box);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(box.ShowInTaskbar); // owned/modal path keeps the XAML default
+
+            Press(box, Key.Enter, PhysicalKey.Enter);
+            Dispatcher.UIThread.RunJobs();
+
+            MessageBoxOutcome outcome = await pending;
             Assert.Equal(new MessageBoxOutcome(Confirmed: true, DontAskAgain: false), outcome);
             Assert.Equal(outcome, box.Outcome); // the modal result equals the Outcome property
         }

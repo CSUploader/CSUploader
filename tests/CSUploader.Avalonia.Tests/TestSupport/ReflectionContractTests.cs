@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using CSUploader.Lib.Localization;
 
@@ -33,6 +34,20 @@ public class ReflectionContractTests
             field is not null,
             "Avalonia.Interactivity.Interactive._eventHandlers was renamed/removed — "
             + "DataGridBehaviorTests.PointerPressedHandlerCount would silently count 0 handlers and pass vacuously.");
+    }
+
+    [Fact]
+    public void WindowBase_IsActiveBackingField_StillExists()
+    {
+        // DialogOwnerResolverTests.SetIsActive force-sets this private field to construct the active-but-
+        // hidden and visible-but-inactive windows headless input can't produce (HiddenActiveIsSkipped,
+        // InactiveVisibleWindow_IsSkipped_VisibleMainWins). Those tests self-guard with a throw on a null
+        // lookup, but registering it here keeps the canary registry complete and names the dependents.
+        FieldInfo? field = typeof(WindowBase).GetField("_isActive", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.True(
+            field is not null,
+            "Avalonia.Controls.WindowBase._isActive was renamed/removed — DialogOwnerResolverTests.SetIsActive "
+            + "(HiddenActiveIsSkipped, InactiveVisibleWindow_IsSkipped_VisibleMainWins) would throw on the lookup.");
     }
 
     [Fact]

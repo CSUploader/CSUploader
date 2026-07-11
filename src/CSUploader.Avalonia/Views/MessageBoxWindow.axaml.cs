@@ -98,21 +98,24 @@ public partial class MessageBoxWindow : Window
     internal static Task<MessageBoxOutcome> ShowOptOutAsync(Window? owner, string message, string title)
         => ShowCoreAsync(owner, message, title, MessageBoxMode.YesNoDontAskAgain);
 
-    // The null-owner branch, owned here (design: "ownerless Show()+await Closed for the message box").
-    // A non-null owner → modal ShowDialog<T> (the dialog result carries the outcome); a null owner
-    // (tray-hidden main, or headless with no desktop lifetime) → ownerless Show() and await the Closed
-    // event, then read the Outcome property. Never reveal the tray-hidden main window for a notification.
-    private static async Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, string message, string title, MessageBoxMode mode)
+    // Composition helper: builds the window for the requested mode and hands it to the show seam below.
+    private static Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, string message, string title, MessageBoxMode mode)
+        => ShowCoreAsync(owner, new MessageBoxWindow(message, title, mode));
+
+    // The show/await seam, split out (InternalsVisibleTo → CSUploader.Avalonia.Tests) so a headless test can
+    // construct and drive the real window through either branch. Owns the null-owner policy (design:
+    // "ownerless Show()+await Closed for the message box"): a non-null owner → modal ShowDialog<T> (its
+    // result carries the outcome, and ShowInTaskbar stays the XAML-default False so the box rides its
+    // parent); a null owner (tray-hidden main, or headless with no desktop lifetime) → an ownerless Show()
+    // with a taskbar entry (re-findable while main is hidden) and await the Closed event, then read the
+    // Outcome property. Never reveal the tray-hidden main window for a notification.
+    internal static async Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, MessageBoxWindow window)
     {
-        MessageBoxWindow window = new(message, title, mode);
         if (owner is not null)
         {
             return await window.ShowDialog<MessageBoxOutcome>(owner);
         }
 
-        // Ownerless (tray-hidden main, or headless): give it a taskbar entry — the XAML default is
-        // ShowInTaskbar=False, correct for an owned/modal box that rides its parent, but an ownerless box
-        // shown while the main window is hidden to the tray needs a taskbar presence to be re-findable.
         window.ShowInTaskbar = true;
         TaskCompletionSource completion = new();
         window.Closed += (_, _) => completion.TrySetResult();

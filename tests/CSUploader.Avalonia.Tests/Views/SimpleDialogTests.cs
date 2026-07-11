@@ -4,15 +4,15 @@
 // </copyright>
 
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Interactivity;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using CSUploader.Lib.Localization;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.Views;
+using static CSUploader.Tests.Avalonia.HeadlessInput;
 
 namespace CSUploader.Tests.Avalonia.Views;
 
@@ -254,7 +254,7 @@ public class SimpleDialogTests
     }
 
     [AvaloniaFact]
-    public void ErrorDetails_Copy_DoesNotThrow()
+    public async Task ErrorDetails_Copy_PutsDetailTextOnClipboard()
     {
         var dlg = new ErrorDetailsWindow("copy me");
         try
@@ -262,11 +262,14 @@ public class SimpleDialogTests
             dlg.Show();
             Dispatcher.UIThread.RunJobs();
 
-            // The Copy handler swallows clipboard failures (headless has no real clipboard); invoking it
-            // must not surface an exception.
-            Exception? ex = Record.Exception(() => Click(dlg.CopyButton));
+            // Avalonia.Headless backs TopLevel.Clipboard with a real in-memory store, so the Copy handler's
+            // effect is assertable (probed: SetTextAsync → TryGetTextAsync round-trips). Click raises the
+            // wired async handler; pump its SetTextAsync continuation before reading the text back.
+            Click(dlg.CopyButton);
             Dispatcher.UIThread.RunJobs();
-            Assert.Null(ex);
+
+            string? clip = await ClipboardExtensions.TryGetTextAsync(dlg.Clipboard!);
+            Assert.Equal("copy me", clip);
         }
         finally
         {
@@ -381,14 +384,4 @@ public class SimpleDialogTests
         }
     }
 
-    // ── input helpers (mirroring MessageBoxWindowTests) ──
-
-    // Raises the Click routed event the real pointer/keyboard click raises, invoking the XAML-wired
-    // handler deterministically — no reliance on hit-testing a small button in the headless surface.
-    private static void Click(Button button) => button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-    // The non-obsolete KeyPress overload (logical key + physical key). Esc routes to the IsCancel button's
-    // Click on 11.3.18 (verified for the message box in MessageBoxWindowTests; reused here).
-    private static void Press(Window window, Key key, PhysicalKey physical)
-        => window.KeyPress(key, RawInputModifiers.None, physical, null);
 }

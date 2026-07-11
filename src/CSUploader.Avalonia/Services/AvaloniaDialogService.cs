@@ -34,8 +34,17 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
     protected override async Task<(bool Confirmed, bool DontAskAgain)> ShowOptOutConfirmationCoreAsync(string message, string title)
     {
         MessageBoxOutcome outcome = await MessageBoxWindow.ShowOptOutAsync(DialogOwnerResolver.ResolveFromLifetime(), message, title);
-        return (outcome.Confirmed, outcome.DontAskAgain);
+        return ToOptOutResult(outcome);
     }
+
+    // Test seam (InternalsVisibleTo → CSUploader.Avalonia.Tests): the MessageBoxOutcome → named-tuple
+    // projection, extracted so a headless test can pin the Confirmed/DontAskAgain field order — a
+    // transposition here would silently swap "the user said yes" and "don't ask again". The core above
+    // cannot be driven end-to-end headlessly (it opens an ownerless MessageBoxWindow the headless lifetime
+    // resolves to a null owner, which no headless API can reach to click), and this service is sealed so the
+    // protected core is not reachable through a test subclass either — hence pinning the mapping here.
+    internal static (bool Confirmed, bool DontAskAgain) ToOptOutResult(MessageBoxOutcome outcome)
+        => (outcome.Confirmed, outcome.DontAskAgain);
 
     // The shared owner-or-reveal composition the modal dialogs and pickers consume (Phase 4 Tasks 4/5/7,
     // Phase 5). Unlike a message box, a modal interaction demands a visible parent, so a null resolution

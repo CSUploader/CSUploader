@@ -156,6 +156,107 @@ public class DialogOwnerResolverTests
         Assert.Null(DialogOwnerResolver.ResolveFromLifetime());
     }
 
+    // ── ResolveVisibleMainOnly: the long-lived, non-modal surface owner (visible main window ONLY) ──
+
+    [AvaloniaFact]
+    public void ResolveVisibleMainOnly_VisibleMain_ReturnsMain()
+    {
+        var main = new Window { Width = 100, Height = 100 };
+        try
+        {
+            main.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(main.IsVisible);
+
+            // The update-progress window's owner. There is no window-list parameter: the policy deliberately
+            // ignores active windows so a long-lived surface never parents to a transient one it must outlive.
+            Assert.Same(main, DialogOwnerResolver.ResolveVisibleMainOnly(main));
+        }
+        finally
+        {
+            main.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResolveVisibleMainOnly_HiddenMain_ReturnsNull()
+    {
+        var main = new Window { Width = 100, Height = 100 };
+        try
+        {
+            main.Show();
+            Dispatcher.UIThread.RunJobs();
+            main.Hide();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(main.IsVisible);
+
+            // Main hidden to the tray → null, so the sink shows the progress window ownerless (Avalonia's
+            // Show(owner) rejects a hidden owner).
+            Assert.Null(DialogOwnerResolver.ResolveVisibleMainOnly(main));
+        }
+        finally
+        {
+            main.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResolveVisibleMainOnly_UnderNonDesktopLifetime_ReturnsNull()
+        => Assert.Null(DialogOwnerResolver.ResolveVisibleMainOnly());
+
+    // ── ResolveTopLevelForClipboard: the clipboard TopLevel (active-visible ?? main REGARDLESS of visibility) ──
+
+    [AvaloniaFact]
+    public void ResolveTopLevelForClipboard_ActiveVisibleWindow_Wins()
+    {
+        var active = new Window { Width = 100, Height = 100 };
+        var main = new Window { Width = 100, Height = 100 };
+        try
+        {
+            active.Show();
+            main.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(active, DialogOwnerResolver.ResolveTopLevelForClipboard(new[] { active }, main));
+        }
+        finally
+        {
+            active.Close();
+            main.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResolveTopLevelForClipboard_NoActive_ReturnsMain_EvenWhenHidden()
+    {
+        var main = new Window { Width = 100, Height = 100 };
+        try
+        {
+            main.Show();
+            Dispatcher.UIThread.RunJobs();
+            main.Hide();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(main.IsVisible);
+
+            // The load-bearing divergence from Resolve: a clipboard hangs off a TopLevel's platform impl,
+            // which is live on a tray-hidden window, so the hidden main is STILL returned (Resolve would drop
+            // it to null). Without this, a Copy issued while the main window is minimized to the tray no-ops.
+            Assert.Same(main, DialogOwnerResolver.ResolveTopLevelForClipboard(Array.Empty<Window>(), main));
+        }
+        finally
+        {
+            main.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResolveTopLevelForClipboard_NoWindowAtAll_ReturnsNull()
+        => Assert.Null(DialogOwnerResolver.ResolveTopLevelForClipboard(Array.Empty<Window>(), mainWindow: null));
+
+    [AvaloniaFact]
+    public void ResolveTopLevelForClipboard_UnderNonDesktopLifetime_ReturnsNull()
+        => Assert.Null(DialogOwnerResolver.ResolveTopLevelForClipboard());
+
     // Force WindowBase._isActive (a read-only DirectProperty with a private setter) to a chosen value,
     // so the CLR IsActive getter — which reads the field directly — reports a state headless input
     // cannot produce: an active window that is not visible, or a visible window that is not active.

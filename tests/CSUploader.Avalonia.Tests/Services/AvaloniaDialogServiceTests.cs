@@ -7,6 +7,7 @@ using Avalonia.Headless.XUnit;
 using CSUploader.Dal;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Views;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
@@ -88,6 +89,22 @@ public class AvaloniaDialogServiceTests
 
         Assert.True(result);
         Assert.Equal(0, service.CoreCalls); // the base short-circuited before the core
+    }
+
+    [Fact]
+    public void ToOptOutResult_MapsConfirmedThenDontAskAgain_NotTransposed()
+    {
+        // Pins ShowOptOutConfirmationCoreAsync's MessageBoxOutcome→tuple projection via the extracted
+        // ToOptOutResult seam. The real core can't be driven end-to-end headlessly — it opens an ownerless
+        // MessageBoxWindow (the headless lifetime resolves a null owner) that no headless API can reach to
+        // click — and AvaloniaDialogService is sealed, so its protected core isn't reachable via a test
+        // subclass either. Confirmed≠DontAskAgain so a transposition mutant — return (DontAskAgain,
+        // Confirmed) — flips both fields and fails here.
+        (bool Confirmed, bool DontAskAgain) result =
+            AvaloniaDialogService.ToOptOutResult(new MessageBoxOutcome(Confirmed: true, DontAskAgain: false));
+
+        Assert.True(result.Confirmed);
+        Assert.False(result.DontAskAgain);
     }
 
     // A SettingRepository whose factory yields no context; the base's fire-and-forget persist NREs

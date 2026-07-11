@@ -65,12 +65,23 @@ Conventions for writing tests in this project. Inherits everything from the root
   `[Fact]` reading `Localizer` under a culture another class was flipping was the concrete failure. The suite
   therefore disables parallelization assembly-wide with `[assembly: CollectionBehavior(DisableTestParallelization = true)]`
   (next to the `AvaloniaTestApplication` attribute in `TestAppBuilder.cs`), serializing every test onto the
-  one session; it still runs in ~2s, so the blanket serialize costs nothing. Restore per-class state
-  (culture, `RequestedThemeVariant`) in a `finally` regardless.
+  one session; it still runs in ~4-7s at 212+ tests, so the blanket serialize costs nothing. Restore
+  per-class state (culture, `RequestedThemeVariant`) in a `finally` regardless.
 - The headless dispatcher does not pump on its own. Anything the SUT routes through
   `Dispatcher.UIThread.Post` (e.g. `AvaloniaUiDispatcher.Post`, a `DispatcherTimer` tick) only runs
   after you call `Dispatcher.UIThread.RunJobs()` — see `AvaloniaUiDispatcherTests` (assert not-run,
   `RunJobs()`, assert run) and its `PumpAsync` helper (real `Task.Delay` for timers, then `RunJobs()`).
+- **Headless window tests:** a shown window is process-global for the whole session, so close every window
+  you `Show`/`ShowDialog` in a `finally` (its owner too). Drive buttons with `HeadlessInput.Click` (raises
+  `Button.ClickEvent` directly — no hit-testing a small button in the headless surface) and keys with
+  `HeadlessInput.Press` (the non-obsolete `KeyPress` overload; Enter/Esc route to the `IsDefault`/`IsCancel`
+  button's `Click` but do NOT auto-close — the explicit `Close` handler is what dismisses). `ShowDialog<T>`
+  returns immediately under headless (modality is non-blocking), so pump-then-await: start the task,
+  `Dispatcher.UIThread.RunJobs()`, drive the input, `RunJobs()` again, THEN `await` the already-completed
+  task (see `MessageBoxWindowTests`, `SimpleDialogTests`). `HeadlessInput` (in `TestSupport`) is the one home
+  for those Click/Press idioms — reference it with `using static`, don't re-declare them per class. The
+  headless `TopLevel.Clipboard` is a real in-memory store, so a Copy handler's effect round-trips and is
+  assertable via `ClipboardExtensions.TryGetTextAsync` (see `SimpleDialogTests.ErrorDetails_Copy_*`).
 - ViewModel constructors create real Avalonia `DispatcherTimer`s, so the DI smoke resolves the graph
   **inline on the UI thread** (`AvaloniaStartupDISmokeTests`) rather than under a `Task.Run` watchdog
   like the WPF smoke.
