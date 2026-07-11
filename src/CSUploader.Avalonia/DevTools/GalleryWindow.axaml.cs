@@ -110,6 +110,7 @@ public partial class GalleryWindow : Window
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
+        GroupingProbeButton.Click += OnShowGroupingProbe;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -302,6 +303,13 @@ public partial class GalleryWindow : Window
             defaultExt: ".json");
         PickerResultText.Text = path is null ? "Picker result: save — (cancelled)" : $"Picker result: save — {path}";
     }
+
+    // ── Probes (Phase 5 Task 2) ──
+    // The grouping probe has no IDialogService member (it is a throwaway go/no-go window deleted in
+    // Task 5), so the gallery constructs it directly and Show(this)es it non-modally — the bridge then
+    // screenshots/drives the themed grouped grid to record the checklist verdicts.
+    private void OnShowGroupingProbe(object? sender, RoutedEventArgs e)
+        => new GroupingProbeWindow().Show(this);
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier
