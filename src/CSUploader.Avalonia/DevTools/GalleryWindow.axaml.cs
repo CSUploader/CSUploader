@@ -6,6 +6,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Styling;
 using CSUploader.Services;
 
@@ -63,6 +64,7 @@ public partial class GalleryWindow : Window
 
         ThemeToggleButton.Click += OnToggleTheme;
         GridFontButton.Click += OnApplyGridFont;
+        DialogPlaceholderButton.Click += OnDialogPlaceholder;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -73,6 +75,24 @@ public partial class GalleryWindow : Window
 
     private void OnApplyGridFont(object? sender, RoutedEventArgs e)
         => _themeApplier.ApplyGridFont("Verdana", 14);
+
+    // Task 1 modal-addressing proof: a trivial inline modal over the gallery. Later dialog tasks
+    // replace this with real Dialog<Name>Button launchers into the production IDialogService/window
+    // paths. Fire-and-forget ShowDialog — the click handler only needs to open the modal.
+    private void OnDialogPlaceholder(object? sender, RoutedEventArgs e)
+        => _ = new Window
+        {
+            Title = "Placeholder modal",
+            Width = 300,
+            Height = 150,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new TextBlock
+            {
+                Text = "modal test",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        }.ShowDialog(this);
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier

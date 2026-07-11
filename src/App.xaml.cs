@@ -46,15 +46,20 @@ public partial class App : Application
         mainWindow.Show();
 
 #if DEBUG
-        // DEBUG-only reference-shot capture: --shots [dir]. Fire-and-forget by design —
-        // the capture task ends with Application.Shutdown().
+        // DEBUG-only reference-shot capture: --shots [dir]. The companion --dialogs switch captures
+        // the ten simple dialogs instead of the main-window tab set (Phase 4 Task 1); bare --shots
+        // keeps capturing tabs. Fire-and-forget by design — the capture task ends with
+        // Application.Shutdown().
         int shotsIdx = Array.IndexOf(e.Args, "--shots");
         if (shotsIdx >= 0)
         {
             string shotsDir = shotsIdx + 1 < e.Args.Length && !e.Args[shotsIdx + 1].StartsWith('-')
                 ? e.Args[shotsIdx + 1]
                 : @"D:\temp2\cbuild-mig\shots";
-            _ = new Services.ReferenceShotCapture(_serviceProvider!).RunAndShutdownAsync(mainWindow, shotsDir);
+            Services.ReferenceShotCapture capture = new(_serviceProvider!);
+            _ = Array.IndexOf(e.Args, "--dialogs") >= 0
+                ? capture.RunDialogsAndShutdownAsync(mainWindow, shotsDir)
+                : capture.RunAndShutdownAsync(mainWindow, shotsDir);
         }
 #endif
     }
