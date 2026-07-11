@@ -1206,7 +1206,7 @@ Design §The Avalonia head: rebuilt on `PointerPressed`/`ContextRequested` — A
 - Produces: attached properties `DataGridSelectionBehaviors.ClearSelectionOnEmptyClick` / `.SelectRowOnRightClick` and `AutoScrollBehavior.IsEnabled`, namespace `CSUploader.Behaviors` (XAML ports keep `xmlns:beh="clr-namespace:CSUploader.Behaviors"`).
 - Consumes: Avalonia `DataGrid`/`DataGridRow`/`DataGridColumnHeader` (Avalonia.Controls.DataGrid 11.3.13), `ScrollBar`.
 
-- [ ] **Step 1: `DataGridSelectionBehaviors`** (non-static class — Avalonia's generic `RegisterAttached` needs a non-static owner type; §Reality-check register):
+- [x] **Step 1: `DataGridSelectionBehaviors`** (non-static class — Avalonia's generic `RegisterAttached` needs a non-static owner type; §Reality-check register):
 
 ```csharp
 // <copyright …standard header… >
@@ -1323,7 +1323,7 @@ public sealed class DataGridSelectionBehaviors
 }
 ```
 
-- [ ] **Step 2: `AutoScrollBehavior`** — WPF original subscribed `dataGrid.Items` (an auto-tracking `ItemCollection`); Avalonia must track `ItemsSource` changes itself. Also fix the WPF version's known sloppiness (never unsubscribed on disable) instead of porting it:
+- [x] **Step 2: `AutoScrollBehavior`** — WPF original subscribed `dataGrid.Items` (an auto-tracking `ItemCollection`); Avalonia must track `ItemsSource` changes itself. Also fix the WPF version's known sloppiness (never unsubscribed on disable) instead of porting it:
 
 ```csharp
 // <copyright …standard header… >
@@ -1410,14 +1410,20 @@ public sealed class AutoScrollBehavior
 
 (The WPF original scrolled on EVERY collection change; scrolling on `Add` only is the same observable behavior for a log grid — if the Phase 5 checklist disagrees, widen it there.)
 
-- [ ] **Step 3: Headless tests.** Primary path — real input simulation against a shown headless window (`Avalonia.Headless` exposes `window.MouseDown/MouseUp(Point, MouseButton)`-style helpers; TestApp is the real App since Task 3, so DataGrid's Fluent styles are loaded and rows realize):
+- [x] **Step 3: Headless tests.** Primary path — real input simulation against a shown headless window (`Avalonia.Headless` exposes `window.MouseDown/MouseUp(Point, MouseButton)`-style helpers; TestApp is the real App since Task 3, so DataGrid's Fluent styles are loaded and rows realize):
   - `RightClick_OnUnselectedRow_SelectsExactlyThatRow` — grid with 3 string items, `SelectedItems = [items[0]]`; locate row 2's realized `DataGridRow` via `grid.GetVisualDescendants().OfType<DataGridRow>()`, translate its center to window coordinates, `window.MouseDown(point, MouseButton.Right)`; assert `SelectedItems` is exactly `[items[2]]`.
   - `RightClick_InsideSelection_PreservesMultiSelection` — select rows 0+1, right-click row 1's point; assert both still selected.
   - `LeftClick_OnEmptyArea_ClearsSelection` — grid taller than its 2 rows; click a point below the last row; assert `SelectedItems` empty.
   - `LeftClick_OnHeader_PreservesSelection` — click inside the header band; selection unchanged.
   - `AutoScroll_AddToBoundCollection_ScrollsWithoutThrowing` — `ObservableCollection<string>`, enabled behavior, add an item, `Dispatcher.UIThread.RunJobs()`; assert no throw and (if the headless scroll position is readable) the last row is realized.
   - **Fallback, decided per test not wholesale** (headless DataGrid row realization is a known finicky area — §Reality-check register): any case that cannot realize rows headlessly drops to unit-testing the walk/selection helpers directly (`FindOwnChromeAncestor` with a hand-built visual chain; the selection mutation via a synthesized `DataGridRow { DataContext = … }`), and that interaction case moves explicitly to the Phase 5 bridge checklist (design already schedules it there). Record which cases fell back in the task notes.
-- [ ] **Step 4:** Full suite gate (both); record counts. **Commit** — `"feat(avalonia): DataGrid selection + auto-scroll behaviors (tunnel-phase right-click targeting) + headless interaction tests"`
+- [x] **Step 4:** Full suite gate (both); record counts. **Commit** — `"feat(avalonia): DataGrid selection + auto-scroll behaviors (tunnel-phase right-click targeting) + headless interaction tests"`
+
+**Task 8 notes (executed 2026-07-11, commit `9a94c0b`):**
+- **Test path: input-simulation WON for every interaction case — ZERO fallbacks.** Under the real App's Fluent styles, `DataGridRow`/`DataGridColumnHeader` realized headlessly and pointer hit-testing worked, so all four selection gestures plus the AutoScroll-append case are covered by synthesized `window.MouseDown(point, MouseButton)`. `Avalonia.Headless.HeadlessWindowExtensions.MouseDown/MouseUp` verified as `(this TopLevel, Point, MouseButton, RawInputModifiers = None)`; it pumps `Dispatcher.RunJobs` + a render tick around each event internally (Reality-check #8 resolved — no fallback, no Phase 5 deferral needed for these cases).
+- **One realism fix surfaced by the empty-area case:** the region below the last row is only hit-testable when the grid has a non-null `Background` (null is transparent to Avalonia hit-testing). The test grid sets `Background=Transparent`; **Phase 5 port rule** — a consuming grid that wants `ClearSelectionOnEmptyClick` must carry a (themed) background, else empty-area clicks fall through and never clear.
+- **Teardown coverage (Task 7 leak lesson), hit-testing-independent:** each selection behavior proven to add exactly one `PointerPressed` subscription on enable and remove it on disable (reflected from `Interactive._eventHandlers`, delta over the grid's own handlers); `AutoScroll` proven to hold exactly one `CollectionChanged` subscription that follows `ItemsSource` swaps and releases fully on disable. The grid's own `DataGridCollectionView` also subscribes to the source, so all AutoScroll subscription assertions measure the behavior's DELTA, not an absolute count.
+- **Counts:** Avalonia suite **127 → 137** (+10); WPF **1178/1178**; both heads + tests **0-warning**. `SelectedItems` (multi-select, default `SelectionMode=Extended`) used throughout instead of the WPF `UnselectAll()`/`row.IsSelected`.
 
 ---
 
