@@ -64,6 +64,7 @@
 | 29 | code-behind brush swap via `FindResource("ErrorBrush")` (EditProxy `SetStatus`, EditAccount sign-in status) | toggle a class instead: `StatusText.Classes.Set("error", isError)` + view class styles carrying DynamicResource brushes — theme-live, per the Phase 4 prep-7 rule (converter/code-resolved brushes don't track theme flips) |
 | 30 | `SelectionUnit="FullRow"` + default multi-select | `SelectionMode="Extended"` (Avalonia DataGrid is always full-row; `SelectionMode Single` where WPF said so — the log grids) |
 | 31 | `MenuItem IsCheckable="True"` + `IsChecked` | `MenuItem ToggleType="CheckBox"` (`MenuItemToggleType.CheckBox`) + `IsChecked` — Avalonia renders NO check glyph from `IsChecked` alone; confirmed on 11.3.18 |
+| 32 | (none — Avalonia-specific hazard) | **ALL read-only-grid DataGridTextColumn bindings carry `Mode=OneWay`** — Avalonia coerces Mode.Default→TwoWay and WRITES ConvertBack to the source on realization; converter columns whose ConvertBack throws get blanked to default (FileSize→0, dates→MinValue). Decompile+empirically verified (Task 5). |
 
 ### View disposition (dependency order)
 
@@ -410,6 +411,8 @@ Prep item 11's port-deltas exercised; `AutoScrollBehavior` first-consumer verifi
 - **Auto-scroll**: `behaviors:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}"` on all four grids.
 - **Details-open**: `DoubleTapped` (rule 22) + tunnel `KeyDown` Enter (rule 23) → `OpenDetails(entry)` mirroring :155-164: `entry.HasHttpTransaction ? new HttpDetailsWindow(entry) : new LogDetailsWindow(entry)`, owner `TopLevel.GetTopLevel(this) as Window`, `ShowDialog(owner)`.
 - **Column persistence ×4**: `Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"` etc. per grid; one shared `WireGrid(DataGrid)` code-behind method with the once-only guard (mirror `LogGrid_Loaded` :28-55 — `AttachedToVisualTree` refires on every tab switch), using Task 3's helper with `"Logs_ResetColumns_Message"`/`"Logs_ResetColumns_Title"`; DateTime column (first) toggle-disabled (the reopen-anchor rule, :71-76).
+
+**⚠ RULE 32 (from Task 5):** every LogsView DataGridTextColumn binding gets `Mode=OneWay` — the DateTime columns (DateTimeFormatConverter) and Url column (UrlDecodeConverter) both have THROWING ConvertBacks; omitting OneWay blanks the VM data on tab-show, exactly the Task 5 corruption.
 
 - [ ] **Step 1: Port the view** (XAML + code-behind); wire the Logs tab in MainWindow.
 - [ ] **Step 2: Headless tests**: `AddLogEntry` routes to the right grid per `LogType` (bind a real `LogsViewModel` — its ctor only needs `IDialogService` + optional repo, LogsViewModel.cs:30-34); Enter on a selected Status row opens `LogDetailsWindow`, on an HTTP row (synth transaction) opens `HttpDetailsWindow` (snapshot windows before closing, `finally`-close); double-tap on a row opens details, double-tap on the header/empty area does NOT; auto-scroll: with `AutoScroll=true`, adding N rows scrolls the last row into the realized set — if headless realization makes this flaky, assert the behavior's subscription state via its attached-handler property and record the fallback; message cell trims + carries the tooltip.
