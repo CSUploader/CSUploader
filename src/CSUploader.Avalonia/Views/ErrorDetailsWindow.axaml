@@ -1,0 +1,41 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Read-only viewer for the full text of an error — the human-readable summary plus any raw response
+     body (a verbose XFileSharing sign-in failure carries a multi-hundred-character HTML snippet). Port
+     of the WPF src/Views/ErrorDetailsWindow.xaml. No IDialogService member: Phase 5's EditAccountWindow
+     "Details" link is its production opener; until then the dev gallery button is the only path here. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.ErrorDetailsWindow"
+        Title="{loc:Loc Common_Error}"
+        Icon="/Assets/icon.ico"
+        Width="640" Height="420"
+        MinWidth="360" MinHeight="220"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+  <Grid Margin="12" RowDefinitions="*,Auto">
+    <TextBox Grid.Row="0"
+             x:Name="DetailBox"
+             IsReadOnly="True"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+             FontFamily="Consolas"
+             FontSize="12"
+             Background="{DynamicResource ContentBackgroundBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}"
+             BorderBrush="{DynamicResource BorderBrush}"
+             BorderThickness="1"
+             Padding="6" />
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button x:Name="CopyButton" Content="{loc:Loc Common_Copy}" Width="80" Margin="0,0,8,0" Click="Copy_Click" />
+      <Button x:Name="CloseButton" Content="{loc:Loc Common_Close}" Width="80" IsCancel="True" Click="Close_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

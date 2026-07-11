@@ -1,0 +1,49 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Dual-purpose modal for the Connection Manager's text-based proxy import/export. Port of the WPF
+     src/Views/ProxyTextDialog.xaml. Editable mode gathers typed proxy lines (Import / Cancel);
+     read-only mode hides Import, shows Copy, and relabels Cancel → Close. Title/description/body and the
+     read-only toggle are set in code-behind. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.ProxyTextDialog"
+        Title="{loc:Loc ProxyText_WindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="640" Height="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+  <Grid Margin="12" RowDefinitions="Auto,*,Auto">
+    <TextBlock Grid.Row="0"
+               x:Name="DescriptionText"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               Margin="0,0,0,8" />
+
+    <TextBox Grid.Row="1"
+             x:Name="BodyBox"
+             AcceptsReturn="True"
+             TextWrapping="NoWrap"
+             ScrollViewer.VerticalScrollBarVisibility="Auto"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+             FontFamily="Consolas"
+             FontSize="12"
+             Background="{DynamicResource ContentBackgroundBrush}"
+             Foreground="{DynamicResource TextPrimaryBrush}"
+             BorderBrush="{DynamicResource BorderBrush}"
+             BorderThickness="1"
+             Padding="6" />
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button x:Name="CopyButton" Content="{loc:Loc ProxyText_BtnCopy}" Width="80" Margin="0,0,8,0"
+              IsVisible="False" Click="Copy_Click" />
+      <Button x:Name="OkButton" Content="{loc:Loc ProxyText_BtnImport}" Width="100" Margin="0,0,8,0"
+              IsDefault="True" Click="Ok_Click" />
+      <Button x:Name="CancelButton" Content="{loc:Loc ProxyText_BtnCancel}" Width="80" IsCancel="True"
+              Click="Cancel_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

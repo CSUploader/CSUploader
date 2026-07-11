@@ -254,6 +254,25 @@
                   Classes="secondary" Content="Show opt-out confirm" />
         </StackPanel>
 
+        <!-- Text-centric dialogs (Phase 4 Task 5). ErrorDetails has no IDialogService member (Phase 5's
+             EditAccountWindow opens it), so its button constructs the window directly (the same
+             new ErrorDetailsWindow(...).ShowDialog(this) the WPF reference driver uses); the ProxyText and
+             SpeedLimit buttons go through the REAL IDialogService members the VMs already await. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogErrorDetailsButton"
+                  AutomationProperties.AutomationId="DialogErrorDetailsButton"
+                  Classes="secondary" Content="Error details…" />
+          <Button x:Name="DialogProxyTextEditButton"
+                  AutomationProperties.AutomationId="DialogProxyTextEditButton"
+                  Classes="secondary" Content="Proxy text (edit)…" />
+          <Button x:Name="DialogProxyTextExportButton"
+                  AutomationProperties.AutomationId="DialogProxyTextExportButton"
+                  Classes="secondary" Content="Proxy text (export)…" />
+          <Button x:Name="DialogSpeedLimitButton"
+                  AutomationProperties.AutomationId="DialogSpeedLimitButton"
+                  Classes="secondary" Content="Speed limit…" />
+        </StackPanel>
+
         <!-- StorageProvider pickers (Phase 4 Task 4): these open NATIVE OS dialogs the bridge cannot
              drive or screenshot, so the agent never clicks them in a bridge session (a native modal would
              wedge the drive loop). They exist for manual click-through smoke and a crash-free

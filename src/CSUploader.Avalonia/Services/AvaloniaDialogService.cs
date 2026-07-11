@@ -16,9 +16,10 @@ namespace CSUploader.Services;
 /// <see cref="DialogOwnerResolver"/> (with the null-owner policy: a message box shows ownerless rather
 /// than yanking the tray-hidden main window up). The four StorageProvider pickers are real from Phase 4
 /// Task 4 (they reveal the main window first via <see cref="GetOwnerOrRevealAsync"/>, since a native
-/// picker needs a visible parent); the remaining ported dialog windows arrive through the later Phase 4
-/// tasks, and the three account/proxy editor members stay <see cref="NotImplementedException"/> until
-/// Phase 5 builds their windows.
+/// picker needs a visible parent). <see cref="ShowProxyTextDialogAsync"/> and
+/// <see cref="ShowSpeedLimitDialogAsync"/> are real from Phase 4 Task 5 (their ported windows reveal-or-own
+/// the same way); <see cref="ShowHttpDetailsAsync"/> arrives in Task 7, and the three account/proxy editor
+/// members stay <see cref="NotImplementedException"/> until Phase 5 builds their windows.
 /// </summary>
 public sealed class AvaloniaDialogService(AppSettings settings, SettingRepository settingRepository, ITrayIconService trayIcon)
     : DialogServiceBase(settings, settingRepository), IDialogService
@@ -166,11 +167,21 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
     public Task ShowHttpDetailsAsync(HttpTransaction transaction) =>
         throw new NotImplementedException("HttpDetailsWindow arrives in Phase 4 Task 7 — ShowHttpDetailsAsync tracked there.");
 
-    public Task<string?> ShowProxyTextDialogAsync(string title, string description, string initialText, bool readOnly) =>
-        throw new NotImplementedException("ProxyTextDialog arrives in Phase 4 Task 5 — ShowProxyTextDialogAsync tracked there.");
+    // ProxyText/SpeedLimit dialogs (Phase 4 Task 5). Both reveal-or-own via GetOwnerOrRevealAsync (a
+    // modal interaction demands a visible parent) and pass their result straight back: the dialogs already
+    // collapse the WPF DialogResult dance into the ShowDialog<T> value, so the service members are
+    // pass-throughs. Read-only ProxyText always yields null (Import hidden), which the caller ignores.
+    public async Task<string?> ShowProxyTextDialogAsync(string title, string description, string initialText, bool readOnly)
+    {
+        ProxyTextDialog dialog = new(title, description, initialText, readOnly);
+        return await dialog.ShowDialog<string?>(await GetOwnerOrRevealAsync());
+    }
 
-    public Task<SpeedLimitSelection?> ShowSpeedLimitDialogAsync(int? currentLimit) =>
-        throw new NotImplementedException("SpeedLimitDialog arrives in Phase 4 Task 5 — ShowSpeedLimitDialogAsync tracked there.");
+    public async Task<SpeedLimitSelection?> ShowSpeedLimitDialogAsync(int? currentLimit)
+    {
+        SpeedLimitDialog dialog = new(currentLimit);
+        return await dialog.ShowDialog<SpeedLimitSelection?>(await GetOwnerOrRevealAsync());
+    }
 
     public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) =>
         throw new NotImplementedException("EditAccountWindow arrives in Phase 5 — ShowAddAccountDialogAsync tracked there.");

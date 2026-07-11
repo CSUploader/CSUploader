@@ -11,6 +11,7 @@ using CSUploader.Dal;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Views;
 
 namespace CSUploader.DevTools;
 
@@ -29,6 +30,22 @@ namespace CSUploader.DevTools;
 /// </remarks>
 public partial class GalleryWindow : Window
 {
+    // Synthesized long error for the ErrorDetails driver: a human-readable summary plus a raw HTML
+    // response snippet, mirroring what an XFileSharing sign-in failure carries into the window (the WPF
+    // reference driver feeds an equivalent shape). All fake — no dialog driver reads real account state.
+    private const string SynthErrorDetail =
+        "Sign-in failed: invalid credentials for the selected hoster.\n\n" +
+        "<html><head><title>403 Forbidden</title></head><body>\n" +
+        "<h1>Access denied</h1>\n" +
+        "<p>The username or password you entered is incorrect, or the account has been suspended " +
+        "for exceeding the free-tier upload quota. Please verify your credentials on the hoster's " +
+        "website and try again. If the problem persists the login endpoint may be rate-limiting this " +
+        "IP address; wait a few minutes before retrying.</p>\n" +
+        "<div class=\"error-code\" data-request-id=\"a1b2c3d4-e5f6-7890-abcd-ef1234567890\">" +
+        "Reference: XFS-403-CREDENTIALS · edge node fra-07 · 2026-07-11T14:22:09Z</div>\n" +
+        "<!-- upstream: nginx/1.24.0; cf-ray 8ab12cd34ef5-FRA; retry-after 300 -->\n" +
+        "</body></html>";
+
     private readonly IThemeApplier _themeApplier;
     private readonly IDialogService _dialogService;
     private bool _dark;
@@ -71,6 +88,10 @@ public partial class GalleryWindow : Window
         DialogErrorButton.Click += OnShowError;
         DialogConfirmButton.Click += OnShowConfirm;
         DialogOptOutButton.Click += OnShowOptOut;
+        DialogErrorDetailsButton.Click += OnShowErrorDetails;
+        DialogProxyTextEditButton.Click += OnShowProxyTextEdit;
+        DialogProxyTextExportButton.Click += OnShowProxyTextExport;
+        DialogSpeedLimitButton.Click += OnShowSpeedLimit;
         PickFolderButton.Click += OnPickFolder;
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
@@ -101,6 +122,31 @@ public partial class GalleryWindow : Window
         => _ = _dialogService.ShowOptOutConfirmationAsync(
             "gallery-" + Guid.NewGuid().ToString("N"),
             "Remove this account and all of its uploads?\nThis cannot be undone.");
+
+    // ── Text-centric dialogs (Phase 4 Task 5) ──
+    // ErrorDetails has no IDialogService member (Phase 5's EditAccountWindow "Details" link opens it), so
+    // the gallery constructs the window directly — the same new ErrorDetailsWindow(...).ShowDialog(this)
+    // the WPF reference driver uses. ProxyText/SpeedLimit go through the REAL resolved IDialogService (the
+    // gallery is the active window, so the resolver owns each modal to it), driving production plumbing.
+    private void OnShowErrorDetails(object? sender, RoutedEventArgs e)
+        => _ = new ErrorDetailsWindow(SynthErrorDetail).ShowDialog(this);
+
+    private void OnShowProxyTextEdit(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowProxyTextDialogAsync(
+            "Import proxies",
+            "One proxy per line, host:port[:user:pass].",
+            "127.0.0.1:8080\n10.0.0.1:1080:user:pass",
+            readOnly: false);
+
+    private void OnShowProxyTextExport(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowProxyTextDialogAsync(
+            "Export proxies",
+            "One proxy per line, host:port[:user:pass].",
+            "127.0.0.1:8080\n10.0.0.1:1080:user:pass",
+            readOnly: true);
+
+    private void OnShowSpeedLimit(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowSpeedLimitDialogAsync(512);
 
     // The four picker launchers call the REAL IDialogService picker members (native OS dialogs). They are
     // "manual only": the bridge cannot drive or screenshot a native modal, so the agent never clicks them

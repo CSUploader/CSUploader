@@ -1,0 +1,37 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Prompts for a per-selection upload speed limit (KB/s). Port of the WPF src/Views/SpeedLimitDialog.xaml.
+     OK-valid returns the limit; OK-empty and Clear return the "cleared" outcome; Cancel/Esc leave limits
+     untouched. Invalid input warns via the custom message box and keeps the dialog open. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.SpeedLimitDialog"
+        Title="{loc:Loc SpeedLimit_WindowTitle}"
+        Width="380" Height="190"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Grid Margin="20,16,20,12" RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <TextBlock Grid.Row="0" Text="{loc:Loc SpeedLimit_Heading}" FontSize="14" FontWeight="SemiBold"
+               Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,4" />
+    <TextBlock Grid.Row="1" Text="{loc:Loc SpeedLimit_Subheading}"
+               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <TextBox Grid.Column="0" x:Name="LimitBox" FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
+      <TextBlock Grid.Column="1" Text="{loc:Loc SpeedLimit_Unit}" VerticalAlignment="Center" Margin="8,0,0,0"
+                 Foreground="{DynamicResource TextSecondaryBrush}" />
+    </Grid>
+
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="ClearButton" Content="{loc:Loc SpeedLimit_BtnClear}" Width="70" Height="28" Margin="0,0,8,0" Click="ClearButton_Click" />
+      <Button x:Name="CancelButton" Content="{loc:Loc SpeedLimit_BtnCancel}" Width="70" Height="28" IsCancel="True" Margin="0,0,8,0" Click="CancelButton_Click" />
+      <Button x:Name="OkButton" Content="{loc:Loc SpeedLimit_BtnOk}" Width="70" Height="28" IsDefault="True" Click="OkButton_Click"
+              Classes="primary" />
+    </StackPanel>
+  </Grid>
+</Window>
