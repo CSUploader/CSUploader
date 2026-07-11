@@ -194,14 +194,18 @@ public class SettingsViewTests
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
-            var jd2Buttons = view.GetVisualDescendants()
+            // Scope to the Database section's own jd2 buttons by their commands — since Task 5 the Connection
+            // panel adds its own jd2 buttons (realized-but-collapsed), so a global jd2 count is no longer 2.
+            var clearButtons = view.GetVisualDescendants()
                 .OfType<Button>()
                 .Where(b => b.Classes.Contains("jd2"))
+                .Where(b => ReferenceEquals(b.Command, harness.Vm.ClearDatabaseCommand)
+                            || ReferenceEquals(b.Command, harness.Vm.ClearLogsCommand))
                 .ToList();
 
-            Assert.Equal(2, jd2Buttons.Count);
-            Assert.Contains(jd2Buttons, b => ReferenceEquals(b.Command, harness.Vm.ClearDatabaseCommand));
-            Assert.Contains(jd2Buttons, b => ReferenceEquals(b.Command, harness.Vm.ClearLogsCommand));
+            Assert.Equal(2, clearButtons.Count);
+            Assert.Contains(clearButtons, b => ReferenceEquals(b.Command, harness.Vm.ClearDatabaseCommand));
+            Assert.Contains(clearButtons, b => ReferenceEquals(b.Command, harness.Vm.ClearLogsCommand));
         }
         finally
         {

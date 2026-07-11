@@ -12,12 +12,15 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              x:Class="CSUploader.Views.SettingsView"
              Background="{DynamicResource SurfaceBrush}">
 
   <UserControl.Resources>
     <conv:StepVisibilityConverter x:Key="StepVisibilityConverter" />
+    <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
 
     <!-- SidebarItem ListBoxItem template (rule 40): flat hover/selected fills over the sidebar,
          applied via ItemContainerTheme. WPF's IsMouseOver/IsSelected triggers become :pointerover/
@@ -87,6 +90,43 @@
       <Setter Property="FontSize" Value="12" />
       <Setter Property="Padding" Value="4,3" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- ── Proxy/accounts DataGrid chrome (Tasks 5/6). Header chrome mirrors the Phase 5 grids so the
+         Settings grids read consistently with Uploaded/Logs; zebra maps AlternatingRowBackground
+         (port rule 21) via the .alt class the DataGridZebraStriping behavior toggles. ── -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Padding" Value="6,5" />
+    </Style>
+    <Style Selector="DataGridRow.alt">
+      <Setter Property="Background" Value="{DynamicResource DataGridAltRowBrush}" />
+    </Style>
+
+    <!-- Proxies grid opacity drop when Use-proxies is off (WPF DataGrid.Style DataTrigger → Opacity 0.45).
+         A per-VALUE trigger can't be a plain selector, so bind a conditional class off !ProxiesEnabled
+         (the grid's DataContext is the ConnectionManagerViewModel) and dim it here. The grid stays fully
+         interactive so proxies can be curated before the master switch is flipped back on. -->
+    <Style Selector="DataGrid.proxies-off">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+
+    <!-- Center the checkbox in the "On" column (WPF DataGridCheckBoxColumn.ElementStyle). -->
+    <Style Selector="DataGridCell.check-center CheckBox">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Compact up/down priority buttons (WPF stripped the global Button padding so the glyphs fit). -->
+    <Style Selector="Button.prio-btn">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="22" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
   </UserControl.Styles>
 
@@ -395,10 +435,230 @@
       </StackPanel>
     </ScrollViewer>
 
-    <!-- 2: Connection (proxies grid — filled in Task 5) -->
-    <Border Grid.Column="2" x:Name="ConnectionPanel"
-            Background="{DynamicResource SurfaceBrush}"
-            IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
+    <!-- 2: Connection Manager (editable proxies grid). Its DataContext is the ConnectionManagerViewModel,
+         reached via the parent Window's MainViewModel (the SettingsView's own DataContext is the
+         SettingsViewModel); §Reality-check #19. The panel visibility keys off the SettingsView's
+         SelectedCategoryIndex, so IsVisible reaches back up to the UserControl for it (mirror of the WPF
+         RelativeSource AncestorType=UserControl). Rule 32 is PER-GRID and THIS grid is the exception: the
+         Host/Port/User/Password DataGridTextColumns, the Enabled DataGridCheckBoxColumn and the Type
+         template ComboBox ALL stay TWO-WAY (rule 37) — a blanket OneWay would silently drop every edit. -->
+    <Grid Grid.Column="2" x:Name="ConnectionPanel"
+          Background="{DynamicResource SurfaceBrush}"
+          RowDefinitions="Auto,*,Auto"
+          DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+          IsVisible="{Binding DataContext.SelectedCategoryIndex, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+
+      <StackPanel Grid.Row="0" Margin="20,16,20,0">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+          <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24"
+                 VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
+          <TextBlock Text="{loc:Loc Settings_Conn_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_Conn_Desc}" />
+        <CheckBox Content="{loc:Loc Settings_Conn_UseProxies}"
+                  IsChecked="{Binding ProxiesEnabled}"
+                  ToolTip.Tip="{loc:Loc Settings_Conn_UseProxiesTip}"
+                  Margin="0,8,0,0" />
+        <CheckBox Content="{loc:Loc Settings_Conn_AutoDisable}"
+                  IsChecked="{Binding AutoDisableFailingProxies}"
+                  ToolTip.Tip="{loc:Loc Settings_Conn_AutoDisableTip}"
+                  Margin="0,4,0,0" />
+        <CheckBox Content="{loc:Loc Settings_Conn_AllowInvalidCert}"
+                  IsChecked="{Binding AllowInvalidServerCertificates}"
+                  ToolTip.Tip="{loc:Loc Settings_Conn_AllowInvalidCertTip}"
+                  Margin="0,4,0,0" />
+      </StackPanel>
+
+      <!-- The grid dims (Opacity 0.45, via the proxies-off conditional class) when Use-proxies is off but
+           stays interactive so proxies can be curated before flipping the master switch back on. -->
+      <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8"
+                Classes.proxies-off="{Binding !ProxiesEnabled}"
+                ItemsSource="{Binding Proxies}"
+                AutoGenerateColumns="False"
+                SelectionMode="Extended"
+                HeadersVisibility="Column"
+                GridLinesVisibility="All"
+                BorderThickness="0"
+                Background="{DynamicResource SurfaceBrush}"
+                HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                beh:DataGridZebraStriping.IsEnabled="True"
+                beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+
+        <!-- Row context menu (rules 18/19): commands bind through the ContextMenu's inherited DataContext
+             (the grid's ConnectionManagerViewModel); the SelectedItems-carrying parameters (Test / Remove /
+             Export-selected) are assigned in code-behind. Unlike the Uploaded menu this one is NOT suppressed
+             on whitespace — Opening instead hides the row-only items (WPF ProxyGrid_ContextMenuOpening). -->
+        <DataGrid.ContextMenu>
+          <ContextMenu Opening="ProxyGrid_ContextMenuOpening">
+            <MenuItem x:Name="ProxyContextTestItem"
+                      Header="{loc:Loc Settings_Conn_Context_Test}"
+                      Command="{Binding TestCommand}" />
+            <MenuItem x:Name="ProxyContextRemoveItem"
+                      Header="{loc:Loc Settings_Conn_Context_Remove}"
+                      InputGesture="Delete"
+                      Command="{Binding RemoveSelectedCommand}" />
+            <Separator x:Name="ProxyContextRowSeparator" />
+            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Add}" Command="{Binding AddCommand}" />
+            <Separator />
+            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import}">
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromText}" Command="{Binding ImportFromTextCommand}" />
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromFile}" Command="{Binding ImportFromFileCommand}" />
+            </MenuItem>
+            <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export}">
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToText}" Command="{Binding ExportAllToTextCommand}" />
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToFile}" Command="{Binding ExportAllToFileCommand}" />
+              <Separator />
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToText}" Command="{Binding ExportOkToTextCommand}" />
+              <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToFile}" Command="{Binding ExportOkToFileCommand}" />
+              <Separator x:Name="ProxyContextExportSelectedSeparator" />
+              <MenuItem x:Name="ProxyContextExportSelectedToTextItem"
+                        Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToText}"
+                        Command="{Binding ExportSelectedToTextCommand}" />
+              <MenuItem x:Name="ProxyContextExportSelectedToFileItem"
+                        Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToFile}"
+                        Command="{Binding ExportSelectedToFileCommand}" />
+            </MenuItem>
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+
+        <DataGrid.Columns>
+          <!-- On: two-way (rule 37), centered via the check-center cell class. -->
+          <DataGridCheckBoxColumn Header="{loc:Loc Settings_Conn_Col_On}"
+                                  Binding="{Binding Enabled}"
+                                  CellStyleClasses="check-center"
+                                  Width="40" />
+          <!-- Priority: up/down re-stamp row order (MoveUp/MoveDown on the grid's VM, row as parameter). -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Priority}" Width="90">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Button Classes="prio-btn" Content="&#x25B2;" Margin="0,0,2,0"
+                          Command="{Binding $parent[DataGrid].DataContext.MoveUpCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="{loc:Loc Settings_Conn_PriorityUpTip}" />
+                  <Button Classes="prio-btn" Content="&#x25BC;"
+                          Command="{Binding $parent[DataGrid].DataContext.MoveDownCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="{loc:Loc Settings_Conn_PriorityDownTip}" />
+                </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <!-- Type: template ComboBox (no DataGridComboBoxColumn on 11.3.13), SelectedItem two-way (rule 37). -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Type}" Width="100" SortMemberPath="Type">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <ComboBox ItemsSource="{x:Static vm:ConnectionManagerViewModel.ProxyTypeOptions}"
+                          SelectedItem="{Binding Type}"
+                          BorderThickness="0" Background="Transparent"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <!-- Host/Port/User/Password: DEFAULT (two-way) binding — rule 37, NO Mode=OneWay, no UpdateSourceTrigger. -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Host}" Binding="{Binding Host}" Width="*" MinWidth="120" />
+          <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Port}" Binding="{Binding Port}" Width="80" />
+          <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_User}" Binding="{Binding Username}" Width="120" />
+          <DataGridTextColumn Header="{loc:Loc Settings_Conn_Col_Password}" Binding="{Binding Password}" Width="120" />
+          <!-- Test/Status: read-only template columns (icon + trimmed status + Details button). -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Test}" Width="60" SortMemberPath="TestOutcome" IsReadOnly="True">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Image Source="{Binding TestOutcome, Converter={StaticResource ProxyTestOutcomeIcon}}"
+                       Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       ToolTip.Tip="{Binding TestStatus}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Status}" Width="280" SortMemberPath="TestStatus" IsReadOnly="True">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding TestStatus}"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                             ToolTip.Tip="{Binding TestStatus}" />
+                  <Button Grid.Column="1"
+                          Content="{loc:Loc Settings_Conn_Btn_Details}"
+                          FontSize="11" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                          IsVisible="{Binding HasTestDetails}"
+                          Command="{Binding $parent[DataGrid].DataContext.ShowTestDetailsCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- Button bar: Add / Remove(▾) / Test All on the left; Import(▾) / Export(▾) on the right. The three
+           split buttons open a MenuFlyout on click; their items route through code-behind Click handlers that
+           resolve the grid's VM + live SelectedItems (the flyout lives in a separate popup namescope, so a
+           cross-popup ElementName/SelectedItems binding is not reliable — same rule-19 reason the grid menu's
+           params are code-behind). Add / Test All are plain buttons bound directly to the inherited VM. -->
+      <DockPanel Grid.Row="2" Margin="20,0,20,16">
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+          <Button Classes="jd2" Margin="0,0,8,0">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromText}" Click="ProxyImportFromText_Click" />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Import_FromFile}" Click="ProxyImportFromFile_Click" />
+              </MenuFlyout>
+            </Button.Flyout>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{loc:Loc Settings_Conn_Btn_Import}" />
+              <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Classes="jd2">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToText}" Click="ProxyExportAllToText_Click" />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_AllToFile}" Click="ProxyExportAllToFile_Click" />
+                <Separator />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToText}" Click="ProxyExportOkToText_Click" />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_OkToFile}" Click="ProxyExportOkToFile_Click" />
+                <Separator />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToText}" Click="ProxyExportSelectedToText_Click" />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_Export_SelectedToFile}" Click="ProxyExportSelectedToFile_Click" />
+              </MenuFlyout>
+            </Button.Flyout>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{loc:Loc Settings_Conn_Btn_Export}" />
+              <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+          <Button Classes="jd2" Command="{Binding AddCommand}" Margin="0,0,6,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" Margin="0,0,4,0" />
+              <TextBlock Text="{loc:Loc Settings_Conn_Btn_Add}" />
+            </StackPanel>
+          </Button>
+          <Button Classes="jd2" Margin="0,0,6,0">
+            <Button.Flyout>
+              <MenuFlyout>
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_RemoveSelected}" Click="ProxyRemoveSelected_Click" />
+                <MenuItem Header="{loc:Loc Settings_Conn_Btn_RemoveFailed}" Click="ProxyRemoveFailed_Click" />
+              </MenuFlyout>
+            </Button.Flyout>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#x2212;" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}" Margin="0,0,4,0" />
+              <TextBlock Text="{loc:Loc Settings_Conn_Btn_Remove}" />
+              <TextBlock Text="&#x25BE;" FontSize="10" Margin="6,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Classes="jd2" Command="{Binding TestAllCommand}"
+                  ToolTip.Tip="{loc:Loc Settings_Conn_Btn_TestAllTip}" Margin="0,0,6,0"
+                  Content="{loc:Loc Settings_Conn_Btn_TestAll}" />
+          <TextBlock Text="{Binding SaveStatus}" VerticalAlignment="Center" Margin="12,0,0,0"
+                     Foreground="{DynamicResource SuccessBrush}" FontSize="12" FontWeight="SemiBold" />
+        </StackPanel>
+      </DockPanel>
+    </Grid>
 
     <!-- 3: Accounts (accounts grid — filled in Task 6) -->
     <Border Grid.Column="2" x:Name="AccountsPanel"
