@@ -146,6 +146,8 @@ public class ThemeTests
     private static (HashSet<string> Light, HashSet<string> Dark) AvaloniaVariantKeys()
     {
         string xaml = File.ReadAllText(AvaloniaThemePath);
+        // Assumes "ThemeVariant.Dark" occurs exactly once (Light dict first, Dark dict second); a second
+        // occurrence would split mid-Dark-section and under-count its keys — safe while the file has one Dark dict.
         int darkIdx = xaml.IndexOf("ThemeVariant.Dark", StringComparison.Ordinal);
         Assert.True(darkIdx > 0, "ThemeBrushes.axaml is missing the Dark variant dictionary marker");
 

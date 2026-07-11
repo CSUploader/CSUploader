@@ -21,7 +21,7 @@ public class EnumBoolConverter : IValueConverter
         return value.ToString() == paramStr;
     }
 
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is true && parameter is string paramStr)
         {
