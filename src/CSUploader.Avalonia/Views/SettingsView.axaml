@@ -277,7 +277,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFontSize}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
-                   Text="{Binding GridFontSize, StringFormat=F0}, UpdateSourceTrigger=LostFocus}"
+                   Text="{Binding GridFontSize, StringFormat=F0, UpdateSourceTrigger=LostFocus}"
                    Classes="setting-input"
                    HorizontalContentAlignment="Right" />
         </Grid>
@@ -385,14 +385,14 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxConcurrent}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
-                   Text="{Binding MaxConcurrentUploadJobs}, UpdateSourceTrigger=LostFocus}" Classes="setting-input" HorizontalContentAlignment="Right" />
+                   Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=LostFocus}" Classes="setting-input" HorizontalContentAlignment="Right" />
         </Grid>
 
         <Grid Classes="setting-row" ColumnDefinitions="*,Auto,252">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxPerHoster}" Classes="setting-label" />
           <CheckBox Grid.Column="1" IsChecked="{Binding MaxUploadsPerHostEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
           <TextBox Grid.Column="2" HorizontalAlignment="Stretch"
-                   Text="{Binding MaxUploadsPerHost}, UpdateSourceTrigger=LostFocus}" Classes="setting-input"
+                   Text="{Binding MaxUploadsPerHost, UpdateSourceTrigger=LostFocus}" Classes="setting-input"
                    IsEnabled="{Binding MaxUploadsPerHostEnabled}" HorizontalContentAlignment="Right" />
         </Grid>
 
@@ -419,14 +419,14 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxCpuJobs}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
-                   Text="{Binding MaxConcurrentCPUJobs}, UpdateSourceTrigger=LostFocus}" Classes="setting-input" HorizontalContentAlignment="Right" />
+                   Text="{Binding MaxConcurrentCPUJobs, UpdateSourceTrigger=LostFocus}" Classes="setting-input" HorizontalContentAlignment="Right" />
         </Grid>
 
         <Grid Classes="setting-row" ColumnDefinitions="*,Auto,252">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_SpeedLimit}" Classes="setting-label" />
           <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
           <TextBox Grid.Column="2" HorizontalAlignment="Stretch"
-                   Text="{Binding SpeedLimitValue}, UpdateSourceTrigger=LostFocus}" Classes="setting-input"
+                   Text="{Binding SpeedLimitValue, UpdateSourceTrigger=LostFocus}" Classes="setting-input"
                    IsEnabled="{Binding SpeedLimitEnabled}" HorizontalContentAlignment="Right" />
         </Grid>
 

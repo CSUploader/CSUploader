@@ -32,6 +32,85 @@ namespace CSUploader.Tests.Avalonia.Views;
 /// </summary>
 public class SettingsViewTests
 {
+    // ── The 5 apply-immediately numeric fields must commit on LostFocus, not per-keystroke ──
+    // Regression guard for a real bug: the UpdateSourceTrigger=LostFocus fix was first landed
+    // MALFORMED (`{Binding X}, UpdateSourceTrigger=LostFocus}` — the trigger fell OUTSIDE the
+    // binding braces, so the binding closed at the first `}` and the trigger was dead trailing
+    // text → a silent per-keystroke no-op that still compiled and passed every other test).
+    // These fields apply-and-persist immediately (no Save button); per-keystroke would flicker
+    // the grid font mid-type and push transient values into live AppSettings + the DB.
+    [Fact]
+    public void NumericSettingsFields_CarryLostFocusTrigger_InsideTheBindingBraces()
+    {
+        string axaml = System.IO.File.ReadAllText(System.IO.Path.Combine(
+            RepoXaml.FindRepoRoot(), "src", "CSUploader.Avalonia", "Views", "SettingsView.axaml"));
+        foreach (string prop in new[]
+        {
+            "GridFontSize", "MaxConcurrentUploadJobs", "MaxUploadsPerHost", "MaxConcurrentCPUJobs", "SpeedLimitValue",
+        })
+        {
+            // Match from `{Binding <prop>` to the FIRST `}` — i.e. the binding's own braces. The
+            // malformed form matches only `{Binding <prop>}` and fails the Contains; the correct
+            // `{Binding <prop>, ..., UpdateSourceTrigger=LostFocus}` includes the trigger.
+            System.Text.RegularExpressions.Match m = System.Text.RegularExpressions.Regex.Match(
+                axaml, @"\{Binding " + prop + @"\b[^}]*\}");
+            Assert.True(m.Success, $"no well-formed {{Binding {prop} ...}} found in SettingsView.axaml");
+            Assert.Contains("UpdateSourceTrigger=LostFocus", m.Value, System.StringComparison.Ordinal);
+        }
+    }
+
+    // Confirms the framework actually HONORS LostFocus on TextBox (so the fix above isn't a
+    // framework-level no-op): a keystroke does NOT commit; losing focus does.
+    [AvaloniaFact]
+    public void Avalonia_HonorsLostFocusTrigger_OnTextBox_CommitOnlyAfterFocusLeaves()
+    {
+        LostFocusProbe probe = new();
+        TextBox field = new()
+        {
+            [!TextBox.TextProperty] = new global::Avalonia.Data.Binding(nameof(LostFocusProbe.Value))
+            {
+                Mode = global::Avalonia.Data.BindingMode.TwoWay,
+                UpdateSourceTrigger = global::Avalonia.Data.UpdateSourceTrigger.LostFocus,
+            },
+        };
+        TextBox sink = new();
+        Window win = new() { DataContext = probe, Content = new StackPanel { Children = { field, sink } } };
+        try
+        {
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+            field.Focus();
+            Dispatcher.UIThread.RunJobs();
+            field.Text = "typed";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(probe.Value); // keystroke does NOT commit under LostFocus
+            sink.Focus();             // move focus away → LostFocus fires
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("typed", probe.Value); // committed on focus loss
+        }
+        finally
+        {
+            win.Close();
+        }
+    }
+
+    private sealed class LostFocusProbe : System.ComponentModel.INotifyPropertyChanged
+    {
+        private string? value;
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public string? Value
+        {
+            get => this.value;
+            set
+            {
+                this.value = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Value)));
+            }
+        }
+    }
+
     // ── Sidebar selection <-> SelectedCategoryIndex <-> panel visibility (port rule 39) ──
 
     [AvaloniaFact]
