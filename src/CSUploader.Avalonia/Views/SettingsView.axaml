@@ -15,12 +15,22 @@
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             xmlns:v="clr-namespace:CSUploader.Views"
              x:Class="CSUploader.Views.SettingsView"
              Background="{DynamicResource SurfaceBrush}">
 
   <UserControl.Resources>
     <conv:StepVisibilityConverter x:Key="StepVisibilityConverter" />
     <conv:ProxyTestOutcomeIconConverter x:Key="ProxyTestOutcomeIcon" />
+
+    <!-- Accounts grid converters (Task 6). Read-only grid, so every data column stays OneWay (rule 32);
+         the storage "Available" cell is the rule-34 MultiBinding site (StorageAvailableDisplayMulti). -->
+    <conv:HosterIconConverter x:Key="HosterIconConverter" />
+    <conv:AccountCheckStatusToColorConverter x:Key="AccountCheckStatusToColor" />
+    <conv:ByteUnitConverter x:Key="ByteUnit" />
+    <conv:DateTimeFormatConverter x:Key="DateTimeFormat" />
+    <conv:InvertBoolConverter x:Key="InvertBool" />
+    <conv:StorageAvailableDisplayMultiConverter x:Key="StorageAvailableDisplayMulti" />
 
     <!-- SidebarItem ListBoxItem template (rule 40): flat hover/selected fills over the sidebar,
          applied via ItemContainerTheme. WPF's IsMouseOver/IsSelected triggers become :pointerover/
@@ -116,6 +126,12 @@
     <Style Selector="DataGridCell.check-center CheckBox">
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Monospace timestamp cells in the accounts grid so Added/Refreshed columns align (WPF's
+         FontFamily="Consolas, Segoe UI" on those DataGridTextColumns; rule 20 → cell class). -->
+    <Style Selector="DataGridCell.mono-cell TextBlock">
+      <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
     </Style>
 
     <!-- Compact up/down priority buttons (WPF stripped the global Button padding so the glyphs fit). -->
@@ -525,7 +541,14 @@
         </DataGrid.ContextMenu>
 
         <DataGrid.Columns>
-          <!-- On: two-way (rule 37), centered via the check-center cell class. -->
+          <!-- On: two-way (rule 37), centered via the check-center cell class. ACCEPTED DIVERGENCE (prep
+               item 10 — systemic Fluent narrow-header-clipping): the "On" label does NOT paint here. The
+               label IS present (bridge-verified: the header TextBlock's Text == "On"), but the stock
+               DataGridColumnHeader reserves ~45px of horizontal chrome (the sort-glyph area), so at 40px
+               this column's content presenter measures to zero width and the label clips to nothing (Test at
+               60px clips to "Te"; ≥~80px columns are fine). This is NOT a missing-content bug — an explicit
+               TextBlock header clips identically. The fix is the Phase-9 one-shot metrics pass (min-widths /
+               sort-glyph reclaim); per the plan this is LOGGED, not half-fixed per-column here. -->
           <DataGridCheckBoxColumn Header="{loc:Loc Settings_Conn_Col_On}"
                                   Binding="{Binding Enabled}"
                                   CellStyleClasses="check-center"
@@ -660,10 +683,231 @@
       </DockPanel>
     </Grid>
 
-    <!-- 3: Accounts (accounts grid — filled in Task 6) -->
-    <Border Grid.Column="2" x:Name="AccountsPanel"
-            Background="{DynamicResource SurfaceBrush}"
-            IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}" />
+    <!-- 3: Accounts (READ-ONLY grid; rule 32 is PER-GRID and THIS grid is the read-only side — every data
+         column binds OneWay). Its DataContext is the SettingsView's own SettingsViewModel (inherited, unlike
+         the Connection panel's Window-ancestor lookup): Accounts / SelectedAccount / the account commands all
+         live on it. The storage "Available" cell is the rule-34 MultiBinding site. Panel visibility keys off
+         SelectedCategoryIndex via StepVisibilityConverter param 3. -->
+    <Grid Grid.Column="2" x:Name="AccountsPanel"
+          Background="{DynamicResource SurfaceBrush}"
+          RowDefinitions="Auto,*,Auto,Auto"
+          IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+
+      <!-- Header -->
+      <StackPanel Grid.Row="0" Margin="20,16,20,0">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+          <Image Source="{StaticResource AccountImage}" Width="24" Height="24"
+                 VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
+          <TextBlock Text="{loc:Loc Settings_Accounts_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Margin="0,0,0,8" Text="{loc:Loc Settings_Accounts_Desc}" />
+      </StackPanel>
+
+      <!-- Read-only accounts grid. IsReadOnly=True (no cell editing); the ONE interactive control is the
+           enabled checkbox in the leftmost template column (an intentional control in the CellTemplate, not a
+           cell edit — so IsReadOnly does not gate it). Double-tap a row opens the Phase-5 EditAccountWindow
+           through EditAccountCommand. Rows dim (Opacity 0.45) when the account is Disabled, via the scoped
+           DataGrid.Styles binding below. -->
+      <DataGrid x:Name="accountsGrid" Grid.Row="1" Margin="20,0,20,0"
+                ItemsSource="{Binding Accounts}"
+                SelectedItem="{Binding SelectedAccount}"
+                AutoGenerateColumns="False"
+                IsReadOnly="True"
+                SelectionMode="Extended"
+                HeadersVisibility="Column"
+                GridLinesVisibility="All"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource BorderBrush}"
+                Background="{DynamicResource SurfaceBrush}"
+                HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+                DoubleTapped="AccountsGrid_DoubleTapped"
+                beh:DataGridZebraStriping.IsEnabled="True"
+                beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+
+        <!-- Per-row dim when Disabled (WPF DataGridRow DataTrigger → Opacity 0.45). Scoped to this grid so
+             the proxy grid (items have no Disabled) is unaffected; the binding resolves against each row's
+             item and follows recycling. -->
+        <DataGrid.Styles>
+          <Style Selector="DataGridRow">
+            <Setter Property="Opacity" Value="{Binding Disabled, Converter={x:Static v:SettingsView.DisabledToOpacity}}" />
+          </Style>
+        </DataGrid.Styles>
+
+        <!-- Row context menu (rules 18/19): commands bind through the inherited SettingsViewModel DataContext;
+             the SelectedItems-carrying parameters (Refresh / Enable / Disable / Delete) are assigned in
+             code-behind. The row-only items hide on a whitespace right-click (AccountsGrid_ContextMenuOpening),
+             leaving only Add. Edit takes no parameter (operates on SelectedAccount). -->
+        <DataGrid.ContextMenu>
+          <ContextMenu Opening="AccountsGrid_ContextMenuOpening">
+            <MenuItem x:Name="AccountsContextEditItem"
+                      Header="{loc:Loc Settings_Accounts_Context_Edit}"
+                      Command="{Binding EditAccountCommand}" />
+            <MenuItem x:Name="AccountsContextRefreshItem"
+                      Header="{loc:Loc Settings_Accounts_Context_Refresh}"
+                      Command="{Binding RefreshSelectedAccountsCommand}" />
+            <Separator x:Name="AccountsContextRowSeparator1" />
+            <MenuItem x:Name="AccountsContextEnableItem"
+                      Header="{loc:Loc Settings_Accounts_Context_Enable}"
+                      Command="{Binding EnableSelectedAccountsCommand}" />
+            <MenuItem x:Name="AccountsContextDisableItem"
+                      Header="{loc:Loc Settings_Accounts_Context_Disable}"
+                      Command="{Binding DisableSelectedAccountsCommand}" />
+            <Separator x:Name="AccountsContextRowSeparator2" />
+            <MenuItem x:Name="AccountsContextDeleteItem"
+                      Header="{loc:Loc Settings_Accounts_Context_Delete}"
+                      InputGesture="Delete"
+                      Command="{Binding RemoveSelectedAccountsCommand}" />
+            <Separator x:Name="AccountsContextRowSeparator3" />
+            <MenuItem Header="{loc:Loc Settings_Accounts_Btn_Add}" Command="{Binding AddAccountDialogCommand}" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+
+        <DataGrid.Columns>
+          <!-- Enabled: template column (WPF has NO DataGridCheckBoxColumn here — the checkbox reflects the
+               INVERSE of Disabled and its Click fans the toggle out to the whole selection). The "✓" header
+               glyph is subject to the SAME accepted divergence as the proxy "On" header (prep item 10 —
+               systemic Fluent narrow-header-clipping): at 30px the header content clips to zero width. The
+               glyph is decorative (WPF shows a checkmark); the Phase-9 metrics pass reclaims the room. -->
+          <DataGridTemplateColumn Header="&#x2713;" Width="30" CanUserResize="False">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                          IsChecked="{Binding Disabled, Converter={StaticResource InvertBool}}"
+                          Click="AccountEnabledCheckBox_Click" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+
+          <!-- Hoster: icon + name (read-only template). -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Hoster}" Width="180"
+                                  SortMemberPath="FileHosterName"
+                                  ClipboardContentBinding="{Binding FileHosterName}">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
+                         Width="18" Height="18" Margin="0,0,6,0"
+                         RenderOptions.BitmapInterpolationMode="HighQuality" />
+                  <TextBlock Text="{Binding FileHosterName}" VerticalAlignment="Center" />
+                </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+
+          <!-- Status: trimmed StatusMessage recoloured by CheckStatus. The brush converter resolves against
+               the active theme variant at conversion time (§Phase-4 prep 7): a live theme flip does NOT
+               re-run it, but the cell repaints as the status changes or the row recycles — acceptable, and
+               it reads correctly in both themes (verified in the bridge shots). -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200"
+                                  SortMemberPath="StatusMessage">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding StatusMessage}"
+                           Foreground="{Binding CheckStatus, Converter={StaticResource AccountCheckStatusToColor}}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+
+          <!-- Username: OneWay (rule 32 — read-only; Avalonia's default TwoWay would push the string back on
+               bind). -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Username}"
+                              Binding="{Binding Username, Mode=OneWay}" Width="180" />
+
+          <!-- Password: fixed masked cell (WPF ElementStyle sets Text="******"). Accounts never show the
+               cleartext secret even in WPF — a template column with a literal string mask. -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Password}" Width="100">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="******" VerticalAlignment="Center" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+
+          <!-- Type: OneWay text (rule 32). -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}"
+                              Binding="{Binding AccountType, Mode=OneWay}" Width="80" />
+
+          <!-- Used: OneWay (rule 32 AND mandatory — ByteUnitConverter throws on ConvertBack, so a TwoWay
+               bind would push default(long) back and blank the cell). ConverterParameter '-' renders the
+               "unknown usage" placeholder for hosters that report no figure. -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Used}"
+                              Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}, ConverterParameter='-', Mode=OneWay}"
+                              Width="90" />
+
+          <!-- Available: the rule-34 MultiBinding site. VERDICT: MultiBinding-on-DataGridTextColumn.Binding
+               WORKS on 11.3.13 (the column's GenerateElement just does TextBlock.Bind(TextProperty, IBinding),
+               and MultiBinding is an IBinding) — no template-column fallback needed. Mode=OneWay per rule 34
+               (read-only; the child bindings over the NOTIFYING StorageUsedBytes/StorageQuotaBytes keep it
+               live as refresh updates the row in place). -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}" Width="110">
+            <DataGridTextColumn.Binding>
+              <MultiBinding Converter="{StaticResource StorageAvailableDisplayMulti}" Mode="OneWay">
+                <Binding Path="StorageUsedBytes" />
+                <Binding Path="StorageQuotaBytes" />
+                <Binding Path="FileHosterName" />
+              </MultiBinding>
+            </DataGridTextColumn.Binding>
+          </DataGridTextColumn>
+
+          <!-- Added / Refreshed: OneWay monospace timestamps (DateTimeFormatConverter throws on ConvertBack →
+               OneWay mandatory; blank when null). -->
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_AddedAt}"
+                              Binding="{Binding CreatedDateTime, Converter={StaticResource DateTimeFormat}, Mode=OneWay}"
+                              CellStyleClasses="mono-cell" Width="140" />
+          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_RefreshedAt}"
+                              Binding="{Binding LastRefreshedDateTime, Converter={StaticResource DateTimeFormat}, Mode=OneWay}"
+                              CellStyleClasses="mono-cell" Width="140" />
+        </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- JD2-style bottom button bar: Add / Remove / Refresh. Remove takes the grid's live SelectedItems
+           (assigned in code-behind, rule 19). -->
+      <Border Grid.Row="2" Margin="20,0,20,0" Padding="6,6"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,1,1"
+              Background="{DynamicResource ButtonBarGradientBrush}">
+        <StackPanel Orientation="Horizontal">
+          <Button Classes="jd2" Command="{Binding AddAccountDialogCommand}" Margin="0,0,4,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="+" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+              <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Add}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button x:Name="AccountsRemoveButton" Classes="jd2"
+                  Command="{Binding RemoveSelectedAccountsCommand}" Margin="0,0,4,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#x2212;" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+              <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Remove}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+          <Button Classes="jd2" Command="{Binding RefreshAllAccountsCommand}">
+            <StackPanel Orientation="Horizontal">
+              <Image Source="{StaticResource ActionRetryImage}" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0"
+                     RenderOptions.BitmapInterpolationMode="HighQuality" />
+              <TextBlock Text="{loc:Loc Settings_Accounts_Btn_Refresh}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <!-- Status message: neutral by default, InfoAccent while a verify is in flight (rule 40 — bound to
+           IsCheckingAccount through a conditional class so it stays theme-live via DynamicResource). -->
+      <TextBlock Grid.Row="3" Text="{Binding CheckAccountStatus}" FontSize="11" Margin="20,6,20,8"
+                 TextWrapping="Wrap" HorizontalAlignment="Left"
+                 Classes.checking="{Binding IsCheckingAccount}"
+                 Foreground="{DynamicResource TextSecondaryBrush}">
+        <TextBlock.Styles>
+          <Style Selector="TextBlock.checking">
+            <Setter Property="Foreground" Value="{DynamicResource InfoAccentBrush}" />
+          </Style>
+        </TextBlock.Styles>
+      </TextBlock>
+
+    </Grid>
 
   </Grid>
 </UserControl>
