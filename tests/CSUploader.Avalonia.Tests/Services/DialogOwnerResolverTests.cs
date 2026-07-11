@@ -19,11 +19,13 @@ namespace CSUploader.Tests.Avalonia.Services;
 /// the headless session reports <see cref="Window.IsActive"/> == <c>true</c> for EVERY shown window and
 /// never deactivates a previous one, so <c>Activate()</c> cannot make "the second window" exclusively
 /// win; and both <c>Hide()</c> and a direct <c>IsVisible = false</c> clear <c>IsActive</c> too. So the
-/// two cases that need a shown-but-inactive or active-but-invisible window are driven through the pure
-/// <see cref="DialogOwnerResolver.Resolve"/> core — <see cref="NoActiveVisibleWindow_FallsBackToVisibleMainWindow"/>
-/// with an empty window list, and <see cref="HiddenActiveIsSkipped"/> by force-setting the private
-/// <c>IsActive</c> backing field to construct the exact adversarial state its <c>IsVisible</c> conjunct
-/// defends against.
+/// cases that need a shown-but-inactive or active-but-invisible window are driven through the pure
+/// <see cref="DialogOwnerResolver.Resolve"/> core with the private <c>IsActive</c> backing field
+/// force-set to the state headless input cannot produce:
+/// <see cref="HiddenActiveIsSkipped"/> pins the <c>IsVisible</c> conjunct (active but hidden → lose) and
+/// <see cref="InactiveVisibleWindow_IsSkipped_VisibleMainWins"/> pins the <c>IsActive</c> conjunct
+/// (visible but inactive → skipped, visible-main wins). Together they defend both halves of branch 1
+/// against a dropped conjunct.
 /// </para>
 /// Every shown window is closed in a <c>finally</c> (headless windows are process-global for the session).
 /// </summary>
@@ -109,10 +111,40 @@ public class DialogOwnerResolverTests
         // state is constructed by force-setting the private IsActive backing field. Without the conjunct,
         // this ghost would wrongly win.
         var ghost = new Window { Width = 100, Height = 100, IsVisible = false };
-        ForceIsActive(ghost);
+        SetIsActive(ghost, true);
         Assert.True(ghost is { IsActive: true, IsVisible: false }); // precondition
 
         Assert.Null(DialogOwnerResolver.Resolve(new[] { ghost }, mainWindow: null));
+    }
+
+    [AvaloniaFact]
+    public void InactiveVisibleWindow_IsSkipped_VisibleMainWins()
+    {
+        // Symmetric guard to HiddenActiveIsSkipped: that pins the IsVisible conjunct (an active-but-hidden
+        // window must lose); this pins the IsActive conjunct (a visible-but-inactive window must be
+        // skipped so the visible main window wins). Headless keeps every shown window IsActive==true and
+        // never deactivates one, so the inactive state is force-cleared on a genuinely shown (visible)
+        // window. Without the IsActive conjunct, FirstOrDefault(w => w.IsVisible) would wrongly return
+        // this window instead of falling through to the visible-main branch.
+        var shownInactive = new Window { Width = 100, Height = 100 };
+        var main = new Window { Width = 100, Height = 100 };
+        try
+        {
+            shownInactive.Show();
+            main.Show();
+            Dispatcher.UIThread.RunJobs();
+            SetIsActive(shownInactive, false);
+            Assert.True(shownInactive is { IsActive: false, IsVisible: true }); // precondition
+            Assert.True(main.IsVisible);
+
+            // shownInactive is not a branch-1 (active-visible) candidate; branch 2 (visible main) wins.
+            Assert.Same(main, DialogOwnerResolver.Resolve(new[] { shownInactive }, main));
+        }
+        finally
+        {
+            shownInactive.Close();
+            main.Close();
+        }
     }
 
     [AvaloniaFact]
@@ -124,12 +156,13 @@ public class DialogOwnerResolverTests
         Assert.Null(DialogOwnerResolver.ResolveFromLifetime());
     }
 
-    // Force WindowBase._isActive (a read-only DirectProperty with a private setter) true, so the CLR
-    // IsActive getter — which reads the field directly — reports an active window that is not visible.
-    private static void ForceIsActive(Window window)
+    // Force WindowBase._isActive (a read-only DirectProperty with a private setter) to a chosen value,
+    // so the CLR IsActive getter — which reads the field directly — reports a state headless input
+    // cannot produce: an active window that is not visible, or a visible window that is not active.
+    private static void SetIsActive(Window window, bool value)
     {
         FieldInfo field = typeof(WindowBase).GetField("_isActive", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("WindowBase._isActive not found — Avalonia internals changed.");
-        field.SetValue(window, true);
+        field.SetValue(window, value);
     }
 }

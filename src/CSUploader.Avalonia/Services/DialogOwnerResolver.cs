@@ -17,8 +17,8 @@ namespace CSUploader.Services;
 /// or picker reveals the tray-hidden main window first (see <c>AvaloniaDialogService</c>).</item>
 /// </list>
 /// <see cref="Window.IsVisible"/> is deliberately the exact property Avalonia's own owner guard checks
-/// (not <c>IsEffectivelyVisible</c>). Static and stateless, mirroring
-/// <see cref="AvaloniaClipboardService"/>'s clipboard resolution.
+/// (not <c>IsEffectivelyVisible</c>). Static and stateless; <see cref="AvaloniaClipboardService"/>
+/// resolves its <c>TopLevel</c> through this same policy so the head has one owner resolver.
 /// </summary>
 internal static class DialogOwnerResolver
 {
