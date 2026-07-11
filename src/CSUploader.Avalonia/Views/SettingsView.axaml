@@ -1,0 +1,409 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia port of the WPF Settings tab (src/Views/SettingsView.xaml). Task 4 lands the shell — the
+     ListBox sidebar, the four SelectedCategoryIndex-switched panels, and the General + Upload panels;
+     the Connection (proxies) and Accounts grids fill panels 2/3 in Tasks 5/6. Panel switching maps the
+     WPF Style.Triggers DataTrigger (port rule 39) to IsVisible bound through StepVisibilityConverter.
+     The SidebarItem/SectionTitle/SettingRow WPF keyed styles map to a ControlTheme + Classes selectors
+     (port rule 40); the WPF SelectedValuePath/DisplayMemberPath combos become SelectedValueBinding/
+     DisplayMemberBinding (§Reality-check #11/#18). No theme toggle here — the grid FONT is the only
+     theme-adjacent control (§Reality-check #17). -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             x:Class="CSUploader.Views.SettingsView"
+             Background="{DynamicResource SurfaceBrush}">
+
+  <UserControl.Resources>
+    <conv:StepVisibilityConverter x:Key="StepVisibilityConverter" />
+
+    <!-- SidebarItem ListBoxItem template (rule 40): flat hover/selected fills over the sidebar,
+         applied via ItemContainerTheme. WPF's IsMouseOver/IsSelected triggers become :pointerover/
+         :selected pseudo-class /template/ styles on the named Border. -->
+    <ControlTheme x:Key="SidebarItemTheme" TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="6,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#Bd">
+        <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+      </Style>
+      <Style Selector="^:selected /template/ Border#Bd">
+        <Setter Property="Background" Value="{DynamicResource SidebarSelectedBrush}" />
+      </Style>
+    </ControlTheme>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- SectionTitle -> Classes="section-title" (rule 40; underlined accent heading). -->
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- SectionDesc -> Classes="section-desc" -->
+    <Style Selector="TextBlock.section-desc">
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="40,2,0,10" />
+    </Style>
+
+    <!-- SettingRow -> Classes="setting-row": a full-width JD2-style hover highlight so the user can
+         tell which setting pairs with which description. Background=Transparent keeps the Grid
+         hit-testable across its width (standing note a); :pointerover swaps the fill. -->
+    <Style Selector="Grid.setting-row">
+      <Setter Property="Margin" Value="40,0,0,2" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Grid.setting-row:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+    </Style>
+
+    <!-- SettingLabel -> Classes="setting-label" -->
+    <Style Selector="TextBlock.setting-label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- SettingInput -> Classes="setting-input" -->
+    <Style Selector="TextBox.setting-input">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="4,3" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="140,1,*">
+
+    <!-- Sidebar -->
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+      <ListBox x:Name="Sidebar"
+               Background="Transparent" BorderThickness="0"
+               SelectedIndex="{Binding SelectedCategoryIndex}"
+               ItemContainerTheme="{StaticResource SidebarItemTheme}"
+               SelectionMode="Single" Padding="0" Margin="0">
+        <ListBoxItem>
+          <StackPanel HorizontalAlignment="Center" Width="120">
+            <Image Source="{StaticResource StatusOkImage}" Width="32" Height="32"
+                   HorizontalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <TextBlock Text="{loc:Loc Settings_Sidebar_General}" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,3,0,0"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+          </StackPanel>
+        </ListBoxItem>
+        <ListBoxItem>
+          <StackPanel HorizontalAlignment="Center" Width="120">
+            <Image Source="{StaticResource StatusUploadingImage}" Width="32" Height="32"
+                   HorizontalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <TextBlock Text="{loc:Loc Settings_Sidebar_Upload}" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,3,0,0"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+          </StackPanel>
+        </ListBoxItem>
+        <ListBoxItem>
+          <StackPanel HorizontalAlignment="Center" Width="120">
+            <Image Source="{StaticResource ActionSpeedImage}" Width="32" Height="32"
+                   HorizontalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <TextBlock Text="{loc:Loc Settings_Sidebar_Connection}" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,3,0,0"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+          </StackPanel>
+        </ListBoxItem>
+        <ListBoxItem>
+          <StackPanel HorizontalAlignment="Center" Width="120">
+            <Image Source="{StaticResource AccountImage}" Width="32" Height="32"
+                   HorizontalAlignment="Center" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <TextBlock Text="{loc:Loc Settings_Sidebar_Accounts}" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,3,0,0"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+          </StackPanel>
+        </ListBoxItem>
+      </ListBox>
+    </Border>
+
+    <Border Grid.Column="1" Background="{DynamicResource SidebarSeparatorBrush}" />
+
+    <!-- Content panels (switched by SelectedCategoryIndex; rule 39). All four occupy Column 2 and
+         overlap — IsVisible picks the live one. -->
+
+    <!-- 0: General -->
+    <ScrollViewer Grid.Column="2" x:Name="GeneralPanel"
+                  VerticalScrollBarVisibility="Auto"
+                  Background="{DynamicResource SurfaceBrush}" Padding="0"
+                  IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
+      <StackPanel Margin="20,16,20,20" MaxWidth="900">
+        <!-- Language. The picker takes effect immediately; already-open dialogs keep whatever
+             language they captured at construction. -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+          <PathIcon Data="{StaticResource SettingsLanguageGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_Language_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Language_Desc}" />
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_Language_Label}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" x:Name="LanguageCombo" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding LanguageOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValue="{Binding Language}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsDeveloperGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_Developer_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Developer_Desc}" />
+
+        <Grid Classes="setting-row">
+          <CheckBox Content="{loc:Loc Settings_General_UseMockServer}"
+                    IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- Grid appearance (font for Uploads / Uploaded tabs) -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsGridAppearanceGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_GridAppearance_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_GridAppearance_Desc}" />
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFont}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" x:Name="FontCombo" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding GridFontFamilyOptions}"
+                    SelectedItem="{Binding GridFontFamily}"
+                    FontSize="12" Padding="4,3">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <!-- Two-column row: the font's name in the default UI font (so CJK/Arabic-only fonts
+                     don't render their English name as boxes) plus a small "AaBb 123" sample in the
+                     actual font as a preview. -->
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding}" />
+                  <TextBlock Grid.Column="1" Text="AaBb 123"
+                             FontFamily="{Binding}"
+                             Margin="12,0,0,0"
+                             Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_GridFontSize}" Classes="setting-label" />
+          <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
+                   Text="{Binding GridFontSize, StringFormat=F0}"
+                   Classes="setting-input"
+                   HorizontalContentAlignment="Right" />
+        </Grid>
+
+        <!-- Window behaviour (minimize / close -> tray) -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsWindowBehaviourGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_WindowBehaviour_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_WindowBehaviour_Desc}" />
+
+        <Grid Classes="setting-row">
+          <CheckBox Content="{loc:Loc Settings_General_MinimizeToTray}"
+                    IsChecked="{Binding MinimizeToTray}" VerticalAlignment="Center" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_CloseAction}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" x:Name="CloseActionCombo" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding CloseActionOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValue="{Binding CloseAction}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
+
+        <!-- Notifications -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsNotificationsGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_Notifications_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Notifications_Desc}" />
+
+        <Grid Classes="setting-row">
+          <CheckBox Content="{loc:Loc Settings_General_ShowCompletionToasts}"
+                    IsChecked="{Binding ShowCompletionToasts}" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- Confirmation prompts -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsConfirmationGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_ConfirmationPrompts_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_ConfirmationPrompts_Desc}" />
+
+        <ItemsControl x:Name="ConfirmationPromptsList" ItemsSource="{Binding ConfirmationPrompts}" Margin="0,4,0,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <!-- setting-row gives each prompt the same full-width hover highlight (and 40px indent). -->
+              <Grid Classes="setting-row">
+                <CheckBox IsChecked="{Binding AskAgain}"
+                          Content="{Binding Label}"
+                          VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Database — destructive cleanup, kept last so the user scrolls past the everyday settings. -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <PathIcon Data="{StaticResource SettingsDatabaseGeometry}"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+          <TextBlock Text="{loc:Loc Settings_General_Database_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Database_Desc}" />
+
+        <Grid Margin="40,4,0,0">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+            <Button Width="120" Classes="jd2"
+                    Command="{Binding ClearDatabaseCommand}"
+                    Content="{loc:Loc Settings_General_Database_BtnClear}" />
+            <Button Width="120" Margin="8,0,0,0" Classes="jd2"
+                    Command="{Binding ClearLogsCommand}"
+                    Content="{loc:Loc Settings_General_Database_BtnClearLogs}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- 1: Upload -->
+    <ScrollViewer Grid.Column="2" x:Name="UploadPanel"
+                  VerticalScrollBarVisibility="Auto"
+                  Background="{DynamicResource SurfaceBrush}" Padding="0"
+                  IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+      <StackPanel Margin="20,16,20,20" MaxWidth="900">
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+          <Image Source="{StaticResource StatusRunningImage}" Width="24" Height="24"
+                 VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
+          <TextBlock Text="{loc:Loc Settings_Upload_Mgmt_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_Upload_Mgmt_Desc}" />
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxConcurrent}" Classes="setting-label" />
+          <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
+                   Text="{Binding MaxConcurrentUploadJobs}" Classes="setting-input" HorizontalContentAlignment="Right" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,Auto,252">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxPerHoster}" Classes="setting-label" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding MaxUploadsPerHostEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBox Grid.Column="2" HorizontalAlignment="Stretch"
+                   Text="{Binding MaxUploadsPerHost}" Classes="setting-input"
+                   IsEnabled="{Binding MaxUploadsPerHostEnabled}" HorizontalContentAlignment="Right" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_RemoveFinished}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding RemoveFinishedUploadsOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValue="{Binding RemoveFinishedUploads}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_IfFileExists}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding IfFileExistsOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValue="{Binding IfFileExists}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxCpuJobs}" Classes="setting-label" />
+          <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
+                   Text="{Binding MaxConcurrentCPUJobs}" Classes="setting-input" HorizontalContentAlignment="Right" />
+        </Grid>
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,Auto,252">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_SpeedLimit}" Classes="setting-label" />
+          <CheckBox Grid.Column="1" IsChecked="{Binding SpeedLimitEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBox Grid.Column="2" HorizontalAlignment="Stretch"
+                   Text="{Binding SpeedLimitValue}" Classes="setting-input"
+                   IsEnabled="{Binding SpeedLimitEnabled}" HorizontalContentAlignment="Right" />
+        </Grid>
+
+        <!-- Autostart Uploads -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <Image Source="{StaticResource StatusUploadingImage}" Width="24" Height="24"
+                 VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
+          <TextBlock Text="{loc:Loc Settings_Upload_Autostart_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_Upload_Autostart_Desc}" />
+
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_Autostart}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding AutostartUploadsOptions}"
+                    SelectedValueBinding="{Binding Value}"
+                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValue="{Binding AutostartUploads}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- 2: Connection (proxies grid — filled in Task 5) -->
+    <Border Grid.Column="2" x:Name="ConnectionPanel"
+            Background="{DynamicResource SurfaceBrush}"
+            IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
+
+    <!-- 3: Accounts (accounts grid — filled in Task 6) -->
+    <Border Grid.Column="2" x:Name="AccountsPanel"
+            Background="{DynamicResource SurfaceBrush}"
+            IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}" />
+
+  </Grid>
+</UserControl>
