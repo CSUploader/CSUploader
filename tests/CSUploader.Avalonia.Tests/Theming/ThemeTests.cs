@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.IO;
 using Avalonia;
 using Avalonia.Controls; // ResourceNodeExtensions.TryFindResource (2-arg + ThemeVariant overload)
 using Avalonia.Headless.XUnit;
@@ -16,50 +17,48 @@ namespace CSUploader.Tests.Avalonia.Theming;
 
 /// <summary>
 /// Theme-token / ThemeVariant-dictionary parity gate plus the real <see cref="AvaloniaThemeApplier"/>.
-/// The brush keys live in ThemeBrushes.axaml's ThemeDictionaries; the drift gate here asserts all 64
-/// resolve in BOTH variants (a WPF-side brush added to only one variant now fails a test, not a view).
-/// Runs under <see cref="AvaloniaFactAttribute"/> for the real App's merged resource surface.
-/// Tests that mutate process state (RequestedThemeVariant, app.Resources) restore it in a finally.
+/// The drift gate parses the WPF <c>Theme.Light.xaml</c> key set (SystemColors overrides filtered out)
+/// and asserts it is set-equal to BOTH Avalonia variant dictionaries — so a WPF-side brush addition that
+/// is not mirrored into ThemeBrushes.axaml (or a stale Avalonia key) now fails a test, not a view. Reuses
+/// the same <see cref="RepoXaml"/> parse as the image drift gate. Runs under
+/// <see cref="AvaloniaFactAttribute"/> for the real App's merged resource surface. Tests that mutate
+/// process state (RequestedThemeVariant, app.Resources) restore it in a finally.
 /// </summary>
 public class ThemeTests
 {
-    // The 64 brush keys ported per variant — pinned by copying the x:Key names from
-    // src/Resources/Theme.Light.xaml (SystemColors overrides excluded). Theme.Dark.xaml's key set is
-    // byte-identical; this list is the contract both variant dictionaries must satisfy.
-    private static readonly string[] BrushKeys =
-    [
-        "SurfaceBrush", "SurfaceAltBrush", "SurfaceMutedBrush", "BorderBrush",
-        "BorderSubtleBrush", "TextPrimaryBrush", "TextSecondaryBrush", "TextDisabledBrush",
-        "AccentBrush", "AccentHoverBrush", "AccentForegroundBrush", "ButtonHoverBrush",
-        "ButtonPressedBrush", "ScrollBarTrackBrush", "ScrollBarThumbBrush", "ScrollBarThumbHoverBrush",
-        "ScrollBarThumbPressedBrush", "DataGridHeaderBrush", "DataGridAltRowBrush", "DataGridGridLineBrush",
-        "SelectionBrush", "SelectionForegroundBrush", "ContentBackgroundBrush", "ContentAltBackgroundBrush",
-        "RowDetailBackgroundBrush", "ProgressBarTrackBrush", "ProgressBarFillBrush", "ProgressBarAltFillBrush",
-        "ProgressBarAltTrackBrush", "OverviewTitleGradientBrush", "ButtonBarGradientBrush", "JD2ButtonBgBrush",
-        "JD2ButtonBorderBrush", "JD2ButtonHoverBgBrush", "JD2ButtonHoverBorderBrush", "JD2ButtonPressedBgBrush",
-        "JD2ButtonPressedBorderBrush", "ToolbarButtonHoverBrush", "ToolbarButtonHoverBorderBrush", "ToolbarButtonPressedBrush",
-        "ToolbarButtonPressedBorderBrush", "SidebarBackgroundBrush", "SidebarHoverBrush", "SidebarSelectedBrush",
-        "SidebarSeparatorBrush", "DialogButtonBgBrush", "DialogButtonBorderBrush", "DialogButtonHoverBgBrush",
-        "DialogButtonHoverBorderBrush", "DialogButtonPressedBgBrush", "SaveButtonBgBrush", "SaveButtonBorderBrush",
-        "SaveButtonHoverBgBrush", "SaveButtonPressedBgBrush", "SuccessBrush", "ErrorBrush",
-        "WarningBrush", "OverviewCloseBrush", "OverviewArrowBrush", "InputFieldBorderBrush",
-        "LogBackgroundBrush", "LogAltRowBrush", "CodeBackgroundBrush", "InfoAccentBrush",
-    ];
+    private static readonly string RepoRoot = RepoXaml.FindRepoRoot();
+    private static readonly string WpfThemePath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Light.xaml");
+    private static readonly string AvaloniaThemePath =
+        Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml");
 
-    [AvaloniaFact]
-    public void BrushKeys_ListIsThe64PortedKeys()
+    [Fact]
+    public void WpfThemeKeys_ParseToLiteralBrushKeys_DroppingSystemColorsOverrides()
     {
-        // Guards the pinned list itself: a fat-finger while copying would otherwise weaken the drift gate.
-        Assert.Equal(64, BrushKeys.Length);
-        Assert.Equal(64, BrushKeys.Distinct(StringComparer.Ordinal).Count());
+        // Guards the drift gate's own input: the WPF theme parses to a real, non-empty literal-key set,
+        // and the ONLY keys filtered out are the SystemColors.*BrushKey overrides (WPF-only mechanics).
+        HashSet<string> all = RepoXaml.ParseXamlKeys(WpfThemePath);
+        HashSet<string> literal = WpfBrushKeys();
+
+        Assert.NotEmpty(literal);
+        Assert.Contains("SurfaceBrush", literal);
+        Assert.All(literal, k => Assert.DoesNotContain("SystemColors", k, StringComparison.Ordinal));
+        Assert.All(all.Except(literal), k => Assert.Contains("SystemColors", k, StringComparison.Ordinal));
     }
 
     [AvaloniaFact]
-    public void EveryBrushKey_ResolvesInBothVariants()
+    public void EveryWpfBrushKey_MatchesBothVariantDictionaries_AndResolvesToABrush()
     {
-        // Drift gate between the two variant dictionaries: each key must resolve to an IBrush under
-        // both an explicit Light and Dark lookup, regardless of the currently-active variant.
-        foreach (string key in BrushKeys)
+        // Set-equality drift gate: the WPF brush keys must be exactly the key set of EACH Avalonia variant
+        // dictionary. A WPF-side brush not mirrored into a variant (or a stale Avalonia key with no WPF
+        // source) fails here, naming the offenders — not a downstream view.
+        HashSet<string> wpfKeys = WpfBrushKeys();
+        (HashSet<string> lightKeys, HashSet<string> darkKeys) = AvaloniaVariantKeys();
+        AssertSetEqual("Light", wpfKeys, lightKeys);
+        AssertSetEqual("Dark", wpfKeys, darkKeys);
+
+        // …and each ported key actually LOADS as an IBrush under both explicit variant lookups (proves the
+        // file text became live resources, not just that the two files agree).
+        foreach (string key in wpfKeys)
         {
             Assert.True(
                 Application.Current!.TryFindResource(key, ThemeVariant.Light, out object? light),
@@ -135,5 +134,36 @@ public class ThemeTests
 
         Assert.True(Application.Current!.TryFindResource("ControlHeightSm", out object? height));
         Assert.Equal(24.0, Assert.IsType<double>(height));
+    }
+
+    // The portable WPF brush keys: every x:Key in Theme.Light.xaml except the SystemColors.*BrushKey
+    // overrides (non-literal markup-extension keys). Theme.Dark.xaml's set is byte-identical.
+    private static HashSet<string> WpfBrushKeys()
+        => RepoXaml.ParseXamlKeys(WpfThemePath).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
+
+    // ThemeBrushes.axaml declares both variant dictionaries in one file; split on the Dark variant marker
+    // so each variant's literal key set is isolated (the {x:Static ThemeVariant.*} markers are non-literal).
+    private static (HashSet<string> Light, HashSet<string> Dark) AvaloniaVariantKeys()
+    {
+        string xaml = File.ReadAllText(AvaloniaThemePath);
+        int darkIdx = xaml.IndexOf("ThemeVariant.Dark", StringComparison.Ordinal);
+        Assert.True(darkIdx > 0, "ThemeBrushes.axaml is missing the Dark variant dictionary marker");
+
+        static HashSet<string> Literal(string section)
+            => RepoXaml.ParseXamlKeysFromText(section).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
+
+        return (Literal(xaml[..darkIdx]), Literal(xaml[darkIdx..]));
+    }
+
+    private static void AssertSetEqual(string variant, HashSet<string> wpf, HashSet<string> ava)
+    {
+        List<string> missing = wpf.Except(ava).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        List<string> stale = ava.Except(wpf).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        Assert.True(
+            missing.Count == 0,
+            $"WPF brush keys not in the Avalonia {variant} variant dictionary: {string.Join(", ", missing)}");
+        Assert.True(
+            stale.Count == 0,
+            $"Avalonia {variant} variant keys with no WPF source (stale): {string.Join(", ", stale)}");
     }
 }
