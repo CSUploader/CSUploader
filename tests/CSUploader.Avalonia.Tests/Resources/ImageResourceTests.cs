@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Imaging;
 using CSUploader.Resources;
+using SkiaSharp;
 
 namespace CSUploader.Tests.Avalonia.Resources;
 
@@ -70,12 +71,40 @@ public class ImageResourceTests
         }
     }
 
+    [Fact]
+    public void EveryBitmapAsset_DecodesWithSkia()
+    {
+        // The headless session stubs bitmap loading (TestAppBuilder keeps UseSkia OFF), so the
+        // [AvaloniaFact] resource checks above prove a key resolves but NOT that the PNG/ICO bytes are a
+        // decodable image — a corrupt or truncated asset would still hand back a stub. Decode each asset
+        // straight off disk with SkiaSharp (no Avalonia platform needed) to pin real decodability. Paths
+        // mirror the head's AvaloniaResource glob root: src/Properties/Images/<entry.Path>.
+        string imagesRoot = Path.Combine(RepoXaml.FindRepoRoot(), "src", "Properties", "Images");
+        Assert.NotEmpty(BitmapImageResources.Entries);
+
+        foreach ((string key, string path) in BitmapImageResources.Entries)
+        {
+            string file = Path.Combine(imagesRoot, path.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(file), $"asset file missing on disk for key {key}: {file}");
+
+            using SKBitmap? bitmap = SKBitmap.Decode(file);
+            Assert.True(bitmap is not null, $"SkiaSharp could not decode the asset for key {key}: {file}");
+            Assert.True(bitmap!.Width > 0 && bitmap.Height > 0, $"decoded asset has no pixels for key {key}: {file}");
+        }
+    }
+
     [AvaloniaFact]
     public void EveryGeometryKey_Resolves()
     {
-        foreach (string key in (string[])["SettingsLanguageGeometry", "SettingsDeveloperGeometry",
-            "SettingsGridAppearanceGeometry", "SettingsWindowBehaviourGeometry", "SettingsConfirmationGeometry",
-            "SettingsNotificationsGeometry", "SettingsDatabaseGeometry", "ForceStartGeometry"])
+        // Drive off the file itself, not a hand-maintained key list: a geometry added to
+        // ImageGeometries.axaml is then covered automatically (and one removed can't leave a stale
+        // assertion passing against a key that no longer exists). All keys in the file are literal.
+        HashSet<string> geometryKeys = RepoXaml.ParseXamlKeys(
+            Path.Combine(RepoXaml.FindRepoRoot(), "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"))
+            .Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
+        Assert.NotEmpty(geometryKeys);
+
+        foreach (string key in geometryKeys)
         {
             Assert.True(Application.Current!.TryFindResource(key, out object? value), $"missing resource: {key}");
             Assert.IsAssignableFrom<global::Avalonia.Media.Geometry>(value);

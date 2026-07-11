@@ -44,6 +44,15 @@ public class LocExtensionTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Uploads", textBlock.Text);              // en neutral value (i18n-inventory.md:82)
 
+            // The binding subscribes to Localizer.Instance weakly (the leak guard in
+            // TornDownBinding_DoesNotLeakOntoLocalizerSingleton). Force a full GC here, while the control
+            // is still rooted (textBlock local + shown window): a LIVE control's weak subscription must
+            // survive collection and still re-evaluate below. This pins that the leak fix isn't
+            // over-weakened into dropping updates on controls that are actually alive.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
             Localizer.Instance.Culture = CultureInfo.GetCultureInfo("ja");
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("アップロード", textBlock.Text);           // ja satellite (i18n-inventory.ja.md:81)

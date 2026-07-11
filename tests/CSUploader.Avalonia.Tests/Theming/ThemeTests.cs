@@ -28,6 +28,7 @@ public class ThemeTests
 {
     private static readonly string RepoRoot = RepoXaml.FindRepoRoot();
     private static readonly string WpfThemePath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Light.xaml");
+    private static readonly string WpfThemeDarkPath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Dark.xaml");
     private static readonly string AvaloniaThemePath =
         Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml");
 
@@ -43,6 +44,23 @@ public class ThemeTests
         Assert.Contains("SurfaceBrush", literal);
         Assert.All(literal, k => Assert.DoesNotContain("SystemColors", k, StringComparison.Ordinal));
         Assert.All(all.Except(literal), k => Assert.Contains("SystemColors", k, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void WpfLightAndDarkThemes_HaveIdenticalLiteralKeySets()
+    {
+        // The drift gate below trusts Theme.Light.xaml as the single WPF source of truth (its comment
+        // asserts "Theme.Dark.xaml's set is byte-identical"). Pin that assumption: a brush added to only
+        // one WPF variant would otherwise pass the Light-vs-Avalonia gate while the app renders a missing
+        // key in the other variant. Symmetric-diff reporting names the one-sided key(s).
+        HashSet<string> lightKeys = WpfBrushKeys();
+        HashSet<string> darkKeys =
+            RepoXaml.ParseXamlKeys(WpfThemeDarkPath).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
+
+        List<string> lightOnly = lightKeys.Except(darkKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        List<string> darkOnly = darkKeys.Except(lightKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        Assert.True(lightOnly.Count == 0, $"brush keys in Theme.Light.xaml but not Theme.Dark.xaml: {string.Join(", ", lightOnly)}");
+        Assert.True(darkOnly.Count == 0, $"brush keys in Theme.Dark.xaml but not Theme.Light.xaml: {string.Join(", ", darkOnly)}");
     }
 
     [AvaloniaFact]

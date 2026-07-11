@@ -8,6 +8,15 @@ using Avalonia.Headless;
 
 [assembly: AvaloniaTestApplication(typeof(CSUploader.Tests.Avalonia.TestAppBuilder))]
 
+// The headless Avalonia session is a single per-assembly UI thread, and several tests mutate
+// process-global state on it: the culture-switching LocExtension tests write Localizer.Instance.Culture
+// and the theme tests write Application.RequestedThemeVariant / app.Resources. xUnit parallelizes
+// distinct test classes by default, so those mutations race — most visibly, a plain [Fact] converter
+// test (FileStateDisplay / StartMenuLabel) reads Localizer under a culture another class is flipping.
+// Disabling assembly-wide parallelization serializes every test onto the one session; the whole suite
+// still runs in ~2s, so the blanket serialize costs nothing and removes the race for good.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace CSUploader.Tests.Avalonia;
 
 /// <summary>
