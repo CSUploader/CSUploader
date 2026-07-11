@@ -110,6 +110,10 @@ public partial class MessageBoxWindow : Window
             return await window.ShowDialog<MessageBoxOutcome>(owner);
         }
 
+        // Ownerless (tray-hidden main, or headless): give it a taskbar entry — the XAML default is
+        // ShowInTaskbar=False, correct for an owned/modal box that rides its parent, but an ownerless box
+        // shown while the main window is hidden to the tray needs a taskbar presence to be re-findable.
+        window.ShowInTaskbar = true;
         TaskCompletionSource completion = new();
         window.Closed += (_, _) => completion.TrySetResult();
         window.Show();

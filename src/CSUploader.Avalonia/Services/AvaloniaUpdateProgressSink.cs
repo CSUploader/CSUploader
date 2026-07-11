@@ -29,19 +29,23 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
         UpdateProgressWindow window = new();
         _window = window;
 
-        // Owner = the resolver's active-visible / visible-main window, else ownerless. Avalonia's
-        // Show(owner) throws on a hidden owner exactly like ShowDialog (§Reality-check #12, verified in
-        // UpdateProgressSinkTests): the resolver only ever returns a visible window, so passing it is safe,
-        // and the null branch (main hidden to the tray, or the headless test lifetime) shows ownerless —
-        // never yanking the tray-hidden main window up for progress it did not ask to see. This is the
-        // plan's "Show(owner) if IsVisible, else ownerless Show()" guard, expressed through the resolver.
-        Window? owner = DialogOwnerResolver.ResolveFromLifetime();
+        // Owner = the visible MAIN window only, else ownerless — NOT the active-visible resolver a modal
+        // dialog uses. This is a long-lived, non-modal surface that must outlive whatever launched the
+        // update: an owned window dies with its owner, so parenting it to a transient active window would
+        // break the failure-window-stays-up contract (on a failed install the window stays up showing the
+        // error). WPF parity: Owner = MainWindow. Avalonia's Show(owner) throws on a hidden owner exactly
+        // like ShowDialog (§Reality-check #12, verified in UpdateProgressSinkTests), and the resolver only
+        // ever returns a visible window, so passing it is safe. The null branch (main hidden to the tray,
+        // or the headless test lifetime) shows ownerless with a taskbar entry so a tray-hidden user can
+        // re-find it — never yanking the tray-hidden main window up for progress it did not ask to see.
+        Window? owner = DialogOwnerResolver.ResolveVisibleMainOnly();
         if (owner is not null)
         {
             window.Show(owner);
         }
         else
         {
+            window.ShowInTaskbar = true;
             window.Show();
         }
     }

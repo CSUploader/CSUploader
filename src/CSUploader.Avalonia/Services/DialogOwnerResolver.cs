@@ -5,20 +5,22 @@ using Avalonia.Controls.ApplicationLifetimes;
 namespace CSUploader.Services;
 
 /// <summary>
-/// Resolves the <see cref="Window"/> that should own a dialog. Avalonia's <c>ShowDialog</c> requires
-/// a non-null, visible owner and throws otherwise; this app hides its main window to the tray, so —
-/// unlike the WPF head, whose <c>DialogService.ActiveOwner</c> could return null harmlessly — the
-/// owner has to be resolved deliberately. The policy is the design's owner contract made operational:
-/// <list type="number">
-/// <item>the first active, visible window (a dialog opened from the modal upload wizard parents to the
-/// wizard, per the Core owner contract);</item>
-/// <item>else the main window, if it is visible;</item>
-/// <item>else <c>null</c> — and the CALLER decides: a message box shows ownerless, while a modal dialog
-/// or picker reveals the tray-hidden main window first (see <c>AvaloniaDialogService</c>).</item>
+/// Resolves the <see cref="Window"/> a dialog (or a clipboard <c>TopLevel</c>) should attach to. Avalonia's
+/// <c>ShowDialog</c> requires a non-null, visible owner and throws otherwise; this app hides its main
+/// window to the tray, so — unlike the WPF head, whose <c>DialogService.ActiveOwner</c> could return null
+/// harmlessly — the target has to be resolved deliberately. The head has ONE owner resolver with three
+/// intentionally-distinct entry points, each the design's contract made operational for its surface:
+/// <list type="bullet">
+/// <item><see cref="Resolve"/> — a MODAL dialog's owner: active-visible window ?? visible main window ??
+/// null. The caller decides on null: a message box shows ownerless, a picker reveals the tray-hidden main
+/// window first (see <c>AvaloniaDialogService</c>).</item>
+/// <item><see cref="ResolveVisibleMainOnly"/> — a long-lived, NON-modal surface's owner (the update-progress
+/// window): the visible main window only, never a transient active window.</item>
+/// <item><see cref="ResolveTopLevelForClipboard"/> — a clipboard's <c>TopLevel</c>: active-visible window
+/// ?? main window regardless of visibility.</item>
 /// </list>
 /// <see cref="Window.IsVisible"/> is deliberately the exact property Avalonia's own owner guard checks
-/// (not <c>IsEffectivelyVisible</c>). Static and stateless; <see cref="AvaloniaClipboardService"/>
-/// resolves its <c>TopLevel</c> through this same policy so the head has one owner resolver.
+/// (not <c>IsEffectivelyVisible</c>). Static and stateless.
 /// </summary>
 internal static class DialogOwnerResolver
 {
@@ -51,5 +53,58 @@ internal static class DialogOwnerResolver
         }
 
         return Resolve(desktop.Windows, desktop.MainWindow);
+    }
+
+    /// <summary>
+    /// The pure owner policy for a long-lived, NON-modal surface: the visible main window only. It
+    /// deliberately ignores the active-window list (hence no <c>windows</c> parameter) — an owned window
+    /// dies with its owner, so a surface that must OUTLIVE a transient active window (the update-progress
+    /// window survives the dialog that launched it, per the failure-window-stays-up contract) must never
+    /// be parented to that transient. WPF parity: Owner = MainWindow.
+    /// </summary>
+    internal static Window? ResolveVisibleMainOnly(Window? mainWindow) =>
+        mainWindow is { IsVisible: true } ? mainWindow : null;
+
+    /// <summary>
+    /// Reads the live desktop lifetime and applies <see cref="ResolveVisibleMainOnly(Window?)"/>. Returns
+    /// <c>null</c> under a non-desktop lifetime (headless) or a tray-hidden main window — the caller then
+    /// shows ownerless.
+    /// </summary>
+    internal static Window? ResolveVisibleMainOnly()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return null;
+        }
+
+        return ResolveVisibleMainOnly(desktop.MainWindow);
+    }
+
+    /// <summary>
+    /// The pure policy for resolving the <c>TopLevel</c> that backs the clipboard: active-visible window
+    /// ?? the main window REGARDLESS of visibility. This diverges from <see cref="Resolve"/> on the
+    /// fallback's visibility guard on purpose — visibility is an owner-parenting concern (Avalonia rejects
+    /// a hidden owner for Show/ShowDialog), but a clipboard hangs off a <c>TopLevel</c>'s platform impl,
+    /// which is live whether or not the window is shown, so a tray-hidden Copy must still reach the main
+    /// window's clipboard instead of silently no-opping. Pure (hand-built window list) for headless tests.
+    /// </summary>
+    internal static Window? ResolveTopLevelForClipboard(IEnumerable<Window> windows, Window? mainWindow)
+    {
+        Window? active = windows.FirstOrDefault(w => w is { IsActive: true, IsVisible: true });
+        return active ?? mainWindow;
+    }
+
+    /// <summary>
+    /// Reads the live desktop lifetime and applies <see cref="ResolveTopLevelForClipboard(IEnumerable{Window}, Window?)"/>.
+    /// Returns <c>null</c> under a non-desktop lifetime (headless), where the clipboard operations no-op.
+    /// </summary>
+    internal static Window? ResolveTopLevelForClipboard()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            return null;
+        }
+
+        return ResolveTopLevelForClipboard(desktop.Windows, desktop.MainWindow);
     }
 }
