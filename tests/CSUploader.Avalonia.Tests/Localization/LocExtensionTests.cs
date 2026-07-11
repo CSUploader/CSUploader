@@ -3,7 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using System.Globalization;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml;
@@ -88,5 +91,76 @@ public class LocExtensionTests
         {
             Localizer.Instance.Culture = original;
         }
+    }
+
+    [AvaloniaFact]
+    public void TornDownBinding_DoesNotLeakOntoLocalizerSingleton()
+    {
+        // A {loc:Loc} binding subscribes to the process-lifetime Localizer.Instance.PropertyChanged.
+        // Avalonia releases an observable-binding subscription only on an explicit unbind — which
+        // virtualized DataGrid rows and TabControl content regeneration never do — so if the handler
+        // held its observer strongly, every bound control graph ever created would be pinned onto the
+        // singleton forever and each culture switch would walk an ever-growing invocation list.
+        // LocExtension's WeakSubscription holds the observer weakly and self-prunes on the next switch;
+        // this pins that behavior via the singleton's PropertyChanged subscriber count (reflection).
+        CultureInfo original = Localizer.Instance.Culture;
+        try
+        {
+            // Settle: collect any controls left by earlier tests, then a culture switch prunes their
+            // now-dead weak handlers — so the baseline reflects only live subscribers.
+            Localizer.Instance.Culture = CultureInfo.GetCultureInfo("en");
+            Collect();
+            Localizer.Instance.Culture = CultureInfo.GetCultureInfo("ja");
+            int baseline = SubscriberCount();
+
+            // A bound control that nothing else roots (the helper returns only a weak reference).
+            WeakReference weak = CreateBoundControl();
+            Assert.Equal(baseline + 1, SubscriberCount()); // the loc binding subscribed
+
+            // Tear down + collect: the control (and its binding/observer) must be reclaimable.
+            Collect();
+            Assert.False(weak.IsAlive, "the bound control was retained — LocExtension is pinning it onto Localizer.Instance");
+
+            // A culture switch now finds the observer dead and self-prunes back to baseline.
+            Localizer.Instance.Culture = CultureInfo.GetCultureInfo("en");
+            Assert.Equal(baseline, SubscriberCount());
+        }
+        finally
+        {
+            Localizer.Instance.Culture = original;
+        }
+    }
+
+    // Kept in a non-inlined helper so the strong reference to the control does not survive on the
+    // caller's stack frame across the GC below.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateBoundControl()
+    {
+        var textBlock = (TextBlock)AvaloniaRuntimeXamlLoader.Load(
+            """
+            <TextBlock xmlns="https://github.com/avaloniaui"
+                       xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Avalonia"
+                       Text="{loc:Loc Main_Tab_Uploads}" />
+            """);
+        _ = textBlock.Text; // force the binding to activate (subscribe) if it is lazy
+        return new WeakReference(textBlock);
+    }
+
+    private static void Collect()
+    {
+        Dispatcher.UIThread.RunJobs(); // drain any queued work that could transiently root the observer
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+    }
+
+    // The compiler-generated backing field of Localizer's field-like PropertyChanged event; its
+    // invocation-list length is the number of live subscribers.
+    private static int SubscriberCount()
+    {
+        FieldInfo field = typeof(Localizer).GetField(
+            nameof(Localizer.PropertyChanged), BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var handler = (PropertyChangedEventHandler?)field.GetValue(Localizer.Instance);
+        return handler?.GetInvocationList().Length ?? 0;
     }
 }
