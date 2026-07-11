@@ -1,18 +1,19 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:views="clr-namespace:CSUploader.Views"
         x:Class="CSUploader.Views.MainWindow"
         Title="{Binding WindowTitle}"
         Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/icon.ico">
-  <!-- TODO(phase5/6): real views -->
+  <!-- TODO(phase6): Uploads + Settings views (Uploaded + Logs are live). -->
   <TabControl SelectedIndex="{Binding SelectedTabIndex}">
     <TabItem Header="{loc:Loc Main_Tab_Uploads}">
       <Border />
     </TabItem>
     <TabItem Header="{loc:Loc Main_Tab_Uploaded}">
-      <Border />
+      <views:UploadedView DataContext="{Binding UploadedViewModel}" />
     </TabItem>
     <TabItem Header="{loc:Loc Main_Tab_Settings}">
       <Border />

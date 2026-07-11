@@ -1,0 +1,330 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia port of the WPF Uploaded tab (src/Views/UploadedView.xaml). The grouped DataGrid recipe
+     is the Task 2 probe verbatim: the collection view is built in code-behind (Avalonia.Collections
+     cannot live in Core), grouping via DataGridPathGroupDescription over PackageName, and the group bar
+     is a re-templated DataGridRowGroupHeader wired through DataGrid.RowGroupTheme (port rule 27). Cell
+     visuals that WPF expressed with DataGridTextColumn.ElementStyle map to CellStyleClasses + view-scoped
+     DataGridCell.<class> TextBlock descendant styles (port rule 20); the icon/URL cells stay template
+     columns. Zebra, column persistence, right-click targeting and the row context menu are wired in the
+     code-behind. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:acnv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             x:Class="CSUploader.Views.UploadedView"
+             Background="{DynamicResource SurfaceBrush}">
+
+  <UserControl.Resources>
+    <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
+    <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+    <conv:HosterIconConverter x:Key="HosterIconConverter" />
+    <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+
+    <!-- Collapsible package group bar (Task 2 recipe, verbatim). The header's DataContext is the
+         DataGridCollectionViewGroup, so Key (the group value) and ItemCount bind directly. The chevron
+         is a whole-row flat ToggleButton named PART_ExpanderButton — the DataGrid keeps its IsChecked in
+         sync with the group's IsVisible and drives collapse/expand off it. SublevelIndent 0 keeps the
+         file rows flush under the column headers. -->
+    <ControlTheme x:Key="GroupHeaderTheme" TargetType="DataGridRowGroupHeader">
+      <Setter Property="SublevelIndent" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent" MinHeight="20">
+            <Panel Name="PART_Root">
+              <ToggleButton Name="PART_ExpanderButton"
+                            Focusable="False"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            MinWidth="0"
+                            MinHeight="0"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Cursor="Hand">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent" Padding="12,0" MinHeight="20">
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Panel Width="14" Margin="0,0,6,0">
+                          <TextBlock Text="&#x2212;"
+                                     FontFamily="{DynamicResource GridFontFamily}"
+                                     FontSize="14"
+                                     FontWeight="Bold"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
+                          <TextBlock Text="+"
+                                     FontFamily="{DynamicResource GridFontFamily}"
+                                     FontSize="14"
+                                     FontWeight="Bold"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding !IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Panel>
+                        <TextBlock Text="{Binding Key}"
+                                   FontFamily="{DynamicResource GridFontFamily}"
+                                   FontSize="{DynamicResource GridFontSize}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Margin="8,0,0,0"
+                                   Text="{Binding ItemCount, StringFormat='[{0}]'}"
+                                   FontFamily="{DynamicResource GridFontFamily}"
+                                   FontSize="{DynamicResource GridFontSize}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Border>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+            </Panel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- Grid header chrome (WPF ColumnHeaderStyle, UploadedView.xaml:107-118). -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+      <Setter Property="Padding" Value="6,5" />
+    </Style>
+
+    <!-- Zebra alt-row shading (Task 4 helper toggles the .alt class). -->
+    <Style Selector="DataGridRow.alt">
+      <Setter Property="Background" Value="{DynamicResource DataGridAltRowBrush}" />
+    </Style>
+
+    <!-- Rule-20 cell classes: DataGridTextColumn has no ElementStyle, so per-cell trim/tooltip/
+         alignment/brush map to CellStyleClasses + these DataGridCell.<class> TextBlock descendant styles.
+         The ToolTip.Tip Binding setters resolve against the row item (the cell TextBlock's DataContext). -->
+    <Style Selector="DataGridCell.path-cell TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="ToolTip.Tip" Value="{Binding FileDirectory}" />
+    </Style>
+    <Style Selector="DataGridCell.size-cell TextBlock">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+      <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+      <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+    <Style Selector="DataGridCell.secondary-cell TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="DataGridCell.date-cell TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+    </Style>
+    <Style Selector="DataGridCell.hash-cell TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, Segoe UI" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="ToolTip.Tip" Value="{Binding FileHash}" />
+    </Style>
+
+    <!-- URL cell (port rule 25/28): accent link, hand cursor, underline on hover. -->
+    <Style Selector="TextBlock.url-link">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="Padding" Value="4,0" />
+    </Style>
+    <Style Selector="TextBlock.url-link:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}" />
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Toolbar -->
+    <Border Grid.Row="0"
+            Background="{DynamicResource SurfaceMutedBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="12,6">
+      <StackPanel Orientation="Horizontal">
+        <Button Content="{loc:Loc Uploaded_Toolbar_ExportJson}"
+                Command="{Binding ExportJsonCommand}"
+                Padding="10,4"
+                ToolTip.Tip="{loc:Loc Uploaded_Toolbar_ExportJsonTip}" />
+      </StackPanel>
+    </Border>
+
+    <DataGrid Grid.Row="1"
+              x:Name="FilesGrid"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              SelectionMode="Extended"
+              CanUserResizeColumns="True"
+              CanUserReorderColumns="True"
+              CanUserSortColumns="True"
+              ClipboardCopyMode="IncludeHeader"
+              HeadersVisibility="Column"
+              GridLinesVisibility="All"
+              BorderThickness="0"
+              SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
+              Background="{DynamicResource SurfaceBrush}"
+              HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              RowGroupTheme="{StaticResource GroupHeaderTheme}"
+              beh:DataGridZebraStriping.IsEnabled="True"
+              beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True">
+
+      <DataGrid.ContextMenu>
+        <!-- Row context menu (rules 18/19): commands bind through the ContextMenu's inherited DataContext
+             (the grid's VM); the SelectedItems-carrying parameters (OpenUrl/Remove) are assigned in
+             code-behind. Opening snapshots the multi-selection into the VM and suppresses the menu on an
+             empty-space right-click. -->
+        <ContextMenu Opening="RowContextMenu_Opening">
+          <MenuItem Header="{loc:Loc Common_Context_Copy}">
+            <!-- Row copy = the DataGrid's built-in IncludeHeader clipboard path (Task 2 verdict #4):
+                 the Click raises a synthetic Ctrl+C on the grid. -->
+            <MenuItem x:Name="CopyRowMenuItem"
+                      Header="{loc:Loc Uploaded_Context_Copy}"
+                      InputGesture="Ctrl+C"
+                      Click="CopyRow_Click" />
+            <Separator />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Name}" Command="{Binding CopyColumnCommand}" CommandParameter="Name" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Path}" Command="{Binding CopyColumnCommand}" CommandParameter="Path" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Size}" Command="{Binding CopyColumnCommand}" CommandParameter="Size" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Hoster}" Command="{Binding CopyColumnCommand}" CommandParameter="Hoster" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Account}" Command="{Binding CopyColumnCommand}" CommandParameter="Account" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Started}" Command="{Binding CopyColumnCommand}" CommandParameter="Started" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_Hash}" Command="{Binding CopyColumnCommand}" CommandParameter="Hash" />
+            <MenuItem Header="{loc:Loc Uploaded_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
+          </MenuItem>
+          <MenuItem x:Name="OpenUrlMenuItem"
+                    Header="{loc:Loc Common_Context_OpenUrl}"
+                    Command="{Binding OpenUrlCommand}" />
+          <Separator />
+          <MenuItem x:Name="RemoveMenuItem"
+                    Header="{loc:Loc Uploaded_Context_Remove}"
+                    InputGesture="Delete"
+                    Command="{Binding RemoveSelectedCommand}" />
+          <Separator />
+          <MenuItem Header="{loc:Loc Uploaded_Context_ExportJson}"
+                    Command="{Binding ExportJsonCommand}" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
+
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_Name}"
+                                Width="400"
+                                MinWidth="120"
+                                SortMemberPath="FileName"
+                                ClipboardContentBinding="{Binding FileName}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Indent matches the chevron column width so file icons sit just right of the
+                     package name (SVG file-type icon via FileTypeIconConverter). -->
+                <Image Source="{Binding FileName, Converter={StaticResource FileTypeIconConverter}}"
+                       Width="16" Height="16" Margin="28,0,6,0" />
+                <TextBlock Text="{Binding FileName}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Path}"
+                            Binding="{Binding FileDirectory, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding FileDirectory}"
+                            CellStyleClasses="path-cell"
+                            Width="300"
+                            MinWidth="100" />
+
+        <!-- Mode=OneWay is load-bearing: Avalonia's DataGridTextColumn.Binding defaults to TwoWay and
+             writes the ConvertBack result to the source on bind even in a read-only grid. ByteUnitConverter
+             (and DateTimeFormatConverter) throw on ConvertBack, so the binding would push default(long)/
+             default(DateTime) back and blank FileSize/dates. WPF's DataGrid does not write back on load; this
+             is an Avalonia port gotcha. -->
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Size}"
+                            Binding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding FileSize, Converter={StaticResource ByteUnitConverter}}"
+                            CellStyleClasses="size-cell"
+                            Width="100"
+                            MinWidth="60" />
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_Hoster}"
+                                Width="120"
+                                MinWidth="70"
+                                SortMemberPath="FileHosterName"
+                                ClipboardContentBinding="{Binding FileHosterName}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
+                       Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding FileHosterName}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Account}"
+                            Binding="{Binding AccountDisplay, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding AccountDisplay}"
+                            SortMemberPath="AccountDisplay"
+                            CellStyleClasses="secondary-cell"
+                            Width="130"
+                            MinWidth="70" />
+
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Finished}"
+                            Binding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding FinishedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                            CellStyleClasses="date-cell"
+                            Width="160"
+                            MinWidth="100" />
+
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Started}"
+                            Binding="{Binding StartedDateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding StartedDateTime, Converter={StaticResource DateTimeFormatConverter}}"
+                            CellStyleClasses="date-cell"
+                            Width="160"
+                            MinWidth="100" />
+
+        <DataGridTextColumn Header="{loc:Loc Uploaded_Col_Hash}"
+                            Binding="{Binding FileHash, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding FileHash}"
+                            CellStyleClasses="hash-cell"
+                            Width="280"
+                            MinWidth="100" />
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploaded_Col_URL}"
+                                Width="500"
+                                MinWidth="200"
+                                ClipboardContentBinding="{Binding FileUrl}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Classes="url-link"
+                         Text="{Binding FileUrl}"
+                         ToolTip.Tip="{Binding FileUrl}"
+                         IsVisible="{Binding FileUrl, Converter={x:Static acnv:StringConverters.IsNotNullOrEmpty}}"
+                         PointerReleased="UrlText_PointerReleased" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
