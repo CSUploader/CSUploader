@@ -31,6 +31,9 @@ public class ThemeTests
     private static readonly string WpfThemeDarkPath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Dark.xaml");
     private static readonly string AvaloniaThemePath =
         Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml");
+    private static readonly string WpfTokensPath = Path.Combine(RepoRoot, "src", "Resources", "Tokens.xaml");
+    private static readonly string AvaloniaTokensPath =
+        Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "Tokens.axaml");
 
     [Fact]
     public void WpfThemeKeys_ParseToLiteralBrushKeys_DroppingSystemColorsOverrides()
@@ -142,6 +145,33 @@ public class ThemeTests
             Application.Current!.Resources.Remove("GridFontSize");
             Application.Current!.Resources.Remove("GridFontFamily");
         }
+    }
+
+    [Fact]
+    public void WpfValueTokens_MatchAvaloniaTokens_KeyAndValue()
+    {
+        // Third drift gate (image keys, theme brushes, now value tokens): the WPF Tokens.xaml value block
+        // and the Avalonia Tokens.axaml must agree on every key AND its value. A WPF-side spacing/sizing
+        // change not mirrored into the port (or a stale Avalonia token) fails here, not a downstream view.
+        Dictionary<string, string> wpf = RepoXaml.ParseValueTokens(File.ReadAllText(WpfTokensPath));
+        Dictionary<string, string> ava = RepoXaml.ParseValueTokens(File.ReadAllText(AvaloniaTokensPath));
+
+        // The plan's Task 5 ports exactly 22 value tokens; pinning the count guards against the parse
+        // silently matching a partial subset (which would let a value drift slip). If both files gain a
+        // token, bump this number with them.
+        Assert.Equal(22, wpf.Count);
+
+        List<string> missing = wpf.Keys.Except(ava.Keys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        List<string> stale = ava.Keys.Except(wpf.Keys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        Assert.True(missing.Count == 0, $"WPF value tokens not in Tokens.axaml: {string.Join(", ", missing)}");
+        Assert.True(stale.Count == 0, $"Tokens.axaml value tokens with no WPF source (stale): {string.Join(", ", stale)}");
+
+        List<string> mismatched = wpf
+            .Where(kv => !ava.TryGetValue(kv.Key, out string? v) || v != kv.Value)
+            .Select(kv => $"{kv.Key} (WPF {kv.Value} vs Avalonia {(ava.TryGetValue(kv.Key, out string? v) ? v : "<absent>")})")
+            .OrderBy(s => s, StringComparer.Ordinal)
+            .ToList();
+        Assert.True(mismatched.Count == 0, $"value drift between Tokens.xaml and Tokens.axaml: {string.Join(", ", mismatched)}");
     }
 
     [AvaloniaFact]

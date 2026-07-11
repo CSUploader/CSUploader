@@ -78,11 +78,13 @@
     <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
   </Style>
 
-  <!-- DataGrid baseline: compact rows + the runtime-overridable grid font. -->
+  <!-- DataGrid baseline: compact rows + the runtime-overridable grid font. RowHeight consumes the
+       DataGridRowHeight token so Tokens.axaml is the single source of truth (parity with the WPF head,
+       whose grid style binds the same token) — not a second hardcoded 26 that could silently drift. -->
   <Style Selector="DataGrid">
     <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
     <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
-    <Setter Property="RowHeight" Value="26" />
+    <Setter Property="RowHeight" Value="{DynamicResource DataGridRowHeight}" />
   </Style>
 
 </Styles>

@@ -13,9 +13,12 @@ namespace CSUploader.Behaviors;
 /// <summary>
 /// Scrolls a <see cref="DataGrid"/> to its newest item whenever the bound collection grows
 /// (the Logs tab's follow mode). Avalonia rebuild of <c>src/Behaviors/AutoScrollBehavior.cs</c>;
-/// unlike the WPF original it tracks <see cref="DataGrid.ItemsSource"/> swaps and detaches
-/// cleanly on disable — the WPF version subscribed the auto-tracking <c>Items</c> collection and
-/// never unsubscribed, leaking a handler onto every bound collection for the process lifetime.
+/// unlike the WPF original it tracks <see cref="DataGrid.ItemsSource"/> swaps and never leaks the
+/// handler the WPF version left subscribed forever. It releases the collection subscription on THREE
+/// occasions: on disable, on an <see cref="DataGrid.ItemsSource"/> swap, and on removal from the
+/// visual tree — the last so a recreated view whose grid binds a singleton view-model collection
+/// cannot pin the dead grid alive through that long-lived collection. It re-tracks on re-insertion
+/// while still enabled.
 /// </summary>
 /// <remarks>
 /// Non-static for the same owner-type reason as <see cref="DataGridSelectionBehaviors"/>.
@@ -35,12 +38,16 @@ public sealed class AutoScrollBehavior
         {
             if (e.NewValue is true)
             {
-                Attach(grid, grid.ItemsSource);
                 grid.PropertyChanged += Grid_PropertyChanged;
+                grid.AttachedToVisualTree += Grid_AttachedToVisualTree;
+                grid.DetachedFromVisualTree += Grid_DetachedFromVisualTree;
+                Attach(grid, grid.ItemsSource);
             }
             else
             {
                 grid.PropertyChanged -= Grid_PropertyChanged;
+                grid.AttachedToVisualTree -= Grid_AttachedToVisualTree;
+                grid.DetachedFromVisualTree -= Grid_DetachedFromVisualTree;
                 Detach(grid, grid.ItemsSource);
             }
         });
@@ -59,9 +66,31 @@ public sealed class AutoScrollBehavior
         }
     }
 
+    // Removed from the visual tree (tab switch / view recreation): drop the collection subscription so a
+    // long-lived (singleton view-model) source can't keep this now-dead grid alive.
+    private static void Grid_DetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is DataGrid grid)
+        {
+            Detach(grid, grid.ItemsSource);
+        }
+    }
+
+    // Re-inserted while still enabled: re-track the current source (the enable handler's Attach ran when
+    // the grid first turned on, but the intervening detach released it).
+    private static void Grid_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is DataGrid grid && GetIsEnabled(grid))
+        {
+            Attach(grid, grid.ItemsSource);
+        }
+    }
+
     private static void Attach(DataGrid grid, IEnumerable? source)
     {
-        if (source is not INotifyCollectionChanged incc)
+        // Idempotent: a grid already tracking its current source (e.g. enabled before it entered the
+        // visual tree, now receiving its first AttachedToVisualTree) must not subscribe a second handler.
+        if (source is not INotifyCollectionChanged incc || grid.GetValue(AttachedHandlerProperty) is not null)
         {
             return;
         }

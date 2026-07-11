@@ -42,6 +42,29 @@ internal static class RepoXaml
     /// </summary>
     internal static bool IsLiteralKey(string key) => !key.StartsWith('{');
 
+    // The keyed value-token element types shared by the WPF Tokens.xaml value block and the Avalonia
+    // Tokens.axaml. WPF writes `sys:Double`, Avalonia `x:Double`; both have the local name "Double", so
+    // the prefix is dropped and only the local type is compared. Style / ControlTemplate keys use other
+    // element names and are excluded by this set (belt) and by the <Style … slice (braces) below.
+    private static readonly Regex ValueTokenPattern =
+        new("<(?:\\w+:)?(Double|FontFamily|Thickness|CornerRadius|GridLength)\\s+x:Key=\"([^\"]+)\"\\s*>([^<]*)</", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Value tokens (spacing/typography/sizing/corners + the grid font) as a <c>key → "Type=value"</c>
+    /// map, for the Tokens.xaml ↔ Tokens.axaml drift gate. Everything from the first <c>&lt;Style</c>
+    /// onward is sliced off first: the WPF Tokens.xaml re-templates (deliberately NOT ported) declare
+    /// their own keyed resources, and the value block always precedes them. Normalizing to
+    /// <c>"Type=value"</c> makes a WPF <c>sys:Double 13</c> compare equal to an Avalonia <c>x:Double 13</c>
+    /// while still catching a type OR value drift.
+    /// </summary>
+    internal static Dictionary<string, string> ParseValueTokens(string xaml)
+    {
+        int styleIdx = xaml.IndexOf("<Style", StringComparison.Ordinal);
+        string block = styleIdx >= 0 ? xaml[..styleIdx] : xaml;
+        return ValueTokenPattern.Matches(block)
+            .ToDictionary(m => m.Groups[2].Value, m => $"{m.Groups[1].Value}={m.Groups[3].Value.Trim()}", StringComparer.Ordinal);
+    }
+
     /// <summary>
     /// Repo root via <see cref="CallerFilePathAttribute"/>, NOT <c>AppContext.BaseDirectory</c>: the repo
     /// builds to a temp OutDir (<c>D:\temp2\…</c>) to dodge bin locks, so the binary's directory is outside

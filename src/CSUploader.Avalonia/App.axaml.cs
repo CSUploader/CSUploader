@@ -88,13 +88,12 @@ public partial class App : Application
                 e.Handled = true;
             };
 
-            // THROWAWAY (Phase 2): the WebView2 GO/NO-GO spike. Debug + --webview-spike only; the
-            // window opens modally from the Opened hook below (ShowDialog needs a SHOWN owner).
-            bool webviewSpike = desktop.Args?.Contains("--webview-spike", StringComparer.Ordinal) == true;
-
 #if DEBUG
-            // DEBUG-only dev gallery (--gallery), opened non-modally from the Opened hook below. Flag
-            // declared under #if DEBUG so Release carries neither the flag nor the window (parity gate).
+            // DEBUG-only dev flags, both opened from the Opened hook below: the THROWAWAY (Phase 2)
+            // WebView2 GO/NO-GO spike (--webview-spike, modal — ShowDialog needs a SHOWN owner) and the
+            // dev gallery (--gallery, non-modal). Both declared under #if DEBUG so neither flag OPENS
+            // anything in Release; the window types ship as dead code (trigger-gated convention).
+            bool webviewSpike = desktop.Args?.Contains("--webview-spike", StringComparer.Ordinal) == true;
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
 #endif
 

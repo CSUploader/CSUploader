@@ -263,7 +263,83 @@ public class DataGridBehaviorTests
         Assert.Equal(firstWithout, firstWithBehavior);
     }
 
+    [AvaloniaFact]
+    public void AutoScroll_VisualTreeRemoval_ReleasesSubscription_EvenWhileEnabled()
+    {
+        // The singleton-VM-collection leak: a grid enabled while shown, then removed from the visual tree
+        // (tab switch / view recreation) WITHOUT being disabled. Its subscription must be gone so the
+        // long-lived source collection cannot pin the dead grid.
+        var items = new ObservableCollection<RowItem> { new("a"), new("b") };
+        (Window window, DataGrid grid) = ShowGridBoundTo(items);
+        try
+        {
+            AutoScrollBehavior.SetIsEnabled(grid, true);
+            Dispatcher.UIThread.RunJobs();
+
+            window.Content = null; // detach from the visual tree, still IsEnabled=true
+            Dispatcher.UIThread.RunJobs();
+
+            // Isolate the behavior's contribution the same way the other tests do — toggle it off and read
+            // the delta. On the detached grid the behavior must already hold NO subscription, so toggling
+            // off changes nothing: that is the proof it released on DetachedFromVisualTree.
+            int detachedEnabled = CollectionChangedSubscriberCount(items);
+            AutoScrollBehavior.SetIsEnabled(grid, false);
+            int detachedDisabled = CollectionChangedSubscriberCount(items);
+            Assert.Equal(detachedEnabled, detachedDisabled);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AutoScroll_ReInsertedIntoVisualTree_ReTracksWhileEnabled()
+    {
+        var items = new ObservableCollection<RowItem> { new("a"), new("b") };
+        (Window window, DataGrid grid) = ShowGridBoundTo(items);
+        try
+        {
+            AutoScrollBehavior.SetIsEnabled(grid, true);
+            Dispatcher.UIThread.RunJobs();
+
+            window.Content = null; // detach → releases
+            Dispatcher.UIThread.RunJobs();
+            window.Content = grid; // re-insert while still enabled → re-tracks
+            Dispatcher.UIThread.RunJobs();
+
+            // After re-attach the behavior holds exactly one subscription again: toggling it off drops one.
+            int reattachedEnabled = CollectionChangedSubscriberCount(items);
+            AutoScrollBehavior.SetIsEnabled(grid, false);
+            int reattachedDisabled = CollectionChangedSubscriberCount(items);
+            Assert.Equal(reattachedEnabled - 1, reattachedDisabled);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Helpers ──
+
+    private static (Window Window, DataGrid Grid) ShowGridBoundTo(ObservableCollection<RowItem> items)
+    {
+        var grid = new DataGrid
+        {
+            ItemsSource = items,
+            AutoGenerateColumns = false,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            Background = Brushes.Transparent,
+            Width = 400,
+            Height = 300,
+        };
+        grid.Columns.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding(nameof(RowItem.Name)) });
+
+        var window = new Window { Width = 420, Height = 340, Content = grid };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, grid);
+    }
 
     private static (Window Window, DataGrid Grid, ObservableCollection<RowItem> Items) BuildGrid(int count)
     {
