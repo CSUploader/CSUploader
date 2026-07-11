@@ -1,0 +1,579 @@
+// <copyright file="UploadsViewTests.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using System.IO;
+using System.Net.Http;
+using Avalonia;
+using Avalonia.Collections;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using CSUploader.Dal;
+using CSUploader.Lib;
+using CSUploader.Lib.Crypto;
+using CSUploader.Lib.Net;
+using CSUploader.Lib.Net.Http;
+using CSUploader.Services;
+using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
+using CSUploader.ViewModels;
+using CSUploader.Views;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Moq;
+using static CSUploader.Tests.Avalonia.LeakProbes;
+
+namespace CSUploader.Tests.Avalonia.Views;
+
+/// <summary>
+/// Headless verification of the ported <see cref="UploadsView"/> (Phase 6 Task 10): the custom
+/// <c>DataGridColumnHeader</c> re-template (the retargeted Task 1 probe asserts — theme applies, lock writes
+/// <see cref="DataGridColumn.CanUserResize"/>, drag-resize + sort survive), the durable filtered collection
+/// view (built once, no subscriber leak across refreshes), the live <c>FilterText</c> filter, the expand
+/// chevron, the progress-cell MultiBinding, the rule-32 read-only columns, the column menu, and zebra
+/// striping. Every shown window is closed in a <c>finally</c> (headless windows are process-global for the
+/// session).
+/// </summary>
+public class UploadsViewTests
+{
+    // ── Retargeted Task 1 probe: the custom header theme reaches every realized (visible) header ──
+
+    [AvaloniaFact]
+    public void CustomHeaderTheme_Applies_EveryVisibleHeaderCarriesLockToggle()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            var headers = view.uploadsGrid.GetVisualDescendants()
+                .OfType<DataGridColumnHeader>()
+                .Where(h => h.Content is not null && h.IsVisible)
+                .ToList();
+
+            Assert.NotEmpty(headers);
+            Assert.All(headers, h => Assert.NotNull(LockToggleOf(h)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Retargeted Task 1 probe (mechanism): the lock writes CanUserResize; unchecking restores it ──
+
+    [AvaloniaFact]
+    public void LockToggle_SetsColumnCanUserResizeFalse_UncheckRestores()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridColumnHeader nameHeader = HeaderWithContent(view, "Name");
+            DataGridColumn nameColumn = view.uploadsGrid.Columns[0];
+            ToggleButton toggle = LockToggleOf(nameHeader)!;
+
+            Assert.True(nameColumn.CanUserResize);
+
+            toggle.IsChecked = true;
+            view.ApplyColumnLock(toggle);
+            Assert.False(nameColumn.CanUserResize);
+
+            toggle.IsChecked = false;
+            view.ApplyColumnLock(toggle);
+            Assert.True(nameColumn.CanUserResize);
+
+            // The lock targeted only its own column, not its neighbours.
+            Assert.All(view.uploadsGrid.Columns, c => Assert.True(c.CanUserResize));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Retargeted Task 1 probe (GO gate): a header click still sorts through the custom template ──
+
+    [AvaloniaFact]
+    public void HeaderClick_OnCustomTemplate_StillSortsTheGrid()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            // Account is a DataGridTextColumn (its Binding is the sort path); template columns without a
+            // SortMemberPath don't sort, matching the WPF, so a bound text header is the sort probe.
+            DataGridColumnHeader accountHeader = HeaderWithContent(view, "Account");
+
+            Point centre = CenterInWindow(accountHeader, window);
+            window.MouseDown(centre, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            window.MouseUp(centre, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+
+            // The header reflects the sort via its :sortascending pseudo-class (set after ProcessSort) and
+            // the view gained a sort description — the sort FUNCTION fired through the re-templated header.
+            Assert.Contains(":sortascending", accountHeader.Classes);
+            Assert.NotEmpty(view.RowsView!.SortDescriptions);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Retargeted Task 1 probe (GO gate): drag-resize still works, and the lock makes it a no-op ──
+
+    [AvaloniaFact]
+    public void DragResize_ChangesWidth_AndLockMakesItANoOp()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridColumnHeader nameHeader = HeaderWithContent(view, "Name");
+            DataGridColumn nameColumn = view.uploadsGrid.Columns[0];
+            ToggleButton toggle = LockToggleOf(nameHeader)!;
+
+            double before = nameColumn.ActualWidth;
+
+            DragColumnEdge(window, nameHeader, +60);
+            double afterDrag = nameColumn.ActualWidth;
+            Assert.True(afterDrag > before + 20, $"drag-resize did not widen the column ({before} -> {afterDrag})");
+
+            toggle.IsChecked = true;
+            view.ApplyColumnLock(toggle);
+            double lockedBefore = nameColumn.ActualWidth;
+            DragColumnEdge(window, nameHeader, +60);
+            Assert.Equal(lockedBefore, nameColumn.ActualWidth, precision: 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Durable filtered view: built once and kept; refreshes never re-mint it or leak a subscriber ──
+
+    [AvaloniaFact]
+    public void FilterInvalidated_RefreshesInPlace_NoViewRemint_NoSubscriberLeak()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            object viewBefore = view.uploadsGrid.ItemsSource!;
+            Assert.IsType<DataGridCollectionView>(viewBefore);
+            int baseline = CollectionChangedSubscriberCount(harness.Vm.VisibleRows);
+
+            // Each FilterText edit raises FilterInvalidated -> the view Refreshes IN PLACE. The durable view
+            // must not be re-minted (which would orphan a subscriber on the long-lived VisibleRows — the
+            // Phase 5 leak class), so both the subscriber count and the ItemsSource instance stay flat.
+            for (int i = 0; i < 5; i++)
+            {
+                harness.Vm.FilterText = $"needle{i}";
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Equal(baseline, CollectionChangedSubscriberCount(harness.Vm.VisibleRows));
+            Assert.Same(viewBefore, view.uploadsGrid.ItemsSource);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── FilterText filters the flat VisibleRows through the head's view.Filter = vm.MatchesFilter ──
+
+    [AvaloniaFact]
+    public void FilterText_FiltersVisibleRows_ThroughMatchesFilter()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        harness.SeedPackage("Beta pack", "beta1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            var rowsView = (DataGridCollectionView)view.uploadsGrid.ItemsSource!;
+
+            // No filter: 2 packages + 2 (expanded) file rows.
+            Assert.Equal(4, CountOf(rowsView));
+
+            // "alpha1" matches only the file row alpha1.bin (the package name "Alpha pack" lacks it).
+            harness.Vm.FilterText = "alpha1";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, CountOf(rowsView));
+
+            // "pack" matches both package names, neither file name.
+            harness.Vm.FilterText = "pack";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, CountOf(rowsView));
+
+            // Clearing restores every row.
+            harness.Vm.FilterText = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(4, CountOf(rowsView));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── The Name-column chevron toggles the package's IsExpanded ──
+
+    [AvaloniaFact]
+    public void ExpandChevron_TogglesPackageIsExpanded()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridRow packageRow = RowFor(view.uploadsGrid, package);
+            ToggleButton chevron = packageRow.GetVisualDescendants()
+                .OfType<ToggleButton>()
+                .First(t => t.Classes.Contains("name-chevron"));
+
+            Assert.True(package.IsExpanded); // packages default to expanded
+
+            chevron.IsChecked = false;
+            RaiseClick(chevron);
+            Assert.False(package.IsExpanded);
+
+            chevron.IsChecked = true;
+            RaiseClick(chevron);
+            Assert.True(package.IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Progress cell: the fill Border width is the MultiBinding of Progress × the named grid's width ──
+
+    [AvaloniaFact]
+    public void ProgressCell_FillWidthTracksProgress_ViaMultiBinding()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        file.Progress = 40.0;
+
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridRow fileRow = RowFor(view.uploadsGrid, file);
+            Grid pgrid = fileRow.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PGrid");
+            Border fill = pgrid.Children.OfType<Border>().First(b => b.HorizontalAlignment == HorizontalAlignment.Left);
+
+            Assert.True(pgrid.Bounds.Width > 0);
+            double expected = pgrid.Bounds.Width * 0.40;
+            Assert.True(fill.Width > 0, "progress fill width did not resolve (> 0)");
+            Assert.True(Math.Abs(fill.Width - expected) < 1.0, $"expected ~{expected}, got {fill.Width}");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Rule 32: the read-only converter text columns must not write back through their (throwing) converters ──
+
+    [AvaloniaFact]
+    public void ReadOnlyConverterColumns_DoNotWriteBack_SourceValuesSurviveBinding()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        file.Speed = 12_345;
+        file.BytesLoaded = 5_000;
+
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            // Avalonia's DataGridTextColumn.Binding defaults to TwoWay and pushes the ConvertBack result to
+            // the source on bind — even in a read-only cell. ByteUnitConverter throws on ConvertBack, so
+            // without Mode=OneWay the bind would blank Speed / BytesLoaded. Assert they survived.
+            Assert.Equal(12_345, file.Speed);
+            Assert.Equal(5_000, file.BytesLoaded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Column menu attached, with the first (anchor Name) column toggle disabled ──
+
+    [AvaloniaFact]
+    public void ColumnMenu_AttachedWithFirstItemDisabled()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            PumpUntil(() => view.ColumnMenu is not null);
+
+            Assert.NotNull(view.ColumnMenu);
+            var first = Assert.IsType<MenuItem>(view.ColumnMenu!.Items[0]);
+            Assert.False(first.IsEnabled); // Name stays visible — it anchors the expand chevron
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Zebra: alternating rows carry the .alt class (index-parity basis) ──
+
+    [AvaloniaFact]
+    public void Zebra_AlternatingRowsCarryAltClass()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin", "alpha2.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            var rows = view.uploadsGrid.GetVisualDescendants()
+                .OfType<DataGridRow>()
+                .Where(r => r.DataContext is Package or PackageFile)
+                .OrderBy(r => r.Index)
+                .ToList();
+
+            Assert.True(rows.Count >= 3); // package + 2 files
+            Assert.All(rows, r => Assert.Equal(r.Index % 2 == 1, r.Classes.Contains("alt")));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── helpers ──
+
+    private static int CountOf(DataGridCollectionView view) => view.Count;
+
+    private static (Window Window, UploadsView View) Show(UploadsViewModel vm)
+    {
+        // Wide enough that the leading columns (through Progress) are in the horizontal viewport — the
+        // DataGrid virtualizes columns, so a narrow window leaves the progress cells unrealized.
+        UploadsView view = new() { DataContext = vm };
+        Window window = new() { Width = 2400, Height = 700, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, view);
+    }
+
+    private static void PumpUntil(Func<bool> condition)
+    {
+        for (int i = 0; i < 100 && !condition(); i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(10);
+        }
+
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static DataGridRow RowFor(DataGrid grid, object item)
+        => grid.GetVisualDescendants().OfType<DataGridRow>().First(r => ReferenceEquals(r.DataContext, item));
+
+    private static DataGridColumnHeader HeaderWithContent(UploadsView view, string content)
+        => view.uploadsGrid.GetVisualDescendants()
+            .OfType<DataGridColumnHeader>()
+            .First(h => Equals(h.Content, content));
+
+    private static ToggleButton? LockToggleOf(DataGridColumnHeader header)
+        => header.GetVisualDescendants().OfType<ToggleButton>().FirstOrDefault(t => t.Name == "LockToggle");
+
+    private static Point CenterInWindow(Visual v, Visual window)
+        => v.TranslatePoint(new Point(v.Bounds.Width / 2, v.Bounds.Height / 2), window) ?? default;
+
+    private static void RaiseClick(ToggleButton toggle)
+    {
+        // The chevron's Click handler (ExpandToggle_Click) reads the toggle's current IsChecked; drive it by
+        // flipping IsChecked (above) then raising Click — a real templated-toggle pointer press is flaky
+        // headless (the Task 1 pattern of splitting the handler from a synthesized click).
+        toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+    }
+
+    // Real pointer drag on the header's right edge: hover the edge, press, move by dx, release.
+    private static void DragColumnEdge(Window window, DataGridColumnHeader header, double dx)
+    {
+        double y = header.Bounds.Height / 2;
+        Point edge = header.TranslatePoint(new Point(header.Bounds.Width - 2, y), window) ?? default;
+        Point moved = new(edge.X + dx, edge.Y);
+        window.MouseMove(edge);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseDown(edge, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseMove(moved);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseUp(moved, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    /// <summary>
+    /// Builds a real <see cref="UploadsViewModel"/> over an in-memory SQLite DB with an inline dispatcher —
+    /// the scratch-repo harness shape the Core Uploads VM tests use. Packages are seeded DIRECTLY into the
+    /// VM's public <see cref="UploadsViewModel.VisibleRows"/> / <see cref="UploadsViewModel.Packages"/> (the
+    /// same shape the VM's PackageAdded handler produces), avoiding the manager's fire-and-forget persistence
+    /// so nothing races the scratch connection dispose; nothing is ever scheduled, so no upload runs. The
+    /// <see cref="SettingRepository"/> backs the column-menu persistence path.
+    /// </summary>
+    private sealed class VmHarness : IDisposable
+    {
+        private readonly SqliteConnection _connection;
+        private readonly UploadScheduler _scheduler;
+        private readonly PackageManager _manager;
+        private readonly AppSettings _settings = new();
+        private readonly string _tempDir;
+
+        public VmHarness()
+        {
+            _connection = new SqliteConnection("Data Source=:memory:");
+            _connection.Open();
+            DbContextOptions<CSUploaderDbContext> options = new DbContextOptionsBuilder<CSUploaderDbContext>()
+                .UseSqlite(_connection)
+                .Options;
+            TestDbContextFactory factory = new(options);
+            using (CSUploaderDbContext db = factory.CreateDbContext())
+            {
+                db.Database.EnsureCreated();
+            }
+
+            UploadPackageFileRepository fileRepo = new(factory);
+            UploadPackageRepository packageRepo = new(factory);
+            FileHosterLoginRepository loginRepo = new(factory);
+            SettingRepository settingRepo = new(factory);
+
+            DefaultFileHosterRegistry registry = new([]);
+            _scheduler = new UploadScheduler(_settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new HashingService(), registry);
+            _manager = new PackageManager(_settings, _scheduler, packageRepo, fileRepo, loginRepo, Mock.Of<IAppLogger>(), registry);
+
+            Vm = new UploadsViewModel(_manager, _settings, Mock.Of<IDialogService>(), new InlineDispatcher(), Mock.Of<IClipboardService>(), settingRepo);
+
+            _tempDir = Path.Combine(Path.GetTempPath(), $"csu-uploadsview-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(_tempDir);
+        }
+
+        public UploadsViewModel Vm { get; }
+
+        /// <summary>Seeds a package (default expanded) and its files straight into the VM's collections — the
+        /// exact row shape the VM's PackageAdded handler builds (package row followed by its file rows).</summary>
+        public Package SeedPackage(string title, params string[] fileNames)
+        {
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
+            PackageOptions opts = new()
+            {
+                Title = title,
+                Logger = Mock.Of<IAppLogger>(),
+                Settings = new AppSettings(),
+                FileHosters = new() { { hoster, login } },
+            };
+            Package package = new(opts);
+
+            List<PackageFile> files = [];
+            foreach (string name in fileNames)
+            {
+                string path = Path.Combine(_tempDir, name);
+                File.WriteAllBytes(path, [1]);
+                files.Add(new PackageFile(package, path, hoster, login) { Name = name });
+            }
+
+            package.AddPackageFiles([.. files]);
+
+            Vm.Packages.Add(package);
+            Vm.VisibleRows.Add(package);
+            if (package.IsExpanded)
+            {
+                foreach (PackageFile file in package)
+                {
+                    Vm.VisibleRows.Add(file);
+                }
+            }
+
+            return package;
+        }
+
+        public void Dispose()
+        {
+            Vm.Dispose();
+            _scheduler.Dispose();
+            _connection.Dispose();
+            try
+            {
+                Directory.Delete(_tempDir, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+
+        private static AttemptRunner BuildAttemptRunner()
+        {
+            DefaultFileHosterRegistry registry = new([]);
+            Mock<IProxySource> proxy = new();
+            proxy.Setup(p => p.Next()).Returns(ProxyChoice.Direct);
+            Mock<IHttpHandlerFactory> hf = new();
+            hf.Setup(f => f.Create(It.IsAny<ProxyChoice>(), It.IsAny<IAppLogger>()))
+                .Returns(() => new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled));
+            return new AttemptRunner(registry, proxy.Object, hf.Object);
+        }
+
+        private sealed class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)
+            : IDbContextFactory<CSUploaderDbContext>
+        {
+            public CSUploaderDbContext CreateDbContext() => new(options);
+        }
+    }
+
+    /// <summary>
+    /// Deterministic <see cref="IUiDispatcher"/> for the view tests: Post/InvokeAsync run INLINE and the
+    /// refresh timer is a stopped no-op (the view tests never tick it). Mirror of the Core InlineUiDispatcher.
+    /// </summary>
+    private sealed class InlineDispatcher : IUiDispatcher
+    {
+        public void Post(Action action) => action();
+
+        public Task InvokeAsync(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        public IUiTimer CreateTimer(TimeSpan interval, Action onTick) => new NoopTimer();
+
+        private sealed class NoopTimer : IUiTimer
+        {
+            public void Start()
+            {
+            }
+
+            public void Stop()
+            {
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+    }
+}

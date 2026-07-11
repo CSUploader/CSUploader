@@ -510,19 +510,6 @@
                    Text="Picker result: (none yet)" />
       </StackPanel>
 
-      <!-- Probes (Phase 6): throwaway go/no-go windows. HeaderTemplateProbe (Task 1) pins the custom
-           DataGridColumnHeader re-template (lock toggle + drag-resize + sort survival) before
-           UploadsView invests in it; the button opens it non-modally so the bridge can screenshot/drive
-           the re-templated headers. Deleted with the window in Task 10. -->
-      <StackPanel Spacing="6">
-        <TextBlock Classes="section-header" Text="Probes (Phase 6)" />
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button x:Name="HeaderTemplateProbeButton"
-                  AutomationProperties.AutomationId="HeaderTemplateProbeButton"
-                  Classes="secondary" Content="Header re-template probe…" />
-        </StackPanel>
-      </StackPanel>
-
       <!-- Windows (Phase 6): the Upload Wizard's standalone test surface. The button constructs it from
            App.Services (the hand-built VM path) and Show(this)es it non-modally so the bridge can screenshot
            step 0 and toggle the mode. The real opener is the Uploads toolbar (Task 12). -->

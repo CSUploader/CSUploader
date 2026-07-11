@@ -1,0 +1,552 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia port of the WPF Uploads tab (src/Views/UploadsView.xaml:104-644). This task (Phase 6 Task 10)
+     lands the grid + columns + toolbar + filter bar + the durable filtered collection view, and takes the
+     Uploads MainWindow tab live. The custom DataGridColumnHeader re-template (lock ToggleButton + built-in
+     drag-resize + stock sort glyph) is the Task 1 GO recipe copied VERBATIM from the now-deleted
+     HeaderTemplateProbeWindow; header->column association is by matching header.Content to column.Header
+     (the 21 Uploads_Col_* headers are unique, confirmed, so content-match is safe). The overview panel,
+     premium footer, context menu, editable Order and package-expanding copy are Tasks 11-12. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             x:Class="CSUploader.Views.UploadsView">
+
+  <UserControl.Resources>
+    <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
+    <conv:SingleLineConverter x:Key="SingleLineConverter" />
+    <conv:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
+    <conv:DateTimeFormatConverter x:Key="DateTimeConverter" />
+    <conv:SpeedLimitConverter x:Key="SpeedLimitConverter" />
+    <conv:FileStateDisplayConverter x:Key="FileStateConverter" />
+    <conv:FileStateIconConverter x:Key="FileStateIconConverter" />
+    <conv:HosterIconConverter x:Key="HosterIconConverter" />
+    <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+    <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
+
+    <!-- Stock sort-glyph geometries (Task 1 recipe): copied verbatim from the installed 11.3.13 Fluent
+         DataGrid theme so the custom header reproduces Avalonia's stock sort indicator. The WPF custom
+         header shows NO glyph — keeping Avalonia's is the accepted divergence recorded in Task 1. -->
+    <StreamGeometry x:Key="UploadsSortIconAscendingPath">M1965 947l-941 -941l-941 941l90 90l787 -787v1798h128v-1798l787 787z</StreamGeometry>
+    <StreamGeometry x:Key="UploadsSortIconDescendingPath">M1875 1011l-787 787v-1798h-128v1798l-787 -787l-90 90l941 941l941 -941z</StreamGeometry>
+
+    <!-- JD2 lock ToggleButton (mirrors WPF UploadsView.xaml:317-345). 14x14 Segoe MDL2 padlock: unlocked
+         E785 (dim) -> locked E72E (AccentBrush) via :checked. Defined before LockableHeaderTheme so the
+         StaticResource reference resolves. -->
+    <ControlTheme x:Key="LockToggleTheme" TargetType="ToggleButton">
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="14" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="ToolTip.Tip" Value="{loc:Loc Uploads_ColumnHeader_LockTip}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent">
+            <TextBlock x:Name="Glyph"
+                       Text="&#xE785;"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Opacity="0.45"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ TextBlock#Glyph">
+        <Setter Property="Opacity" Value="1.0" />
+      </Style>
+      <Style Selector="^:checked /template/ TextBlock#Glyph">
+        <Setter Property="Text" Value="&#xE72E;" />
+        <Setter Property="Opacity" Value="1.0" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- The pinned custom header (Task 1 GO recipe, verbatim). DataGridColumnHeader has NO OnApplyTemplate /
+         NameScope lookups, so re-template is free-form (only a ContentPresenter for Content is required).
+         Resize is the header's OWN 5px-edge pointer logic gated on DataGridColumn.CanUserResize (no
+         PART_*Gripper exists), and sort is its PointerReleased -> ProcessSort — both survive any hit-testable
+         template. The lock ToggleButton is kept 8px clear of the edge so the 5px resize region stays
+         grabbable. Wired via DataGrid.ColumnHeaderTheme below. -->
+    <ControlTheme x:Key="LockableHeaderTheme" TargetType="DataGridColumnHeader">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+      <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="6,5" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="HeaderBorder"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{DynamicResource DataGridGridLineBrush}"
+                  BorderThickness="0,0,1,1">
+            <Grid x:Name="PART_ColumnHeaderRoot" ColumnDefinitions="*,Auto,Auto">
+              <Panel Grid.Column="0"
+                     Margin="{TemplateBinding Padding}"
+                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                <Grid ColumnDefinitions="*,Auto">
+                  <ContentPresenter x:Name="PART_ContentPresenter"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
+                  <Path x:Name="SortIcon"
+                        Grid.Column="1"
+                        IsVisible="False"
+                        Height="9"
+                        Margin="6,0,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Fill="{TemplateBinding Foreground}"
+                        Stretch="Uniform" />
+                </Grid>
+              </Panel>
+              <ToggleButton x:Name="LockToggle"
+                            Grid.Column="1"
+                            Theme="{StaticResource LockToggleTheme}"
+                            Margin="2,0,8,0"
+                            VerticalAlignment="Center"
+                            Click="ColumnLock_Click" />
+              <Rectangle x:Name="VerticalSeparator"
+                         Grid.Column="2"
+                         Width="1"
+                         VerticalAlignment="Stretch"
+                         Fill="{DynamicResource DataGridGridLineBrush}" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+        <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+      </Style>
+      <Style Selector="^:sortascending /template/ Path#SortIcon">
+        <Setter Property="IsVisible" Value="True" />
+        <Setter Property="Data" Value="{StaticResource UploadsSortIconAscendingPath}" />
+      </Style>
+      <Style Selector="^:sortdescending /template/ Path#SortIcon">
+        <Setter Property="IsVisible" Value="True" />
+        <Setter Property="Data" Value="{StaticResource UploadsSortIconDescendingPath}" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Toolbar button (rule 40): 36x36 flat button, hover/pressed border. WPF Style x:Key="ToolbarButton". -->
+    <ControlTheme x:Key="ToolbarButtonTheme" TargetType="Button">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="Margin" Value="1,2" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="3"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#Bd">
+        <Setter Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonHoverBorderBrush}" />
+      </Style>
+      <Style Selector="^:pressed /template/ Border#Bd">
+        <Setter Property="Background" Value="{DynamicResource ToolbarButtonPressedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonPressedBorderBrush}" />
+      </Style>
+      <Style Selector="^:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+      </Style>
+    </ControlTheme>
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- Row chrome (WPF RowStyle): grid font + min height. -->
+    <Style Selector="DataGridRow">
+      <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+      <Setter Property="MinHeight" Value="20" />
+    </Style>
+
+    <!-- Zebra alt-row shading (Task 4 helper toggles the .alt class). -->
+    <Style Selector="DataGridRow.alt">
+      <Setter Property="Background" Value="{DynamicResource DataGridAltRowBrush}" />
+    </Style>
+
+    <!-- Name-column chevron: hidden (space reserved) on file rows so the file name keeps its indent. WPF
+         used Visibility=Hidden; Avalonia has no Hidden, so Opacity 0 + no hit-testing reproduces
+         "invisible but still occupies its 20px slot" (the conditional .filerow class comes from
+         Classes.filerow="{Binding !IsPackageRow}"). -->
+    <Style Selector="ToggleButton.name-chevron.filerow">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <!-- Package-row name is SemiBold (WPF DataTrigger on IsPackageRow). -->
+    <Style Selector="TextBlock.pkg-name.package-row">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Rule-20 cell classes for the two read-only text columns that carried an ElementStyle in WPF
+         (DataGridTextColumn has no ElementStyle on Avalonia). -->
+    <Style Selector="DataGridCell.path-cell TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="DataGridCell.error-cell TextBlock">
+      <Setter Property="Foreground" Value="Red" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Background="{DynamicResource SurfaceBrush}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Toolbar (JD2-style: large icons, hover borders). -->
+    <Border Grid.Row="0" Background="{DynamicResource DataGridHeaderBrush}"
+            BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
+            Padding="4,2">
+      <StackPanel Orientation="Horizontal">
+        <Button Theme="{StaticResource ToolbarButtonTheme}" Click="AddUploadButton_Click"
+                ToolTip.Tip="{loc:Loc Uploads_Toolbar_AddTip}">
+          <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0" />
+        </Button>
+
+        <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
+        <Button Theme="{StaticResource ToolbarButtonTheme}" Command="{Binding StartCommand}"
+                ToolTip.Tip="{loc:Loc Uploads_Toolbar_StartTip}">
+          <Image Source="{StaticResource ButtonStartImage}" Width="24" Height="24" />
+        </Button>
+        <Button Theme="{StaticResource ToolbarButtonTheme}" Command="{Binding PauseCommand}"
+                ToolTip.Tip="{loc:Loc Uploads_Toolbar_PauseTip}">
+          <Image Source="{StaticResource ButtonPauseImage}" Width="24" Height="24" />
+        </Button>
+        <Button Theme="{StaticResource ToolbarButtonTheme}" Command="{Binding StopCommand}"
+                ToolTip.Tip="{loc:Loc Uploads_Toolbar_StopTip}">
+          <Image Source="{StaticResource ButtonStopImage}" Width="24" Height="24" />
+        </Button>
+
+        <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
+        <Button Theme="{StaticResource ToolbarButtonTheme}"
+                Command="{Binding MoveUpCommand}"
+                CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
+                ToolTip.Tip="{loc:Loc Uploads_Tooltip_MoveUp}">
+          <TextBlock Text="&#x25B2;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Button>
+        <Button Theme="{StaticResource ToolbarButtonTheme}"
+                Command="{Binding MoveDownCommand}"
+                CommandParameter="{Binding SelectedItem, ElementName=uploadsGrid}"
+                ToolTip.Tip="{loc:Loc Uploads_Tooltip_MoveDown}">
+          <TextBlock Text="&#x25BC;" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Button>
+
+        <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="6,4" />
+
+        <!-- Remove's SelectedItems parameter is wired in code-behind (rule 19). -->
+        <Button x:Name="RemoveButton" Theme="{StaticResource ToolbarButtonTheme}"
+                Command="{Binding RemoveSelectedCommand}"
+                ToolTip.Tip="{loc:Loc Uploads_Toolbar_RemoveTip}">
+          <TextBlock Text="&#x2715;" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource ErrorBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Button>
+      </StackPanel>
+    </Border>
+
+    <!-- Main DataGrid. IsReadOnly=False is here ONLY so the Order cell can be typed into (Task 11 adds the
+         BeginningEdit guard that cancels edits for every other column); all read-only text columns are
+         Mode=OneWay so an interim edit can never write back through a throwing converter (rule 32). -->
+    <DataGrid x:Name="uploadsGrid" Grid.Row="1"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              CanUserResizeColumns="True"
+              CanUserReorderColumns="True"
+              CanUserSortColumns="True"
+              SelectionMode="Extended"
+              HeadersVisibility="Column"
+              GridLinesVisibility="Horizontal"
+              HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
+              Background="{DynamicResource SurfaceBrush}"
+              BorderThickness="0"
+              ClipboardCopyMode="IncludeHeader"
+              SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
+              ColumnHeaderTheme="{StaticResource LockableHeaderTheme}"
+              beh:DataGridZebraStriping.IsEnabled="True"
+              beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+              beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False"
+                                ClipboardContentBinding="{Binding Name}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <!-- Horizontal stack: collapsed elements take zero width, so the package row's name slides
+                   flush against its chevron, while file rows keep their indent via the always-rendered
+                   (Opacity-0 on files) chevron + the file icon. -->
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <ToggleButton Classes="name-chevron"
+                              Classes.filerow="{Binding !IsPackageRow}"
+                              Cursor="Hand"
+                              Background="Transparent" BorderThickness="0" Padding="0"
+                              MinWidth="0" MinHeight="0"
+                              IsChecked="{Binding IsExpanded, FallbackValue=False}"
+                              Click="ExpandToggle_Click">
+                  <ToggleButton.Template>
+                    <ControlTemplate>
+                      <Border Background="Transparent" Width="20" Height="20">
+                        <Panel>
+                          <TextBlock Text="&#x2212;"
+                                     FontFamily="{DynamicResource GridFontFamily}" FontSize="14" FontWeight="Bold"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
+                          <TextBlock Text="+"
+                                     FontFamily="{DynamicResource GridFontFamily}" FontSize="14" FontWeight="Bold"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     IsVisible="{Binding !IsChecked, RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Panel>
+                      </Border>
+                    </ControlTemplate>
+                  </ToggleButton.Template>
+                </ToggleButton>
+                <!-- File-type icon: shown for files, collapsed for packages so the package name flows
+                     tight against the chevron. -->
+                <Image Source="{Binding Name, Converter={StaticResource FileTypeIconConverter}}"
+                       Width="16" Height="16" Margin="2,0,6,0" VerticalAlignment="Center"
+                       IsVisible="{Binding !IsPackageRow}" />
+                <TextBlock Classes="pkg-name"
+                           Classes.package-row="{Binding IsPackageRow}"
+                           Text="{Binding Name}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Padding="4,0" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120"
+                                ClipboardContentBinding="{Binding Size, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Package rows show [N] file count first, like JD2. -->
+                <TextBlock Text="{Binding FileCount, StringFormat='[{0}]'}"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0"
+                           IsVisible="{Binding IsPackageRow}" />
+                <TextBlock Text="{Binding Size, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hoster}" Width="120"
+                                ClipboardContentBinding="{Binding HosterDisplay}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="{Binding HosterDisplay, Converter={StaticResource HosterIconConverter}}"
+                       Width="18" Height="18" Margin="0,0,6,0" />
+                <TextBlock Text="{Binding HosterDisplay}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <!-- AccountDisplay is on both Package and PackageFile rows (like HosterDisplay). Rule 32 OneWay. -->
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Account}"
+                            Binding="{Binding AccountDisplay, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding AccountDisplay}"
+                            Width="130" />
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140"
+                                ClipboardContentBinding="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="{Binding State, Converter={StaticResource FileStateIconConverter}}"
+                       Width="14" Height="14" Margin="0,0,4,0" />
+                <TextBlock Text="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Speed}"
+                            Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
+                            Width="90" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_ETA}"
+                            Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
+                            Width="80" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesLoaded}"
+                            Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
+                            Width="100" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesRemaining}"
+                            Binding="{Binding BytesRemaining, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding BytesRemaining, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
+                            Width="110" />
+
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140"
+                                ClipboardContentBinding="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <!-- Rule 35: WPF's ActualWidth -> Avalonia Bounds.Width; the ElementName binding resolves
+                   inside this CellTemplate's name scope (PGrid is the template root). ProgressWidthConverter
+                   is unchanged; the MultiBinding is read-only (IMultiValueConverter has no ConvertBack). -->
+              <Grid x:Name="PGrid" Margin="2,3">
+                <Border Background="{DynamicResource ProgressBarTrackBrush}" CornerRadius="1" Height="14" />
+                <Border Background="{DynamicResource ProgressBarFillBrush}" CornerRadius="1"
+                        HorizontalAlignment="Left" Height="14">
+                  <Border.Width>
+                    <MultiBinding Converter="{StaticResource ProgressWidthConverter}">
+                      <Binding Path="Progress" />
+                      <Binding Path="Bounds.Width" ElementName="PGrid" />
+                    </MultiBinding>
+                  </Border.Width>
+                </Border>
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10"
+                           Text="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}" />
+              </Grid>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Path}"
+                            Binding="{Binding Path, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding Path}"
+                            CellStyleClasses="path-cell"
+                            Width="180" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Added}"
+                            Binding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}}"
+                            Width="130" IsVisible="False" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Finished}"
+                            Binding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
+                            Width="130" IsVisible="False" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Started}"
+                            Binding="{Binding StartedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding StartedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
+                            Width="130" IsVisible="False" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_ScheduledAt}"
+                            Binding="{Binding ScheduledStartTime, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding ScheduledStartTime, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
+                            Width="130" IsVisible="False" />
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Duration}"
+                            Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue='', Mode=OneWay}"
+                            ClipboardContentBinding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
+                            Width="80" IsVisible="False" />
+
+        <!-- Order: display OrderDisplay + a OneWay editing TextBox. The editable commit path (BeginningEdit/
+             CellEditEnding guards) is Task 11; the OneWay editing box is load-bearing so a TwoWay box can't
+             fight SetOrderCommand by writing QueueOrder back. -->
+        <!-- Task 11 resolves this column by its header ("Order") for the BeginningEdit/CellEditEnding guards:
+             Avalonia's DataGridColumn is not a namescope StyledElement, so x:Name does not apply to it. -->
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Order}" Width="60"
+                                IsVisible="False"
+                                ClipboardContentBinding="{Binding OrderDisplay}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding OrderDisplay}" VerticalAlignment="Center" Margin="4,0,0,0" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+          <DataGridTemplateColumn.CellEditingTemplate>
+            <DataTemplate>
+              <TextBox Text="{Binding QueueOrder, Mode=OneWay}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellEditingTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_SpeedLimit}"
+                            Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
+                            Width="90" IsVisible="False" />
+
+        <!-- Hash / URL: template columns so the value can be blanked on package rows (they aggregate none).
+             WPF used a style-setter Text trigger; Avalonia hides the value TextBlock via IsVisible on file
+             rows (recorded port decision). -->
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hash}" Width="280" MinWidth="100"
+                                IsVisible="False" SortMemberPath="FileHash"
+                                ClipboardContentBinding="{Binding FileHash}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding FileHash}"
+                         IsVisible="{Binding !IsPackageRow}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                         FontFamily="Consolas, Cascadia Mono, Segoe UI"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_URL}" Width="200"
+                                IsVisible="False" SortMemberPath="FileUrl"
+                                ClipboardContentBinding="{Binding FileUrl}">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding FileUrl}"
+                         IsVisible="{Binding !IsPackageRow}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <!-- Error: display goes through SingleLineConverter so embedded newlines don't blow up the row
+             height; the ClipboardContentBinding stays on the raw Error so copy gets the full server text. -->
+        <DataGridTextColumn Header="{loc:Loc Uploads_Col_Error}"
+                            Binding="{Binding Error, Converter={StaticResource SingleLineConverter}, Mode=OneWay}"
+                            ClipboardContentBinding="{Binding Error}"
+                            CellStyleClasses="error-cell"
+                            Width="220" MinWidth="60" />
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <!-- Row 2 (overview panel) and Row 4 (premium footer) are added in Task 12. -->
+
+    <!-- JD2-style filter bar. -->
+    <Border Grid.Row="3" Background="{DynamicResource SurfaceAltBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+            Padding="6,4">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left"
+                   Text="{loc:Loc Uploads_FilterLabel}"
+                   Width="110" FontSize="11" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,4,0" />
+        <TextBox Text="{Binding FilterText}" FontSize="11"
+                 VerticalContentAlignment="Center"
+                 ToolTip.Tip="{loc:Loc Uploads_FilterTip}" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</UserControl>

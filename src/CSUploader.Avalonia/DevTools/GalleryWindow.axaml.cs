@@ -131,7 +131,6 @@ public partial class GalleryWindow : Window
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
-        HeaderTemplateProbeButton.Click += OnShowHeaderTemplateProbe;
         WizardButton.Click += OnShowWizard;
     }
 
@@ -436,13 +435,6 @@ public partial class GalleryWindow : Window
             defaultExt: ".json");
         PickerResultText.Text = path is null ? "Picker result: save — (cancelled)" : $"Picker result: save — {path}";
     }
-
-    // ── Probes (Phase 6 Task 1) ──
-    // The header-template probe has no IDialogService member (it is a throwaway go/no-go window deleted
-    // in Task 10), so the gallery constructs it directly and Show(this)es it non-modally — the bridge
-    // then screenshots/drives the re-templated headers to record the checklist verdicts.
-    private void OnShowHeaderTemplateProbe(object? sender, RoutedEventArgs e)
-        => new HeaderTemplateProbeWindow().Show(this);
 
     // ── Windows (Phase 6 Task 7) ──
     // The wizard's VM is hand-built inside its ctor from App.Services (it is NOT DI-registered), so the

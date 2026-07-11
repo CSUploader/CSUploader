@@ -7,10 +7,9 @@
         Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/icon.ico">
-  <!-- TODO(phase6): Uploads view (Uploaded, Settings + Logs are live). -->
   <TabControl SelectedIndex="{Binding SelectedTabIndex}">
     <TabItem Header="{loc:Loc Main_Tab_Uploads}">
-      <Border />
+      <views:UploadsView DataContext="{Binding UploadsViewModel}" />
     </TabItem>
     <TabItem Header="{loc:Loc Main_Tab_Uploaded}">
       <views:UploadedView DataContext="{Binding UploadedViewModel}" />
