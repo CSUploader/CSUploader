@@ -128,6 +128,10 @@ internal static class DataGridColumnMenu
     /// grid's own row context menu, so marking the header case handled ALSO guarantees the row
     /// menu never opens on the headers (the WPF <c>ContextMenuOpening</c> header pass-through).
     /// </summary>
+    /// <remarks>
+    /// do NOT also assign this menu as any control's ContextMenu — Open(header) throws if the
+    /// menu is attached elsewhere.
+    /// </remarks>
     public static void AttachToHeaders(DataGrid grid, ContextMenu menu)
     {
         grid.AddHandler(
