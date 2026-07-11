@@ -265,10 +265,12 @@ Two self-contained dialogs with no IDialogService member; their production opene
 **Port deltas:**
 - **About** (`src/Views/AboutWindow.xaml(.cs)`): `Logo128Image` resolves from the Phase 3 bitmap table (`{StaticResource Logo128Image}` — same key); version line via `Assembly.GetExecutingAssembly()` — **version divergence, accepted for Phase 4:** there is no shared version property anywhere (no Directory.Build.props; the WPF csproj hardcodes its Version inline — 0.0.6 today; the Avalonia csproj declares none), so the Avalonia About renders the assembly default `1.0.0`. Accept and NOTE it on the contact-sheet row (About has no production opener until Phase 6/7); real version alignment belongs to the Phase 9 Velopack-continuity cutover — Task 9 Step 4 adds it to the design's Phase 9 checklist; the GitHub link TextBlock via rule 10 (`PointerReleased`) + `Process.Start(UseShellExecute)` unchanged; the OK button (WPF: IsCancel+IsDefault, NO handler) gets an explicit `Close()` handler per rule 7. Bitmap-scaling rule 11.
 - **CloseAction** (`src/Views/CloseActionDialog.xaml(.cs)`): result becomes `internal readonly record struct CloseActionChoice(CloseAction Action, bool Remember)` (in the view file; Phase 7 wires it) via `ShowDialog<CloseActionChoice?>` — MinimizeToTray/Exit → `Close(new(action, RememberCheck.IsChecked == true))`, Cancel/Esc/X → `Close(null)` (the WPF "keep window open, setting unchanged" path). Owner resolution moves OUT of the ctor (WPF resolved it inline) — the Phase 7 caller passes the owner to ShowDialog; gallery passes itself.
-- [ ] **Step 1-2:** Port both + gallery buttons (`DialogAboutButton`, `DialogCloseActionButton`, direct ShowDialog(this)).
-- [ ] **Step 3: Headless tests:** CloseAction — Minimize click → `(MinimizeToTray, true)` (checkbox defaults checked, WPF parity); untick+Exit → `(Exit, false)`; Cancel → null. About — opens, version text non-empty, closes on OK.
-- [ ] **Step 4: Bridge session:** `about` + `closeaction` shots light+dark; open/close via bridge. Contact sheet + Read pairs.
-- [ ] **Step 5:** Full suite gate; record counts. **Commit** — `"feat(avalonia): About + CloseAction dialogs (gallery-driven; production openers land in Phases 6-7)"`
+- [x] **Step 1-2:** Port both + gallery buttons (`DialogAboutButton`, `DialogCloseActionButton`, direct ShowDialog(this)).
+- [x] **Step 3: Headless tests:** CloseAction — Minimize click → `(MinimizeToTray, true)` (checkbox defaults checked, WPF parity); untick+Exit → `(Exit, false)`; Cancel → null. About — opens, version text non-empty, closes on OK.
+- [x] **Step 4: Bridge session:** `about` + `closeaction` shots light+dark; open/close via bridge. Contact sheet + Read pairs.
+- [x] **Step 5:** Full suite gate; record counts. **Commit** — `"feat(avalonia): About + CloseAction dialogs (gallery-driven; production openers land in Phases 6-7)"`
+
+**Task 6 executed 2026-07-11 (commit 8fdfa49; reviewed/APPROVED same day):** Both dialogs ported per §Port rules; 4 headless tests added (Avalonia 197→201, WPF 1178 unchanged, 0-warning); About/CloseAction light+dark pairs match the WPF references (only accepted divergence: About version 1.0.0.0 vs 0.0.6.0); scope 7 files, WPF head untouched.
 
 ---
 
