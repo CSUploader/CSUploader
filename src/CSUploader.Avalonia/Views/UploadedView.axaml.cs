@@ -32,6 +32,10 @@ public partial class UploadedView : UserControl
     // are applied; used by the column menu's "Reset columns" entry.
     private Dictionary<string, DataGridColumnVisibilityPersistence.ColumnState>? _defaultColumnState;
     private UploadedViewModel? _vm;
+
+    // The grouped view over the current VM's Files, built ONCE per VM and kept for its lifetime (rebuilding
+    // it per reload was the leak — see OnDataContextChanged). Also the re-expand source on a Files Reset.
+    private DataGridCollectionView? _view;
     private bool _columnsWired;
     private bool _deleteWired;
 
@@ -74,29 +78,50 @@ public partial class UploadedView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        // A DataContext/VM swap (tab or window reuse) must not double-subscribe or leave the grid bound to
+        // the previous VM's collection: drop the old VM's CollectionChanged hook and the old grouped view.
         if (_vm is not null)
         {
             _vm.Files.CollectionChanged -= OnFilesChanged;
         }
 
+        _view = null;
+
         _vm = DataContext as UploadedViewModel;
         if (_vm is null)
         {
+            FilesGrid.ItemsSource = null;
             return;
         }
 
-        FilesGrid.ItemsSource = BuildGroupedView(_vm.Files);
+        // Build the grouped view ONCE and keep it for the VM's lifetime (assigned to the grid a single time).
+        // Avalonia 11.3.13's DataGridCollectionView subscribes to the source's CollectionChanged in its ctor
+        // and never removes that handler (it is not IDisposable), so the first port's habit of minting a fresh
+        // view on every LoadAsync reload permanently orphaned one subscriber per reload on the long-lived
+        // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both.
+        _view = BuildGroupedView(_vm.Files);
+        FilesGrid.ItemsSource = _view;
         _vm.Files.CollectionChanged += OnFilesChanged;
         WireDeleteKeyBinding(_vm);
     }
 
-    // LoadAsync clears then re-adds Files; rebuild the grouped view on the Reset so all groups re-expand —
-    // the WPF CollectionViewSource parity the Task 2 probe verified (a fresh grouping defaults to expanded).
+    // LoadAsync reloads by clearing then re-adding on the SAME Files collection. The durable grouped view
+    // refreshes itself (it is subscribed to Files), and because Files.Clear() removes every group before the
+    // re-adds recreate them, the DataGrid builds each recreated group with a fresh DataGridRowGroupInfo whose
+    // IsVisible defaults to true — so a reload already lands with every group expanded (verified by the
+    // Rebuild_ReExpandsAllGroups keystone). This handler re-expands in place as a guard for any Reset that
+    // instead arrives with groups already populated, holding the WPF CollectionViewSource parity WITHOUT
+    // minting a new view (the old rebuild here was the leak).
     private void OnFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action == NotifyCollectionChangedAction.Reset && _vm is not null)
+        if (e.Action != NotifyCollectionChangedAction.Reset || _view?.Groups is null)
         {
-            FilesGrid.ItemsSource = BuildGroupedView(_vm.Files);
+            return;
+        }
+
+        foreach (DataGridCollectionViewGroup group in _view.Groups.OfType<DataGridCollectionViewGroup>())
+        {
+            FilesGrid.ExpandRowGroup(group, expandAllSubgroups: true);
         }
     }
 

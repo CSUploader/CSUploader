@@ -7,6 +7,7 @@ using System.Collections.Specialized;
 using System.Globalization;
 using System.Reflection;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -192,12 +193,41 @@ public class LogsViewTests
         }
     }
 
-    // ── Rule 32: the throwing-ConvertBack columns are OneWay, so they render their Convert output and never
-    //    write back. LogEntryViewModel is immutable, so the Task-5 source corruption cannot reproduce here;
-    //    this asserts the positive render (the observable proof the OneWay converter binding works). ──
+    // ── Rule 32 (mode half): every converter column across the four grids binds OneWay, so Avalonia's default
+    //    TwoWay never invokes the throwing ConvertBack. A direct binding-mode assertion — mutation-resistant
+    //    regardless of the source's mutability (LogEntryViewModel is immutable, so a wrong TwoWay mode leaves
+    //    no observable trace for the render test below to catch; the mode itself is policed here). ──
 
     [AvaloniaFact]
-    public void ConverterColumns_RenderConvertedValues_ThroughOneWayBindings()
+    public void ConverterColumns_AreOneWayBound_SoThrowingConvertBackNeverRuns()
+    {
+        LogsView view = new();
+
+        List<DataGridTextColumn> columns = new[] { view.StatusLogGrid, view.HttpLogGrid, view.ErrorLogGrid, view.UILogGrid }
+            .SelectMany(g => g.Columns.OfType<DataGridTextColumn>())
+            .ToList();
+
+        // The throwing-ConvertBack converter columns — four DateTime (one per grid) + the HTTP grid's URL —
+        // are the rule-32 hazard: Avalonia's default TwoWay column binding would invoke their ConvertBack.
+        // (Every Binding carries a non-null default value converter, so filter on the CONFIGURED type.)
+        List<Binding> converterColumns = columns
+            .Select(c => Assert.IsType<Binding>(c.Binding))
+            .Where(b => b.Converter is DateTimeFormatConverter or UrlDecodeConverter)
+            .ToList();
+        Assert.Equal(5, converterColumns.Count);
+        Assert.All(converterColumns, b => Assert.Equal(BindingMode.OneWay, b.Mode));
+
+        // ...and the whole read-only grid holds the invariant the XAML states: every column binds OneWay.
+        Assert.All(columns, c => Assert.Equal(BindingMode.OneWay, Assert.IsType<Binding>(c.Binding).Mode));
+    }
+
+    // ── Rule 32 (render half): the converter columns render their Convert output — the positive proof the
+    //    converters run under the grid binding. The OneWay MODE that stops the throwing ConvertBack from ever
+    //    firing is asserted directly above (this render check cannot police the mode: for an immutable source
+    //    a wrong TwoWay bind would render identically). ──
+
+    [AvaloniaFact]
+    public void ConverterColumns_RenderConvertedValues()
     {
         using VmHarness harness = new();
         harness.Vm.AddLogEntry(HttpEvent("https://example.test/a%20b?x=1%262"));
@@ -219,10 +249,6 @@ public class LogsViewTests
             Assert.Contains(expectedDate, cellTexts);            // "2026/07/11 10:00:01"
             Assert.Equal("https://example.test/a b?x=1&2", expectedUrl); // decoded (%20→space, %26→&)
             Assert.Contains(expectedUrl, cellTexts);
-
-            // The immutable source is intact — no ConvertBack wrote through the read-only grid.
-            Assert.Equal(new DateTime(2026, 7, 11, 10, 0, 1), entry.DateTime);
-            Assert.Equal("https://example.test/a%20b?x=1%262", entry.HttpTransaction!.Url);
         }
         finally
         {

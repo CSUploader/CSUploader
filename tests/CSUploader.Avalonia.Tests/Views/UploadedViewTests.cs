@@ -5,7 +5,9 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Net.Http;
+using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -379,6 +381,45 @@ public class UploadedViewTests
         }
     }
 
+    // ── Leak regression: reloads must not accumulate subscribers on the long-lived Files collection ──
+
+    [AvaloniaFact]
+    public void Reload_KeepsOneDurableView_DoesNotAccumulateFilesSubscribers()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            // After the first bind, only the durable DataGridCollectionView and the view's own Reset handler
+            // subscribe to Files.CollectionChanged. The pre-fix code minted a fresh DataGridCollectionView on
+            // every LoadAsync reload; that view is never disposed (the type is not IDisposable) so it never
+            // unsubscribes, and the count grew by one per reload — the unbounded leak this pins. The durable
+            // view keeps both the count and the ItemsSource instance flat across any number of reloads.
+            object viewBefore = view.FilesGrid.ItemsSource!;
+            int baseline = CollectionChangedSubscriberCount(harness.Vm.Files);
+
+            for (int cycle = 0; cycle < 5; cycle++)
+            {
+                harness.Vm.Files.Clear();
+                foreach (UploadedFileRow row in FixtureRows())
+                {
+                    harness.Vm.Files.Add(row);
+                }
+
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Equal(baseline, CollectionChangedSubscriberCount(harness.Vm.Files));
+            Assert.Same(viewBefore, view.FilesGrid.ItemsSource); // no new view minted
+            Assert.Equal(7, RealizedRowCount(view.FilesGrid));   // still shows every row, expanded
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── helpers ──
 
     private static int RealizedRowCount(DataGrid grid)
@@ -388,6 +429,16 @@ public class UploadedViewTests
         => grid.GetVisualDescendants()
             .OfType<DataGridRow>()
             .First(r => r.DataContext is UploadedFileRow row && row.FileName == fileName);
+
+    // The invocation-list length of ObservableCollection's field-like CollectionChanged event = live
+    // subscriber count. Same reflection trick the DataGridBehaviorTests / LogsViewTests leak checks use.
+    private static int CollectionChangedSubscriberCount(INotifyCollectionChanged source)
+    {
+        FieldInfo field = source.GetType().GetField(
+            "CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var handler = (NotifyCollectionChangedEventHandler?)field.GetValue(source);
+        return handler?.GetInvocationList().Length ?? 0;
+    }
 
     private static (Window Window, UploadedView View) Show(UploadedViewModel vm)
     {
