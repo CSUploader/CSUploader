@@ -120,6 +120,7 @@ public partial class GalleryWindow : Window
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
+        HeaderTemplateProbeButton.Click += OnShowHeaderTemplateProbe;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -423,6 +424,13 @@ public partial class GalleryWindow : Window
             defaultExt: ".json");
         PickerResultText.Text = path is null ? "Picker result: save — (cancelled)" : $"Picker result: save — {path}";
     }
+
+    // ── Probes (Phase 6 Task 1) ──
+    // The header-template probe has no IDialogService member (it is a throwaway go/no-go window deleted
+    // in Task 10), so the gallery constructs it directly and Show(this)es it non-modally — the bridge
+    // then screenshots/drives the re-templated headers to record the checklist verdicts.
+    private void OnShowHeaderTemplateProbe(object? sender, RoutedEventArgs e)
+        => new HeaderTemplateProbeWindow().Show(this);
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier
