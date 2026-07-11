@@ -1,0 +1,216 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia port of the WPF Upload Wizard (src/Views/UploadWizardWindow.xaml). Task 7 lands the window
+     shell, the step indicator, the 4-step nav bar (Back / Cancel / Next), and STEP 0 (the merged
+     source-picker + files grid). Steps 1 (hosters) and 3 (start mode + DatePicker) arrive in Task 8; the
+     Summary step 2 (custom Expander) in Task 9. Panel/step switching is rule 39 (StepVisibilityConverter,
+     int==param -> IsVisible); the step-indicator weighting is StepFontConverter; the mode radios are the
+     two-way EnumBool group (rule 8, its full exercise is Task 8). BoolToVisibility sites (rule 33) become
+     IsVisible bindings — the head has no BoolToVisibilityConverter. The wizard opens as a Window from the
+     Uploads toolbar (Task 12); this task's standalone surface is the gallery WizardButton. The VM is hand-
+     built in code-behind (it is NOT DI-registered) from App.Services. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:conv="clr-namespace:CSUploader.Converters"
+        xmlns:beh="clr-namespace:CSUploader.Behaviors"
+        x:Class="CSUploader.Views.UploadWizardWindow"
+        Title="{loc:Loc Wizard_Title}"
+        Width="850" Height="620"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource SurfaceBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Window.Resources>
+    <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
+    <conv:StepVisibilityConverter x:Key="StepVisibilityConverter" />
+    <conv:StepFontConverter x:Key="StepFontConverter" />
+    <conv:EnumBoolConverter x:Key="EnumBoolConverter" />
+    <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+  </Window.Resources>
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Step indicator -->
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceAltBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+            Padding="20,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+        <!-- The DirectorySource / FilesSource pair share step 0; only the active mode's label shows (rule 33). -->
+        <TextBlock Text="{loc:Loc Wizard_Step_DirectorySource}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=0}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0"
+                   IsVisible="{Binding IsDirectoryMode}" />
+        <TextBlock Text="{loc:Loc Wizard_Step_FilesSource}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=0}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0"
+                   IsVisible="{Binding IsFilesMode}" />
+        <TextBlock Text="{loc:Loc Wizard_Step_FileHosters}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=1}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
+        <TextBlock Text="{loc:Loc Wizard_Step_Summary}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=2}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,30,0" />
+        <TextBlock Text="{loc:Loc Wizard_Step_Start}" FontSize="13"
+                   FontWeight="{Binding CurrentStep, Converter={StaticResource StepFontConverter}, ConverterParameter=3}"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Step content -->
+    <Grid Grid.Row="1" Margin="20,16,20,8">
+
+      <!-- Step 0: source picker + file list (merged) -->
+      <Grid x:Name="Step0Panel" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto"
+            IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
+
+        <!-- Row 0: mode picker (two-way EnumBool group) -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+          <RadioButton x:Name="DirectoryModeRadio" Content="{loc:Loc Wizard_Step0_Mode_Directory}"
+                       IsChecked="{Binding Mode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Directory}"
+                       GroupName="WizardMode" Margin="0,0,16,0" FontSize="12" />
+          <RadioButton x:Name="FilesModeRadio" Content="{loc:Loc Wizard_Step0_Mode_Files}"
+                       IsChecked="{Binding Mode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Files}"
+                       GroupName="WizardMode" FontSize="12" />
+        </StackPanel>
+
+        <!-- Row 1: source picker (mode-aware) -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+          <!-- Directory mode source picker. Browse is manual-only in a bridge session (native picker). -->
+          <Grid x:Name="DirectorySourcePicker" ColumnDefinitions="*,Auto" IsVisible="{Binding IsDirectoryMode}">
+            <TextBox Grid.Column="0" Text="{Binding DirectoryPath, UpdateSourceTrigger=LostFocus}"
+                     FontSize="12" Padding="6,5" VerticalContentAlignment="Center" />
+            <Button Grid.Column="1" Content="{loc:Loc Wizard_Step0_Browse}" Width="80" Margin="8,0,0,0"
+                    Command="{Binding BrowseDirectoryCommand}" />
+          </Grid>
+
+          <!-- Files mode source picker -->
+          <StackPanel x:Name="FilesSourcePicker" Orientation="Horizontal" IsVisible="{Binding IsFilesMode}">
+            <Button Content="{loc:Loc Wizard_Step0_Files_Pick}" MinWidth="120" Padding="10,6"
+                    Command="{Binding BrowseFilesCommand}" />
+          </StackPanel>
+        </Grid>
+
+        <!-- Row 2: package title -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_PackageTitleLabel}" FontSize="12" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+          <TextBox Grid.Column="1" Text="{Binding PackageTitle}"
+                   FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
+        </Grid>
+
+        <!-- Row 3: filter (directory mode only — files-mode users curated the list themselves) -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,0,0,8"
+              IsVisible="{Binding IsDirectoryMode}">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_FilterLabel}" FontSize="12" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+          <TextBox Grid.Column="1" Text="{Binding FileFilter}"
+                   FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
+        </Grid>
+
+        <!-- Row 4: bulk-action buttons. Select All / Deselect All stay directory-mode-only (a curated
+             files-mode list doesn't benefit from "select everything I just picked"), but Remove is always
+             available. RemoveSelectedFilesCommand's parameter = filesGrid.SelectedItems, assigned in code-
+             behind (rule 19 — DataGrid.SelectedItems is not a bindable AvaloniaProperty). -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6">
+          <Button Content="{loc:Loc Wizard_Step1_BtnSelectAll}" MinWidth="100" Padding="10,4"
+                  IsVisible="{Binding IsDirectoryMode}"
+                  Command="{Binding SelectAllCommand}" />
+          <Button Content="{loc:Loc Wizard_Step1_BtnDeselectAll}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
+                  IsVisible="{Binding IsDirectoryMode}"
+                  Command="{Binding SelectNoneCommand}" />
+          <Button x:Name="RemoveFilesButton" Content="{loc:Loc Wizard_Step1_BtnRemove}" MinWidth="100" Padding="10,4" Margin="6,0,0,0"
+                  Command="{Binding RemoveSelectedFilesCommand}" />
+        </StackPanel>
+
+        <!-- Row 5: DataGrid of files. Grid is editable (default) so the include-checkbox column toggles; the
+             File + Size columns are IsReadOnly. Row visibility follows FileEntry.IsVisible via the scoped
+             DataGridRow style (§Reality-check #20 — same recycling-safe pattern the accounts grid uses for
+             its Disabled dim). -->
+        <DataGrid Grid.Row="5" x:Name="filesGrid" ItemsSource="{Binding Files}"
+                  AutoGenerateColumns="False" SelectionMode="Extended"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                  Background="{DynamicResource ContentBackgroundBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+          <DataGrid.Styles>
+            <!-- Filter hides a row by collapsing it (WPF DataGridRow DataTrigger IsVisible=False -> Collapsed).
+                 Scoped to this grid, resolved against each row's FileEntry, and follows recycling. -->
+            <Style Selector="DataGridRow">
+              <Setter Property="IsVisible" Value="{Binding IsVisible}" />
+            </Style>
+            <Style Selector="DataGridCell.check-center CheckBox">
+              <Setter Property="HorizontalAlignment" Value="Center" />
+              <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+          </DataGrid.Styles>
+          <DataGrid.Columns>
+            <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected}" Width="35"
+                                    CellStyleClasses="check-center" />
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step1_Col_File}" Width="*" IsReadOnly="True"
+                                    SortMemberPath="RelativePath"
+                                    ClipboardContentBinding="{Binding RelativePath}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="{Binding RelativePath, Converter={StaticResource FileTypeIconConverter}}"
+                           Width="16" Height="16" Margin="2,0,6,0" />
+                    <TextBlock Text="{Binding RelativePath}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <!-- Mode=OneWay is load-bearing: Avalonia's DataGridTextColumn.Binding defaults to TwoWay and
+                 writes the ConvertBack result back on bind even in a read-only column; ByteUnitConverter
+                 throws on ConvertBack, which would blank FileEntry.Size (the UploadedView port gotcha). -->
+            <DataGridTextColumn Header="{loc:Loc Wizard_Step1_Col_Size}"
+                                Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}, Mode=OneWay}"
+                                Width="100" IsReadOnly="True" />
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Row 6: selected-count footer -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,4,0,0">
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Text="{loc:Loc Wizard_Step1_SelectedLabel}" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Margin="4,0,0,0" Text="{Binding Files.Count, Mode=OneWay}" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                     Margin="4,0,0,0" Text="{loc:Loc Wizard_Step1_FilesUnit}" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Steps 1 (hosters), 2 (Summary) and 3 (start mode) land in Tasks 8-9. -->
+    </Grid>
+
+    <!-- Bottom buttons -->
+    <Border Grid.Row="2" Padding="20,8,20,12"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+            Background="{DynamicResource SurfaceAltBrush}">
+      <Grid ColumnDefinitions="*,Auto">
+        <!-- The Summary-only grand-total TextBlock (StepVisibility param 2) lands with step 2 in Task 9. -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="BackButton" Content="{loc:Loc Wizard_Btn_Back}" Width="80" Height="30" Margin="0,0,8,0"
+                  Command="{Binding GoBackCommand}"
+                  IsVisible="{Binding CanGoBack}" />
+          <!-- Cancel: IsCancel routes Esc here but no longer auto-closes on Avalonia (rule 7), so the
+               handler closes explicitly with a non-completed result. -->
+          <Button x:Name="CancelButton" Content="{loc:Loc Wizard_Btn_Cancel}" Width="80" Height="30"
+                  IsCancel="True" Margin="0,0,8,0" Click="CancelButton_Click" />
+          <Button x:Name="NextButton" Content="{Binding NextButtonText}" Width="100" Height="30"
+                  Command="{Binding GoNextCommand}"
+                  IsEnabled="{Binding CanGoNext}"
+                  Classes="primary" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

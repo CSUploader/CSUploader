@@ -19,6 +19,7 @@ using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
 using CSUploader.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CSUploader.DevTools;
 
@@ -130,6 +131,7 @@ public partial class GalleryWindow : Window
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
         HeaderTemplateProbeButton.Click += OnShowHeaderTemplateProbe;
+        WizardButton.Click += OnShowWizard;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -440,6 +442,17 @@ public partial class GalleryWindow : Window
     // then screenshots/drives the re-templated headers to record the checklist verdicts.
     private void OnShowHeaderTemplateProbe(object? sender, RoutedEventArgs e)
         => new HeaderTemplateProbeWindow().Show(this);
+
+    // ── Windows (Phase 6 Task 7) ──
+    // The wizard's VM is hand-built inside its ctor from App.Services (it is NOT DI-registered), so the
+    // gallery just resolves the vestigial UploadsViewModel arg (the WPF Add-button call-site shape) and
+    // Show(this)es it non-modally so the bridge can screenshot step 0 and toggle the mode. Never driven to
+    // its final Add — that would kick off a real upload.
+    private void OnShowWizard(object? sender, RoutedEventArgs e)
+    {
+        IServiceProvider sp = ((App)Application.Current!).Services;
+        new UploadWizardWindow(sp.GetRequiredService<UploadsViewModel>()).Show(this);
+    }
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier
