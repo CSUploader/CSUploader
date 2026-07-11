@@ -1,0 +1,52 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- First-run prompt for the main window's X (close) button (port of the WPF src/Views/CloseActionDialog.xaml).
+     Minimise-to-tray vs Exit, with a "Remember my choice" checkbox. No IDialogService member — the
+     production opener is MainWindow's close-to-tray (Phase 7); the gallery button is its only opener
+     until then. Result via ShowDialog<CloseActionChoice?>. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.CloseActionDialog"
+        Title="{loc:Loc CloseAction_WindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="460"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto">
+
+    <TextBlock Grid.Row="0"
+               Text="{loc:Loc CloseAction_Heading}"
+               TextWrapping="Wrap"
+               FontSize="14" FontWeight="SemiBold"
+               Margin="0,0,0,8" />
+
+    <TextBlock Grid.Row="1"
+               Text="{loc:Loc CloseAction_Subheading}"
+               TextWrapping="Wrap"
+               FontSize="12"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               Margin="0,0,0,16" />
+
+    <CheckBox Grid.Row="2"
+              x:Name="RememberCheck"
+              Content="{loc:Loc CloseAction_Remember}"
+              IsChecked="True"
+              Margin="0,0,0,16"
+              Foreground="{DynamicResource TextSecondaryBrush}" />
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="MinimizeButton" Content="{loc:Loc CloseAction_BtnMinimize}" Width="140" Margin="0,0,8,0"
+              IsDefault="True" Click="MinimizeToTray_Click" />
+      <Button x:Name="ExitButton" Content="{loc:Loc CloseAction_BtnExit}" Width="100" Margin="0,0,8,0"
+              Click="Exit_Click" />
+      <Button x:Name="CancelButton" Content="{loc:Loc CloseAction_BtnCancel}" Width="80"
+              IsCancel="True" Click="Cancel_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

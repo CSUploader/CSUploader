@@ -92,6 +92,8 @@ public partial class GalleryWindow : Window
         DialogProxyTextEditButton.Click += OnShowProxyTextEdit;
         DialogProxyTextExportButton.Click += OnShowProxyTextExport;
         DialogSpeedLimitButton.Click += OnShowSpeedLimit;
+        DialogAboutButton.Click += OnShowAbout;
+        DialogCloseActionButton.Click += OnShowCloseAction;
         PickFolderButton.Click += OnPickFolder;
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
@@ -147,6 +149,16 @@ public partial class GalleryWindow : Window
 
     private void OnShowSpeedLimit(object? sender, RoutedEventArgs e)
         => _ = _dialogService.ShowSpeedLimitDialogAsync(512);
+
+    // ── Self-contained dialogs (Phase 4 Task 6) ──
+    // About + CloseAction have no IDialogService member (their production openers are the MainWindow menu
+    // in Phase 6/7 and close-to-tray in Phase 7), so the gallery constructs each window directly and
+    // ShowDialog(this) — the gallery is the owner until those phases wire the real callers.
+    private void OnShowAbout(object? sender, RoutedEventArgs e)
+        => _ = new AboutWindow().ShowDialog(this);
+
+    private void OnShowCloseAction(object? sender, RoutedEventArgs e)
+        => _ = new CloseActionDialog().ShowDialog(this);
 
     // The four picker launchers call the REAL IDialogService picker members (native OS dialogs). They are
     // "manual only": the bridge cannot drive or screenshot a native modal, so the agent never clicks them

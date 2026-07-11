@@ -273,6 +273,19 @@
                   Classes="secondary" Content="Speed limit…" />
         </StackPanel>
 
+        <!-- Self-contained dialogs (Phase 4 Task 6): About + CloseAction have no IDialogService member
+             (their production openers are the MainWindow menu in Phase 6/7 and close-to-tray in Phase 7),
+             so each button constructs the window and ShowDialog(this) directly — the gallery is the owner
+             until those phases wire the real callers. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogAboutButton"
+                  AutomationProperties.AutomationId="DialogAboutButton"
+                  Classes="secondary" Content="About…" />
+          <Button x:Name="DialogCloseActionButton"
+                  AutomationProperties.AutomationId="DialogCloseActionButton"
+                  Classes="secondary" Content="Close action…" />
+        </StackPanel>
+
         <!-- StorageProvider pickers (Phase 4 Task 4): these open NATIVE OS dialogs the bridge cannot
              drive or screenshot, so the agent never clicks them in a bridge session (a native modal would
              wedge the drive loop). They exist for manual click-through smoke and a crash-free

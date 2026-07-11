@@ -1,0 +1,82 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- About box (port of the WPF src/Views/AboutWindow.xaml). Logo + app name/version, a description,
+     four labelled fields, and a clickable GitHub link. No IDialogService member — the production opener
+     is the MainWindow menu (Phase 6/7); the gallery button is its only opener until then. The version
+     line renders the assembly default (1.0.0) because the Avalonia csproj declares no Version — an
+     accepted, noted Phase 4 divergence (version alignment is Phase 9's Velopack cutover). -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.AboutWindow"
+        Title="{loc:Loc About_WindowTitle}"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Grid Margin="24,20,24,16" RowDefinitions="Auto,Auto,Auto,Auto">
+
+    <!-- Logo + Title + Version -->
+    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+      <Image Source="{StaticResource Logo128Image}" Width="80" Height="80"
+             RenderOptions.BitmapInterpolationMode="HighQuality" Margin="0,0,16,0" />
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource AccentBrush}"
+                   Text="{loc:Loc About_AppName}" />
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   x:Name="VersionText" Margin="0,2,0,0" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Description -->
+    <TextBlock Grid.Row="1" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"
+               TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,16"
+               Text="{loc:Loc About_Description}" />
+
+    <!-- Framework / Database / License / Source. Plain side-by-side TextBlocks (not inline Runs) —
+         mirrors the WPF port, which avoided the Hyperlink/Run path that can fail on Win11. -->
+    <StackPanel Grid.Row="2" Margin="0,0,0,16">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontWeight="SemiBold" Text="{loc:Loc About_Field_Framework}" />
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="4,0,0,0" Text="{loc:Loc About_Field_Framework_Value}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontWeight="SemiBold" Text="{loc:Loc About_Field_Database}" />
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="4,0,0,0" Text="{loc:Loc About_Field_Database_Value}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontWeight="SemiBold" Text="{loc:Loc About_Field_License}" />
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="4,0,0,0" Text="{loc:Loc About_Field_License_Value}" />
+      </StackPanel>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontWeight="SemiBold" Text="{loc:Loc About_Field_Source}" />
+        <TextBlock FontSize="12"
+                   Margin="4,0,0,0"
+                   Text="github.com/CSUploader/CSUploader"
+                   Foreground="{DynamicResource AccentBrush}"
+                   Cursor="Hand"
+                   TextDecorations="Underline"
+                   Tag="https://github.com/CSUploader/CSUploader"
+                   PointerReleased="GithubLink_PointerReleased" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- OK Button. Explicit Click handler is mandatory: WPF's IsCancel auto-closed the window with no
+         handler, but Avalonia's IsCancel/IsDefault only route Esc/Enter to Click without closing
+         (port rule 7) — the documented AboutWindow gotcha. -->
+    <Button Grid.Row="3" x:Name="OkButton" Content="{loc:Loc About_OK}" Width="80" Height="28"
+            HorizontalAlignment="Right" IsCancel="True" IsDefault="True" Click="OkButton_Click" />
+  </Grid>
+</Window>

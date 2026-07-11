@@ -11,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CSUploader.Lib.Localization;
 using CSUploader.Services;
+using CSUploader.Upload;
 using CSUploader.Views;
 
 namespace CSUploader.Tests.Avalonia.Views;
@@ -266,6 +267,113 @@ public class SimpleDialogTests
             Exception? ex = Record.Exception(() => Click(dlg.CopyButton));
             Dispatcher.UIThread.RunJobs();
             Assert.Null(ex);
+        }
+        finally
+        {
+            dlg.Close();
+        }
+    }
+
+    // ── CloseActionDialog: outcome mapping through ShowDialog<CloseActionChoice?> (Task 6) ──
+
+    [AvaloniaFact]
+    public async Task CloseAction_Minimize_DefaultChecked_RemembersMinimizeToTray()
+    {
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new CloseActionDialog();
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Task<CloseActionChoice?> dialog = dlg.ShowDialog<CloseActionChoice?>(owner);
+            Dispatcher.UIThread.RunJobs();
+            Click(dlg.MinimizeButton); // "Remember" defaults checked (WPF parity) → (MinimizeToTray, true)
+            Dispatcher.UIThread.RunJobs();
+
+            CloseActionChoice? result = await dialog;
+            Assert.NotNull(result);
+            Assert.Equal(CloseAction.MinimizeToTray, result!.Value.Action);
+            Assert.True(result.Value.Remember);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task CloseAction_Exit_Unchecked_ReturnsExitNotRemembered()
+    {
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new CloseActionDialog();
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Task<CloseActionChoice?> dialog = dlg.ShowDialog<CloseActionChoice?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.RememberCheck.IsChecked = false; // untick before choosing → remember flag plumbs false
+            Click(dlg.ExitButton); // → (Exit, false)
+            Dispatcher.UIThread.RunJobs();
+
+            CloseActionChoice? result = await dialog;
+            Assert.NotNull(result);
+            Assert.Equal(CloseAction.Exit, result!.Value.Action);
+            Assert.False(result.Value.Remember);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task CloseAction_Cancel_ReturnsNull()
+    {
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new CloseActionDialog();
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Task<CloseActionChoice?> dialog = dlg.ShowDialog<CloseActionChoice?>(owner);
+            Dispatcher.UIThread.RunJobs();
+            Click(dlg.CancelButton); // Cancel_Click → Close(null): keep the window open, setting unchanged
+            Dispatcher.UIThread.RunJobs();
+
+            CloseActionChoice? result = await dialog;
+            Assert.Null(result); // cancelled — distinct from any minimize/exit choice
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    // ── AboutWindow: opens, version line renders, OK closes ──
+
+    [AvaloniaFact]
+    public void About_Opens_ShowsVersion_OkCloses()
+    {
+        var dlg = new AboutWindow();
+        try
+        {
+            dlg.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(dlg.IsVisible);
+            Assert.False(string.IsNullOrWhiteSpace(dlg.VersionText.Text)); // version line rendered (1.0.0 in Phase 4)
+
+            Click(dlg.OkButton); // WPF's OK had NO handler; the port adds an explicit Close() (rule 7 gotcha)
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(dlg.IsVisible); // OK closed it
         }
         finally
         {
