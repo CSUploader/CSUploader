@@ -1,0 +1,39 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Modal progress window (port of the WPF src/Views/ProgressWindow.xaml), MINIMAL: the window shell plus
+     the LabelText/CancelButton surface, WITHOUT the WPF ExecuteAsync driver. No current callers on either
+     head (ExecuteAsync orphaned since the WinForms→WPF migration, commit 6d68070); ported for parity as the
+     reusable modal-progress primitive — keep-vs-delete is deferred to the Phase 4 gate (§Reality-check
+     #13). NoResize→CanResize=False (rule 1); WindowStyle=ToolWindow → normal chrome (rule 4, note-only);
+     Cancel Visibility=Collapsed → IsVisible=False (rule 5); Icon→/Assets/icon.ico (rule 3). Bar consumed
+     AS-IS (Task 1 verdict). -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.ProgressWindow"
+        Title="{loc:Loc Progress_WindowTitle}"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Grid Margin="24,16" MinWidth="350" RowDefinitions="Auto,Auto,Auto">
+
+    <!-- Label -->
+    <TextBlock Grid.Row="0" x:Name="LabelText" Text="{loc:Loc Progress_DefaultLabel}"
+               Margin="0,0,0,12" FontSize="13" TextWrapping="Wrap" />
+
+    <!-- Progress Bar -->
+    <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="20" Margin="0,0,0,12" />
+
+    <!-- Cancel Button -->
+    <Button Grid.Row="2" x:Name="CancelButton" Content="{loc:Loc Progress_BtnCancel}"
+            HorizontalAlignment="Right" Width="80" Height="28"
+            Click="CancelButton_Click" IsVisible="False" />
+  </Grid>
+</Window>

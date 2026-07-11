@@ -300,6 +300,22 @@
                   Classes="secondary" Content="HTTP details…" />
         </StackPanel>
 
+        <!-- Progress windows (Phase 4 Task 8). UpdateProgress goes through the REAL registered
+             IUpdateProgressSink (not IDialogService): the button toggles it — first click Open() +
+             SetStatus(downloading 1.2.3) + Report(42) for a mid-progress shot, second click Close() — so
+             the bridge can open, screenshot and close the non-modal window. Progress has NO IDialogService
+             member and is a caller-less primitive (ExecuteAsync NOT ported, §Reality-check #13): its button
+             constructs the minimal window directly with the two-line label + visible Cancel (the WPF
+             reference-driver shape) and Show(this)es it non-modally for the shot. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogUpdateProgressButton"
+                  AutomationProperties.AutomationId="DialogUpdateProgressButton"
+                  Classes="secondary" Content="Update progress (toggle)…" />
+          <Button x:Name="DialogProgressButton"
+                  AutomationProperties.AutomationId="DialogProgressButton"
+                  Classes="secondary" Content="Progress window…" />
+        </StackPanel>
+
         <!-- StorageProvider pickers (Phase 4 Task 4): these open NATIVE OS dialogs the bridge cannot
              drive or screenshot, so the agent never clicks them in a bridge session (a native modal would
              wedge the drive loop). They exist for manual click-through smoke and a crash-free

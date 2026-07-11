@@ -1,0 +1,39 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Non-modal update-download progress surface (port of the WPF src/Views/UpdateProgressWindow.xaml).
+     Driven by IUpdateProgressSink from MainViewModel.InstallUpdateAsync: Open shows it, SetStatus swaps the
+     status line (downloading / restarting / failed), and the Progress<int> pump feeds SetProgress. The bar
+     is a bare ProgressBar consumed AS-IS (Task 1 verdict: accept Fluent's SystemAccentColor blue — the WPF
+     bar was only the unstyled OS-default green, not a design choice). NoResize→CanResize=False (rule 1);
+     Icon→/Assets/icon.ico (rule 3). -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.UpdateProgressWindow"
+        Title="{loc:Loc UpdateProgress_WindowTitle}"
+        Width="420" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="/Assets/icon.ico">
+  <StackPanel Margin="16">
+    <TextBlock x:Name="StatusText"
+               Text="{loc:Loc UpdateProgress_StatusInitial}"
+               FontSize="13"
+               Margin="0,0,0,12" />
+    <ProgressBar x:Name="Progress"
+                 Height="18"
+                 Minimum="0"
+                 Maximum="100"
+                 Value="0" />
+    <TextBlock x:Name="PercentText"
+               Text="{loc:Loc UpdateProgress_PercentInitial}"
+               HorizontalAlignment="Right"
+               Margin="0,4,0,0"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               FontSize="11" />
+  </StackPanel>
+</Window>

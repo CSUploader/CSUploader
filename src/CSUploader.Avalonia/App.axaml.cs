@@ -163,12 +163,13 @@ public partial class App : Application
                 if (gallery)
                 {
                     // Dev gallery: non-modal Show() so it coexists with the shell (the bridge drives
-                    // its named buttons for the phase contact sheet). Ctor takes the REAL IThemeApplier
-                    // and IDialogService so its theme/grid-font toggles and dialog launchers hit the
-                    // exact production paths.
+                    // its named buttons for the phase contact sheet). Ctor takes the REAL IThemeApplier,
+                    // IDialogService and IUpdateProgressSink so its theme/grid-font toggles, dialog
+                    // launchers and the update-progress toggle hit the exact production paths.
                     new DevTools.GalleryWindow(
                         _serviceProvider.GetRequiredService<IThemeApplier>(),
-                        _serviceProvider.GetRequiredService<IDialogService>()).Show();
+                        _serviceProvider.GetRequiredService<IDialogService>(),
+                        _serviceProvider.GetRequiredService<IUpdateProgressSink>()).Show();
                 }
 
                 if (webviewSpike)
@@ -214,7 +215,7 @@ public partial class App : Application
 
         // UI services (Avalonia implementations of Core interfaces)
         services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
-        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();  // no-op until Phase 4
+        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();

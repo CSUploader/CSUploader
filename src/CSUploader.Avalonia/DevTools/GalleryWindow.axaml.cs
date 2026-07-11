@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -10,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -51,20 +53,23 @@ public partial class GalleryWindow : Window
 
     private readonly IThemeApplier _themeApplier;
     private readonly IDialogService _dialogService;
+    private readonly IUpdateProgressSink _updateProgressSink;
     private bool _dark;
+    private bool _updateProgressOpen;
 
     // Parameterless ctor kept only for the Avalonia XAML tooling / runtime loader (AVLN3001 — the
     // app itself always uses the injecting overload via compiled XAML). The no-op services keep the
     // launcher buttons from NRE-ing if a tool ever instantiates the window directly.
     public GalleryWindow()
-        : this(NoopThemeApplier.Instance, NoopDialogService.Instance)
+        : this(NoopThemeApplier.Instance, NoopDialogService.Instance, NoopUpdateProgressSink.Instance)
     {
     }
 
-    public GalleryWindow(IThemeApplier themeApplier, IDialogService dialogService)
+    public GalleryWindow(IThemeApplier themeApplier, IDialogService dialogService, IUpdateProgressSink updateProgressSink)
     {
         _themeApplier = themeApplier;
         _dialogService = dialogService;
+        _updateProgressSink = updateProgressSink;
         InitializeComponent();
 
         SampleGrid.ItemsSource = new[]
@@ -99,6 +104,8 @@ public partial class GalleryWindow : Window
         DialogCloseActionButton.Click += OnShowCloseAction;
         DialogLogDetailsButton.Click += OnShowLogDetails;
         DialogHttpDetailsButton.Click += OnShowHttpDetails;
+        DialogUpdateProgressButton.Click += OnToggleUpdateProgress;
+        DialogProgressButton.Click += OnShowProgress;
         PickFolderButton.Click += OnPickFolder;
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
@@ -176,6 +183,43 @@ public partial class GalleryWindow : Window
 
     private void OnShowHttpDetails(object? sender, RoutedEventArgs e)
         => _ = _dialogService.ShowHttpDetailsAsync(SynthTransaction());
+
+    // ── Progress windows (Phase 4 Task 8) ──
+    // UpdateProgress drives the REAL registered IUpdateProgressSink (not IDialogService) — the exact
+    // production surface MainViewModel.InstallUpdateAsync uses. A toggle: the first click opens the
+    // non-modal window and pumps a mid-progress state (downloading 1.2.3 + 42%, mirroring the WPF
+    // reference driver), the second closes it, so the bridge can open→screenshot→close cleanly.
+    private void OnToggleUpdateProgress(object? sender, RoutedEventArgs e)
+    {
+        if (_updateProgressOpen)
+        {
+            _updateProgressSink.Close();
+            _updateProgressOpen = false;
+            return;
+        }
+
+        _updateProgressSink.Open();
+        _updateProgressSink.SetStatus(string.Format(
+            CultureInfo.CurrentCulture,
+            Localizer.Instance["UpdateProgress_StatusDownloading_Format"],
+            "1.2.3"));
+        _updateProgressSink.Report(42);
+        _updateProgressOpen = true;
+    }
+
+    // Progress has no IDialogService member and no async driver (ExecuteAsync NOT ported — the caller-less
+    // primitive, §Reality-check #13). The button constructs the minimal window directly with the two-line
+    // label + visible Cancel (the WPF reference-driver shape) and Show(this)es it non-modally for the shot;
+    // it has no close affordance (Cancel only relabels), so the bridge closes it via ava_eval — the Task 7
+    // precedent for windows lacking a Close button.
+    private void OnShowProgress(object? sender, RoutedEventArgs e)
+    {
+        var window = new ProgressWindow();
+        window.LabelText.Text = "Uploading movie.mkv to 4 hosters"
+            + Environment.NewLine + Localizer.Instance["Progress_LabelSuffix"];
+        window.CancelButton.IsVisible = true;
+        window.Show(this);
+    }
 
     // Mirrors the WPF reference driver's SynthLogEvent (ReferenceShotCapture): a bare filename, method name,
     // managed thread id and a multi-line message so the LogDetails fields render as they do in production.
@@ -304,6 +348,29 @@ public partial class GalleryWindow : Window
         public Task<string?> ShowProxyTextDialogAsync(string title, string description, string initialText, bool readOnly) => Task.FromResult<string?>(null);
 
         public Task<SpeedLimitSelection?> ShowSpeedLimitDialogAsync(int? currentLimit) => Task.FromResult<SpeedLimitSelection?>(null);
+    }
+
+    /// <summary>No-op <see cref="IUpdateProgressSink"/> for the tooling-only parameterless ctor (the preview
+    /// host never invokes a launcher, so these never run in practice).</summary>
+    private sealed class NoopUpdateProgressSink : IUpdateProgressSink
+    {
+        public static readonly NoopUpdateProgressSink Instance = new();
+
+        public void Open()
+        {
+        }
+
+        public void SetStatus(string status)
+        {
+        }
+
+        public void Report(int percent)
+        {
+        }
+
+        public void Close()
+        {
+        }
     }
 }
 

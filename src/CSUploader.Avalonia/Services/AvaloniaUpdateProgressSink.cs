@@ -1,30 +1,68 @@
+// <copyright file="AvaloniaUpdateProgressSink.cs" company="CSUploader">
+// Copyright (c) CSUploader. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// </copyright>
+
+using Avalonia.Controls;
+using CSUploader.Views;
+
 namespace CSUploader.Services;
 
 /// <summary>
-/// Avalonia implementation of <see cref="IUpdateProgressSink"/>. No-op in Phase 2 — the
-/// UpdateProgress window arrives in Phase 4. All four members stay inert so the shared update flow
-/// can drive them without throwing. (The WPF install flow never calls <see cref="Close"/>; see the
-/// interface remarks.)
+/// Avalonia implementation of <see cref="IUpdateProgressSink"/>. Owns the non-modal
+/// <see cref="UpdateProgressWindow"/> and mirrors <c>WpfUpdateProgressSink</c>: <see cref="Open"/> shows a
+/// fresh window; <see cref="SetStatus"/>/<see cref="Report"/> drive it. All members run on the UI thread
+/// (interface contract).
 /// </summary>
 public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
 {
+    private UpdateProgressWindow? _window;
+
+    /// <summary>
+    /// Creates and shows a FRESH window, replacing any prior surface (the interface's retry contract: a
+    /// second install attempt gets a clean window, and <see cref="Report"/>/<see cref="SetStatus"/> then
+    /// target this most-recent one). A previous window is NOT closed — WPF parity: on failure the old
+    /// window stays up showing its error, and the caller drives only the latest.
+    /// </summary>
     public void Open()
     {
-        // TODO(phase4): show the non-modal update-progress window.
+        UpdateProgressWindow window = new();
+        _window = window;
+
+        // Owner = the resolver's active-visible / visible-main window, else ownerless. Avalonia's
+        // Show(owner) throws on a hidden owner exactly like ShowDialog (§Reality-check #12, verified in
+        // UpdateProgressSinkTests): the resolver only ever returns a visible window, so passing it is safe,
+        // and the null branch (main hidden to the tray, or the headless test lifetime) shows ownerless —
+        // never yanking the tray-hidden main window up for progress it did not ask to see. This is the
+        // plan's "Show(owner) if IsVisible, else ownerless Show()" guard, expressed through the resolver.
+        Window? owner = DialogOwnerResolver.ResolveFromLifetime();
+        if (owner is not null)
+        {
+            window.Show(owner);
+        }
+        else
+        {
+            window.Show();
+        }
     }
 
-    public void SetStatus(string status)
-    {
-        // TODO(phase4): swap the status line (downloading / restarting / failed).
-    }
+    public void SetStatus(string status) => _window?.SetStatus(status);
 
-    public void Report(int percent)
-    {
-        // TODO(phase4): pump the progress bar.
-    }
+    public void Report(int percent) => _window?.SetProgress(percent);
 
+    /// <summary>
+    /// Closes the current window and drops the reference. Unused by the current WPF caller (on success the
+    /// process restarts; on failure the window stays up showing the error — see the interface remarks);
+    /// present for interface completeness and the gallery toggle driver.
+    /// </summary>
     public void Close()
     {
-        // TODO(phase4): close the progress window (unused by the current WPF caller).
+        _window?.Close();
+        _window = null;
     }
+
+    // Test seam (InternalsVisibleTo → CSUploader.Avalonia.Tests): the current (most-recent) window, so the
+    // headless sink tests can assert fresh-window-per-Open, Report-updates-the-bar, and the never-Close
+    // lifecycle contracts against the real controls.
+    internal UpdateProgressWindow? CurrentWindow => _window;
 }
