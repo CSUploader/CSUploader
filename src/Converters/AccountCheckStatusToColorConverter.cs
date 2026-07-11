@@ -13,9 +13,10 @@ namespace CSUploader.Converters;
 
 /// <summary>
 /// Maps an <see cref="AccountCheckStatus"/> to a foreground brush for the Account Manager
-/// grid. Resolves the brush from theme resources at conversion time so the cell colour
-/// tracks light/dark swaps instead of staying pinned to a hard-coded RGB that's only
-/// legible on one theme.
+/// grid. Resolves the brush against the theme active at conversion time — not a hard-coded RGB
+/// legible on only one theme. A live theme flip does NOT re-run the converter (a value converter
+/// re-runs on its bound source changing, not on the DynamicResource it reads changing): rows
+/// repaint as their status changes or the row recycles, not on the flip.
 /// </summary>
 /// <remarks>
 /// Replaces the earlier <c>StatusToColorConverter</c> which sniffed

@@ -48,15 +48,25 @@ Conventions for writing tests in this project. Inherits everything from the root
   separate assembly from the WPF `CSUploader.Tests`; only head-specific types live here (the
   Avalonia UI-service implementations and the head DI smoke) — everything framework-free is tested
   once in `CSUploader.Tests` against Core.
-- Tests run on a headless Avalonia UI thread: mark them `[AvaloniaFact]` / `[AvaloniaTheory]`
-  (from `Avalonia.Headless.XUnit`), **not** `[Fact]`. A single per-assembly headless session is
-  configured by `TestAppBuilder`, which boots the **real** `App` via `AppBuilder.Configure<App>().UseHeadless(...)`
+- Mark a test `[AvaloniaFact]` / `[AvaloniaTheory]` (from `Avalonia.Headless.XUnit`) when it touches any
+  Avalonia UI surface — a control, a resource lookup (`Application.Current` / `TryFindResource`), the
+  dispatcher, or anything that needs the headless session. **Pure logic** (a converter's arithmetic, a
+  reflection or XAML-text drift parse) may stay a plain `[Fact]`. A single per-assembly headless session
+  is configured by `TestAppBuilder`, which boots the **real** `App` via `AppBuilder.Configure<App>().UseHeadless(...)`
   (the throwaway `TestApp` was deleted), registered with the assembly-level
   `[AvaloniaTestApplication(typeof(TestAppBuilder))]` attribute. Booting the real App gives tests its
   full XAML resource surface (FluentTheme, DataGrid styles, the geometry + bitmap dictionaries merged in
   `App.Initialize`). `App.OnFrameworkInitializationCompleted`'s DI composition still never runs headless:
   it is guarded by `IClassicDesktopStyleApplicationLifetime`, which the headless session is not — the DI
   smoke composes `App.ConfigureServices` directly instead.
+- **Concurrency model:** that one session is a single UI thread shared by the whole assembly, and several
+  tests mutate process-global state on it (`Localizer.Instance.Culture`, `Application.RequestedThemeVariant`,
+  `app.Resources`). xUnit parallelizes distinct test classes by default, so those mutations race — a plain
+  `[Fact]` reading `Localizer` under a culture another class was flipping was the concrete failure. The suite
+  therefore disables parallelization assembly-wide with `[assembly: CollectionBehavior(DisableTestParallelization = true)]`
+  (next to the `AvaloniaTestApplication` attribute in `TestAppBuilder.cs`), serializing every test onto the
+  one session; it still runs in ~2s, so the blanket serialize costs nothing. Restore per-class state
+  (culture, `RequestedThemeVariant`) in a `finally` regardless.
 - The headless dispatcher does not pump on its own. Anything the SUT routes through
   `Dispatcher.UIThread.Post` (e.g. `AvaloniaUiDispatcher.Post`, a `DispatcherTimer` tick) only runs
   after you call `Dispatcher.UIThread.RunJobs()` — see `AvaloniaUiDispatcherTests` (assert not-run,
