@@ -6,9 +6,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Styling;
+using CSUploader.Dal;
+using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
+using CSUploader.Upload;
 
 namespace CSUploader.DevTools;
 
@@ -28,19 +30,21 @@ namespace CSUploader.DevTools;
 public partial class GalleryWindow : Window
 {
     private readonly IThemeApplier _themeApplier;
+    private readonly IDialogService _dialogService;
     private bool _dark;
 
     // Parameterless ctor kept only for the Avalonia XAML tooling / runtime loader (AVLN3001 — the
-    // app itself always uses the IThemeApplier overload via compiled XAML). The no-op applier keeps
-    // the toggle buttons from NRE-ing if a tool ever instantiates the window directly.
+    // app itself always uses the injecting overload via compiled XAML). The no-op services keep the
+    // launcher buttons from NRE-ing if a tool ever instantiates the window directly.
     public GalleryWindow()
-        : this(NoopThemeApplier.Instance)
+        : this(NoopThemeApplier.Instance, NoopDialogService.Instance)
     {
     }
 
-    public GalleryWindow(IThemeApplier themeApplier)
+    public GalleryWindow(IThemeApplier themeApplier, IDialogService dialogService)
     {
         _themeApplier = themeApplier;
+        _dialogService = dialogService;
         InitializeComponent();
 
         SampleGrid.ItemsSource = new[]
@@ -64,7 +68,9 @@ public partial class GalleryWindow : Window
 
         ThemeToggleButton.Click += OnToggleTheme;
         GridFontButton.Click += OnApplyGridFont;
-        DialogPlaceholderButton.Click += OnDialogPlaceholder;
+        DialogErrorButton.Click += OnShowError;
+        DialogConfirmButton.Click += OnShowConfirm;
+        DialogOptOutButton.Click += OnShowOptOut;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -76,23 +82,21 @@ public partial class GalleryWindow : Window
     private void OnApplyGridFont(object? sender, RoutedEventArgs e)
         => _themeApplier.ApplyGridFont("Verdana", 14);
 
-    // Task 1 modal-addressing proof: a trivial inline modal over the gallery. Later dialog tasks
-    // replace this with real Dialog<Name>Button launchers into the production IDialogService/window
-    // paths. Fire-and-forget ShowDialog — the click handler only needs to open the modal.
-    private void OnDialogPlaceholder(object? sender, RoutedEventArgs e)
-        => _ = new Window
-        {
-            Title = "Placeholder modal",
-            Width = 300,
-            Height = 150,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new TextBlock
-            {
-                Text = "modal test",
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
-        }.ShowDialog(this);
+    // The three message-box launchers call the REAL resolved IDialogService (the gallery is the active
+    // window, so the resolver owns the box to it — modal over the gallery). Fire-and-forget: the launcher
+    // only needs to open the modal; the bridge reads the outcome by driving the buttons, not the return.
+    private void OnShowError(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowErrorAsync("Sign-in failed: invalid credentials for the selected hoster.");
+
+    private void OnShowConfirm(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowConfirmationAsync("Delete 3 selected packages?\nThis cannot be undone.");
+
+    // Fresh suppression key per click: a ticked "Yes" persists harmlessly to the scratch DB without
+    // silently suppressing the next drive (production keys off ConfirmationKeys, not a random Guid).
+    private void OnShowOptOut(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowOptOutConfirmationAsync(
+            "gallery-" + Guid.NewGuid().ToString("N"),
+            "Remove this account and all of its uploads?\nThis cannot be undone.");
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier
@@ -106,6 +110,39 @@ public partial class GalleryWindow : Window
         public void ApplyTheme(bool isDark)
         {
         }
+    }
+
+    /// <summary>No-op <see cref="IDialogService"/> for the tooling-only parameterless ctor (the preview
+    /// host never invokes a launcher, so these never run in practice).</summary>
+    private sealed class NoopDialogService : IDialogService
+    {
+        public static readonly NoopDialogService Instance = new();
+
+        public Task ShowErrorAsync(string message, string? title = null) => Task.CompletedTask;
+
+        public Task<bool> ShowConfirmationAsync(string message, string? title = null) => Task.FromResult(false);
+
+        public Task<bool> ShowOptOutConfirmationAsync(string confirmationKey, string message, string? title = null) => Task.FromResult(false);
+
+        public Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null) => Task.FromResult<string?>(null);
+
+        public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null) => Task.FromResult<string[]?>(null);
+
+        public Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null) => Task.FromResult<string?>(null);
+
+        public Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null) => Task.FromResult<string?>(null);
+
+        public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) => Task.FromResult<FileHosterLoginDto?>(null);
+
+        public Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) => Task.FromResult<FileHosterLoginDto?>(null);
+
+        public Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null) => Task.FromResult<ProxySettingDto?>(null);
+
+        public Task ShowHttpDetailsAsync(HttpTransaction transaction) => Task.CompletedTask;
+
+        public Task<string?> ShowProxyTextDialogAsync(string title, string description, string initialText, bool readOnly) => Task.FromResult<string?>(null);
+
+        public Task<SpeedLimitSelection?> ShowSpeedLimitDialogAsync(int? currentLimit) => Task.FromResult<SpeedLimitSelection?>(null);
     }
 }
 

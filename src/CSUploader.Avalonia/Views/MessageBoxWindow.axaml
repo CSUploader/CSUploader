@@ -1,0 +1,52 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- The Avalonia head's custom message box (design: MessageBox.Show sites -> a small custom
+     message-box window, no MsBox.Avalonia dependency). This IS the WPF ConfirmationDialog port
+     (ConfirmationDialog.xaml): the YesNoDontAskAgain mode is message + "Don't ask again" checkbox;
+     Ok / YesNo drop the checkbox. Button roles/visibility are set per mode in code-behind. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.MessageBoxWindow"
+        Width="440"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Icon="/Assets/icon.ico"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto">
+    <TextBlock Grid.Row="0"
+               x:Name="MessageText"
+               TextWrapping="Wrap"
+               FontSize="13"
+               Margin="0,0,0,16" />
+
+    <CheckBox Grid.Row="1"
+              x:Name="DontAskAgainCheck"
+              Content="{loc:Loc Confirmation_DontAskAgain}"
+              Margin="0,0,0,16"
+              IsVisible="False"
+              Foreground="{DynamicResource TextSecondaryBrush}" />
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="YesButton"
+              Content="{loc:Loc Confirmation_BtnYes}"
+              MinWidth="80" Margin="0,0,8,0"
+              IsVisible="False"
+              Click="Yes_Click" />
+      <Button x:Name="NoButton"
+              Content="{loc:Loc Confirmation_BtnNo}"
+              MinWidth="80"
+              IsVisible="False"
+              Click="No_Click" />
+      <Button x:Name="OkButton"
+              Content="{loc:Loc Common_OK}"
+              MinWidth="80"
+              IsVisible="False"
+              Click="Ok_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

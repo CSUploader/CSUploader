@@ -233,19 +233,26 @@
         <TextBlock Text="{loc:Loc Main_Tab_Uploads}" />
       </StackPanel>
 
-      <!-- Dialogs (Phase 4): launcher scaffold. Each later dialog task replaces/extends this section
-           with its real Dialog<Name>Buttons, which call through the production IDialogService / window
-           paths (the drivers exercise real dialog plumbing). Task 1 seeds it with ONE placeholder
-           button whose handler opens a trivial inline modal — the ava_screenshot modal-addressing
-           proof (can the bridge screenshot AND address controls inside an open modal?). -->
+      <!-- Dialogs (Phase 4): launcher buttons calling the production IDialogService (the drivers
+           exercise real dialog plumbing). Task 3 lands the three message-box modes; each later dialog
+           task adds its own Dialog<Name>Button here. Error → MessageBoxWindow Ok mode; Confirm → YesNo
+           mode; Opt-out → the ConfirmationDialog port (YesNo + "Don't ask again"), with a FRESH
+           suppression key per click so a ticked "Yes" never silently suppresses the next drive. -->
       <StackPanel Spacing="6">
         <TextBlock Classes="section-header" Text="Dialogs (Phase 4)" />
         <TextBlock TextWrapping="Wrap"
-                   Text="Launcher scaffold. Later tasks add real Dialog&lt;Name&gt;Buttons here that call the production IDialogService / window paths. The placeholder below opens a trivial modal so the bridge can prove it screenshots and addresses an open modal." />
-        <Button x:Name="DialogPlaceholderButton"
-                AutomationProperties.AutomationId="DialogPlaceholderButton"
-                Classes="secondary" Content="Open placeholder modal"
-                HorizontalAlignment="Left" />
+                   Text="Message-box launchers through the real IDialogService. Later dialog tasks add their own launchers alongside these." />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogErrorButton"
+                  AutomationProperties.AutomationId="DialogErrorButton"
+                  Classes="secondary" Content="Show error" />
+          <Button x:Name="DialogConfirmButton"
+                  AutomationProperties.AutomationId="DialogConfirmButton"
+                  Classes="secondary" Content="Show confirm" />
+          <Button x:Name="DialogOptOutButton"
+                  AutomationProperties.AutomationId="DialogOptOutButton"
+                  Classes="secondary" Content="Show opt-out confirm" />
+        </StackPanel>
       </StackPanel>
 
     </StackPanel>

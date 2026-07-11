@@ -128,13 +128,17 @@ public partial class App : Application
                 catch (Exception ex)
                 {
                     // Startup hydration (DB init, settings/proxies/packages load) failed. Surface it
-                    // instead of leaving a half-initialized window silently up: log it and mark the
-                    // title so the failure is visible. Skip the post-init steps below (tray sync,
-                    // spike) — they assume a hydrated ViewModel. Phase 4 upgrades this to a modal
-                    // error dialog once IDialogService is real.
+                    // instead of leaving a half-initialized window silently up: log it, mark the title
+                    // so the failure is visible, then show a modal error dialog. Skip the post-init
+                    // steps below (tray sync, spike) — they assume a hydrated ViewModel. MainWindow is
+                    // shown at this point (we are in its Opened handler), so the owner resolver finds it
+                    // and the box is modal over it; the exception text is not localizable, so the title
+                    // falls back to Common_Error (no new i18n key).
                     _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Error,
                         $"Startup initialization failed: {ex}");
                     mainWindow.Title = "CSUploader — startup failed (see logs)";
+                    await _serviceProvider.GetRequiredService<IDialogService>()
+                        .ShowErrorAsync($"Startup initialization failed:\n\n{ex.Message}");
                     return;
                 }
 
@@ -145,8 +149,11 @@ public partial class App : Application
                 {
                     // Dev gallery: non-modal Show() so it coexists with the shell (the bridge drives
                     // its named buttons for the phase contact sheet). Ctor takes the REAL IThemeApplier
-                    // so its theme/grid-font toggles hit the exact production paths.
-                    new DevTools.GalleryWindow(_serviceProvider.GetRequiredService<IThemeApplier>()).Show();
+                    // and IDialogService so its theme/grid-font toggles and dialog launchers hit the
+                    // exact production paths.
+                    new DevTools.GalleryWindow(
+                        _serviceProvider.GetRequiredService<IThemeApplier>(),
+                        _serviceProvider.GetRequiredService<IDialogService>()).Show();
                 }
 
                 if (webviewSpike)
@@ -191,7 +198,7 @@ public partial class App : Application
         services.AddCoreServices(baseDirectory);
 
         // UI services (Avalonia implementations of Core interfaces)
-        services.AddSingleton<IDialogService, AvaloniaDialogService>();            // throws per member until Phase 4
+        services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error; pickers/dialogs land through Phase 4 tasks; 3 account/proxy members Phase 5
         services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();  // no-op until Phase 4
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
