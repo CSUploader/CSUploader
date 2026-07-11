@@ -15,8 +15,9 @@ namespace CSUploader.Views;
 /// need not be crammed into the fixed-size Add Account window that opens it.
 /// </summary>
 /// <remarks>
-/// No <see cref="IDialogService"/> member: Phase 5's EditAccountWindow "Details" link is the production
-/// opener; until then the dev gallery button is the only path that constructs it.
+/// No <see cref="IDialogService"/> member: its production opener is the <see cref="EditAccountWindow"/>
+/// "Details" link (Phase 5 Task 9, its first production consumer), which constructs it directly with the
+/// full sign-in failure text; the dev gallery button constructs it the same way for the shot.
 /// </remarks>
 public partial class ErrorDetailsWindow : Window
 {

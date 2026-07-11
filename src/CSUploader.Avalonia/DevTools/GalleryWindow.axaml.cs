@@ -107,6 +107,13 @@ public partial class GalleryWindow : Window
         DialogHttpDetailsButton.Click += OnShowHttpDetails;
         DialogEditProxyButton.Click += OnShowEditProxy;
         DialogEditProxyTestedButton.Click += OnShowEditProxyTested;
+        DialogEditAccountClassicButton.Click += OnShowEditAccountClassic;
+        DialogEditAccountApiKeyButton.Click += OnShowEditAccountApiKey;
+        DialogEditAccountCookieButton.Click += OnShowEditAccountCookie;
+        DialogEditAccountErrorButton.Click += OnShowEditAccountError;
+        AccountSignInSuccessButton.Click += OnAccountSignInSuccess;
+        AccountSignInFailureButton.Click += OnAccountSignInFailure;
+        AccountSignInThrowButton.Click += OnAccountSignInThrow;
         DialogUpdateProgressButton.Click += OnToggleUpdateProgress;
         DialogProgressButton.Click += OnShowProgress;
         PickFolderButton.Click += OnPickFolder;
@@ -223,6 +230,80 @@ public partial class GalleryWindow : Window
         window.TestDetailsButton.IsVisible = true;
         window.Show(this);
     }
+
+    // ── EditAccount dialog (Phase 5 Task 9) ──
+    // The four MODE shots construct the window directly with interactiveLogin: null (Sign-in disabled — the
+    // shot-able state matching the WPF reference cells) and ShowDialog(this); they mirror the Task 1 WPF
+    // factory table exactly (classic = edit-mode Rapidgator with fake U/P; api-key = add-mode KatFile with a
+    // fake key; cookie = add-mode Isracloud; error = KatFile with a poked failure panel). The three SIGN-IN
+    // harnesses go through the REAL resolved ShowEditAccountDialogAsync (the gallery is the active window, so
+    // the resolver owns the modal to it) with a FAKE interactive-login callback, so the bridge can drive
+    // Sign in → success / failure / throw without a WebView.
+    private static string[] EditAccountHosters { get; } = ["Rapidgator", "KatFile", "Isracloud"];
+
+    private void OnShowEditAccountClassic(object? sender, RoutedEventArgs e)
+        => _ = new EditAccountWindow(
+            new FileHosterLoginDto
+            {
+                Id = 1, // edit mode → locked-hoster border
+                FileHosterName = "Rapidgator",
+                Username = "fake_rg_user",
+                Password = "not-a-real-password",
+                AccountType = AccountType.Premium,
+            },
+            EditAccountHosters).ShowDialog(this);
+
+    private void OnShowEditAccountApiKey(object? sender, RoutedEventArgs e)
+        => _ = new EditAccountWindow(
+            new FileHosterLoginDto { FileHosterName = "KatFile", AccountType = AccountType.Free, ApiKey = "fake-api-key-0123456789abcdef" },
+            EditAccountHosters).ShowDialog(this);
+
+    private void OnShowEditAccountCookie(object? sender, RoutedEventArgs e)
+        => _ = new EditAccountWindow(
+            new FileHosterLoginDto { FileHosterName = "Isracloud", AccountType = AccountType.Free },
+            EditAccountHosters).ShowDialog(this);
+
+    private void OnShowEditAccountError(object? sender, RoutedEventArgs e)
+    {
+        var window = new EditAccountWindow(
+            new FileHosterLoginDto { FileHosterName = "KatFile", AccountType = AccountType.Free },
+            EditAccountHosters);
+
+        // The failure look (EditAccountWindow.ShowSignInError): the error panel in place of the status line,
+        // poked via the internal x:Name fields — the same post-construction technique the "tested" proxy
+        // driver uses (same assembly). All fake; no real sign-in runs.
+        window.SignInStatus.IsVisible = false;
+        window.SignInErrorPanel.IsVisible = true;
+        window.SignInErrorText.Text = string.Format(
+            CultureInfo.CurrentCulture, "{0}: {1}", Localizer.Instance["Common_Error"], "Sign-in failed: invalid credentials");
+        _ = window.ShowDialog(this);
+    }
+
+    private void OnAccountSignInSuccess(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowEditAccountDialogAsync(
+            new FileHosterLoginDto { Id = 1, FileHosterName = "KatFile", AccountType = AccountType.Free },
+            EditAccountHosters,
+            interactiveLogin: _ => Task.FromResult(new AccountCheckResult(
+                true, AccountType.Premium,
+                ApiKey: "fake-api-key-0123456789abcdef",
+                DerivedUsername: "fake_kat_user",
+                StorageUsedBytes: 1L << 30,
+                StorageQuotaBytes: 10L << 30)));
+
+    private void OnAccountSignInFailure(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowEditAccountDialogAsync(
+            new FileHosterLoginDto { Id = 1, FileHosterName = "KatFile", AccountType = AccountType.Free },
+            EditAccountHosters,
+            interactiveLogin: _ => Task.FromResult(new AccountCheckResult(
+                false, AccountType.Free,
+                Message: "Sign-in failed: invalid credentials",
+                Detail: SynthErrorDetail)));
+
+    private void OnAccountSignInThrow(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowEditAccountDialogAsync(
+            new FileHosterLoginDto { Id = 1, FileHosterName = "KatFile", AccountType = AccountType.Free },
+            EditAccountHosters,
+            interactiveLogin: _ => throw new InvalidOperationException("Synthesized WebView failure"));
 
     // ── Progress windows (Phase 4 Task 8) ──
     // UpdateProgress drives the REAL registered IUpdateProgressSink (not IDialogService) — the exact

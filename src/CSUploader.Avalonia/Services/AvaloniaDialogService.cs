@@ -10,18 +10,17 @@ namespace CSUploader.Services;
 
 /// <summary>
 /// Avalonia <see cref="IDialogService"/> on the shared <see cref="DialogServiceBase"/> (which owns the
-/// opt-out suppression lookup + "don't ask again" persistence). The notification/confirmation surface
-/// is real from Phase 4 Task 3: <see cref="ShowErrorAsync"/>, <see cref="ShowConfirmationAsync"/>, and
-/// the base's opt-out flow all route through <see cref="MessageBoxWindow"/> and the shared
-/// <see cref="DialogOwnerResolver"/> (with the null-owner policy: a message box shows ownerless rather
-/// than yanking the tray-hidden main window up). The four StorageProvider pickers are real from Phase 4
-/// Task 4 (they reveal the main window first via <see cref="GetOwnerOrRevealAsync"/>, since a native
-/// picker needs a visible parent). <see cref="ShowProxyTextDialogAsync"/> and
-/// <see cref="ShowSpeedLimitDialogAsync"/> are real from Phase 4 Task 5 (their ported windows reveal-or-own
-/// the same way); <see cref="ShowHttpDetailsAsync"/> is real from Task 7 (reveal-or-own, block until
-/// closed). <see cref="ShowEditProxyDialogAsync"/> is real from Phase 5 Task 8 (reveal-or-own +
-/// <c>ShowDialog&lt;ProxySettingDto?&gt;</c>). The two account editor members stay
-/// <see cref="NotImplementedException"/> until Phase 5 Task 9 builds their window.
+/// opt-out suppression lookup + "don't ask again" persistence). EVERY member is real as of Phase 5. The
+/// notification/confirmation surface (Phase 4 Task 3): <see cref="ShowErrorAsync"/>,
+/// <see cref="ShowConfirmationAsync"/>, and the base's opt-out flow all route through
+/// <see cref="MessageBoxWindow"/> and the shared <see cref="DialogOwnerResolver"/> (with the null-owner
+/// policy: a message box shows ownerless rather than yanking the tray-hidden main window up). The four
+/// StorageProvider pickers (Phase 4 Task 4) and every modal editor/detail dialog
+/// (<see cref="ShowProxyTextDialogAsync"/>/<see cref="ShowSpeedLimitDialogAsync"/> from Task 5,
+/// <see cref="ShowHttpDetailsAsync"/> from Task 7, <see cref="ShowEditProxyDialogAsync"/> from Phase 5
+/// Task 8, and <see cref="ShowAddAccountDialogAsync"/>/<see cref="ShowEditAccountDialogAsync"/> from Phase 5
+/// Task 9) reveal-or-own via <see cref="GetOwnerOrRevealAsync"/> — a native picker and a modal both need a
+/// visible parent — then carry the <c>ShowDialog&lt;T&gt;</c> result straight back.
 /// </summary>
 public sealed class AvaloniaDialogService(AppSettings settings, SettingRepository settingRepository, ITrayIconService trayIcon)
     : DialogServiceBase(settings, settingRepository), IDialogService
@@ -200,11 +199,34 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
         return await dialog.ShowDialog<SpeedLimitSelection?>(await GetOwnerOrRevealAsync());
     }
 
-    public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) =>
-        throw new NotImplementedException("EditAccountWindow arrives in Phase 5 — ShowAddAccountDialogAsync tracked there.");
+    // Account editors (Phase 5 Task 9). Reveal-or-own like the other modals, then carry the ShowDialog<T>
+    // result straight back (the window collapses the WPF Result + DialogResult pair). The ADD member always
+    // overrides the window title, defaulting to the add-flow title when the caller passed none (the WPF
+    // DialogService mirror); the EDIT member sets the title ONLY when non-null, so a null title keeps the
+    // window's XAML default — which IS the edit-mode title. ShowAddAccountDialogAsync may be invoked from
+    // inside the modal wizard (UploadWizardViewModel, Phase 6) — the owner resolver's active-window rule
+    // parents it correctly, so nothing here hardcodes MainWindow.
+    public async Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null)
+    {
+        FileHosterLoginDto seed = new() { FileHosterName = hosterName, AccountType = AccountType.Free };
+        EditAccountWindow dialog = new(seed, availableHosters, interactiveLogin)
+        {
+            Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
+        };
 
-    public Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) =>
-        throw new NotImplementedException("EditAccountWindow arrives in Phase 5 — ShowEditAccountDialogAsync tracked there.");
+        return await dialog.ShowDialog<FileHosterLoginDto?>(await GetOwnerOrRevealAsync());
+    }
+
+    public async Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null)
+    {
+        EditAccountWindow dialog = new(account, hosters, interactiveLogin);
+        if (title is not null)
+        {
+            dialog.Title = title; // null keeps the XAML default (the edit-flow title)
+        }
+
+        return await dialog.ShowDialog<FileHosterLoginDto?>(await GetOwnerOrRevealAsync());
+    }
 
     // EditProxy editor (Phase 5 Task 8). Reveal-or-own like the other modals, then carry the ShowDialog<T>
     // result straight back (the window collapses the WPF Result + DialogResult pair). Title mirrors the WPF

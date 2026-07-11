@@ -314,6 +314,40 @@
                   Classes="secondary" Content="Edit proxy (tested)…" />
         </StackPanel>
 
+        <!-- EditAccount dialog (Phase 5 Task 9). Two rows: the four MODE shots and the three SIGN-IN harnesses.
+             The shot buttons construct the window directly with interactiveLogin: null (Sign-in disabled — the
+             shot-able state matching the WPF reference cells) and ShowDialog(this); the "error" one additionally
+             pokes its internal SignInStatus / SignInErrorPanel / SignInErrorText x:Name fields (same assembly —
+             the exact WPF reference-driver technique) to reach the failure look without a real sign-in. The
+             harness buttons go through the REAL resolved ShowEditAccountDialogAsync (the gallery is the active
+             window, so the resolver owns the modal to it) with a FAKE interactive-login callback so the bridge
+             can drive Sign in → success/failure/throw without a WebView. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogEditAccountClassicButton"
+                  AutomationProperties.AutomationId="DialogEditAccountClassicButton"
+                  Classes="secondary" Content="Edit account (classic)…" />
+          <Button x:Name="DialogEditAccountApiKeyButton"
+                  AutomationProperties.AutomationId="DialogEditAccountApiKeyButton"
+                  Classes="secondary" Content="Edit account (api-key)…" />
+          <Button x:Name="DialogEditAccountCookieButton"
+                  AutomationProperties.AutomationId="DialogEditAccountCookieButton"
+                  Classes="secondary" Content="Edit account (cookie)…" />
+          <Button x:Name="DialogEditAccountErrorButton"
+                  AutomationProperties.AutomationId="DialogEditAccountErrorButton"
+                  Classes="secondary" Content="Edit account (error)…" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="AccountSignInSuccessButton"
+                  AutomationProperties.AutomationId="AccountSignInSuccessButton"
+                  Classes="secondary" Content="Account sign-in (success)…" />
+          <Button x:Name="AccountSignInFailureButton"
+                  AutomationProperties.AutomationId="AccountSignInFailureButton"
+                  Classes="secondary" Content="Account sign-in (failure)…" />
+          <Button x:Name="AccountSignInThrowButton"
+                  AutomationProperties.AutomationId="AccountSignInThrowButton"
+                  Classes="secondary" Content="Account sign-in (throw)…" />
+        </StackPanel>
+
         <!-- Progress windows (Phase 4 Task 8). UpdateProgress goes through the REAL registered
              IUpdateProgressSink (not IDialogService): the button toggles it — first click Open() +
              SetStatus(downloading 1.2.3) + Report(42) for a mid-progress shot, second click Close() — so

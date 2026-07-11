@@ -1,0 +1,161 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Modal add/edit dialog for a single file-hoster account (port of the WPF src/Views/EditAccountWindow.xaml).
+     The five window-local WPF keyed styles (FieldLabel/FieldInput/FieldCombo/DialogButton/SaveButton) are gone
+     — they became the shared BaseStyles editor classes in Task 7 (field-label/field-input/field-combo/dialog/
+     save). Two things stay window-local (rule 29 — classes, not code-behind brush swaps, so they track theme
+     flips): the sign-in status colour (.success → SuccessBrush) and the Details "link" class (rule 28). The
+     credential UI switches between three modes by hoster (classic U/P, API-key sign-in, session-cookie
+     sign-in) via IsVisible toggles driven from RefreshCredentialMode; collapsed Auto rows take zero height
+     (rule 5). The Password AND ApiKey boxes mask (PasswordChar) — the recorded prep-item-9 deviation from
+     WPF's cleartext boxes; the editors populate them from code-behind with no VM binding, so PasswordChar is
+     the ONLY masking lever the bridge redactor can key on. The result contract collapses the WPF Result +
+     DialogResult pair into ShowDialog<FileHosterLoginDto?> (Save-valid → Close(dto); Cancel/Esc/X → Close(null)).
+     Title defaults to the edit-mode title (EditAccount_WindowTitle): ShowEditAccountDialogAsync's null-title
+     path deliberately leaves this default in place, so dropping it would ship an untitled edit dialog. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:conv="clr-namespace:CSUploader.Converters"
+        x:Class="CSUploader.Views.EditAccountWindow"
+        Title="{loc:Loc EditAccount_WindowTitle}"
+        Width="420" Height="360"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource SurfaceMutedBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Window.Resources>
+    <conv:HosterIconConverter x:Key="HosterIconConverter" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <!-- Sign-in status line: default muted, success green. Rule 29 — a toggled class
+         (SignInStatus.Classes.Set("success", …)) instead of a code-behind FindResource brush swap, so the
+         colour re-resolves on a live theme flip. -->
+    <Style Selector="TextBlock.signin-status">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.signin-status.success">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+
+    <!-- Details "link" (rule 28): accent text, hand cursor, underline on hover — the Avalonia stand-in for
+         the WPF Hyperlink. Click routes through a PointerReleased handler (rule 10 left-button guard). -->
+    <Style Selector="TextBlock.link">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="TextBlock.link:pointerover">
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="12" Background="{DynamicResource SurfaceBrush}" CornerRadius="4"
+          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+          Padding="20,16">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="95,*">
+
+      <!-- Row 0: hoster. Add mode shows the icon+text combo; edit mode locks it to a read-only icon+text
+           border (the hoster of an existing account can't change). -->
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc EditAccount_FileHosterLabel}" Classes="field-label" />
+      <ComboBox Grid.Row="0" Grid.Column="1" x:Name="HosterCombo" Classes="field-combo"
+                HorizontalAlignment="Stretch" Margin="0,0,0,10">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal">
+              <Image Source="{Binding Converter={StaticResource HosterIconConverter}}"
+                     Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <Border Grid.Row="0" Grid.Column="1" x:Name="HosterLocked"
+              Margin="0,0,0,10" Padding="8,0" Height="28"
+              Background="{DynamicResource SurfaceMutedBrush}"
+              BorderBrush="{DynamicResource InputFieldBorderBrush}"
+              BorderThickness="1"
+              IsVisible="False">
+        <StackPanel Orientation="Horizontal">
+          <Image x:Name="HosterLockedIcon" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="HosterLockedText"
+                     FontSize="12"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextPrimaryBrush}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Username / Password: classic U/P hosters only. API-key hosters surface the captured identity in the
+           SignInStatus text below ("✓ Signed in as X") rather than a dedicated row. -->
+      <TextBlock Grid.Row="1" Grid.Column="0" x:Name="UsernameLabel" Text="{loc:Loc EditAccount_UsernameLabel}" Classes="field-label" />
+      <TextBox Grid.Row="1" Grid.Column="1" x:Name="UsernameBox" Classes="field-input" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="2" Grid.Column="0" x:Name="PasswordLabel" Text="{loc:Loc EditAccount_PasswordLabel}" Classes="field-label" />
+      <!-- PasswordChar masks the box (prep item 9). Populated from code-behind with no VM binding, so
+           PasswordChar is the only masking lever the bridge redactor can key on. -->
+      <TextBox Grid.Row="2" Grid.Column="1" x:Name="PasswordBox" Classes="field-input" Margin="0,0,0,10"
+               PasswordChar="●" />
+
+      <!-- Sign-in button + status: shown only for WebView-sign-in hosters. Clicking it opens the captcha
+           WebView; on success we derive (and silently store) the account's API key from its my_account page. -->
+      <TextBlock Grid.Row="3" Grid.Column="0" x:Name="SignInLabel" Text="{loc:Loc EditAccount_SignInLabel}"
+                 Classes="field-label" IsVisible="False" />
+      <!-- Two-column inner Grid: the Auto column hugs the button; the * column gives the status text a real
+           width to wrap into (mirrors the WPF fix — a StackPanel left the status unbounded and trimmed
+           messages like "Use Proxies is enabled but no usable proxy is available"). -->
+      <Grid Grid.Row="3" Grid.Column="1" x:Name="SignInRow" Margin="0,0,0,10" IsVisible="False"
+            ColumnDefinitions="Auto,*">
+        <Button Grid.Column="0" x:Name="SignInButton" Content="{loc:Loc EditAccount_SignInButton}"
+                Classes="dialog" Click="SignInButton_Click" VerticalAlignment="Top" />
+        <TextBlock Grid.Column="1" x:Name="SignInStatus" Classes="signin-status" VerticalAlignment="Center"
+                   Margin="10,0,0,0" FontSize="12" TextWrapping="Wrap" />
+
+        <!-- Failure state, shown in place of SignInStatus (only one is ever visible). A height-capped
+             "Error: …" line keeps a verbose message — the XFileSharing my_account failure appends a raw-HTML
+             snippet — from growing this row and shoving the Save/Cancel buttons out of the fixed-size window.
+             The complete text is available via the Details link (ErrorDetailsWindow). -->
+        <StackPanel Grid.Column="1" x:Name="SignInErrorPanel" Margin="10,0,0,0"
+                    VerticalAlignment="Center" IsVisible="False">
+          <TextBlock x:Name="SignInErrorText"
+                     FontSize="12" TextWrapping="Wrap" MaxHeight="48"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource ErrorBrush}" />
+          <TextBlock x:Name="ErrorDetailsLink" Classes="link" Margin="0,2,0,0" FontSize="12"
+                     Text="{loc:Loc Common_Details}"
+                     PointerReleased="ErrorDetailsLink_PointerReleased" />
+        </StackPanel>
+      </Grid>
+
+      <!-- "or" separator between Sign-in and the manual API-key entry. -->
+      <TextBlock Grid.Row="4" Grid.Column="1" x:Name="OrSeparator"
+                 Text="{loc:Loc EditAccount_OrLabel}"
+                 FontSize="11"
+                 FontStyle="Italic"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 Margin="0,0,0,6"
+                 IsVisible="False" />
+
+      <TextBlock Grid.Row="5" Grid.Column="0" x:Name="ApiKeyLabel"
+                 Text="{loc:Loc EditAccount_ApiKeyLabel}"
+                 Classes="field-label"
+                 IsVisible="False" />
+      <!-- PasswordChar masks the API-key box too (prep item 9). -->
+      <TextBox Grid.Row="5" Grid.Column="1" x:Name="ApiKeyBox"
+               Classes="field-input"
+               Margin="0,0,0,10"
+               PasswordChar="●"
+               IsVisible="False" />
+
+      <CheckBox Grid.Row="6" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
+                FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
+
+      <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+                  Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+        <Button x:Name="SaveButton" Content="{loc:Loc EditAccount_BtnSave}" Classes="save" Click="SaveButton_Click" Margin="0,0,8,0" />
+        <Button x:Name="CancelButton" Content="{loc:Loc EditAccount_BtnCancel}" Classes="dialog" Click="CancelButton_Click" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>
