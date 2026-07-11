@@ -1,0 +1,189 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:conv="clr-namespace:CSUploader.Converters"
+        xmlns:beh="clr-namespace:CSUploader.Behaviors"
+        x:Class="CSUploader.DevTools.GalleryWindow"
+        Title="Gallery (dev)"
+        Width="900" Height="700"
+        WindowStartupLocation="CenterScreen">
+  <!-- dev-only; no i18n by design (the single Loc sample below binds a real key ON PURPOSE, to
+       exercise the LocExtension path — everything else is hardcoded English). This is a standing
+       Phase 3-6 style/token test page: every section exercises one Phase 3 deliverable so the
+       contact-sheet reviewer can judge "tokens faithful + density close + everything renders". -->
+  <Window.Resources>
+    <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+  </Window.Resources>
+
+  <ScrollViewer Padding="16">
+    <StackPanel Spacing="14">
+
+      <!-- Action buttons: named so the AvaDevBridge (ava_search by:name) can drive them.
+           ThemeToggleButton flips a bool and calls the REAL IThemeApplier.ApplyTheme (the exact
+           path SettingsViewModel uses); GridFontButton calls ApplyGridFont("Verdana", 14) to prove
+           live DynamicResource propagation into the DataGrid (Task 5's deferred verification). -->
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="ThemeToggleButton"
+                AutomationProperties.AutomationId="ThemeToggleButton"
+                Classes="primary" Content="Toggle theme (light/dark)" />
+        <Button x:Name="GridFontButton"
+                AutomationProperties.AutomationId="GridFontButton"
+                Classes="secondary" Content="Grid font → Verdana 14" />
+      </StackPanel>
+
+      <!-- Palette strip: DynamicResource swatches re-color the moment RequestedThemeVariant flips. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Palette (DynamicResource — re-colors on theme toggle)" />
+        <WrapPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="SurfaceBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource SurfaceAltBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="SurfaceAltBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource SurfaceMutedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="SurfaceMutedBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource BorderBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="BorderBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="TextPrimaryBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource TextSecondaryBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="TextSecondaryBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="AccentBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource SelectionBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="SelectionBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource SuccessBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="SuccessBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource ErrorBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="ErrorBrush" FontSize="11" />
+          </StackPanel>
+          <StackPanel Width="118" Margin="0,0,8,8" Spacing="2">
+            <Border Height="24" Background="{DynamicResource WarningBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+            <TextBlock Text="WarningBrush" FontSize="11" />
+          </StackPanel>
+        </WrapPanel>
+      </StackPanel>
+
+      <!-- Typography: one TextBlock per style class (BaseStyles.axaml). -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Typography" />
+        <TextBlock Text="Plain body text (implicit Window font — 13px)." />
+        <TextBlock Classes="form-label" Text="form-label class (secondary, centered)" />
+        <TextBlock Classes="section-header" Text="section-header class (14px semibold)" />
+      </StackPanel>
+
+      <!-- Buttons: the four style classes + a disabled default. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Buttons" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="Default" />
+          <Button Classes="primary" Content="Primary" />
+          <Button Classes="secondary" Content="Secondary" />
+          <Button Classes="jd2" Content="JD2" />
+          <Button Content="Disabled" IsEnabled="False" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Inputs. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Inputs" />
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBox Width="160" Text="Sample text" />
+          <ComboBox SelectedIndex="1">
+            <ComboBoxItem>First</ComboBoxItem>
+            <ComboBoxItem>Second</ComboBoxItem>
+            <ComboBoxItem>Third</ComboBoxItem>
+          </ComboBox>
+          <CheckBox IsChecked="True" Content="Checked" />
+          <RadioButton IsChecked="True" Content="Option" />
+          <DatePicker />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Icons: all four families. Status bitmaps + hoster logos via StaticResource (BitmapImageResources);
+           file-type SVGs via FileTypeIconConverter (SkiaSharp raster proof); geometries via PathIcon.
+           Placed above the DataGrid so the four families sit in the default (unscrolled) contact-sheet shot. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Icons (bitmaps · hoster logos · SVG file-types · geometries)" />
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Image Width="16" Height="16" Source="{StaticResource StatusSuccessImage}" />
+          <Image Width="16" Height="16" Source="{StaticResource StatusFailedImage}" />
+          <Image Width="16" Height="16" Source="{StaticResource StatusWarningImage}" />
+          <Image Width="16" Height="16" Source="{StaticResource StatusQueuedImage}" />
+          <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="4,0" />
+          <Image Width="20" Height="20" Source="{StaticResource FileHosterRapidgatorImage}" />
+          <Image Width="20" Height="20" Source="{StaticResource FileHosterCatboxImage}" />
+          <Image Width="20" Height="20" Source="{StaticResource FileHosterMegaImage}" />
+          <Image Width="20" Height="20" Source="{StaticResource FileHosterNitroflareImage}" />
+        </StackPanel>
+        <!-- File-type SVGs: each item is a file-name string bound through FileTypeIconConverter. -->
+        <ItemsControl x:Name="FileTypeIconsPanel">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="12" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Spacing="2">
+                <Image Width="28" Height="28" Source="{Binding Converter={StaticResource FileTypeIconConverter}}" />
+                <TextBlock Text="{Binding}" FontSize="11" HorizontalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <!-- Geometries as themed PathIcons. -->
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <PathIcon Width="20" Height="20" Data="{StaticResource SettingsLanguageGeometry}" Foreground="{DynamicResource AccentBrush}" />
+          <PathIcon Width="20" Height="20" Data="{StaticResource SettingsDeveloperGeometry}" Foreground="{DynamicResource AccentBrush}" />
+          <PathIcon Width="20" Height="20" Data="{StaticResource ForceStartGeometry}" Foreground="{DynamicResource AccentBrush}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- DataGrid: 5 in-code rows, RowHeight + font from the implicit DataGrid style (both grid-font
+           tokens are DynamicResource, so GridFontButton re-fonts it live). Both behavior families are
+           attached so the XAML attach path is exercised (DataGridSelectionBehaviors ×2 + AutoScroll). -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="DataGrid (Tahoma 12 by default; GridFontButton → Verdana 14)" />
+        <DataGrid x:Name="SampleGrid"
+                  Height="150"
+                  AutoGenerateColumns="False"
+                  GridLinesVisibility="All"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:AutoScrollBehavior.IsEnabled="True">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+            <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="*" />
+            <DataGridTextColumn Header="State" Binding="{Binding State}" Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </StackPanel>
+
+      <!-- Loc sample: the one intentional localized binding — proves LocExtension resolves a real key. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Localization (LocExtension)" />
+        <TextBlock Text="{loc:Loc Main_Tab_Uploads}" />
+      </StackPanel>
+
+    </StackPanel>
+  </ScrollViewer>
+</Window>

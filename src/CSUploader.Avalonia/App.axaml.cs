@@ -92,6 +92,12 @@ public partial class App : Application
             // window opens modally from the Opened hook below (ShowDialog needs a SHOWN owner).
             bool webviewSpike = desktop.Args?.Contains("--webview-spike", StringComparer.Ordinal) == true;
 
+#if DEBUG
+            // DEBUG-only dev gallery (--gallery), opened non-modally from the Opened hook below. Flag
+            // declared under #if DEBUG so Release carries neither the flag nor the window (parity gate).
+            bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
+#endif
+
             Views.MainWindow mainWindow = new()
             {
                 DataContext = _serviceProvider.GetRequiredService<MainViewModel>(),
@@ -136,6 +142,14 @@ public partial class App : Application
                 _serviceProvider.GetRequiredService<ITrayIconService>().UpdateVisibility();
 
 #if DEBUG
+                if (gallery)
+                {
+                    // Dev gallery: non-modal Show() so it coexists with the shell (the bridge drives
+                    // its named buttons for the phase contact sheet). Ctor takes the REAL IThemeApplier
+                    // so its theme/grid-font toggles hit the exact production paths.
+                    new DevTools.GalleryWindow(_serviceProvider.GetRequiredService<IThemeApplier>()).Show();
+                }
+
                 if (webviewSpike)
                 {
                     // Modal-from-birth over the shown MainWindow (verify point c). ShowDialog awaits

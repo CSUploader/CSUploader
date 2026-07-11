@@ -1439,7 +1439,7 @@ Phase 3 has no real views, but the theme/token work is exactly the kind of decis
 - Consumes: everything Phases 3 delivered — Task 5 tokens/styles/applier, Task 3 bitmaps/geometries, Task 4 SVG converter, Task 6 converters, Task 7 LocExtension.
 - Produces: `shots/gallery-{light,dark}-ava.png`, `shots/shell-{light,dark}-ava.png`, the phase contact sheet, and the recorded density/token verdict.
 
-- [ ] **Step 1: GalleryWindow.** 900×700, `Title="Gallery (dev)"`; a `ScrollViewer` of sections (hardcoded English — dev tool, tracking comment `<!-- dev-only; no i18n by design -->`). Required samples, each exercising a Phase 3 deliverable:
+- [x] **Step 1: GalleryWindow.** 900×700, `Title="Gallery (dev)"`; a `ScrollViewer` of sections (hardcoded English — dev tool, tracking comment `<!-- dev-only; no i18n by design -->`). Required samples, each exercising a Phase 3 deliverable:
   - **Palette strip**: for ~10 key brushes (`SurfaceBrush`, `SurfaceAltBrush`, `SurfaceMutedBrush`, `BorderBrush`, `TextPrimaryBrush`, `TextSecondaryBrush`, `AccentBrush`, `SelectionBrush`, `SuccessBrush`, `ErrorBrush`, `WarningBrush`) a 48×24 `Border Background="{DynamicResource …}"` + key name — DynamicResource means the strip re-colors on theme toggle.
   - **Typography**: one `TextBlock` per class — plain, `Classes="form-label"`, `Classes="section-header"`.
   - **Buttons row**: default, `Classes="primary"`, `Classes="secondary"`, `Classes="jd2"`, a disabled one.
@@ -1449,8 +1449,8 @@ Phase 3 has no real views, but the theme/token work is exactly the kind of decis
   - **Loc sample**: `<TextBlock Text="{loc:Loc Main_Tab_Uploads}"/>`.
   - **Action buttons** (named so ava_action can drive them): `ThemeToggleButton` — code-behind flips a bool and calls `IThemeApplier.ApplyTheme` (the exact production path SettingsViewModel uses); `GridFontButton` — calls `ApplyGridFont("Verdana", 14)` (proves runtime DynamicResource propagation, the §Reality-check item Task 5 deferred here).
   Code-behind: ctor takes `IThemeApplier` (resolve at the open site); keep a `private bool _dark;`.
-- [ ] **Step 2: Trigger.** In `App.axaml.cs`, alongside the spike flag: `bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;` and inside the `mainWindow.Opened` handler's post-init section, `#if DEBUG … if (gallery) { new DevTools.GalleryWindow(_serviceProvider.GetRequiredService<IThemeApplier>()).Show(); } … #endif`.
-- [ ] **Step 3: Bridge session** (single driver — no MCP attach while ava-drive runs; make sure no second bridge app is alive):
+- [x] **Step 2: Trigger.** In `App.axaml.cs`, alongside the spike flag: `bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;` and inside the `mainWindow.Opened` handler's post-init section, `#if DEBUG … if (gallery) { new DevTools.GalleryWindow(_serviceProvider.GetRequiredService<IThemeApplier>()).Show(); } … #endif`.
+- [x] **Step 3: Bridge session** (single driver — no MCP attach while ava-drive runs; make sure no second bridge app is alive):
 
 ```powershell
 dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava
@@ -1473,7 +1473,7 @@ dotnet run scripts/ava-drive.cs -- ava_screenshot '{"maxWidth":2500}' --out D:\t
 
 (Exact per-window screenshot addressing: check `ava_screenshot`'s args for a window ref — resolve against the tool schema at run time.) Also confirm via `ava_logs`: zero `area:"Binding"` errors from the gallery.
 
-- [ ] **Step 4: Contact sheet + verdict.** `python scripts/contact-sheet.py` → open `D:\temp2\cbuild-mig\shots\contact-sheet.html` content via Read on the PNGs it references. Review checklist (record PASS/notes per line in the task notes; reviewer arbitrates — design: "close and consistent" beats pixel-perfect):
+- [x] **Step 4: Contact sheet + verdict.** `python scripts/contact-sheet.py` → open `D:\temp2\cbuild-mig\shots\contact-sheet.html` content via Read on the PNGs it references. Review checklist (record PASS/notes per line in the task notes; reviewer arbitrates — design: "close and consistent" beats pixel-perfect):
   1. Dark gallery surface reads as the token dark (#1E1F26 family), not Fluent's default dark.
   2. Light/dark text hierarchy legible (TextPrimary vs TextSecondary vs Disabled).
   3. Compact density: control heights visually close to the WPF reference rows (24-28px, not 32).
@@ -1482,7 +1482,25 @@ dotnet run scripts/ava-drive.cs -- ava_screenshot '{"maxWidth":2500}' --out D:\t
   6. DataGrid: Tahoma 12 by default; after `GridFontButton`, Verdana 14 (proves live DynamicResource writes — closes the Task 5 deferred verification).
   7. Title bar follows the variant on Win11 (observe; Win10 fallback is Phase 7's item — note only).
   Any FAIL that traces to a Fluent visual divergence becomes a targeted re-template note for the phase gate (NOT an immediate fix unless trivial), keeping the "re-template only where visibly divergent, screenshot-compared" rule.
-- [ ] **Step 5:** Full suite gate (both). **Commit** — `"feat(avalonia): dev gallery window (--gallery) + first migration contact sheet; density/token verdict recorded"`
+- [x] **Step 5:** Full suite gate (both). **Commit** — `"feat(avalonia): dev gallery window (--gallery) + first migration contact sheet; density/token verdict recorded"`
+
+**Task 9 verdict (executed 2026-07-11).** Gallery built (`DevTools/GalleryWindow.axaml`+`.cs`), `--gallery` wired in `App.axaml.cs` (flag + Show both under `#if DEBUG` → Release parity confirmed: Release exe launched with `--gallery` showed only the `CSUploader` main window, no `Gallery (dev)`). Bridge session ran via `scripts/ava-drive.cs` (single driver; the ava-desktop MCP was NOT attached). Evidence in `D:\temp2\cbuild-mig\shots\`: `gallery-{light,dark}-ava.png`, `shell-{light,dark}-ava.png` (in the contact sheet — 12 view/theme pairs), plus standalone `gallery-gridfont-{before,after}.png` and `gallery-hover-pseudo.png`. Zero `area:"Binding"` errors. Suites: WPF **1178**, Avalonia **137** (Task 9 adds no tests); Debug+Release builds 0 warnings.
+
+Review-checklist results (reviewer arbitrates final "close and consistent"):
+1. Dark surface = token dark — **PASS** (`ava_eval` resolved `Dark.Surface=#ff1e1f26`; dark gallery/shell shots read #1E1F26, not Fluent default).
+2. Text hierarchy legible — **PASS** (TextSecondary form-label visibly dimmer than TextPrimary body; disabled button greyed in both variants).
+3. Compact density — **PASS** (buttons ~26–30px, DataGrid rows 26px; close to WPF's 24–28px compact target). No per-control size overrides added — none warranted by the shots.
+4. JD2/primary/secondary identities — **PASS** (primary = accent blue, secondary = muted surface, JD2 = subtle gradient+border; all present light+dark).
+5. All four icon families render — **PASS** (status bitmaps, hoster logos, file-type SVGs, geometry PathIcons all visible).
+6. DataGrid Tahoma 12 → Verdana 14 — **PASS** (before/after shots show live cell-font growth; closes Task 5's deferred `ApplyGridFont` DynamicResource-propagation check — Reality-check register #2 CONFIRMED: runtime `app.Resources[...]` writes DO propagate to DynamicResource consumers).
+7. Title bar variant on Win11 — **OBSERVE-ONLY** (bridge captures client area, not OS chrome; Win11 auto-recolor expected, Win10 fallback is Phase 7).
+
+Inherited acceptance criteria (all three met):
+- **SVG raster proof through SkiaSharp 3.116.1** — PASS: the file-type SVGs (`a.mkv`→video, `b.zip`→zip, `c.pdf`→pdf, `d.xyz`→default) render as raster in `gallery-{light,dark}-ava.png` via the live head; no Skia `MissingMethodException`/`TypeLoadException` on the render path (render-level closure of the version-uplift risk).
+- **Pseudo-class watch items** — PASS: `gallery-hover-pseudo.png` (driven by `ava_pseudo_class`) shows `Button.primary` under `:pressed` falling back to Fluent's default grey (blue→grey, no override) and `Button.secondary` under `:pointerover` falling back to Fluent's subtle grey — exactly as designed (no custom hover/pressed overrides on those two).
+- **ApplyGridFont live propagation** — PASS: driven via `GridFontButton`; before/after shots confirm the propagation.
+
+No FAIL traced to a Fluent visual divergence → no re-template note raised. Minor observation (not a defect): the Fluent `DatePicker` renders as three sub-fields (year/month/day), wider than WPF's — a Fluent control shape, revisit only if a Phase 5/6 view needs it.
 
 ---
 
