@@ -6,6 +6,7 @@
 #if DEBUG
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Media;
@@ -36,6 +37,24 @@ public sealed class ReferenceShotCapture(IServiceProvider services)
 
     public async Task RunAndShutdownAsync(Window window, string dir)
     {
+        // Task 3 sub-modes. App.xaml.cs is off-limits this phase (the one-WPF-file rule — only
+        // ReferenceShotCapture.cs may change), and its dispatch only distinguishes --dialogs, so
+        // the --wizard / --settings selection is read here from the process command line instead of
+        // adding a branch to the App startup. Bare --shots still captures the main-window tab set
+        // (incl. the queue-row mainwindow-uploads re-capture).
+        string[] argv = Environment.GetCommandLineArgs();
+        if (Array.IndexOf(argv, "--wizard") >= 0)
+        {
+            await RunWizardShotsAndShutdownAsync(window, dir);
+            return;
+        }
+
+        if (Array.IndexOf(argv, "--settings") >= 0)
+        {
+            await RunSettingsShotsAndShutdownAsync(window, dir);
+            return;
+        }
+
         Directory.CreateDirectory(dir);
 
         // Pin the logical size (screenshot normalization, design §MCP dev loop) — matches
@@ -103,6 +122,147 @@ public sealed class ReferenceShotCapture(IServiceProvider services)
                 CaptureWindow(dialog, Path.Combine(dir, $"{name}-{suffix}-wpf.png"));
                 dialog.Close();
             }
+        }
+
+        Application.Current.Shutdown();
+    }
+
+    /// <summary>
+    /// DEBUG-only wizard reference-shot mode (<c>--shots --wizard</c>): builds a WPF
+    /// <see cref="UploadWizardWindow"/> pointed at a throwaway temp folder in Directory mode and
+    /// captures each of its four steps, light + dark, under the shots convention
+    /// (<c>wizard-step0..3-&lt;light|dark&gt;-wpf.png</c>). These are the WPF reference cells the
+    /// Avalonia wizard port (Tasks 7-9) arbitrates against. Drives <c>GoNextCommand</c> to walk the
+    /// steps; ticks the seeded Catbox account so the Summary is populated WITHOUT a network round-trip
+    /// (Catbox is not <c>IStorageRefreshablePipeline</c>, so entering the Summary fires no storage
+    /// refresh) and NEVER drives step 3's final Add (which would start a real upload — agent-safety).
+    /// </summary>
+    public async Task RunWizardShotsAndShutdownAsync(Window mainWindow, string dir)
+    {
+        Directory.CreateDirectory(dir);
+        mainWindow.Width = 1024;
+        mainWindow.Height = 800;
+
+        // Let MainViewModel.InitializeAsync hydrate the seeded accounts the hoster step reads.
+        await Task.Delay(2500);
+
+        // A throwaway source folder with a few fake files so Directory mode enumerates a real list.
+        string sourceDir = Path.Combine(Path.GetTempPath(), "csuploader-wizard-shots");
+        Directory.CreateDirectory(sourceDir);
+        (string Name, int Kib)[] fakeFiles =
+        [
+            ("holiday_clip.mkv", 4096),
+            ("readme.txt", 3),
+            ("bundle.zip", 1024),
+        ];
+        foreach ((string name, int kib) in fakeFiles)
+        {
+            string p = Path.Combine(sourceDir, name);
+            if (!File.Exists(p))
+            {
+                File.WriteAllBytes(p, new byte[kib * 1024]);
+            }
+        }
+
+        IThemeApplier theme = services.GetRequiredService<IThemeApplier>();
+        MainViewModel main = services.GetRequiredService<MainViewModel>();
+
+        foreach (bool dark in (bool[])[false, true])
+        {
+            theme.ApplyTheme(dark);
+            string suffix = dark ? "dark" : "light";
+
+            // Build AFTER the theme swap so the window's DynamicResource brushes pick it up.
+            UploadWizardWindow wizard = new(main.UploadsViewModel);
+            var vm = (UploadWizardViewModel)wizard.DataContext!;
+
+            // Step 0 — source + files. Set the title BEFORE DirectoryPath so LoadFiles keeps it.
+            vm.Mode = UploadWizardMode.Directory;
+            vm.PackageTitle = "Holiday photos & clips";
+            vm.DirectoryPath = sourceDir; // OnDirectoryPathChanged → LoadFiles (every file IsSelected=true)
+            wizard.Show();
+            await WaitForRenderAsync(wizard);
+            CaptureWindow(wizard, Path.Combine(dir, $"wizard-step0-{suffix}-wpf.png"));
+
+            // Step 1 — hosters. GoNext validates step 0, then loads FileHosters from the seeded accounts.
+            await vm.GoNextCommand.ExecuteAsync(null);
+            FileHosterSelectionViewModel? catbox = vm.FileHosters.FirstOrDefault(
+                h => string.Equals(h.FileHosterName, "Catbox", StringComparison.Ordinal) && h.HasAccounts);
+            if (catbox is not null)
+            {
+                catbox.Use = true; // SelectedAccount already defaults to the seeded Catbox account
+            }
+
+            await WaitForRenderAsync(wizard);
+            CaptureWindow(wizard, Path.Combine(dir, $"wizard-step1-{suffix}-wpf.png"));
+
+            // Step 2 — Summary (the custom Expander; the visually critical pair). No network: Catbox
+            // is not storage-refreshable, so RecomputeSummary's storage refresh is an empty no-op.
+            await vm.GoNextCommand.ExecuteAsync(null);
+            await WaitForRenderAsync(wizard);
+            CaptureWindow(wizard, Path.Combine(dir, $"wizard-step2-{suffix}-wpf.png"));
+
+            // Step 3 — start mode. Flip to Scheduled so the DatePicker (the DateTimeOffset? port) shows.
+            await vm.GoNextCommand.ExecuteAsync(null);
+            vm.StartMode = UploadStartMode.Scheduled;
+            await WaitForRenderAsync(wizard);
+            CaptureWindow(wizard, Path.Combine(dir, $"wizard-step3-{suffix}-wpf.png"));
+
+            wizard.Close();
+        }
+
+        Application.Current.Shutdown();
+    }
+
+    /// <summary>
+    /// DEBUG-only settings reference-shot mode (<c>--shots --settings</c>): hosts a standalone WPF
+    /// <see cref="SettingsView"/> bound to the seeded <see cref="SettingsViewModel"/> inside a shim
+    /// window whose DataContext is the <see cref="MainViewModel"/> (so the Connection panel's
+    /// <c>RelativeSource AncestorType=Window</c> → <c>ConnectionManagerViewModel</c> lookup resolves),
+    /// capturing once per category (<c>SelectedCategoryIndex</c> 0-3) as
+    /// <c>settings-general/upload/connection/accounts-&lt;light|dark&gt;-wpf.png</c> — the WPF reference
+    /// cells the Avalonia SettingsView port (Tasks 4-6) arbitrates against.
+    /// </summary>
+    public async Task RunSettingsShotsAndShutdownAsync(Window mainWindow, string dir)
+    {
+        Directory.CreateDirectory(dir);
+        mainWindow.Width = 1024;
+        mainWindow.Height = 800;
+
+        // Let MainViewModel.InitializeAsync hydrate the accounts + proxies the panels read.
+        await Task.Delay(2500);
+
+        IThemeApplier theme = services.GetRequiredService<IThemeApplier>();
+        MainViewModel main = services.GetRequiredService<MainViewModel>();
+
+        string[] categoryNames = ["general", "upload", "connection", "accounts"];
+
+        foreach (bool dark in (bool[])[false, true])
+        {
+            theme.ApplyTheme(dark);
+            string suffix = dark ? "dark" : "light";
+
+            // A fresh SettingsView per theme so its DynamicResource brushes bind after the swap. The
+            // shim window carries the MainViewModel so the Connection panel's Window-ancestor lookup
+            // resolves ConnectionManagerViewModel — mirrors MainWindow hosting the view in its tab.
+            SettingsView view = new() { DataContext = main.SettingsViewModel };
+            Window shim = new()
+            {
+                Width = 1024,
+                Height = 800,
+                Content = view,
+                DataContext = main,
+            };
+            shim.Show();
+
+            for (int category = 0; category < categoryNames.Length; category++)
+            {
+                main.SettingsViewModel.SelectedCategoryIndex = category;
+                await WaitForRenderAsync(shim);
+                CaptureWindow(shim, Path.Combine(dir, $"settings-{categoryNames[category]}-{suffix}-wpf.png"));
+            }
+
+            shim.Close();
         }
 
         Application.Current.Shutdown();

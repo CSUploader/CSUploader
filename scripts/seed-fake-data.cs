@@ -6,14 +6,21 @@
 //
 // Safety invariants (design §The Avalonia head, agent-safety):
 //   - credentials are bogus (fake_* / not-a-real-password); no anonymous rows;
-//   - file states are ONLY Paused/Failed/Completed (a subset of the settled set
-//     Paused/Failed/Completed/Cancelled) — NOT Idle, never Uploading/*Queued. Idle is
-//     NOT settled: the load path counts a persisted Idle as running-at-shutdown
-//     (PackageManager.cs:287-291) and remaps it to a queued state (:347-349), so under the
-//     default OnlyIfRunningAtLastSession policy (Settings.cs:28) an Idle row would AUTO-START
-//     a real upload on the guard-less WPF head (used for reference shots). Verified against
-//     the load path: for every state seeded here wasRunningAtShutdown stays false AND the one
-//     non-terminal package has no queued files, so nothing schedules under ANY autostart mode.
+//   - file states are the settled set (Paused/Failed/Completed/Cancelled) PLUS the non-terminal
+//     queue states UploadQueued/HashQueued (Task 3 — the Uploads tab needs a live queue to
+//     render). NEVER Idle/Hashing/Uploading: those REMAP on load (Idle/Uploading→queued at
+//     PackageManager.cs:347-349; Hashing→HashQueued at :343) so a seeded Idle never renders as
+//     Idle, whereas UploadQueued/HashQueued pass through unchanged.
+//   - CROSS-HEAD SAFETY for the queue rows: UploadQueued/HashQueued rows count as
+//     running-at-shutdown (:287-291) and WOULD AUTO-START a real upload on the guard-less
+//     --shots head under the default OnlyIfRunningAtLastSession policy (Settings.cs:28). The ONLY
+//     thing that stops that on BOTH heads is the PERSISTED AutostartUploads=Never Setting row
+//     this seed writes below: LoadPersistedPackagesAsync reads it (SettingsViewModel.LoadAsync
+//     runs before it in MainViewModel.InitializeAsync) and schedules nothing regardless of file
+//     state (:394-400). The value MUST be the enum NAME "Never" (.ToString()) — the loader
+//     Enum.TryParse's it (SettingsViewModel.cs:294); an int silently fails and leaves the default.
+//     The Setting is COUPLED to the non-terminal rows mechanically at SaveChanges
+//     (AssertNonTerminalRowsCoupledToAutostartNever) so a future queued-row edit without it throws.
 //   - ScheduledStartTime stays null (nothing wakes on a timer).
 #:project ../src/CSUploader.Core/CSUploader.Core.csproj
 // CSUploader.Core targets net10.0-windows10.0.17763.0; a file-based app defaults to plain
@@ -24,6 +31,7 @@
 #:property PublishAot=false
 
 using CSUploader.Dal;
+using CSUploader.Lib.Net;
 using CSUploader.Upload;
 using Microsoft.EntityFrameworkCore;
 
@@ -117,11 +125,17 @@ ctx.SaveChanges(); // ids assigned below
 // IsHashingComplete. QueueOrder is a real column the scheduler renumbers on load; set for parity.
 UploadPackageFileDbm File1(string name, int mib, FileState state, int login, string hoster, int order, string? error = null, string? url = null)
 {
-    // RUNTIME GUARD for the settled-states safety invariant: anything outside this set can
-    // auto-start a REAL upload on the guard-less WPF head (PackageManager.cs:287-291, :341-351).
-    if (state is not (FileState.Paused or FileState.Failed or FileState.Completed or FileState.Cancelled))
+    // RUNTIME GUARD (Task 3): the seed may write the settled set (Paused/Failed/Completed/
+    // Cancelled) PLUS the non-terminal queue states UploadQueued/HashQueued (added so the Uploads
+    // tab renders a real queue). The queue states AUTO-START real uploads on the guard-less --shots
+    // head — the persisted AutostartUploads=Never row disables that, coupled to these rows at
+    // SaveChanges (AssertNonTerminalRowsCoupledToAutostartNever). Reject the rest: Idle/Hashing/
+    // Uploading REMAP on load (PackageManager.cs:341-351) so they never render as seeded, and
+    // CompletedWithErrors is package-level only.
+    if (state is not (FileState.Paused or FileState.Failed or FileState.Completed or FileState.Cancelled
+        or FileState.UploadQueued or FileState.HashQueued))
     {
-        throw new ArgumentException($"seed writes settled states only; {state} would auto-start on the WPF head", nameof(state));
+        throw new ArgumentException($"seed writes settled or queue states only; {state} remaps on load or is package-only", nameof(state));
     }
 
     string path = MakeFile(name, mib);
@@ -222,9 +236,105 @@ UploadPackageDbm archives = new()
         File1("fake_readme.txt", 1, FileState.Completed, rapidgator.Id, "Rapidgator", 5), // no url
     ],
 };
+// Queued packages (Uploads tab): the NON-terminal queue rows the Uploads-tab port needs to
+// render a live queue — chevrons, "Queued"/"Hashing queued" status, and Order values. Seeded
+// DIRECTLY as UploadQueued/HashQueued; a seeded Idle would REMAP to a queued state on load
+// (PackageManager.cs:347-349) and never render as Idle, so it can't stand in for these.
+// UploadQueued/HashQueued pass through the load path unchanged (:341-351). These rows count as
+// running-at-shutdown and WOULD auto-start on the guard-less --shots head — the persisted
+// AutostartUploads=Never Setting row below (coupled at SaveChanges) is the ONLY thing that stops
+// them. UploadQueued uses Catbox (no pre-hash) and HashQueued uses Rapidgator (pre-hashes) so
+// each queue state pairs with a hoster it can plausibly be in.
+UploadPackageDbm queued = new()
+{
+    Name = "Fake pack (queued)",
+    CreatedDateTime = DateTime.Now.AddMinutes(-20),
+    Files =
+    [
+        File1("fake_clip.mkv", 4, FileState.UploadQueued, catbox.Id, "Catbox", 1),
+        File1("fake_bundle.zip", 3, FileState.HashQueued, rapidgator.Id, "Rapidgator", 2),
+        File1("fake_gallery.png", 2, FileState.UploadQueued, catbox.Id, "Catbox", 3),
+    ],
+};
+UploadPackageDbm hashing = new()
+{
+    Name = "Fake pack (hashing queue)",
+    CreatedDateTime = DateTime.Now.AddMinutes(-8),
+    Files =
+    [
+        File1("fake_movie2.mp4", 6, FileState.HashQueued, rapidgator.Id, "Rapidgator", 4),
+        File1("fake_dump.bin", 2, FileState.UploadQueued, catbox.Id, "Catbox", 5),
+    ],
+};
+
 ctx.UploadPackages.AddRange(paused, done);
 ctx.UploadPackages.AddRange(photos, documents, archives);
+ctx.UploadPackages.AddRange(queued, hashing);
+
+// Two proxy rows so the Settings → Connection panel's editable proxies grid has content (the
+// settings-connection reference shot; consumed by Task 5's editable-grid port). One enabled
+// HTTP no-auth + one disabled SOCKS5 with fake creds exercises the Enabled checkbox, the Type
+// combo, and the auth cells. Loopback/RFC1918 hosts, bogus creds — no external literals.
+ctx.ProxySettings.AddRange(
+    new ProxySettingDbm { Type = (int)ProxyType.Http, Host = "127.0.0.1", Port = 8080, Enabled = true, Priority = 1 },
+    new ProxySettingDbm
+    {
+        Type = (int)ProxyType.Socks5,
+        Host = "10.0.0.1",
+        Port = 1080,
+        Username = "fake_proxy_user",
+        Password = "not-a-real-password",
+        Enabled = false,
+        Priority = 2,
+    });
+
+// CROSS-HEAD AGENT-SAFETY (design §agent-safety, Task 3): the queued/hashing packages above hold
+// NON-terminal file rows that AUTO-START real uploads on the guard-less --shots head (fake creds
+// still hit the network). The ONLY protection on BOTH heads is a PERSISTED AutostartUploads=Never:
+// LoadPersistedPackagesAsync honours it and schedules nothing regardless of file state
+// (PackageManager.cs:394-400). The value MUST be the enum NAME "Never" via .ToString() — the loader
+// Enum.TryParse's it (SettingsViewModel.cs:294); a mis-serialized int fails silently and leaves the
+// dangerous default OnlyIfRunningAtLastSession.
+ctx.Settings.Add(new SettingDbm
+{
+    Key = SettingKey.AutostartUploads,
+    Value = AutostartUploadsMode.Never.ToString(),
+});
+
+// Couple the two mechanically: if any staged file is non-terminal, the Never Setting MUST be
+// staged too, else throw. A future queued-row edit that forgets the Never row fails loudly here.
+AssertNonTerminalRowsCoupledToAutostartNever(ctx);
 ctx.SaveChanges();
 
-Console.WriteLine($"Seeded {dbPath}: 2 logins, 5 packages, 17 files (1 incomplete + 4 completed).");
+Console.WriteLine($"Seeded {dbPath}: 2 logins, 7 packages, 22 files (3 incomplete + 4 completed), 2 proxies, AutostartUploads=Never.");
 return 0;
+
+// AGENT-SAFETY coupling guard (design §agent-safety, Task 3): a staged NON-terminal file row
+// (anything but Completed/Failed/Cancelled — i.e. UploadQueued/HashQueued/Paused) AUTO-STARTS a
+// real upload on the guard-less --shots head unless a persisted AutostartUploads=Never Setting row
+// disables scheduling (PackageManager.cs:394-400). This replaces the old per-file settled-states
+// throw: couple them across the whole staged graph so a future edit that adds a queued row without
+// the Never row fails loudly here rather than firing uploads at shot-capture time.
+static void AssertNonTerminalRowsCoupledToAutostartNever(CSUploaderDbContext context)
+{
+    bool anyNonTerminal = context.ChangeTracker.Entries<UploadPackageFileDbm>()
+        .Where(e => e.State is not EntityState.Deleted)
+        .Any(e => (FileState)e.Entity.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled));
+    if (!anyNonTerminal)
+    {
+        return;
+    }
+
+    bool neverStaged = context.ChangeTracker.Entries<SettingDbm>()
+        .Where(e => e.State is not EntityState.Deleted)
+        .Any(e => e.Entity.Key == SettingKey.AutostartUploads
+            && e.Entity.Value == AutostartUploadsMode.Never.ToString());
+    if (!neverStaged)
+    {
+        throw new InvalidOperationException(
+            "Seed stages non-terminal file rows (UploadQueued/HashQueued/Paused) without a persisted "
+            + "AutostartUploads=Never Setting — the guard-less --shots head would auto-start real "
+            + "uploads. Stage ctx.Settings.Add(new SettingDbm { Key = SettingKey.AutostartUploads, "
+            + "Value = AutostartUploadsMode.Never.ToString() }) alongside any non-terminal row.");
+    }
+}
