@@ -5,7 +5,6 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
@@ -18,6 +17,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CSUploader.Behaviors;
+using static CSUploader.Tests.Avalonia.LeakProbes;
 
 namespace CSUploader.Tests.Avalonia.Behaviors;
 
@@ -395,16 +395,5 @@ public class DataGridBehaviorTests
         }
 
         return 0;
-    }
-
-    // The compiler-generated backing field of ObservableCollection's field-like CollectionChanged
-    // event; its invocation-list length is the number of live subscribers (same trick as the
-    // Localizer leak test).
-    private static int CollectionChangedSubscriberCount(INotifyCollectionChanged source)
-    {
-        FieldInfo field = source.GetType().GetField(
-            "CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var handler = (NotifyCollectionChangedEventHandler?)field.GetValue(source);
-        return handler?.GetInvocationList().Length ?? 0;
     }
 }

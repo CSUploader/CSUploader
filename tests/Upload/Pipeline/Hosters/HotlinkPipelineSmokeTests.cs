@@ -35,8 +35,9 @@ public class HotlinkPipelineSmokeTests
         // Sentinel: if this starts failing, someone re-added "Hotlink" to
         // FileHosterClient.FileHosters. Before flipping it to Assert.True, walk the re-enable
         // checklist in HotlinkPipeline.cs — the FileHosters entry is only one of four touchpoints
-        // (DI registration + ApiKeyHosters + this test also flip), and free accounts still can't
-        // upload, so an upload-enabled account + the logged-in web-upload mode are prerequisites.
+        // (DI registration + HosterCredentialModes.ApiKeyHosters in
+        // src/CSUploader.Core/Upload/HosterCredentialModes.cs + this test also flip), and free accounts
+        // still can't upload, so an upload-enabled account + the logged-in web-upload mode are prerequisites.
         HotlinkPipeline pipeline = new();
         Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
     }

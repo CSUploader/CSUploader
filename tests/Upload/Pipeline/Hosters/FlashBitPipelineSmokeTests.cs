@@ -39,9 +39,9 @@ public class FlashBitPipelineSmokeTests
         // Sentinel: if this assertion ever starts failing, someone re-added "FlashBit"
         // to FileHosterClient.FileHosters. Before flipping it to Assert.True, walk
         // through FlashBitPipeline.cs's "Re-enable checklist" — the FileHosters entry
-        // is only one of four touchpoints (DI registration + ApiKeyHosters + this test
-        // also need to flip, and the underlying SSL / IIS issues must be verified
-        // resolved upstream).
+        // is only one of four touchpoints (DI registration + HosterCredentialModes.ApiKeyHosters
+        // in src/CSUploader.Core/Upload/HosterCredentialModes.cs + this test also need to flip, and
+        // the underlying SSL / IIS issues must be verified resolved upstream).
         FlashBitPipeline pipeline = new();
         Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
     }

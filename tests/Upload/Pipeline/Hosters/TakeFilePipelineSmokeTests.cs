@@ -39,7 +39,8 @@ public class TakeFilePipelineSmokeTests
         // Sentinel: if this assertion starts failing, someone re-added "TakeFile" to
         // FileHosterClient.FileHosters. Before flipping it to Assert.True, walk through
         // TakeFilePipeline.cs's re-enable checklist — the registry entry is only one of four
-        // touchpoints (DI registration + ApiKeyHosters + this test also need to flip), and the
+        // touchpoints (DI registration + HosterCredentialModes.ApiKeyHosters in
+        // src/CSUploader.Core/Upload/HosterCredentialModes.cs + this test also need to flip), and the
         // Cloudflare managed challenge must be confirmed gone upstream.
         TakeFilePipeline pipeline = new();
         Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));

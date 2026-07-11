@@ -3,9 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Collections.Specialized;
 using System.Globalization;
-using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
@@ -24,6 +22,7 @@ using CSUploader.Views;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using static CSUploader.Tests.Avalonia.LeakProbes;
 
 namespace CSUploader.Tests.Avalonia.Views;
 
@@ -317,13 +316,6 @@ public class LogsViewTests
         }
 
         Dispatcher.UIThread.RunJobs();
-    }
-
-    private static int CollectionChangedSubscriberCount(INotifyCollectionChanged source)
-    {
-        FieldInfo field = source.GetType().GetField("CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var handler = (NotifyCollectionChangedEventHandler?)field.GetValue(source);
-        return handler?.GetInvocationList().Length ?? 0;
     }
 
     private static LogEvent Event(LogType type, string message) => new()

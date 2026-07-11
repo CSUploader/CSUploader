@@ -5,9 +5,7 @@
 
 using System.Collections;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Net.Http;
-using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -28,6 +26,7 @@ using CSUploader.Views;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using static CSUploader.Tests.Avalonia.LeakProbes;
 
 namespace CSUploader.Tests.Avalonia.Views;
 
@@ -429,16 +428,6 @@ public class UploadedViewTests
         => grid.GetVisualDescendants()
             .OfType<DataGridRow>()
             .First(r => r.DataContext is UploadedFileRow row && row.FileName == fileName);
-
-    // The invocation-list length of ObservableCollection's field-like CollectionChanged event = live
-    // subscriber count. Same reflection trick the DataGridBehaviorTests / LogsViewTests leak checks use.
-    private static int CollectionChangedSubscriberCount(INotifyCollectionChanged source)
-    {
-        FieldInfo field = source.GetType().GetField(
-            "CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var handler = (NotifyCollectionChangedEventHandler?)field.GetValue(source);
-        return handler?.GetInvocationList().Length ?? 0;
-    }
 
     private static (Window Window, UploadedView View) Show(UploadedViewModel vm)
     {

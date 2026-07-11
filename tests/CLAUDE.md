@@ -65,7 +65,7 @@ Conventions for writing tests in this project. Inherits everything from the root
   `[Fact]` reading `Localizer` under a culture another class was flipping was the concrete failure. The suite
   therefore disables parallelization assembly-wide with `[assembly: CollectionBehavior(DisableTestParallelization = true)]`
   (next to the `AvaloniaTestApplication` attribute in `TestAppBuilder.cs`), serializing every test onto the
-  one session; it still runs in ~4-7s at 212+ tests, so the blanket serialize costs nothing. Restore
+  one session; it still runs in ~7-10s at ~290 tests, so the blanket serialize costs nothing. Restore
   per-class state (culture, `RequestedThemeVariant`) in a `finally` regardless.
 - The headless dispatcher does not pump on its own. Anything the SUT routes through
   `Dispatcher.UIThread.Post` (e.g. `AvaloniaUiDispatcher.Post`, a `DispatcherTimer` tick) only runs

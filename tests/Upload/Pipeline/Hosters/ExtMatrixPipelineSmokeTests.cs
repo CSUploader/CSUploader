@@ -43,9 +43,9 @@ public class ExtMatrixPipelineSmokeTests
         // Sentinel: if this assertion ever starts failing, someone re-added "ExtMatrix"
         // to FileHosterClient.FileHosters. Before flipping it to Assert.True, walk
         // through ExtMatrixPipeline.cs's "Re-enable checklist" — the FileHosters entry
-        // is only one of four touchpoints (DI registration + ApiKeyHosters + this test
-        // also need to flip, and the underlying nginx body-cap / chunked-protocol issue
-        // must be resolved upstream).
+        // is only one of four touchpoints (DI registration + HosterCredentialModes.ApiKeyHosters
+        // in src/CSUploader.Core/Upload/HosterCredentialModes.cs + this test also need to flip, and
+        // the underlying nginx body-cap / chunked-protocol issue must be resolved upstream).
         ExtMatrixPipeline pipeline = new();
         Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
     }
