@@ -183,7 +183,7 @@ public partial class App : Application
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();
-        services.AddSingleton<IThemeApplier, AvaloniaThemeApplier>();              // no-op until Phase 3
+        services.AddSingleton<IThemeApplier, AvaloniaThemeApplier>();              // real: RequestedThemeVariant + grid-font resources
         services.AddSingleton<IInteractiveAuthService, StubInteractiveAuthService>(); // throws until Phase 8
         services.AddSingleton<AvaloniaTrayIconService>();
         // Same singleton instance is reachable through the Core interface too, so the shared

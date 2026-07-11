@@ -1,0 +1,88 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- The keyed-WPF-style -> Avalonia-class mapping the Phases 4-6 view ports consume
+     (FormLabelStyle -> Classes="form-label", etc.). Fluent pseudo-class overrides go through the
+     Button template part (/template/ ContentPresenter#PART_ContentPresenter). Deliberately NOT
+     ported here: CompactTextBox/ComboBox/PasswordBox styles (Fluent Compact density covers them;
+     PasswordBox is a Phase 5 concern), the WPF implicit dark-mode re-templates (Tokens.xaml:155-895),
+     and DataGridEditingTextBoxStyle (Phase 6, only against contact-sheet evidence). -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- App-wide compact typography + palette (WPF parity: implicit Window style, Tokens.xaml:773-777). -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeMd}" />
+  </Style>
+
+  <!-- FormLabelStyle -> Classes="form-label" -->
+  <Style Selector="TextBlock.form-label">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeMd}" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+  </Style>
+
+  <!-- SectionHeaderStyle -> Classes="section-header" -->
+  <Style Selector="TextBlock.section-header">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeLg}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Margin" Value="0,0,0,6" />
+  </Style>
+
+  <!-- PrimaryButtonStyle -> Classes="primary" -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="16,6" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeMd}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
+  </Style>
+
+  <!-- SecondaryButtonStyle -> Classes="secondary" -->
+  <Style Selector="Button.secondary">
+    <Setter Property="Padding" Value="12,4" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSm}" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+  </Style>
+
+  <!-- JD2Button -> Classes="jd2" (gradient raised button; brushes come from the variant dicts) -->
+  <Style Selector="Button.jd2">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinWidth" Value="90" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource JD2ButtonBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="1" />
+  </Style>
+  <Style Selector="Button.jd2:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource JD2ButtonHoverBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonHoverBorderBrush}" />
+  </Style>
+  <Style Selector="Button.jd2:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource JD2ButtonPressedBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
+  </Style>
+
+  <!-- DataGrid baseline: compact rows + the runtime-overridable grid font. -->
+  <Style Selector="DataGrid">
+    <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+    <Setter Property="RowHeight" Value="26" />
+  </Style>
+
+</Styles>

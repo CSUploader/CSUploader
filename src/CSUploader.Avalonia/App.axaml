@@ -2,17 +2,26 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CSUploader.App"
              RequestedThemeVariant="Light">
+  <!-- RequestedThemeVariant=Light is only the pre-hydration default; after startup the ONLY writer
+       is AvaloniaThemeApplier (design prep item 5). The startup light-flash is intentional WPF parity. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <!-- Geometry icons (Settings section icons + ForceStart), keyed 1:1 with the WPF head.
-             Bitmaps merge in code (App.Initialize); no XAML element for a keyed bitmap resource. -->
+        <!-- Design tokens (spacing/typography/sizing + grid font) and the ThemeVariant brush
+             dictionaries. Geometry icons keyed 1:1 with the WPF head; bitmaps merge in code
+             (App.Initialize) — no XAML element for a keyed bitmap resource. -->
+        <ResourceInclude Source="/Resources/Tokens.axaml" />
+        <ResourceInclude Source="/Resources/ThemeBrushes.axaml" />
         <ResourceInclude Source="/Resources/ImageGeometries.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
-    <FluentTheme />
+    <!-- Compact density (prep item 4): WPF is a compact UI (24px controls, 26px rows, 13px font) vs
+         Fluent's ~32px/14px defaults. Compact + BaseStyles closes the gap; per-control size overrides
+         are added only against Task 9 contact-sheet evidence, not speculatively. -->
+    <FluentTheme DensityStyle="Compact" />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <StyleInclude Source="/Resources/BaseStyles.axaml" />
   </Application.Styles>
 </Application>
