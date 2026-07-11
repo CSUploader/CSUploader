@@ -18,8 +18,9 @@ namespace CSUploader.Services;
 /// Task 4 (they reveal the main window first via <see cref="GetOwnerOrRevealAsync"/>, since a native
 /// picker needs a visible parent). <see cref="ShowProxyTextDialogAsync"/> and
 /// <see cref="ShowSpeedLimitDialogAsync"/> are real from Phase 4 Task 5 (their ported windows reveal-or-own
-/// the same way); <see cref="ShowHttpDetailsAsync"/> arrives in Task 7, and the three account/proxy editor
-/// members stay <see cref="NotImplementedException"/> until Phase 5 builds their windows.
+/// the same way); <see cref="ShowHttpDetailsAsync"/> is real from Task 7 (reveal-or-own, block until
+/// closed). The three account/proxy editor members stay <see cref="NotImplementedException"/> until
+/// Phase 5 builds their windows.
 /// </summary>
 public sealed class AvaloniaDialogService(AppSettings settings, SettingRepository settingRepository, ITrayIconService trayIcon)
     : DialogServiceBase(settings, settingRepository), IDialogService
@@ -164,8 +165,14 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
             : [.. entries.Select(e => new FilePickerFileType(e.Name) { Patterns = e.Patterns })];
     }
 
-    public Task ShowHttpDetailsAsync(HttpTransaction transaction) =>
-        throw new NotImplementedException("HttpDetailsWindow arrives in Phase 4 Task 7 — ShowHttpDetailsAsync tracked there.");
+    // HttpDetails inspector (Phase 4 Task 7). Reveal-or-own like the other modals, then block until the
+    // user closes it — the WPF head's ShowDialog() ran a nested pump and returned Task.CompletedTask
+    // (DialogService.cs:156-164); awaiting ShowDialog is the honest async equivalent. No result to carry.
+    public async Task ShowHttpDetailsAsync(HttpTransaction transaction)
+    {
+        HttpDetailsWindow window = new(transaction);
+        await window.ShowDialog(await GetOwnerOrRevealAsync());
+    }
 
     // ProxyText/SpeedLimit dialogs (Phase 4 Task 5). Both reveal-or-own via GetOwnerOrRevealAsync (a
     // modal interaction demands a visible parent) and pass their result straight back: the dialogs already

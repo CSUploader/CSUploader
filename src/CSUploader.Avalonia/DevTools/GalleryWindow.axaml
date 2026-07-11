@@ -286,6 +286,20 @@
                   Classes="secondary" Content="Close action…" />
         </StackPanel>
 
+        <!-- Detail windows (Phase 4 Task 7): the TabControl carriers. LogDetails has no IDialogService
+             member (Phase 5's LogsView opens it), so its button constructs the window directly with a
+             synthesized LogEntryViewModel; HttpDetails goes through the REAL ShowHttpDetailsAsync member
+             the ConnectionManagerViewModel already awaits, fed a synthesized transaction. Both factories
+             mirror the WPF reference driver's SynthLogEvent/SynthTransaction shapes. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogLogDetailsButton"
+                  AutomationProperties.AutomationId="DialogLogDetailsButton"
+                  Classes="secondary" Content="Log details…" />
+          <Button x:Name="DialogHttpDetailsButton"
+                  AutomationProperties.AutomationId="DialogHttpDetailsButton"
+                  Classes="secondary" Content="HTTP details…" />
+        </StackPanel>
+
         <!-- StorageProvider pickers (Phase 4 Task 4): these open NATIVE OS dialogs the bridge cannot
              drive or screenshot, so the agent never clicks them in a bridge session (a native modal would
              wedge the drive loop). They exist for manual click-through smoke and a crash-free

@@ -1,0 +1,96 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Read-only viewer for a single log row: its metadata fields (time, thread, file, function, line) plus
+     the full message on Text/Html tabs (port of the WPF src/Views/LogDetailsWindow.xaml). No IDialogService
+     member — Phase 5's LogsView (Enter / double-click) is the production opener; until then the dev gallery
+     button is its only path. DataContext is a Core LogEntryViewModel, bound OneWay throughout.
+
+     PORT RULE 12 (prep item 4): the WPF window-local keyed styles (FieldLabel/FieldValue with
+     BasedOn={x:Type TextBox}) become <Window.Styles> class selectors (TextBlock.field-label /
+     TextBox.field-value) with BasedOn DROPPED — a class style layers over Fluent's own TextBox theme, so
+     only the four distinguishing setters are carried. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:conv="clr-namespace:CSUploader.Converters"
+        x:Class="CSUploader.Views.LogDetailsWindow"
+        Title="{loc:Loc LogDetails_WindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="800" Height="450"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+  <Window.Resources>
+    <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.field-label">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBox.field-value">
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="4,3" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="12" RowDefinitions="Auto,*,Auto">
+
+    <!-- Header Fields -->
+    <Grid Grid.Row="0" Margin="0,0,0,12"
+          RowDefinitions="Auto,Auto,Auto"
+          ColumnDefinitions="90,200,16,90,200,*">
+
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc LogDetails_Field_DateTime}" Classes="field-label" Margin="0,0,8,6" />
+      <TextBox Grid.Row="0" Grid.Column="1" x:Name="DateTimeBox" Text="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" Classes="field-value" Margin="0,0,0,6" />
+
+      <TextBlock Grid.Row="0" Grid.Column="3" Text="{loc:Loc LogDetails_Field_ThreadId}" Classes="field-label" Margin="0,0,8,6" />
+      <TextBox Grid.Row="0" Grid.Column="4" x:Name="ThreadIdBox" Text="{Binding ThreadId, Mode=OneWay}" Classes="field-value" Margin="0,0,0,6" />
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc LogDetails_Field_Filename}" Classes="field-label" Margin="0,0,8,6" />
+      <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Text="{Binding Filename, Mode=OneWay}" Classes="field-value" Margin="0,0,0,6" />
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc LogDetails_Field_Function}" Classes="field-label" Margin="0,0,8,0" />
+      <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Function, Mode=OneWay}" Classes="field-value" />
+
+      <TextBlock Grid.Row="2" Grid.Column="3" Text="{loc:Loc LogDetails_Field_Line}" Classes="field-label" Margin="0,0,8,0" />
+      <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding LineNumber, Mode=OneWay}" Classes="field-value" />
+    </Grid>
+
+    <!-- Message Content -->
+    <TabControl Grid.Row="1">
+      <TabItem Header="{loc:Loc LogDetails_Tab_Text}">
+        <TextBox x:Name="MessageTextBox" Text="{Binding Message, Mode=OneWay}"
+                 IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="12"
+                 Background="{DynamicResource CodeBackgroundBrush}"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 CaretBrush="{DynamicResource TextPrimaryBrush}"
+                 BorderThickness="0" />
+      </TabItem>
+      <TabItem Header="{loc:Loc LogDetails_Tab_Html}">
+        <TextBox Text="{Binding Message, Mode=OneWay}"
+                 IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="12"
+                 Background="{DynamicResource CodeBackgroundBrush}"
+                 Foreground="{DynamicResource TextPrimaryBrush}"
+                 CaretBrush="{DynamicResource TextPrimaryBrush}"
+                 BorderThickness="0" />
+      </TabItem>
+    </TabControl>
+
+    <!-- Close Button. IsCancel routes Esc to the Click handler (port rule 7); the handler closes. -->
+    <Button Grid.Row="2" Content="{loc:Loc LogDetails_Btn_Close}" HorizontalAlignment="Right"
+            Width="80" Height="28" Margin="0,12,0,0"
+            Click="CloseButton_Click" IsCancel="True" />
+  </Grid>
+</Window>

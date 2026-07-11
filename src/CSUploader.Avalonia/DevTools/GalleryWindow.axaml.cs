@@ -3,14 +3,17 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using CSUploader.Dal;
+using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.ViewModels;
 using CSUploader.Views;
 
 namespace CSUploader.DevTools;
@@ -94,6 +97,8 @@ public partial class GalleryWindow : Window
         DialogSpeedLimitButton.Click += OnShowSpeedLimit;
         DialogAboutButton.Click += OnShowAbout;
         DialogCloseActionButton.Click += OnShowCloseAction;
+        DialogLogDetailsButton.Click += OnShowLogDetails;
+        DialogHttpDetailsButton.Click += OnShowHttpDetails;
         PickFolderButton.Click += OnPickFolder;
         PickFilesButton.Click += OnPickFiles;
         PickOpenFileButton.Click += OnPickOpenFile;
@@ -159,6 +164,65 @@ public partial class GalleryWindow : Window
 
     private void OnShowCloseAction(object? sender, RoutedEventArgs e)
         => _ = new CloseActionDialog().ShowDialog(this);
+
+    // ── Detail windows (Phase 4 Task 7) ──
+    // LogDetails has no IDialogService member (Phase 5's LogsView opens it), so the gallery constructs the
+    // window directly with a synthesized LogEntryViewModel — the same new LogDetailsWindow(...).ShowDialog(this)
+    // the WPF reference driver uses. HttpDetails goes through the REAL resolved IDialogService (the gallery is
+    // the active window, so the resolver owns the modal to it), fed a synthesized transaction, exercising the
+    // production ShowHttpDetailsAsync plumbing the ConnectionManagerViewModel awaits.
+    private void OnShowLogDetails(object? sender, RoutedEventArgs e)
+        => _ = new LogDetailsWindow(new LogEntryViewModel(SynthLogEvent())).ShowDialog(this);
+
+    private void OnShowHttpDetails(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowHttpDetailsAsync(SynthTransaction());
+
+    // Mirrors the WPF reference driver's SynthLogEvent (ReferenceShotCapture): a bare filename, method name,
+    // managed thread id and a multi-line message so the LogDetails fields render as they do in production.
+    private static LogEvent SynthLogEvent() => new()
+    {
+        LogType = LogType.Error,
+        DateTime = new DateTime(2026, 7, 12, 14, 30, 45, 123),
+        ThreadId = 7,
+        Filename = "FileHosterClient.cs",
+        Function = "UploadAsync",
+        LineNumber = 214,
+        Message = "Upload failed after 3 retries.\n"
+            + "HTTP 503 Service Unavailable\n"
+            + "The origin server is temporarily unable to service the request.",
+    };
+
+    // Mirrors the WPF reference driver's SynthTransaction: a complete POST with JSON bodies (so the
+    // Body-JSON sub-tabs pretty-print) and ResponseBodyBytes (so the Hex sub-tab renders). Duration is
+    // computed from Start/EndTime. Small deliberate duplication between two DEBUG-only dev tools.
+    private static HttpTransaction SynthTransaction()
+    {
+        DateTime start = new(2026, 7, 12, 14, 30, 45);
+        return new HttpTransaction
+        {
+            Method = "POST",
+            Url = "https://api.example-hoster.com/v1/upload",
+            Proxy = "http://127.0.0.1:8080",
+            StatusCode = 200,
+            StatusReason = "OK",
+            StartTime = start,
+            EndTime = start.AddMilliseconds(842),
+            RequestHeaders = new Dictionary<string, string[]>
+            {
+                ["Content-Type"] = ["application/json"],
+                ["Authorization"] = ["Bearer synthesized-session-token"],
+                ["User-Agent"] = ["CSUploader/0.0.6"],
+            },
+            RequestBody = "{\"name\":\"movie.mkv\",\"size\":5242880,\"folderId\":0}",
+            ResponseHeaders = new Dictionary<string, string[]>
+            {
+                ["Content-Type"] = ["application/json"],
+                ["Server"] = ["nginx"],
+            },
+            ResponseBody = "{\"status\":\"ok\",\"fileId\":\"abc123\",\"url\":\"https://example-hoster.com/f/abc123\"}",
+            ResponseBodyBytes = Encoding.UTF8.GetBytes("{\"status\":\"ok\",\"fileId\":\"abc123\"}"),
+        };
+    }
 
     // The four picker launchers call the REAL IDialogService picker members (native OS dialogs). They are
     // "manual only": the bridge cannot drive or screenshot a native modal, so the agent never clicks them

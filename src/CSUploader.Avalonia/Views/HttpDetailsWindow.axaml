@@ -1,0 +1,118 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Inspector for one captured HTTP transaction (port of the WPF src/Views/HttpDetailsWindow.xaml): a
+     summary header over a 3-tab TabControl (Request / Response / Full Dump), the Request and Response tabs
+     each nesting a 4-tab TabControl (Headers / Body raw / Body JSON / Hex). All text boxes are read-only
+     monospace on CodeBackgroundBrush; the code-behind fills them from HttpTransaction. Opened by
+     ShowHttpDetailsAsync (ConnectionManagerViewModel's per-row proxy-test "Details") and, from Phase 5,
+     by LogsView via the LogEntryViewModel ctor. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.HttpDetailsWindow"
+        Title="{loc:Loc HttpDetails_WindowTitle}"
+        Icon="/Assets/icon.ico"
+        Width="950" Height="650"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{DynamicResource SurfaceBrush}">
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Summary header -->
+    <Border Grid.Row="0" Background="{DynamicResource SurfaceMutedBrush}" Padding="12,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <StackPanel>
+        <TextBlock x:Name="SummaryText" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"
+                   TextTrimming="CharacterEllipsis" />
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+          <TextBlock x:Name="TimingText" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBlock x:Name="ProxyText" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,0,0" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Main tab control -->
+    <TabControl Grid.Row="1" BorderThickness="0" Padding="0">
+
+      <!-- Request Tab -->
+      <TabItem Header="{loc:Loc HttpDetails_Tab_Request}">
+        <Grid RowDefinitions="Auto,*">
+
+          <!-- Sub-tabs for request -->
+          <TabControl Grid.Row="1" Margin="8">
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_Headers}">
+              <TextBox x:Name="RequestHeadersBox" IsReadOnly="True" AcceptsReturn="True"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyRaw}">
+              <TextBox x:Name="RequestBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyJson}">
+              <TextBox x:Name="RequestBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_Hex}">
+              <TextBox x:Name="RequestHexBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="11" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+          </TabControl>
+        </Grid>
+      </TabItem>
+
+      <!-- Response Tab -->
+      <TabItem Header="{loc:Loc HttpDetails_Tab_Response}">
+        <Grid>
+          <TabControl Margin="8">
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_Headers}">
+              <TextBox x:Name="ResponseHeadersBox" IsReadOnly="True" AcceptsReturn="True"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyRaw}">
+              <TextBox x:Name="ResponseBodyRawBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_BodyJson}">
+              <TextBox x:Name="ResponseBodyJsonBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+            <TabItem Header="{loc:Loc HttpDetails_SubTab_Hex}">
+              <TextBox x:Name="ResponseHexBox" IsReadOnly="True" AcceptsReturn="True"
+                       TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       FontFamily="Consolas" FontSize="11" BorderThickness="0"
+                       Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </TabItem>
+          </TabControl>
+        </Grid>
+      </TabItem>
+
+      <!-- Full Dump Tab -->
+      <TabItem Header="{loc:Loc HttpDetails_Tab_FullDump}">
+        <TextBox x:Name="FullDumpBox" IsReadOnly="True" AcceptsReturn="True"
+                 TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" Margin="8"
+                 FontFamily="Consolas" FontSize="12" BorderThickness="0"
+                 Background="{DynamicResource CodeBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" />
+      </TabItem>
+    </TabControl>
+  </Grid>
+</Window>
