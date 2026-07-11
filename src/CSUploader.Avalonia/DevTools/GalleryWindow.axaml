@@ -13,6 +13,88 @@
        contact-sheet reviewer can judge "tokens faithful + density close + everything renders". -->
   <Window.Resources>
     <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+
+    <!-- Phase 6 Task 2 (prep item 3): the DateTime<->DateTimeOffset? shim for the DatePicker below. Kept
+         gallery-local (like the Task 1 header probe's own theme) — Task 8 registers it where the wizard
+         needs it; a stateless converter costs nothing to instance twice. -->
+    <conv:DateTimeOffsetConverter x:Key="DateTimeOffsetConverter" />
+
+    <!-- Phase 6 Task 2 (prep item 5): first-cut custom Expander theme for the wizard's Summary step,
+         arbitrated here BEFORE Task 9 ports the Summary. Mirrors the WPF SummaryExpander/SummaryExpanderToggle
+         (UploadWizardWindow.xaml:36-108): a flat chevron ToggleButton that rotates on expand, a custom header
+         row, and a muted-surface body — replacing Fluent's lavender-bevel Expander chrome. Kept gallery-local
+         (WPF parity: the WPF theme is window-local; there is exactly one production consumer, so Task 9 authors
+         the real copy view-local in the wizard rather than hoisting a single-consumer theme to a shared file).
+
+         Expander has NO OnApplyTemplate / named-part lookup (ILSpy, Avalonia.Controls 11.3.18): it drives
+         content visibility purely via the :expanded pseudo-class and IsExpanded is a TwoWay StyledProperty,
+         so a free-form template works. The base HeaderedContentControl/ContentControl register
+         PART_HeaderPresenter/PART_ContentPresenter, so those two presenters keep their part names. -->
+    <ControlTheme x:Key="SummaryExpanderToggleTheme" TargetType="ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="Transparent" Padding="6,4">
+            <Path x:Name="Chevron" Width="8" Height="8" Stretch="Uniform"
+                  Fill="{DynamicResource TextPrimaryBrush}"
+                  Data="M 0,0 L 4,4 L 8,0 Z"
+                  RenderTransformOrigin="0.5,0.5">
+              <Path.RenderTransform>
+                <RotateTransform Angle="-90" />
+              </Path.RenderTransform>
+            </Path>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <!-- Collapsed (unchecked) -> chevron points right (-90); expanded (checked) -> points down (0).
+           Both states are pseudo-class styles so exactly one wins; the base -90 in the template is the
+           unchecked default (proven overridable by the Task 1 probe's :checked glyph swap on 11.3.18). -->
+      <Style Selector="^:checked /template/ Path#Chevron">
+        <Setter Property="RenderTransform">
+          <RotateTransform Angle="0" />
+        </Setter>
+      </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="SummaryExpanderTheme" TargetType="Expander">
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="3">
+            <Grid RowDefinitions="Auto,Auto">
+              <StackPanel Grid.Row="0" Orientation="Horizontal" Background="Transparent">
+                <ToggleButton Theme="{StaticResource SummaryExpanderToggleTheme}"
+                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              VerticalAlignment="Center" Margin="2,0,4,0" />
+                <ContentPresenter x:Name="PART_HeaderPresenter"
+                                  Content="{TemplateBinding Header}"
+                                  ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                  VerticalAlignment="Center" />
+              </StackPanel>
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                Grid.Row="1"
+                                IsVisible="False"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                Margin="0" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:expanded /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+    </ControlTheme>
   </Window.Resources>
 
   <ScrollViewer Padding="16">
@@ -108,10 +190,13 @@
         </StackPanel>
       </StackPanel>
 
-      <!-- Inputs. -->
+      <!-- Inputs. The DatePicker is bound through DateTimeOffsetConverter to a DateTime (GalleryDate on the
+           InputsRow DataContext) — the live round-trip the wizard's ScheduledDate relies on (Phase 6 Task 2
+           prep item 3). The echo TextBlock shows the bound DateTime, so picking a day proves ConvertBack. The
+           DataContext is scoped to this row only (nothing else here binds), leaving the window untouched. -->
       <StackPanel Spacing="6">
         <TextBlock Classes="section-header" Text="Inputs" />
-        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+        <StackPanel x:Name="InputsRow" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <TextBox Width="160" Text="Sample text" />
           <ComboBox SelectedIndex="1">
             <ComboBoxItem>First</ComboBoxItem>
@@ -120,7 +205,43 @@
           </ComboBox>
           <CheckBox IsChecked="True" Content="Checked" />
           <RadioButton IsChecked="True" Content="Option" />
-          <DatePicker />
+          <DatePicker x:Name="ArbitrationDatePicker"
+                      SelectedDate="{Binding GalleryDate, Converter={StaticResource DateTimeOffsetConverter}}" />
+          <TextBlock x:Name="DateEcho"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     Text="{Binding GalleryDate, StringFormat='bound DateTime = {0:yyyy-MM-dd}'}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Expander (Phase 6 Task 2, prep item 5): the wizard Summary step's custom Expander, arbitrated
+           against stock Fluent here BEFORE Task 9 ports it. Left = stock Fluent Expander (lavender bevel /
+           segmented chrome); right = the first-cut SummaryExpanderTheme (flat rotating chevron, custom header
+           row, muted-surface body). Both start expanded so the contact sheet compares the open look; the
+           bridge collapses the custom one to check the chevron rotation. -->
+      <StackPanel Spacing="6">
+        <TextBlock Classes="section-header" Text="Expander (stock Fluent vs custom SummaryExpanderTheme)" />
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <Expander x:Name="StockExpander" Width="330" Header="Stock Fluent" IsExpanded="True">
+            <StackPanel Margin="8" Spacing="4">
+              <TextBlock Text="Stock Fluent Expander body." />
+              <TextBlock Foreground="{DynamicResource TextSecondaryBrush}"
+                         Text="Default chevron + Fluent header chrome." />
+            </StackPanel>
+          </Expander>
+          <Expander x:Name="CustomExpander"
+                    Width="330"
+                    Theme="{StaticResource SummaryExpanderTheme}"
+                    IsExpanded="True">
+            <Expander.Header>
+              <TextBlock Margin="0,4" FontWeight="SemiBold" Text="Custom (Summary step)" />
+            </Expander.Header>
+            <StackPanel Margin="8" Spacing="4">
+              <TextBlock Text="Custom SummaryExpanderTheme body." />
+              <TextBlock Foreground="{DynamicResource TextSecondaryBrush}"
+                         Text="Flat rotating chevron, muted surface, no Fluent bevel." />
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </StackPanel>
 

@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using System.Globalization;
 using System.Text;
 using Avalonia;
@@ -55,6 +56,11 @@ public partial class GalleryWindow : Window
     private readonly IThemeApplier _themeApplier;
     private readonly IDialogService _dialogService;
     private readonly IUpdateProgressSink _updateProgressSink;
+
+    // The DatePicker's DateTime source (Phase 6 Task 2): scoped to InputsRow so the DatePicker's
+    // DateTimeOffsetConverter round-trip and the echo TextBlock have a notifying DateTime to bind. Seeded
+    // to a fixed date so the contact-sheet shot is deterministic.
+    private readonly GalleryDateModel _galleryDateModel = new() { GalleryDate = new DateTime(2026, 7, 15) };
     private bool _dark;
     private bool _updateProgressOpen;
 
@@ -85,6 +91,9 @@ public partial class GalleryWindow : Window
         // Each item is a file-name string bound through FileTypeIconConverter in the XAML template;
         // d.xyz is unknown on purpose (falls back to default_file — still a rendered SVG).
         FileTypeIconsPanel.ItemsSource = new[] { "a.mkv", "b.zip", "c.pdf", "d.xyz" };
+
+        // Scope the DatePicker's DateTime source to its row only (nothing else in InputsRow binds).
+        InputsRow.DataContext = _galleryDateModel;
 
         // Seed the toggle from the CURRENT variant so the first click always flips visibly: startup
         // applies the persisted theme (WPF parity) before this window opens, so the app is usually
@@ -499,6 +508,29 @@ public partial class GalleryWindow : Window
 
         public void Close()
         {
+        }
+    }
+
+    /// <summary>Notifying DateTime source for the DatePicker round-trip (Phase 6 Task 2): a plain
+    /// <see cref="INotifyPropertyChanged"/> so the echo TextBlock updates when ConvertBack writes a
+    /// picked day back through <see cref="Converters.DateTimeOffsetConverter"/>.</summary>
+    private sealed class GalleryDateModel : INotifyPropertyChanged
+    {
+        private DateTime _galleryDate;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public DateTime GalleryDate
+        {
+            get => _galleryDate;
+            set
+            {
+                if (_galleryDate != value)
+                {
+                    _galleryDate = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GalleryDate)));
+                }
+            }
         }
     }
 }
