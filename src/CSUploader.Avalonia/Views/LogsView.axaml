@@ -1,0 +1,232 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia port of the WPF Logs tab (src/Views/LogsView.xaml): an Auto-Scroll toggle over a 4-tab
+     TabControl (Status / HTTP / Errors / UI), each a per-tab Clear button above a read-only single-select
+     DataGrid. The four grids share the `log-grid` style class (the WPF LogDataGridStyle) plus the zebra
+     helper, per-grid column-visibility persistence, and a details-open path (double-tap / Enter) wired in
+     the code-behind. Cell visuals WPF expressed with DataGridTextColumn.ElementStyle map to CellStyleClasses
+     + DataGridCell.<class> TextBlock descendant styles (port rule 20). EVERY DataGridTextColumn binding is
+     Mode=OneWay (port rule 32): the DateTime (DateTimeFormatConverter) and URL (UrlDecodeConverter) columns
+     have throwing ConvertBacks, and Avalonia's default TwoWay column binding would write those back and blank
+     the source on bind — the read-only grid never edits, so OneWay throughout. -->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CSUploader.Converters"
+             xmlns:beh="clr-namespace:CSUploader.Behaviors"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             xmlns:upload="clr-namespace:CSUploader.Upload;assembly=CSUploader.Core"
+             x:Class="CSUploader.Views.LogsView"
+             Background="{DynamicResource LogBackgroundBrush}">
+
+  <UserControl.Resources>
+    <conv:DateTimeFormatConverter x:Key="DateTimeFormatConverter" />
+    <conv:UrlDecodeConverter x:Key="UrlDecodeConverter" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+    <!-- Shared log-grid chrome (WPF LogDataGridStyle, LogsView.xaml:45-75). RowHeight 22 maps the WPF
+         LogRowStyle MaxHeight=22 (rows are single-line); the base row Background is the grid Background
+         (LogBackgroundBrush) with the zebra helper tinting the alt rows. -->
+    <Style Selector="DataGrid.log-grid">
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="SelectionMode" Value="Single" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DataGridGridLineBrush}" />
+      <Setter Property="RowHeight" Value="22" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="beh:DataGridZebraStriping.IsEnabled" Value="True" />
+    </Style>
+
+    <!-- Zebra alt-row shading (Task 4 helper toggles the .alt class). -->
+    <Style Selector="DataGrid.log-grid DataGridRow.alt">
+      <Setter Property="Background" Value="{DynamicResource LogAltRowBrush}" />
+    </Style>
+
+    <!-- Column header chrome (WPF ColumnHeaderStyle, LogsView.xaml:62-73). -->
+    <Style Selector="DataGrid.log-grid DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Rule-20 cell classes: single-line ellipsis with a full-text tooltip (WPF LogMessageStyle /
+         LogUrlStyle). The ToolTip.Tip Binding setters resolve against the row item (the cell TextBlock's
+         DataContext) — the URL tooltip shows the url-decoded value for readability. -->
+    <Style Selector="DataGridCell.msg-cell TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="ToolTip.Tip" Value="{Binding Message}" />
+    </Style>
+    <Style Selector="DataGridCell.url-cell TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="ToolTip.Tip" Value="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Margin="4" RowDefinitions="Auto,*">
+
+    <!-- Auto-Scroll toggle -->
+    <CheckBox Grid.Row="0"
+              Content="{loc:Loc Logs_AutoScroll}"
+              IsChecked="{Binding AutoScroll}"
+              Margin="4,4,4,8" />
+
+    <!-- Log tabs -->
+    <TabControl Grid.Row="1">
+
+      <!-- Status tab -->
+      <TabItem Header="{loc:Loc Logs_Tab_Status}">
+        <Grid RowDefinitions="Auto,*">
+          <Button Grid.Row="0"
+                  Classes="jd2"
+                  Content="{loc:Loc Logs_BtnClear}"
+                  Command="{Binding ClearStatusLogsCommand}"
+                  HorizontalAlignment="Right"
+                  Width="80" Height="24" Margin="4" />
+          <DataGrid Grid.Row="1"
+                    x:Name="StatusLogGrid"
+                    Classes="log-grid"
+                    ItemsSource="{Binding StatusLogs}"
+                    Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"
+                    beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+                                  Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+                                  Binding="{Binding Filename, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+                                  Binding="{Binding Function, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+                                  Binding="{Binding LineNumber, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+                                  CellStyleClasses="msg-cell"
+                                  Binding="{Binding Message, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+                                  Binding="{Binding ThreadId, Mode=OneWay}" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </TabItem>
+
+      <!-- HTTP tab -->
+      <TabItem Header="{loc:Loc Logs_Tab_Http}">
+        <Grid RowDefinitions="Auto,*">
+          <Button Grid.Row="0"
+                  Classes="jd2"
+                  Content="{loc:Loc Logs_BtnClear}"
+                  Command="{Binding ClearHttpLogsCommand}"
+                  HorizontalAlignment="Right"
+                  Width="80" Height="24" Margin="4" />
+          <DataGrid Grid.Row="1"
+                    x:Name="HttpLogGrid"
+                    Classes="log-grid"
+                    ItemsSource="{Binding HttpLogs}"
+                    Tag="{x:Static upload:SettingKey.LogsHttpTabHiddenColumns}"
+                    beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+                                  Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Status}" Width="60"
+                                  Binding="{Binding StatusCode, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Method}" Width="70"
+                                  Binding="{Binding HttpTransaction.Method, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Url}" Width="320"
+                                  CellStyleClasses="url-cell"
+                                  Binding="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Proxy}" Width="140"
+                                  Binding="{Binding HttpTransaction.Proxy, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+                                  Binding="{Binding Filename, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+                                  Binding="{Binding Function, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+                                  Binding="{Binding LineNumber, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+                                  CellStyleClasses="msg-cell"
+                                  Binding="{Binding Message, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+                                  Binding="{Binding ThreadId, Mode=OneWay}" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </TabItem>
+
+      <!-- Errors tab -->
+      <TabItem Header="{loc:Loc Logs_Tab_Errors}">
+        <Grid RowDefinitions="Auto,*">
+          <Button Grid.Row="0"
+                  Classes="jd2"
+                  Content="{loc:Loc Logs_BtnClear}"
+                  Command="{Binding ClearErrorLogsCommand}"
+                  HorizontalAlignment="Right"
+                  Width="80" Height="24" Margin="4" />
+          <DataGrid Grid.Row="1"
+                    x:Name="ErrorLogGrid"
+                    Classes="log-grid"
+                    ItemsSource="{Binding ErrorLogs}"
+                    Tag="{x:Static upload:SettingKey.LogsErrorsTabHiddenColumns}"
+                    beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+                                  Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+                                  Binding="{Binding Filename, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+                                  Binding="{Binding Function, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+                                  Binding="{Binding LineNumber, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+                                  CellStyleClasses="msg-cell"
+                                  Binding="{Binding Message, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+                                  Binding="{Binding ThreadId, Mode=OneWay}" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </TabItem>
+
+      <!-- UI tab -->
+      <TabItem Header="{loc:Loc Logs_Tab_UI}">
+        <Grid RowDefinitions="Auto,*">
+          <Button Grid.Row="0"
+                  Classes="jd2"
+                  Content="{loc:Loc Logs_BtnClear}"
+                  Command="{Binding ClearUILogsCommand}"
+                  HorizontalAlignment="Right"
+                  Width="80" Height="24" Margin="4" />
+          <DataGrid Grid.Row="1"
+                    x:Name="UILogGrid"
+                    Classes="log-grid"
+                    ItemsSource="{Binding UILogs}"
+                    Tag="{x:Static upload:SettingKey.LogsUITabHiddenColumns}"
+                    beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+                                  Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+                                  Binding="{Binding Filename, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+                                  Binding="{Binding Function, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+                                  Binding="{Binding LineNumber, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+                                  CellStyleClasses="msg-cell"
+                                  Binding="{Binding Message, Mode=OneWay}" />
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+                                  Binding="{Binding ThreadId, Mode=OneWay}" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </TabItem>
+
+    </TabControl>
+  </Grid>
+</UserControl>

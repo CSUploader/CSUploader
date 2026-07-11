@@ -19,7 +19,7 @@
       <Border />
     </TabItem>
     <TabItem Header="{loc:Loc Main_Tab_Logs}">
-      <Border />
+      <views:LogsView DataContext="{Binding LogsViewModel}" />
     </TabItem>
   </TabControl>
 </Window>
