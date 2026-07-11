@@ -71,6 +71,10 @@ public partial class GalleryWindow : Window
         DialogErrorButton.Click += OnShowError;
         DialogConfirmButton.Click += OnShowConfirm;
         DialogOptOutButton.Click += OnShowOptOut;
+        PickFolderButton.Click += OnPickFolder;
+        PickFilesButton.Click += OnPickFiles;
+        PickOpenFileButton.Click += OnPickOpenFile;
+        PickSaveFileButton.Click += OnPickSaveFile;
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)
@@ -97,6 +101,41 @@ public partial class GalleryWindow : Window
         => _ = _dialogService.ShowOptOutConfirmationAsync(
             "gallery-" + Guid.NewGuid().ToString("N"),
             "Remove this account and all of its uploads?\nThis cannot be undone.");
+
+    // The four picker launchers call the REAL IDialogService picker members (native OS dialogs). They are
+    // "manual only": the bridge cannot drive or screenshot a native modal, so the agent never clicks them
+    // in a session — they are here for manual smoke and a crash-free open check. Each writes the
+    // returned path(s) into PickerResultText. Representative filters/defaultExt exercise the real
+    // filter-parse + TrimStart paths (the JSON-export shape UploadedViewModel uses).
+    private async void OnPickFolder(object? sender, RoutedEventArgs e)
+    {
+        string? path = await _dialogService.BrowseFolderAsync();
+        PickerResultText.Text = path is null ? "Picker result: folder — (cancelled)" : $"Picker result: folder — {path}";
+    }
+
+    private async void OnPickFiles(object? sender, RoutedEventArgs e)
+    {
+        string[]? paths = await _dialogService.BrowseFilesAsync(filter: "All files (*.*)|*.*");
+        PickerResultText.Text = paths is null
+            ? "Picker result: files — (cancelled)"
+            : $"Picker result: files — {string.Join(", ", paths)}";
+    }
+
+    private async void OnPickOpenFile(object? sender, RoutedEventArgs e)
+    {
+        string? path = await _dialogService.BrowseOpenFileAsync(
+            filter: "JSON files (*.json)|*.json|All files (*.*)|*.*", defaultExt: ".json");
+        PickerResultText.Text = path is null ? "Picker result: open — (cancelled)" : $"Picker result: open — {path}";
+    }
+
+    private async void OnPickSaveFile(object? sender, RoutedEventArgs e)
+    {
+        string? path = await _dialogService.BrowseSaveFileAsync(
+            suggestedFileName: "export.json",
+            filter: "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            defaultExt: ".json");
+        PickerResultText.Text = path is null ? "Picker result: save — (cancelled)" : $"Picker result: save — {path}";
+    }
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
     private sealed class NoopThemeApplier : IThemeApplier

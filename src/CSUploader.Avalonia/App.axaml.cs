@@ -137,8 +137,23 @@ public partial class App : Application
                     _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Error,
                         $"Startup initialization failed: {ex}");
                     mainWindow.Title = "CSUploader — startup failed (see logs)";
-                    await _serviceProvider.GetRequiredService<IDialogService>()
-                        .ShowErrorAsync($"Startup initialization failed:\n\n{ex.Message}");
+
+                    // The error dialog itself can throw (owner/StorageProvider resolution, a disposed
+                    // provider), and this is an async-void handler — an escaping exception would reach
+                    // the dispatcher loop and, past the UnhandledException hook's Handled marking, still
+                    // risks tearing down startup. Best-effort: a secondary failure is logged only, so the
+                    // primary startup error stays the reported cause.
+                    try
+                    {
+                        await _serviceProvider.GetRequiredService<IDialogService>()
+                            .ShowErrorAsync($"Startup initialization failed:\n\n{ex.Message}");
+                    }
+                    catch (Exception dialogEx)
+                    {
+                        _serviceProvider.GetRequiredService<IAppLogger>().Log(this, LogType.Error,
+                            $"Failed to show the startup-failure error dialog: {dialogEx}");
+                    }
+
                     return;
                 }
 
@@ -198,7 +213,7 @@ public partial class App : Application
         services.AddCoreServices(baseDirectory);
 
         // UI services (Avalonia implementations of Core interfaces)
-        services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error; pickers/dialogs land through Phase 4 tasks; 3 account/proxy members Phase 5
+        services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
         services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();  // no-op until Phase 4
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();

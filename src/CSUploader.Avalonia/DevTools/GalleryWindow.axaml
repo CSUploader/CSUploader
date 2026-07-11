@@ -253,6 +253,30 @@
                   AutomationProperties.AutomationId="DialogOptOutButton"
                   Classes="secondary" Content="Show opt-out confirm" />
         </StackPanel>
+
+        <!-- StorageProvider pickers (Phase 4 Task 4): these open NATIVE OS dialogs the bridge cannot
+             drive or screenshot, so the agent never clicks them in a bridge session (a native modal would
+             wedge the drive loop). They exist for manual click-through smoke and a crash-free
+             open check; each is tooltip-marked "manual only". The result path(s) land in PickerResultText.
+             The builders behind these members are unit-tested (PickerOptionsTests); the native open is
+             the only manually-verified part. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="PickFolderButton"
+                  AutomationProperties.AutomationId="PickFolderButton"
+                  Classes="secondary" Content="Pick folder…" ToolTip.Tip="manual only" />
+          <Button x:Name="PickFilesButton"
+                  AutomationProperties.AutomationId="PickFilesButton"
+                  Classes="secondary" Content="Pick files (multi)…" ToolTip.Tip="manual only" />
+          <Button x:Name="PickOpenFileButton"
+                  AutomationProperties.AutomationId="PickOpenFileButton"
+                  Classes="secondary" Content="Open file…" ToolTip.Tip="manual only" />
+          <Button x:Name="PickSaveFileButton"
+                  AutomationProperties.AutomationId="PickSaveFileButton"
+                  Classes="secondary" Content="Save file…" ToolTip.Tip="manual only" />
+        </StackPanel>
+        <TextBlock x:Name="PickerResultText" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Text="Picker result: (none yet)" />
       </StackPanel>
 
     </StackPanel>

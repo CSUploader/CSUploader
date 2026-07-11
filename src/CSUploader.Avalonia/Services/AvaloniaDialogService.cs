@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net.Http;
@@ -13,9 +14,11 @@ namespace CSUploader.Services;
 /// is real from Phase 4 Task 3: <see cref="ShowErrorAsync"/>, <see cref="ShowConfirmationAsync"/>, and
 /// the base's opt-out flow all route through <see cref="MessageBoxWindow"/> and the shared
 /// <see cref="DialogOwnerResolver"/> (with the null-owner policy: a message box shows ownerless rather
-/// than yanking the tray-hidden main window up). The StorageProvider pickers and the ported dialog
-/// windows arrive through the remaining Phase 4 tasks; the three account/proxy editor members stay
-/// <see cref="NotImplementedException"/> until Phase 5 builds their windows.
+/// than yanking the tray-hidden main window up). The four StorageProvider pickers are real from Phase 4
+/// Task 4 (they reveal the main window first via <see cref="GetOwnerOrRevealAsync"/>, since a native
+/// picker needs a visible parent); the remaining ported dialog windows arrive through the later Phase 4
+/// tasks, and the three account/proxy editor members stay <see cref="NotImplementedException"/> until
+/// Phase 5 builds their windows.
 /// </summary>
 public sealed class AvaloniaDialogService(AppSettings settings, SettingRepository settingRepository, ITrayIconService trayIcon)
     : DialogServiceBase(settings, settingRepository), IDialogService
@@ -51,17 +54,114 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
         return Task.FromResult(owner);
     }
 
-    public Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null) =>
-        throw new NotImplementedException("StorageProvider pickers arrive in Phase 4 Task 4 — BrowseFolderAsync tracked there.");
+    // ── StorageProvider pickers (Phase 4 Task 4) ─────────────────────────────────────────────────
+    // The four Browse members replace the WPF head's Ookii.Dialogs + Microsoft.Win32 dialogs
+    // (src/Services/DialogService.cs:49-126). The owner (hence the StorageProvider) is resolved through
+    // GetOwnerOrRevealAsync so a tray-hidden main window is revealed first — a native picker demands a
+    // visible parent. Selections map back to on-disk paths via TryGetLocalPath(): the WPF contract is a
+    // string path, and Windows local-disk picks always carry one; a picked item from a non-filesystem
+    // provider (TryGetLocalPath == null) is treated as no selection (Reality-check #16). The option
+    // construction is factored into the internal Build* builders below because the pickers themselves are
+    // native and cannot run headlessly (Reality-check #11) — the builders are the pinnable, tested half.
 
-    public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null) =>
-        throw new NotImplementedException("StorageProvider pickers arrive in Phase 4 Task 4 — BrowseFilesAsync tracked there.");
+    public async Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null)
+    {
+        IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
 
-    public Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null) =>
-        throw new NotImplementedException("StorageProvider pickers arrive in Phase 4 Task 4 — BrowseOpenFileAsync tracked there.");
+        // TryGetFolderFromPathAsync returns null on a missing/invalid path (never throws — Reality-check
+        // #10), which just means "no suggested start location".
+        IStorageFolder? start = string.IsNullOrEmpty(initialDirectory)
+            ? null
+            : await storage.TryGetFolderFromPathAsync(initialDirectory);
 
-    public Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null) =>
-        throw new NotImplementedException("StorageProvider pickers arrive in Phase 4 Task 4 — BrowseSaveFileAsync tracked there.");
+        IReadOnlyList<IStorageFolder> picked = await storage.OpenFolderPickerAsync(
+            BuildFolderOptions(title ?? Localizer.Instance["Common_SelectFolder"], start));
+
+        return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+    }
+
+    public async Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null)
+    {
+        IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
+
+        IReadOnlyList<IStorageFile> picked = await storage.OpenFilePickerAsync(
+            BuildOpenOptions(title ?? Localizer.Instance["Common_SelectFiles"], filter, multiple: true));
+
+        if (picked.Count == 0)
+        {
+            return null;
+        }
+
+        // Drop any non-filesystem picks (null local path); an all-non-local selection collapses to the
+        // WPF cancel contract (null).
+        string[] paths = [.. picked.Select(f => f.TryGetLocalPath()).OfType<string>()];
+        return paths.Length > 0 ? paths : null;
+    }
+
+    // defaultExt is a documented no-op on Avalonia: open pickers have no "append this extension to a bare
+    // typed name" concept (that belongs to the save picker only). The parameter is kept for interface
+    // parity with the WPF head and dropped silently here.
+    public async Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null)
+    {
+        IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
+
+        IReadOnlyList<IStorageFile> picked = await storage.OpenFilePickerAsync(
+            BuildOpenOptions(title ?? Localizer.Instance["Common_SelectFiles"], filter, multiple: false));
+
+        return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
+    }
+
+    public async Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null)
+    {
+        IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
+
+        IStorageFile? picked = await storage.SaveFilePickerAsync(
+            BuildSaveOptions(suggestedFileName, filter, defaultExt));
+
+        return picked?.TryGetLocalPath();
+    }
+
+    // Option builders: pure, framework-only construction so they can be pinned by unit tests while the
+    // native pickers above cannot run headlessly. WPF's Win32 filter string is mapped 1:1 to
+    // FilePickerFileType via the Core FileDialogFilterParser (already unit-tested); an empty/absent filter
+    // yields null (Avalonia's "no filter"). Titles are passed in already-resolved (the members apply the
+    // Localizer default) so these stay Localizer-free.
+
+    internal static FolderPickerOpenOptions BuildFolderOptions(string title, IStorageFolder? suggestedStartLocation) =>
+        new()
+        {
+            Title = title,
+            AllowMultiple = false,
+            SuggestedStartLocation = suggestedStartLocation,
+        };
+
+    internal static FilePickerOpenOptions BuildOpenOptions(string title, string? filter, bool multiple) =>
+        new()
+        {
+            Title = title,
+            AllowMultiple = multiple,
+            FileTypeFilter = MapFilter(filter),
+        };
+
+    // No Title: mirrors the WPF SaveFileDialog, which sets none. DefaultExtension gets the bare extension
+    // — every WPF caller passes ".txt"/".json" and Avalonia wants "txt"/"json" (the prep-item wrinkle).
+    // ShowOverwritePrompt is left unset (bool? default null = "use the platform default", which is
+    // prompt-on-overwrite on Windows — WPF SaveFileDialog parity; the plan's "default true" was off).
+    internal static FilePickerSaveOptions BuildSaveOptions(string? suggestedName, string? filter, string? defaultExt) =>
+        new()
+        {
+            SuggestedFileName = suggestedName,
+            DefaultExtension = string.IsNullOrEmpty(defaultExt) ? null : defaultExt.TrimStart('.'),
+            FileTypeChoices = MapFilter(filter),
+        };
+
+    private static IReadOnlyList<FilePickerFileType>? MapFilter(string? filter)
+    {
+        IReadOnlyList<FileDialogFilterParser.FilterEntry> entries = FileDialogFilterParser.Parse(filter);
+        return entries.Count == 0
+            ? null
+            : [.. entries.Select(e => new FilePickerFileType(e.Name) { Patterns = e.Patterns })];
+    }
 
     public Task ShowHttpDetailsAsync(HttpTransaction transaction) =>
         throw new NotImplementedException("HttpDetailsWindow arrives in Phase 4 Task 7 — ShowHttpDetailsAsync tracked there.");
