@@ -11,9 +11,12 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
+using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Upload;
 using CSUploader.ViewModels;
 using CSUploader.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -181,6 +184,49 @@ public sealed class ReferenceShotCapture(IServiceProvider services)
         ("about", static () => new AboutWindow()),
         ("logdetails", static () => new LogDetailsWindow(new LogEntryViewModel(SynthLogEvent()))),
         ("httpdetails", static () => new HttpDetailsWindow(SynthTransaction())),
+        ("editaccount-classic", static () => new EditAccountWindow(
+            new FileHosterLoginDto
+            {
+                Id = 1, // edit mode → locked-hoster border (EditAccountWindow.xaml.cs:109-117)
+                FileHosterName = "Rapidgator",
+                Username = "fake_rg_user",
+                Password = "not-a-real-password",
+                AccountType = AccountType.Premium,
+            },
+            ["Rapidgator", "KatFile", "Isracloud"])),
+        ("editaccount-apikey", static () => new EditAccountWindow(
+            new FileHosterLoginDto { FileHosterName = "KatFile", AccountType = AccountType.Free, ApiKey = "fake-api-key-0123456789abcdef" },
+            ["Rapidgator", "KatFile", "Isracloud"])),
+        ("editaccount-cookie", static () => new EditAccountWindow(
+            new FileHosterLoginDto { FileHosterName = "Isracloud", AccountType = AccountType.Free },
+            ["Rapidgator", "KatFile", "Isracloud"])),
+        ("editaccount-error", static () =>
+        {
+            EditAccountWindow w = new(
+                new FileHosterLoginDto { FileHosterName = "KatFile", AccountType = AccountType.Free },
+                ["Rapidgator", "KatFile", "Isracloud"]);
+            // The error state ShowSignInError produces (EditAccountWindow.xaml.cs:227-237), poked
+            // via the internal x:Name fields — the same post-construction technique as `progress`.
+            w.SignInStatus.Visibility = Visibility.Collapsed;
+            w.SignInErrorPanel.Visibility = Visibility.Visible;
+            w.SignInErrorText.Text = string.Format(
+                CultureInfo.CurrentCulture, "{0}: {1}",
+                Localizer.Instance["Common_Error"], "Sign-in failed: invalid credentials");
+            return w;
+        }),
+        ("editproxy", static () => new EditProxyWindow(
+            new ProxySettingDto { Type = ProxyType.Http, Host = "127.0.0.1", Port = 8080, Username = "fake_proxy_user", Password = "not-a-real-password", Enabled = true })),
+        ("editproxy-tested", static () =>
+        {
+            EditProxyWindow w = new(
+                new ProxySettingDto { Type = ProxyType.Http, Host = "127.0.0.1", Port = 8080, Enabled = true });
+            // The post-Test look (EditProxyWindow.xaml.cs:87-89, :108): OK status line + Details button.
+            w.TestStatusText.Text = string.Format(
+                CultureInfo.CurrentCulture, Localizer.Instance["EditProxy_Status_OkLatencyIp_Format"], 142, "203.0.113.7");
+            w.TestStatusText.Visibility = Visibility.Visible;
+            w.TestDetailsButton.Visibility = Visibility.Visible;
+            return w;
+        }),
     ];
 
     // A verbose sign-in failure — the human summary plus a ~600-char HTML error page, the kind of
