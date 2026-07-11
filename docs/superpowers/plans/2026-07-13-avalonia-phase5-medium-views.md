@@ -304,7 +304,7 @@ Prep item 8. Avalonia's DataGrid has no `AlternatingRowBackground`; the design p
 - Produces: attached property `DataGridZebraStriping.IsEnabled` (owner-typed like the Phase 3 behaviors, DataGridSelectionBehaviors.cs:41-47); rows get/lose the style class **`alt`**; consumers add a view style `DataGridRow.alt { Background = <their alt brush> }` (`LogAltRowBrush` for the log grids, `DataGridAltRowBrush` for UploadedView — both already in ThemeBrushes.axaml, light+dark).
 - Consumes: `DataGrid.LoadingRow`/`UnloadingRow`, `DataGridRow.Index` (§Reality-check #8; basis per the Task 2 checklist-7 verdict — if `GetIndex()` counts differently on a grouped view, implement the recorded basis).
 
-- [ ] **Step 1: Implement.**
+- [x] **Step 1: Implement.**
 
 ```csharp
 public sealed class DataGridZebraStriping
@@ -344,8 +344,10 @@ public sealed class DataGridZebraStriping
 ```
 
   (Adjust the index expression if the Task 2 checklist-7 verdict recorded a different basis for grouped views — one helper, one basis, both grid families.)
-- [ ] **Step 2: Headless tests.** Grid with 6 rows + the helper + an `alt` style: realized odd rows carry the class and the alt background; even rows don't; adding a row keeps parity correct; disabling removes handlers (new rows unclassed).
-- [ ] **Step 3:** Full suite gate; record counts. **Commit** — `"feat(avalonia): shared DataGrid zebra-striping helper (LoadingRow index classes; AlternatingRowBackground has no Avalonia equivalent)"`
+- [x] **Step 2: Headless tests.** Grid with 6 rows + the helper + an `alt` style: realized odd rows carry the class and the alt background; even rows don't; adding a row keeps parity correct; disabling removes handlers (new rows unclassed).
+- [x] **Step 3:** Full suite gate; record counts. **Commit** — `"feat(avalonia): shared DataGrid zebra-striping helper (LoadingRow index classes; AlternatingRowBackground has no Avalonia equivalent)"`
+
+**Task 4 outcome (executed 2026-07-11, commit `60d5e67`; reviewed + checkboxes marked by the review commit, Phase 4 Task 6 precedent):** DONE — **APPROVED**. Baselines at this gate: WPF **1178/1178**, Avalonia **246 → 251** (+5 zebra tests), both heads 0-warning (`--no-incremental` rebuild confirmed). Shipped `Behaviors/DataGridZebraStriping.cs` (attached `IsEnabled`, sealed non-static like the Phase 3 behaviors) — `LoadingRow` sets `Classes.Set("alt", Row.Index % 2 == 1)`, `UnloadingRow` clears. **Parity verified against the WPF reference:** WPF `AlternationCount=2` tints AlternationIndex 1 (odd rows) via `AlternatingRowBackground`, row 0 default — so `Index % 2 == 1` (odd = alt) matches, and row 0's background agrees across heads (LogsView.xaml:57-58, UploadedView.xaml:102; `LogAltRowBrush`/`DataGridAltRowBrush` hex identical in both heads' theme dictionaries). Uses `.Index` (not `[Obsolete]` `GetIndex()`). Leak surface: handlers ride the grid's OWN `LoadingRow`/`UnloadingRow` as static methods, so enable/disable is pure subscribe/unsubscribe with nothing external to pin the grid (simpler than `AutoScrollBehavior`'s collection case — no detach hook needed). Five `[AvaloniaFact]`s, all non-vacuous (odd rows assert `Assert.Same(AltBrush, row.Background)` — the exact style-resolved instance; `Unloading`/`GroupedGrid` assert realization explicitly); the grouped test uses the Task 2 probe fixture shape (3/2/2, flat index 0..6). Also folds the Task 3 review advisory into `DataGridColumnMenu.AttachToHeaders` XML doc (do-not-double-attach warning). Scope = 3 files as briefed. **Minor non-blocking nits (not fixed):** (a) `Enabled_OddRowsGetAltClassAndBackground_EvenRowsDoNot` has no explicit non-empty guard so it would pass vacuously if no row realized — mitigated because sibling tests prove headless realization; (b) the new `AttachToHeaders` remark opens lowercase ("do NOT…").
 
 ---
 
