@@ -29,7 +29,25 @@
     <conv:StepFontConverter x:Key="StepFontConverter" />
     <conv:EnumBoolConverter x:Key="EnumBoolConverter" />
     <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
+    <!-- Task 8: step 1's hoster-icon column + step 3's DatePicker. DateTimeOffsetConverter (Task 2) bridges
+         the DatePicker's DateTimeOffset? SelectedDate to the VM's non-nullable DateTime ScheduledDate
+         (rule 36); a stateless converter is harmless to instance per-window (Task 2 placement note). -->
+    <conv:HosterIconConverter x:Key="HosterIconConverter" />
+    <conv:DateTimeOffsetConverter x:Key="DateTimeOffsetConverter" />
   </Window.Resources>
+
+  <!-- Step 1's "Add account…" affordance is a Classes="link" TextBlock (rule 28 — the Avalonia stand-in for
+       the WPF Hyperlink): accent text, hand cursor, underline on hover; a left-button PointerReleased handler
+       runs AddAccountForHosterCommand (mirrors EditAccountWindow's Details link). -->
+  <Window.Styles>
+    <Style Selector="TextBlock.link">
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="TextBlock.link:pointerover">
+      <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+  </Window.Styles>
 
   <Grid RowDefinitions="Auto,*,Auto">
 
@@ -188,7 +206,186 @@
         </StackPanel>
       </Grid>
 
-      <!-- Steps 1 (hosters), 2 (Summary) and 3 (start mode) land in Tasks 8-9. -->
+      <!-- Step 1: File Hosters (Task 8). Per-row enable checkbox + account association; the display
+           columns are read-only (rule 32 — the row VM is only ever read here). BoolToVisibility sites
+           (rule 33) → IsVisible; the WPF DataTrigger-driven per-row !CanUse dim (+ tooltip) and the
+           italic-when-no-saved-accounts hoster name become conditional-class bindings (rule 40). The grid
+           is SelectionMode=Single with the ClearSelectionOnEmptyClick + SelectRowOnRightClick behaviors. -->
+      <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,*,Auto"
+            IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+
+        <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
+        <TextBlock Grid.Row="1" Text="{loc:Loc Wizard_Step2_Desc}"
+                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
+
+        <DataGrid Grid.Row="2" x:Name="fileHostersGrid" ItemsSource="{Binding FileHosters}"
+                  AutoGenerateColumns="False" SelectionMode="Single"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="All"
+                  HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                  VerticalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
+                  Background="{DynamicResource ContentBackgroundBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                  beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
+                  beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+          <DataGrid.Styles>
+            <!-- Conditional classes bound to each row's FileHosterSelectionViewModel, scoped to this grid so
+                 they reach the cell-template content (the same mechanism the step-0 check-center style uses).
+                 .blocked = WPF's !CanUse Opacity=0.45 (+ the account-required tooltip); .no-accounts = WPF's
+                 !HasAccounts FontStyle=Italic. -->
+            <Style Selector="StackPanel.blocked">
+              <Setter Property="Opacity" Value="0.45" />
+              <Setter Property="ToolTip.Tip" Value="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+            </Style>
+            <Style Selector="TextBlock.blocked">
+              <Setter Property="Opacity" Value="0.45" />
+            </Style>
+            <Style Selector="TextBlock.no-accounts">
+              <Setter Property="FontStyle" Value="Italic" />
+            </Style>
+          </DataGrid.Styles>
+          <DataGrid.Columns>
+            <!-- Use: the two-way enable checkbox when the row is usable, else an "account required" MDL2
+                 glyph (rule 33 both ways — IsVisible=CanUse / IsVisible=!CanUse). -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Use}" Width="42" SortMemberPath="Use">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <CheckBox IsChecked="{Binding Use}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              IsVisible="{Binding CanUse}" />
+                    <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               IsVisible="{Binding !CanUse}"
+                               ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+                  </Grid>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <!-- FileHoster: icon + name; dimmed with a tooltip when !CanUse, italic when no saved accounts. -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_FileHoster}" Width="180" IsReadOnly="True"
+                                    SortMemberPath="FileHosterName"
+                                    ClipboardContentBinding="{Binding FileHosterName}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                              Classes.blocked="{Binding !CanUse}">
+                    <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
+                           Width="18" Height="18" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding FileHosterName}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Classes.no-accounts="{Binding !HasAccounts}" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <!-- Account: the saved-accounts + synthetic-Anonymous dropdown (two-way SelectedAccount) when
+                 usable; otherwise an "Add account…" link (rule 28) that opens the add-account dialog for
+                 this hoster. The command lives on the grid's DataContext (the wizard VM). -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Account}" Width="*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Grid>
+                    <ComboBox ItemsSource="{Binding AccountOptions}"
+                              SelectedItem="{Binding SelectedAccount}"
+                              DisplayMemberBinding="{Binding Username}"
+                              VerticalAlignment="Center" HorizontalAlignment="Left"
+                              Width="200" Padding="4,2" FontSize="12"
+                              IsVisible="{Binding CanUse}" />
+                    <TextBlock Classes="link" VerticalAlignment="Center" FontSize="12" Padding="6,2"
+                               Text="{loc:Loc Wizard_Step2_AddAccountLink}"
+                               IsVisible="{Binding !CanUse}"
+                               ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}"
+                               PointerReleased="AddAccountLink_PointerReleased" />
+                  </Grid>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <!-- Max file size for the selected account (re-resolves when the account dropdown changes —
+                 tiers can differ). Read-only display (rule 32). -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxFileSize}" Width="110" IsReadOnly="True"
+                                    SortMemberPath="MaxFileSizeBytes"
+                                    ClipboardContentBinding="{Binding MaxFileSizeDisplay}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding MaxFileSizeDisplay}" FontSize="12"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                             Classes.blocked="{Binding !CanUse}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Hoster-limit violations surface in-place (not a dialog) so the user sees which constraints fail
+             while toggling hosters/files; Next stays disabled (via CanGoNext) until the list empties. -->
+        <Border Grid.Row="3" x:Name="HosterWarningsBorder" Margin="0,8,0,0" Padding="8,6"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="1"
+                CornerRadius="3"
+                IsVisible="{Binding HasHosterValidationWarnings}">
+          <StackPanel>
+            <TextBlock Text="{loc:Loc Wizard_Hoster_LimitsHeader}"
+                       FontWeight="SemiBold" FontSize="12"
+                       Foreground="{DynamicResource ErrorBrush}" Margin="0,0,0,4" />
+            <!-- Cap the inner height so a package with many oversized files doesn't push the buttons off. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled" MaxHeight="120">
+              <ItemsControl ItemsSource="{Binding HosterValidationWarnings}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" Margin="0,1" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Step 2 (Summary — custom Expander) lands in Task 9. -->
+
+      <!-- Step 3: When to start (Task 8). The three start-mode RadioButtons are the two-way EnumBool group
+           (prep 8 / RC #21): clicking a button writes StartMode; an external StartMode change re-checks the
+           matching button and unchecks the others, whose ConvertBack(false) returns BindingOperations.DoNothing
+           so an uncheck never nulls the enum. The scheduled row's DatePicker binds the non-nullable DateTime
+           ScheduledDate through DateTimeOffsetConverter (rule 36); the time is a free-text TextBox. -->
+      <StackPanel x:Name="Step3Panel"
+                  IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+        <TextBlock Text="{loc:Loc Wizard_Step3_Title}" FontSize="16" FontWeight="SemiBold"
+                   Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
+        <TextBlock Text="{loc:Loc Wizard_Step3_Desc}"
+                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,16" />
+
+        <StackPanel Margin="0,0,0,12">
+          <RadioButton x:Name="ImmediatelyRadio" Content="{loc:Loc Wizard_Step3_Mode_Immediately}"
+                       IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Immediately}"
+                       GroupName="WizardStartMode" Margin="0,0,0,10" FontSize="12" />
+          <RadioButton x:Name="LaterRadio" Content="{loc:Loc Wizard_Step3_Mode_Later}"
+                       IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Later}"
+                       GroupName="WizardStartMode" Margin="0,0,0,10" FontSize="12" />
+          <RadioButton x:Name="ScheduledRadio" Content="{loc:Loc Wizard_Step3_Mode_Scheduled}"
+                       IsChecked="{Binding StartMode, Converter={StaticResource EnumBoolConverter}, ConverterParameter=Scheduled}"
+                       GroupName="WizardStartMode" Margin="0,0,0,10" FontSize="12" />
+        </StackPanel>
+
+        <StackPanel x:Name="ScheduledRow" Orientation="Horizontal" Margin="24,0,0,0"
+                    IsVisible="{Binding IsScheduledMode}">
+          <DatePicker x:Name="ScheduledDatePicker"
+                      SelectedDate="{Binding ScheduledDate, Converter={StaticResource DateTimeOffsetConverter}}"
+                      Width="160" FontSize="12" />
+          <TextBox Text="{Binding ScheduledTime}" Width="70" Margin="8,0,0,0"
+                   FontSize="12" Padding="4,3" VerticalContentAlignment="Center" />
+          <TextBlock Text="{loc:Loc Wizard_Step3_TimeFormatHint}"
+                     Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                     Margin="8,0,0,0" FontSize="11" />
+        </StackPanel>
+      </StackPanel>
     </Grid>
 
     <!-- Bottom buttons -->

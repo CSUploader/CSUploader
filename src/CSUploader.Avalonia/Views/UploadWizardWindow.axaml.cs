@@ -37,6 +37,13 @@ public partial class UploadWizardWindow : Window
 {
     private readonly UploadWizardViewModel _vm;
 
+    /// <summary>
+    /// The hand-built wizard VM. Internal so the gallery dev surface can seed a sample
+    /// <see cref="UploadWizardViewModel.DirectoryPath"/> before showing (the agent bridge can't commit the
+    /// LostFocus-bound directory box, so the gallery pre-loads a fake directory to exercise steps 0-1).
+    /// </summary>
+    internal UploadWizardViewModel ViewModel => _vm;
+
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses the
     // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services hand-
     // build, so it only functions with a live desktop provider — never invoked in production or the headless
@@ -107,4 +114,35 @@ public partial class UploadWizardWindow : Window
     }
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+    // Rule 28/10: step 1's "Add account…" affordance is a Classes="link" TextBlock (not a WPF Hyperlink), so
+    // the click runs the VM command from code-behind on a LEFT-button release only. The link only renders for
+    // a !CanUse row, whose DataContext is that row's FileHosterSelectionViewModel — the exact command argument.
+    private void AddAccountLink_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (sender is Control { DataContext: FileHosterSelectionViewModel hoster })
+        {
+            InvokeAddAccountForHoster(hoster);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Runs <see cref="UploadWizardViewModel.AddAccountForHosterCommand"/> for a hoster row. Internal so the
+    /// headless suite can verify the step-1 link's command wiring without synthesizing a real left-button
+    /// pointer release on a cell-template TextBlock (the sanctioned fallback the EditAccountWindow Details
+    /// link uses). The async command gates re-entrancy via its own CanExecute while the dialog is open.
+    /// </summary>
+    internal void InvokeAddAccountForHoster(FileHosterSelectionViewModel hoster)
+    {
+        if (_vm.AddAccountForHosterCommand.CanExecute(hoster))
+        {
+            _vm.AddAccountForHosterCommand.Execute(hoster);
+        }
+    }
 }

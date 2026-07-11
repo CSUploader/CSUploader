@@ -5,6 +5,7 @@
 
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -451,7 +452,31 @@ public partial class GalleryWindow : Window
     private void OnShowWizard(object? sender, RoutedEventArgs e)
     {
         IServiceProvider sp = ((App)Application.Current!).Services;
-        new UploadWizardWindow(sp.GetRequiredService<UploadsViewModel>()).Show(this);
+        UploadWizardWindow wizard = new(sp.GetRequiredService<UploadsViewModel>());
+
+        // Seed a throwaway directory of placeholder files so the gallery surface exercises steps 0-1 with
+        // real data. The agent bridge can't commit the LostFocus-bound DirectoryPath box (a local SetValue
+        // overrides the binding), and an empty Files list can't reach the hosters step — so pre-load the
+        // directory here (which auto-runs the file scan). Dev-tool only: the gallery is DEBUG-only.
+        wizard.ViewModel.DirectoryPath = EnsureWizardSampleDirectory();
+        wizard.Show(this);
+    }
+
+    /// <summary>Creates (idempotently) a small directory of placeholder files for the gallery wizard.</summary>
+    private static string EnsureWizardSampleDirectory()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "csu-gallery-wizard-sample");
+        Directory.CreateDirectory(dir);
+        foreach ((string Name, int Size) file in new[] { ("clip.mkv", 4096), ("archive.zip", 2048), ("notes.txt", 128) })
+        {
+            string path = Path.Combine(dir, file.Name);
+            if (!File.Exists(path))
+            {
+                File.WriteAllBytes(path, new byte[file.Size]);
+            }
+        }
+
+        return dir;
     }
 
     /// <summary>No-op <see cref="IThemeApplier"/> for the tooling-only parameterless ctor.</summary>
