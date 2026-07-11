@@ -78,6 +78,71 @@
     <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
   </Style>
 
+  <!-- Editor dialog classes (Phase 5 prep item 3): the two WPF editors carried ~85 duplicated
+       window-local lines each; shared here ONCE — a recorded deviation from the per-window rule.
+       Field inputs pin Height 28 + Padding 8,0 (the EditAccountWindow variant, whose comment
+       explains the TextBox/ComboBox alignment); EditProxy's 8,5-padding / 29px-combo divergence
+       is dropped as sub-pixel — the contact sheet arbitrates. -->
+  <Style Selector="TextBlock.field-label">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,12,0" />
+  </Style>
+  <Style Selector="TextBox.field-input">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="ComboBox.field-combo">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="BorderBrush" Value="{DynamicResource InputFieldBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.dialog">
+    <Setter Property="Width" Value="90" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource DialogButtonBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DialogButtonBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="12,0" />
+  </Style>
+  <Style Selector="Button.dialog:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DialogButtonHoverBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DialogButtonHoverBorderBrush}" />
+  </Style>
+  <Style Selector="Button.dialog:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DialogButtonPressedBgBrush}" />
+  </Style>
+  <Style Selector="Button.save">
+    <Setter Property="Width" Value="90" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Background" Value="{DynamicResource SaveButtonBgBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SaveButtonBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="12,0" />
+  </Style>
+  <Style Selector="Button.save:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SaveButtonHoverBgBrush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.save:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SaveButtonPressedBgBrush}" />
+  </Style>
+
   <!-- DataGrid baseline: compact rows + the runtime-overridable grid font. RowHeight consumes the
        DataGridRowHeight token so Tokens.axaml is the single source of truth (parity with the WPF head,
        whose grid style binds the same token) — not a second hardcoded 26 that could silently drift. -->
