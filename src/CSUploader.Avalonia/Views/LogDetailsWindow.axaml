@@ -28,6 +28,8 @@
   </Window.Resources>
 
   <Window.Styles>
+    <!-- intentional local override of the global BaseStyles field-label (muted secondary foreground;
+         inline Margins shadow the global) — do not remove as redundant -->
     <Style Selector="TextBlock.field-label">
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />

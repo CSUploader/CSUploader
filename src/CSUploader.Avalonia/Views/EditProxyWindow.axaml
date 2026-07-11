@@ -1,0 +1,102 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Modal add/edit dialog for a single proxy (port of the WPF src/Views/EditProxyWindow.xaml). The five
+     window-local WPF keyed styles (FieldLabel/FieldInput/FieldCombo/DialogButton/SaveButton) are gone —
+     they became the shared BaseStyles editor classes in Task 7 (field-label/field-input/field-combo/
+     dialog/save); only the test-status foreground toggle stays window-local (rule 29: a class, not a
+     code-behind brush swap, so it tracks theme flips). Result contract collapses the WPF Result +
+     DialogResult pair into ShowDialog<ProxySettingDto?> (Save-valid → Close(dto); Cancel/Esc/X →
+     Close(null)). The password box masks (PasswordChar) — the recorded prep-item-9 deviation from WPF's
+     cleartext box. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.EditProxyWindow"
+        Title="{loc:Loc EditProxy_AddTitle}"
+        Width="440"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="{DynamicResource SurfaceMutedBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Window.Styles>
+    <!-- Test-status line: default muted, error red. Rule 29 — a toggled class (StatusText.Classes.Set
+         ("error", isError)) instead of a code-behind FindResource brush swap, so the colour re-resolves
+         on a live theme flip. -->
+    <Style Selector="TextBlock.test-status">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.test-status.error">
+      <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="12" Background="{DynamicResource SurfaceBrush}" CornerRadius="4"
+          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+          Padding="20,16">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="95,*">
+
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Loc Settings_Conn_Col_Type}" Classes="field-label" />
+      <ComboBox Grid.Row="0" Grid.Column="1" x:Name="TypeCombo" Classes="field-combo" HorizontalAlignment="Stretch" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{loc:Loc Settings_Conn_Col_Host}" Classes="field-label" />
+      <TextBox Grid.Row="1" Grid.Column="1" x:Name="HostBox" Classes="field-input" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Settings_Conn_Col_Port}" Classes="field-label" />
+      <TextBox Grid.Row="2" Grid.Column="1" x:Name="PortBox" Classes="field-input" Margin="0,0,0,10"
+               HorizontalAlignment="Left" Width="100" />
+
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="{loc:Loc Settings_Conn_Col_User}" Classes="field-label" />
+      <TextBox Grid.Row="3" Grid.Column="1" x:Name="UsernameBox" Classes="field-input" Margin="0,0,0,10" />
+
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{loc:Loc Settings_Conn_Col_Password}" Classes="field-label" />
+      <!-- PasswordChar masks the box (prep item 9). The editors populate this from code-behind with no VM
+           binding, so PasswordChar is the ONLY masking lever the bridge redactor can key on. -->
+      <TextBox Grid.Row="4" Grid.Column="1" x:Name="PasswordBox" Classes="field-input" Margin="0,0,0,10"
+               PasswordChar="●" />
+
+      <CheckBox Grid.Row="5" Grid.Column="1" x:Name="EnabledCheck"
+                Content="{loc:Loc EditProxy_EnabledLabel}"
+                FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
+
+      <!-- Test-status line + Details button. Hosts the test outcome and a Details affordance that opens the
+           same HttpDetailsWindow the Connection grid uses (request + response with headers and body). -->
+      <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0" ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   x:Name="TestStatusText"
+                   Classes="test-status"
+                   FontSize="11"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   IsVisible="False" />
+        <Button Grid.Column="1"
+                x:Name="TestDetailsButton"
+                Content="{loc:Loc Settings_Conn_Btn_Details}"
+                FontSize="11"
+                Padding="6,1"
+                Margin="6,0,0,0"
+                VerticalAlignment="Center"
+                IsVisible="False"
+                Click="TestDetailsButton_Click" />
+      </Grid>
+
+      <!-- Bottom button row: Test on the left, Save/Cancel right-aligned. -->
+      <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,12,0,0" ColumnDefinitions="Auto,*,Auto">
+        <Button Grid.Column="0" x:Name="TestButton"
+                Content="{loc:Loc EditProxy_BtnTest}"
+                Classes="dialog"
+                Click="TestButton_Click" />
+        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="SaveButton"
+                  Content="{loc:Loc EditProxy_BtnSave}" Classes="save"
+                  Click="SaveButton_Click" Margin="0,0,8,0" IsDefault="True" />
+          <Button x:Name="CancelButton"
+                  Content="{loc:Loc EditProxy_BtnCancel}" Classes="dialog"
+                  Click="CancelButton_Click" IsCancel="True" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

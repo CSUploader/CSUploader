@@ -19,8 +19,9 @@ namespace CSUploader.Services;
 /// picker needs a visible parent). <see cref="ShowProxyTextDialogAsync"/> and
 /// <see cref="ShowSpeedLimitDialogAsync"/> are real from Phase 4 Task 5 (their ported windows reveal-or-own
 /// the same way); <see cref="ShowHttpDetailsAsync"/> is real from Task 7 (reveal-or-own, block until
-/// closed). The three account/proxy editor members stay <see cref="NotImplementedException"/> until
-/// Phase 5 builds their windows.
+/// closed). <see cref="ShowEditProxyDialogAsync"/> is real from Phase 5 Task 8 (reveal-or-own +
+/// <c>ShowDialog&lt;ProxySettingDto?&gt;</c>). The two account editor members stay
+/// <see cref="NotImplementedException"/> until Phase 5 Task 9 builds their window.
 /// </summary>
 public sealed class AvaloniaDialogService(AppSettings settings, SettingRepository settingRepository, ITrayIconService trayIcon)
     : DialogServiceBase(settings, settingRepository), IDialogService
@@ -205,6 +206,16 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
     public Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) =>
         throw new NotImplementedException("EditAccountWindow arrives in Phase 5 — ShowEditAccountDialogAsync tracked there.");
 
-    public Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null) =>
-        throw new NotImplementedException("EditProxyWindow arrives in Phase 5 — ShowEditProxyDialogAsync tracked there.");
+    // EditProxy editor (Phase 5 Task 8). Reveal-or-own like the other modals, then carry the ShowDialog<T>
+    // result straight back (the window collapses the WPF Result + DialogResult pair). Title mirrors the WPF
+    // DialogService: an explicit title wins, else Add vs Edit is chosen by whether the seed has an Id yet.
+    public async Task<ProxySettingDto?> ShowEditProxyDialogAsync(ProxySettingDto seed, string? title = null)
+    {
+        EditProxyWindow dialog = new(seed, Settings.AllowInvalidServerCertificates)
+        {
+            Title = title ?? Localizer.Instance[seed.Id == 0 ? "EditProxy_AddTitle" : "EditProxy_EditTitle"],
+        };
+
+        return await dialog.ShowDialog<ProxySettingDto?>(await GetOwnerOrRevealAsync());
+    }
 }

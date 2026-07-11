@@ -82,4 +82,21 @@ public class HosterCredentialModesTests
     [InlineData(null, false)]
     public void IsWebViewSignInHoster_IsTrueForEitherSignInFamily(string? hoster, bool expected)
         => Assert.Equal(expected, HosterCredentialModes.IsWebViewSignInHoster(hoster));
+
+    // Registration cross-check (Phase 5 Task 7 review addendum): every credential-mode roster member
+    // must be an actual registered FileHosterClient.FileHosters key. The roster names are looked up by
+    // exact string (the mode sets use OrdinalIgnoreCase, but the registry is StringComparer.Ordinal), so
+    // a casing typo or a rename in the registry that isn't mirrored here would classify a hoster whose
+    // name the app never resolves — this catches that drift the GetMode tests above cannot.
+    [Fact]
+    public void ApiKeyHosterRoster_AreAllRegisteredFileHosters()
+        => Assert.All(KnownApiKeyHosters, h => Assert.True(
+            FileHosterClient.FileHosters.ContainsKey(h),
+            $"'{h}' is in the ApiKey roster but is not a registered FileHosterClient.FileHosters key."));
+
+    [Fact]
+    public void SessionCookieHosterRoster_AreAllRegisteredFileHosters()
+        => Assert.All(KnownSessionCookieHosters, h => Assert.True(
+            FileHosterClient.FileHosters.ContainsKey(h),
+            $"'{h}' is in the SessionCookie roster but is not a registered FileHosterClient.FileHosters key."));
 }

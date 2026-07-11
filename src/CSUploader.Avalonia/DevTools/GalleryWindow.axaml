@@ -300,6 +300,20 @@
                   Classes="secondary" Content="HTTP details…" />
         </StackPanel>
 
+        <!-- Editor dialogs (Phase 5). EditProxy goes through the REAL resolved IDialogService member the
+             ConnectionManagerViewModel awaits (the gallery is the active window, so the resolver owns the
+             modal to it), fed the Task 1 driver DTO. The "tested" launcher constructs the window directly
+             and pokes its internal TestStatusText / TestDetailsButton x:Name fields (same assembly — the
+             exact WPF reference-driver technique) then Show(this)es it for the post-Test shot. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="DialogEditProxyButton"
+                  AutomationProperties.AutomationId="DialogEditProxyButton"
+                  Classes="secondary" Content="Edit proxy…" />
+          <Button x:Name="DialogEditProxyTestedButton"
+                  AutomationProperties.AutomationId="DialogEditProxyTestedButton"
+                  Classes="secondary" Content="Edit proxy (tested)…" />
+        </StackPanel>
+
         <!-- Progress windows (Phase 4 Task 8). UpdateProgress goes through the REAL registered
              IUpdateProgressSink (not IDialogService): the button toggles it — first click Open() +
              SetStatus(downloading 1.2.3) + Report(42) for a mid-progress shot, second click Close() — so

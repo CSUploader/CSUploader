@@ -12,6 +12,7 @@ using Avalonia.Styling;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
+using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -104,6 +105,8 @@ public partial class GalleryWindow : Window
         DialogCloseActionButton.Click += OnShowCloseAction;
         DialogLogDetailsButton.Click += OnShowLogDetails;
         DialogHttpDetailsButton.Click += OnShowHttpDetails;
+        DialogEditProxyButton.Click += OnShowEditProxy;
+        DialogEditProxyTestedButton.Click += OnShowEditProxyTested;
         DialogUpdateProgressButton.Click += OnToggleUpdateProgress;
         DialogProgressButton.Click += OnShowProgress;
         PickFolderButton.Click += OnPickFolder;
@@ -183,6 +186,43 @@ public partial class GalleryWindow : Window
 
     private void OnShowHttpDetails(object? sender, RoutedEventArgs e)
         => _ = _dialogService.ShowHttpDetailsAsync(SynthTransaction());
+
+    // ── Editor dialogs (Phase 5 Task 8) ──
+    // EditProxy goes through the REAL resolved IDialogService (the gallery is the active window, so the
+    // resolver owns the modal to it), fed the Task 1 driver DTO — exercising the production
+    // ShowEditProxyDialogAsync plumbing the ConnectionManagerViewModel awaits. The "tested" launcher
+    // constructs the window directly and pokes its internal TestStatusText / TestDetailsButton x:Name fields
+    // (same assembly — the exact WPF reference-driver technique) to reach the post-Test look without firing a
+    // real socket test, then Show(this)es it non-modally for the shot.
+    private void OnShowEditProxy(object? sender, RoutedEventArgs e)
+        => _ = _dialogService.ShowEditProxyDialogAsync(new ProxySettingDto
+        {
+            Type = ProxyType.Http,
+            Host = "127.0.0.1",
+            Port = 8080,
+            Username = "fake_proxy_user",
+            Password = "not-a-real-password",
+            Enabled = true,
+        });
+
+    private void OnShowEditProxyTested(object? sender, RoutedEventArgs e)
+    {
+        var window = new EditProxyWindow(new ProxySettingDto
+        {
+            Type = ProxyType.Http,
+            Host = "127.0.0.1",
+            Port = 8080,
+            Enabled = true,
+        });
+
+        // The post-Test look (EditProxyWindow.SetStatus + the Details affordance): an OK status line and a
+        // visible Details button, poked via the internal x:Name fields — no real socket test.
+        window.TestStatusText.Text = string.Format(
+            CultureInfo.CurrentCulture, Localizer.Instance["EditProxy_Status_OkLatencyIp_Format"], 142, "203.0.113.7");
+        window.TestStatusText.IsVisible = true;
+        window.TestDetailsButton.IsVisible = true;
+        window.Show(this);
+    }
 
     // ── Progress windows (Phase 4 Task 8) ──
     // UpdateProgress drives the REAL registered IUpdateProgressSink (not IDialogService) — the exact
