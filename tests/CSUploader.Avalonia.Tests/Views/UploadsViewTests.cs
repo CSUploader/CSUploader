@@ -922,11 +922,10 @@ public class UploadsViewTests
                 db.Database.EnsureCreated();
             }
 
-            // Lifetime constraint: resolving MainViewModel pins the WHOLE VM graph on Localizer.Instance via a
-            // strong ctor subscription AND starts a real 6h DispatcherTimer that is never stopped and that
-            // provider.Dispose() cannot stop — so the graph outlives this test. NEVER resolve MainViewModel
-            // inside a [Theory]/loop (each iteration would leak another live graph + timer); if a third site
-            // ever needs one, share a single fixture-scoped instance instead.
+            // MainViewModel is a container-owned singleton and (Phase 9 ledger fix c) IDisposable, so the
+            // provider.Dispose() in the finally below stops its 6h update timer and detaches its ctor
+            // Localizer.Instance subscription — the VM graph no longer outlives this test, and the old
+            // "never resolve inside a loop, it leaks a live graph + timer" warning is obsolete.
             MainViewModel main = provider.GetRequiredService<MainViewModel>();
             UploadsView view = new() { DataContext = main.UploadsViewModel };
             Window window = new() { Width = 900, Height = 600, Content = view, DataContext = main };
