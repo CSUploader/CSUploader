@@ -16,7 +16,8 @@ namespace CSUploader.Services;
 /// only appears when at least one routes the window into the tray); single-click and the "Show
 /// CSUploader" menu item restore the window; "Exit" shuts the app down.
 /// </summary>
-public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger logger) : IDisposable, ITrayIconService
+public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger logger, IToastNotificationService toasts)
+    : IDisposable, ITrayIconService
 {
     // Rename-proof: derive the avares authority from the running assembly's name rather than
     // hard-coding "CSUploader.Avalonia", so an eventual assembly rename can't silently break the
@@ -26,6 +27,7 @@ public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger log
 
     private TrayIcon? _trayIcon;
     private bool _disposed;
+    private bool _firstHideTipShown;
 
     /// <summary>
     /// Reads <see cref="AppSettings"/> and creates/destroys the tray icon to match. Call after
@@ -52,12 +54,23 @@ public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger log
     }
 
     /// <summary>
-    /// No-op until Phase 7. Avalonia's <see cref="TrayIcon"/> exposes no balloon-tip API, so the
-    /// WPF head's one-shot "we're in the tray" notification has no equivalent yet; Phase 7 routes
-    /// it through the app's own toast system (design §The Avalonia head).
+    /// Shows the one-shot "we're in the tray" notice the first time the window hides this session. Avalonia's
+    /// <see cref="TrayIcon"/> has no balloon API, so this routes through the app's own toast system (design
+    /// section Tray balloon tip) — consistent styling, same i18n keys. Mirrors the WPF
+    /// <c>TrayIconManager.NotifyHidden</c> first-hide guard: the flag isn't persisted, so every fresh process
+    /// gets one tip, then silence.
     /// </summary>
     public void NotifyHidden()
     {
+        if (_disposed || _firstHideTipShown)
+        {
+            return;
+        }
+
+        _firstHideTipShown = true;
+        toasts.ShowInfo(
+            Localizer.Instance["Tray_Balloon_Title"],
+            Localizer.Instance["Tray_Balloon_Body"]);
     }
 
     /// <summary>

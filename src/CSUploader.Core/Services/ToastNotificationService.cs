@@ -72,6 +72,9 @@ public sealed class ToastNotificationService(
             iconKey: "PackageClosedImage"));
     }
 
+    public void ShowInfo(string title, string body) =>
+        dispatcher.Post(() => ShowToast(title, body, "StatusRunningImage"));
+
     private void ShowToast(string title, string message, string iconKey)
     {
         // Reference cell so the VM's commands can capture the host without needing it

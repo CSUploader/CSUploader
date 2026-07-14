@@ -25,4 +25,15 @@ public interface IToastNotificationService
     /// <param name="succeeded">Files that reached <see cref="FileState.Completed"/>.</param>
     /// <param name="total">Total files in the package.</param>
     void ShowPackageCompleted(Package package, int succeeded, int total);
+
+    /// <summary>
+    /// Raises a general-purpose informational toast (title + body). Unlike the completion methods this is
+    /// NOT gated on <see cref="AppSettings.ShowCompletionToasts"/> — it is a tray-discovery notice, not an
+    /// upload completion. The Avalonia head routes the "still running in the tray" tip here (design section
+    /// Tray balloon tip: Avalonia's TrayIcon has no balloon API); the WPF head keeps its native NotifyIcon
+    /// balloon and does not call this.
+    /// </summary>
+    /// <param name="title">Toast title line.</param>
+    /// <param name="body">Toast body line.</param>
+    void ShowInfo(string title, string body);
 }

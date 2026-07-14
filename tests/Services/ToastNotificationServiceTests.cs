@@ -34,6 +34,18 @@ public class ToastNotificationServiceTests
     }
 
     [Fact]
+    public void ShowInfo_RaisesToast_EvenWhenCompletionToastsDisabled()
+    {
+        // ShowInfo is the tray "still running" route — it must fire regardless of the completion-toast gate.
+        _settings.ShowCompletionToasts = false;
+        ToastNotificationService service = CreateService();
+
+        service.ShowInfo("CSUploader", "Still running in the tray.");
+
+        Assert.Single(_factory.Created); // a toast was built despite ShowCompletionToasts=false
+    }
+
+    [Fact]
     public void ShowFileCompleted_WhenSettingEnabled_CreatesAToast()
     {
         _settings.ShowCompletionToasts = true;
@@ -175,3 +187,4 @@ public class ToastNotificationServiceTests
         public void RaiseClosed() => Closed?.Invoke(this, EventArgs.Empty);
     }
 }
+

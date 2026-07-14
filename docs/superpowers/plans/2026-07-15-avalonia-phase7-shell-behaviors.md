@@ -726,7 +726,7 @@ git commit -m "feat(avalonia): Phase 7 Task 3 - wire real ToastNotificationServi
 - Produces: `IToastNotificationService.ShowInfo(string title, string body)` — raises a general info toast that is NOT gated on `ShowCompletionToasts` (it is a tray-discovery notice, not a completion). `ToastNotificationService.ShowInfo` posts `ShowToast(title, body, "StatusRunningImage")` on the dispatcher.
 - Consumes (tray): `IToastNotificationService`, `Localizer` (`Tray_Balloon_Title`/`Tray_Balloon_Body`).
 
-- [ ] **Step 1: Add the Core `ShowInfo` test (WPF/shared suite, `tests/Services/ToastNotificationServiceTests.cs`)** using the file's existing fake factory + inline dispatcher fakes (open the file and reuse whatever names it defines — do NOT introduce new fakes if the file has them):
+- [x] **Step 1: Add the Core `ShowInfo` test (WPF/shared suite, `tests/Services/ToastNotificationServiceTests.cs`)** using the file's existing fake factory + inline dispatcher fakes (open the file and reuse whatever names it defines — do NOT introduce new fakes if the file has them):
 
 ```csharp
 [Fact]
@@ -749,9 +749,9 @@ public void ShowInfo_RaisesToast_EvenWhenCompletionToastsDisabled()
 
 Adapt the fake type/property names to whatever `ToastNotificationServiceTests.cs` already declares.
 
-- [ ] **Step 2: Run — verify it fails** (`ShowInfo` not on the interface).
+- [x] **Step 2: Run — verify it fails** (`ShowInfo` not on the interface).
 
-- [ ] **Step 3: Add `ShowInfo` to `IToastNotificationService`** (Core):
+- [x] **Step 3: Add `ShowInfo` to `IToastNotificationService`** (Core):
 
 ```csharp
 /// <summary>
@@ -763,16 +763,16 @@ Adapt the fake type/property names to whatever `ToastNotificationServiceTests.cs
 void ShowInfo(string title, string body);
 ```
 
-- [ ] **Step 4: Implement `ShowInfo` in `ToastNotificationService`** (Core) — reuses the private `ShowToast`, no `ShowCompletionToasts` check:
+- [x] **Step 4: Implement `ShowInfo` in `ToastNotificationService`** (Core) — reuses the private `ShowToast`, no `ShowCompletionToasts` check:
 
 ```csharp
 public void ShowInfo(string title, string body) =>
     dispatcher.Post(() => ShowToast(title, body, "StatusRunningImage"));
 ```
 
-- [ ] **Step 5: Run — verify green** in the WPF/shared suite (1200 -> 1201). The WPF head's `ToastNotificationService` (same Core class) now has `ShowInfo`; nothing in the WPF head calls it.
+- [x] **Step 5: Run — verify green** in the WPF/shared suite (1200 -> 1201). The WPF head's `ToastNotificationService` (same Core class) now has `ShowInfo`; nothing in the WPF head calls it.
 
-- [ ] **Step 6: Write the failing tray test** (Avalonia suite):
+- [x] **Step 6: Write the failing tray test** (Avalonia suite):
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Services/AvaloniaTrayIconServiceTests.cs
@@ -819,9 +819,9 @@ public class AvaloniaTrayIconServiceTests
 }
 ```
 
-- [ ] **Step 7: Run — verify it fails** (`AvaloniaTrayIconService` has no toast ctor param; `NotifyHidden` is a no-op).
+- [x] **Step 7: Run — verify it fails** (`AvaloniaTrayIconService` has no toast ctor param; `NotifyHidden` is a no-op).
 
-- [ ] **Step 8: Update `AvaloniaTrayIconService`.** Add the ctor dependency + the first-hide guard + the `NotifyHidden` body:
+- [x] **Step 8: Update `AvaloniaTrayIconService`.** Add the ctor dependency + the first-hide guard + the `NotifyHidden` body:
 
 ```csharp
 public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger logger, IToastNotificationService toasts)
@@ -853,14 +853,16 @@ public void NotifyHidden()
 
 (No DI change is required in `App.axaml.cs` — `AddSingleton<AvaloniaTrayIconService>()` resolves ctor deps from the container, and `IToastNotificationService` is registered in Task 3. Confirm the head builds.)
 
-- [ ] **Step 9: Run — verify green** (Avalonia suite +2). DI smoke test still builds (no cycle: `AvaloniaTrayIconService` -> `IToastNotificationService`; the toast service does not depend on `ITrayIconService`).
+- [x] **Step 9: Run — verify green** (Avalonia suite +2). DI smoke test still builds (no cycle: `AvaloniaTrayIconService` -> `IToastNotificationService`; the toast service does not depend on `ITrayIconService`).
 
-- [ ] **Step 10: Suite gate + commit.** Both suites (WPF 1201, Avalonia +2), both heads 0-warning Debug + Release.
+- [x] **Step 10: Suite gate + commit.** Both suites (WPF 1201, Avalonia +2), both heads 0-warning Debug + Release.
 
 ```bash
 git add src/CSUploader.Core/Services/IToastNotificationService.cs src/CSUploader.Core/Services/ToastNotificationService.cs src/CSUploader.Avalonia/Services/AvaloniaTrayIconService.cs tests/Services/ToastNotificationServiceTests.cs tests/CSUploader.Avalonia.Tests/Services/AvaloniaTrayIconServiceTests.cs
 git commit -m "feat(avalonia): Phase 7 Task 4 - balloon->toast routing (Core ShowInfo + tray NotifyHidden)"
 ```
+
+**Task 4 executed (2026-07-14) — pending reviewer gate.** The one sanctioned Core touch landed exactly minimal: `IToastNotificationService.ShowInfo(string title, string body)` (interface line + doc) + `ToastNotificationService.ShowInfo` (`=> dispatcher.Post(() => ShowToast(title, body, "StatusRunningImage"))`, UNGATED by `ShowCompletionToasts`, reusing the private `ShowToast`). `git diff phase6-hard-views-ready..HEAD -- src/CSUploader.Core/` = those 2 files ONLY, 14 insertions / 0 deletions, ONLY the `ShowInfo` member. `AvaloniaTrayIconService` gained the `IToastNotificationService toasts` ctor dep + a `_firstHideTipShown` field + the `NotifyHidden` body; **first-hide guard mirrors WPF `TrayIconManager.NotifyHidden` (`src/Services/TrayIconManager.cs:58-78`)**: `if (_disposed || _firstHideTipShown) return; _firstHideTipShown = true; toasts.ShowInfo(Tray_Balloon_Title, Tray_Balloon_Body);` — once per session, flag not persisted (every fresh process gets one tip). Icon key = `StatusRunningImage` (recorded arbitration item, plan's choice kept). **Interface interlock:** the only concrete implementer is Core `ToastNotificationService` (updated); the sole other reference is `Mock<IToastNotificationService>` (Moq auto-implements the new void). Gates: WPF/shared **1200 -> 1201** (+1: `ShowInfo_RaisesToast_EvenWhenCompletionToastsDisabled`, adapted to the file's existing `FakeToastWindowFactory`/`InlineUiDispatcher`), Avalonia **397 -> 399** (+2: `NotifyHidden_ShowsInfoToast_OncePerSession`, `NotifyHidden_AfterDispose_DoesNothing`, non-vacuous via `RecordingToasts.InfoCount`), both heads **0-warning Debug AND Release** (Core changed -> BOTH heads built). **Live-verification (bridge has no method-invoke tool — Task 3 finding; plan prescribes no Task 4 bridge drive):** the Avalonia DI smoke test (`AvaloniaStartupDISmokeTests.ConfigureServices_ResolvesAllHeadRegistrationsAndViewModels`, part of the 399) resolves `ITrayIconService` -> `AvaloniaTrayIconService` (now carrying the `IToastNotificationService` dep) AND `IToastNotificationService` from the REAL composed provider, proving the tray->toast wiring composes with no cycle; the 2 tray tests prove the routing + once-per-session + post-dispose guards; the shared test proves the ungated route fires despite `ShowCompletionToasts=false`. **Deviations (recorded):** (1) the Avalonia `NotifyHidden` drops the WPF original's `_notifyIcon is null` guard AND its `try/catch`+log — deliberate per the plan: the toast route is independent of the tray-icon handle (`ShowInfo` posts to the dispatcher and cannot depend on `_trayIcon`), and it is only ever called from the close-to-tray path where an icon exists anyway. (2) No `App.axaml.cs` DI edit — `AddSingleton<AvaloniaTrayIconService>()` resolves the new ctor dep from the container (`IToastNotificationService` registered in Task 3), confirmed by the DI smoke test. **Deviation for Tasks 5+ (HARNESS, important):** PowerShell's cwd is the MAIN tree `E:\Projects\CSUploader\CSUploader`, NOT the worktree — relative-path `dotnet build/test` silently builds the maintainer's tree (which lacks the worktree's changes, so builds falsely pass and "up-to-date" checks mislead). ALWAYS pass the ABSOLUTE worktree csproj path (`E:\Projects\CSUploader\CSUploader-avalonia\...`) to every PowerShell build/test, or `Set-Location` to the worktree first.
 
 ---
 
