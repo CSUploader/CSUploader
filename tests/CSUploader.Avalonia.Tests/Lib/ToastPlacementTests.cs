@@ -37,6 +37,21 @@ public class ToastPlacementTests
     }
 
     [Fact]
+    public void WorkAreaToDip_PositiveOrigin_ConvertsXAndY()
+    {
+        // A primary monitor with a top and/or left taskbar has a positive-origin work area, and Reflow
+        // consumes work.Bottom (= Y + Height) — so the X/scaling and Y/scaling origin divisions must be
+        // covered (the 0,0-origin case above cannot distinguish a dropped division from an identity).
+        DipRect d = ToastPlacement.WorkAreaToDip(new PixelRect(60, 72, 3840, 2088), 1.5);
+        Assert.Equal(40, d.X);        // 60 / 1.5
+        Assert.Equal(48, d.Y);        // 72 / 1.5
+        Assert.Equal(2560, d.Width);  // 3840 / 1.5
+        Assert.Equal(1392, d.Height); // 2088 / 1.5
+        Assert.Equal(2600, d.Right);  // X + Width
+        Assert.Equal(1440, d.Bottom); // Y + Height
+    }
+
+    [Fact]
     public void ZeroOrNegativeScaling_TreatedAsUnity()
     {
         Assert.Equal(new PixelPoint(10, 20), ToastPlacement.DipToPhysical(10, 20, 0));
