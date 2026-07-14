@@ -1353,7 +1353,7 @@ Port the WPF `WebViewInteractiveAuthService` (`src/Services/WebViewInteractiveAu
 - Produces: `CSUploader.Services.AvaloniaWebViewInteractiveAuthService : IInteractiveAuthService` — ctor `(IDialogService dialogService, AppSettings settings, IUiDispatcher dispatcher, ITrayIconService trayIcon)`; `Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)`.
 - Consumes: `WebViewLoginWindow` ctor + `ShowDialog<InteractiveAuthResult?>` (Task 3/4), `WebViewLoginProxy.ResolveProxyCredentials`/`ProxyCredentials` (Task 1), `DialogOwnerResolver.ResolveFromLifetime` (`src/CSUploader.Avalonia/Services/DialogOwnerResolver.cs`), `ITrayIconService.ShowMainWindow`, `IDialogService.ShowErrorAsync`, `Localizer`.
 
-- [ ] **Step 1: Write the failing service tests.** Create `tests/CSUploader.Avalonia.Tests/Services/AvaloniaWebViewInteractiveAuthServiceTests.cs`:
+- [x] **Step 1: Write the failing service tests.** Create `tests/CSUploader.Avalonia.Tests/Services/AvaloniaWebViewInteractiveAuthServiceTests.cs`:
 
 ```csharp
 // <copyright file="AvaloniaWebViewInteractiveAuthServiceTests.cs" company="CSUploader">
@@ -1429,9 +1429,9 @@ public class AvaloniaWebViewInteractiveAuthServiceTests
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails.** Expected: compile failure (`AvaloniaWebViewInteractiveAuthService` does not exist).
+- [x] **Step 2: Run it to verify it fails.** Expected: compile failure (`AvaloniaWebViewInteractiveAuthService` does not exist).
 
-- [ ] **Step 3: Implement the service.** Create `src/CSUploader.Avalonia/Services/AvaloniaWebViewInteractiveAuthService.cs`:
+- [x] **Step 3: Implement the service.** Create `src/CSUploader.Avalonia/Services/AvaloniaWebViewInteractiveAuthService.cs`:
 
 ```csharp
 // <copyright file="AvaloniaWebViewInteractiveAuthService.cs" company="CSUploader">
@@ -1567,9 +1567,9 @@ public sealed class AvaloniaWebViewInteractiveAuthService(
 }
 ```
 
-- [ ] **Step 4: Run the service tests to verify they pass.** Expected: the 2 facts PASS.
+- [x] **Step 4: Run the service tests to verify they pass.** Expected: the 2 facts PASS.
 
-- [ ] **Step 5: Swap the DI registration + delete the stub.** In `src/CSUploader.Avalonia/App.axaml.cs`, replace line 256:
+- [x] **Step 5: Swap the DI registration + delete the stub.** In `src/CSUploader.Avalonia/App.axaml.cs`, replace line 256:
 
 ```csharp
         services.AddSingleton<IInteractiveAuthService, StubInteractiveAuthService>(); // throws until Phase 8
@@ -1583,9 +1583,9 @@ with:
 
 Then delete `src/CSUploader.Avalonia/Services/StubInteractiveAuthService.cs`.
 
-- [ ] **Step 6: Build + full suite + DI smoke.** `dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings; verifies no dangling `StubInteractiveAuthService` reference). `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green; the head DI smoke test — which composes the provider — still resolves `IInteractiveAuthService`). Record the new Avalonia total.
+- [x] **Step 6: Build + full suite + DI smoke.** `dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings; verifies no dangling `StubInteractiveAuthService` reference). `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green; the head DI smoke test — which composes the provider — still resolves `IInteractiveAuthService`). Record the new Avalonia total. — Done: forced rebuild (`-t:Rebuild`) 0 warnings/0 errors; Avalonia suite 444 → **446** (+2 service facts); DI smoke resolves the real `AvaloniaWebViewInteractiveAuthService`.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Services/AvaloniaWebViewInteractiveAuthService.cs src/CSUploader.Avalonia/App.axaml.cs tests/CSUploader.Avalonia.Tests/Services/AvaloniaWebViewInteractiveAuthServiceTests.cs

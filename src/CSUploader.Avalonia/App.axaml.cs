@@ -253,7 +253,7 @@ public partial class App : Application
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();
         services.AddSingleton<IThemeApplier, AvaloniaThemeApplier>();              // real: RequestedThemeVariant + grid-font resources
-        services.AddSingleton<IInteractiveAuthService, StubInteractiveAuthService>(); // throws until Phase 8
+        services.AddSingleton<IInteractiveAuthService, AvaloniaWebViewInteractiveAuthService>(); // real WebView2 sign-in (Phase 8)
         services.AddSingleton<AvaloniaTrayIconService>();
         // Same singleton instance is reachable through the Core interface too, so the shared
         // ViewModels depend on ITrayIconService, not the Avalonia tray type.
