@@ -10,8 +10,8 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Styling;
+using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
@@ -134,15 +134,13 @@ public partial class GalleryWindow : Window
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
         WizardButton.Click += OnShowWizard;
-        ToastProbeButton.Click += OnToastProbe;
+        ToastButton.Click += OnShowToast;
     }
 
-    // ── Toast (Phase 7 Task 1 GO/NO-GO probe) ──
-    // THROWAWAY — Task 2 deletes this and replaces it with a real ToastWindow via AvaloniaToastWindowFactory.
-    // Shows a bare chrome-less, transparent, topmost, NON-activated window bottom-right of the primary work
-    // area (via ToastPlacement + Screens.Primary), proving transparent-popup rendering, no-focus-steal (the
-    // main window stays active because ShowActivated=false) and bottom-right placement at the dev-machine DPI.
-    private void OnToastProbe(object? sender, RoutedEventArgs e)
+    // ── Toast (Phase 7 Task 2) ──
+    // Builds a real toast via the production factory + host and shows it bottom-right, so the bridge
+    // screenshots the exact ToastWindow the notification listener raises (Task 2).
+    private void OnShowToast(object? sender, RoutedEventArgs e)
     {
         var screen = Screens.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
         double scaling = screen?.Scaling ?? 1.0;
@@ -150,22 +148,16 @@ public partial class GalleryWindow : Window
             ? new DipRect(0, 0, 1920, 1080)
             : ToastPlacement.WorkAreaToDip(screen.WorkingArea, scaling);
 
-        var probe = new Window
+        var vm = new ToastViewModel(new RelayCommand(() => { }), new RelayCommand(() => { }))
         {
-            Width = 360,
-            Height = 80,
-            SystemDecorations = SystemDecorations.None,
-            Background = Brushes.Transparent,
-            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
-            ShowInTaskbar = false,
-            Topmost = true,
-            CanResize = false,
-            ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual,
-            Content = new Border { Background = Brushes.CornflowerBlue, Child = new TextBlock { Text = "toast probe" } },
+            Title = Localizer.Instance["Toast_FileCompleted_Title"],
+            Message = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Toast_FileCompleted_Body"], "holiday_clip.mkv"),
+            IconKey = "StatusSuccessImage",
         };
-        probe.Position = ToastPlacement.DipToPhysical(work.Right - 360 - 12, work.Bottom - 80 - 12, scaling);
-        probe.Show();
+        IToastHost host = new AvaloniaToastWindowFactory().Create(vm);
+        host.Left = work.Right - 360 - 12;
+        host.Top = work.Bottom - 80 - 12;
+        host.Show();
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)

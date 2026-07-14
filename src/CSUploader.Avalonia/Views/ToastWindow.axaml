@@ -1,0 +1,59 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Avalonia bottom-right completion-toast (port of the WPF src/Views/ToastWindow.xaml, port rule 42):
+     chrome-less (SystemDecorations=None) + transparent + topmost + non-activated card with an accent
+     stripe, icon, title/message and a close button. The WPF DropShadowEffect becomes Border.BoxShadow;
+     positioned physically by AvaloniaToastHost via Window.Position. SurfaceBrush/AccentBrush/
+     TextPrimaryBrush and ResourceKeyToImageConverter are app-scoped (App.axaml) — no local resources.
+     The close glyph is U+2715 (multiplication X), written as the &#x2715; numeric entity to keep the
+     source ASCII; it renders identically to the WPF ToastWindow's literal character. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
+        x:Class="CSUploader.Views.ToastWindow"
+        x:DataType="vm:ToastViewModel"
+        Width="360" Height="80"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        CanResize="False"
+        ShowActivated="False"
+        WindowStartupLocation="Manual"
+        PointerPressed="OnBodyPressed"
+        PointerEntered="OnPointerEntered"
+        PointerExited="OnPointerExited">
+  <Border CornerRadius="6"
+          Background="{DynamicResource SurfaceBrush}"
+          BorderBrush="{DynamicResource AccentBrush}"
+          BorderThickness="1"
+          Margin="6"
+          BoxShadow="0 2 12 0 #66000000">
+    <Grid ColumnDefinitions="4,36,*,20">
+      <!-- Accent stripe -->
+      <Rectangle Grid.Column="0" Fill="{DynamicResource AccentBrush}" />
+
+      <!-- Icon -->
+      <Image Grid.Column="1" Width="24" Height="24"
+             VerticalAlignment="Center" HorizontalAlignment="Center"
+             Source="{Binding IconKey, Converter={StaticResource ResourceKeyToImageConverter}}" />
+
+      <!-- Title + body -->
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0,4,0">
+        <TextBlock Text="{Binding Title}" FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource TextPrimaryBrush}"
+                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+      </StackPanel>
+
+      <!-- Close button -->
+      <Button Grid.Column="3" Content="&#x2715;" Width="20" Height="20"
+              Margin="0,4,4,0" VerticalAlignment="Top" HorizontalAlignment="Right"
+              Background="Transparent" BorderThickness="0"
+              Foreground="{DynamicResource TextPrimaryBrush}"
+              Cursor="Hand" Command="{Binding CloseCommand}" Click="OnCloseClicked" />
+    </Grid>
+  </Border>
+</Window>

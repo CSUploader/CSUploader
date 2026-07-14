@@ -271,7 +271,7 @@ git commit -m "feat(avalonia): Phase 7 Task 1 - toast placement math + GO/NO-GO 
 - Consumes: `IToastHost`, `IToastWindowFactory`, `ToastViewModel` (Core); `ToastPlacement` (Task 1).
 - Produces: `CSUploader.Views.ToastWindow` (ctors `ToastWindow()` [loader] and `ToastWindow(ToastViewModel)`); `CSUploader.Services.AvaloniaToastHost : IToastHost`; `CSUploader.Services.AvaloniaToastWindowFactory : IToastWindowFactory` (public, DI-registered in Task 3). `AvaloniaToastHost.Height` returns the window's DIP height; `Top`/`Left` setters store DIPs and drive `Window.Position` (physical, via `ToastPlacement` + primary-screen `Scaling`).
 
-- [ ] **Step 1: Create `ToastWindow.axaml`** (port of `src/Views/ToastWindow.xaml`, rule 42). `SurfaceBrush`/`AccentBrush`/`TextPrimaryBrush` and `ResourceKeyToImageConverter` are app-scoped (`App.axaml` lines 15/21), so no local resource declarations are needed.
+- [x] **Step 1: Create `ToastWindow.axaml`** (port of `src/Views/ToastWindow.xaml`, rule 42). `SurfaceBrush`/`AccentBrush`/`TextPrimaryBrush` and `ResourceKeyToImageConverter` are app-scoped (`App.axaml` lines 15/21), so no local resource declarations are needed.
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
@@ -320,7 +320,7 @@ git commit -m "feat(avalonia): Phase 7 Task 1 - toast placement math + GO/NO-GO 
 
 Note: the WPF close-button glyph is the Unicode multiplication-X character; copy it verbatim from `src/Views/ToastWindow.xaml:66` (shown as `X` above only to keep this plan file ASCII).
 
-- [ ] **Step 2: Create `ToastWindow.axaml.cs`** (port of `src/Views/ToastWindow.xaml.cs`; `DispatcherTimer` auto-dismiss; hover pauses; body-click activates; close-button closes).
+- [x] **Step 2: Create `ToastWindow.axaml.cs`** (port of `src/Views/ToastWindow.xaml.cs`; `DispatcherTimer` auto-dismiss; hover pauses; body-click activates; close-button closes).
 
 ```csharp
 // <copyright file="ToastWindow.axaml.cs" company="CSUploader">
@@ -401,7 +401,7 @@ public partial class ToastWindow : Window
 }
 ```
 
-- [ ] **Step 3: Create `AvaloniaToastWindowFactory`.**
+- [x] **Step 3: Create `AvaloniaToastWindowFactory`.**
 
 ```csharp
 // <copyright file="AvaloniaToastWindowFactory.cs" company="CSUploader">
@@ -428,7 +428,7 @@ public sealed class AvaloniaToastWindowFactory : IToastWindowFactory
 }
 ```
 
-- [ ] **Step 4: Create `AvaloniaToastHost`.** The one Avalonia-specific twist over `ToastWindowHost`: `Top`/`Left` are DIPs (what the service computes), driven onto `Window.Position` (physical) via `ToastPlacement` and the primary screen's scaling — matching the primary-work-area `workAreaProvider` (Task 3). Primary-monitor-only, exactly as the WPF head.
+- [x] **Step 4: Create `AvaloniaToastHost`.** The one Avalonia-specific twist over `ToastWindowHost`: `Top`/`Left` are DIPs (what the service computes), driven onto `Window.Position` (physical) via `ToastPlacement` and the primary screen's scaling — matching the primary-work-area `workAreaProvider` (Task 3). Primary-monitor-only, exactly as the WPF head.
 
 ```csharp
 // <copyright file="AvaloniaToastHost.cs" company="CSUploader">
@@ -504,7 +504,7 @@ internal sealed class AvaloniaToastHost : IToastHost
 }
 ```
 
-- [ ] **Step 5: Write the failing `ToastWindowTests`.**
+- [x] **Step 5: Write the failing `ToastWindowTests`.**
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Views/ToastWindowTests.cs
@@ -582,9 +582,9 @@ public class ToastWindowTests
 }
 ```
 
-- [ ] **Step 6: Run — red then green.** Write the test first; watch it fail on the missing `ToastWindow`/factory; implement Steps 1-4; watch it pass. Filter `ToastWindowTests`.
+- [x] **Step 6: Run — red then green.** Write the test first; watch it fail on the missing `ToastWindow`/factory; implement Steps 1-4; watch it pass. Filter `ToastWindowTests`.
 
-- [ ] **Step 7: Replace the Task 1 throwaway with the real gallery button.** In `GalleryWindow.axaml` rename `ToastProbeButton` -> `ToastButton` (Content "Show toast"); in `GalleryWindow.axaml.cs` delete `OnToastProbe` and add:
+- [x] **Step 7: Replace the Task 1 throwaway with the real gallery button.** In `GalleryWindow.axaml` rename `ToastProbeButton` -> `ToastButton` (Content "Show toast"); in `GalleryWindow.axaml.cs` delete `OnToastProbe` and add:
 
 ```csharp
 // Builds a real toast via the production factory + host and shows it bottom-right, so the bridge
@@ -612,14 +612,16 @@ private void OnShowToast(object? sender, RoutedEventArgs e)
 
 Wire `ToastButton.Click += OnShowToast;` in the ctor (`using CommunityToolkit.Mvvm.Input;`).
 
-- [ ] **Step 8: Capture the Avalonia toast reference shots via the bridge.** Launch `--agent --gallery`; drive `ToastButton`; `ava_screenshot` the toast bottom-right in light+dark -> `toast-light-ava.png` / `toast-dark-ava.png`. Confirm the toast does not steal focus.
+- [x] **Step 8: Capture the Avalonia toast reference shots via the bridge.** Launch `--agent --gallery`; drive `ToastButton`; `ava_screenshot` the toast bottom-right in light+dark -> `toast-light-ava.png` / `toast-dark-ava.png`. Confirm the toast does not steal focus.
 
-- [ ] **Step 9: Suite gate + commit.** Both suites (Avalonia +3), both heads build 0-warning Debug + Release.
+- [x] **Step 9: Suite gate + commit.** Both suites (Avalonia +3), both heads build 0-warning Debug + Release.
 
 ```bash
 git add src/CSUploader.Avalonia/Views/ToastWindow.axaml src/CSUploader.Avalonia/Views/ToastWindow.axaml.cs src/CSUploader.Avalonia/Services/AvaloniaToastHost.cs src/CSUploader.Avalonia/Services/AvaloniaToastWindowFactory.cs tests/CSUploader.Avalonia.Tests/Views/ToastWindowTests.cs src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml.cs
 git commit -m "feat(avalonia): Phase 7 Task 2 - ToastWindow + AvaloniaToastHost + factory (gallery-verified, DIP->physical)"
 ```
+
+**Task 2 executed (2026-07-14) — pending reviewer gate.** ToastWindow (`.axaml`+`.axaml.cs`), `AvaloniaToastHost`, `AvaloniaToastWindowFactory` shipped; the Task 1 throwaway `ToastProbeButton`/`OnToastProbe` is DELETED and replaced with the real production `ToastButton`/`OnShowToast` (builds a toast via the factory+host). Gates: Avalonia **389 → 395** (+6), WPF **1200/1200** (untouched — zero Core/WPF changes), head **0-warning Debug AND Release**. Bridge (`--agent --gallery`, scratch DB): `toast-light-ava.png` + `toast-dark-ava.png` captured; the real ToastWindow at physical (2188,1287) = work.Right−360−12, work.Bottom−80−12 → exact bottom-right of the primary work area at 100% scaling; **no-focus-steal RE-CONFIRMED on the REAL ToastWindow** (`ava_windows`: toast `isActive:false`, gallery stayed `isActive:true` in both themes); the prior toast auto-dismissed live (5s). Arbitration vs the WPF ref cells: **parity match** (blue `AccentBrush` #2563EB stripe/border — identical hex both heads, the green is only the success checkmark; bold title + message + ✕). The ava cell shows the BoxShadow; the WPF cell clips its DropShadow (the recorded framing note — expected, not a regression). **Deviations (recorded):** (1) the close glyph is written as the `&#x2715;` XML numeric entity, not the literal U+2715 character — the repo's a11y edit hook rejects non-ASCII bytes in the write payload; the entity renders the identical glyph, a source-representation choice with no runtime behavior change. (2) **+6 tests, not the plan's +3** — the plan's 3 (`Factory_CreatesHost_HeightIsWindowDipHeight`, `CloseCommand_RunsAndWindowCloses`, `ActivateCommand_Runs`) PLUS the team-lead-requested non-vacuous coverage: `Host_TopLeftDip_WriteThroughToWindowPosition_ViaPlacement` (positioning-math delegation — host Top/Left DIP → Window.Position via `ToastPlacement`, scaling 1.0 under headless) and two auto-dismiss/expiry tests (`AutoDismiss_ArmsOnOpen_PausesOnHover_ResumesOnLeave`, `AutoDismiss_StopsOnClose`). The expiry tests required three `internal` test seams on ToastWindow — `IsAutoDismissRunning`, `PauseAutoDismiss()`, `RestartAutoDismiss()` (the pointer-enter/exit handlers now delegate to the latter two; same behavior as the plan's inline bodies) — because headless does not advance a 5s `DispatcherTimer` and `PointerEventArgs` cannot be synthesized peer-side; this matches the codebase's established InternalsVisibleTo test-seam pattern (`AvaloniaDialogService`/`MessageBoxWindow`). Step 9's "+3" note is therefore superseded by "+6". (3) removed the now-orphaned `using Avalonia.Media;` from `GalleryWindow.axaml.cs` (only the deleted probe used `Brushes`). No plan-code semantic deviations in the window/host/factory themselves.
 
 ---
 
