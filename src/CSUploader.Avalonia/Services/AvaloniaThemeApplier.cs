@@ -31,6 +31,11 @@ public sealed class AvaloniaThemeApplier(IAppLogger logger) : IThemeApplier
         }
 
         app.RequestedThemeVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
+
+        // Win11 recolors the title bar from the variant automatically; on Win10 the DWM P/Invoke is the fallback.
+        // This applier is the SOLE writer of the cached new-window dark-chrome preference (design Phase 1-gate
+        // note) — mirrors WpfThemeApplier.ApplyTheme -> ImmersiveDarkMode.SetIsDark.
+        Lib.UI.AvaloniaImmersiveDarkMode.SetIsDark(isDark);
     }
 
     public void ApplyGridFont(string family, double size)

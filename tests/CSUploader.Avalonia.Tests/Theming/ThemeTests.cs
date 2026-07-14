@@ -123,6 +123,24 @@ public class ThemeTests
         finally
         {
             Application.Current!.RequestedThemeVariant = original;
+            CSUploader.Lib.UI.AvaloniaImmersiveDarkMode.SetIsDark(original == ThemeVariant.Dark);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ApplyTheme_AlsoSetsImmersiveDarkCache()
+    {
+        ThemeVariant? original = Application.Current!.RequestedThemeVariant;
+        bool originalDark = CSUploader.Lib.UI.AvaloniaImmersiveDarkMode.IsDark;
+        try
+        {
+            new AvaloniaThemeApplier(Mock.Of<IAppLogger>()).ApplyTheme(true);
+            Assert.True(CSUploader.Lib.UI.AvaloniaImmersiveDarkMode.IsDark);
+        }
+        finally
+        {
+            Application.Current!.RequestedThemeVariant = original;
+            CSUploader.Lib.UI.AvaloniaImmersiveDarkMode.SetIsDark(originalDark);
         }
     }
 

@@ -1352,9 +1352,9 @@ git commit -m "feat(avalonia): Phase 7 Task 6 - close/minimize-to-tray (async cl
 - Produces: `CSUploader.Lib.UI.AvaloniaImmersiveDarkMode` — `static bool IsDark`, `static void RegisterGlobalHandler()` (idempotent; registers a `Control.LoadedEvent` class handler on `Window`), `static void SetIsDark(bool)` (updates the cache + reapplies to all open windows), `static void Apply(Window, bool)` (per-window DWM write, best-effort).
 - Consumes (applier): `AvaloniaImmersiveDarkMode.SetIsDark`. Consumes (App): `AvaloniaImmersiveDarkMode.RegisterGlobalHandler`.
 
-- [ ] **Step 1: Pin Reality-check 4-7** via ILSpy on Avalonia 11.3.18: `Control.LoadedEvent` is a `RoutedEvent` exposing `AddClassHandler<TTarget>(Action<TTarget, TEventArgs>)`; `Window.TryGetPlatformHandle()` returns `IPlatformHandle?` with `.Handle` (`IntPtr`); `DispatcherPriority.Background` exists; `WindowClosingEventArgs` was pinned in Task 6. If `AddClassHandler` is absent, record the fallback (subscribe `Window.Opened` in `App.axaml.cs` for the main window only; dialogs accept the Win10 light-chrome divergence). The Win10 DWM visual is maintainer-verified — the dev machine is Win11 (auto-recolors from the variant).
+- [x] **Step 1: Pin Reality-check 4-7** via ILSpy on Avalonia 11.3.18: `Control.LoadedEvent` is a `RoutedEvent` exposing `AddClassHandler<TTarget>(Action<TTarget, TEventArgs>)`; `Window.TryGetPlatformHandle()` returns `IPlatformHandle?` with `.Handle` (`IntPtr`); `DispatcherPriority.Background` exists; `WindowClosingEventArgs` was pinned in Task 6. If `AddClassHandler` is absent, record the fallback (subscribe `Window.Opened` in `App.axaml.cs` for the main window only; dialogs accept the Win10 light-chrome divergence). The Win10 DWM visual is maintainer-verified — the dev machine is Win11 (auto-recolors from the variant).
 
-- [ ] **Step 2: Write the failing cache tests.**
+- [x] **Step 2: Write the failing cache tests.**
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Lib/AvaloniaImmersiveDarkModeTests.cs
@@ -1392,9 +1392,9 @@ public class AvaloniaImmersiveDarkModeTests
 }
 ```
 
-- [ ] **Step 3: Run — verify it fails** (`AvaloniaImmersiveDarkMode` does not exist).
+- [x] **Step 3: Run — verify it fails** (`AvaloniaImmersiveDarkMode` does not exist).
 
-- [ ] **Step 4: Implement `AvaloniaImmersiveDarkMode`** (port of `src/Lib/UI/ImmersiveDarkMode.cs`, rule 45 — Win32 P/Invokes verbatim; HWND via `TryGetPlatformHandle`; class handler via `Control.LoadedEvent.AddClassHandler`; bounce via `Dispatcher.UIThread.Post`).
+- [x] **Step 4: Implement `AvaloniaImmersiveDarkMode`** (port of `src/Lib/UI/ImmersiveDarkMode.cs`, rule 45 — Win32 P/Invokes verbatim; HWND via `TryGetPlatformHandle`; class handler via `Control.LoadedEvent.AddClassHandler`; bounce via `Dispatcher.UIThread.Post`).
 
 ```csharp
 // <copyright file="AvaloniaImmersiveDarkMode.cs" company="CSUploader">
@@ -1515,9 +1515,9 @@ public static class AvaloniaImmersiveDarkMode
 }
 ```
 
-- [ ] **Step 5: Run — verify green** (`AvaloniaImmersiveDarkModeTests`). Under headless, `SetIsDark`'s loop no-ops (no classic-desktop lifetime) and `Apply`'s `TryGetPlatformHandle` returns null -> no-op; only the cache changes, which the tests assert.
+- [x] **Step 5: Run — verify green** (`AvaloniaImmersiveDarkModeTests`). Under headless, `SetIsDark`'s loop no-ops (no classic-desktop lifetime) and `Apply`'s `TryGetPlatformHandle` returns null -> no-op; only the cache changes, which the tests assert.
 
-- [ ] **Step 6: Make `AvaloniaThemeApplier` the sole writer.** In `ApplyTheme`, after setting `RequestedThemeVariant`, add the `SetIsDark` call:
+- [x] **Step 6: Make `AvaloniaThemeApplier` the sole writer.** In `ApplyTheme`, after setting `RequestedThemeVariant`, add the `SetIsDark` call:
 
 ```csharp
 public void ApplyTheme(bool isDark)
@@ -1537,7 +1537,7 @@ public void ApplyTheme(bool isDark)
 }
 ```
 
-- [ ] **Step 7: Register the global handler at startup.** In `App.axaml.cs` `OnFrameworkInitializationCompleted`, just before `Views.MainWindow mainWindow = new(...)`, add (mirror `src/App.xaml.cs:43`):
+- [x] **Step 7: Register the global handler at startup.** In `App.axaml.cs` `OnFrameworkInitializationCompleted`, just before `Views.MainWindow mainWindow = new(...)`, add (mirror `src/App.xaml.cs:43`):
 
 ```csharp
 // Register the global Window.Loaded class handler so every window picks up the dark title bar automatically
@@ -1546,7 +1546,7 @@ public void ApplyTheme(bool isDark)
 Lib.UI.AvaloniaImmersiveDarkMode.RegisterGlobalHandler();
 ```
 
-- [ ] **Step 8: Update the existing `ThemeTests`.** In `ThemeTests.ApplyTheme_FlipsRequestedThemeVariant`, extend the `finally` to also restore the now-mutated global cache, and add a coupling test:
+- [x] **Step 8: Update the existing `ThemeTests`.** In `ThemeTests.ApplyTheme_FlipsRequestedThemeVariant`, extend the `finally` to also restore the now-mutated global cache, and add a coupling test:
 
 ```csharp
 finally
@@ -1575,14 +1575,16 @@ public void ApplyTheme_AlsoSetsImmersiveDarkCache()
 }
 ```
 
-- [ ] **Step 9: Run — verify green** (Avalonia suite +3; the existing ThemeTests still pass with the restored finally).
+- [x] **Step 9: Run — verify green** (Avalonia suite +3; the existing ThemeTests still pass with the restored finally).
 
-- [ ] **Step 10: Suite gate + commit.** Both suites, both heads 0-warning Debug + Release.
+- [x] **Step 10: Suite gate + commit.** Both suites, both heads 0-warning Debug + Release.
 
 ```bash
 git add src/CSUploader.Avalonia/Lib/UI/AvaloniaImmersiveDarkMode.cs src/CSUploader.Avalonia/Services/AvaloniaThemeApplier.cs src/CSUploader.Avalonia/App.axaml.cs tests/CSUploader.Avalonia.Tests/Lib/AvaloniaImmersiveDarkModeTests.cs tests/CSUploader.Avalonia.Tests/Theming/ThemeTests.cs
 git commit -m "feat(avalonia): Phase 7 Task 7 - Win10 dark-title-bar DWM fallback; theme-applier sole writer"
 ```
+
+**Task 7 executed (2026-07-14) — pending reviewer gate.** `AvaloniaImmersiveDarkMode` shipped (`src/CSUploader.Avalonia/Lib/UI/AvaloniaImmersiveDarkMode.cs`) — the three P/Invokes (`DwmSetWindowAttribute` PreserveSig, `SetWindowPos` Bool, `SendMessage` Unicode) and all constants (attr 20 + the 19 fallback; SWP_* ; WM_NCACTIVATE 0x0086) ported **VERBATIM** from `src/Lib/UI/ImmersiveDarkMode.cs`; only the two rule-45 substitutions differ (HWND via `TryGetPlatformHandle()?.Handle` instead of `WindowInteropHelper.EnsureHandle`; new-window hook via `Control.LoadedEvent.AddClassHandler<Window>` instead of `EventManager.RegisterClassHandler`; ContextIdle bounce -> `Dispatcher.UIThread.Post(..., DispatcherPriority.Background)`). `SetIsDark` iterates the classic-desktop lifetime's `Windows` (null-guarded); `RegisterGlobalHandler` gained a `_registered` once-guard (WPF relies on single-call-site instead). **Sole-writer invariant HELD (grep-verified):** `AvaloniaImmersiveDarkMode.SetIsDark` has exactly ONE production caller — `AvaloniaThemeApplier.cs:38` (mirrors `WpfThemeApplier.cs:81`); `RegisterGlobalHandler` has exactly ONE caller — `App.axaml.cs:113`, once at startup before MainWindow (mirrors `App.xaml.cs:43`); `Apply` has no external production caller. Gates: Avalonia **411 -> 415** (+4), WPF/shared **1201/1201** (untouched — zero Core/WPF changes), both heads **0-warning Debug AND Release**. **Deviations (recorded):** (1) **+4 tests, not the plan's +3** — the plan's 3 (`SetIsDark_UpdatesCache`, `RegisterGlobalHandler_IsIdempotent`, `ApplyTheme_AlsoSetsImmersiveDarkCache`) PLUS the team-lead-requested NRE-safety test `Apply_WithNoPlatformHandle_IsSilentNoOp` (`[AvaloniaFact]`: an unshown Window has a null platform handle -> `Apply` early-returns before any DWM call for both `dark` values, and does NOT disturb the cache — the plan Step-5 headless no-op made non-vacuous). Step 9's "+3" is therefore superseded by "+4". (2) The `AvaloniaThemeApplier` class-header doc-comment ("...sole writer of the Phase 7 new-window dark-chrome preference **when that lands**") was left as-is — the plan's Step 6 prescribes only the `SetIsDark` call, not a comment edit; the future-tense phrasing is now mildly stale but untouched under minimal-change discipline (reviewer may tidy). (3) **Live title-bar flip NOT bridge-verified** — the DWM immersive-dark attribute recolors the OS NON-CLIENT title bar, which the bridge's client-area `ava_screenshot` cannot capture (team-lead-flagged caveat); on the Win11 dev box the title bar auto-recolors from the `ThemeVariant` natively (Avalonia platform behavior) INDEPENDENT of the P/Invoke, so a Win11 shot would not isolate this code's effect anyway — attribute-20 succeeds on Win11 but the DWM path is specifically the **Win10 fallback**. The plan prescribes no desktop-level shot for Task 7, so none was improvised. Mechanism confidence rests on: verbatim P/Invoke port from the shipping WPF head; the Reality-check register CONFIRMED shapes (`AddClassHandler<Window>` + `TryGetPlatformHandle`, re-proven by clean compile on 11.3.18); and the headless tests (writer discipline + once-guard + NRE-safety). Remaining **maintainer-only** (recorded in the register): the Win10 attribute-19 fallback path + the Win10 DWM VISUAL; and the maintainer's 125%/150% DPI toast-placement smoke. The `catch {}` in `Apply` is the WPF original's documented best-effort swallow ported verbatim (pre-Win10 E_INVALIDARG), not new slop.
 
 ---
 

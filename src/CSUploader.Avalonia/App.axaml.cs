@@ -107,6 +107,11 @@ public partial class App : Application
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
 #endif
 
+            // Register the global Window.Loaded class handler so every window picks up the dark title bar
+            // automatically (Win10 fallback; Win11 auto-recolors). MainViewModel.InitializeAsync sets the
+            // initial IsDark via IThemeApplier.ApplyTheme once the persisted setting is read.
+            Lib.UI.AvaloniaImmersiveDarkMode.RegisterGlobalHandler();
+
             Views.MainWindow mainWindow = new(
                 _serviceProvider.GetRequiredService<AppSettings>(),
                 _serviceProvider.GetRequiredService<ITrayIconService>(),
