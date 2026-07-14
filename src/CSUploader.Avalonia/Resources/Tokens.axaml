@@ -39,6 +39,17 @@
   <x:Double x:Key="DataGridRowHeight">26</x:Double>
   <GridLength x:Key="LabelWidth">110</GridLength>
 
+  <!-- Phase 9 header-metrics reclaim (design line 101 reconcile item 10): the Fluent DataGridColumnHeader
+       template statically reserves DataGridSortIconMinWidth (32px) for the sort glyph even when none shows,
+       clipping short headers to blank at &lt;44px. App-scoped (merged into Application.Resources) so the
+       DynamicResource in the theme's sort-icon ColumnDefinition.MinWidth resolves to this override.
+       Value tuned to 8 against the Task 1 contact sheet (Step 6): the accounts '&#x2713;' column is the binding
+       constraint at 30px — content = width - header-padding(2,0) - reserve, so 30-4-8 = 18px shows the glyph,
+       and the proxies 'On' column (40px) gets 28px. 16 (a naive half) left only 6px on the 30px column, still
+       blank. Sortable columns keep their glyph: the reserve is a MIN — the Auto column grows to the 12px glyph
+       when a column is actually sorted, costing only a small reflow the checkbox (never-sorted) columns avoid. -->
+  <x:Double x:Key="DataGridSortIconMinWidth">8</x:Double>
+
   <!-- Corners -->
   <CornerRadius x:Key="RadiusSm">2</CornerRadius>
   <CornerRadius x:Key="RadiusMd">4</CornerRadius>

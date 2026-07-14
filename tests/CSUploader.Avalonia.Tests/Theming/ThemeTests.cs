@@ -174,13 +174,19 @@ public class ThemeTests
         Dictionary<string, string> wpf = RepoXaml.ParseValueTokens(File.ReadAllText(WpfTokensPath));
         Dictionary<string, string> ava = RepoXaml.ParseValueTokens(File.ReadAllText(AvaloniaTokensPath));
 
+        // Avalonia-only value tokens with no WPF analog, exempt from the stale gate: the Phase 9 Task 1
+        // header-metrics reclaim overrides the Fluent DataGrid theme's sort-icon reserve
+        // (DataGridSortIconMinWidth) — a DataGrid-control-theme resource the WPF head has no equivalent of.
+        // Excluding it keeps the WPF<->Avalonia parity check meaningful for genuinely-ported tokens.
+        HashSet<string> avaloniaOnly = new(StringComparer.Ordinal) { "DataGridSortIconMinWidth" };
+
         // The plan's Task 5 ports exactly 22 value tokens; pinning the count guards against the parse
         // silently matching a partial subset (which would let a value drift slip). If both files gain a
         // token, bump this number with them.
         Assert.Equal(22, wpf.Count);
 
         List<string> missing = wpf.Keys.Except(ava.Keys).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        List<string> stale = ava.Keys.Except(wpf.Keys).OrderBy(k => k, StringComparer.Ordinal).ToList();
+        List<string> stale = ava.Keys.Except(wpf.Keys).Except(avaloniaOnly).OrderBy(k => k, StringComparer.Ordinal).ToList();
         Assert.True(missing.Count == 0, $"WPF value tokens not in Tokens.axaml: {string.Join(", ", missing)}");
         Assert.True(stale.Count == 0, $"Tokens.axaml value tokens with no WPF source (stale): {string.Join(", ", stale)}");
 

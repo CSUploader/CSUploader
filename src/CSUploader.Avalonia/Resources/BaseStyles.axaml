@@ -152,4 +152,13 @@
     <Setter Property="RowHeight" Value="{DynamicResource DataGridRowHeight}" />
   </Style>
 
+  <!-- Phase 9 header-metrics reclaim: trim the column-header padding (Fluent default 12,0,0,0) alongside the
+       sort-icon reserve (DataGridSortIconMinWidth, Tokens.axaml) so short checkbox headers ('On', '&#x2713;')
+       render fully instead of clipping to blank. Global (one-shot pass); tuned to 2,0 against the Task 1 contact
+       sheet (Step 6) — the 4px horizontal budget plus the reduced 8px reserve leaves the 30px '&#x2713;' column 18px
+       of content for the glyph while keeping headers left-aligned close to their cells. -->
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Padding" Value="2,0" />
+  </Style>
+
 </Styles>
