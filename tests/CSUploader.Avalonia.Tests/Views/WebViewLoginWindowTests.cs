@@ -24,7 +24,7 @@ public class WebViewLoginWindowTests
         try
         {
             var vm = Assert.IsType<WebViewLoginViewModel>(window.DataContext);
-            Assert.Contains("ex-load", vm.Header); // WebViewLogin_Header_Format applied
+            Assert.Contains("ex-load", vm.Header, StringComparison.Ordinal); // WebViewLogin_Header_Format applied
             Assert.False(vm.IsInitialized);         // no HwndReady until shown
             Assert.False(vm.IsCompleted);
             Assert.Equal(0, vm.NavigationCompletedCount);

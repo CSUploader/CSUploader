@@ -39,6 +39,7 @@ public partial class WebViewLoginWindow : Window
     private CoreWebView2Controller? _controller;
     private CoreWebView2? _core;
     private bool _creating;
+    private bool _torndown;
     private System.Drawing.Rectangle _lastBounds;
 
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001). The app always uses the
@@ -132,6 +133,19 @@ public partial class WebViewLoginWindow : Window
                 browserExecutableFolder: null, userDataFolder: userDataFolder, options: options);
 
             _controller = await env.CreateCoreWebView2ControllerAsync(hwnd);
+
+            // Init-in-flight teardown race: if the user Cancelled / closed the window DURING the awaits
+            // above, TeardownController already ran with _controller == null (a no-op), so this
+            // just-created controller would never be Close()d and its per-hoster user-data-folder lock
+            // would leak until process exit (the WPF-documented failure — WebViewLoginWindow.xaml.cs:515-518,
+            // "data directory already in use" on the next sign-in). Close it here and bail before wiring up.
+            if (_torndown)
+            {
+                _controller.Close();
+                _controller = null;
+                return;
+            }
+
             _core = _controller.CoreWebView2;
 
             // Pin the UA before any navigation when the spec asks (Cloudflare cf_clearance binds to the exact
@@ -180,12 +194,18 @@ public partial class WebViewLoginWindow : Window
         catch (Exception ex)
         {
             // WebView2 runtime missing / corrupt user-data folder — fail loudly (custom message box, design's
-            // "MessageBox on init-failure -> custom message box") then close with no result.
-            await MessageBoxWindow.ShowErrorAsync(
-                this,
-                string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Error_InitFailed_Format"], ex.Message),
-                Localizer.Instance["Common_Error"]);
-            Close(null);
+            // "MessageBox on init-failure -> custom message box") then close with no result. But if the window
+            // was torn down / closed mid-init (the race above, or the child HWND was destroyed so the controller
+            // create threw), the owner is gone: ShowErrorAsync(this) / Close(null) would throw and escape this
+            // async void unobserved — so only surface the error on a still-live window.
+            if (!_torndown && IsVisible)
+            {
+                await MessageBoxWindow.ShowErrorAsync(
+                    this,
+                    string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Error_InitFailed_Format"], ex.Message),
+                    Localizer.Instance["Common_Error"]);
+                Close(null);
+            }
         }
         finally
         {
@@ -195,6 +215,10 @@ public partial class WebViewLoginWindow : Window
 
     private void TeardownController()
     {
+        // Terminal: also the "abort" signal an in-flight OnHwndReady checks after CreateAsync resumes,
+        // so a controller created after this ran is Closed there instead of leaking its folder lock.
+        _torndown = true;
+
         if (_core is not null)
         {
             _core.NavigationCompleted -= CoreWebView2_NavigationCompleted;
