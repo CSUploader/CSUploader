@@ -21,6 +21,7 @@ using CSUploader.Lib;
 using CSUploader.Lib.Crypto;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
+using CSUploader.Lib.Update;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -29,6 +30,7 @@ using CSUploader.ViewModels;
 using CSUploader.Views;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using static CSUploader.Tests.Avalonia.LeakProbes;
 
@@ -642,7 +644,200 @@ public class UploadsViewTests
         Assert.Same(view.uploadsGrid.SelectedItems, binding.CommandParameter);
     }
 
+    // ── Overview panel (Task 12): ShowUploadOverview toggles the whole panel's visibility (rule 33) ──
+
+    [AvaloniaFact]
+    public void ShowUploadOverview_TogglesOverviewPanelVisibility()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            Assert.True(harness.Vm.ShowUploadOverview);  // defaults on
+            Assert.True(view.OverviewPanel.IsVisible);
+
+            harness.Vm.ShowUploadOverview = false;       // the ✕ close button sets this
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.OverviewPanel.IsVisible);
+
+            harness.Vm.ShowUploadOverview = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(view.OverviewPanel.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Overview chevron (Task 12): a real LEFT release on the title-bar toggle collapses the stats area (rule 10) ──
+
+    [AvaloniaFact]
+    public void OverviewChevron_PointerReleased_TogglesIsOverviewExpanded_AndStatsAreaFollows()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            Assert.True(harness.Vm.IsOverviewExpanded);   // defaults expanded
+            Assert.True(view.OverviewStatsArea.IsVisible);
+
+            // A real left press+release on the chevron strip runs OverviewToggle_PointerReleased (the initial-
+            // button guard passes only for Left), which flips IsOverviewExpanded → the stats area collapses.
+            LeftClick(window, view.OverviewToggle);
+            Assert.False(harness.Vm.IsOverviewExpanded);
+            Assert.False(view.OverviewStatsArea.IsVisible);
+
+            // ...and back.
+            LeftClick(window, view.OverviewToggle);
+            Assert.True(harness.Vm.IsOverviewExpanded);
+            Assert.True(view.OverviewStatsArea.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Overview stat toggle (Task 12, rule 31): the checkable menu item two-way-writes Show* and the paired stat follows ──
+
+    [AvaloniaFact]
+    public void OverviewStatToggle_TwoWayWritesShowFlag_AndStatPairVisibilityFollows()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            ContextMenu menu = view.OverviewStatsArea.ContextMenu!;
+            menu.DataContext = harness.Vm; // resolve the inherited VM binding for the (closed) menu
+
+            var packagesItem = Assert.IsType<MenuItem>(menu.Items[0]);
+            Assert.Equal(MenuItemToggleType.CheckBox, packagesItem.ToggleType); // rule 31 glyph lever
+
+            Assert.True(harness.Vm.ShowPackages);       // defaults on...
+            Assert.True(view.PackagesStat.IsVisible);   // ...so the Packages stat pair shows
+
+            // Rule 31: flip IsChecked (what a real click does) then raise Click (the Phase 5 Task 3 pattern).
+            // The two-way IsChecked binding writes ShowPackages back to the VM.
+            packagesItem.IsChecked = false;
+            packagesItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(harness.Vm.ShowPackages);      // the toggle wrote through
+            Assert.False(view.PackagesStat.IsVisible);  // and the paired stat pair collapsed (rule 33)
+
+            packagesItem.IsChecked = true;
+            packagesItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(harness.Vm.ShowPackages);
+            Assert.True(view.PackagesStat.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Add→wizard (Task 12): the Add toolbar button opens a UploadWizardWindow via the factory seam ──
+
+    [AvaloniaFact]
+    public void AddButton_OpensUploadWizardWindow()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+
+        // App.Services is null under the test lifetime (the production ctor path is covered by the Task 7 DI
+        // hand-construction test), so swap the factory for the internal VM-injection wizard ctor.
+        UploadWizardWindow? opened = null;
+        UploadWizardViewModel wizardVm = harness.BuildWizardViewModel();
+        view.UploadWizardWindowFactory = _ => opened = new UploadWizardWindow(wizardVm);
+
+        try
+        {
+            view.AddButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(opened);
+            Assert.True(opened!.IsVisible); // ShowDialog(owner) put the wizard on screen
+        }
+        finally
+        {
+            // AvaloniaFact discipline: close every window opened (headless windows are process-global).
+            opened?.Close();
+            window.Close();
+        }
+    }
+
+    // ── Premium footer (Task 12): the jump resolves the parent Window's MainViewModel → Settings/Accounts ──
+
+    [AvaloniaFact]
+    public void PremiumFooter_JumpToAccounts_SetsSettingsTabAndAccountsCategory()
+    {
+        // A REAL MainViewModel over the head's full DI graph (the AvaloniaStartupDISmokeTests pattern), so the
+        // footer's window-ancestor lookup lands a genuine MainViewModel + SettingsViewModel. The one registration
+        // overridden is IUpdateService — the real Velopack-backed one needs a VelopackLocator (process-global,
+        // set only in the packaged app), and the footer jump never touches update-checking.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-uploadsview-footer-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        ServiceCollection services = new();
+        App.ConfigureServices(services, tempDir);
+        services.AddSingleton<IUpdateService>(Mock.Of<IUpdateService>()); // last registration wins for GetRequiredService
+        ServiceProvider provider = services.BuildServiceProvider();
+        try
+        {
+            // The head creates the schema at app startup (not in ConfigureServices), so materialize it here —
+            // MainViewModel's settings load reads the Setting table once the host window is shown.
+            using (CSUploaderDbContext db = provider.GetRequiredService<IDbContextFactory<CSUploaderDbContext>>().CreateDbContext())
+            {
+                db.Database.EnsureCreated();
+            }
+
+            MainViewModel main = provider.GetRequiredService<MainViewModel>();
+            UploadsView view = new() { DataContext = main.UploadsViewModel };
+            Window window = new() { Width = 900, Height = 600, Content = view, DataContext = main };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                Assert.NotEqual(2, main.SelectedTabIndex); // not already on Settings
+
+                // PremiumAccountLink_PointerReleased delegates to this after the left-button guard; it resolves
+                // the host Window's MainViewModel (WPF Window.GetWindow(this)) and jumps to Settings → Accounts.
+                Assert.True(view.JumpToAccountsSettings());
+                Assert.Equal(2, main.SelectedTabIndex);                        // Settings tab
+                Assert.Equal(3, main.SettingsViewModel.SelectedCategoryIndex); // Accounts category
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            provider.Dispose();
+            try
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch
+            {
+            }
+        }
+    }
+
     // ── helpers ──
+
+    private static void LeftClick(Window window, Visual target)
+    {
+        Point centre = CenterInWindow(target, window);
+        window.MouseDown(centre, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseUp(centre, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
 
     private static DataGridColumn OrderColumnOf(UploadsView view)
         => view.uploadsGrid.Columns.First(c => Equals(c.Header, Localizer.Instance["Uploads_Col_Order"]));
@@ -722,6 +917,7 @@ public class UploadsViewTests
         private readonly SqliteConnection _connection;
         private readonly UploadScheduler _scheduler;
         private readonly PackageManager _manager;
+        private readonly FileHosterLoginRepository _loginRepo;
         private readonly AppSettings _settings = new();
         private readonly string _tempDir;
 
@@ -740,12 +936,12 @@ public class UploadsViewTests
 
             UploadPackageFileRepository fileRepo = new(factory);
             UploadPackageRepository packageRepo = new(factory);
-            FileHosterLoginRepository loginRepo = new(factory);
+            _loginRepo = new(factory);
             SettingRepository settingRepo = new(factory);
 
             DefaultFileHosterRegistry registry = new([]);
             _scheduler = new UploadScheduler(_settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new HashingService(), registry);
-            _manager = new PackageManager(_settings, _scheduler, packageRepo, fileRepo, loginRepo, Mock.Of<IAppLogger>(), registry);
+            _manager = new PackageManager(_settings, _scheduler, packageRepo, fileRepo, _loginRepo, Mock.Of<IAppLogger>(), registry);
 
             Vm = new UploadsViewModel(_manager, _settings, Mock.Of<IDialogService>(), new InlineDispatcher(), Mock.Of<IClipboardService>(), settingRepo);
 
@@ -792,6 +988,12 @@ public class UploadsViewTests
 
             return package;
         }
+
+        /// <summary>A scratch <see cref="UploadWizardViewModel"/> (the UploadWizardShellTests harness shape),
+        /// for the Add-button test's wizard factory — the production ctor's <c>App.Services</c> path is null
+        /// under the test lifetime, so the Add handler's factory seam is swapped for a wizard built from this.</summary>
+        public UploadWizardViewModel BuildWizardViewModel()
+            => new(_manager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), _settings);
 
         public void Dispose()
         {

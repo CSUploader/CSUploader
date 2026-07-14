@@ -29,7 +29,8 @@ namespace CSUploader.Views;
 /// (lock toggle + drag-resize + sort) is the Task 1 recipe; the column menu / persistence is the shared
 /// Phase 5 helper. The ~40-item context menu, the editable Order cell (BeginningEdit/CellEditEnding guards),
 /// the right-click target recorder + menu suppression, the package-expanding Ctrl+C/menu copy and the Delete
-/// key are Task 11. The overview panel, premium footer and Add→wizard are Task 12.
+/// key are Task 11. The JD2 overview panel (with its 12-toggle stats context menu), the premium footer jump and
+/// the Add→wizard wiring are Task 12 — which completes UploadsView.
 /// </summary>
 public partial class UploadsView : UserControl
 {
@@ -246,10 +247,91 @@ public partial class UploadsView : UserControl
         }
     }
 
-    // Add → Upload Wizard. Wired in Task 12; a no-op stub this task so the toolbar renders and the XAML
-    // Click handler resolves.
+    // ── Add → Upload Wizard (Task 12) ──
+
+    /// <summary>
+    /// Test seam for the Add→wizard construction. <see langword="null"/> in production, where the handler news
+    /// the wizard exactly as the WPF opener does — <c>new UploadWizardWindow(vm)</c>, which hand-builds the
+    /// (non-DI-registered) <see cref="UploadWizardViewModel"/> from <c>App.Services</c>. The headless test sets
+    /// this to a scratch-VM wizard because <c>App.Services</c> is <see langword="null"/> under the test
+    /// lifetime (that path is separately covered by the Task 7 DI hand-construction test).
+    /// </summary>
+    internal Func<UploadsViewModel, UploadWizardWindow>? UploadWizardWindowFactory { get; set; }
+
+    /// <summary>
+    /// Add toolbar button → opens the Upload Wizard as a dialog on the main window. Mirrors the WPF
+    /// <c>AddUploadButton_Click</c> (UploadsView.xaml.cs:223-233): <c>new UploadWizardWindow(vm)</c> owned by the
+    /// parent window, shown modally. The dialog result is discarded — the WPF opener ignores <c>ShowDialog()</c>'s
+    /// bool too (the wizard commits its own package on <see cref="UploadWizardViewModel.Completed"/>).
+    /// </summary>
     private void AddUploadButton_Click(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is not UploadsViewModel vm || this.FindAncestorOfType<Window>() is not { } owner)
+        {
+            return;
+        }
+
+        UploadWizardWindow wizard = UploadWizardWindowFactory?.Invoke(vm) ?? new UploadWizardWindow(vm);
+        _ = wizard.ShowDialog(owner);
+    }
+
+    // ── Upload Overview panel (Task 12) ──
+
+    /// <summary>The ✕ button hides the whole overview panel (mirror the WPF <c>OverviewCloseButton_Click</c>,
+    /// UploadsView.xaml.cs:235-241).</summary>
+    private void OverviewCloseButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is UploadsViewModel vm)
+        {
+            vm.ShowUploadOverview = false;
+        }
+    }
+
+    /// <summary>
+    /// The title-bar chevron collapses/expands the stats row (leaving the title bar), on a LEFT release only
+    /// (rule 10 — WPF <c>MouseLeftButtonUp</c> → <c>PointerReleased</c> + the initial-button guard). Mirrors the
+    /// WPF <c>OverviewToggle_MouseLeftButtonUp</c> (UploadsView.xaml.cs:248-255).
+    /// </summary>
+    private void OverviewToggle_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && DataContext is UploadsViewModel vm)
+        {
+            vm.IsOverviewExpanded = !vm.IsOverviewExpanded;
+            e.Handled = true;
+        }
+    }
+
+    // ── Premium footer jump (Task 12) ──
+
+    /// <summary>
+    /// The premium footer link jumps to Settings → Accounts, on a LEFT release only (rule 10). Mirrors the WPF
+    /// <c>PremiumAccountLink_Click</c> (UploadsView.xaml.cs:410-418).
+    /// </summary>
+    private void PremiumAccountLink_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Left && JumpToAccountsSettings())
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Switches the host window to the Settings tab and selects the Accounts category. Resolves the parent
+    /// <see cref="Window"/>'s <see cref="MainViewModel"/> (the Avalonia stand-in for WPF's
+    /// <c>Window.GetWindow(this)</c>); returns <see langword="false"/> when no <see cref="MainViewModel"/> is
+    /// reachable (e.g. the view is hosted outside the main window). Internal so the headless test drives the
+    /// real window-ancestor lookup + the two index writes without synthesizing a pointer release.
+    /// </summary>
+    internal bool JumpToAccountsSettings()
+    {
+        if (this.FindAncestorOfType<Window>()?.DataContext is not MainViewModel main)
+        {
+            return false;
+        }
+
+        main.SelectedTabIndex = 2;                        // Settings tab (Uploads, Uploaded, Settings, Logs)
+        main.SettingsViewModel.SelectedCategoryIndex = 3; // Accounts category (after General/Upload/Connection)
+        return true;
     }
 
     // ── Editable Order cell (prep 7) ──

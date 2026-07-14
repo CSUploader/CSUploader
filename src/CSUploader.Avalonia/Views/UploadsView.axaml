@@ -221,6 +221,25 @@
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+
+    <!-- Overview stat pairs (rule 40: the WPF per-TextBlock inline styling collapses to Classes selectors).
+         Each pair is a horizontal StackPanel of a secondary label + a bold primary value. -->
+    <Style Selector="StackPanel.stat">
+      <Setter Property="Orientation" Value="Horizontal" />
+      <Setter Property="Margin" Value="0,0,16,1" />
+    </Style>
+    <Style Selector="StackPanel.stat > TextBlock">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.stat-label">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+      <Setter Property="Margin" Value="0,0,4,0" />
+    </Style>
+    <Style Selector="TextBlock.stat-value">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
   </UserControl.Styles>
 
   <Grid Background="{DynamicResource SurfaceBrush}">
@@ -237,7 +256,7 @@
             BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
             Padding="4,2">
       <StackPanel Orientation="Horizontal">
-        <Button Theme="{StaticResource ToolbarButtonTheme}" Click="AddUploadButton_Click"
+        <Button x:Name="AddButton" Theme="{StaticResource ToolbarButtonTheme}" Click="AddUploadButton_Click"
                 ToolTip.Tip="{loc:Loc Uploads_Toolbar_AddTip}">
           <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-4,0,0" />
@@ -638,9 +657,120 @@
       </DataGrid.Columns>
     </DataGrid>
 
-    <!-- Row 2 (overview panel) and Row 4 (premium footer) are added in Task 12. -->
+    <!-- Row 2: JD2 "Upload Overview" stats panel (mirror src/Views/UploadsView.xaml:646-791). rule 33:
+         Visibility+BoolToVisibility -> IsVisible; rule 31: IsCheckable -> ToggleType=CheckBox (+ IsChecked
+         TwoWay); rule 10: MouseLeftButtonUp -> PointerReleased + a left-button guard (code-behind). The stats
+         area's right-click ContextMenu is bridge-un-openable (ContextRequested vs a real PointerPressed), so
+         the 12-toggle menu is headless-verified. -->
+    <Border x:Name="OverviewPanel" Grid.Row="2"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+            IsVisible="{Binding ShowUploadOverview}">
+      <Grid RowDefinitions="Auto,Auto">
+        <!-- Title bar: green chevron + title (toggles the stats row) + ✕ close button (hides the whole panel). -->
+        <Border Grid.Row="0" Padding="4,2" Background="{DynamicResource OverviewTitleGradientBrush}">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Width="16" Height="16" MinWidth="0" MinHeight="0" Margin="4,0,2,0"
+                    Background="Transparent" BorderThickness="0" Cursor="Hand" Padding="0"
+                    FontSize="10" Content="&#x2715;" Foreground="{DynamicResource OverviewCloseBrush}"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    ToolTip.Tip="{loc:Loc Uploads_Overview_CloseTip}"
+                    Click="OverviewCloseButton_Click" />
 
-    <!-- JD2-style filter bar. -->
+            <!-- The chevron + title toggles IsOverviewExpanded on a LEFT release. Background=Transparent so the
+                 whole strip is hit-testable (an unpainted panel is not). -->
+            <StackPanel x:Name="OverviewToggle" Orientation="Horizontal" VerticalAlignment="Center"
+                        Cursor="Hand" Background="Transparent"
+                        PointerReleased="OverviewToggle_PointerReleased"
+                        ToolTip.Tip="{loc:Loc Uploads_Overview_ToggleTip}">
+              <TextBlock Text="{Binding OverviewToggleGlyph}" FontSize="10"
+                         Foreground="{DynamicResource OverviewArrowBrush}" VerticalAlignment="Center" />
+              <TextBlock Text="{loc:Loc Uploads_Overview_Title}" FontSize="11" FontWeight="SemiBold"
+                         Margin="4,0,0,0" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Stats area (collapses via the chevron). Right-click ContextMenu toggles the 12 fields (rule 31);
+             each stat pair is IsVisible per its Show* flag (rule 33). -->
+        <Border x:Name="OverviewStatsArea" Grid.Row="1"
+                Background="{DynamicResource SurfaceAltBrush}" Padding="6,3,6,4"
+                BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,1,0,0"
+                IsVisible="{Binding IsOverviewExpanded}">
+          <Border.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="{loc:Loc Uploads_Overview_Packages}" ToggleType="CheckBox" IsChecked="{Binding ShowPackages, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_Links}" ToggleType="CheckBox" IsChecked="{Binding ShowLinks, Mode=TwoWay}" />
+              <Separator />
+              <MenuItem Header="{loc:Loc Uploads_Overview_TotalBytes}" ToggleType="CheckBox" IsChecked="{Binding ShowTotalBytes, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_Uploadspeed}" ToggleType="CheckBox" IsChecked="{Binding ShowUploadspeed, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_BytesLoaded}" ToggleType="CheckBox" IsChecked="{Binding ShowBytesLoaded, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_RemainingBytes}" ToggleType="CheckBox" IsChecked="{Binding ShowRemainingBytes, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_Eta}" ToggleType="CheckBox" IsChecked="{Binding ShowEta, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_RunningUploads}" ToggleType="CheckBox" IsChecked="{Binding ShowRunningUploads, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_OpenConnections}" ToggleType="CheckBox" IsChecked="{Binding ShowOpenConnections, Mode=TwoWay}" />
+              <Separator />
+              <MenuItem Header="{loc:Loc Uploads_Overview_FinishedLinks}" ToggleType="CheckBox" IsChecked="{Binding ShowFinishedLinks, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_SkippedLinks}" ToggleType="CheckBox" IsChecked="{Binding ShowSkippedLinks, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_FailedLinks}" ToggleType="CheckBox" IsChecked="{Binding ShowFailedLinks, Mode=TwoWay}" />
+            </ContextMenu>
+          </Border.ContextMenu>
+
+          <!-- Each stat is a label+value pair that collapses when toggled off (WrapPanel order verbatim from WPF). -->
+          <WrapPanel Orientation="Horizontal">
+            <StackPanel x:Name="PackagesStat" Classes="stat" IsVisible="{Binding ShowPackages}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_PackagesLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding PackageCount}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowTotalBytes}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_TotalBytesLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding TotalBytes}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowBytesLoaded}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_BytesLoadedLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding BytesLoaded}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowEta}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_EtaLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding Eta}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowOpenConnections}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_OpenConnectionsLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding RunningUploads}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowLinks}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_LinksLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding FileCount}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowUploadspeed}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_UploadspeedLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding UploadSpeed}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowRemainingBytes}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_RemainingBytesLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding RemainingBytes}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowRunningUploads}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_RunningUploadsLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding RunningUploads}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowFinishedLinks}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_FinishedLinksLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding FinishedLinks}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowSkippedLinks}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_SkippedLinksLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding SkippedLinks}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowFailedLinks}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_FailedLinksLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding FailedLinks}" />
+            </StackPanel>
+          </WrapPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <!-- Row 3: JD2-style filter bar. -->
     <Border Grid.Row="3" Background="{DynamicResource SurfaceAltBrush}"
             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
             Padding="6,4">
@@ -653,6 +783,20 @@
                  VerticalContentAlignment="Center"
                  ToolTip.Tip="{loc:Loc Uploads_FilterTip}" />
       </DockPanel>
+    </Border>
+
+    <!-- Row 4: premium account footer link (mirror :811-833). rule 10: MouseLeftButtonUp -> PointerReleased. -->
+    <Border Grid.Row="4" Background="{DynamicResource SurfaceMutedBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+            Padding="8,3">
+      <StackPanel x:Name="PremiumAccountLink" Orientation="Horizontal" Cursor="Hand"
+                  Background="Transparent"
+                  PointerReleased="PremiumAccountLink_PointerReleased">
+        <TextBlock Text="&#x2795;" FontFamily="Segoe UI Symbol" FontSize="11"
+                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+        <TextBlock Text="{loc:Loc Uploads_FooterPremiumLink}" FontSize="11"
+                   Foreground="{DynamicResource AccentBrush}" Margin="4,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
     </Border>
   </Grid>
 </UserControl>
