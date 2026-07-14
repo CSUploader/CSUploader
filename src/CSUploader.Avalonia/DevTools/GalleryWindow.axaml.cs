@@ -10,12 +10,14 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Styling;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Lib.UI;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
@@ -132,6 +134,38 @@ public partial class GalleryWindow : Window
         PickOpenFileButton.Click += OnPickOpenFile;
         PickSaveFileButton.Click += OnPickSaveFile;
         WizardButton.Click += OnShowWizard;
+        ToastProbeButton.Click += OnToastProbe;
+    }
+
+    // ── Toast (Phase 7 Task 1 GO/NO-GO probe) ──
+    // THROWAWAY — Task 2 deletes this and replaces it with a real ToastWindow via AvaloniaToastWindowFactory.
+    // Shows a bare chrome-less, transparent, topmost, NON-activated window bottom-right of the primary work
+    // area (via ToastPlacement + Screens.Primary), proving transparent-popup rendering, no-focus-steal (the
+    // main window stays active because ShowActivated=false) and bottom-right placement at the dev-machine DPI.
+    private void OnToastProbe(object? sender, RoutedEventArgs e)
+    {
+        var screen = Screens.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
+        double scaling = screen?.Scaling ?? 1.0;
+        DipRect work = screen is null
+            ? new DipRect(0, 0, 1920, 1080)
+            : ToastPlacement.WorkAreaToDip(screen.WorkingArea, scaling);
+
+        var probe = new Window
+        {
+            Width = 360,
+            Height = 80,
+            SystemDecorations = SystemDecorations.None,
+            Background = Brushes.Transparent,
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
+            ShowInTaskbar = false,
+            Topmost = true,
+            CanResize = false,
+            ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Content = new Border { Background = Brushes.CornflowerBlue, Child = new TextBlock { Text = "toast probe" } },
+        };
+        probe.Position = ToastPlacement.DipToPhysical(work.Right - 360 - 12, work.Bottom - 80 - 12, scaling);
+        probe.Show();
     }
 
     private void OnToggleTheme(object? sender, RoutedEventArgs e)

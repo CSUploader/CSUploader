@@ -67,9 +67,9 @@ Rules 1-17 (Phase 4), 18-32 (Phase 5), 33-40 (Phase 6) and the KeyBinding-vs-edi
 
 The design flags toast positioning/click-through/topmost/ShowActivated at Win10+Win11 DPI as GO/NO-GO. This task pins the risky Window API surface (Reality-check items 1-3), builds the pure DIP math with tests, drives a throwaway chrome-less topmost non-activated probe window through the bridge to prove no focus-steal + topmost + bottom-right placement, and captures the WPF toast reference shot (shot-driver-first). Record the verdict + recipe (or the ShowActivated fallback).
 
-- [ ] **Step 1: Pin the Window API surface (Reality-check 1-3) via ILSpy.** Confirm on the installed Avalonia 11.3.18 bits: `Window.ShowActivated` (bool), `Window.SystemDecorations` (`SystemDecorations.None`), `Window.TransparencyLevelHint`, `Window.Position` (`PixelPoint`), `Window.Screens` (`Screens`), `Screens.Primary`/`ScreenFromWindow(Window)` (`Screen?`), `Screen.WorkingArea` (`PixelRect`), `Screen.Scaling` (double), `Border.BoxShadow` syntax. Record each in the Reality-check register with the concrete member. If `ShowActivated` is ABSENT, record the fallback recipe (after `host.Show()`, re-activate the MainWindow: `desktop.MainWindow?.Activate()`).
+- [x] **Step 1: Pin the Window API surface (Reality-check 1-3) via ILSpy.** Confirm on the installed Avalonia 11.3.18 bits: `Window.ShowActivated` (bool), `Window.SystemDecorations` (`SystemDecorations.None`), `Window.TransparencyLevelHint`, `Window.Position` (`PixelPoint`), `Window.Screens` (`Screens`), `Screens.Primary`/`ScreenFromWindow(Window)` (`Screen?`), `Screen.WorkingArea` (`PixelRect`), `Screen.Scaling` (double), `Border.BoxShadow` syntax. Record each in the Reality-check register with the concrete member. If `ShowActivated` is ABSENT, record the fallback recipe (after `host.Show()`, re-activate the MainWindow: `desktop.MainWindow?.Activate()`).
 
-- [ ] **Step 2: Write the failing `ToastPlacement` tests.**
+- [x] **Step 2: Write the failing `ToastPlacement` tests.**
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Lib/ToastPlacementTests.cs
@@ -110,9 +110,9 @@ public class ToastPlacementTests
 }
 ```
 
-- [ ] **Step 3: Run — verify it fails.** PowerShell: `dotnet test tests/CSUploader.Avalonia.Tests/CSUploader.Avalonia.Tests.csproj -p:OutDir=D:\temp2\cbuild-mig\ava-tests --filter ToastPlacementTests`. Expected: FAIL (`ToastPlacement` does not exist).
+- [x] **Step 3: Run — verify it fails.** PowerShell: `dotnet test tests/CSUploader.Avalonia.Tests/CSUploader.Avalonia.Tests.csproj -p:OutDir=D:\temp2\cbuild-mig\ava-tests --filter ToastPlacementTests`. Expected: FAIL (`ToastPlacement` does not exist).
 
-- [ ] **Step 4: Implement `ToastPlacement`.**
+- [x] **Step 4: Implement `ToastPlacement`.**
 
 ```csharp
 // src/CSUploader.Avalonia/Lib/UI/ToastPlacement.cs
@@ -163,9 +163,9 @@ public static class ToastPlacement
 }
 ```
 
-- [ ] **Step 5: Run — verify it passes.** Same filter. Expected: PASS (3 tests).
+- [x] **Step 5: Run — verify it passes.** Same filter. Expected: PASS (3 tests).
 
-- [ ] **Step 6: Add the WPF toast reference-shot mode** to `src/Services/ReferenceShotCapture.cs`. Add a `--toast` branch at the top of `RunAndShutdownAsync` (mirroring the existing `--wizard`/`--settings` argv dispatch, so `App.xaml.cs` stays untouched — the one-WPF-file rule), and a `RunToastShotsAndShutdownAsync` that shows the WPF `ToastWindow` with a synthesized `ToastViewModel` per theme and captures `toast-<light|dark>-wpf.png`.
+- [x] **Step 6: Add the WPF toast reference-shot mode** to `src/Services/ReferenceShotCapture.cs`. Add a `--toast` branch at the top of `RunAndShutdownAsync` (mirroring the existing `--wizard`/`--settings` argv dispatch, so `App.xaml.cs` stays untouched — the one-WPF-file rule), and a `RunToastShotsAndShutdownAsync` that shows the WPF `ToastWindow` with a synthesized `ToastViewModel` per theme and captures `toast-<light|dark>-wpf.png`.
 
 ```csharp
 // In RunAndShutdownAsync, alongside the existing --wizard / --settings checks:
@@ -214,9 +214,9 @@ public async Task RunToastShotsAndShutdownAsync(string dir)
 }
 ```
 
-- [ ] **Step 7: Capture the WPF toast reference shots.** PowerShell: build the WPF head to `D:\temp2\cbuild-mig\wpf`, then run it with `--shots --toast D:\temp2\cbuild-mig\shots`. Verify `toast-light-wpf.png` and `toast-dark-wpf.png` exist and show the accent-striped card. NOTE for the Task 8 arbitration: `ReferenceShotCapture.CaptureWindow` renders `root.ActualWidth/Height` — i.e. the toast Border, NOT the window — so the WPF cell CLIPS the `DropShadowEffect` and looks tighter/shadowless; the ava side is a full-window bridge screenshot with the `BoxShadow` visible. That difference is expected framing, not a regression.
+- [x] **Step 7: Capture the WPF toast reference shots.** PowerShell: build the WPF head to `D:\temp2\cbuild-mig\wpf`, then run it with `--shots --toast D:\temp2\cbuild-mig\shots`. Verify `toast-light-wpf.png` and `toast-dark-wpf.png` exist and show the accent-striped card. NOTE for the Task 8 arbitration: `ReferenceShotCapture.CaptureWindow` renders `root.ActualWidth/Height` — i.e. the toast Border, NOT the window — so the WPF cell CLIPS the `DropShadowEffect` and looks tighter/shadowless; the ava side is a full-window bridge screenshot with the `BoxShadow` visible. That difference is expected framing, not a regression.
 
-- [ ] **Step 8: Add the throwaway bridge probe.** In `GalleryWindow.axaml` add `<Button x:Name="ToastProbeButton" Content="Toast probe" />`; in `GalleryWindow.axaml.cs` wire `ToastProbeButton.Click += OnToastProbe` with a handler that shows a bare chrome-less topmost non-activated window bottom-right using `ToastPlacement` + `Screens.Primary`:
+- [x] **Step 8: Add the throwaway bridge probe.** In `GalleryWindow.axaml` add `<Button x:Name="ToastProbeButton" Content="Toast probe" />`; in `GalleryWindow.axaml.cs` wire `ToastProbeButton.Click += OnToastProbe` with a handler that shows a bare chrome-less topmost non-activated window bottom-right using `ToastPlacement` + `Screens.Primary`:
 
 ```csharp
 // THROWAWAY (Task 1 GO/NO-GO probe — deleted in Task 2 when the real ToastWindow lands).
@@ -247,9 +247,9 @@ private void OnToastProbe(object? sender, RoutedEventArgs e)
 }
 ```
 
-- [ ] **Step 9: Drive the probe through the bridge; record the GO/NO-GO verdict.** Launch the Avalonia head `--agent --gallery`; via `ava-drive`, click `ToastProbeButton`; `ava_screenshot` (maxWidth 2500) shows the blue card at the bottom-right of the shell; `ava_props` on the MainWindow/gallery confirms it stayed active (no focus steal from the non-activated toast). Record in Reality-check item 1: GO (ShowActivated works; topmost; bottom-right placement correct at the dev machine's DPI) or the fallback. Note: the dev machine is Win11; 125%/150% placement fidelity and the Win10 chrome path are maintainer-verified (section Open questions).
+- [x] **Step 9: Drive the probe through the bridge; record the GO/NO-GO verdict.** Launch the Avalonia head `--agent --gallery`; via `ava-drive`, click `ToastProbeButton`; `ava_screenshot` (maxWidth 2500) shows the blue card at the bottom-right of the shell; `ava_props` on the MainWindow/gallery confirms it stayed active (no focus steal from the non-activated toast). Record in Reality-check item 1: GO (ShowActivated works; topmost; bottom-right placement correct at the dev machine's DPI) or the fallback. Note: the dev machine is Win11; 125%/150% placement fidelity and the Win10 chrome path are maintainer-verified (section Open questions).
 
-- [ ] **Step 10: Suite gate + commit.** Both suites (Avalonia +3, WPF unchanged), both heads build 0-warning Debug.
+- [x] **Step 10: Suite gate + commit.** Both suites (Avalonia +3, WPF unchanged), both heads build 0-warning Debug.
 
 ```bash
 git add src/CSUploader.Avalonia/Lib/UI/ToastPlacement.cs tests/CSUploader.Avalonia.Tests/Lib/ToastPlacementTests.cs src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml.cs src/Services/ReferenceShotCapture.cs

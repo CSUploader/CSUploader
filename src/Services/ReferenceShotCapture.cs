@@ -55,6 +55,12 @@ public sealed class ReferenceShotCapture(IServiceProvider services)
             return;
         }
 
+        if (Array.IndexOf(argv, "--toast") >= 0)
+        {
+            await RunToastShotsAndShutdownAsync(dir);
+            return;
+        }
+
         Directory.CreateDirectory(dir);
 
         // Pin the logical size (screenshot normalization, design §MCP dev loop) — matches
@@ -263,6 +269,45 @@ public sealed class ReferenceShotCapture(IServiceProvider services)
             }
 
             shim.Close();
+        }
+
+        Application.Current.Shutdown();
+    }
+
+    /// <summary>
+    /// DEBUG-only toast reference-shot mode (<c>--shots --toast</c>): shows the WPF ToastWindow with a
+    /// synthesized ToastViewModel, light + dark, and captures its card under the shots convention
+    /// (toast-light-wpf.png / toast-dark-wpf.png) — the WPF reference cell the Avalonia toast port (Task 2)
+    /// arbitrates against. No network, no upload. NOTE: CaptureWindow renders root.ActualWidth/Height (the
+    /// toast Border, not the window), so the WPF cell CLIPS the DropShadowEffect and looks tighter/shadowless;
+    /// the Avalonia side is a full-window bridge screenshot with the BoxShadow visible. That framing
+    /// difference is expected (Task 8 arbitration), not a regression.
+    /// </summary>
+    public async Task RunToastShotsAndShutdownAsync(string dir)
+    {
+        Directory.CreateDirectory(dir);
+        await Task.Delay(1500); // let the app settle (no MainViewModel hydration needed for a toast)
+
+        IThemeApplier theme = services.GetRequiredService<IThemeApplier>();
+
+        foreach (bool dark in (bool[])[false, true])
+        {
+            theme.ApplyTheme(dark);
+            string suffix = dark ? "dark" : "light";
+
+            var vm = new ViewModels.ToastViewModel(
+                new CommunityToolkit.Mvvm.Input.RelayCommand(() => { }),
+                new CommunityToolkit.Mvvm.Input.RelayCommand(() => { }))
+            {
+                Title = Localizer.Instance["Toast_FileCompleted_Title"],
+                Message = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Toast_FileCompleted_Body"], "holiday_clip.mkv"),
+                IconKey = "StatusSuccessImage",
+            };
+            ToastWindow toast = new(vm) { Left = 200, Top = 200 };
+            toast.Show();
+            await WaitForRenderAsync(toast);
+            CaptureWindow(toast, Path.Combine(dir, $"toast-{suffix}-wpf.png"));
+            toast.Close();
         }
 
         Application.Current.Shutdown();
