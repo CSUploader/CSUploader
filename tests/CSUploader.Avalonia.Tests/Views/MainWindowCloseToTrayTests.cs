@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Linq;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -61,16 +62,25 @@ public class MainWindowCloseToTrayTests
     [AvaloniaFact]
     public void Close_WithExit_ActuallyCloses()
     {
+        // The only discriminating coverage of the CloseAction.Exit switch branch. IsVisible=false can't tell
+        // closed from hidden (both the Exit and the MinimizeToTray branches leave IsVisible false), so assert
+        // the window really Closed and that the tray reroute (UpdateVisibility / NotifyHidden) never ran.
         var settings = new AppSettings { CloseAction = CloseAction.Exit };
+        var tray = new Mock<ITrayIconService>();
         (SettingRepository repo, SqliteConnection conn) = StubRepo();
-        var w = new MainWindow(settings, Mock.Of<ITrayIconService>(), repo);
+        var w = new MainWindow(settings, tray.Object, repo);
+        bool closed = false;
+        w.Closed += (_, _) => closed = true;
         try
         {
             w.Show();
             Dispatcher.UIThread.RunJobs();
             w.Close();
             Dispatcher.UIThread.RunJobs();
-            Assert.False(w.IsVisible);
+
+            Assert.True(closed);                                   // Closed fired — really closed, not rerouted to the tray
+            tray.Verify(t => t.UpdateVisibility(), Times.Never);   // the Exit branch never touches the tray
+            tray.Verify(t => t.NotifyHidden(), Times.Never);
         }
         finally
         {
@@ -228,6 +238,46 @@ public class MainWindowCloseToTrayTests
         finally
         {
             w.Close();
+            conn.Dispose();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(WindowCloseReason.ApplicationShutdown)]
+    [InlineData(WindowCloseReason.OSShutdown)]
+    public void Closing_OnShutdownReason_DoesNotRerouteToTray(WindowCloseReason reason)
+    {
+        // OS/app shutdown must NOT be vetoed by close-to-tray. Avalonia routes WM_QUERYENDSESSION and
+        // desktop.Shutdown() through Window.Closing with an HONORED Cancel (WPF surfaces session end only via
+        // the unsubscribed Application.SessionEnding), so a shutdown-reason Closing must return early even when
+        // CloseAction = MinimizeToTray (which WOULD reroute a normal close): e.Cancel stays false and the tray
+        // is never touched. WindowClosingEventArgs' ctor is internal and Avalonia.Headless cannot originate a
+        // real OS-shutdown Closing, so the args are reflection-constructed and the private handler invoked
+        // directly. The window is never Shown — the guard returns before any Hide()/tray call — so there is no
+        // process-global window to close in finally.
+        var settings = new AppSettings { CloseAction = CloseAction.MinimizeToTray };
+        var tray = new Mock<ITrayIconService>();
+        (SettingRepository repo, SqliteConnection conn) = StubRepo();
+        var w = new MainWindow(settings, tray.Object, repo);
+        try
+        {
+            var args = (WindowClosingEventArgs)Activator.CreateInstance(
+                typeof(WindowClosingEventArgs),
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { reason, /* isProgrammatic */ true },
+                culture: null)!;
+
+            typeof(MainWindow)
+                .GetMethod("MainWindow_Closing", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(w, new object?[] { w, args });
+
+            Assert.False(args.Cancel);                             // shutdown NOT vetoed
+            tray.Verify(t => t.UpdateVisibility(), Times.Never);   // no tray reroute
+            tray.Verify(t => t.NotifyHidden(), Times.Never);
+        }
+        finally
+        {
             conn.Dispose();
         }
     }

@@ -1610,6 +1610,11 @@ git commit -m "feat(avalonia): Phase 7 Task 7 - Win10 dark-title-bar DWM fallbac
 
 **Task 8 gate definition of done:** whole-diff reviewed; all mechanical gates green; the one Core touch recorded and justified; WPF-head touched only by `ReferenceShotCapture.cs`; contact sheet complete + divergences listed; `phase7-shell-ready` tagged; design reconciled; the maintainer surfaced. After this the Avalonia head is feature-complete except Phase 8 WebView login.
 
+**Phase 7 gate — reconcile ledger (recorded from the whole-diff gate panel):**
+
+- **CROSS-HEAD LEDGER item (Phase 9):** Ask->Minimize WITHOUT Remember strands the app hidden with NO tray icon (`UpdateVisibility` disposes the icon because the persisted settings are unchanged — the in-memory `CloseAction` stays `Ask`, which `UpdateVisibility` reads as "no tray needed"). This is BYTE-IDENTICAL WPF behavior (`MainWindow.xaml.cs:95-100` + `TrayIconManager.cs:40-51`) — a shared pre-existing bug that Phase 7's close-to-tray merely makes newly reachable on the Avalonia head. Fix BOTH heads together at Phase 9 via a new `ITrayIconService.EnsureIconForSession()` (a Core interface touch, NOT sanctioned this phase). Do NOT paper over it by silently mutating the in-memory `CloseAction` — that would diverge from WPF and lose the user's real setting.
+- **ACCEPTED DIVERGENCE (Phase 7 gate):** the "still running in the tray" info-toast's BODY click activates through the shared `activate` callback (`MainViewModel.ActivateAndShowUploadedTab`), so it restores the window AND lands on the Uploaded tab, whereas WPF's balloon click is inert. Accepted at the Phase 7 gate: the restore works and the tab flip is a once-per-session context nudge (the info toast fires only on the first hide of a session). Revisit only if the maintainer objects.
+
 ---
 
 ## Reality-check register

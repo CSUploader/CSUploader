@@ -114,13 +114,20 @@ public class ToastWindowTests
     public void AutoDismiss_StopsOnClose()
     {
         var w = new ToastWindow(MakeVm());
-        w.Show();
-        Dispatcher.UIThread.RunJobs();
-        Assert.True(w.IsAutoDismissRunning);
+        try
+        {
+            w.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(w.IsAutoDismissRunning);
 
-        w.Close();
-        Dispatcher.UIThread.RunJobs();
-        Assert.False(w.IsAutoDismissRunning); // Closed stopped the timer
+            w.Close();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(w.IsAutoDismissRunning); // Closed stopped the timer
+        }
+        finally
+        {
+            w.Close(); // matches the five siblings; double-Close is harmless (headless windows are process-global)
+        }
     }
 
     [AvaloniaFact]

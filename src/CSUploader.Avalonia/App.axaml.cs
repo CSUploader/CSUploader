@@ -134,8 +134,23 @@ public partial class App : Application
             // Mirror the WPF head's MainWindow.Loaded trigger (MainWindow.xaml.cs:40-49): hydrate the
             // ViewModel (DB init, settings/proxies/packages/uploaded), then sync the tray icon to the
             // now-loaded AppSettings. Same awaited/fire-and-forget shape (async void event handler).
+            //
+            // ONE-SHOT: WPF's Loaded fires once, but Avalonia re-raises Opened on EVERY Hide()->Show()
+            // (Phase 7 close-to-tray makes hide->show reachable). MainViewModel.InitializeAsync is NOT
+            // idempotent — re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling
+            // and open a second --gallery window — so this guard runs the body exactly once. It also
+            // deliberately skips the post-init UpdateVisibility / --gallery / --webview-spike re-runs on a
+            // tray restore (WPF never re-ran those either).
+            bool hydrated = false;
             mainWindow.Opened += async (_, _) =>
             {
+                if (hydrated)
+                {
+                    return;
+                }
+
+                hydrated = true;
+
                 try
                 {
                     if (mainWindow.DataContext is MainViewModel viewModel)

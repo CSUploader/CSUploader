@@ -67,6 +67,22 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
+        // OS/app shutdown must NOT be rerouted to the tray. Unlike WPF — where session end surfaces only via
+        // the (unsubscribed) Application.SessionEnding and never through Window.Closing — Avalonia routes
+        // WM_QUERYENDSESSION through Window.Closing: Win32Platform's WndProc (msg 17) raises ShutdownRequested,
+        // which calls DoShutdown, and the cancel is HONORED for the MainWindow under ShutdownMode.OnMainWindowClose
+        // (OnMainWindowClose). desktop.Shutdown() arrives the same way. So rerouting here (e.Cancel = true +
+        // Hide/tray side effects) would VETO Windows shutdown/logoff and, with CloseAction.Ask, pop a stray
+        // dialog mid-logoff. Returning early — before the _forceClose/_settings check — restores WPF parity.
+        // On Windows (Avalonia 11.3.18) the OS-session-end path arrives as ApplicationShutdown (OSShutdown is
+        // unused by Avalonia.Win32); both are guarded so the behaviour holds on other platforms/versions too.
+        // User X-click and programmatic Close() both arrive as WindowCloseReason.WindowClosing, so the reroute
+        // below still fires for them.
+        if (e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
+        {
+            return;
+        }
+
         if (_forceClose || _settings is null)
         {
             return;
@@ -97,8 +113,17 @@ public partial class MainWindow : Window
 
     private async Task PromptCloseActionAsync()
     {
-        CloseActionChoice? choice = await new CloseActionDialog().ShowDialog<CloseActionChoice?>(this);
-        await ApplyCloseActionChoiceAsync(choice);
+        try
+        {
+            CloseActionChoice? choice = await new CloseActionDialog().ShowDialog<CloseActionChoice?>(this);
+            await ApplyCloseActionChoiceAsync(choice);
+        }
+        catch (Exception ex)
+        {
+            // Fire-and-forget from MainWindow_Closing (rule 44), so an escaping exception would otherwise
+            // reach the dispatcher loop unobserved. Best-effort log, mirroring PersistCloseActionAsync below.
+            Logger.Current.Log(this, LogType.Error, $"Close-action prompt failed: {ex.Message}");
+        }
     }
 
     // Test seam (InternalsVisibleTo -> CSUploader.Avalonia.Tests): the post-dialog close-action decision,
