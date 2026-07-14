@@ -1125,7 +1125,7 @@ Wire the correctness-critical completion: the 1 s poll timer (Avalonia `Dispatch
 - Consumes: `WebViewLoginCapture.SelectCookies/TryParseJsonString/BuildCookieHeader` (Task 1), `CSUploader.Services.InteractiveAuthResult` (Core: `record struct InteractiveAuthResult(string SessionCookieValue, string? CapturedUsername, IReadOnlyDictionary<string,string>? AdditionalCookies = null, string? ProbeValue = null)`).
 - Produces: the `WebViewLoginWindow` now completes via `Close(new InteractiveAuthResult(...))` on capture — the contract `AvaloniaWebViewInteractiveAuthService` (Task 6) awaits.
 
-- [ ] **Step 1: Add the completion fields + usings.** In `WebViewLoginWindow.axaml.cs`, add to the usings: `using System.Linq;` and `using Avalonia.Threading;`. Add fields beside `_creating`:
+- [x] **Step 1: Add the completion fields + usings.** In `WebViewLoginWindow.axaml.cs`, add to the usings: `using System.Linq;` and `using Avalonia.Threading;`. Add fields beside `_creating`:
 
 ```csharp
     private DispatcherTimer? _pollTimer;
@@ -1137,7 +1137,7 @@ Wire the correctness-critical completion: the 1 s poll timer (Avalonia `Dispatch
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 ```
 
-- [ ] **Step 2: Start the poll timer in `OnHwndReady`.** Immediately AFTER the `_core.SourceChanged += CoreWebView2_SourceChanged;` line, insert:
+- [x] **Step 2: Start the poll timer in `OnHwndReady`.** Immediately AFTER the `_core.SourceChanged += CoreWebView2_SourceChanged;` line, insert:
 
 ```csharp
             // Completion poll (Avalonia DispatcherTimer, stopped-ctor + explicit Start). Fires alongside
@@ -1148,14 +1148,14 @@ Wire the correctness-critical completion: the 1 s poll timer (Avalonia `Dispatch
             _pollTimer.Start();
 ```
 
-- [ ] **Step 3: Stop the timer in teardown.** In `TeardownController`, at the very top (before detaching `_core` handlers) insert:
+- [x] **Step 3: Stop the timer in teardown.** In `TeardownController`, at the very top (before detaching `_core` handlers) insert:
 
 ```csharp
         _pollTimer?.Stop();
         _pollTimer = null;
 ```
 
-- [ ] **Step 4: Make `NavigationCompleted` also poll.** Replace the whole `CoreWebView2_NavigationCompleted` method with:
+- [x] **Step 4: Make `NavigationCompleted` also poll.** Replace the whole `CoreWebView2_NavigationCompleted` method with:
 
 ```csharp
     private async void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -1165,7 +1165,7 @@ Wire the correctness-critical completion: the 1 s poll timer (Avalonia `Dispatch
     }
 ```
 
-- [ ] **Step 5: Add the completion/capture methods.** Add at the end of the class (before the closing brace):
+- [x] **Step 5: Add the completion/capture methods.** Add at the end of the class (before the closing brace):
 
 ```csharp
     // ---- Completion / capture (mirrors WebViewLoginWindow.xaml.cs:302-502; single-completion guard = rule 49) --
@@ -1254,9 +1254,10 @@ Wire the correctness-critical completion: the 1 s poll timer (Avalonia `Dispatch
     }
 ```
 
-- [ ] **Step 6: Build + run the suite.** `dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings) and `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, count unchanged — the pure capture logic is already covered by Task 1; the Task 3 ctor test still passes). Re-run the Task 3 Step 7 bridge demo against `about:blank`: it navigates, `IsCompleted` stays false (no `xfss` cookie), the window stays open, Cancel closes it — confirming the poll runs without false-completing.
+- [x] **Step 6: Build + run the suite.** `dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings) and `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, count unchanged — the pure capture logic is already covered by Task 1; the Task 3 ctor test still passes). Re-run the Task 3 Step 7 bridge demo against `about:blank`: it navigates, `IsCompleted` stays false (no `xfss` cookie), the window stays open, Cancel closes it — confirming the poll runs without false-completing.
+      <br/>**Executor note (Task 4):** forced rebuild (`-t:Rebuild`) 0 warnings/0 errors; Avalonia suite 444/444 (unchanged, as designed); WPF/shared 1201/1201. The live bridge re-run needs a shown window → native WebView2 controller (foreground grab a background agent is refused — the plan's agent-safety constraint); it is reasoning-verified here and remains the maintainer's cutover check. Against `about:blank` the poll's `TryCaptureCookiesAsync` reads an empty jar → `SelectCookies` returns null session → `IsCompleted` stays false → window stays open; Cancel/Esc → `Close(null)`.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml.cs

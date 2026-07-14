@@ -6,6 +6,7 @@
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Services; // InteractiveAuthResult
@@ -40,7 +41,14 @@ public partial class WebViewLoginWindow : Window
     private CoreWebView2? _core;
     private bool _creating;
     private bool _torndown;
+    private bool _completed;
+    private DispatcherTimer? _pollTimer;
     private System.Drawing.Rectangle _lastBounds;
+
+    /// <summary>Poll cadence. XFS-family hosters complete via POST->302 (NavigationCompleted already catches
+    /// the cookie), but SPA hosters (FileBoom) log in via XHR + history.pushState with no NavigationCompleted,
+    /// so the poll is their ONLY signal. 1 s balances latency vs cookie-store read pressure. (WPF: 1 s.)</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001). The app always uses the
     // full overload; this default constructs a harmless empty-spec window that never signs anything in.
@@ -158,6 +166,14 @@ public partial class WebViewLoginWindow : Window
             _core.NavigationCompleted += CoreWebView2_NavigationCompleted;
             _core.SourceChanged += CoreWebView2_SourceChanged;
 
+            // Completion poll (Avalonia DispatcherTimer, stopped-ctor + explicit Start). Fires alongside
+            // NavigationCompleted because SPA-shaped hosters change post-login state with no navigation event.
+            // Reached only past the _torndown abort guard above, so it never arms on an already-closed window;
+            // teardown stops+nulls it. Idempotent via _completed.
+            _pollTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = PollInterval };
+            _pollTimer.Tick += async (_, _) => await PollForCompletionAsync();
+            _pollTimer.Start();
+
             if (_proxyCredentials is not null)
             {
                 _core.BasicAuthenticationRequested += CoreWebView2_BasicAuthenticationRequested;
@@ -219,6 +235,11 @@ public partial class WebViewLoginWindow : Window
         // so a controller created after this ran is Closed there instead of leaking its folder lock.
         _torndown = true;
 
+        // Stop the completion poll first: a tick queued behind this teardown must not run a capture against
+        // a controller we're about to Close (its post-await guards also re-check _torndown, belt-and-braces).
+        _pollTimer?.Stop();
+        _pollTimer = null;
+
         if (_core is not null)
         {
             _core.NavigationCompleted -= CoreWebView2_NavigationCompleted;
@@ -274,8 +295,11 @@ public partial class WebViewLoginWindow : Window
         _vm.LastNavigationUrl = _core.Source;
     }
 
-    private void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
-        => _vm.RecordNavigationCompleted(_core?.Source);
+    private async void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        _vm.RecordNavigationCompleted(_core?.Source);
+        await PollForCompletionAsync();
+    }
 
     private void CoreWebView2_BasicAuthenticationRequested(object? sender, CoreWebView2BasicAuthenticationRequestedEventArgs e)
     {
@@ -296,4 +320,102 @@ public partial class WebViewLoginWindow : Window
         => e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close(null);
+
+    // ---- Completion / capture (mirrors WebViewLoginWindow.xaml.cs:302-502; single-completion guard = rule 49) --
+
+    /// <summary>Per-tick check: the JS probe for probe-script hosters (HitFile), else the cookie-jar read.</summary>
+    private Task PollForCompletionAsync()
+        => _successProbeScript is not null ? TryProbeAsync() : TryCaptureCookiesAsync();
+
+    private async Task TryCaptureCookiesAsync()
+    {
+        // _torndown short-circuit (Task 3 race guard): a tick / NavigationCompleted queued behind teardown must
+        // not read a Closed controller. _core is nulled by teardown too, but naming _torndown documents intent.
+        if (_completed || _torndown || _core is null)
+        {
+            return;
+        }
+
+        try
+        {
+            // CookieManager returns ALL cookies a request to _loginUrl would send — incl. HttpOnly (FileBoom's
+            // accessToken); the HttpOnly flag only gates document.cookie, not CookieManager.
+            IReadOnlyList<CoreWebView2Cookie> cookies = await _core.CookieManager.GetCookiesAsync(_loginUrl);
+
+            CookieSelection sel = WebViewLoginCapture.SelectCookies(
+                cookies.Select(c => (c.Name, c.Value)),
+                _cookieName, _usernameCookieName, _additionalCookieNames, _cookieValueValidator);
+
+            // BINDING forward contract (Task 1 reviewer): consumption gates PURELY on SessionValue. On the
+            // validator-reject path SelectCookies still returns UsernameValue/AdditionalCookies (the values WPF
+            // discarded there), so we MUST ignore them while SessionValue is null and simply keep polling — a
+            // later successful poll recomputes all three together. Only PAST this guard, with a non-null
+            // SessionValue, are sel.UsernameValue / sel.AdditionalCookies trustworthy for the result below.
+            // (_completed / _torndown also bail: another caller won the race, or the window is tearing down.)
+            if (sel.SessionValue is null || _completed || _torndown)
+            {
+                return;
+            }
+
+            _completed = true;
+            _pollTimer?.Stop();
+            _vm.IsCompleted = true;
+            Close(new InteractiveAuthResult(sel.SessionValue, sel.UsernameValue, sel.AdditionalCookies));
+        }
+        catch (Exception ex)
+        {
+            // Transient cookie-read failure — the next nav/poll retries; just surface the diagnostic.
+            _vm.Status = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"], ex.Message);
+        }
+    }
+
+    private async Task TryProbeAsync()
+    {
+        if (_completed || _torndown || _successProbeScript is null || _core is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string raw = await _core.ExecuteScriptAsync(_successProbeScript);
+            string? value = WebViewLoginCapture.TryParseJsonString(raw);
+            if (string.IsNullOrEmpty(value) || _completed || _torndown)
+            {
+                return; // page not authenticated yet (or lost the race / torn down)
+            }
+
+            _completed = true;
+            _pollTimer?.Stop();
+            _vm.IsCompleted = true;
+
+            // Probe hosters can ALSO ask us to hand the logged-in cookie jar to the C# side (HitFile refresh).
+            // HttpOnly included (CookieManager, not document.cookie). Best-effort — a failure here must not
+            // block an otherwise-successful sign-in.
+            string? cookieHeader = null;
+            if (_cookieCaptureUrl is not null && !_torndown && _core is not null)
+            {
+                try
+                {
+                    IReadOnlyList<CoreWebView2Cookie> jar = await _core.CookieManager.GetCookiesAsync(_cookieCaptureUrl);
+                    cookieHeader = WebViewLoginCapture.BuildCookieHeader(jar.Select(c => (c.Name, c.Value)));
+                }
+                catch
+                {
+                    // Leave cookieHeader null — sign-in still succeeds via the probe value.
+                }
+            }
+
+            if (_torndown)
+            {
+                return; // window torn down during the (awaited) cookie-jar read — don't Close a dead window
+            }
+
+            Close(new InteractiveAuthResult(cookieHeader ?? string.Empty, null, null, value));
+        }
+        catch (Exception ex)
+        {
+            _vm.Status = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"], ex.Message);
+        }
+    }
 }
