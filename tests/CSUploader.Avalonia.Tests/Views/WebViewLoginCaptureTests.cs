@@ -73,6 +73,37 @@ public class WebViewLoginCaptureTests
     }
 
     [Fact]
+    public void SelectCookies_NameInSessionAndAdditional_LandsOnlyAsSession()
+    {
+        // 'xfss' is BOTH the session name and listed as additional. The else-if chain must route it to
+        // session ONLY; a regression to separate `if`s would ALSO copy it into AdditionalCookies. (pcId is a
+        // genuine additional so AdditionalCookies is non-null — the ContainsKey assertion is non-vacuous.)
+        var result = WebViewLoginCapture.SelectCookies(
+            [("xfss", "S"), ("pcId", "P1")],
+            cookieName: "xfss", usernameCookieName: null, additionalCookieNames: ["xfss", "pcId"],
+            cookieValueValidator: null);
+
+        Assert.Equal("S", result.SessionValue);
+        Assert.NotNull(result.AdditionalCookies);
+        Assert.False(result.AdditionalCookies!.ContainsKey("xfss")); // session name must NOT double-land
+        Assert.Equal("P1", result.AdditionalCookies["pcId"]);
+    }
+
+    [Fact]
+    public void SelectCookies_LocksOnFirstMatch_DoesNotRetryLaterCandidate()
+    {
+        // The loop locks onto the FIRST cookie of the session name and never revisits within one pass — even
+        // when a later same-named cookie WOULD pass the validator (the validator rejects the first). Matches
+        // the WPF single-pass capture; the poll re-reads the jar on the next tick rather than scanning past.
+        var result = WebViewLoginCapture.SelectCookies(
+            [("accessToken", "bootstrap-reject"), ("accessToken", "real-would-pass")],
+            cookieName: "accessToken", usernameCookieName: null, additionalCookieNames: null,
+            cookieValueValidator: v => v == "real-would-pass");
+
+        Assert.Null(result.SessionValue);
+    }
+
+    [Fact]
     public void TryParseJsonString_UnwrapsQuotedString()
         => Assert.Equal("42id", WebViewLoginCapture.TryParseJsonString("\"42id\""));
 

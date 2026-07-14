@@ -41,6 +41,14 @@ public class WebViewLoginProxyTests
     }
 
     [Fact]
+    public void SanitizeFolderName_ProducesExactMappedOutput()
+    {
+        // Exact output: only the Windows-invalid chars (':' and '/') become '_'; every valid char (letters,
+        // digits) survives unchanged and in place. An impl that also rewrote valid chars would fail here.
+        Assert.Equal("ex_load_1", WebViewLoginProxy.SanitizeFolderName("ex:load/1"));
+    }
+
+    [Fact]
     public void ResolveProxyCredentials_Direct_NoCreds_NoRefusal()
     {
         var r = WebViewLoginProxy.ResolveProxyCredentials(ProxyChoice.Direct);
