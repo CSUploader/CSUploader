@@ -156,7 +156,8 @@ public class DialogOwnerResolverTests
         Assert.Null(DialogOwnerResolver.ResolveFromLifetime());
     }
 
-    // ── ResolveVisibleMainOnly: the long-lived, non-modal surface owner (visible main window ONLY) ──
+    // ── ResolveVisibleMainOnly: the owner for surfaces that must outlive transient active windows
+    //    (visible main window ONLY) — used by the non-modal update-progress window AND the modal WebView login ──
 
     [AvaloniaFact]
     public void ResolveVisibleMainOnly_VisibleMain_ReturnsMain()

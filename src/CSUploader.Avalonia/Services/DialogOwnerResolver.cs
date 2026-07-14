@@ -14,8 +14,11 @@ namespace CSUploader.Services;
 /// <item><see cref="Resolve"/> — a MODAL dialog's owner: active-visible window ?? visible main window ??
 /// null. The caller decides on null: a message box shows ownerless, a picker reveals the tray-hidden main
 /// window first (see <c>AvaloniaDialogService</c>).</item>
-/// <item><see cref="ResolveVisibleMainOnly"/> — a long-lived, NON-modal surface's owner (the update-progress
-/// window): the visible main window only, never a transient active window.</item>
+/// <item><see cref="ResolveVisibleMainOnly"/> — the owner for a surface that must OUTLIVE transient active
+/// windows: the visible main window only, never a transient active window. Two consumers — the long-lived,
+/// non-modal update-progress window, and the (modal) WebView login window, which must not be parented to
+/// another transient login lest an owner-close cascade force-close it mid-captcha. The load-bearing property
+/// is owner stability, not modality.</item>
 /// <item><see cref="ResolveTopLevelForClipboard"/> — a clipboard's <c>TopLevel</c>: active-visible window
 /// ?? main window regardless of visibility.</item>
 /// </list>
@@ -56,11 +59,13 @@ internal static class DialogOwnerResolver
     }
 
     /// <summary>
-    /// The pure owner policy for a long-lived, NON-modal surface: the visible main window only. It
-    /// deliberately ignores the active-window list (hence no <c>windows</c> parameter) — an owned window
-    /// dies with its owner, so a surface that must OUTLIVE a transient active window (the update-progress
-    /// window survives the dialog that launched it, per the failure-window-stays-up contract) must never
-    /// be parented to that transient. WPF parity: Owner = MainWindow.
+    /// The pure owner policy for a surface that must OUTLIVE transient active windows: the visible main
+    /// window only. It deliberately ignores the active-window list (hence no <c>windows</c> parameter) — an
+    /// owned window dies with its owner, so a surface that must survive a transient active window must never
+    /// be parented to that transient. Two consumers: the update-progress window (long-lived, non-modal —
+    /// survives the dialog that launched it, per the failure-window-stays-up contract) and the modal WebView
+    /// login window (parenting it to another transient login would let an owner-close cascade force-close it
+    /// mid-captcha). WPF parity: Owner = MainWindow.
     /// </summary>
     internal static Window? ResolveVisibleMainOnly(Window? mainWindow) =>
         mainWindow is { IsVisible: true } ? mainWindow : null;
