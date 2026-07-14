@@ -662,7 +662,7 @@ The window is `Window` completing via `ShowDialog<InteractiveAuthResult?>` — a
 - Produces: `CSUploader.Views.WebViewLoginWindow : Window` — ctor `(string hosterName, string loginUrl, string cookieDomain, string cookieName, string? usernameCookieName = null, ProxyChoice? proxy = null, ProxyCredentials? proxyCredentials = null, Func<string,bool>? cookieValueValidator = null, IReadOnlyList<string>? additionalCookieNames = null, string? successProbeScript = null, string? cookieCaptureUrl = null, string? userAgentOverride = null, bool allowInvalidCertificates = false)` — completes via `ShowDialog<InteractiveAuthResult?>(owner)`. Consumed by `AvaloniaWebViewInteractiveAuthService` (Task 6) and the gallery demo.
 - Consumes: `WebViewLoginViewModel` (Task 2), `ProxyCredentials`/`WebViewLoginProxy` (Task 1), `MessageBoxWindow.ShowErrorAsync` (`src/CSUploader.Avalonia/Views/MessageBoxWindow.axaml.cs:90`), `CSUploader.Lib.Localization.Localizer`, `CSUploader.Services.InteractiveAuthResult` (Core), `Microsoft.Web.WebView2.Core`.
 
-- [ ] **Step 1: Promote the HWND host.** Create `src/CSUploader.Avalonia/Views/WebView2Host.cs` by copying `src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs` with FOUR edits: (a) delete the first-line `// THROWAWAY …` banner and add the copyright header block; (b) rename the type `WebView2HwndHost` → `WebView2Host`; (c) change `namespace CSUploader.Spike;` → `namespace CSUploader.Views;`; (d) **rewrite the doc comments so NO `Spike` / `WebView2SpikeWindow` reference survives** — the verbatim spike docstring (`WebView2HwndHost.cs:13` `<see cref="WebView2SpikeWindow"/>`, plus "spike window" at :19-20 and :30-31) would BOTH fail Task 8's `grep "Spike" → zero` AND become a dangling `cref` → CS1574 (breaking the 0-warning gate) once Task 7 deletes `WebView2SpikeWindow`. Keep `internal sealed class`, both events, `TryGetChildClientSize`, and all P/Invokes exactly. (The spike file stays until Task 7; the two classes coexist in different namespaces.) The promoted docstrings become:
+- [x] **Step 1: Promote the HWND host.** Create `src/CSUploader.Avalonia/Views/WebView2Host.cs` by copying `src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs` with FOUR edits: (a) delete the first-line `// THROWAWAY …` banner and add the copyright header block; (b) rename the type `WebView2HwndHost` → `WebView2Host`; (c) change `namespace CSUploader.Spike;` → `namespace CSUploader.Views;`; (d) **rewrite the doc comments so NO `Spike` / `WebView2SpikeWindow` reference survives** — the verbatim spike docstring (`WebView2HwndHost.cs:13` `<see cref="WebView2SpikeWindow"/>`, plus "spike window" at :19-20 and :30-31) would BOTH fail Task 8's `grep "Spike" → zero` AND become a dangling `cref` → CS1574 (breaking the 0-warning gate) once Task 7 deletes `WebView2SpikeWindow`. Keep `internal sealed class`, both events, `TryGetChildClientSize`, and all P/Invokes exactly. (The spike file stays until Task 7; the two classes coexist in different namespaces.) The promoted docstrings become:
 
 ```csharp
 /// <summary>
@@ -681,7 +681,7 @@ The window is `Window` completing via `ShowDialog<InteractiveAuthResult?>` — a
 
 and the `HwndReady` event summary becomes `/// <summary>Raised on the UI thread once the child HWND exists, so the login window can create the WebView2 controller parented to it.</summary>` (the `HwndDestroying` summary has no spike mention — copy it as-is).
 
-- [ ] **Step 2: Write the login window XAML.** Create `src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml` (port of `src/Views/WebViewLoginWindow.xaml`; the `<wv2:WebView2>` control becomes `<v:WebView2Host x:Name="Host"/>`; header/status bind to the VM):
+- [x] **Step 2: Write the login window XAML.** Create `src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml` (port of `src/Views/WebViewLoginWindow.xaml`; the `<wv2:WebView2>` control becomes `<v:WebView2Host x:Name="Host"/>`; header/status bind to the VM):
 
 ```xml
 <!-- Copyright (c) CSUploader. All rights reserved. -->
@@ -743,7 +743,7 @@ and the `HwndReady` event summary becomes `/// <summary>Raised on the UI thread 
 </Window>
 ```
 
-- [ ] **Step 3: Write the login window code-behind (shell + lifecycle, Cancel-only completion).** Create `src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml.cs`:
+- [x] **Step 3: Write the login window code-behind (shell + lifecycle, Cancel-only completion).** Create `src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginWindow.axaml.cs" company="CSUploader">
@@ -1023,7 +1023,7 @@ public partial class WebViewLoginWindow : Window
 }
 ```
 
-- [ ] **Step 4: Add the DEBUG gallery demo launcher (bridge surface).** In `src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml`, alongside the existing dialog-launcher buttons, add (find the dialog buttons block by the `DialogEditAccountClassicButton` name):
+- [x] **Step 4: Add the DEBUG gallery demo launcher (bridge surface).** In `src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml`, alongside the existing dialog-launcher buttons, add (find the dialog buttons block by the `DialogEditAccountClassicButton` name):
 
 ```xml
 <Button x:Name="WebViewLoginDemoButton" Content="WebView login (demo)" />
@@ -1049,7 +1049,7 @@ private void OnShowWebViewLoginDemo(object? sender, RoutedEventArgs e)
 
 (If `GalleryWindow` has no `using CSUploader.Views;`, add it; the `_ = …` discards the awaitable — the demo is fire-and-forget for the bridge.)
 
-- [ ] **Step 5: Write the failing window construction test.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginWindowTests.cs`:
+- [x] **Step 5: Write the failing window construction test.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginWindowTests.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginWindowTests.cs" company="CSUploader">
@@ -1099,11 +1099,11 @@ public class WebViewLoginWindowTests
 }
 ```
 
-- [ ] **Step 6: Run it to verify it fails, then passes after implementation.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected before Steps 1-4 exist: compile failure; after: PASS. Build the Avalonia head (0 warnings).
+- [x] **Step 6: Run it to verify it fails, then passes after implementation.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected before Steps 1-4 exist: compile failure; after: PASS. Build the Avalonia head (0 warnings).
 
-- [ ] **Step 7: Bridge-verify the demo (agent-safe).** PowerShell build to a scratch OutDir, seed, launch with `--agent --gallery`, click `WebViewLoginDemoButton` via `scripts/ava-drive.cs`. Verify: (a) `ava_windows` shows a new modal window titled per `WebViewLogin_WindowTitle`, owner disabled; (b) `ava_vm` on the login window reads `IsInitialized == true` and `NavigationCompletedCount >= 1` and `LastNavigationUrl` ≈ `about:blank` (navigation fired); (c) clicking `CancelButton` (or Esc) closes it and re-enables the owner. Capture the chrome with `ava_screenshot` → `D:\temp2\cbuild-mig\shots\webview-login-light-ava.png` and (theme-toggle) `…-dark-ava.png`. Record: the WebView area is blank/host-chrome (native HWND, expected).
+- [x] **Step 7: Bridge-verify the demo (agent-safe).** PowerShell build to a scratch OutDir, seed, launch with `--agent --gallery`, click `WebViewLoginDemoButton` via `scripts/ava-drive.cs`. Verify: (a) `ava_windows` shows a new modal window titled per `WebViewLogin_WindowTitle`, owner disabled; (b) `ava_vm` on the login window reads `IsInitialized == true` and `NavigationCompletedCount >= 1` and `LastNavigationUrl` ≈ `about:blank` (navigation fired); (c) clicking `CancelButton` (or Esc) closes it and re-enables the owner. Capture the chrome with `ava_screenshot` → `D:\temp2\cbuild-mig\shots\webview-login-light-ava.png` and (theme-toggle) `…-dark-ava.png`. Record: the WebView area is blank/host-chrome (native HWND, expected).
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Views/WebView2Host.cs src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml.cs src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml src/CSUploader.Avalonia/DevTools/GalleryWindow.axaml.cs tests/CSUploader.Avalonia.Tests/Views/WebViewLoginWindowTests.cs

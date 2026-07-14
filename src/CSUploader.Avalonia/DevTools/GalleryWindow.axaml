@@ -469,6 +469,16 @@
                   Classes="secondary" Content="Account sign-in (throw)…" />
         </StackPanel>
 
+        <!-- WebView login window (Phase 8 Task 3): opens the REAL WebViewLoginWindow against about:blank (no
+             network, no live hoster, no credentials) so the bridge can verify open/navigation-VM/close
+             mechanics and capture the chrome. The native WebView area is invisible to bridge screenshots
+             (design line 88); ava_vm reads the navigation VM instead. Replaces the retired webview spike. -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="WebViewLoginDemoButton"
+                  AutomationProperties.AutomationId="WebViewLoginDemoButton"
+                  Classes="secondary" Content="WebView login (demo)…" />
+        </StackPanel>
+
         <!-- Progress windows (Phase 4 Task 8). UpdateProgress goes through the REAL registered
              IUpdateProgressSink (not IDialogService): the button toggles it — first click Open() +
              SetStatus(downloading 1.2.3) + Report(42) for a mid-progress shot, second click Close() — so

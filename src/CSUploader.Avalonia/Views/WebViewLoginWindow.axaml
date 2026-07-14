@@ -1,0 +1,57 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Modal captcha-gated sign-in browser (port of WPF src/Views/WebViewLoginWindow.xaml). Hosts a WebView2
+     CoreWebView2Controller in a native child HWND (WebView2Host) — the WebView2 CONTROL doesn't exist for
+     Avalonia, so the window owns the controller/bounds/teardown itself (Phase 2 spike pattern). Header +
+     status bind to WebViewLoginViewModel (the DataContext) so ava_vm can read the navigation lifecycle (the
+     WebView content is a native HWND, invisible to bridge screenshots — design line 88). Completion: the
+     window assembles InteractiveAuthResult and Close(result)s (rule 49); Cancel/Esc/X -> Close(null). -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        xmlns:v="clr-namespace:CSUploader.Views"
+        x:Class="CSUploader.Views.WebViewLoginWindow"
+        Title="{loc:Loc WebViewLogin_WindowTitle}"
+        Width="900" Height="720"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceMutedBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Header: which hoster + what we're waiting for. -->
+    <Border Grid.Row="0" Padding="14,10" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <StackPanel>
+        <TextBlock Text="{Binding Header}"
+                   FontSize="13" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock Text="{loc:Loc WebViewLogin_Instructions}"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,2,0,0"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <v:WebView2Host Grid.Row="1" x:Name="Host" />
+
+    <!-- Status strip: cookie-discovery state (code-behind sets VM.Status on every navigation). -->
+    <Border Grid.Row="2" Padding="14,6" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" x:Name="CancelButton"
+                Content="{loc:Loc Common_Cancel}"
+                Width="90" Height="26"
+                IsCancel="True"
+                Click="CancelButton_Click" />
+        <TextBlock Text="{Binding Status}"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

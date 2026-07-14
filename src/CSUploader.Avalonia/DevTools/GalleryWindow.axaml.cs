@@ -127,6 +127,7 @@ public partial class GalleryWindow : Window
         AccountSignInSuccessButton.Click += OnAccountSignInSuccess;
         AccountSignInFailureButton.Click += OnAccountSignInFailure;
         AccountSignInThrowButton.Click += OnAccountSignInThrow;
+        WebViewLoginDemoButton.Click += OnShowWebViewLoginDemo;
         DialogUpdateProgressButton.Click += OnToggleUpdateProgress;
         DialogProgressButton.Click += OnShowProgress;
         PickFolderButton.Click += OnPickFolder;
@@ -342,6 +343,15 @@ public partial class GalleryWindow : Window
             new FileHosterLoginDto { Id = 1, FileHosterName = "KatFile", AccountType = AccountType.Free },
             EditAccountHosters,
             interactiveLogin: _ => throw new InvalidOperationException("Synthesized WebView failure"));
+
+    // ── WebView login window (Phase 8 Task 3) ──
+    // Opens the REAL WebViewLoginWindow against about:blank (no network, no live hoster, no credentials) so the
+    // bridge can verify open/navigation-VM/close mechanics + capture the chrome for the contact sheet. The
+    // native WebView area is invisible to bridge screenshots (design line 88); ava_vm reads the navigation VM
+    // instead. Replaces the retired webview2 spike surface. Fire-and-forget: the _ = discards the awaitable.
+    private void OnShowWebViewLoginDemo(object? sender, RoutedEventArgs e)
+        => _ = new WebViewLoginWindow("Demo", "about:blank", string.Empty, "__never__",
+            proxy: ProxyChoice.Direct).ShowDialog<InteractiveAuthResult?>(this);
 
     // ── Progress windows (Phase 4 Task 8) ──
     // UpdateProgress drives the REAL registered IUpdateProgressSink (not IDialogService) — the exact
