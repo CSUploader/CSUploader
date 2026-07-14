@@ -8,8 +8,8 @@
      int==param -> IsVisible); the step-indicator weighting is StepFontConverter; the mode radios are the
      two-way EnumBool group (rule 8, its full exercise is Task 8). rule-33 visibility-converter sites become
      IsVisible bindings — the head has no bool-to-visibility converter. The wizard opens as a Window from the
-     Uploads toolbar (Task 12); this task's standalone surface is the gallery WizardButton. The VM is hand-
-     built in code-behind (it is NOT DI-registered) from App.Services. -->
+     Uploads toolbar (Task 12); this task's standalone surface is the gallery WizardButton. The VM is
+     DI-registered (Transient) and resolved from the container via App.Services (Phase 9 ledger fix d). -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"

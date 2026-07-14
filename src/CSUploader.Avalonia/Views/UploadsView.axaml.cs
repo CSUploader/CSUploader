@@ -250,10 +250,10 @@ public partial class UploadsView : UserControl
 
     /// <summary>
     /// Test seam for the Add→wizard construction. <see langword="null"/> in production, where the handler news
-    /// the wizard exactly as the WPF opener does — <c>new UploadWizardWindow(vm)</c>, which hand-builds the
-    /// (non-DI-registered) <see cref="UploadWizardViewModel"/> from <c>App.Services</c>. The headless test sets
+    /// the wizard exactly as the WPF opener does - <c>new UploadWizardWindow(vm)</c>, whose ctor resolves the
+    /// DI-registered (Transient) <see cref="UploadWizardViewModel"/> from <c>App.Services</c>. The headless test sets
     /// this to a scratch-VM wizard because <c>App.Services</c> is <see langword="null"/> under the test
-    /// lifetime (that path is separately covered by the Task 7 DI hand-construction test).
+    /// lifetime (that path is separately covered by the Task 7 DI resolution test).
     /// </summary>
     internal Func<UploadsViewModel, UploadWizardWindow>? UploadWizardWindowFactory { get; set; }
 

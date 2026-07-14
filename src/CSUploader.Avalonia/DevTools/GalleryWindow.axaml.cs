@@ -473,7 +473,7 @@ public partial class GalleryWindow : Window
     }
 
     // ── Windows (Phase 6 Task 7) ──
-    // The wizard's VM is hand-built inside its ctor from App.Services (it is NOT DI-registered), so the
+    // The wizard's VM is DI-registered (Transient) and resolved from the container via App.Services, so the
     // gallery just resolves the vestigial UploadsViewModel arg (the WPF Add-button call-site shape) and
     // Show(this)es it non-modally so the bridge can screenshot step 0 and toggle the mode. Never driven to
     // its final Add — that would kick off a real upload.

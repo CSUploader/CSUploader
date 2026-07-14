@@ -19,8 +19,8 @@ public partial class App : Application
     private ServiceProvider? _serviceProvider;
 
     /// <summary>
-    /// The composed DI provider, exposed for the few code-behind sites that hand-construct a
-    /// ViewModel that is NOT DI-registered — currently <see cref="Views.UploadWizardWindow"/>, which
+    /// The composed DI provider, exposed for the few code-behind sites that resolve a
+    /// ViewModel from the container - currently <see cref="Views.UploadWizardWindow"/>, which
     /// mirrors the WPF head's <c>((App)Application.Current).Services</c>. Assigned in
     /// <see cref="OnFrameworkInitializationCompleted"/>; it is <see langword="null"/> under the headless
     /// test lifetime (that method only runs for a classic-desktop lifetime), so only production/gallery

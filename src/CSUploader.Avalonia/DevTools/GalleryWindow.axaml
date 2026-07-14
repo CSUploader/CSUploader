@@ -520,8 +520,8 @@
                    Text="Picker result: (none yet)" />
       </StackPanel>
 
-      <!-- Windows (Phase 6): the Upload Wizard's standalone test surface. The button constructs it from
-           App.Services (the hand-built VM path) and Show(this)es it non-modally so the bridge can screenshot
+      <!-- Windows (Phase 6): the Upload Wizard's standalone test surface. The button resolves it from
+           App.Services (the DI-registered Transient VM) and Show(this)es it non-modally so the bridge can screenshot
            step 0 and toggle the mode. The real opener is the Uploads toolbar (Task 12). -->
       <StackPanel Spacing="6">
         <TextBlock Classes="section-header" Text="Windows (Phase 6)" />
