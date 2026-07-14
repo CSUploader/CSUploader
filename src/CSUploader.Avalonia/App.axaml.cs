@@ -107,7 +107,10 @@ public partial class App : Application
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
 #endif
 
-            Views.MainWindow mainWindow = new()
+            Views.MainWindow mainWindow = new(
+                _serviceProvider.GetRequiredService<AppSettings>(),
+                _serviceProvider.GetRequiredService<ITrayIconService>(),
+                _serviceProvider.GetRequiredService<Dal.SettingRepository>())
             {
                 DataContext = _serviceProvider.GetRequiredService<MainViewModel>(),
             };

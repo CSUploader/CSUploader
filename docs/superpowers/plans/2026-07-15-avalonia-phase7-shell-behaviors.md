@@ -1033,7 +1033,7 @@ git commit -m "feat(avalonia): Phase 7 Task 5 - File/View/Help menu bar + handle
 - Consumes: `AppSettings` (`CloseAction`, `MinimizeToTray`), `ITrayIconService` (`UpdateVisibility`, `NotifyHidden`), `SettingRepository` (`FindByKeyAsync`/`InsertAsync`/`UpdateAsync`), `SettingKey.CloseAction`, `CloseActionDialog`/`CloseActionChoice` (Phase 4 port), `CloseAction` enum, `Logger.Current`.
 - Produces: `MainWindow(AppSettings, ITrayIconService, SettingRepository)` internal ctor (used by `App.axaml.cs`); reuses `_forceClose` from Task 5.
 
-- [ ] **Step 1: Write the failing close-to-tray tests.** (`StubRepo()` reuses the in-memory Sqlite `SettingRepository` harness from `tests/CSUploader.Avalonia.Tests/Lib/DataGridColumnPersistenceTests.cs:26-56` — copy that `SqliteConnection(":memory:")` + `TestDbContextFactory` + `EnsureCreated` snippet into a local helper.)
+- [x] **Step 1: Write the failing close-to-tray tests.** (`StubRepo()` reuses the in-memory Sqlite `SettingRepository` harness from `tests/CSUploader.Avalonia.Tests/Lib/DataGridColumnPersistenceTests.cs:26-56` — copy that `SqliteConnection(":memory:")` + `TestDbContextFactory` + `EnsureCreated` snippet into a local helper.)
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Views/MainWindowCloseToTrayTests.cs
@@ -1148,9 +1148,9 @@ public class MainWindowCloseToTrayTests
 }
 ```
 
-- [ ] **Step 2: Run — verify it fails** (no `MainWindow(AppSettings, ITrayIconService, SettingRepository)` ctor; no reroute).
+- [x] **Step 2: Run — verify it fails** (no `MainWindow(AppSettings, ITrayIconService, SettingRepository)` ctor; no reroute).
 
-- [ ] **Step 3: Extend `MainWindow.axaml.cs`** with the DI ctor, `Closing`, WindowState watch, async prompt, and persistence (port of `src/Views/MainWindow.xaml.cs:25-131`, rules 43 + 44). Merge with the Task 5 handlers so there is ONE `_forceClose` and ONE parameterless ctor. Full class:
+- [x] **Step 3: Extend `MainWindow.axaml.cs`** with the DI ctor, `Closing`, WindowState watch, async prompt, and persistence (port of `src/Views/MainWindow.xaml.cs:25-131`, rules 43 + 44). Merge with the Task 5 handlers so there is ONE `_forceClose` and ONE parameterless ctor. Full class:
 
 ```csharp
 using System;
@@ -1310,7 +1310,7 @@ public partial class MainWindow : Window
 }
 ```
 
-- [ ] **Step 4: Wire the new ctor in `App.axaml.cs`.** Replace `Views.MainWindow mainWindow = new() { DataContext = ... };` with:
+- [x] **Step 4: Wire the new ctor in `App.axaml.cs`.** Replace `Views.MainWindow mainWindow = new() { DataContext = ... };` with:
 
 ```csharp
 Views.MainWindow mainWindow = new(
@@ -1324,16 +1324,18 @@ Views.MainWindow mainWindow = new(
 
 (`AppSettings` is already resolved for the agent guard a few lines above; `SettingRepository` is Core.Dal — use the fully-qualified `Dal.SettingRepository` as shown or add `using CSUploader.Dal;`.)
 
-- [ ] **Step 5: Run — verify green** (Avalonia suite +3). DI smoke still builds.
+- [x] **Step 5: Run — verify green** (Avalonia suite +3). DI smoke still builds.
 
-- [ ] **Step 6: Bridge-verify** (optional visual): launch the seeded app `--agent`; minimize -> window hides + tray appears (seed `MinimizeToTray=true` or toggle in Settings). Clicking the tray restores. Close with `CloseAction=Ask` -> the ported `CloseActionDialog` opens. Record.
+- [x] **Step 6: Bridge-verify** (optional visual): launch the seeded app `--agent`; minimize -> window hides + tray appears (seed `MinimizeToTray=true` or toggle in Settings). Clicking the tray restores. Close with `CloseAction=Ask` -> the ported `CloseActionDialog` opens. Record.
 
-- [ ] **Step 7: Suite gate + commit.** Both suites (Avalonia +3), both heads 0-warning Debug + Release.
+- [x] **Step 7: Suite gate + commit.** Both suites (Avalonia +3), both heads 0-warning Debug + Release.
 
 ```bash
 git add src/CSUploader.Avalonia/Views/MainWindow.axaml.cs src/CSUploader.Avalonia/App.axaml.cs tests/CSUploader.Avalonia.Tests/Views/MainWindowCloseToTrayTests.cs
 git commit -m "feat(avalonia): Phase 7 Task 6 - close/minimize-to-tray (async close-action prompt, WindowState watch)"
 ```
+
+**Task 6 executed (2026-07-14) — pending reviewer gate.** `MainWindow.axaml.cs` was FULL-CLASS-REWRITTEN (plan Step 3, not incremental): the DI ctor `internal MainWindow(AppSettings, ITrayIconService, SettingRepository)` (wires `Closing`), the parameterless loader/test ctor (wires NO reroute — keeps the Task 5 menu tests green), `OnPropertyChanged(WindowStateProperty)` minimize->hide watch (rule 43), the `Closing` reroute (rule 44: Exit returns; MinimizeToTray cancels+Hide+UpdateVisibility+**NotifyHidden**; Ask cancels + kicks the async prompt), `PromptCloseActionAsync` (awaits the modal `CloseActionDialog.ShowDialog<CloseActionChoice?>` then applies), `PersistCloseActionAsync` (SettingRepository upsert, best-effort), and the three Task-5 menu handlers. The **CS0414 pragma on `_forceClose` is GONE** — the rewrite's `MainWindow_Closing` now READS the field (`grep pragma MainWindow.axaml.cs` -> none). `App.axaml.cs` constructs MainWindow through the new 3-arg ctor (resolving `AppSettings`/`ITrayIconService`/`Dal.SettingRepository`; DataContext object-initializer unchanged). Gates: Avalonia **404 -> 411** (+7), WPF/shared **1201/1201** (untouched — `git diff` is ONLY App.axaml.cs + MainWindow.axaml.cs + the new test; zero Core/WPF/resx), Avalonia head **0-warning clean Debug build** (pragma gone, nothing re-declared). **NotifyHidden call-site discipline (mirrors WPF `src/Views/MainWindow.xaml.cs` EXACTLY):** fires on the DIRECT `MinimizeToTray` `Closing` branch ONLY (WPF line 76); NOT on the `Ask`->Minimize branch (WPF lines 95-100 hide without a balloon), NOT on the WindowState minimize watch (WPF `MainWindow_StateChanged` lines 51-58 hide without a balloon). **Bridge (`--agent`, seeded scratch DB beside the head):** launched the composed head — it stayed UP (`ava_windows`: MainWindow "CSUploader" 1024x800, isMain) which exercises the REAL startup path constructing MainWindow through the new 3-arg ctor (a bad resolve would crash boot); `ava_logs` Warning: ONLY the pre-existing `Package.StartedDate` DataGrid binding warnings (same as Tasks 3/5) — no DI/composition/close-to-tray error. The destructive close/minimize paths were **deliberately NOT driven** (a close kills the drive session; a minimize-to-tray hide strands it behind the native tray the bridge can't click) — they are fully headless-covered (below); split recorded per the team-lead constraint. **Deviations (recorded):** (1) **+7 tests, not the plan's +3.** The plan's 3 (`Close_WithMinimizeToTray_ReroutesToTray_NotClosed`, `Close_WithExit_ActuallyCloses`, `Minimize_WithMinimizeToTray_Hides`) — the last STRENGTHENED with a `NotifyHidden` `Times.Never` assertion (the pinned WindowState-minimize no-balloon discipline) — PLUS four team-lead-requested non-vacuous Closing-matrix tests: `AskExit_WithRemember_PersistsCloseAction_AndCloses` (Ask->Exit persists to AppSettings AND the DB, closes), `AskMinimize_NoRemember_HidesWithoutBalloon_AndDoesNotPersist` (Ask->Minimize hides + `UpdateVisibility` once + **`NotifyHidden` `Times.Never`** + not persisted + AppSettings stays `Ask`), `AskCancelled_KeepsWindowOpen_AndDoesNotPersist` (null choice = window stays open, nothing touched), `ForceClose_ViaMenuExit_BypassesMinimizeToTrayReroute` (File->Exit `_forceClose` closes outright with `CloseAction=MinimizeToTray`, tray reroute `Times.Never` — drives the REAL `Closing` handler via the Exit menu item's `RaiseEvent(MenuItem.ClickEvent)`, the Task-5 pattern). Step 7's "+3" is superseded by "+7" (Avalonia 411). (2) **`ApplyCloseActionChoiceAsync(CloseActionChoice?)` test seam:** the plan inlines the post-dialog decision inside `PromptCloseActionAsync`; the rewrite factors that decision into an `internal` awaitable method (`PromptCloseActionAsync` = `await dialog` then `await ApplyCloseActionChoiceAsync(choice)`). Behaviour is byte-identical; the seam lets the Ask outcomes be driven headlessly and deterministically (Avalonia.Headless can't click a modal `ShowDialog`, and the `Closing` Ask branch is fire-and-forget `_ = PromptCloseActionAsync()` — not awaitable from a test) — matching the codebase's established InternalsVisibleTo seam pattern (`AvaloniaDialogService`/`MessageBoxWindow`/`ToastWindow`). (3) **Dropped the plan's redundant `using System;`** from the rewrite — `System` comes from `ImplicitUsings` and the repo's `.editorconfig` sets `IDE0005` (unnecessary using) to `warning`, which would break the 0-warning gate; `Exception`/`Task` still resolve. No other semantic deviations from the plan's code. **Coverage limit (for the reviewer):** the literal `new CloseActionDialog().ShowDialog<CloseActionChoice?>(this)` modal line inside `PromptCloseActionAsync` is not driven end-to-end (a modal `ShowDialog` can't be clicked under Avalonia.Headless); it is covered by the `ApplyCloseActionChoiceAsync` seam (the decision it feeds), `CloseActionDialog`'s own Phase-4 dialog tests, and the verbatim WPF-port shape.
 
 ---
 
