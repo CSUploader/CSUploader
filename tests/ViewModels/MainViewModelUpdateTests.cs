@@ -28,6 +28,7 @@ public class MainViewModelUpdateTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _services;
     private readonly CultureInfo _originalCulture;
+    private readonly List<MainViewModel> _vms = [];
 
     public MainViewModelUpdateTests()
     {
@@ -75,6 +76,14 @@ public class MainViewModelUpdateTests : IDisposable
 
     public void Dispose()
     {
+        // MainViewModel is IDisposable (Phase 9 ledger fix c): dispose each built VM so it detaches its
+        // process-global Localizer/logger subscriptions and stops its update timer, rather than leaking
+        // dead subscribers onto the singleton across the run.
+        foreach (MainViewModel vm in _vms)
+        {
+            vm.Dispose();
+        }
+
         _services.Dispose();
         _connection.Dispose();
         Localizer.Instance.Culture = _originalCulture;
@@ -194,7 +203,9 @@ public class MainViewModelUpdateTests : IDisposable
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
         ServiceProvider scoped = BuildScopedProvider(updater, sink ?? Mock.Of<IUpdateProgressSink>());
-        return new MainViewModel(scoped);
+        MainViewModel vm = new(scoped);
+        _vms.Add(vm); // disposed at teardown (MainViewModel is IDisposable — Phase 9 ledger fix c).
+        return vm;
     }
 
     private ServiceProvider BuildScopedProvider(IUpdateService updater, IUpdateProgressSink sink)

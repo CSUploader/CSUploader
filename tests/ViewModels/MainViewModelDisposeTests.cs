@@ -1,4 +1,4 @@
-// <copyright file="MainViewModelInitializeTests.cs" company="CSUploader">
+// <copyright file="MainViewModelDisposeTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -22,19 +22,21 @@ using Moq;
 namespace CSUploader.Tests.ViewModels;
 
 /// <summary>
-/// Phase 9 ledger fix (b): <see cref="MainViewModel.InitializeAsync"/> is idempotent — a second call is
-/// a genuine no-op, not a duplicate load. The Avalonia head re-raises Window.Opened on every tray restore
-/// (Hide->Show), which would otherwise re-run the one-time hydration (double-loaded packages, N+1 log
-/// persistence). The guard hardens the VM regardless of which head/test path calls it a second time.
+/// Phase 9 ledger fix (c): <see cref="MainViewModel"/> is <see cref="IDisposable"/>. Its ctor starts a 6h
+/// update timer and subscribes to the process-global <see cref="Localizer.Instance"/> singleton (plus the
+/// named logger handler), so every un-disposed instance leaks a subscription for the process lifetime.
+/// Dispose stops the timer and detaches BOTH subscriptions; the same delegate instance the ctor added is
+/// removed (the Localizer handler is captured in a field, not an un-detachable inline lambda).
 /// </summary>
 [Collection(LocalizerCollection.Name)]
-public class MainViewModelInitializeTests : IDisposable
+public class MainViewModelDisposeTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _services;
+    private readonly InlineUiDispatcher _dispatcher;
     private readonly CultureInfo _originalCulture;
 
-    public MainViewModelInitializeTests()
+    public MainViewModelDisposeTests()
     {
         // MainViewModel's ctor subscribes to the process-global Localizer singleton; pin the culture and
         // serialize via LocalizerCollection so a peer test's culture flip can't perturb this one.
@@ -43,6 +45,9 @@ public class MainViewModelInitializeTests : IDisposable
 
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
+
+        // Registered as the concrete instance so the test can inspect the timer the VM ctor started.
+        _dispatcher = new InlineUiDispatcher();
 
         ServiceCollection sc = new();
         sc.AddSingleton(Mock.Of<IAppLogger>());
@@ -65,10 +70,8 @@ public class MainViewModelInitializeTests : IDisposable
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton(Mock.Of<IClipboardService>());
-        sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
+        sc.AddSingleton<IUiDispatcher>(_dispatcher);
 
-        // The ctor resolves these; CheckAsync returns null so the fire-and-forget startup update check
-        // stays a silent no-op (no log, no state change) and can't add noise to the observed counts.
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UpdateAvailableInfo?)null);
         sc.AddSingleton(updater.Object);
@@ -95,27 +98,53 @@ public class MainViewModelInitializeTests : IDisposable
     }
 
     [Fact]
-    public async Task InitializeAsync_IsIdempotent_RunsBodyOnce()
+    public void Dispose_StopsUpdateTimer()
     {
-        // One persisted log entry. InitializeAsync hydrates the Logs tab by APPENDING each stored row (no
-        // clear), so a second run would double it — the cleanest observable of the body re-running. With a
-        // Mock IAppLogger (which never raises OnLogOutput), the hydration loop is the ONLY thing that adds
-        // to StatusLogs, so the count is fully deterministic.
-        await _services.GetRequiredService<LogEntryRepository>().InsertAsync(new LogEntryDto
+        MainViewModel vm = new(_services);
+
+        // MainViewModel creates its 6h update timer LAST in its ctor — after resolving the sub-VMs, one of
+        // which (UploadsViewModel) registers its own 200ms refresh timer — so the update timer is the
+        // most-recently-added on the shared dispatcher.
+        InlineUiDispatcher.TestTimer updateTimer = _dispatcher.Timers[^1];
+        Assert.True(updateTimer.IsRunning); // the ctor started it.
+
+        vm.Dispose();
+
+        Assert.False(updateTimer.IsRunning); // Dispose calls IUiTimer.Stop().
+    }
+
+    [Fact]
+    public void Dispose_UnsubscribesLocalizer_NoMorePropertyChanged()
+    {
+        MainViewModel vm = new(_services);
+        bool raisedAfterDispose = false;
+
+        vm.Dispose();
+        vm.PropertyChanged += (_, e) =>
         {
-            DateTime = DateTime.Now,
-            LogType = LogType.Status,
-            Message = "seed",
-        });
+            if (e.PropertyName == nameof(MainViewModel.WindowTitle))
+            {
+                raisedAfterDispose = true;
+            }
+        };
 
-        using MainViewModel vm = new(_services); // IDisposable (Phase 9 ledger fix c): detaches its Localizer/logger subs at scope exit.
+        // Reassigning Localizer.Culture raises PropertyChanged ONLY on a real change (Localizer.cs guards
+        // Equals(field, value)); the ctor pinned "en", so flip to a different culture. This would fire the
+        // VM's WindowTitle refresh via the ctor's Localizer subscription if Dispose had not detached it.
+        Localizer.Instance.Culture = CultureInfo.GetCultureInfo("ja");
 
-        await vm.InitializeAsync();
-        int afterFirst = vm.LogsViewModel.StatusLogs.Count;
-        Assert.Equal(1, afterFirst); // the body ran fully: the seeded entry hydrated exactly once.
+        Assert.False(raisedAfterDispose);
+    }
 
-        await vm.InitializeAsync(); // second call must be a genuine no-op (idempotency guard).
+    [Fact]
+    public void Dispose_IsIdempotent()
+    {
+        MainViewModel vm = new(_services);
+        InlineUiDispatcher.TestTimer updateTimer = _dispatcher.Timers[^1]; // MainViewModel's 6h timer (last-added).
 
-        Assert.Equal(afterFirst, vm.LogsViewModel.StatusLogs.Count);
+        vm.Dispose();
+        vm.Dispose(); // second call must be a genuine no-op, not throw.
+
+        Assert.False(updateTimer.IsRunning);
     }
 }

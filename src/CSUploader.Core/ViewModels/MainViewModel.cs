@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
@@ -14,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CSUploader.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
 
@@ -24,9 +25,11 @@ public partial class MainViewModel : ObservableObject
     private readonly Services.IUpdateProgressSink _updateProgressSink;
     private readonly Services.IUiDispatcher _uiDispatcher;
     private readonly Services.IUiTimer _updateTimer;
+    private readonly PropertyChangedEventHandler _localizerChanged;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
     private bool _initialized;
+    private bool _disposed;
 
     [ObservableProperty]
     private int selectedTabIndex;
@@ -73,11 +76,15 @@ public partial class MainViewModel : ObservableObject
 
         // ThemeMenuLabel and WindowTitle read from Localizer; refresh them when culture
         // flips so the menu/title text updates live alongside the {loc:Loc} bindings.
-        Localizer.Instance.PropertyChanged += (_, _) =>
+        // Captured (not inline) so Dispose can detach the SAME delegate instance — Localizer.Instance
+        // is a process-global static, so an un-detached handler leaks the VM for the whole process
+        // lifetime (Phase 9 ledger fix c).
+        _localizerChanged = (_, _) =>
         {
             OnPropertyChanged(nameof(ThemeMenuLabel));
             OnPropertyChanged(nameof(WindowTitle));
         };
+        Localizer.Instance.PropertyChanged += _localizerChanged;
 
         // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
         // so this stays a no-op there just as the old Application.Current guard did.
@@ -313,4 +320,29 @@ public partial class MainViewModel : ObservableObject
     }
 
     private void Logger_OnLogOutput(object? sender, LogEvent e) => _uiDispatcher.Post(() => LogsViewModel.AddLogEntry(e));
+
+    /// <summary>
+    /// Stops the 6h update timer and detaches the process-global Localizer subscription and the logger
+    /// handler. The singleton VM is disposed with the DI provider at app exit (both heads); tests that
+    /// build a MainViewModel must dispose it, or the Localizer static accumulates dead subscribers across
+    /// the run. Idempotent.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
+
+        _updateTimer.Stop();
+        Localizer.Instance.PropertyChanged -= _localizerChanged;
+        _logger.OnLogOutput -= Logger_OnLogOutput;
+
+        // The InitializeAsync log-persistence handler (:~215, an inline lambda wired only once
+        // InitializeAsync runs) is intentionally NOT detached: it captures the LogEntryRepository that is
+        // disposed with the DI provider, and detaching it is out of this fix's design scope (ledger fix c).
+    }
 }
