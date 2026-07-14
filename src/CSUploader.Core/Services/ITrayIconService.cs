@@ -19,6 +19,15 @@ public interface ITrayIconService
     /// <summary>Shows the one-shot "we're in the tray" balloon tip the first time the window hides.</summary>
     void NotifyHidden();
 
+    /// <summary>
+    /// Forces the tray icon to exist for the remainder of this session, regardless of the persisted
+    /// <see cref="AppSettings.MinimizeToTray"/>/<see cref="AppSettings.CloseAction"/> settings. Used by the
+    /// close-action "Minimize" choice when the user did NOT tick "Remember": the window hides but
+    /// <see cref="UpdateVisibility"/> would otherwise tear the icon down (settings still say don't-minimize),
+    /// stranding the app hidden with no icon. Honours the one-off choice WITHOUT mutating in-memory settings.
+    /// </summary>
+    void EnsureIconForSession();
+
     /// <summary>Restores the main window from minimized/hidden state and brings it to front.</summary>
     void ShowMainWindow();
 }

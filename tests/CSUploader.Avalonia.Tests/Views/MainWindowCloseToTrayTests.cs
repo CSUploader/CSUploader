@@ -150,7 +150,9 @@ public class MainWindowCloseToTrayTests
     [AvaloniaFact]
     public async Task AskMinimize_NoRemember_HidesWithoutBalloon_AndDoesNotPersist()
     {
-        // Ask -> the user picks MinimizeToTray WITHOUT Remember: hide + refresh the tray, but NO first-hide
+        // Ask -> the user picks MinimizeToTray WITHOUT Remember: hide + FORCE the tray icon for the session
+        // (the strand fix, Phase 9 ledger a — EnsureIconForSession, NOT the settings-gated UpdateVisibility,
+        // which would tear the icon down since Remember=false leaves CloseAction at Ask), but NO first-hide
         // balloon (the pinned Ask->Minimize discipline: NotifyHidden fires ONLY on the direct MinimizeToTray
         // Closing branch, never here) and nothing persisted (Remember = false leaves AppSettings at Ask).
         var settings = new AppSettings { CloseAction = CloseAction.Ask };
@@ -165,10 +167,11 @@ public class MainWindowCloseToTrayTests
             await w.ApplyCloseActionChoiceAsync(new CloseActionChoice(CloseAction.MinimizeToTray, Remember: false));
             Dispatcher.UIThread.RunJobs();
 
-            Assert.False(w.IsVisible);                             // hidden
-            tray.Verify(t => t.UpdateVisibility(), Times.Once);    // refreshed
-            tray.Verify(t => t.NotifyHidden(), Times.Never);       // NO balloon on the Ask->Minimize branch
-            Assert.Equal(CloseAction.Ask, settings.CloseAction);   // unchanged (Remember = false)
+            Assert.False(w.IsVisible);                                 // hidden
+            tray.Verify(t => t.EnsureIconForSession(), Times.Once);    // session-forced icon (strand fix)
+            tray.Verify(t => t.UpdateVisibility(), Times.Never);       // NOT the settings-gated refresh (would strand)
+            tray.Verify(t => t.NotifyHidden(), Times.Never);           // NO balloon on the Ask->Minimize branch
+            Assert.Equal(CloseAction.Ask, settings.CloseAction);       // unchanged (Remember = false) — NOT mutated in memory
             Assert.Null(await repo.FindByKeyAsync(SettingKey.CloseAction)); // not persisted
         }
         finally

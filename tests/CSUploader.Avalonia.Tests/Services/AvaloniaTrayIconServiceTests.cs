@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia.Headless.XUnit;
 using CSUploader.Lib;
 using CSUploader.Services;
 using CSUploader.Upload;
@@ -49,5 +50,25 @@ public class AvaloniaTrayIconServiceTests
         svc.NotifyHidden();
 
         Assert.Equal(0, toasts.InfoCount);
+    }
+
+    [AvaloniaFact]
+    public void EnsureIconForSession_CreatesIcon_EvenWhenSettingsSayNoMinimize()
+    {
+        // Strand-fix (Phase 9 ledger a): Ask->Minimize without Remember must keep the icon for the session
+        // even though settings still say don't-minimize, so UpdateVisibility() would tear it down.
+        AppSettings settings = new() { MinimizeToTray = false, CloseAction = CloseAction.Ask };
+        AvaloniaTrayIconService tray = new(settings, Mock.Of<IAppLogger>(), Mock.Of<IToastNotificationService>());
+        try
+        {
+            tray.UpdateVisibility();           // settings say no icon…
+            Assert.False(tray.HasIcon);
+            tray.EnsureIconForSession();        // …but the session-force creates it anyway.
+            Assert.True(tray.HasIcon);
+        }
+        finally
+        {
+            tray.Dispose();
+        }
     }
 }

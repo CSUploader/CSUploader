@@ -113,6 +113,17 @@ public sealed class TrayIconManager(AppSettings settings, IAppLogger logger) : I
         }
     }
 
+    /// <inheritdoc />
+    public void EnsureIconForSession()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        EnsureIcon();
+    }
+
     private void EnsureIcon()
     {
         if (_notifyIcon is not null)

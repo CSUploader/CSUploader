@@ -110,6 +110,21 @@ public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger log
         }
     }
 
+    // Test seam (InternalsVisibleTo -> CSUploader.Avalonia.Tests): icon presence, for the EnsureIconForSession
+    // strand-fix test. Behaviourally identical to inlining the null-check at the call site.
+    internal bool HasIcon => _trayIcon is not null;
+
+    /// <inheritdoc />
+    public void EnsureIconForSession()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        EnsureIcon();
+    }
+
     private void EnsureIcon()
     {
         if (_trayIcon is not null)

@@ -146,9 +146,12 @@ public partial class MainWindow : Window
 
         if (result.Action == CloseAction.MinimizeToTray)
         {
-            // Parity with the WPF Ask->Minimize branch: hide + refresh, NO first-hide balloon here.
+            // Parity with the WPF Ask->Minimize branch: hide + force the icon for the session, NO first-hide
+            // balloon here. EnsureIconForSession (not UpdateVisibility) because Remember=false leaves CloseAction
+            // at Ask, so a settings-gated refresh would tear the icon down and strand the app hidden with no icon
+            // (Phase 9 ledger fix a). Does NOT mutate in-memory CloseAction.
             Hide();
-            _tray?.UpdateVisibility();
+            _tray?.EnsureIconForSession();
             return;
         }
 

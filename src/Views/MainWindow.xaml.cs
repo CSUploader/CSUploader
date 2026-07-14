@@ -96,7 +96,11 @@ public partial class MainWindow : Window
                 {
                     e.Cancel = true;
                     Hide();
-                    _trayIconManager.UpdateVisibility();
+
+                    // EnsureIconForSession (not UpdateVisibility) because !Remember leaves CloseAction at Ask,
+                    // so a settings-gated refresh would tear the icon down and strand the app hidden with no
+                    // icon (Phase 9 ledger fix a). Does NOT mutate in-memory CloseAction.
+                    _trayIconManager.EnsureIconForSession();
                 }
 
                 // Else: ChosenAction == Exit, fall through to close. Even if !Remember,
