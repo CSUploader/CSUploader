@@ -26,6 +26,7 @@ public partial class MainViewModel : ObservableObject
     private readonly Services.IUiTimer _updateTimer;
     private UpdateAvailableInfo? _availableUpdate;
     private bool _suppressDarkModePersist;
+    private bool _initialized;
 
     [ObservableProperty]
     private int selectedTabIndex;
@@ -162,6 +163,19 @@ public partial class MainViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
+        // Idempotency guard (Phase 9 ledger fix b): InitializeAsync loads persisted packages, hydrates and
+        // wires log persistence, and restores theme — none of it safe to run twice (it would double-load
+        // packages and re-hydrate the Logs tab). The Avalonia head re-raises Window.Opened on every tray
+        // restore (App.axaml.cs one-shots the outer call too); guarding here makes the VM safe for any
+        // caller/head. The flag is set BEFORE the first await — FirstRun is synchronous, so on the single UI
+        // thread a re-entrant call short-circuits before any body work. WPF's Loaded fires once: unchanged.
+        if (_initialized)
+        {
+            return;
+        }
+
+        _initialized = true;
+
         FirstRun.InitializeDatabase(_services, _logger);
 
         // Hydrate the Logs tab from the persisted store BEFORE wiring the persistence
