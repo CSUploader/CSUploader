@@ -235,7 +235,22 @@ public partial class App : Application
         // Same singleton instance is reachable through the Core interface too, so the shared
         // ViewModels depend on ITrayIconService, not the Avalonia tray type.
         services.AddSingleton<ITrayIconService>(sp => sp.GetRequiredService<AvaloniaTrayIconService>());
-        services.AddSingleton<IToastNotificationService, NoOpToastNotificationService>(); // real toasts in Phase 7
+        services.AddSingleton<IToastWindowFactory, AvaloniaToastWindowFactory>();
+        services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationService(
+            sp.GetRequiredService<AppSettings>(),
+            sp.GetRequiredService<IToastWindowFactory>(),
+            workAreaProvider: () =>
+            {
+                // Primary-screen work area in DIPs (design: ALL toast geometry is in DIPs). MainWindow is shown
+                // by the time any toast fires, so its Screens.Primary is valid; fall back on the rare null.
+                Window? main = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+                var screen = main?.Screens?.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
+                return screen is null
+                    ? new DipRect(0, 0, 1920, 1080)
+                    : Lib.UI.ToastPlacement.WorkAreaToDip(screen.WorkingArea, screen.Scaling);
+            },
+            activate: () => sp.GetRequiredService<MainViewModel>().ActivateAndShowUploadedTab(),
+            dispatcher: sp.GetRequiredService<IUiDispatcher>())); // real bottom-right completion toasts (Phase 7)
 
         // ViewModels are registered by AddCoreServices — framework-free and shared with the WPF head.
     }

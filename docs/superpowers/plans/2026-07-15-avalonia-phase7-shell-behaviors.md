@@ -636,7 +636,7 @@ git commit -m "feat(avalonia): Phase 7 Task 2 - ToastWindow + AvaloniaToastHost 
 - Consumes: `ToastNotificationService` (Core), `AvaloniaToastWindowFactory` (Task 2), `ToastPlacement` (Task 1), `MainViewModel.ActivateAndShowUploadedTab` (Core), `IUiDispatcher`, `AppSettings`, `Screen`/`Screens`.
 - Produces: the composed provider now resolves `IToastNotificationService` to the real `ToastNotificationService`; `UploadNotificationListener` (eagerly resolved in `WireRuntime`) now raises real toasts on `FileState.Completed` / package completion.
 
-- [ ] **Step 1: Write the failing wiring test.**
+- [x] **Step 1: Write the failing wiring test.**
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Services/AvaloniaToastWiringTests.cs
@@ -670,9 +670,9 @@ public class AvaloniaToastWiringTests
 }
 ```
 
-- [ ] **Step 2: Run — verify it fails** (`IToastNotificationService` still resolves to `NoOpToastNotificationService`; `IToastWindowFactory` is unregistered).
+- [x] **Step 2: Run — verify it fails** (`IToastNotificationService` still resolves to `NoOpToastNotificationService`; `IToastWindowFactory` is unregistered).
 
-- [ ] **Step 3: Replace the DI registration** in `App.axaml.cs` `ConfigureServices`. Remove `services.AddSingleton<IToastNotificationService, NoOpToastNotificationService>();` and add (mirror the WPF `App.xaml.cs:95-105`, with the Avalonia `Screens`->DIP `workAreaProvider`):
+- [x] **Step 3: Replace the DI registration** in `App.axaml.cs` `ConfigureServices`. Remove `services.AddSingleton<IToastNotificationService, NoOpToastNotificationService>();` and add (mirror the WPF `App.xaml.cs:95-105`, with the Avalonia `Screens`->DIP `workAreaProvider`):
 
 ```csharp
 services.AddSingleton<IToastWindowFactory, AvaloniaToastWindowFactory>();
@@ -695,19 +695,21 @@ services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationServ
 
 `Window` and `IClassicDesktopStyleApplicationLifetime` (`Avalonia.Controls` / `Avalonia.Controls.ApplicationLifetimes`) are already imported at the top of `App.axaml.cs`. The `Screens` collection is reached only as a member (`main.Screens`), and the primary screen is read via `var` — so its element type `Screen`, which lives in **`Avalonia.Platform`** (NOT `Avalonia.Controls` — verified by reflection on 11.3.18), is never named and NO extra `using` is required. (If you prefer an explicit `Screen?` decl, add `using Avalonia.Platform;` to this file and the two GalleryWindow sites instead.)
 
-- [ ] **Step 4: Delete `NoOpToastNotificationService.cs`.** `git rm src/CSUploader.Avalonia/Services/NoOpToastNotificationService.cs`.
+- [x] **Step 4: Delete `NoOpToastNotificationService.cs`.** `git rm src/CSUploader.Avalonia/Services/NoOpToastNotificationService.cs`.
 
-- [ ] **Step 5: Run — verify green.** Filter `AvaloniaToastWiringTests`; then the full Avalonia suite (the DI smoke test still builds the graph without a cycle — the `activate`/`workAreaProvider` lambdas defer `MainViewModel`/`MainWindow` resolution, so no ctor cycle).
+- [x] **Step 5: Run — verify green.** Filter `AvaloniaToastWiringTests`; then the full Avalonia suite (the DI smoke test still builds the graph without a cycle — the `activate`/`workAreaProvider` lambdas defer `MainViewModel`/`MainWindow` resolution, so no ctor cycle).
 
-- [ ] **Step 6: Live-verify completion toasts via the bridge (no real upload).** Launch `--agent --gallery`. The `--agent` guard pauses the scheduler, so drive the notification path directly: via `ava_eval`, resolve `IToastNotificationService` from `((App)Application.Current).Services` and call `ShowFileCompleted` on a synthesized `PackageFile` (or reuse the seed's completed rows) -> confirm a real toast appears bottom-right and stacks with a second call, and clicking it switches to the Uploaded tab (`ActivateAndShowUploadedTab`). Record.
+- [x] **Step 6: Live-verify completion toasts via the bridge (no real upload).** Launch `--agent --gallery`. The `--agent` guard pauses the scheduler, so drive the notification path directly: via `ava_eval`, resolve `IToastNotificationService` from `((App)Application.Current).Services` and call `ShowFileCompleted` on a synthesized `PackageFile` (or reuse the seed's completed rows) -> confirm a real toast appears bottom-right and stacks with a second call, and clicking it switches to the Uploaded tab (`ActivateAndShowUploadedTab`). Record.
 
-- [ ] **Step 7: Suite gate + commit.** Both suites (Avalonia +1), both heads 0-warning Debug + Release. Avalonia Release launched WITHOUT flags shows no gallery/probe surface.
+- [x] **Step 7: Suite gate + commit.** Both suites (Avalonia +1), both heads 0-warning Debug + Release. Avalonia Release launched WITHOUT flags shows no gallery/probe surface.
 
 ```bash
 git add src/CSUploader.Avalonia/App.axaml.cs tests/CSUploader.Avalonia.Tests/Services/AvaloniaToastWiringTests.cs
 git rm src/CSUploader.Avalonia/Services/NoOpToastNotificationService.cs
 git commit -m "feat(avalonia): Phase 7 Task 3 - wire real ToastNotificationService; completion toasts live; drop NoOp"
 ```
+
+**Task 3 executed (2026-07-14) — pending reviewer gate.** `App.ConfigureServices` now registers `IToastWindowFactory` -> `AvaloniaToastWindowFactory` and `IToastNotificationService` -> the real Core `ToastNotificationService` (WPF `App.xaml.cs:95-105` shape, with the Avalonia `Screens`->DIP `workAreaProvider` closure verbatim from the plan). `NoOpToastNotificationService.cs` is `git rm`-ed; `grep -rn NoOpToastNotificationService src/` -> zero. Completion toasts are live: `WireRuntime` eagerly resolves `UploadNotificationListener` (verified chain unchanged), which now raises the real `ToastNotificationService` on `FileState.Completed` / package completion. Gates: Avalonia **395 -> 397** (+2), WPF **1200/1200** (untouched — zero Core/WPF changes), both heads **0-warning** (Avalonia Debug AND Release; WPF Debug). **Live verification without a real upload:** the current bridge has **no `ava_eval`/method-invoke tool** (tool set is `ava_action`/`ava_dispatch`(ICommand-on-DataContext)/`ava_vm`(read-only)/...), so the plan's Step 6 "resolve `IToastNotificationService` and call `ShowFileCompleted`" could not be driven from the bridge. Instead: launched the composed `--agent --gallery` head (scratch DB beside the exe at `D:\temp2\cbuild-mig\ava`) — it **booted cleanly with the real service wired + NoOp deleted** (`ava_windows`: MainWindow + Gallery up; `ava_logs` Error/Warning: only the pre-existing `Package.StartedDate` DataGrid binding warnings, unrelated to toasts — no DI/composition/wiring error), which exercises the real startup path (`OnFrameworkInitializationCompleted` -> `WireRuntime` -> eager `UploadNotificationListener` -> real `IToastNotificationService` factory lambda). The gallery `ToastButton` then rendered a real `ToastWindow` (360x80) at physical **(2188,1287)** = work.Right-360-12, work.Bottom-80-12, `isActive:false` with the gallery still `isActive:true` (no focus-steal) — identical to Task 2's recorded placement. The DI-wiring correctness itself (real service resolved; `workAreaProvider` invokes to the documented non-degenerate fallback rect) is proven by the two headless tests below (the gallery button builds via the factory directly, so it re-confirms render, not the wired service). **Deviations (recorded):** (1) **+2 tests, not the plan's +1.** The plan's `ToastService_ResolvesToRealService_NotNoOp` (`[Fact]`, DI resolution) PLUS the team-lead-requested non-vacuous `workAreaProvider`-shape coverage: `WorkAreaProvider_InvokesCleanly_ReturnsNonDegenerateDipRect` (`[AvaloniaFact]`) pulls the wired `Func<DipRect>` off the resolved real service by its unique field type and invokes it, asserting the documented headless fallback `DipRect(0,0,1920,1080)`. Reflection is used because the closure is private to the DI factory and is not observable through any public seam under the headless lifetime, and an end-to-end toast fire would leak an uncloseable ownerless toast window (no `IClassicDesktopStyleApplicationLifetime.Windows` to snapshot/close, rule 25); the closure's math itself is already covered by Task 1's `ToastPlacementTests`. Step 7's "+1" is therefore superseded by "+2" (Avalonia 397). (2) The registration adds a trailing `// real bottom-right completion toasts (Phase 7)` comment on the `AddSingleton<IToastNotificationService>` line (the NoOp line's inline comment relocated); no code-semantic deviation from the plan's wiring block.
 
 ---
 
