@@ -214,7 +214,7 @@ public async Task RunToastShotsAndShutdownAsync(string dir)
 }
 ```
 
-- [ ] **Step 7: Capture the WPF toast reference shots.** PowerShell: build the WPF head to `D:\temp2\cbuild-mig\wpf`, then run it with `--shots --toast D:\temp2\cbuild-mig\shots`. Verify `toast-light-wpf.png` and `toast-dark-wpf.png` exist and show the accent-striped card.
+- [ ] **Step 7: Capture the WPF toast reference shots.** PowerShell: build the WPF head to `D:\temp2\cbuild-mig\wpf`, then run it with `--shots --toast D:\temp2\cbuild-mig\shots`. Verify `toast-light-wpf.png` and `toast-dark-wpf.png` exist and show the accent-striped card. NOTE for the Task 8 arbitration: `ReferenceShotCapture.CaptureWindow` renders `root.ActualWidth/Height` — i.e. the toast Border, NOT the window — so the WPF cell CLIPS the `DropShadowEffect` and looks tighter/shadowless; the ava side is a full-window bridge screenshot with the `BoxShadow` visible. That difference is expected framing, not a regression.
 
 - [ ] **Step 8: Add the throwaway bridge probe.** In `GalleryWindow.axaml` add `<Button x:Name="ToastProbeButton" Content="Toast probe" />`; in `GalleryWindow.axaml.cs` wire `ToastProbeButton.Click += OnToastProbe` with a handler that shows a bare chrome-less topmost non-activated window bottom-right using `ToastPlacement` + `Screens.Primary`:
 
@@ -222,7 +222,7 @@ public async Task RunToastShotsAndShutdownAsync(string dir)
 // THROWAWAY (Task 1 GO/NO-GO probe — deleted in Task 2 when the real ToastWindow lands).
 private void OnToastProbe(object? sender, RoutedEventArgs e)
 {
-    Screen? screen = Screens.Primary;
+    var screen = Screens.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
     double scaling = screen?.Scaling ?? 1.0;
     DipRect work = screen is null
         ? new DipRect(0, 0, 1920, 1080)
@@ -591,7 +591,7 @@ public class ToastWindowTests
 // screenshots the exact ToastWindow the notification listener raises (Task 2).
 private void OnShowToast(object? sender, RoutedEventArgs e)
 {
-    Screen? screen = Screens.Primary;
+    var screen = Screens.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
     double scaling = screen?.Scaling ?? 1.0;
     DipRect work = screen is null
         ? new DipRect(0, 0, 1920, 1080)
@@ -682,7 +682,7 @@ services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationServ
         // Primary-screen work area in DIPs (design: ALL toast geometry is in DIPs). MainWindow is shown
         // by the time any toast fires, so its Screens.Primary is valid; fall back on the rare null.
         Window? main = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-        Screen? screen = main?.Screens?.Primary;
+        var screen = main?.Screens?.Primary; // Screen (element type) is Avalonia.Platform; var avoids importing it
         return screen is null
             ? new DipRect(0, 0, 1920, 1080)
             : Lib.UI.ToastPlacement.WorkAreaToDip(screen.WorkingArea, screen.Scaling);
@@ -691,7 +691,7 @@ services.AddSingleton<IToastNotificationService>(sp => new ToastNotificationServ
     dispatcher: sp.GetRequiredService<IUiDispatcher>()));
 ```
 
-`Window`/`Screen`/`Screens`/`IClassicDesktopStyleApplicationLifetime` are already imported at the top of `App.axaml.cs`. `Screen`/`Screens` are `Avalonia.Controls` — no extra using.
+`Window` and `IClassicDesktopStyleApplicationLifetime` (`Avalonia.Controls` / `Avalonia.Controls.ApplicationLifetimes`) are already imported at the top of `App.axaml.cs`. The `Screens` collection is reached only as a member (`main.Screens`), and the primary screen is read via `var` — so its element type `Screen`, which lives in **`Avalonia.Platform`** (NOT `Avalonia.Controls` — verified by reflection on 11.3.18), is never named and NO extra `using` is required. (If you prefer an explicit `Screen?` decl, add `using Avalonia.Platform;` to this file and the two GalleryWindow sites instead.)
 
 - [ ] **Step 4: Delete `NoOpToastNotificationService.cs`.** `git rm src/CSUploader.Avalonia/Services/NoOpToastNotificationService.cs`.
 
@@ -739,7 +739,7 @@ public void ShowInfo_RaisesToast_EvenWhenCompletionToastsDisabled()
 
     service.ShowInfo("CSUploader", "Still running in the tray.");
 
-    Assert.Single(factory.CreatedHosts); // a toast was built despite ShowCompletionToasts=false
+    Assert.Single(factory.Created); // a toast was built despite ShowCompletionToasts=false
 }
 ```
 
@@ -1589,7 +1589,7 @@ git commit -m "feat(avalonia): Phase 7 Task 7 - Win10 dark-title-bar DWM fallbac
   - WPF-head safety: `git diff phase6-hard-views-ready..HEAD -- src/` outside `src/CSUploader.Avalonia/**` and `src/CSUploader.Core/**`-as-above touches ONLY `src/Services/ReferenceShotCapture.cs` (inside `#if DEBUG`). Release WPF build succeeds; WPF suite 1201.
   - Avalonia Release build succeeds; launched WITHOUT flags: no gallery/probe surface, four MainWindow tabs live WITH the menu bar, toasts fire on completion, close/minimize routes to tray per settings.
 - [ ] **Step 3: Column-persistence verification (prep item 3 — verify-only).** Confirm the Avalonia UploadsView still wires `DataGridColumnVisibilityPersistence` (Apply/Persist/column menu/ColumnDisplayIndexChanged) — grep `src/CSUploader.Avalonia/Views/UploadsView.axaml.cs` for `DataGridColumnVisibilityPersistence` and `DataGridColumnMenu`; the Phase 6 column-persistence tests still pass. No new work; record "already shipped in Phase 6 Task 10".
-- [ ] **Step 4: Contact sheet.** `toast` (light+dark, WPF+ava) and the re-captured `mainwindow-uploads` (Avalonia now with menu). Every pair Read and arbitrated; append to the accepted-divergence list (at minimum): the Fluent Menu chrome/density vs WPF's compact menu; the dropped Exit gesture text (rule 41, established ruling); the message-box has no info icon (existing divergence, reused by Check-for-updates); the tray toast icon (`StatusRunningImage` chosen for "still running"); the Win10 dark title bar is maintainer-verified (dev machine is Win11). Confirm the toast ShowActivated verdict (no focus steal) from Task 1.
+- [ ] **Step 4: Contact sheet.** `toast` (light+dark, WPF+ava) and the re-captured `mainwindow-uploads` (Avalonia now with menu). Every pair Read and arbitrated; append to the accepted-divergence list (at minimum): the Fluent Menu chrome/density vs WPF's compact menu; the dropped Exit gesture text (rule 41, established ruling); the message-box has no info icon (existing divergence, reused by Check-for-updates); the tray toast icon (`StatusRunningImage` chosen for "still running"); the Win10 dark title bar is maintainer-verified (dev machine is Win11); and the toast-cell FRAMING difference — the WPF `toast-*-wpf.png` renders only the Border (`root.ActualWidth/Height`) so it looks tighter and CLIPS the drop shadow, while the ava `toast-*-ava.png` is a full-window shot with the `BoxShadow` visible (expected, NOT a regression — do not log it as one). Confirm the toast ShowActivated verdict (no focus steal) from Task 1.
 - [ ] **Step 5:** `git tag phase7-shell-ready`.
 - [ ] **Step 6: Reconcile the design doc** (`docs/superpowers/specs/2026-07-10-avalonia-migration-design.md`) with Phase 7's outcomes — at minimum: the toast DIP<->physical recipe + the `ShowActivated`/topmost GO verdict; the balloon->toast `ShowInfo` addition (the one Core touch, ungated); the menu port (rule 41; `NativeMenu` rejected; gesture text dropped); the close-to-tray async-prompt rule (44) + WindowState-via-OnPropertyChanged (43); the dark-title-bar Win10 fallback (rule 45, `Control.LoadedEvent.AddClassHandler` + `TryGetPlatformHandle`, applier sole writer); column persistence already-done note; and carry forward the Phase 9 deferrals (prep items 4/5/6: register `UploadWizardViewModel`, `MainViewModel` IDisposable, the header-metrics pass, the two parity-checklist items). Commit — `"docs: reconcile design with Phase 7 outcomes (toast geometry, balloon route, menu, close-to-tray, dark title bar)"`.
 - [ ] **Step 7: Surface to the maintainer** (via the team lead): the contact-sheet path; the toast GO/NO-GO verdict; the one Core touch (`ShowInfo`) + why; the accepted divergences; the standing manual checks that need a Win10 machine (dark title bar on new dialogs) and the maintainer's DPI (125%/150%) toast placement smoke; the Phase 9 deferrals still open.
@@ -1600,20 +1600,20 @@ git commit -m "feat(avalonia): Phase 7 Task 7 - Win10 dark-title-bar DWM fallbac
 
 ## Reality-check register
 
-Verify each against the installed Avalonia 11.3.18 / DataGrid 11.3.13 bits before/while coding (ILSpy per `dotnet-skills:ilspy-decompile`). Unmarked items are open at plan time.
+Items 1-8 were **PINNED by reflection on the installed Avalonia 11.3.18 bits during plan review** and are **CONFIRMED — executors must NOT re-derive them** (recorded fallbacks are unneeded). The ONLY genuinely-open items — verified at RUNTIME, not by reflection — are: (a) **transparent-popup rendering + no-focus-steal** (the Task 1 bridge probe: does the chrome-less transparent topmost non-activated toast render and NOT steal focus), and (b) **the Win10 DWM dark-title-bar VISUAL** (maintainer-only; the dev box is Win11, which auto-recolors from the variant).
 
-1. **`Window.ShowActivated`** (Task 1) — matched in `Avalonia.Controls.dll` at plan time (likely present); the probe (Task 1 Step 9) confirms no focus-steal. Fallback if absent: re-activate `desktop.MainWindow` after `host.Show()`.
-2. **`Window.SystemDecorations` (`SystemDecorations.None`), `TransparencyLevelHint` (`WindowTransparencyLevel.Transparent`), `Background="Transparent"`, `CanResize`, `Border.BoxShadow` string syntax** (Task 1/2) — verify the chrome-less transparent popup renders (the probe covers this).
-3. **`Window.Position` (`PixelPoint`), `Window.Screens` (`Screens`), `Screens.Primary`/`ScreenFromWindow`, `Screen.WorkingArea` (`PixelRect`), `Screen.Scaling`** (Task 1-3) — the DIP<->physical spine. Pin the exact types; `WorkingArea` is physical px.
-4. **`Control.LoadedEvent.AddClassHandler<Window>(Action<Window, RoutedEventArgs>)`** (Task 7) — the WPF `RegisterClassHandler` analog. If absent, fallback = hook `Window.Opened` for the main window only (dialogs accept the Win10 light-chrome divergence).
-5. **`Window.TryGetPlatformHandle()?.Handle`** (Task 7) — returns the Win32 HWND on the desktop backend; null under headless (Apply no-ops).
-6. **`WindowClosingEventArgs.Cancel`** (Task 6) — the `Closing` handler's cancel signal; confirm the delegate shape (`EventHandler<WindowClosingEventArgs>`).
-7. **`DispatcherPriority.Background`** (Task 7) — the NC-activate bounce priority (WPF used `ContextIdle`, which Avalonia lacks; `Background` is the nearest deferral).
+1. **`Window.ShowActivated`** — CONFIRMED present (`bool`). Fallback (unneeded): re-activate `desktop.MainWindow` after `host.Show()`. (The RUNTIME no-focus-steal is the open Task-1 probe.)
+2. **`Window.SystemDecorations` (`SystemDecorations.None`), `TransparencyLevelHint` (`IReadOnlyList<WindowTransparencyLevel>`), `Background`, `CanResize`, `Border.BoxShadow` (`Avalonia.Media.BoxShadows`)** — all CONFIRMED present. Only the RUNTIME chrome-less-transparent RENDERING is open (the Task 1 probe).
+3. **`Window.Position` (`PixelPoint`), `Window.Screens` (`Screens`, `Avalonia.Controls`), `Screens.Primary`/`ScreenFromWindow`, `Screen` (element type — **`Avalonia.Platform`**, NOT `Avalonia.Controls`) `.WorkingArea` (`PixelRect`, physical px), `.Scaling` (`double`)** — all CONFIRMED present. The element-type namespace is why Tasks 1-3 read the primary screen via `var`.
+4. **`Control.LoadedEvent`** is `RoutedEvent<RoutedEventArgs>` and the generic-instance `AddClassHandler<Window>(Action<Window, RoutedEventArgs>)` compiles — CONFIRMED (Task 7; the WPF `RegisterClassHandler` analog). Fallback (unneeded): hook `Window.Opened` for the main window only.
+5. **`TopLevel.TryGetPlatformHandle()` -> `IPlatformHandle` (`.Handle`, `IntPtr`)** — CONFIRMED (Task 7); the Win32 HWND on the desktop backend, null under headless (Apply no-ops).
+6. **`Window.Closing` is `EventHandler<WindowClosingEventArgs>`; `WindowClosingEventArgs.Cancel` is settable** — CONFIRMED (Task 6); rule 44 sound.
+7. **`DispatcherPriority.Background`** — CONFIRMED present (Task 7; WPF used `ContextIdle`, which Avalonia lacks — `Background` is the nearest deferral).
 8. **`MainViewModel.AvailableVersion` / `IsUpdateAvailable` / `CheckForUpdatesAsync` / `ToggleThemeCommand` / `ThemeMenuLabel` / `InstallUpdateCommand`; `UploadsViewModel.ShowUploadOverview` two-way-settable** (Task 5) — all confirmed present in `src/CSUploader.Core/ViewModels/MainViewModel.cs` at plan time; re-confirm the exact names when binding.
 
 ## Open questions (for the plan reviewer / team lead)
 
-1. **The one Core touch — `IToastNotificationService.ShowInfo`.** The team-lead's standing constraint is "Core ViewModels read-only." `ShowInfo` is an additive service-interface method (not a VM), required by the design's explicit balloon-routing deliverable (design line: "NotifyHidden routes through the app's own toast system"). The plan implements it (one interface line + one impl line, reusing the private `ShowToast`, ungated). Alternative if the team-lead prefers zero Core change: have `AvaloniaTrayIconService.NotifyHidden` build a single toast head-side via `AvaloniaToastWindowFactory` directly — this avoids the Core touch but duplicates the service's stacking (the tray toast would not stack with completion toasts). Recommendation: the Core `ShowInfo`. Please confirm.
+1. **The one Core touch — `IToastNotificationService.ShowInfo`.** **RESOLVED — APPROVED by the team lead (plan review 2026-07-14): keep it exactly this minimal — `ShowInfo(string title, string body)`, NO icon/kind parameter.** `ShowInfo` is an additive service-interface method (not a VM), required by the design's explicit balloon-routing deliverable (design line: "NotifyHidden routes through the app's own toast system"). The plan implements it as one interface line + one impl line, reusing the private `ShowToast` (fixed `StatusRunningImage`), ungated. (The rejected alternative — a head-side single toast that doesn't stack — is recorded only for context.)
 2. **Tray toast icon.** The WPF balloon used `ToolTipIcon.Info`; there is no dedicated "info" bitmap key. The plan uses `StatusRunningImage` (semantically "still running"). Alternative: `StatusOkImage`. Arbitrated at the contact sheet — flag if you have a preference.
 3. **Win10 dark-title-bar visual verification.** The dev machine is Win11 (auto-recolors), so the Win10 DWM fallback path is built faithfully + mechanism-tested but its VISUAL is manual-only. Acceptable as a manual cutover check, or de-scope to Phase 9's manual smoke?
 4. **Exit gesture text.** Rule 41 drops `Main_Menu_File_Exit_Gesture` ("Alt+F4") from the Avalonia menu (Avalonia's `InputGesture` is a real accelerator, not display text). This matches the Phase 6 gate's accepted gesture-text ruling. Confirm you're OK carrying that divergence onto the menu bar.
