@@ -497,7 +497,7 @@ The design's agent-verification (line 88) requires the navigation lifecycle "exp
 **Interfaces:**
 - Produces: `CSUploader.Views.WebViewLoginViewModel : System.ComponentModel.INotifyPropertyChanged` — observable get/set `string Header`, `string Status`, `bool IsInitialized`, `string? LastNavigationUrl`, `int NavigationCompletedCount`, `bool IsCompleted`; plus `void RecordNavigationCompleted(string? url)` (increments the count + sets `LastNavigationUrl`). Consumed by `WebViewLoginWindow` (Task 3) as its `DataContext`.
 
-- [ ] **Step 1: Write the failing VM tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginViewModelTests.cs`:
+- [x] **Step 1: Write the failing VM tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginViewModelTests.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginViewModelTests.cs" company="CSUploader">
@@ -560,9 +560,9 @@ public class WebViewLoginViewModelTests
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails.** Expected: compile failure (`WebViewLoginViewModel` does not exist).
+- [x] **Step 2: Run it to verify it fails.** Expected: compile failure (`WebViewLoginViewModel` does not exist).
 
-- [ ] **Step 3: Implement the VM.** Create `src/CSUploader.Avalonia/Views/WebViewLoginViewModel.cs`:
+- [x] **Step 3: Implement the VM.** Create `src/CSUploader.Avalonia/Views/WebViewLoginViewModel.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginViewModel.cs" company="CSUploader">
@@ -630,9 +630,9 @@ public sealed class WebViewLoginViewModel : INotifyPropertyChanged
 }
 ```
 
-- [ ] **Step 4: Run the VM tests to verify they pass.** Expected: the 3 new facts PASS; record the new Avalonia total.
+- [x] **Step 4: Run the VM tests to verify they pass.** Expected: the 3 new facts PASS; record the new Avalonia total.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Views/WebViewLoginViewModel.cs tests/CSUploader.Avalonia.Tests/Views/WebViewLoginViewModelTests.cs
