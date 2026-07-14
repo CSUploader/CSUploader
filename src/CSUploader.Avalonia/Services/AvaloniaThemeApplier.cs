@@ -16,9 +16,10 @@ namespace CSUploader.Services;
 /// ThemeBrushes.axaml follow); <see cref="ApplyGridFont"/> writes the two grid-font resources the
 /// DataGrids consume via DynamicResource. SOLE writer of the theme variant after startup —
 /// App.axaml's hardcoded <c>RequestedThemeVariant="Light"</c> is only the pre-hydration default
-/// (the startup light-flash is intentional WPF parity; design prep item 5). Also the designated
-/// sole writer of the Phase 7 new-window dark-chrome preference when that lands. Win11 recolors the
-/// title bar with the variant automatically; the Win10 DWM fallback is Phase 7's item.
+/// (the startup light-flash is intentional WPF parity; design prep item 5). Also the sole writer of the
+/// new-window dark-chrome preference (<see cref="Lib.UI.AvaloniaImmersiveDarkMode"/>.IsDark) — wired in
+/// <see cref="ApplyTheme"/> via SetIsDark. Win11 recolors the title bar with the variant automatically;
+/// the Win10 DWM P/Invoke is the fallback.
 /// </summary>
 public sealed class AvaloniaThemeApplier(IAppLogger logger) : IThemeApplier
 {

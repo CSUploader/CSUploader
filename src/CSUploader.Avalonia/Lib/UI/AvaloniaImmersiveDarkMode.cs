@@ -100,8 +100,10 @@ public static class AvaloniaImmersiveDarkMode
             _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20H1, ref value, sizeof(int));
 
             // Force DWM to re-query the immersive attribute on the next NC repaint (older Win10 DWMs cache the
-            // frame until the window loses/regains NC-active). Scheduled off the current call so the OS
-            // activation sequence for a just-shown modal lands first (the WPF ContextIdle bounce -> Post).
+            // frame until the window loses/regains NC-active). Scheduled at ContextIdle off the current call so
+            // the OS activation sequence for a just-shown modal lands FIRST — the WPF original's exact priority
+            // (its comment engineers against a child-dialog first-open flash on Win10). 11.3.18 HAS
+            // DispatcherPriority.ContextIdle; Background runs sooner and would lose that race.
             Dispatcher.UIThread.Post(
                 () =>
                 {
@@ -110,7 +112,7 @@ public static class AvaloniaImmersiveDarkMode
                     _ = SendMessage(hwnd, WmNcActivate, IntPtr.Zero, new IntPtr(-1));
                     _ = SendMessage(hwnd, WmNcActivate, new IntPtr(1), new IntPtr(-1));
                 },
-                DispatcherPriority.Background);
+                DispatcherPriority.ContextIdle);
         }
         catch
         {
