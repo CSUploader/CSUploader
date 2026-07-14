@@ -4,7 +4,7 @@
 
 **Goal:** Give the Avalonia head a working interactive (captcha-gated, WebView2-hosted) sign-in: port the WPF `WebViewLoginWindow` logic onto the Phase 2-spiked `NativeControlHost`/`CoreWebView2Controller` host, ship the real `AvaloniaWebViewInteractiveAuthService` (the head's `IInteractiveAuthService`), wire it into DI in place of the throwing stub, and retire the spike — so every captcha-gated hoster (ex-load, HitFile, FileBoom/Keep2Share, isra, TakeFile, …) can sign in on the Avalonia head exactly as it does on the WPF head.
 
-**Architecture:** Strangler step 8 (`docs/superpowers/specs/2026-07-10-avalonia-migration-design.md`, section Phases "Phase 8" + its ADAPTATION ADDITION, the §"WebView2 login" adaptation list at design line 79, and the §"WebView2 limitation" verification note at line 88). The seam is NARROW: the interactive-login callback (`SettingsViewModel.InteractiveLoginAsync` → `AccountVerifier` → the hoster pipeline → `IInteractiveAuthService.AcquireSessionCookieAsync`) already lives in Core and is wired on BOTH heads; `EditAccountWindow`'s `Func<string,Task<AccountCheckResult>>? interactiveLogin` is already non-null in production (`src/CSUploader.Avalonia/Services/AvaloniaDialogService.cs:209,220` ← `src/CSUploader.Core/ViewModels/SettingsViewModel.cs:739,765,1204`). The ONLY stubbed piece is `IInteractiveAuthService` itself — registered as `StubInteractiveAuthService` (throws `NotSupportedException`) at `src/CSUploader.Avalonia/App.axaml.cs:256`. This phase supplies the Avalonia login window + auth service, flips that one DI line, and deletes the spike. **Core is untouched this phase.**
+**Architecture:** Strangler step 8 (`docs/superpowers/specs/2026-07-10-avalonia-migration-design.md`, section Phases "Phase 8" + its ADAPTATION ADDITION, the §"WebView2 login" adaptation list at design line 79, and the §"WebView2 limitation" verification note at line 88). The seam is NARROW: the interactive-login callback (`SettingsViewModel.InteractiveLoginAsync` → `AccountVerifier` → the hoster pipeline → `IInteractiveAuthService.AcquireSessionCookieAsync`) already lives in Core and is wired on BOTH heads; `EditAccountWindow`'s `Func<string,Task<AccountCheckResult>>? interactiveLogin` is already non-null in production (`src/CSUploader.Avalonia/Services/AvaloniaDialogService.cs:209,220` ← `src/CSUploader.Core/ViewModels/SettingsViewModel.cs:740,765,1205`). The ONLY stubbed piece is `IInteractiveAuthService` itself — registered as `StubInteractiveAuthService` (throws `NotSupportedException`) at `src/CSUploader.Avalonia/App.axaml.cs:256`. This phase supplies the Avalonia login window + auth service, flips that one DI line, and deletes the spike. **Core is untouched this phase.**
 
 **Tech Stack:** unchanged — .NET 10, Avalonia 11.3.18 + Avalonia.Controls.DataGrid 11.3.13 + Avalonia.Themes.Fluent + Avalonia.Svg.Skia 11.3.0, `Microsoft.Web.WebView2` 1.0.4022.49 (Core wrapper only; the `_DropWebView2DesktopWrappers` target strips the WPF/WinForms wrappers), Avalonia.Headless.XUnit 11.3.18, CommunityToolkit.Mvvm 8.4.2 (Core), Moq. This phase adds NO packages (all WebView2 plumbing shipped in Phase 2). Bridge via `scripts/ava-drive.cs`; contact sheet via `scripts/contact-sheet.py`.
 
@@ -51,7 +51,7 @@ Rules 1-17 (Phase 4), 18-32 (Phase 5), 33-40 (Phase 6), 41-48 (Phase 7) are carr
 
 | # | WPF | Avalonia |
 |---|-----|----------|
-| 49 | Modal completion: set `Captured*` properties then flip `Window.DialogResult = true`; a second flip after the window starts closing THROWS, so a `_completed` bool guards the poll-vs-navigation race; the caller (`WebViewInteractiveAuthService`) reads the `Captured*` properties AFTER `ShowDialog()` and assembles `InteractiveAuthResult` (`WebViewLoginWindow.xaml.cs:117-138`) | The WINDOW assembles `InteractiveAuthResult` itself and completes via `Close(result)` (`ShowDialog<InteractiveAuthResult?>`); Cancel/Esc/X → `Close(null)` (which `ShowDialog<InteractiveAuthResult?>` returns as `default` = `null`). The single-completion `_completed` guard is KEPT (only the first poll/nav caller stops the timer + `Close`s). The auth service just `await`s the `ShowDialog<InteractiveAuthResult?>` value — no post-close property reads. Avalonia `Button.IsCancel` routes Esc through `Click` but does NOT auto-close (port rule 7), so the Cancel handler `Close(null)`s explicitly |
+| 49 | Modal completion: set `Captured*` properties then flip `Window.DialogResult = true`; a second flip after the window starts closing THROWS, so a `_completed` bool guards the poll-vs-navigation race; the caller (`WebViewInteractiveAuthService`) reads the `Captured*` properties AFTER `ShowDialog()` and assembles `InteractiveAuthResult` (`WebViewInteractiveAuthService.cs:121-138`; the window's `Captured*` property decls are `WebViewLoginWindow.xaml.cs:117-146`) | The WINDOW assembles `InteractiveAuthResult` itself and completes via `Close(result)` (`ShowDialog<InteractiveAuthResult?>`); Cancel/Esc/X → `Close(null)` (which `ShowDialog<InteractiveAuthResult?>` returns as `default` = `null`). The single-completion `_completed` guard is KEPT (only the first poll/nav caller stops the timer + `Close`s). The auth service just `await`s the `ShowDialog<InteractiveAuthResult?>` value — no post-close property reads. Avalonia `Button.IsCancel` routes Esc through `Click` but does NOT auto-close (port rule 7), so the Cancel handler `Close(null)`s explicitly |
 
 ---
 
@@ -303,7 +303,7 @@ internal readonly record struct CookieSelection(
     IReadOnlyDictionary<string, string>? AdditionalCookies);
 ```
 
-- [ ] **Step 4: Run the capture tests to verify they pass.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: the 10 new capture facts PASS.
+- [ ] **Step 4: Run the capture tests to verify they pass.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: the 12 new capture cases PASS (9 methods; the `TryParseJsonString` `[Theory]` contributes 4).
 
 - [ ] **Step 5: Write the failing proxy tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginProxyTests.cs`:
 
@@ -473,7 +473,7 @@ internal readonly record struct ProxyResolution(ProxyCredentials? Credentials, b
 public sealed record ProxyCredentials(string Username, string? Password);
 ```
 
-- [ ] **Step 8: Run all Task 1 tests to verify they pass.** Expected: the 10 capture + 7 proxy facts PASS; the Avalonia suite total rises from 418 to ~435 (record the exact number). Build the Avalonia head too (`dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava`) — 0 warnings.
+- [ ] **Step 8: Run all Task 1 tests to verify they pass.** Expected: the 12 capture + 7 proxy cases PASS; the Avalonia suite total rises from 418 to ~437 (record the exact number). Build the Avalonia head too (`dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava`) — 0 warnings.
 
 - [ ] **Step 9: Commit.**
 
@@ -662,7 +662,24 @@ The window is `Window` completing via `ShowDialog<InteractiveAuthResult?>` — a
 - Produces: `CSUploader.Views.WebViewLoginWindow : Window` — ctor `(string hosterName, string loginUrl, string cookieDomain, string cookieName, string? usernameCookieName = null, ProxyChoice? proxy = null, ProxyCredentials? proxyCredentials = null, Func<string,bool>? cookieValueValidator = null, IReadOnlyList<string>? additionalCookieNames = null, string? successProbeScript = null, string? cookieCaptureUrl = null, string? userAgentOverride = null, bool allowInvalidCertificates = false)` — completes via `ShowDialog<InteractiveAuthResult?>(owner)`. Consumed by `AvaloniaWebViewInteractiveAuthService` (Task 6) and the gallery demo.
 - Consumes: `WebViewLoginViewModel` (Task 2), `ProxyCredentials`/`WebViewLoginProxy` (Task 1), `MessageBoxWindow.ShowErrorAsync` (`src/CSUploader.Avalonia/Views/MessageBoxWindow.axaml.cs:90`), `CSUploader.Lib.Localization.Localizer`, `CSUploader.Services.InteractiveAuthResult` (Core), `Microsoft.Web.WebView2.Core`.
 
-- [ ] **Step 1: Promote the HWND host.** Create `src/CSUploader.Avalonia/Views/WebView2Host.cs` by copying `src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs` VERBATIM with three edits: (a) delete the first-line `// THROWAWAY …` banner; (b) rename the type `WebView2HwndHost` → `WebView2Host`; (c) change `namespace CSUploader.Spike;` → `namespace CSUploader.Views;` and add the copyright header block. Keep `internal sealed class`, both events, `TryGetChildClientSize`, and all P/Invokes exactly. (The spike file stays until Task 7; the two classes coexist in different namespaces.)
+- [ ] **Step 1: Promote the HWND host.** Create `src/CSUploader.Avalonia/Views/WebView2Host.cs` by copying `src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs` with FOUR edits: (a) delete the first-line `// THROWAWAY …` banner and add the copyright header block; (b) rename the type `WebView2HwndHost` → `WebView2Host`; (c) change `namespace CSUploader.Spike;` → `namespace CSUploader.Views;`; (d) **rewrite the doc comments so NO `Spike` / `WebView2SpikeWindow` reference survives** — the verbatim spike docstring (`WebView2HwndHost.cs:13` `<see cref="WebView2SpikeWindow"/>`, plus "spike window" at :19-20 and :30-31) would BOTH fail Task 8's `grep "Spike" → zero` AND become a dangling `cref` → CS1574 (breaking the 0-warning gate) once Task 7 deletes `WebView2SpikeWindow`. Keep `internal sealed class`, both events, `TryGetChildClientSize`, and all P/Invokes exactly. (The spike file stays until Task 7; the two classes coexist in different namespaces.) The promoted docstrings become:
+
+```csharp
+/// <summary>
+/// A <see cref="NativeControlHost"/> that owns a bare Win32 child HWND (window class "static") to serve as
+/// the parent window for a WebView2 <c>CoreWebView2Controller</c>. This host only manages the HWND lifecycle
+/// and surfaces it; <see cref="WebViewLoginWindow"/> creates the controller (parented to <see cref="Hwnd"/>)
+/// and keeps its bounds synced.
+/// </summary>
+/// <remarks>
+/// Avalonia repositions the returned child HWND to overlay this control in physical pixels, so the WebView2
+/// controller only ever needs a (0,0,width,height) fill of the child's client area. The child's client size is
+/// exposed via <see cref="TryGetChildClientSize"/> as the physical ground truth the login window cross-checks
+/// against DIP x RenderScaling.
+/// </remarks>
+```
+
+and the `HwndReady` event summary becomes `/// <summary>Raised on the UI thread once the child HWND exists, so the login window can create the WebView2 controller parented to it.</summary>` (the `HwndDestroying` summary has no spike mention — copy it as-is).
 
 - [ ] **Step 2: Write the login window XAML.** Create `src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml` (port of `src/Views/WebViewLoginWindow.xaml`; the `<wv2:WebView2>` control becomes `<v:WebView2Host x:Name="Host"/>`; header/status bind to the VM):
 
@@ -1068,7 +1085,15 @@ public class WebViewLoginWindowTests
         }
         finally
         {
-            window.Close();
+            // The existing window tests Show() then Close() in a finally (e.g. UploadWizardSummaryTests.cs:44,77;
+            // SettingsAccountsTests.cs:36,64). This test deliberately NEVER shows the window — showing attaches
+            // the NativeControlHost -> HwndReady -> a real CoreWebView2 (native, Evergreen-runtime resources),
+            // which must not happen headlessly. A never-shown window created no platform peer, so there is
+            // nothing to close; the guard is a no-op here and documents that divergence.
+            if (window.IsVisible)
+            {
+                window.Close();
+            }
         }
     }
 }
@@ -1581,13 +1606,22 @@ The spike (`src/CSUploader.Avalonia/Spike/`) was the throwaway reference; the re
 
 - [ ] **Step 1: Delete the spike directory.** `git rm src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml.cs`.
 
-- [ ] **Step 2: Remove the `--webview-spike` flag from `App.axaml.cs`.** In the `#if DEBUG` block near line 106, delete the `webviewSpike` line so only `gallery` remains:
+- [ ] **Step 2: Remove the `--webview-spike` flag AND every stale reference from `App.axaml.cs`.** The literal `webview-spike` survives in COMMENTS, not just code — Task 8's `grep "webview-spike" → zero` and `grep "Spike" → zero` gates would fail on otherwise-clean code, so scrub ALL of these (cited against the current file):
+  1. **The DEBUG flag decl** (`App.axaml.cs:106`) — delete the `bool webviewSpike = …` line so only `gallery` remains.
+  2. **The `#if DEBUG` flag comment block** (`:102-105`) — it describes both the spike and the gallery; rewrite it to describe only the gallery. Replace the whole block + the `gallery` decl (`:102-107`) with:
 
 ```csharp
+#if DEBUG
+            // DEBUG-only dev flag, opened from the Opened hook below: the dev gallery (--gallery, non-modal).
+            // Declared under #if DEBUG so it never OPENS anything in Release; the window type ships as dead
+            // code (trigger-gated convention).
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
+#endif
 ```
 
-And in the `Opened` handler's `#if DEBUG` block (near line 208), delete the entire `if (webviewSpike) { … await new Spike.WebView2SpikeWindow().ShowDialog(mainWindow); }` block (the gallery `WebViewLoginDemoButton` from Task 3 is now the demo surface). Leave the `if (gallery) { … }` block intact.
+  3. **The `Opened`-hook launch block** (`:208-213`) — delete the entire `if (webviewSpike) { … await new Spike.WebView2SpikeWindow().ShowDialog(mainWindow); }` block. The gallery `WebViewLoginDemoButton` (Task 3) is now the demo surface. Leave the `if (gallery) { … }` block intact.
+  4. **The one-shot-guard comment** (`:142`) — "deliberately skips the post-init UpdateVisibility / --gallery / --webview-spike re-runs on a" → drop the `/ --webview-spike`: "deliberately skips the post-init UpdateVisibility / --gallery re-runs on a".
+  5. **The startup-failure catch comment** (`:166`) — "Skip the post-init steps below (tray sync, spike) — they assume a hydrated ViewModel." → "Skip the post-init steps below (tray sync, gallery) — they assume a hydrated ViewModel." (After Task 7 the post-init steps are tray sync + gallery; "spike" is stale.)
 
 - [ ] **Step 3: Refresh the csproj comments (no functional change).** In `src/CSUploader.Avalonia/CSUploader.Avalonia.csproj`:
   - The `<BuiltInComInteropSupport>` comment "required for the Phase 2 spike + Phase 8 login host." → "required for the WebView2 login host (CoreWebView2 COM marshaling)."
@@ -1613,8 +1647,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Whole-diff review.** `git diff phase7-shell-ready..HEAD` by a fresh adversarial reviewer (whole-diff panels catch cross-task issues). Special attention: **the cookie-selection correctness** (a wrong session pick = a silent anonymous session — the ex-load/Hxfile findings; verify `SelectCookies` matches WPF's foreach incl. the empty-value skip, first-match, validator gate); the session-cookie **clear-on-open** (present, symmetric with the capture read, safe-for-all-hosters); the **single-completion guard** (rule 49 — only the first poll/nav caller stops the timer + `Close`s; no double-Close); the **result assembly** (probe path: `SessionCookieValue = cookieHeader ?? ""`, `ProbeValue = value`, others null; cookie path: session/username/additional); the **IUiDispatcher marshal** (the async-void `Pump` is escape-proof via try/catch; gate held for the dialog lifetime); the **reveal-or-own owner** (matches AvaloniaDialogService); **bounds sync** (DIP × RenderScaling, `_lastBounds` guard, all three sync triggers); **teardown** (`controller.Close()` before the child HWND dies; timer stopped first); the **focus wiring** (MoveFocusRequested→Cancel+Handled; Activated/Host.GotFocus→MoveFocus; initial-focus one-shot).
 - [ ] **Step 2: Mechanical gates.**
-  - `grep -rn "Spike" src/CSUploader.Avalonia/` → zero (spike retired; no stale reference — the NoSpike-leftover check).
-  - `grep -rn "webview-spike" src/CSUploader.Avalonia/` → zero (the flag is gone).
+  - `grep -rn "Spike" src/CSUploader.Avalonia/` → zero (case-sensitive; the NoSpike-leftover check — the deleted spike TYPES/namespace `WebView2SpikeWindow` / `WebView2HwndHost` / `Spike.` are gone, incl. the promoted host's rewritten docstring per Task 3 Step 1(d)). NOTE: this is deliberately case-sensitive — lowercase "spike" PROVENANCE comments in the ported window (e.g. "the Phase 2 spike recipe" crediting the validated bounds-sync source) are legitimate and pass; they are notes about where the code came from, not references to the deleted type.
+  - `grep -rn "webview-spike" src/CSUploader.Avalonia/` → zero (the flag decl + all comment mentions scrubbed — Task 7 Step 2).
   - `grep -rn "StubInteractiveAuthService" src/` → zero (deleted; no stale reference).
   - `grep -rn "System.Windows" src/CSUploader.Avalonia/` → zero (the login host uses only `Microsoft.Web.WebView2.Core` + Avalonia + `System.Runtime.InteropServices`/`System.Drawing.Rectangle`, no WPF).
   - Both suites green; final counts recorded (WPF/shared 1201 unchanged; Avalonia = 418 + Task 1 (~19: 12 capture + 7 proxy cases) + Task 2 (3) + Task 3 (1) + Task 6 (2) = ~443, adjusted to the real running totals recorded per task).
@@ -1624,7 +1658,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   - Avalonia Release build succeeds; launched WITHOUT flags: four MainWindow tabs, no gallery/spike surface, and `IInteractiveAuthService` resolves to the real service (the EditAccountWindow "Sign in" button is enabled for a WebView hoster — the callback is non-null).
 - [ ] **Step 3: Contact sheet.** `webview-login` (light+dark, Avalonia only — the login window CHROME via the gallery `WebViewLoginDemoButton` against `about:blank`). Read each shot; append to the accepted-divergence list: the WebView content area is BLANK/host-chrome on both shots (a native HWND, invisible to bridge screenshots — design line 88, NOT a regression); chrome parity (header / instructions / status strip / Cancel) is verified against the WPF XAML `src/Views/WebViewLoginWindow.xaml` (no `-wpf` cell — WPF head untouched).
 - [ ] **Step 4:** `git tag phase8-webview-login-ready`.
-- [ ] **Step 5: Reconcile the design doc** (`docs/superpowers/specs/2026-07-10-avalonia-migration-design.md`) with Phase 8's outcomes — at minimum: the narrow-seam finding (only `IInteractiveAuthService` was stubbed; the login callback was already Core-wired); the `Close(result)` completion plumbing (rule 49); the focus integration shipped (MoveFocusRequested→Cancel / Activated+Host.GotFocus→MoveFocus / initial-focus one-shot) with native focus/typing + Turnstile + 125/150% DPI remaining maintainer-only; the spike retired (host promoted to `Views/WebView2Host.cs`; `app.manifest` + `_DropWebView2DesktopWrappers` are permanent); Core untouched. Note the Avalonia head is now feature-complete pending Phase 9 cutover. Commit — `"docs: reconcile design with Phase 8 outcomes (WebView login host, focus integration, spike retired)"`.
+- [ ] **Step 5: Reconcile the design doc** (`docs/superpowers/specs/2026-07-10-avalonia-migration-design.md`) with Phase 8's outcomes — at minimum: the narrow-seam finding (only `IInteractiveAuthService` was stubbed; the login callback was already Core-wired); the `Close(result)` completion plumbing (rule 49); the focus integration shipped (MoveFocusRequested→Cancel / Activated+Host.GotFocus→MoveFocus / initial-focus one-shot) with native focus/typing + Turnstile + 125/150% DPI remaining maintainer-only; the spike retired (host promoted to `Views/WebView2Host.cs`; `app.manifest` + `_DropWebView2DesktopWrappers` are permanent); Core untouched. **Also record this standing constraint (reviewer note): the interactive-auth seam now depends on async-all-the-way UI-thread callers.** Avalonia's `ShowDialog` does NOT spin a nested message loop (unlike WPF's, which pumped inline), so a future synchronous `.Result`/`.Wait()` on the UI thread against `AcquireSessionCookieAsync` (or any `ShowDialog<T>`-backed dialog service member) would DEADLOCK where the WPF head did not — the whole callback chain (`SettingsViewModel.InteractiveLoginAsync` → `AccountVerifier` → pipeline) must stay `await`-based. Note the Avalonia head is now feature-complete pending Phase 9 cutover. Commit — `"docs: reconcile design with Phase 8 outcomes (WebView login host, focus integration, spike retired)"`.
 - [ ] **Step 6: Surface to the maintainer** (via the team lead): the contact-sheet path; the narrow-seam confirmation; that Core + the WPF head were untouched; the accepted divergences (uncapturable native WebView content); and the **standing maintainer-only manual checks** that a background agent could not exercise — carried from the Phase 2 spike verdict + this phase's focus addition: (a) a full real sign-in on a live hoster incl. typing credentials + solving a Turnstile/hCaptcha challenge (foreground-grab refusal), (b) Tab-out of the page → Cancel and Tab back into the page (native focus), (c) 125%/150% DPI: the WebView fills the host with no dead zones and corner links hit-test correctly.
 
 **Task 8 gate definition of done:** whole-diff reviewed; all mechanical gates green (incl. the NoSpike-leftover + StubInteractiveAuthService + System.Windows greps, the EMPTY Core-touch diff, the EMPTY WPF-head diff, both suites, i18n, Release builds + no-flag launch smoke); contact sheet complete + divergences listed; `phase8-webview-login-ready` tagged; design reconciled; the maintainer surfaced with the standing manual checks. After this the Avalonia head is feature-complete — only Phase 9 (staged cutover) remains.
