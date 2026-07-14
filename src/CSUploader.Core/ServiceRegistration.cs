@@ -188,6 +188,11 @@ public static class ServiceRegistration
         services.AddSingleton<ConnectionManagerViewModel>();
         services.AddSingleton<LogsViewModel>();
 
+        // Transient: a fresh wizard per open (unlike the singleton shell VMs). Both heads' UploadWizardWindow
+        // resolve this instead of hand-building it (Phase 9 ledger fix d). The two optional ctor args
+        // (IFileHosterRegistry, IAccountVerifier) are registered above, so DI injects the real graph.
+        services.AddTransient<UploadWizardViewModel>();
+
         return services;
     }
 

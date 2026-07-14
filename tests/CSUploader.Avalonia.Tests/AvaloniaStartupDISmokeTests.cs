@@ -106,4 +106,38 @@ public class AvaloniaStartupDISmokeTests
             catch { /* leave the temp tree if Windows still holds a handle; cleanup is best-effort */ }
         }
     }
+
+    /// <summary>
+    /// Phase 9 ledger fix (d): <see cref="UploadWizardViewModel"/> is DI-registered (Transient), so both heads
+    /// resolve it from the container instead of hand-building the seven-arg ctor in the wizard window's
+    /// code-behind. Transient means a fresh wizard per open — two resolutions must be distinct instances.
+    /// Runs under <see cref="AvaloniaFactAttribute"/> for the same reason as the sibling smoke: resolution
+    /// cascades through the pipeline registry into the head's UI-thread-bound <c>IDialogService</c>.
+    /// </summary>
+    [AvaloniaFact]
+    public void Provider_Resolves_UploadWizardViewModel_Transient()
+    {
+        _ = _velopackInit; // parity with the sibling smoke; the class static runs on first use regardless
+
+        string tempDir = Path.Combine(Path.GetTempPath(), "csu-ava-wizard-di-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            ServiceCollection services = new();
+            App.ConfigureServices(services, tempDir);
+            using ServiceProvider provider = services.BuildServiceProvider();
+
+            UploadWizardViewModel a = provider.GetRequiredService<UploadWizardViewModel>();
+            UploadWizardViewModel b = provider.GetRequiredService<UploadWizardViewModel>();
+
+            Assert.NotNull(a);
+            Assert.NotSame(a, b); // Transient: a fresh wizard per open.
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { /* leave the temp tree if Windows still holds a handle; cleanup is best-effort */ }
+        }
+    }
 }

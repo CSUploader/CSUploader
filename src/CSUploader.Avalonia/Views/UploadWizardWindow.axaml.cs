@@ -8,11 +8,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using CSUploader.Dal;
-using CSUploader.Lib;
-using CSUploader.Services;
-using CSUploader.Upload;
-using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,8 +18,8 @@ namespace CSUploader.Views;
 /// the step indicator, the 4-step nav bar and step 0 (the merged source-picker + files grid); steps 1-3
 /// follow in Tasks 8-9. Two head-specific pieces this task establishes:
 /// <list type="bullet">
-///   <item><description>the VM is hand-built from <see cref="App.Services"/> — <see cref="UploadWizardViewModel"/>
-///   is NOT DI-registered, so the production ctor resolves its seven dependencies exactly as the WPF ctor does;</description></item>
+///   <item><description>the VM is resolved from <see cref="App.Services"/> — <see cref="UploadWizardViewModel"/>
+///   is DI-registered (Transient, Phase 9 ledger fix d), so each open gets a fresh wizard with the real graph;</description></item>
 ///   <item><description>the <c>uploadsVm</c> ctor parameter is VESTIGIAL — accepted only for call-site parity
 ///   with UploadsView's Add button (Task 12), never used in the body (the WPF ctor accepts and ignores it too).</description></item>
 /// </list>
@@ -38,15 +33,15 @@ public partial class UploadWizardWindow : Window
     private readonly UploadWizardViewModel _vm;
 
     /// <summary>
-    /// The hand-built wizard VM. Internal so the gallery dev surface can seed a sample
+    /// The wizard VM (resolved from DI, or injected in the headless suite). Internal so the gallery dev surface can seed a sample
     /// <see cref="UploadWizardViewModel.DirectoryPath"/> before showing (the agent bridge can't commit the
     /// LostFocus-bound directory box, so the gallery pre-loads a fake directory to exercise steps 0-1).
     /// </summary>
     internal UploadWizardViewModel ViewModel => _vm;
 
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses the
-    // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services hand-
-    // build, so it only functions with a live desktop provider — never invoked in production or the headless
+    // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services
+    // resolution, so it only functions with a live desktop provider — never invoked in production or the headless
     // suite (which use the injecting / internal overloads).
     public UploadWizardWindow()
         : this(BuildViewModel())
@@ -56,7 +51,7 @@ public partial class UploadWizardWindow : Window
     /// <summary>
     /// Production ctor — mirrors the WPF <c>(UploadsViewModel uploadsVm)</c> shape. <paramref name="uploadsVm"/>
     /// is vestigial (see the type remarks): it is accepted for call-site parity and never used. Resolves the
-    /// seven services from <see cref="App.Services"/> and hand-builds the (non-DI-registered) VM.
+    /// DI-registered VM from <see cref="App.Services"/>.
     /// </summary>
     public UploadWizardWindow(UploadsViewModel uploadsVm)
         : this(BuildViewModel())
@@ -92,17 +87,7 @@ public partial class UploadWizardWindow : Window
     }
 
     private static UploadWizardViewModel BuildViewModel()
-    {
-        IServiceProvider sp = ((App)Application.Current!).Services;
-        return new UploadWizardViewModel(
-            sp.GetRequiredService<PackageManager>(),
-            sp.GetRequiredService<FileHosterLoginRepository>(),
-            sp.GetRequiredService<IDialogService>(),
-            sp.GetRequiredService<IAppLogger>(),
-            sp.GetRequiredService<AppSettings>(),
-            sp.GetRequiredService<IFileHosterRegistry>(),
-            sp.GetRequiredService<IAccountVerifier>());
-    }
+        => ((App)Application.Current!).Services.GetRequiredService<UploadWizardViewModel>();
 
     private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

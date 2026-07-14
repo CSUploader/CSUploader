@@ -163,4 +163,38 @@ public class StartupDISmokeTests
 
         ServiceRegistration.WireRuntime(provider); // must not throw
     }
+
+    /// <summary>
+    /// Phase 9 ledger fix (d): <see cref="UploadWizardViewModel"/> is DI-registered (Transient), so both heads
+    /// resolve it from the container instead of hand-building the seven-arg ctor in the wizard window's
+    /// code-behind. Transient means a fresh wizard per open — two resolutions must be distinct instances.
+    /// (This WPF-side assertion is deleted/split at Task 11; meanwhile it validates the Core registration on the
+    /// WPF head composition.)
+    /// </summary>
+    [Fact]
+    public void Provider_Resolves_UploadWizardViewModel_Transient()
+    {
+        _ = _velopackInit; // parity with the sibling smoke; the class static runs on first use regardless
+
+        string tempDir = Path.Combine(Path.GetTempPath(), "csu-wizard-di-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            ServiceCollection services = new();
+            App.ConfigureServices(services, tempDir);
+            using ServiceProvider sp = services.BuildServiceProvider();
+
+            UploadWizardViewModel a = sp.GetRequiredService<UploadWizardViewModel>();
+            UploadWizardViewModel b = sp.GetRequiredService<UploadWizardViewModel>();
+
+            Assert.NotNull(a);
+            Assert.NotSame(a, b); // Transient: a fresh wizard per open.
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { /* leave the temp tree if Windows still holds a handle; cleanup is best-effort */ }
+        }
+    }
 }

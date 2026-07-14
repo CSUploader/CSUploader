@@ -5,11 +5,6 @@
 
 using System.ComponentModel;
 using System.Windows;
-using CSUploader.Dal;
-using CSUploader.Lib;
-using CSUploader.Services;
-using CSUploader.Upload;
-using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,15 +18,9 @@ public partial class UploadWizardWindow : Window
     {
         InitializeComponent();
 
-        IServiceProvider sp = ((App)Application.Current).Services;
-        _vm = new UploadWizardViewModel(
-            sp.GetRequiredService<PackageManager>(),
-            sp.GetRequiredService<FileHosterLoginRepository>(),
-            sp.GetRequiredService<IDialogService>(),
-            sp.GetRequiredService<IAppLogger>(),
-            sp.GetRequiredService<AppSettings>(),
-            sp.GetRequiredService<IFileHosterRegistry>(),
-            sp.GetRequiredService<IAccountVerifier>());
+        // Phase 9 ledger fix (d): resolve the DI-registered (Transient) VM instead of hand-building its
+        // seven-arg ctor. The uploadsVm parameter stays for call-site parity but is unused (as before).
+        _vm = ((App)Application.Current).Services.GetRequiredService<UploadWizardViewModel>();
 
         _vm.PropertyChanged += Vm_PropertyChanged;
         DataContext = _vm;
