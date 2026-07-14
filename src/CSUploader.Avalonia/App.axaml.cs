@@ -99,11 +99,9 @@ public partial class App : Application
             };
 
 #if DEBUG
-            // DEBUG-only dev flags, both opened from the Opened hook below: the THROWAWAY (Phase 2)
-            // WebView2 GO/NO-GO spike (--webview-spike, modal — ShowDialog needs a SHOWN owner) and the
-            // dev gallery (--gallery, non-modal). Both declared under #if DEBUG so neither flag OPENS
-            // anything in Release; the window types ship as dead code (trigger-gated convention).
-            bool webviewSpike = desktop.Args?.Contains("--webview-spike", StringComparer.Ordinal) == true;
+            // DEBUG-only dev flag, opened from the Opened hook below: the dev gallery (--gallery, non-modal).
+            // Declared under #if DEBUG so it never OPENS anything in Release; the window type ships as dead
+            // code (trigger-gated convention).
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
 #endif
 
@@ -139,7 +137,7 @@ public partial class App : Application
             // (Phase 7 close-to-tray makes hide->show reachable). MainViewModel.InitializeAsync is NOT
             // idempotent — re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling
             // and open a second --gallery window — so this guard runs the body exactly once. It also
-            // deliberately skips the post-init UpdateVisibility / --gallery / --webview-spike re-runs on a
+            // deliberately skips the post-init UpdateVisibility / --gallery re-runs on a
             // tray restore (WPF never re-ran those either).
             bool hydrated = false;
             mainWindow.Opened += async (_, _) =>
@@ -163,7 +161,7 @@ public partial class App : Application
                     // Startup hydration (DB init, settings/proxies/packages load) failed. Surface it
                     // instead of leaving a half-initialized window silently up: log it, mark the title
                     // so the failure is visible, then show a modal error dialog. Skip the post-init
-                    // steps below (tray sync, spike) — they assume a hydrated ViewModel. MainWindow is
+                    // steps below (tray sync, gallery) — they assume a hydrated ViewModel. MainWindow is
                     // shown at this point (we are in its Opened handler), so the owner resolver finds it
                     // and the box is modal over it; the exception text is not localizable, so the title
                     // falls back to Common_Error (no new i18n key).
@@ -203,13 +201,6 @@ public partial class App : Application
                         _serviceProvider.GetRequiredService<IThemeApplier>(),
                         _serviceProvider.GetRequiredService<IDialogService>(),
                         _serviceProvider.GetRequiredService<IUpdateProgressSink>()).Show();
-                }
-
-                if (webviewSpike)
-                {
-                    // Modal-from-birth over the shown MainWindow (verify point c). ShowDialog awaits
-                    // until the spike window closes; the guard flag keeps every non-spike launch clean.
-                    await new Spike.WebView2SpikeWindow().ShowDialog(mainWindow);
                 }
 #endif
             };

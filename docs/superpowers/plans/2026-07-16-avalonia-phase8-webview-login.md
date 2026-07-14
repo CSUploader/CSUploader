@@ -1606,9 +1606,9 @@ The spike (`src/CSUploader.Avalonia/Spike/`) was the throwaway reference; the re
 - Modify: `src/CSUploader.Avalonia/App.axaml.cs` (remove the `--webview-spike` flag + its `Opened`-hook launch)
 - Modify: `src/CSUploader.Avalonia/CSUploader.Avalonia.csproj` (comment refresh only)
 
-- [ ] **Step 1: Delete the spike directory.** `git rm src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml.cs`.
+- [x] **Step 1: Delete the spike directory.** `git rm src/CSUploader.Avalonia/Spike/WebView2HwndHost.cs src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml src/CSUploader.Avalonia/Spike/WebView2SpikeWindow.axaml.cs`.
 
-- [ ] **Step 2: Remove the `--webview-spike` flag AND every stale reference from `App.axaml.cs`.** The literal `webview-spike` survives in COMMENTS, not just code — Task 8's `grep "webview-spike" → zero` and `grep "Spike" → zero` gates would fail on otherwise-clean code, so scrub ALL of these (cited against the current file):
+- [x] **Step 2: Remove the `--webview-spike` flag AND every stale reference from `App.axaml.cs`.** The literal `webview-spike` survives in COMMENTS, not just code — Task 8's `grep "webview-spike" → zero` and `grep "Spike" → zero` gates would fail on otherwise-clean code, so scrub ALL of these (cited against the current file):
   1. **The DEBUG flag decl** (`App.axaml.cs:106`) — delete the `bool webviewSpike = …` line so only `gallery` remains.
   2. **The `#if DEBUG` flag comment block** (`:102-105`) — it describes both the spike and the gallery; rewrite it to describe only the gallery. Replace the whole block + the `gallery` decl (`:102-107`) with:
 
@@ -1625,15 +1625,15 @@ The spike (`src/CSUploader.Avalonia/Spike/`) was the throwaway reference; the re
   4. **The one-shot-guard comment** (`:142`) — "deliberately skips the post-init UpdateVisibility / --gallery / --webview-spike re-runs on a" → drop the `/ --webview-spike`: "deliberately skips the post-init UpdateVisibility / --gallery re-runs on a".
   5. **The startup-failure catch comment** (`:166`) — "Skip the post-init steps below (tray sync, spike) — they assume a hydrated ViewModel." → "Skip the post-init steps below (tray sync, gallery) — they assume a hydrated ViewModel." (After Task 7 the post-init steps are tray sync + gallery; "spike" is stale.)
 
-- [ ] **Step 3: Refresh the csproj comments (no functional change).** In `src/CSUploader.Avalonia/CSUploader.Avalonia.csproj`:
+- [x] **Step 3: Refresh the csproj comments (no functional change).** In `src/CSUploader.Avalonia/CSUploader.Avalonia.csproj`:
   - The `<BuiltInComInteropSupport>` comment "required for the Phase 2 spike + Phase 8 login host." → "required for the WebView2 login host (CoreWebView2 COM marshaling)."
   - The `<ApplicationManifest>` comment "(the Phase 2 spike surfaced its absence; the Phase 8 login host needs it too)." → "(required for Avalonia NativeControlHost / WebView2 hosting)."
   - The `Microsoft.Web.WebView2` PackageReference comment "Phase 2 WebView2 GO/NO-GO spike (Spike/, THROWAWAY) + the Phase 8 login host." → "WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers)."
   - The `_DropWebView2DesktopWrappers` target comment "THROWAWAY-adjacent: revisit at the Phase 8 login host." → "Permanent: the Avalonia head consumes only Microsoft.Web.WebView2.Core."
 
-- [ ] **Step 4: Build + full suite + no-flag launch smoke.** `dotnet build … -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings — confirms no dangling `Spike.` reference). `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, unchanged count). PowerShell-build to a scratch OutDir and launch WITHOUT flags: the app comes up with four MainWindow tabs, no gallery/spike surface, `--webview-spike` now inert.
+- [x] **Step 4: Build + full suite + no-flag launch smoke.** `dotnet build … -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings — confirms no dangling `Spike.` reference). `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, unchanged count). PowerShell-build to a scratch OutDir and launch WITHOUT flags: the app comes up with four MainWindow tabs, no gallery/spike surface, `--webview-spike` now inert.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/App.axaml.cs src/CSUploader.Avalonia/CSUploader.Avalonia.csproj

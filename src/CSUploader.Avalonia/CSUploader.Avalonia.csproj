@@ -24,14 +24,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>preview</LangVersion>
-    <!-- WebView2's managed API marshals COM; required for the Phase 2 spike + Phase 8 login host. -->
+    <!-- WebView2's managed API marshals COM; required for the WebView2 login host (CoreWebView2 COM marshaling). -->
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <!-- Parity-first migration: the WPF XAML being ported uses reflection bindings throughout.
          Compiled bindings (x:DataType everywhere) are a deliberate opt-in AFTER the port. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon>..\Properties\Images\Logo\icon.ico</ApplicationIcon>
-    <!-- Win32 supportedOS manifest — REQUIRED for Avalonia NativeControlHost / WebView2 hosting
-         (the Phase 2 spike surfaced its absence; the Phase 8 login host needs it too). -->
+    <!-- Win32 supportedOS manifest — REQUIRED for Avalonia NativeControlHost / WebView2 hosting. -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
@@ -53,7 +52,7 @@
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-    <!-- Phase 2 WebView2 GO/NO-GO spike (Spike/, THROWAWAY) + the Phase 8 login host.
+    <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers).
          Same pin as the WPF head (src/CSUploader.csproj). -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
   </ItemGroup>
@@ -100,7 +99,7 @@
        (no UseWpf/UseWindowsForms gate). This Avalonia head consumes ONLY the Core API; the WPF
        wrapper pulls in WPF's WindowsBase 5.0 → an unresolvable MSB3277 conflict against the
        net10 WindowsBase. Drop both desktop wrappers before RAR — Core.dll and the native
-       WebView2Loader copy are untouched. THROWAWAY-adjacent: revisit at the Phase 8 login host. -->
+       WebView2Loader copy are untouched. Permanent: the Avalonia head consumes only Microsoft.Web.WebView2.Core. -->
   <Target Name="_DropWebView2DesktopWrappers" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>
       <Reference Remove="@(Reference->WithMetadataValue('Filename','Microsoft.Web.WebView2.Wpf'))" />
