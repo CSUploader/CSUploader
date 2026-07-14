@@ -79,7 +79,7 @@ The correctness-critical decisions from the WPF window/service — which cookie 
   - `public sealed record ProxyCredentials(string Username, string? Password)`
 - Consumes: `CSUploader.Lib.Net.ProxyChoice` (Core: `record ProxyChoice(int Id, IWebProxy? WebProxy, string Description)`).
 
-- [ ] **Step 1: Write the failing capture tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginCaptureTests.cs`:
+- [x] **Step 1: Write the failing capture tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginCaptureTests.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginCaptureTests.cs" company="CSUploader">
@@ -178,9 +178,9 @@ public class WebViewLoginCaptureTests
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails.** PowerShell: `dotnet test tests/CSUploader.Avalonia.Tests/CSUploader.Avalonia.Tests.csproj -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: compile failure (`WebViewLoginCapture` does not exist).
+- [x] **Step 2: Run it to verify it fails.** PowerShell: `dotnet test tests/CSUploader.Avalonia.Tests/CSUploader.Avalonia.Tests.csproj -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: compile failure (`WebViewLoginCapture` does not exist).
 
-- [ ] **Step 3: Implement `WebViewLoginCapture`.** Create `src/CSUploader.Avalonia/Views/WebViewLoginCapture.cs`:
+- [x] **Step 3: Implement `WebViewLoginCapture`.** Create `src/CSUploader.Avalonia/Views/WebViewLoginCapture.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginCapture.cs" company="CSUploader">
@@ -303,9 +303,9 @@ internal readonly record struct CookieSelection(
     IReadOnlyDictionary<string, string>? AdditionalCookies);
 ```
 
-- [ ] **Step 4: Run the capture tests to verify they pass.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: the 12 new capture cases PASS (9 methods; the `TryParseJsonString` `[Theory]` contributes 4).
+- [x] **Step 4: Run the capture tests to verify they pass.** `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests`. Expected: the 12 new capture cases PASS (9 methods; the `TryParseJsonString` `[Theory]` contributes 4).
 
-- [ ] **Step 5: Write the failing proxy tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginProxyTests.cs`:
+- [x] **Step 5: Write the failing proxy tests.** Create `tests/CSUploader.Avalonia.Tests/Views/WebViewLoginProxyTests.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginProxyTests.cs" company="CSUploader">
@@ -393,9 +393,9 @@ public class WebViewLoginProxyTests
 }
 ```
 
-- [ ] **Step 6: Run it to verify it fails.** Expected: compile failure (`WebViewLoginProxy` does not exist).
+- [x] **Step 6: Run it to verify it fails.** Expected: compile failure (`WebViewLoginProxy` does not exist).
 
-- [ ] **Step 7: Implement `WebViewLoginProxy`.** Create `src/CSUploader.Avalonia/Views/WebViewLoginProxy.cs`:
+- [x] **Step 7: Implement `WebViewLoginProxy`.** Create `src/CSUploader.Avalonia/Views/WebViewLoginProxy.cs`:
 
 ```csharp
 // <copyright file="WebViewLoginProxy.cs" company="CSUploader">
@@ -473,9 +473,9 @@ internal readonly record struct ProxyResolution(ProxyCredentials? Credentials, b
 public sealed record ProxyCredentials(string Username, string? Password);
 ```
 
-- [ ] **Step 8: Run all Task 1 tests to verify they pass.** Expected: the 12 capture + 7 proxy cases PASS; the Avalonia suite total rises from 418 to ~437 (record the exact number). Build the Avalonia head too (`dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava`) — 0 warnings.
+- [x] **Step 8: Run all Task 1 tests to verify they pass.** Expected: the 12 capture + 7 proxy cases PASS; the Avalonia suite total rises from 418 to ~437 (record the exact number). Build the Avalonia head too (`dotnet build src/CSUploader.Avalonia/CSUploader.Avalonia.csproj -c Debug -p:OutDir=D:\temp2\cbuild-mig\ava`) — 0 warnings.
 
-- [ ] **Step 9: Commit.**
+- [x] **Step 9: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Views/WebViewLoginCapture.cs src/CSUploader.Avalonia/Views/WebViewLoginProxy.cs tests/CSUploader.Avalonia.Tests/Views/WebViewLoginCaptureTests.cs tests/CSUploader.Avalonia.Tests/Views/WebViewLoginProxyTests.cs
