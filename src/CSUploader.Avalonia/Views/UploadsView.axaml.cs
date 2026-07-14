@@ -3,11 +3,17 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
+using System.Text;
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.UI;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
@@ -21,8 +27,9 @@ namespace CSUploader.Views;
 /// <see cref="UploadsViewModel.VisibleRows"/> collection + a <see cref="UploadsViewModel.MatchesFilter"/>
 /// predicate + a <see cref="UploadsViewModel.FilterInvalidated"/> signal). The custom column header
 /// (lock toggle + drag-resize + sort) is the Task 1 recipe; the column menu / persistence is the shared
-/// Phase 5 helper. Context menu, editable Order, right-click select and the package-expanding copy are
-/// Tasks 11-12 — the grid is left ready for them (IsReadOnly=False, the two selection behaviors on).
+/// Phase 5 helper. The ~40-item context menu, the editable Order cell (BeginningEdit/CellEditEnding guards),
+/// the right-click target recorder + menu suppression, the package-expanding Ctrl+C/menu copy and the Delete
+/// key are Task 11. The overview panel, premium footer and Add→wizard are Task 12.
 /// </summary>
 public partial class UploadsView : UserControl
 {
@@ -40,14 +47,59 @@ public partial class UploadsView : UserControl
     private DataGridCollectionView? _rowsView;
     private UploadsViewModel? _wiredViewModel;
 
+    // True when the last right-button press landed on a package/file row (vs empty space below the rows).
+    // The ContextMenu.Opening handler reads it to suppress the menu on a whitespace right-click — Opening
+    // carries no pointer source, so the decision is recorded here at press time (rule 18). The actual row
+    // selection is done by the SelectRowOnRightClick behavior on the grid (Task 10, verified here — prep 8);
+    // this only captures the target for suppression.
+    private bool _rightClickOnItem;
+
+    // The editable "Order" column, resolved once by header text. x:Name does NOT compile on an Avalonia
+    // DataGridColumn (it is not a namescope StyledElement — AVLN2000, the Task 10 deviation), so the
+    // BeginningEdit/CellEditEnding guards reference this captured field instead of the plan's literal
+    // e.Column == OrderColumn. The 21 Uploads_Col_* headers are unique (confirmed Task 10), so the
+    // header-text match is unambiguous.
+    private DataGridColumn? _orderColumn;
+
+    private bool _deleteWired;
+
     public UploadsView()
     {
         InitializeComponent();
 
-        // Rule 19: the SelectedItems-carrying command parameter is wired in code-behind. The grid's
+        // Rule 19: the SelectedItems-carrying command parameters are wired in code-behind. The grid's
         // SelectedItems is one live IList for the control's lifetime — the same instance the WPF
-        // ElementName binding resolved to. (The Delete key + context menu land in Task 11.)
+        // PlacementTarget.SelectedItems binding resolved to. The toolbar Remove button + the nine
+        // context-menu items that act on the whole selection all point at that one instance.
         RemoveButton.CommandParameter = uploadsGrid.SelectedItems;
+        StartMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        ForceStartMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        StopMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        SkipMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        ResetMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        OpenSourceDirMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        OpenUrlMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        SetSpeedLimitMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+        RemoveMenuItem.CommandParameter = uploadsGrid.SelectedItems;
+
+        // Resolve the Order column by its (unique) localized header text (reference-capture, per the brief).
+        _orderColumn = ResolveOrderColumn();
+
+        // Right-click target recorder (rule 18): TUNNEL so it runs before ContextRequested opens the menu.
+        // Records _rightClickOnItem; the SelectRowOnRightClick behavior (also tunnel, from Task 10) performs
+        // the selection itself.
+        uploadsGrid.AddHandler(InputElement.PointerPressedEvent, UploadsGrid_PointerPressed, RoutingStrategies.Tunnel);
+
+        // Ctrl+C = the package-expanding copy (the DIVERGENCE from UploadedView): a TUNNEL KeyDown intercept
+        // that runs the custom copy and marks the event Handled, which suppresses the DataGrid's built-in
+        // copy (DataGrid_KeyDown early-returns on e.Handled — confirmed via ILSpy). The built-in copy would
+        // otherwise serialize only SelectedItems with no child expansion.
+        uploadsGrid.AddHandler(InputElement.KeyDownEvent, UploadsGrid_KeyDown, RoutingStrategies.Tunnel);
+
+        // Editable Order cell (prep 7): the grid is IsReadOnly=False ONLY so the Order cell can be typed
+        // into; BeginningEdit cancels every other edit and CellEditEnding commits the typed position.
+        uploadsGrid.BeginningEdit += UploadsGrid_BeginningEdit;
+        uploadsGrid.CellEditEnding += UploadsGrid_CellEditEnding;
 
         uploadsGrid.Loaded += OnGridLoaded;
         DataContextChanged += OnDataContextChanged;
@@ -90,9 +142,32 @@ public partial class UploadsView : UserControl
         vm.FilterInvalidated += ViewModel_FilterInvalidated;
         _wiredViewModel = vm;
         uploadsGrid.ItemsSource = _rowsView;
+        WireDeleteKeyBinding(vm);
     }
 
     private void ViewModel_FilterInvalidated(object? sender, EventArgs e) => _rowsView?.Refresh();
+
+    /// <summary>
+    /// Delete key → <see cref="UploadsViewModel.RemoveSelectedCommand"/> (rule 24). A <see cref="KeyBinding"/>
+    /// is a non-DataContext AvaloniaObject on 11.3.18, so it is wired in code-behind where the VM command and
+    /// the live SelectedItems are both in hand (parameter per rule 19). The built-in DataGrid does NOT handle
+    /// Delete (ILSpy: absent from ProcessDataGridKey), so this never fights a built-in row deletion.
+    /// </summary>
+    private void WireDeleteKeyBinding(UploadsViewModel vm)
+    {
+        if (_deleteWired)
+        {
+            return;
+        }
+
+        _deleteWired = true;
+        uploadsGrid.KeyBindings.Add(new KeyBinding
+        {
+            Gesture = new KeyGesture(Key.Delete),
+            Command = vm.RemoveSelectedCommand,
+            CommandParameter = uploadsGrid.SelectedItems,
+        });
+    }
 
     /// <summary>
     /// The Name-column chevron toggle: sets <see cref="Package.IsExpanded"/> so the VM inserts/removes the
@@ -175,5 +250,233 @@ public partial class UploadsView : UserControl
     // Click handler resolves.
     private void AddUploadButton_Click(object? sender, RoutedEventArgs e)
     {
+    }
+
+    // ── Editable Order cell (prep 7) ──
+
+    /// <summary>Finds the Order column by its unique localized header text. Returns null if the header has not
+    /// yet resolved (the guards re-resolve lazily).</summary>
+    private DataGridColumn? ResolveOrderColumn()
+    {
+        string orderHeader = Localizer.Instance["Uploads_Col_Order"];
+        return uploadsGrid.Columns.FirstOrDefault(c => Equals(c.Header, orderHeader));
+    }
+
+    /// <summary>
+    /// Restricts editing to the Order cell on non-terminal file rows. The grid is editable (IsReadOnly=False)
+    /// ONLY so the Order cell can be typed into; a grid-level IsReadOnly=True would force every column
+    /// read-only and a column-level IsReadOnly=False cannot override it. So instead we cancel the edit for
+    /// every other column, for package rows, and for terminal file rows (which show a blank order) before they
+    /// enter edit mode. Mirrors the WPF <c>UploadsGrid_BeginningEdit</c> (UploadsView.xaml.cs:215-225); the
+    /// WPF <c>e.Row.Item</c> is <c>e.Row.DataContext</c> on Avalonia's DataGridRow (no <c>Item</c> member).
+    /// </summary>
+    private void UploadsGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+        => e.Cancel = ShouldCancelEdit(e.Column, e.Row.DataContext);
+
+    /// <summary>The BeginningEdit guard: true (cancel) for every column but Order, for package rows, and for
+    /// terminal file rows (which show a blank order). Internal so the headless test asserts the decision
+    /// directly (constructing a real DataGridBeginningEditEventArgs and raising the private event is not
+    /// feasible headlessly).</summary>
+    internal bool ShouldCancelEdit(DataGridColumn? column, object? rowItem)
+    {
+        _orderColumn ??= ResolveOrderColumn();
+        return column != _orderColumn
+            || rowItem is not PackageFile file
+            || file.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
+    }
+
+    /// <summary>
+    /// Commits an edited "Order" cell to a move. The editing TextBox holds the raw typed 1-based position;
+    /// <see cref="UploadsViewModel.SetOrderCommand"/> routes it through the package manager, which clamps and
+    /// re-numbers. Package and terminal rows are ignored. Mirrors the WPF <c>UploadsGrid_CellEditEnding</c>
+    /// (UploadsView.xaml.cs:232-260). For the Order <c>DataGridTemplateColumn</c> the editing element IS the
+    /// TextBox from the (Mode=OneWay) CellEditingTemplate, so no visual-tree walk is needed.
+    /// </summary>
+    private void UploadsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit)
+        {
+            return;
+        }
+
+        if (ResolveOrderEdit(e.Column, e.Row.DataContext, e.EditingElement) is { } order
+            && DataContext is UploadsViewModel vm)
+        {
+            vm.SetOrderCommand.Execute(order);
+        }
+    }
+
+    /// <summary>
+    /// The CellEditEnding commit computation: the <c>(file, target)</c> tuple to hand
+    /// <see cref="UploadsViewModel.SetOrderCommand"/>, or null when the column is not Order, the row is not a
+    /// <see cref="PackageFile"/>, the editing element is not a TextBox, or its text is not a valid int.
+    /// Internal so the headless test asserts the exact tuple (the plan's requirement) without reaching the
+    /// scheduler's async MoveFileTo.
+    /// </summary>
+    internal (PackageFile File, int Target)? ResolveOrderEdit(DataGridColumn? column, object? rowItem, Control? editingElement)
+    {
+        _orderColumn ??= ResolveOrderColumn();
+        if (column != _orderColumn || rowItem is not PackageFile file)
+        {
+            return null;
+        }
+
+        return editingElement is TextBox tb && int.TryParse(tb.Text, out int target)
+            ? (file, target)
+            : null;
+    }
+
+    // ── Right-click target + context-menu suppression (rule 18, prep 8) ──
+
+    private void UploadsGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(uploadsGrid).Properties.IsRightButtonPressed)
+        {
+            ApplyRightClickSelection(e.Source as Visual);
+        }
+    }
+
+    /// <summary>
+    /// Records whether a right-click landed on a package/file row (vs empty space below the rows), for
+    /// <see cref="SnapshotSelectionAndDecideSuppression"/>. The ROW SELECTION itself is performed by the
+    /// grid's <c>SelectRowOnRightClick</c> behavior (Task 10 — its first consumer, prep 8); this only captures
+    /// the target because <c>ContextMenu.Opening</c> carries no pointer source. Internal + source-taking so the
+    /// headless suppression test drives it directly (the sanctioned Phase 5 fallback to synthesizing a real
+    /// pointer event on a specific row).
+    /// </summary>
+    internal void ApplyRightClickSelection(Visual? source)
+        => _rightClickOnItem = source?.FindAncestorOfType<DataGridRow>(includeSelf: true) is { DataContext: Package or PackageFile };
+
+    private void RowContextMenu_Opening(object? sender, CancelEventArgs e)
+        => e.Cancel = SnapshotSelectionAndDecideSuppression();
+
+    /// <summary>
+    /// Snapshots the full multi-selection into the VM (so the per-column Copy commands act on every selected
+    /// row, not just the primary <see cref="UploadsViewModel.SelectedRow"/>) and returns whether the menu
+    /// should be suppressed — true when the right-click landed on empty space, where every entry would be a
+    /// useless no-op. Column headers never reach here (Task 3's AttachToHeaders handles them first with
+    /// <c>e.Handled</c>). Internal so the headless suppression test asserts it without raising a real
+    /// ContextRequested. Mirrors the WPF <c>UploadsGrid_ContextMenuOpening</c> (UploadsView.xaml.cs:324-351).
+    /// </summary>
+    internal bool SnapshotSelectionAndDecideSuppression()
+    {
+        if (DataContext is UploadsViewModel vm)
+        {
+            vm.SelectedRows = [.. uploadsGrid.SelectedItems.Cast<object>()];
+        }
+
+        return !_rightClickOnItem;
+    }
+
+    // ── Package-expanding copy (the DIVERGENCE from UploadedView) ──
+
+    /// <summary>Ctrl+C intercept: runs the package-expanding copy and marks the event Handled so the DataGrid's
+    /// built-in copy (which serializes only SelectedItems, no child expansion) never runs.</summary>
+    private void UploadsGrid_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            CopyRowsToClipboard();
+            e.Handled = true;
+        }
+    }
+
+    private void CopyRow_Click(object? sender, RoutedEventArgs e) => CopyRowsToClipboard();
+
+    /// <summary>
+    /// Copies the selected rows as TSV to the clipboard, expanding any selected Package to include its child
+    /// files. Mirrors the WPF <c>OnCopyWithChildrenExecuted</c> (UploadsView.xaml.cs:368-424); the WPF
+    /// <c>Clipboard.SetText</c> becomes <c>TopLevel.Clipboard.SetTextAsync</c> with the same swallow-on-failure
+    /// guard (rule 9).
+    /// </summary>
+    private void CopyRowsToClipboard()
+    {
+        if (BuildRowCopyText() is not { } text)
+        {
+            return;
+        }
+
+        try
+        {
+            TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(text);
+        }
+        catch
+        {
+            // Clipboard writes can throw on rare contention with another app — swallow rather than crash the
+            // UI thread for a copy operation.
+        }
+    }
+
+    /// <summary>
+    /// Builds the package-expanding TSV payload: for each selected row (de-duplicated), that row followed by
+    /// its child files if it is a Package; then every VISIBLE column in display order, evaluated through its
+    /// <see cref="DataGridColumn.ClipboardContentBinding"/> (converters/formatters honoured), tab-joined. Null
+    /// when nothing is selected. Internal so the headless test asserts the exact string without the clipboard.
+    /// </summary>
+    internal string? BuildRowCopyText()
+    {
+        object[] selection = [.. uploadsGrid.SelectedItems.Cast<object>()];
+        if (selection.Length == 0)
+        {
+            return null;
+        }
+
+        List<object> expanded = [];
+        HashSet<object> seen = [];
+        foreach (object item in selection)
+        {
+            if (!seen.Add(item))
+            {
+                continue;
+            }
+
+            expanded.Add(item);
+            if (item is Package pkg)
+            {
+                foreach (PackageFile child in pkg)
+                {
+                    if (seen.Add(child))
+                    {
+                        expanded.Add(child);
+                    }
+                }
+            }
+        }
+
+        DataGridColumn[] columns = [.. uploadsGrid.Columns
+            .Where(c => c.IsVisible)
+            .OrderBy(c => c.DisplayIndex)];
+
+        StringBuilder sb = new();
+        if (uploadsGrid.ClipboardCopyMode == DataGridClipboardCopyMode.IncludeHeader)
+        {
+            sb.AppendLine(string.Join("\t", columns.Select(c => c.Header?.ToString() ?? string.Empty)));
+        }
+
+        foreach (object item in expanded)
+        {
+            sb.AppendLine(string.Join("\t", columns.Select(c => EvaluateClipboardBinding(c.ClipboardContentBinding, item))));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Evaluates a column's <see cref="DataGridColumn.ClipboardContentBinding"/> against a row item by routing
+    /// it through a throwaway bound TextBlock (§Reality-check #8 — the binding approach, VERIFIED to resolve
+    /// synchronously on 11.3.18; the VM's ColumnValueExtractor was the fallback, unneeded). The binding
+    /// pipeline honours the same converters/StringFormat the grid's own copy uses, so this keeps parity
+    /// without re-implementing them. Mirrors the WPF <c>EvaluateClipboardBinding</c> (UploadsView.xaml.cs:432-444).
+    /// </summary>
+    private static string EvaluateClipboardBinding(IBinding? binding, object item)
+    {
+        if (binding is null)
+        {
+            return string.Empty;
+        }
+
+        TextBlock tb = new() { DataContext = item };
+        using IDisposable subscription = tb.Bind(TextBlock.TextProperty, binding);
+        return tb.Text ?? string.Empty;
     }
 }

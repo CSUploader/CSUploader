@@ -19,6 +19,7 @@ using Avalonia.VisualTree;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Crypto;
+using CSUploader.Lib.Localization;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Services;
@@ -365,7 +366,286 @@ public class UploadsViewTests
         }
     }
 
+    // ── Editable Order (prep 7): BeginningEdit guard allows Order on a non-terminal file, cancels otherwise ──
+
+    [AvaloniaFact]
+    public void BeginningEdit_AllowsOrderOnNonTerminalFile_CancelsEverythingElse()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridColumn orderColumn = OrderColumnOf(view);
+            DataGridColumn nameColumn = view.uploadsGrid.Columns[0];
+
+            // Order cell on a non-terminal (Idle) file → editable (not cancelled).
+            Assert.False(view.ShouldCancelEdit(orderColumn, file));
+
+            // Any other column → cancelled (the grid is editable ONLY for the Order cell).
+            Assert.True(view.ShouldCancelEdit(nameColumn, file));
+
+            // Package row → cancelled (packages show a blank order).
+            Assert.True(view.ShouldCancelEdit(orderColumn, package));
+
+            // Terminal file → cancelled (blank order once Completed/Failed/Cancelled).
+            file.State = FileState.Completed;
+            Assert.True(view.ShouldCancelEdit(orderColumn, file));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Editable Order: CellEditEnding on a valid int resolves the SetOrderCommand (file, target) tuple ──
+
+    [AvaloniaFact]
+    public void CellEditEnding_ValidInt_ResolvesFileTargetTuple_NullOtherwise()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridColumn orderColumn = OrderColumnOf(view);
+            DataGridColumn nameColumn = view.uploadsGrid.Columns[0];
+
+            (PackageFile File, int Target)? committed = view.ResolveOrderEdit(orderColumn, file, new TextBox { Text = "3" });
+            Assert.NotNull(committed);
+            Assert.Same(file, committed!.Value.File);
+            Assert.Equal(3, committed.Value.Target);
+
+            // No move: a non-Order column, a package row, a non-int, and a non-TextBox editing element.
+            Assert.Null(view.ResolveOrderEdit(nameColumn, file, new TextBox { Text = "3" }));
+            Assert.Null(view.ResolveOrderEdit(orderColumn, package, new TextBox { Text = "3" }));
+            Assert.Null(view.ResolveOrderEdit(orderColumn, file, new TextBox { Text = "abc" }));
+            Assert.Null(view.ResolveOrderEdit(orderColumn, file, new Button()));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Package-expanding copy: a selected Package copies with its child files (the divergence from UploadedView) ──
+
+    [AvaloniaFact]
+    public void RowCopy_ExpandsSelectedPackageToChildren_InTsv()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin", "alpha2.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            view.uploadsGrid.SelectedItems.Clear();
+            view.uploadsGrid.SelectedItems.Add(package); // select ONLY the package row
+            Dispatcher.UIThread.RunJobs();
+
+            string? tsv = view.BuildRowCopyText();
+            Assert.NotNull(tsv);
+
+            // The package row is present AND both child files were expanded in AFTER it — the built-in copy
+            // would have serialized only the single selected package. This also confirms §Reality-check #8:
+            // the throwaway-bound-TextBlock evaluation of each column's ClipboardContentBinding resolves
+            // synchronously (the names came from {Binding Name}); the ColumnValueExtractor fallback is unneeded.
+            int pkgIdx = tsv!.IndexOf("Alpha pack", StringComparison.Ordinal);
+            int child1 = tsv.IndexOf("alpha1.bin", StringComparison.Ordinal);
+            int child2 = tsv.IndexOf("alpha2.bin", StringComparison.Ordinal);
+            Assert.True(pkgIdx >= 0, "package row missing from the TSV");
+            Assert.True(child1 > pkgIdx, "child alpha1.bin missing or not after the package row");
+            Assert.True(child2 > pkgIdx, "child alpha2.bin missing or not after the package row");
+
+            // IncludeHeader mode: the header row carries the localized column headers.
+            Assert.Contains(Localizer.Instance["Uploads_Col_Name"], tsv, StringComparison.Ordinal);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Per-column Copy submenu: each of the 21 items carries its column key and routes CopyColumnCommand ──
+
+    [AvaloniaFact]
+    public void CopyColumnMenuItems_CarryColumnKeys_AndRouteCopyColumnCommand()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            ContextMenu menu = view.uploadsGrid.ContextMenu!;
+            MenuItem copySubmenu = menu.Items.OfType<MenuItem>()
+                .First(mi => Equals(mi.Header, Localizer.Instance["Common_Context_Copy"]));
+
+            // The 21 per-column items carry their Uploads_Col_* suffix as CommandParameter (the row-copy item
+            // has a Click handler + no CommandParameter, so it filters out).
+            string[] keys = [.. copySubmenu.Items.OfType<MenuItem>()
+                .Select(mi => mi.CommandParameter as string)
+                .Where(p => p is not null)
+                .Cast<string>()];
+            string[] expected =
+            [
+                "Name", "Size", "Hoster", "Account", "Status", "Speed", "ETA", "BytesLoaded", "BytesRemaining",
+                "Progress", "Path", "Added", "Finished", "Started", "ScheduledAt", "Duration", "Order",
+                "SpeedLimit", "Hash", "URL", "Error",
+            ];
+            Assert.Equal(expected, keys);
+
+            // Resolve the inherited VM DataContext down the menu's logical tree, then assert the "Name" item's
+            // Command binding lands on CopyColumnCommand (a mistyped {Binding} would silently no-op otherwise).
+            menu.DataContext = harness.Vm;
+            Dispatcher.UIThread.RunJobs();
+            MenuItem nameItem = copySubmenu.Items.OfType<MenuItem>().First(mi => (string?)mi.CommandParameter == "Name");
+            Assert.Same(harness.Vm.CopyColumnCommand, nameItem.Command);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── ContextMenu.Opening: suppress on empty space, snapshot the multi-selection + show on a row (prep 8) ──
+
+    [AvaloniaFact]
+    public void Opening_SuppressesOnWhitespace_SnapshotsSelection_ShowsOnRow()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            // Empty-space right-click (source is the grid, not a row) → suppress the menu.
+            view.ApplyRightClickSelection(view.uploadsGrid);
+            Assert.True(view.SnapshotSelectionAndDecideSuppression());
+
+            // Right-click a row → do not suppress, and the VM's SelectedRows snapshot is taken.
+            view.uploadsGrid.SelectedItems.Clear();
+            view.uploadsGrid.SelectedItems.Add(file);
+            view.ApplyRightClickSelection(RowFor(view.uploadsGrid, file));
+            Assert.False(view.SnapshotSelectionAndDecideSuppression());
+            Assert.Single(harness.Vm.SelectedRows);
+            Assert.Same(file, harness.Vm.SelectedRows[0]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── SelectRowOnRightClick FIRST consumer (prep 8): a real right-press selects an unselected row ──
+
+    [AvaloniaFact]
+    public void RightClick_OnUnselectedRow_SelectsIt_ViaBehavior()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        Package beta = harness.SeedPackage("Beta pack", "beta1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridRow betaRow = RowFor(view.uploadsGrid, beta);
+            window.MouseDown(CenterInWindow(betaRow, window), MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(view.uploadsGrid.SelectedItems);
+            Assert.Same(beta, view.uploadsGrid.SelectedItems[0]);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── SelectRowOnRightClick: a right-press INSIDE a multi-selection preserves it (Explorer UX, prep 8) ──
+
+    [AvaloniaFact]
+    public void RightClick_InsideMultiSelection_PreservesIt_ViaBehavior()
+    {
+        using VmHarness harness = new();
+        Package alpha = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        Package beta = harness.SeedPackage("Beta pack", "beta1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            view.uploadsGrid.SelectedItems.Add(alpha);
+            view.uploadsGrid.SelectedItems.Add(beta);
+            Dispatcher.UIThread.RunJobs();
+
+            DataGridRow alphaRow = RowFor(view.uploadsGrid, alpha);
+            window.MouseDown(CenterInWindow(alphaRow, window), MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(2, view.uploadsGrid.SelectedItems.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── State-appropriate menu items: Start/ForceStart/Stop visibility tracks the SelectedRow's state ──
+    // (The bridge cannot open this menu — ava_input rightclick raises ContextRequested without a real pointer
+    //  press, so _rightClickOnItem stays false and the whitespace-suppression correctly cancels it — so this
+    //  head-side test stands in for the "menu opens with state-appropriate items" bridge check.)
+
+    [AvaloniaFact]
+    public void ContextMenu_StartForceStartStop_VisibilityTracksSelectedRowState()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin", "alpha2.bin");
+        PackageFile idle = package.First();      // default Idle state
+        PackageFile queued = package.Last();
+        queued.State = FileState.UploadQueued;
+
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            ContextMenu menu = view.uploadsGrid.ContextMenu!;
+            menu.DataContext = harness.Vm; // resolve the inherited VM binding for the (closed) menu
+
+            // Idle file: Start + ForceStart visible; Stop hidden (nothing to stop, it isn't in the pipeline).
+            harness.Vm.SelectedRow = idle;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(view.StartMenuItem.IsVisible);
+            Assert.True(view.ForceStartMenuItem.IsVisible);
+            Assert.False(view.StopMenuItem.IsVisible);
+
+            // UploadQueued file: Start hidden (already queued); ForceStart visible (jump the limit); Stop visible.
+            harness.Vm.SelectedRow = queued;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.StartMenuItem.IsVisible);
+            Assert.True(view.ForceStartMenuItem.IsVisible);
+            Assert.True(view.StopMenuItem.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Delete key binding wired to RemoveSelectedCommand with the live SelectedItems parameter (rule 24) ──
+
+    [AvaloniaFact]
+    public void DeleteKeyBinding_WiredToRemoveSelectedCommand_WithSelectedItemsParameter()
+    {
+        using VmHarness harness = new();
+        UploadsView view = new() { DataContext = harness.Vm };
+
+        KeyBinding binding = Assert.Single(view.uploadsGrid.KeyBindings);
+        Assert.Equal(Key.Delete, binding.Gesture.Key);
+        Assert.Same(harness.Vm.RemoveSelectedCommand, binding.Command);
+        Assert.Same(view.uploadsGrid.SelectedItems, binding.CommandParameter);
+    }
+
     // ── helpers ──
+
+    private static DataGridColumn OrderColumnOf(UploadsView view)
+        => view.uploadsGrid.Columns.First(c => Equals(c.Header, Localizer.Instance["Uploads_Col_Order"]));
 
     private static int CountOf(DataGridCollectionView view) => view.Count;
 

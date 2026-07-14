@@ -27,6 +27,12 @@
     <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
     <conv:ProgressWidthConverter x:Key="ProgressWidthConverter" />
 
+    <!-- Context-menu converters (Task 11): the Start label + the Start/ForceStart/Stop visibility both
+         track the right-clicked SelectedRow's state. Twins of the WPF StartMenuLabel/ItemStateToVisibility
+         resources, returning a bool for IsVisible instead of a WPF Visibility. -->
+    <conv:StartMenuLabelConverter x:Key="StartMenuLabel" />
+    <conv:ItemStateToVisibilityConverter x:Key="ItemStateToVisibility" />
+
     <!-- Stock sort-glyph geometries (Task 1 recipe): copied verbatim from the installed 11.3.13 Fluent
          DataGrid theme so the custom header reproduces Avalonia's stock sort indicator. The WPF custom
          header shows NO glyph — keeping Avalonia's is the accepted divergence recorded in Task 1. -->
@@ -303,6 +309,106 @@
               beh:DataGridZebraStriping.IsEnabled="True"
               beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
               beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+
+      <!-- Row context menu (rules 18/19, Task 11): commands bind through the ContextMenu's inherited
+           DataContext (the grid's VM), so the WPF PlacementTarget.Tag / RelativeSource=ContextMenu bindings
+           collapse to plain {Binding …}. The Start label + Start/ForceStart/Stop visibility track the
+           right-clicked SelectedRow (updated by SelectRowOnRightClick before the menu opens). The nine
+           SelectedItems-carrying command parameters are assigned in code-behind (rule 19). Opening snapshots
+           the multi-selection into the VM and suppresses the menu on an empty-space right-click
+           (_rightClickOnItem, recorded at press time since Opening carries no source). -->
+      <DataGrid.ContextMenu>
+        <ContextMenu Opening="RowContextMenu_Opening">
+          <!-- Label + visibility track the focused (right-clicked) row; the command operates on the WHOLE
+               selection via SelectedItems, so a multi-row selection all starts. -->
+          <MenuItem x:Name="StartMenuItem"
+                    Header="{Binding SelectedRow, Converter={StaticResource StartMenuLabel}}"
+                    Command="{Binding StartSelectedCommand}"
+                    IsVisible="{Binding SelectedRow, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Startable}">
+            <MenuItem.Icon><Image Source="{StaticResource ButtonStartImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="ForceStartMenuItem"
+                    Header="{loc:Loc Uploads_Context_ForceStart}"
+                    Command="{Binding ForceStartSelectedCommand}"
+                    IsVisible="{Binding SelectedRow, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=ForceStartable}">
+            <MenuItem.Icon><Path Data="{StaticResource ForceStartGeometry}" Fill="{DynamicResource AccentBrush}" Width="16" Height="16" Stretch="Uniform" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="StopMenuItem"
+                    Header="{loc:Loc Uploads_Context_Stop}"
+                    Command="{Binding StopSelectedCommand}"
+                    IsVisible="{Binding SelectedRow, Converter={StaticResource ItemStateToVisibility}, ConverterParameter=Stoppable}">
+            <MenuItem.Icon><Image Source="{StaticResource ActionCancelImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="SkipMenuItem"
+                    Header="{loc:Loc Uploads_Context_SkipUpload}"
+                    Command="{Binding SkipUploadCommand}">
+            <MenuItem.Icon><Image Source="{StaticResource ActionSkipImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="ResetMenuItem"
+                    Header="{loc:Loc Uploads_Context_Reset}"
+                    Command="{Binding ResetFileCommand}">
+            <MenuItem.Icon><Image Source="{StaticResource ActionResetImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <Separator />
+          <MenuItem x:Name="OpenSourceDirMenuItem"
+                    Header="{loc:Loc Uploads_Context_OpenSourceDir}"
+                    Command="{Binding OpenSourceDirectoryCommand}">
+            <MenuItem.Icon><Image Source="{StaticResource ActionFolderImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem x:Name="OpenUrlMenuItem"
+                    Header="{loc:Loc Common_Context_OpenUrl}"
+                    Command="{Binding OpenUrlCommand}" />
+          <MenuItem x:Name="SetSpeedLimitMenuItem"
+                    Header="{loc:Loc Uploads_Context_SetSpeedLimit}"
+                    Command="{Binding SetSpeedLimitCommand}">
+            <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
+          </MenuItem>
+          <MenuItem Header="{loc:Loc Uploads_Context_Move}">
+            <MenuItem Header="{loc:Loc Uploads_Move_Up10}"   Command="{Binding MoveSelectedCommand}" CommandParameter="-10" />
+            <MenuItem Header="{loc:Loc Uploads_Move_Up1}"    Command="{Binding MoveSelectedCommand}" CommandParameter="-1" />
+            <MenuItem Header="{loc:Loc Uploads_Move_Down1}"  Command="{Binding MoveSelectedCommand}" CommandParameter="1" />
+            <MenuItem Header="{loc:Loc Uploads_Move_Down10}" Command="{Binding MoveSelectedCommand}" CommandParameter="10" />
+          </MenuItem>
+          <Separator />
+          <!-- Per-column copy submenu. Each item passes its column key (the resx Uploads_Col_* suffix) as
+               CommandParameter; the VM extracts the value from SelectedRows via reflection. The row-copy
+               entry DIVERGES from UploadedView: UploadsView cannot use the built-in Ctrl+C (it only copies
+               SelectedItems, no package expansion) — CopyRow_Click builds a package-expanding TSV instead. -->
+          <MenuItem Header="{loc:Loc Common_Context_Copy}">
+            <MenuItem x:Name="CopyRowMenuItem"
+                      Header="{loc:Loc Uploaded_Context_Copy}"
+                      InputGesture="Ctrl+C"
+                      Click="CopyRow_Click" />
+            <Separator />
+            <MenuItem Header="{loc:Loc Uploads_Col_Name}" Command="{Binding CopyColumnCommand}" CommandParameter="Name" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Size}" Command="{Binding CopyColumnCommand}" CommandParameter="Size" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Hoster}" Command="{Binding CopyColumnCommand}" CommandParameter="Hoster" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Account}" Command="{Binding CopyColumnCommand}" CommandParameter="Account" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Status}" Command="{Binding CopyColumnCommand}" CommandParameter="Status" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Speed}" Command="{Binding CopyColumnCommand}" CommandParameter="Speed" />
+            <MenuItem Header="{loc:Loc Uploads_Col_ETA}" Command="{Binding CopyColumnCommand}" CommandParameter="ETA" />
+            <MenuItem Header="{loc:Loc Uploads_Col_BytesLoaded}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesLoaded" />
+            <MenuItem Header="{loc:Loc Uploads_Col_BytesRemaining}" Command="{Binding CopyColumnCommand}" CommandParameter="BytesRemaining" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Progress}" Command="{Binding CopyColumnCommand}" CommandParameter="Progress" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Path}" Command="{Binding CopyColumnCommand}" CommandParameter="Path" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Added}" Command="{Binding CopyColumnCommand}" CommandParameter="Added" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Finished}" Command="{Binding CopyColumnCommand}" CommandParameter="Finished" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Started}" Command="{Binding CopyColumnCommand}" CommandParameter="Started" />
+            <MenuItem Header="{loc:Loc Uploads_Col_ScheduledAt}" Command="{Binding CopyColumnCommand}" CommandParameter="ScheduledAt" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Duration}" Command="{Binding CopyColumnCommand}" CommandParameter="Duration" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Order}" Command="{Binding CopyColumnCommand}" CommandParameter="Order" />
+            <MenuItem Header="{loc:Loc Uploads_Col_SpeedLimit}" Command="{Binding CopyColumnCommand}" CommandParameter="SpeedLimit" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Hash}" Command="{Binding CopyColumnCommand}" CommandParameter="Hash" />
+            <MenuItem Header="{loc:Loc Uploads_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
+            <MenuItem Header="{loc:Loc Uploads_Col_Error}" Command="{Binding CopyColumnCommand}" CommandParameter="Error" />
+          </MenuItem>
+          <Separator />
+          <MenuItem x:Name="RemoveMenuItem"
+                    Header="{loc:Loc Uploads_Context_Remove}"
+                    InputGesture="Delete"
+                    Command="{Binding RemoveSelectedCommand}" />
+        </ContextMenu>
+      </DataGrid.ContextMenu>
 
       <DataGrid.Columns>
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False"
