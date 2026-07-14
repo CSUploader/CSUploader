@@ -31,6 +31,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     {
         { "Alfafile", "www.alfafile.net" },
         { "BRupload", "www.brupload.net" },
+        // buzzheavier.com — anonymous OR account via the developer API: a single raw PUT to
+        // w.buzzheavier.com/<name> → {"data":{"id":…}}; link buzzheavier.com/<id>. Account auth is a
+        // Bearer of the account id (from /api/account, captured via a WebView sign-in). See BuzzheavierPipeline.cs.
+        { "Buzzheavier", "buzzheavier.com" },
         // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
         // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
         { "Catbox", "catbox.moe" },
@@ -168,16 +172,17 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     /// "Available" cell should read "Unlimited" (the account is fine; there's just no number to compute
     /// remaining space from), distinct from a hoster whose usage we simply couldn't retrieve (which
     /// shows "-"). catbox.moe: files never expire, no cap, and no used/quota metric on the account page.
+    /// Buzzheavier likewise has no cap and exposes no usage figure.
     /// A hoster that DOES report a used figure but no cap (Upstore, GigaPeta) already shows "Unlimited"
     /// via the used-known-no-quota path and needn't be listed here.
     /// </summary>
-    private static readonly FrozenSet<string> UnlimitedStorageHosters =
-        new HashSet<string>(StringComparer.Ordinal) { "Catbox" }.ToFrozenSet(StringComparer.Ordinal);
+    private static readonly FrozenSet<string> _unlimitedStorageHosters =
+        new HashSet<string>(StringComparer.Ordinal) { "Catbox", "Buzzheavier" }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>True when the hoster has unlimited storage but reports no usage figure — see
-    /// <see cref="UnlimitedStorageHosters"/>.</summary>
+    /// <see cref="_unlimitedStorageHosters"/>.</summary>
     public static bool HasUnlimitedStorage(string? hosterName)
-        => hosterName is not null && UnlimitedStorageHosters.Contains(hosterName);
+        => hosterName is not null && _unlimitedStorageHosters.Contains(hosterName);
 
     /// <summary>
     /// Gets the name of the file hoster.

@@ -305,32 +305,45 @@ public partial class UploadWizardViewModel : ObservableObject
             FileHosterLoginDto? account = hoster.SelectedAccount;
             long? hosterMaxFileSize = account is not null ? pipeline.MaxFileSizeFor(account) : pipeline.MaxFileSize;
 
-            if (hosterMaxFileSize is long maxBytes)
+            // Classify each selected file once against the hoster's per-file constraints. A file that
+            // fails two checks (too big AND a name the hoster won't accept, e.g. Buzzheavier's '#'/';')
+            // is counted under just one — size takes precedence — so eligibility never double-subtracts.
+            List<string> oversizedNames = [];
+            List<string> rejectedNameNames = [];
+            foreach (FileEntry f in selected)
             {
-                List<string> oversizedNames = [];
-                foreach (FileEntry f in selected)
+                if (hosterMaxFileSize is long maxBytes && f.Size > maxBytes)
                 {
-                    if (f.Size > maxBytes)
-                    {
-                        oversizedNames.Add(f.FileName);
-                    }
+                    oversizedNames.Add(f.FileName);
                 }
-                if (oversizedNames.Count > 0)
+                else if (pipeline.RejectedFileNameReason(f.FileName) is not null)
                 {
-                    string sizeStr = ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString();
-                    // Render the file list one per line so the warning panel can scroll
-                    // when the user has many oversized files. The resx string already
-                    // ends with a newline after the colon (see Wizard_Hoster_FileTooLarge_Format).
-                    string fileList = string.Join("\n", oversizedNames);
-                    HosterValidationWarnings.Add(string.Format(
-                        CultureInfo.CurrentCulture,
-                        Localizer.Instance["Wizard_Hoster_FileTooLarge_Format"],
-                        hoster.FileHosterName,
-                        sizeStr,
-                        fileList));
-                    eligibleForThisHoster -= oversizedNames.Count;
+                    rejectedNameNames.Add(f.FileName);
                 }
             }
+
+            // Render each file list one per line so the warning panel can scroll when there are many.
+            // Both resx strings already end with a newline after the colon.
+            if (hosterMaxFileSize is long limitBytes && oversizedNames.Count > 0)
+            {
+                HosterValidationWarnings.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Hoster_FileTooLarge_Format"],
+                    hoster.FileHosterName,
+                    ByteUnit.FromBytes(limitBytes, ByteBase.Binary).ToFriendlyString(),
+                    string.Join("\n", oversizedNames)));
+            }
+
+            if (rejectedNameNames.Count > 0)
+            {
+                HosterValidationWarnings.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Hoster_FileNameRejected_Format"],
+                    hoster.FileHosterName,
+                    string.Join("\n", rejectedNameNames)));
+            }
+
+            eligibleForThisHoster -= oversizedNames.Count + rejectedNameNames.Count;
 
             if (eligibleForThisHoster > 0)
             {
@@ -435,6 +448,14 @@ public partial class UploadWizardViewModel : ObservableObject
                 {
                     continue;
                 }
+
+                // A name the hoster's server would reject (e.g. Buzzheavier's '#'/';') is dropped here
+                // just like an oversized file — the file falls through to OrphanFiles and the banner.
+                if (pipeline?.RejectedFileNameReason(file.FileName) is not null)
+                {
+                    continue;
+                }
+
                 eligible.Add(file);
                 if (maxFilesPerPackage is int limit && eligible.Count >= limit)
                 {

@@ -39,6 +39,7 @@
     <!-- File Hoster Images -->
     <BitmapImage x:Key="FileHosterAlfafileImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_alfafile.png" />
     <BitmapImage x:Key="FileHosterBruploadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_brupload.png" />
+    <BitmapImage x:Key="FileHosterBuzzheavierImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_buzzheavier.png" />
     <BitmapImage x:Key="FileHosterCatboxImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_catbox.png" />
     <BitmapImage x:Key="FileHosterExloadImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_exload.png" />
     <BitmapImage x:Key="FileHosterExtmatrixImage" UriSource="pack://application:,,,/Properties/Images/FileHosters/filehoster_extmatrix.png" />

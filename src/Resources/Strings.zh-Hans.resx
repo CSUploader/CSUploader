@@ -1287,6 +1287,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>{0}：以下文件超过单文件 {1} 上限，将不会上传：
 {2}</value>
   </data>
+  <data name="Wizard_Hoster_FileNameRejected_Format" xml:space="preserve">
+    <value>{0}：以下文件名包含此托管商不接受的字符，将不会上传：
+{1}</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}：已选 {1} 个文件，但每包上限为 {2} 个。</value>
   </data>

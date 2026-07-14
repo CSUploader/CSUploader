@@ -1287,6 +1287,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>{0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:
 {2}</value>
   </data>
+  <data name="Wizard_Hoster_FileNameRejected_Format" xml:space="preserve">
+    <value>{0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:
+{1}</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.</value>
   </data>

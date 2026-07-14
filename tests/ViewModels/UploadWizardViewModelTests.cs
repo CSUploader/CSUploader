@@ -441,6 +441,62 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.Contains(vm.HosterValidationWarnings, w => w.Contains("31", StringComparison.Ordinal) && w.Contains("30", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void HosterValidation_RejectedFilename_ListsFilenameAndDoesNotBlockNext()
+    {
+        // Buzzheavier rejects '#'/';' in a name — the wizard warns and drops that file, exactly like an
+        // oversized one, while leaving the clean-named file eligible so Next stays enabled.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(bz);
+
+        FileEntry clean = new() { FullPath = "clean.mkv", FileName = "clean.mkv", Size = 100, IsSelected = true };
+        FileEntry bad = new() { FullPath = "ep #1.mkv", FileName = "ep #1.mkv", Size = 200, IsSelected = true };
+        vm.Files.Add(clean);
+        vm.Files.Add(bad);
+
+        Assert.Empty(vm.HosterValidationWarnings);
+
+        bz.Use = true;
+
+        string warning = Assert.Single(vm.HosterValidationWarnings);
+        Assert.Contains("ep #1.mkv", warning, StringComparison.Ordinal);
+        Assert.Contains("won't be uploaded", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("clean.mkv", warning, StringComparison.Ordinal);
+
+        // Next stays enabled because clean.mkv is still eligible.
+        vm.CurrentStep = 1;
+        Assert.True(vm.CanGoNext);
+
+        // Deselecting the rejected-name file clears the warning entirely.
+        bad.IsSelected = false;
+        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void HosterValidation_AllFilenamesRejected_BlocksNextEvenWithSingleHoster()
+    {
+        // Every file has a name Buzzheavier won't accept → nothing can upload, so Next must block
+        // (parity with the all-too-big case).
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(bz);
+
+        vm.Files.Add(new FileEntry { FullPath = "a;.mkv", FileName = "a;.mkv", Size = 100, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b#.mkv", FileName = "b#.mkv", Size = 200, IsSelected = true });
+
+        bz.Use = true;
+        vm.CurrentStep = 1;
+
+        Assert.NotEmpty(vm.HosterValidationWarnings);
+        Assert.False(vm.CanGoNext);
+    }
+
     // ── Summary step (CurrentStep == 2) ──
 
     [Fact]
@@ -514,6 +570,68 @@ public class UploadWizardViewModelTests : IDisposable
         // huge.bin had nowhere to go — it's an orphan even though BRupload appeared.
         FileEntry orphan = Assert.Single(vm.OrphanFiles);
         Assert.Equal("huge.bin", orphan.FileName);
+    }
+
+    [Fact]
+    public void Summary_HosterWithAllRejectedNames_IsOmittedAndFilesBecomeOrphans()
+    {
+        // Both files carry a character Buzzheavier rejects ('#'/';'): 0 eligible files, so the hoster
+        // must NOT appear in Summaries and both files become orphans — same as the all-oversize case.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(bz);
+        vm.Files.Add(new FileEntry { FullPath = "a #1.mkv", FileName = "a #1.mkv", Size = 100, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b; two.mkv", FileName = "b; two.mkv", Size = 200, IsSelected = true });
+
+        bz.Use = true;
+        vm.CurrentStep = 2;
+
+        Assert.Empty(vm.Summaries);
+        Assert.Equal(2, vm.OrphanFilesCount);
+        Assert.True(vm.HasOrphanFiles);
+    }
+
+    [Fact]
+    public void Summary_HosterWithSomeRejectedNames_OmitsThemFromItsFileList()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(bz);
+        vm.Files.Add(new FileEntry { FullPath = "ok.mkv", FileName = "ok.mkv", Size = 100, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "Paladin; Agateram.mkv", FileName = "Paladin; Agateram.mkv", Size = 200, IsSelected = true });
+
+        bz.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        SummaryFileItem only = Assert.Single(entry.Files);
+        Assert.Equal("ok.mkv", only.FileName);
+        FileEntry orphan = Assert.Single(vm.OrphanFiles);
+        Assert.Equal("Paladin; Agateram.mkv", orphan.FileName);
+    }
+
+    [Fact]
+    public void Summary_AcceptedSpecialCharsFilename_StaysEligible()
+    {
+        // Regression guard: '@', '[', ']', '(', ')', '+' are all accepted by Buzzheavier — only '#'/';'
+        // reject. A too-broad name filter would wrongly orphan this real-world name.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(bz);
+        vm.Files.Add(new FileEntry { FullPath = "s.mkv", FileName = "[BD] Show 05 (4k AV1@M10p DTS 2ch+5.1ch).mkv", Size = 100, IsSelected = true });
+
+        bz.Use = true;
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.Single(entry.Files);
+        Assert.Empty(vm.OrphanFiles);
     }
 
     [Fact]
