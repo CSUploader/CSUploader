@@ -47,6 +47,11 @@ public sealed class AvaloniaWebViewInteractiveAuthService(
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // A cancel that landed while we queued behind the gate short-circuits before we ever marshal to the
+            // UI thread. Safe here: we're on a thread-pool thread, inside the try, so the finally still releases
+            // the gate (the WPF head got this for free — its token rode Dispatcher.InvokeAsync).
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Marshal onto the UI thread (typically called from an upload thread-pool thread). The action just
             // STARTS the async show and bridges it to a TCS; the try/catch makes the async-void body escape-proof
             // (an unsunk async-void exception would otherwise crash the dispatcher loop). The gate is held for the
@@ -54,6 +59,18 @@ public sealed class AvaloniaWebViewInteractiveAuthService(
             TaskCompletionSource<InteractiveAuthResult?> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
             await dispatcher.InvokeAsync(() =>
             {
+                // WPF parity: the WPF head passes the token into Dispatcher.InvokeAsync (WebViewInteractiveAuthService.cs:71-74),
+                // so a cancel that lands while the marshal is still QUEUED aborts the invoke WITHOUT opening the
+                // window. Avalonia's IUiDispatcher.InvokeAsync takes no token, so re-check on the UI thread and
+                // mirror that queued-abort. Complete the TCS and RETURN — never THROW here: a throw inside the
+                // marshaled action escapes to the framework's unhandled-exception path (IUiDispatcher.InvokeAsync
+                // contract) leaving the TCS unset, which would hang this call and the per-hoster gate forever.
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    tcs.TrySetCanceled(cancellationToken);
+                    return;
+                }
+
                 async void Pump()
                 {
                     try
@@ -115,15 +132,23 @@ public sealed class AvaloniaWebViewInteractiveAuthService(
         return await window.ShowDialog<InteractiveAuthResult?>(owner);
     }
 
-    // Reveal-or-own (mirrors AvaloniaDialogService.GetOwnerOrRevealAsync): a modal demands a visible parent, so
-    // a tray-hidden main window is revealed first. Null only under a non-desktop lifetime (headless).
+    // Reveal-or-own: a modal login demands a visible parent, so a tray-hidden main window is revealed first.
+    // The owner is the VISIBLE MAIN window ONLY (ResolveVisibleMainOnly), deliberately NOT the active-visible
+    // window AvaloniaDialogService.GetOwnerOrRevealAsync picks (ResolveFromLifetime). This service is a
+    // long-lived, BACKGROUND-triggered modal: a burst of uploads can open one hoster's login while another
+    // hoster's login is already up and active. Avalonia force-closes an owned window when its owner closes, so
+    // parenting a second login to the first active one (what active-visible-first would do) would kill the
+    // second mid-captcha the instant the first completes — exactly the hazard DialogOwnerResolver.cs:59-63
+    // warns a long-lived surface must never take. WPF parented every login to MainWindow
+    // (WebViewInteractiveAuthService.cs:112 Owner = MainWindow); main-only preserves that. Null only under a
+    // non-desktop lifetime (headless) or a still-hidden main window.
     private Window? ResolveOwnerOrReveal()
     {
-        Window? owner = DialogOwnerResolver.ResolveFromLifetime();
+        Window? owner = DialogOwnerResolver.ResolveVisibleMainOnly();
         if (owner is null)
         {
             trayIcon.ShowMainWindow();
-            owner = DialogOwnerResolver.ResolveFromLifetime();
+            owner = DialogOwnerResolver.ResolveVisibleMainOnly();
         }
 
         return owner;
