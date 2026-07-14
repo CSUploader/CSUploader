@@ -7,18 +7,33 @@
         Width="1024" Height="800"
         WindowStartupLocation="CenterScreen"
         Icon="/Assets/icon.ico">
-  <TabControl SelectedIndex="{Binding SelectedTabIndex}">
-    <TabItem Header="{loc:Loc Main_Tab_Uploads}">
-      <views:UploadsView DataContext="{Binding UploadsViewModel}" />
-    </TabItem>
-    <TabItem Header="{loc:Loc Main_Tab_Uploaded}">
-      <views:UploadedView DataContext="{Binding UploadedViewModel}" />
-    </TabItem>
-    <TabItem Header="{loc:Loc Main_Tab_Settings}">
-      <views:SettingsView DataContext="{Binding SettingsViewModel}" />
-    </TabItem>
-    <TabItem Header="{loc:Loc Main_Tab_Logs}">
-      <views:LogsView DataContext="{Binding LogsViewModel}" />
-    </TabItem>
-  </TabControl>
+  <Grid RowDefinitions="Auto,*">
+    <Menu Grid.Row="0" Background="{DynamicResource SurfaceBrush}" FontSize="12">
+      <MenuItem Header="{loc:Loc Main_Menu_File}">
+        <MenuItem Header="{loc:Loc Main_Menu_File_Exit}" Click="MenuExit_Click" />
+      </MenuItem>
+      <MenuItem Header="{loc:Loc Main_Menu_View}">
+        <MenuItem Header="{loc:Loc Main_Menu_View_UploadOverview}"
+                  ToggleType="CheckBox"
+                  IsChecked="{Binding UploadsViewModel.ShowUploadOverview, Mode=TwoWay}" />
+        <Separator />
+        <MenuItem Header="{Binding ThemeMenuLabel}" Command="{Binding ToggleThemeCommand}" />
+      </MenuItem>
+      <MenuItem Header="{loc:Loc Main_Menu_Help}">
+        <MenuItem Header="{loc:Loc Main_Menu_Help_CheckForUpdates}" Click="MenuCheckForUpdates_Click" />
+        <MenuItem Header="{loc:Loc Main_Menu_Help_InstallUpdate}"
+                  Command="{Binding InstallUpdateCommand}"
+                  IsEnabled="{Binding IsUpdateAvailable}" />
+        <Separator />
+        <MenuItem Header="{loc:Loc Main_Menu_Help_About}" Click="MenuAbout_Click" />
+      </MenuItem>
+    </Menu>
+
+    <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
+      <TabItem Header="{loc:Loc Main_Tab_Uploads}"><views:UploadsView DataContext="{Binding UploadsViewModel}" /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Uploaded}"><views:UploadedView DataContext="{Binding UploadedViewModel}" /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Settings}"><views:SettingsView DataContext="{Binding SettingsViewModel}" /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Logs}"><views:LogsView DataContext="{Binding LogsViewModel}" /></TabItem>
+    </TabControl>
+  </Grid>
 </Window>

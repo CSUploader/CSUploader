@@ -877,7 +877,7 @@ git commit -m "feat(avalonia): Phase 7 Task 4 - balloon->toast routing (Core Sho
 - Consumes: `MainViewModel` (`WindowTitle`, `SelectedTabIndex`, `UploadsViewModel.ShowUploadOverview`, `ThemeMenuLabel`, `ToggleThemeCommand`, `InstallUpdateCommand`, `IsUpdateAvailable`, `AvailableVersion`, `CheckForUpdatesAsync`), `MessageBoxWindow.ShowErrorAsync` (existing internal static), `AboutWindow`, `Localizer`.
 - Produces: `MainWindow._forceClose` (private field, consumed by Task 6's `Closing` handler); the three menu `Click` handlers.
 
-- [ ] **Step 1: Restructure `MainWindow.axaml`** — wrap the TabControl in a `Grid` with a `Menu` row (port of `src/Views/MainWindow.xaml:19-62`, rule 41: `IsCheckable`->`ToggleType="CheckBox"`, gesture text dropped, `NativeMenu` NOT used):
+- [x] **Step 1: Restructure `MainWindow.axaml`** — wrap the TabControl in a `Grid` with a `Menu` row (port of `src/Views/MainWindow.xaml:19-62`, rule 41: `IsCheckable`->`ToggleType="CheckBox"`, gesture text dropped, `NativeMenu` NOT used):
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
@@ -921,7 +921,7 @@ git commit -m "feat(avalonia): Phase 7 Task 4 - balloon->toast routing (Core Sho
 </Window>
 ```
 
-- [ ] **Step 2: Add the code-behind handlers + `_forceClose`** to `MainWindow.axaml.cs` (port of `src/Views/MainWindow.xaml.cs:133-158`; the update-result box uses `MessageBoxWindow.ShowErrorAsync`, the head's OK-notification — parity with WPF `MessageBox.Show(Information)`, icon dropped per the head's message-box divergence). This is the Task-5 shape; Task 6 adds the DI ctor + Closing to the same class.
+- [x] **Step 2: Add the code-behind handlers + `_forceClose`** to `MainWindow.axaml.cs` (port of `src/Views/MainWindow.xaml.cs:133-158`; the update-result box uses `MessageBoxWindow.ShowErrorAsync`, the head's OK-notification — parity with WPF `MessageBox.Show(Information)`, icon dropped per the head's message-box divergence). This is the Task-5 shape; Task 6 adds the DI ctor + Closing to the same class.
 
 ```csharp
 using Avalonia.Controls;
@@ -966,7 +966,7 @@ public partial class MainWindow : Window
 }
 ```
 
-- [ ] **Step 3: Write the failing menu tests.**
+- [x] **Step 3: Write the failing menu tests.**
 
 ```csharp
 // tests/CSUploader.Avalonia.Tests/Views/MainWindowMenuTests.cs
@@ -1007,16 +1007,18 @@ public class MainWindowMenuTests
 }
 ```
 
-- [ ] **Step 4: Run — red then green** (write the test first, watch it fail on the missing menu, implement Steps 1-2, watch it pass). Filter `MainWindowMenuTests`.
+- [x] **Step 4: Run — red then green** (write the test first, watch it fail on the missing menu, implement Steps 1-2, watch it pass). Filter `MainWindowMenuTests`.
 
-- [ ] **Step 5: Re-capture the Avalonia `mainwindow-uploads` shots (now with the menu).** Against the seeded app (`--agent`, seeded scratch DB): `ava_screenshot` the Uploads tab light+dark -> overwrite `mainwindow-uploads-light-ava.png` / `mainwindow-uploads-dark-ava.png`. The WPF `mainwindow-uploads-*-wpf.png` already shows the menu (no re-capture). Compare the menu-bar strip against the WPF cell for the Fluent-vs-WPF density arbitration (recorded at Task 8).
+- [x] **Step 5: Re-capture the Avalonia `mainwindow-uploads` shots (now with the menu).** Against the seeded app (`--agent`, seeded scratch DB): `ava_screenshot` the Uploads tab light+dark -> overwrite `mainwindow-uploads-light-ava.png` / `mainwindow-uploads-dark-ava.png`. The WPF `mainwindow-uploads-*-wpf.png` already shows the menu (no re-capture). Compare the menu-bar strip against the WPF cell for the Fluent-vs-WPF density arbitration (recorded at Task 8).
 
-- [ ] **Step 6: Suite gate + commit.** Both suites (Avalonia +1), both heads 0-warning Debug + Release.
+- [x] **Step 6: Suite gate + commit.** Both suites (Avalonia +1), both heads 0-warning Debug + Release.
 
 ```bash
 git add src/CSUploader.Avalonia/Views/MainWindow.axaml src/CSUploader.Avalonia/Views/MainWindow.axaml.cs tests/CSUploader.Avalonia.Tests/Views/MainWindowMenuTests.cs
 git commit -m "feat(avalonia): Phase 7 Task 5 - File/View/Help menu bar + handlers (theme toggle, updates, about)"
 ```
+
+**Task 5 executed (2026-07-14) — pending reviewer gate.** `MainWindow.axaml` restructured into a `Grid RowDefinitions="Auto,*"` with the in-window `<Menu>` on row 0 (rule 41: `NativeMenu` NOT used; `IsCheckable`->`ToggleType="CheckBox"`; the `Main_Menu_File_Exit_Gesture` "Alt+F4" `InputGestureText` DROPPED) and the TabControl on row 1; three handlers + staged `_forceClose` added to `MainWindow.axaml.cs` (`MenuExit_Click`, `MenuCheckForUpdates_Click` -> `MessageBoxWindow.ShowErrorAsync`, `MenuAbout_Click` -> `AboutWindow.ShowDialog`). Gates: Avalonia **399 -> 404** (+5), WPF/shared **1201/1201** (untouched — diff is ONLY the 3 Task-5 files; zero Core/WPF/resx), Avalonia head **0-warning Debug AND Release**. Bridge (`--agent`, seeded scratch DB via `ava-drive.cs` direct-TCP driver — the MCP server is not loaded this session): re-captured `mainwindow-uploads-{light,dark}-ava.png` (maxWidth 2500) WITH the menu bar; theme flipped via `ava_dispatch {"ref":"ref_1","command":"ToggleThemeCommand"}`. Parity vs the WPF ref cells: **close match** — same File/View/Help strip, same left-alignment, same 12px font, same `SurfaceBrush` background, identical tabs/toolbar/grid/Upload-Overview; the only divergences are the known Fluent-vs-WPF theming (accent-underline active tab; marginally more Fluent menu-item padding) arbitrated at Task 8. `ava_logs` Error/Warning after driving: ONLY the pre-existing `Package.StartedDate` DataGrid binding warnings (same as Task 3) — no menu/theme/binding error from Task 5. **Deviations (recorded):** (1) **`Mode=TwoWay` added** to the Upload-Overview `IsChecked="{Binding UploadsViewModel.ShowUploadOverview}"` — the plan's literal XAML omits it, but Avalonia's `MenuItem.IsCheckedProperty` defaults to **OneWay** (unlike WPF's `BindsTwoWayByDefault`), so without it the View-menu checkbox reads the VM but never writes back (the panel wouldn't hide on toggle) — a functional regression vs WPF. Caught by the `UI->VM` half of the two-way test. Rule 41 mandates the two-way binding, so the explicit mode is a necessary correction, not a semantic change. (2) **`#pragma warning disable CS0414`** wraps the `_forceClose` field: the plan stages Exit as `_forceClose = true; Close();` in Task 5 but the READER (the `Closing` reroute) doesn't land until Task 6, so the assigned-but-unread field trips CS0414 and breaks the 0-warning gate. The pragma is scoped to the one field and carries a Task-6 comment; **Task 6's full-class rewrite (its Step 3) drops the pragma naturally** when it adds the reader. Exit staged EXACTLY as the plan prescribes (`_forceClose = true; Close();`); verified headlessly (`MenuExit_Click_ClosesWindow` test — never clicked File->Exit in the bridge, which would kill the drive session). (3) **+5 tests, not the plan's +1.** The plan's `MainWindow_HasFileViewHelpMenu_AndFourTabs` PLUS four team-lead-requested non-vacuous tests: `Menu_SubItemStructure_MatchesWpf_WithCheckableOverviewAndSeparators` (WPF sub-item shape + the sole `CheckBox` toggle + the two Separators), `UploadOverviewMenuItem_TwoWayBinds_And_View_Help_CommandsBound` (the checkable two-way BOTH directions + View/Help `Command` bindings resolve to the VM commands), `MenuExit_Click_ClosesWindow` (Exit wiring closes the window — the Task 5 staging), `MenuCheckForUpdates_WithoutMainViewModel_NoOps` (the `DataContext is MainViewModel` guard). Step 6's "+1" is superseded by "+5" (Avalonia 404). **Coverage limit (recorded for the reviewer):** the update-check POSITIVE path (compose `Available_Format`/`AlreadyLatest` -> modal `MessageBoxWindow.ShowErrorAsync(this,...)`) is NOT driven end-to-end — a full drive needs a real `MainViewModel` (whose `CheckForUpdatesAsync` hits GitHub, non-deterministic in CI) and closing a modal opened *inside* the static seam with no headless window-enumeration handle (the codebase never enumerates windows in headless tests). It is covered instead by: the guard test, the handler being a verbatim port of the WPF `MenuCheckForUpdates_Click` (`src/Views/MainWindow.xaml.cs:139-152`), and `MessageBoxWindow.ShowErrorAsync`'s own modal tests (`MessageBoxWindowTests`). (4) Test-double is a partial fake exposing only the asserted members (dropped `ThemeMenuLabel`/`WindowTitle` to avoid CA1822 — their Header/Title bindings resolve to null, untested). No other semantic deviations from the plan's code.
 
 ---
 
