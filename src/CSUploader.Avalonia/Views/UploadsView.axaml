@@ -658,7 +658,7 @@
     </DataGrid>
 
     <!-- Row 2: JD2 "Upload Overview" stats panel (mirror src/Views/UploadsView.xaml:646-791). rule 33:
-         Visibility+BoolToVisibility -> IsVisible; rule 31: IsCheckable -> ToggleType=CheckBox (+ IsChecked
+         WPF Visibility+converter -> IsVisible; rule 31: IsCheckable -> ToggleType=CheckBox (+ IsChecked
          TwoWay); rule 10: MouseLeftButtonUp -> PointerReleased + a left-button guard (code-behind). The stats
          area's right-click ContextMenu is bridge-un-openable (ContextRequested vs a real PointerPressed), so
          the 12-toggle menu is headless-verified. -->

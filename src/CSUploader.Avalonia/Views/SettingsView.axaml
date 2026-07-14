@@ -719,7 +719,7 @@
                 GridLinesVisibility="All"
                 BorderThickness="1"
                 BorderBrush="{DynamicResource BorderBrush}"
-                Background="{DynamicResource SurfaceBrush}"
+                Background="{DynamicResource ContentBackgroundBrush}"
                 HorizontalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
                 VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
                 DoubleTapped="AccountsGrid_DoubleTapped"
@@ -729,10 +729,16 @@
 
         <!-- Per-row dim when Disabled (WPF DataGridRow DataTrigger → Opacity 0.45). Scoped to this grid so
              the proxy grid (items have no Disabled) is unaffected; the binding resolves against each row's
-             item and follows recycling. -->
+             item and follows recycling. The grid-scoped .alt override repaints the zebra rows with the
+             accounts grid's ContentAltBackgroundBrush (WPF SettingsView.xaml:856 AlternatingRowBackground) —
+             identical to the shared DataGridAltRowBrush in light, distinct in dark; grid-scoped outranks the
+             UserControl-level DataGridRow.alt style. -->
         <DataGrid.Styles>
           <Style Selector="DataGridRow">
             <Setter Property="Opacity" Value="{Binding Disabled, Converter={x:Static v:SettingsView.DisabledToOpacity}}" />
+          </Style>
+          <Style Selector="DataGridRow.alt">
+            <Setter Property="Background" Value="{DynamicResource ContentAltBackgroundBrush}" />
           </Style>
         </DataGrid.Styles>
 
@@ -801,8 +807,9 @@
                the active theme variant at conversion time (§Phase-4 prep 7): a live theme flip does NOT
                re-run it, but the cell repaints as the status changes or the row recycles — acceptable, and
                it reads correctly in both themes (verified in the bridge shots). -->
-          <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200"
-                                  SortMemberPath="StatusMessage">
+          <!-- No SortMemberPath: WPF's template Status column has no sort path either (header click is a
+               no-op), so strict parity omits it. -->
+          <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"

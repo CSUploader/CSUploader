@@ -6,8 +6,8 @@
      source-picker + files grid). Steps 1 (hosters) and 3 (start mode + DatePicker) arrive in Task 8; the
      Summary step 2 (custom Expander) in Task 9. Panel/step switching is rule 39 (StepVisibilityConverter,
      int==param -> IsVisible); the step-indicator weighting is StepFontConverter; the mode radios are the
-     two-way EnumBool group (rule 8, its full exercise is Task 8). BoolToVisibility sites (rule 33) become
-     IsVisible bindings — the head has no BoolToVisibilityConverter. The wizard opens as a Window from the
+     two-way EnumBool group (rule 8, its full exercise is Task 8). rule-33 visibility-converter sites become
+     IsVisible bindings — the head has no bool-to-visibility converter. The wizard opens as a Window from the
      Uploads toolbar (Task 12); this task's standalone surface is the gallery WizardButton. The VM is hand-
      built in code-behind (it is NOT DI-registered) from App.Services. -->
 <Window xmlns="https://github.com/avaloniaui"
@@ -289,8 +289,8 @@
       </Grid>
 
       <!-- Step 1: File Hosters (Task 8). Per-row enable checkbox + account association; the display
-           columns are read-only (rule 32 — the row VM is only ever read here). BoolToVisibility sites
-           (rule 33) → IsVisible; the WPF DataTrigger-driven per-row !CanUse dim (+ tooltip) and the
+           columns are read-only (rule 32 — the row VM is only ever read here). rule-33 visibility-converter
+           sites → IsVisible; the WPF DataTrigger-driven per-row !CanUse dim (+ tooltip) and the
            italic-when-no-saved-accounts hoster name become conditional-class bindings (rule 40). The grid
            is SelectionMode=Single with the ClearSelectionOnEmptyClick + SelectRowOnRightClick behaviors. -->
       <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,*,Auto"
@@ -433,7 +433,7 @@
       <!-- Step 2: Summary — what will actually upload, grouped by destination hoster (Task 9). Each hoster is a
            custom-templated Expander (SummaryExpanderTheme, rule 38): a flat rotating chevron ToggleButton + a
            rich header (icon, name, account, N-of-M-files-selected, capacity), over an expandable list of per-
-           file include checkboxes. BoolToVisibility sites (rule 33) become IsVisible; the WPF capacity-line
+           file include checkboxes. rule-33 visibility-converter sites become IsVisible; the WPF capacity-line
            DataTrigger recolor (red+bold over capacity) becomes the Classes.capacity-over conditional class
            (rule 40). Reaching this step triggers a storage refresh for IStorageRefreshablePipeline hosters — a
            network no-op for Catbox (not refreshable) / Anonymous accounts, the safe selection the drivers use. -->

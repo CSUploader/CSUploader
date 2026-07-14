@@ -6,6 +6,7 @@
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -283,6 +284,7 @@ public class SettingsConnectionTests
     }
 
     // ── Rule 24: the Delete key removes the selection through RemoveSelectedCommand ──
+    // (FIX 1: this EDITABLE grid's binding is the editor-guard wrapper, which delegates to RemoveSelectedCommand.)
 
     [AvaloniaFact]
     public void DeleteKey_WiredToRemoveSelected_WithSelectedItemsParameter()
@@ -294,8 +296,95 @@ public class SettingsConnectionTests
         {
             KeyBinding binding = Assert.Single(view.ProxyGrid.KeyBindings);
             Assert.Equal(Key.Delete, binding.Gesture.Key);
-            Assert.Same(harness.Vm.RemoveSelectedCommand, binding.Command);
+            var guarded = Assert.IsType<DataGridDeleteKeyGuard.EditorGuardedCommand>(binding.Command);
+            Assert.Same(harness.Vm.RemoveSelectedCommand, guarded.Inner);
             Assert.Same(view.ProxyGrid.SelectedItems, binding.CommandParameter);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── FIX 1 (MAJOR): while a cell editor is focused, Delete edits text and does NOT remove the edited row ──
+
+    [AvaloniaFact]
+    public void DeleteKey_WhileCellEditorFocused_EditsText_DoesNotRemove()
+    {
+        using ConnHarness harness = new();
+        ProxySettingItem row0 = Row("old.host", 8080, ProxyType.Http, enabled: true);
+        harness.Vm.Proxies.Add(row0);
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        try
+        {
+            DataGrid grid = view.ProxyGrid;
+            DataGridTextColumn hostColumn = TextColumn(grid, "Host");
+
+            grid.SelectedItem = row0;
+            grid.ScrollIntoView(row0, hostColumn);
+            grid.CurrentColumn = hostColumn;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(grid.BeginEdit(), "BeginEdit should enter edit mode on the Host cell");
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox editor = grid.GetVisualDescendants().OfType<TextBox>().First(tb => tb.Text == "old.host");
+            editor.Text = "abc";
+            editor.CaretIndex = 0;
+            editor.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            // The guard sees the focused cell editor → CanExecute is false, so KeyBinding.TryHandle declines
+            // WITHOUT marking the KeyDown Handled and the keystroke falls through to the editing TextBox.
+            var guarded = (DataGridDeleteKeyGuard.EditorGuardedCommand)Assert.Single(grid.KeyBindings).Command;
+            Assert.True(guarded.IsCellEditorFocused());
+            Assert.False(guarded.CanExecute(grid.SelectedItems));
+
+            // A real Delete keystroke forward-deletes the char at the caret (WPF parity), and the remove
+            // confirmation is never shown — the remove command did not fire.
+            window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("bc", editor.Text);
+            harness.DialogMock.Verify(
+                d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
+                Times.Never);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── FIX 1: with NO cell editor focused, Delete still fires the remove path ──
+
+    [AvaloniaFact]
+    public void DeleteKey_WithNoEditorFocused_FiresRemovePath()
+    {
+        using ConnHarness harness = new();
+        ProxySettingItem row0 = Row("host.a", 8080, ProxyType.Http, enabled: true);
+        harness.Vm.Proxies.Add(row0);
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        try
+        {
+            DataGrid grid = view.ProxyGrid;
+            grid.SelectedItem = row0; // the live SelectedItems now carries row0
+            Dispatcher.UIThread.RunJobs();
+
+            var guarded = (DataGridDeleteKeyGuard.EditorGuardedCommand)Assert.Single(grid.KeyBindings).Command;
+
+            // No cell editor is focused → the guard delegates straight to RemoveSelectedCommand.
+            Assert.False(guarded.IsCellEditorFocused());
+            Assert.True(guarded.CanExecute(grid.SelectedItems));
+
+            // Executing it runs the remove path — the opt-out confirmation is shown for the selected proxy
+            // (the mock returns false, so nothing is actually removed, but the remove command fired).
+            guarded.Execute(grid.SelectedItems);
+            Dispatcher.UIThread.RunJobs();
+
+            harness.DialogMock.Verify(
+                d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
+                Times.Once);
         }
         finally
         {
@@ -419,13 +508,17 @@ public class SettingsConnectionTests
 
             ProxySettingRepository repo = new(factory);
             ProxyManager manager = new(repo, Mock.Of<IAppLogger>(), new AppSettings { ProxiesEnabled = true });
-            Vm = new ConnectionManagerViewModel(repo, manager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), Mock.Of<IUiDispatcher>())
+            Vm = new ConnectionManagerViewModel(repo, manager, DialogMock.Object, Mock.Of<IAppLogger>(), Mock.Of<IUiDispatcher>())
             {
                 ProxiesEnabled = true,
             };
         }
 
         public ConnectionManagerViewModel Vm { get; }
+
+        /// <summary>The dialog service the VM's RemoveSelected confirmation flows through — verifiable so the
+        /// Delete-key guard tests can assert the remove path did / did not fire (Times.Never / Times.Once).</summary>
+        public Mock<IDialogService> DialogMock { get; } = new();
 
         public void Dispose() => _connection.Dispose();
 

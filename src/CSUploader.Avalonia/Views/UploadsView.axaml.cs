@@ -91,10 +91,11 @@ public partial class UploadsView : UserControl
         // the selection itself.
         uploadsGrid.AddHandler(InputElement.PointerPressedEvent, UploadsGrid_PointerPressed, RoutingStrategies.Tunnel);
 
-        // Ctrl+C = the package-expanding copy (the DIVERGENCE from UploadedView): a TUNNEL KeyDown intercept
-        // that runs the custom copy and marks the event Handled, which suppresses the DataGrid's built-in
-        // copy (DataGrid_KeyDown early-returns on e.Handled — confirmed via ILSpy). The built-in copy would
-        // otherwise serialize only SelectedItems with no child expansion.
+        // Ctrl+C / Ctrl+Insert = the package-expanding copy (the DIVERGENCE from UploadedView): a TUNNEL KeyDown
+        // intercept that runs the custom copy and marks the event Handled, which suppresses the DataGrid's
+        // built-in copy (DataGrid_KeyDown early-returns on e.Handled — confirmed via ILSpy). The built-in copy
+        // routes BOTH gestures to ProcessCopyKey and would otherwise serialize only SelectedItems with no child
+        // expansion — WPF expanded on both (ApplicationCommands.Copy), so both must be intercepted here.
         uploadsGrid.AddHandler(InputElement.KeyDownEvent, UploadsGrid_KeyDown, RoutingStrategies.Tunnel);
 
         // Editable Order cell (prep 7): the grid is IsReadOnly=False ONLY so the Order cell can be typed
@@ -152,7 +153,9 @@ public partial class UploadsView : UserControl
     /// Delete key → <see cref="UploadsViewModel.RemoveSelectedCommand"/> (rule 24). A <see cref="KeyBinding"/>
     /// is a non-DataContext AvaloniaObject on 11.3.18, so it is wired in code-behind where the VM command and
     /// the live SelectedItems are both in hand (parameter per rule 19). The built-in DataGrid does NOT handle
-    /// Delete (ILSpy: absent from ProcessDataGridKey), so this never fights a built-in row deletion.
+    /// Delete (ILSpy: absent from ProcessDataGridKey), so this never fights a built-in row deletion. The grid is
+    /// EDITABLE (the Order cell), so the binding is built through <see cref="DataGridDeleteKeyGuard"/>: while the
+    /// Order CellEditingTemplate TextBox holds focus, Delete edits text instead of removing rows (WPF parity).
     /// </summary>
     private void WireDeleteKeyBinding(UploadsViewModel vm)
     {
@@ -162,12 +165,8 @@ public partial class UploadsView : UserControl
         }
 
         _deleteWired = true;
-        uploadsGrid.KeyBindings.Add(new KeyBinding
-        {
-            Gesture = new KeyGesture(Key.Delete),
-            Command = vm.RemoveSelectedCommand,
-            CommandParameter = uploadsGrid.SelectedItems,
-        });
+        uploadsGrid.KeyBindings.Add(DataGridDeleteKeyGuard.CreateDeleteKeyBinding(
+            uploadsGrid, vm.RemoveSelectedCommand, uploadsGrid.SelectedItems));
     }
 
     /// <summary>
@@ -452,11 +451,12 @@ public partial class UploadsView : UserControl
 
     // ── Package-expanding copy (the DIVERGENCE from UploadedView) ──
 
-    /// <summary>Ctrl+C intercept: runs the package-expanding copy and marks the event Handled so the DataGrid's
-    /// built-in copy (which serializes only SelectedItems, no child expansion) never runs.</summary>
+    /// <summary>Ctrl+C / Ctrl+Insert intercept: runs the package-expanding copy and marks the event Handled so
+    /// the DataGrid's built-in copy (which serializes only SelectedItems, no child expansion, and answers to
+    /// both gestures) never runs.</summary>
     private void UploadsGrid_KeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.C && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if ((e.Key == Key.C || e.Key == Key.Insert) && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             CopyRowsToClipboard();
             e.Handled = true;
@@ -468,10 +468,10 @@ public partial class UploadsView : UserControl
     /// <summary>
     /// Copies the selected rows as TSV to the clipboard, expanding any selected Package to include its child
     /// files. Mirrors the WPF <c>OnCopyWithChildrenExecuted</c> (UploadsView.xaml.cs:368-424); the WPF
-    /// <c>Clipboard.SetText</c> becomes <c>TopLevel.Clipboard.SetTextAsync</c> with the same swallow-on-failure
-    /// guard (rule 9).
+    /// <c>Clipboard.SetText</c> becomes an AWAITED <c>TopLevel.Clipboard.SetTextAsync</c> with the same
+    /// swallow-on-failure guard (rule 9) — matching the ErrorDetailsWindow / ProxyTextDialog Copy handlers.
     /// </summary>
-    private void CopyRowsToClipboard()
+    private async void CopyRowsToClipboard()
     {
         if (BuildRowCopyText() is not { } text)
         {
@@ -480,7 +480,12 @@ public partial class UploadsView : UserControl
 
         try
         {
-            TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(text);
+            // Await the write so this catch actually observes an (async) contention failure — the earlier
+            // fire-and-forget shape returned the task unawaited, so the catch could never see it (rule 9).
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
         }
         catch
         {

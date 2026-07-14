@@ -5,7 +5,6 @@
 
 using System.Collections;
 using System.ComponentModel;
-using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
@@ -97,13 +96,11 @@ public partial class SettingsView : UserControl
         _proxyDeleteWired = true;
 
         // Rule 24: KeyBinding is a non-DataContext AvaloniaObject, so wire it in code-behind where the VM
-        // command and the live SelectedItems are both in hand (parameter per rule 19).
-        ProxyGrid.KeyBindings.Add(new KeyBinding
-        {
-            Gesture = new KeyGesture(Key.Delete),
-            Command = vm.RemoveSelectedCommand,
-            CommandParameter = ProxyGrid.SelectedItems,
-        });
+        // command and the live SelectedItems are both in hand (parameter per rule 19). This grid is EDITABLE
+        // (Host/Port/User/Password cells), so the binding is built through DataGridDeleteKeyGuard: while a cell
+        // editor holds focus, Delete edits text instead of removing the row being edited (WPF parity).
+        ProxyGrid.KeyBindings.Add(DataGridDeleteKeyGuard.CreateDeleteKeyBinding(
+            ProxyGrid, vm.RemoveSelectedCommand, ProxyGrid.SelectedItems));
     }
 
     private void ProxyGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -272,8 +269,14 @@ public partial class SettingsView : UserControl
 
         List<FileHosterLoginDto> targets = EnableToggleTargets(account);
 
-        ICommand command = disable ? vm.DisableSelectedAccountsCommand : vm.EnableSelectedAccountsCommand;
-        command.Execute(targets);
+        if (disable)
+        {
+            vm.DisableSelectedAccountsCommand.Execute(targets);
+        }
+        else
+        {
+            vm.EnableSelectedAccountsCommand.Execute(targets);
+        }
     }
 
     /// <summary>

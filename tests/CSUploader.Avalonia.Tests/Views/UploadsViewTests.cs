@@ -12,6 +12,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
@@ -631,6 +632,7 @@ public class UploadsViewTests
     }
 
     // ── Delete key binding wired to RemoveSelectedCommand with the live SelectedItems parameter (rule 24) ──
+    // (FIX 1: this EDITABLE grid's binding is the editor-guard wrapper, which delegates to RemoveSelectedCommand.)
 
     [AvaloniaFact]
     public void DeleteKeyBinding_WiredToRemoveSelectedCommand_WithSelectedItemsParameter()
@@ -640,8 +642,133 @@ public class UploadsViewTests
 
         KeyBinding binding = Assert.Single(view.uploadsGrid.KeyBindings);
         Assert.Equal(Key.Delete, binding.Gesture.Key);
-        Assert.Same(harness.Vm.RemoveSelectedCommand, binding.Command);
+        var guarded = Assert.IsType<DataGridDeleteKeyGuard.EditorGuardedCommand>(binding.Command);
+        Assert.Same(harness.Vm.RemoveSelectedCommand, guarded.Inner);
         Assert.Same(view.uploadsGrid.SelectedItems, binding.CommandParameter);
+    }
+
+    // ── FIX 1 (MAJOR twin): while the Order cell editor is focused, Delete edits text and does NOT remove ──
+
+    [AvaloniaFact]
+    public void DeleteKey_WhileOrderCellEditorFocused_EditsText_DoesNotRemove()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single(); // default (non-terminal) state → the Order cell is editable
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.uploadsGrid;
+            DataGridColumn orderColumn = OrderColumnOf(view);
+            orderColumn.IsVisible = true; // the Order column ships hidden (the column menu toggles it)
+            Dispatcher.UIThread.RunJobs();
+
+            grid.SelectedItem = file;
+            grid.ScrollIntoView(file, orderColumn);
+            grid.CurrentColumn = orderColumn;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(grid.BeginEdit(), "BeginEdit should enter edit mode on the Order cell");
+            Dispatcher.UIThread.RunJobs();
+
+            // The only TextBox realized inside the grid is the Order CellEditingTemplate editor.
+            TextBox editor = grid.GetVisualDescendants().OfType<TextBox>().First();
+            editor.Text = "12";
+            editor.CaretIndex = 0;
+            editor.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            // The guard sees the focused cell editor → CanExecute false, so KeyBinding.TryHandle declines
+            // WITHOUT marking the KeyDown Handled and the keystroke falls through to the editing TextBox.
+            var guarded = (DataGridDeleteKeyGuard.EditorGuardedCommand)Assert.Single(grid.KeyBindings).Command;
+            Assert.True(guarded.IsCellEditorFocused());
+            Assert.False(guarded.CanExecute(grid.SelectedItems));
+
+            window.KeyPress(Key.Delete, RawInputModifiers.None, PhysicalKey.Delete, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("2", editor.Text); // forward-delete removed the char at the caret (WPF parity)
+            harness.DialogMock.Verify(
+                d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
+                Times.Never);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── FIX 1: with NO cell editor focused, Delete still fires the remove path ──
+
+    [AvaloniaFact]
+    public void DeleteKey_WithNoEditorFocused_FiresRemovePath()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.uploadsGrid;
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(package);
+            Dispatcher.UIThread.RunJobs();
+
+            var guarded = (DataGridDeleteKeyGuard.EditorGuardedCommand)Assert.Single(grid.KeyBindings).Command;
+
+            // No cell editor is focused → the guard delegates straight to RemoveSelectedCommand.
+            Assert.False(guarded.IsCellEditorFocused());
+            Assert.True(guarded.CanExecute(grid.SelectedItems));
+
+            // Executing it runs the remove path — the opt-out confirmation is shown for the selected package
+            // (the mock returns false, so nothing is actually removed, but the remove command fired).
+            guarded.Execute(grid.SelectedItems);
+            Dispatcher.UIThread.RunJobs();
+
+            harness.DialogMock.Verify(
+                d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
+                Times.Once);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── FIX 2: Ctrl+Insert (not just Ctrl+C) runs the package-expanding copy and is Handled (pin both gestures) ──
+
+    [AvaloniaFact]
+    public void CtrlInsertAndCtrlC_BothRunExpandingCopy_AndAreHandled()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin", "alpha2.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            view.uploadsGrid.SelectedItems.Clear();
+            view.uploadsGrid.SelectedItems.Add(package);
+            Dispatcher.UIThread.RunJobs();
+
+            IClipboard clipboard = TopLevel.GetTopLevel(view.uploadsGrid)!.Clipboard!;
+
+            // Ctrl+Insert routes to the built-in DataGrid's flat ProcessCopyKey in stock Avalonia; the tunnel
+            // intercept must claim it (Handled) and run the SAME expanding copy as Ctrl+C.
+            Assert.True(RaiseCopyGesture(view, Key.Insert));
+            string insertTsv = ReadClipboard(clipboard);
+            Assert.Contains("Alpha pack", insertTsv, StringComparison.Ordinal);
+            Assert.Contains("alpha1.bin", insertTsv, StringComparison.Ordinal);
+            Assert.Contains("alpha2.bin", insertTsv, StringComparison.Ordinal); // child expansion — a flat copy would omit these
+
+            clipboard.ClearAsync();
+            Dispatcher.UIThread.RunJobs();
+
+            // Ctrl+C still runs the same expanding copy (the other gesture stays intercepted too).
+            Assert.True(RaiseCopyGesture(view, Key.C));
+            Assert.Contains("alpha2.bin", ReadClipboard(clipboard), StringComparison.Ordinal);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     // ── Overview panel (Task 12): ShowUploadOverview toggles the whole panel's visibility (rule 33) ──
@@ -795,6 +922,11 @@ public class UploadsViewTests
                 db.Database.EnsureCreated();
             }
 
+            // Lifetime constraint: resolving MainViewModel pins the WHOLE VM graph on Localizer.Instance via a
+            // strong ctor subscription AND starts a real 6h DispatcherTimer that is never stopped and that
+            // provider.Dispose() cannot stop — so the graph outlives this test. NEVER resolve MainViewModel
+            // inside a [Theory]/loop (each iteration would leak another live graph + timer); if a third site
+            // ever needs one, share a single fixture-scoped instance instead.
             MainViewModel main = provider.GetRequiredService<MainViewModel>();
             UploadsView view = new() { DataContext = main.UploadsViewModel };
             Window window = new() { Width = 900, Height = 600, Content = view, DataContext = main };
@@ -841,6 +973,25 @@ public class UploadsViewTests
 
     private static DataGridColumn OrderColumnOf(UploadsView view)
         => view.uploadsGrid.Columns.First(c => Equals(c.Header, Localizer.Instance["Uploads_Col_Order"]));
+
+    // Raises a real Ctrl+<key> KeyDown through the grid's TUNNEL handler (UploadsGrid_KeyDown) and returns
+    // whether it was Handled — the copy interception mirrors the built-in DataGrid's ProcessCopyKey gestures.
+    private static bool RaiseCopyGesture(UploadsView view, Key key)
+    {
+        KeyEventArgs e = new()
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = key,
+            KeyModifiers = KeyModifiers.Control,
+            Source = view.uploadsGrid,
+        };
+        view.uploadsGrid.RaiseEvent(e);
+        Dispatcher.UIThread.RunJobs();
+        return e.Handled;
+    }
+
+    private static string ReadClipboard(IClipboard clipboard)
+        => clipboard.TryGetTextAsync().GetAwaiter().GetResult() ?? string.Empty;
 
     private static int CountOf(DataGridCollectionView view) => view.Count;
 
@@ -943,13 +1094,17 @@ public class UploadsViewTests
             _scheduler = new UploadScheduler(_settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new HashingService(), registry);
             _manager = new PackageManager(_settings, _scheduler, packageRepo, fileRepo, _loginRepo, Mock.Of<IAppLogger>(), registry);
 
-            Vm = new UploadsViewModel(_manager, _settings, Mock.Of<IDialogService>(), new InlineDispatcher(), Mock.Of<IClipboardService>(), settingRepo);
+            Vm = new UploadsViewModel(_manager, _settings, DialogMock.Object, new InlineDispatcher(), Mock.Of<IClipboardService>(), settingRepo);
 
             _tempDir = Path.Combine(Path.GetTempPath(), $"csu-uploadsview-{Guid.NewGuid():N}");
             Directory.CreateDirectory(_tempDir);
         }
 
         public UploadsViewModel Vm { get; }
+
+        /// <summary>The dialog service the VM's RemoveSelected confirmation flows through — verifiable so the
+        /// Delete-key guard tests can assert the remove path did / did not fire (Times.Never / Times.Once).</summary>
+        public Mock<IDialogService> DialogMock { get; } = new();
 
         /// <summary>Seeds a package (default expanded) and its files straight into the VM's collections — the
         /// exact row shape the VM's PackageAdded handler builds (package row followed by its file rows).</summary>
