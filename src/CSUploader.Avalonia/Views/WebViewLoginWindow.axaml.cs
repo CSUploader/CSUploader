@@ -5,6 +5,7 @@
 
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CSUploader.Lib.Localization;
@@ -19,7 +20,9 @@ namespace CSUploader.Views;
 /// src/Views/WebViewLoginWindow.xaml.cs). Hosts a <see cref="CoreWebView2Controller"/> in a native child
 /// HWND (<see cref="WebView2Host"/>) — there is no Avalonia WebView2 CONTROL, so this window owns the
 /// controller, its bounds (DIP x RenderScaling, the Phase 2 spike recipe), and teardown (controller.Close()
-/// releases the per-hoster user-data-folder lock). Completion is Task 4; focus integration is Task 5.
+/// releases the per-hoster user-data-folder lock). It also drives completion/capture (Task 4) and the focus
+/// integration the WPF WebView2 control did internally (Task 5: MoveFocusRequested / focus-on-activation /
+/// initial focus).
 /// </summary>
 public partial class WebViewLoginWindow : Window
 {
@@ -42,6 +45,7 @@ public partial class WebViewLoginWindow : Window
     private bool _creating;
     private bool _torndown;
     private bool _completed;
+    private bool _initialFocusPending;
     private DispatcherTimer? _pollTimer;
     private System.Drawing.Rectangle _lastBounds;
 
@@ -106,6 +110,15 @@ public partial class WebViewLoginWindow : Window
         ScalingChanged += (_, _) => SyncBounds();
 
         Closed += (_, _) => TeardownController();
+
+        // Focus-on-activation (ADAPTATION ADDITION): alt-tabbing back into the login window pushes keyboard
+        // focus into the page. Guarded — an Activated that fires before the controller exists is a no-op; the
+        // explicit initial-focus (below, after the first navigation) covers the first show.
+        Activated += OnWindowActivated;
+
+        // Loop-closer: when Avalonia focus lands back on the host (Tab off the Cancel button), hand it into the
+        // page — completing the page <-> Cancel tab loop opened by MoveFocusRequested below.
+        Host.GotFocus += OnHostGotFocus;
     }
 
     // NOTE: InitializeComponent() is emitted by the Avalonia source generator (partial class + WebViewLoginWindow.axaml) —
@@ -155,6 +168,13 @@ public partial class WebViewLoginWindow : Window
             }
 
             _core = _controller.CoreWebView2;
+
+            // Tab-out of the page (ADAPTATION ADDITION): when the WebView asks to move focus out (Tab past the
+            // last field = Next, Shift+Tab before the first = Previous), move Avalonia focus to the only other
+            // focusable — the Cancel button — and mark handled so the WebView doesn't beep. Tabbing off Cancel
+            // returns to Host (its GotFocus handler pushes focus back into the page). Detached in teardown.
+            _controller.MoveFocusRequested += OnControllerMoveFocusRequested;
+            _initialFocusPending = true;
 
             // Pin the UA before any navigation when the spec asks (Cloudflare cf_clearance binds to the exact
             // solving UA — TakeFile).
@@ -240,6 +260,17 @@ public partial class WebViewLoginWindow : Window
         _pollTimer?.Stop();
         _pollTimer = null;
 
+        // Focus handlers detach (parity with the _core detaches below; Task 3 review precedent). The Activated /
+        // Host.GotFocus handlers are _controller?.-guarded no-ops post-teardown, but detaching keeps teardown
+        // symmetric and drops the window's self-references as it closes. MoveFocusRequested lives on the
+        // controller, so detach it while it's still non-null (before the Close below).
+        Activated -= OnWindowActivated;
+        Host.GotFocus -= OnHostGotFocus;
+        if (_controller is not null)
+        {
+            _controller.MoveFocusRequested -= OnControllerMoveFocusRequested;
+        }
+
         if (_core is not null)
         {
             _core.NavigationCompleted -= CoreWebView2_NavigationCompleted;
@@ -298,6 +329,16 @@ public partial class WebViewLoginWindow : Window
     private async void CoreWebView2_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
         _vm.RecordNavigationCompleted(_core?.Source);
+
+        // Initial focus one-shot (ADAPTATION ADDITION): after the first page finishes loading, push keyboard
+        // focus into it so the user can type without a mouse click first. _controller?.-guarded (teardown nulls
+        // the controller, so this never runs against a Closed one).
+        if (_initialFocusPending)
+        {
+            _initialFocusPending = false;
+            _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+        }
+
         await PollForCompletionAsync();
     }
 
@@ -320,6 +361,29 @@ public partial class WebViewLoginWindow : Window
         => e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close(null);
+
+    // ---- Focus integration (ADAPTATION ADDITION; the spike never exercised focus) -------------------------
+    // Hosting a raw CoreWebView2Controller (vs the WPF WebView2 CONTROL, which bridges focus internally) means
+    // this window must carry keyboard focus across the native<->Avalonia boundary itself: INTO the page on
+    // window activation + the initial navigation, and OUT to the Cancel button on Tab-out. All three handlers
+    // are detached in TeardownController (parity with the _core handlers). Every MoveFocus is _controller?.-
+    // guarded — teardown nulls the controller in the same synchronous block it Closes it, so a non-null
+    // controller is never a Closed one.
+
+    private void OnWindowActivated(object? sender, EventArgs e)
+        => _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+
+    private void OnHostGotFocus(object? sender, GotFocusEventArgs e)
+        => _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
+
+    private void OnControllerMoveFocusRequested(object? sender, CoreWebView2MoveFocusRequestedEventArgs e)
+    {
+        if (e.Reason is CoreWebView2MoveFocusReason.Next or CoreWebView2MoveFocusReason.Previous)
+        {
+            CancelButton.Focus();
+            e.Handled = true;
+        }
+    }
 
     // ---- Completion / capture (mirrors WebViewLoginWindow.xaml.cs:302-502; single-completion guard = rule 49) --
 

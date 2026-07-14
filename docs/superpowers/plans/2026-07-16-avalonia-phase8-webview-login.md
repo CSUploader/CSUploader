@@ -1278,13 +1278,13 @@ The spike never exercised focus, so hosting a raw `CoreWebView2Controller` (vs a
 **Interfaces:**
 - Consumes: `Microsoft.Web.WebView2.Core` — `CoreWebView2Controller.MoveFocus(CoreWebView2MoveFocusReason)`, `CoreWebView2Controller.MoveFocusRequested` (`EventHandler<CoreWebView2MoveFocusRequestedEventArgs>` with `.Reason`/`.Handled`), `CoreWebView2MoveFocusReason.{Programmatic,Next,Previous}` (all pinned present in the SDK XML — Reality-check register).
 
-- [ ] **Step 1: Add the initial-focus flag.** In `WebViewLoginWindow.axaml.cs`, add a field beside `_completed`:
+- [x] **Step 1: Add the initial-focus flag.** In `WebViewLoginWindow.axaml.cs`, add a field beside `_completed`:
 
 ```csharp
     private bool _initialFocusPending;
 ```
 
-- [ ] **Step 2: Wire focus-on-activation in the ctor.** In the constructor, after the `Closed += (_, _) => TeardownController();` line, add:
+- [x] **Step 2: Wire focus-on-activation in the ctor.** In the constructor, after the `Closed += (_, _) => TeardownController();` line, add:
 
 ```csharp
         // Focus-on-activation (ADAPTATION ADDITION): alt-tabbing back into the login window pushes keyboard
@@ -1297,7 +1297,7 @@ The spike never exercised focus, so hosting a raw `CoreWebView2Controller` (vs a
         Host.GotFocus += (_, _) => _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
 ```
 
-- [ ] **Step 3: Wire `MoveFocusRequested` + arm initial focus in `OnHwndReady`.** In `OnHwndReady`, immediately AFTER `_core = _controller.CoreWebView2;`, add:
+- [x] **Step 3: Wire `MoveFocusRequested` + arm initial focus in `OnHwndReady`.** In `OnHwndReady`, immediately AFTER `_core = _controller.CoreWebView2;`, add:
 
 ```csharp
             // Tab-out of the page (ADAPTATION ADDITION): when the WebView asks to move focus out (Tab past the
@@ -1315,7 +1315,7 @@ The spike never exercised focus, so hosting a raw `CoreWebView2Controller` (vs a
             _initialFocusPending = true;
 ```
 
-- [ ] **Step 4: Perform initial focus on the first NavigationCompleted.** In `CoreWebView2_NavigationCompleted`, after `_vm.RecordNavigationCompleted(_core?.Source);` and before `await PollForCompletionAsync();`, add:
+- [x] **Step 4: Perform initial focus on the first NavigationCompleted.** In `CoreWebView2_NavigationCompleted`, after `_vm.RecordNavigationCompleted(_core?.Source);` and before `await PollForCompletionAsync();`, add:
 
 ```csharp
         if (_initialFocusPending)
@@ -1325,9 +1325,10 @@ The spike never exercised focus, so hosting a raw `CoreWebView2Controller` (vs a
         }
 ```
 
-- [ ] **Step 5: Build + regression suite + bridge smoke.** `dotnet build … -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings); `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, unchanged count). Re-run the gallery demo (Task 3 Step 7): the window still opens against `about:blank`, navigation fires, Cancel/Esc closes — confirming the focus wiring didn't break open/close mechanics. Record for the gate: native Tab-out/typing/initial-focus behavior is **maintainer-verified** (foreground-grab refusal; same class as the spike's unexercised typing).
+- [x] **Step 5: Build + regression suite + bridge smoke.** `dotnet build … -p:OutDir=D:\temp2\cbuild-mig\ava` (0 warnings); `dotnet test … -p:OutDir=D:\temp2\cbuild-mig\ava-tests` (green, unchanged count). Re-run the gallery demo (Task 3 Step 7): the window still opens against `about:blank`, navigation fires, Cancel/Esc closes — confirming the focus wiring didn't break open/close mechanics. Record for the gate: native Tab-out/typing/initial-focus behavior is **maintainer-verified** (foreground-grab refusal; same class as the spike's unexercised typing).
+      <br/>**Executor note (Task 5):** FORCED rebuild (`-t:Rebuild`, analyzers run) **0 warnings / 0 errors**; Avalonia suite **444/444** (unchanged — no test added, as the plan directs: native focus is agent-unverifiable and a trivial headless test would add no value); WPF/shared **1201/1201** (untouched — the diff is ONLY `WebViewLoginWindow.axaml.cs`, zero Core/WPF/resx). **Deviation (recorded):** plan Steps 2-3 give the three focus handlers as anonymous lambdas; per the team-lead detach-parity instruction (Task 3 review precedent) they are named methods (`OnWindowActivated` / `OnHostGotFocus` / `OnControllerMoveFocusRequested`) so `TeardownController` can `-=` all three alongside the existing 4 `_core` detaches — behavior identical, and it matches the surrounding named-method handler style. Guard discipline: every `MoveFocus` is `_controller?.`-guarded, and teardown nulls `_controller` in the same synchronous block it `Close()`s it, so a non-null controller is never a Closed one (no MoveFocus against a Closed controller). **Bridge smoke DONE (not just reasoned):** launched `--agent --gallery`, `ava_search`→`WebViewLoginDemoButton`→`ava_action invoke` opened the "Sign in" window (native controller created), `ava_vm` read `IsInitialized:true`, `LastNavigationUrl:about:blank`, `NavigationCompletedCount:1`, `IsCompleted:false` — so the Activated + initial-focus `MoveFocus` calls executed against the LIVE controller without throwing (window survived, VM readable), and the poll did not false-complete on the empty jar; `ava_action invoke` on `CancelButton` closed it cleanly (teardown detach + `controller.Close()` ran, owner re-activated, no leak error). **maintainer-only (unchanged, native, foreground-grab refusal):** actual Tab-out of the page → Cancel, Tab back into the page, typing credentials + a real Turnstile sign-in, and 125%/150% DPI — same class as the Phase 2 spike's unexercised native input.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```
 git add src/CSUploader.Avalonia/Views/WebViewLoginWindow.axaml.cs
