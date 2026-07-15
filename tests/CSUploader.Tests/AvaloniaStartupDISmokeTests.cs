@@ -19,8 +19,8 @@ namespace CSUploader.Tests.Avalonia;
 /// head composes at startup (<c>App.ConfigureServices</c>, internal — reachable through the head's
 /// <c>InternalsVisibleTo</c>) and resolves every head registration, the Core upload graph, and all six
 /// shared ViewModels, then runs <c>ServiceRegistration.WireRuntime</c>. This is the Avalonia sibling
-/// of the WPF <c>StartupDISmokeTests</c>: it proves the Avalonia UI-interface implementations satisfy
-/// the Core graph the shared ViewModels depend on.
+/// of the Core suite's <c>StartupDISmokeTests</c>: it proves the Avalonia UI-interface implementations
+/// satisfy the Core graph the shared ViewModels depend on.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,9 +31,10 @@ namespace CSUploader.Tests.Avalonia;
 /// the UI thread would break the very construction this smoke exists to exercise.
 /// </para>
 /// <para>
-/// A circular DI factory would manifest here as a hang rather than a fast failure (the WPF smoke's
-/// timeout catches that case for the shared Core graph already, in the WPF suite); the value this test
-/// adds is confirming the Avalonia head's own registrations complete the graph.
+/// A circular DI factory would manifest here as a hang rather than a fast failure; the bounded watchdog
+/// that catches that case for the shared Core graph now lives in CSUploader.Core.Tests
+/// (<c>StartupDISmokeTests.BuildProviderAndResolveStartupGraph_DoesNotHangOrThrow</c>), so the value this
+/// test adds is confirming the Avalonia head's own registrations complete the graph.
 /// </para>
 /// </remarks>
 public class AvaloniaStartupDISmokeTests

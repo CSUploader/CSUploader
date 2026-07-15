@@ -24,7 +24,7 @@ CSUploader is a Windows desktop application for uploading files to file hosting 
 
 ```bash
 dotnet build
-dotnet run --project src/CSUploader.csproj
+dotnet run --project src/CSUploader/CSUploader.csproj
 dotnet test
 ```
 

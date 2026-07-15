@@ -84,7 +84,7 @@ Conventions for writing tests in this project. Inherits everything from the root
   assertable via `ClipboardExtensions.TryGetTextAsync` (see `SimpleDialogTests.ErrorDetails_Copy_*`).
 - ViewModel constructors create real Avalonia `DispatcherTimer`s, so the DI smoke resolves the graph
   **inline on the UI thread** (`AvaloniaStartupDISmokeTests`) rather than under a `Task.Run` watchdog
-  like the WPF smoke.
+  like the Core suite's `StartupDISmokeTests`.
 - Build/run this project with its **own** `OutDir` (e.g. `-p:OutDir=D:/temp2/cbuild-mig/ava-tests`)
   to sidestep the bin lock the running app / VS holds on the head's default output.
 
@@ -96,7 +96,7 @@ Conventions for writing tests in this project. Inherits everything from the root
 ## ViewModel tests
 
 - Mock `IDialogService` and `IAppLogger` with Moq. `IDialogService` is fully async — set up its dialog methods with `ReturnsAsync` (e.g. `ShowOptOutConfirmationAsync`, `ShowConfirmationAsync`) to return the value the test needs.
-- ViewModels that marshal to the UI thread or create UI-thread timers take `IUiDispatcher`; construct them with `new InlineUiDispatcher()` (in `tests/ViewModels/`), **not** `Mock.Of<IUiDispatcher>()`. `InlineUiDispatcher` runs both `Post` and `InvokeAsync` inline and hands back manually-tickable timers (`TestTimer.Tick()`), so the VMs' Post-routed event handlers — the exact path the Avalonia head drives through a real dispatcher — actually execute and are assertable; a bare mock would return a null timer/`Task` and NRE in the constructor. (`WpfUiDispatcher` — whose `Post` is a no-op without an `Application` — now survives only in the head-graph smoke `StartupDISmokeTests`, which deliberately exercises the real WPF service.) Clipboard-touching VMs take `IClipboardService`; `Mock.Of<IClipboardService>()` is fine (its async members return completed tasks).
+- ViewModels that marshal to the UI thread or create UI-thread timers take `IUiDispatcher`; construct them with `new InlineUiDispatcher()` (in `tests/ViewModels/`), **not** `Mock.Of<IUiDispatcher>()`. `InlineUiDispatcher` runs both `Post` and `InvokeAsync` inline and hands back manually-tickable timers (`TestTimer.Tick()`), so the VMs' Post-routed event handlers — the exact path the Avalonia head drives through a real dispatcher — actually execute and are assertable; a bare mock would return a null timer/`Task` and NRE in the constructor. (The Core suite's `StartupDISmokeTests` DI-boundary test uses `InlineUiDispatcher` here too, for the same reason — the shared VM ctors create timers during resolution.) Clipboard-touching VMs take `IClipboardService`; `Mock.Of<IClipboardService>()` is fine (its async members return completed tasks).
 - For ViewModels that take `PackageManager`, construct a real one with in-memory repos and a real `UploadScheduler` — the scheduler's background loop is idle until packages are added, so it doesn't interfere with tests.
 - Invoke `[RelayCommand]` methods through their generated command (`vm.SomeCommand.ExecuteAsync(parameter)`), not via reflection.
 - Pass `IList`-style parameters as `new List<T> { ... }` to mirror what the DataGrid binding sends at runtime.
