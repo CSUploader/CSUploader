@@ -3,8 +3,7 @@
   <!-- Dev-only, opt-in AvaDevBridge wiring. MSBuild auto-imports only Directory.Build.props, so the
        machine-specific local props (which defines AvaDevBridgeCsproj) is imported explicitly here.
        Absent on CI → no import, no reference, no AVA_BRIDGE define; the build stays self-contained. -->
-  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.local.props"
-          Condition="Exists('$(MSBuildThisFileDirectory)..\..\Directory.Build.local.props')" />
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.local.props" Condition="Exists('$(MSBuildThisFileDirectory)..\..\Directory.Build.local.props')" />
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug' and '$(AvaDevBridgeCsproj)' != '' and Exists('$(AvaDevBridgeCsproj)')">
     <AvaBridgeEnabled>true</AvaBridgeEnabled>
@@ -41,20 +40,17 @@
     <!-- DataGrid's 11.x line ends at 11.3.13; its dependency range accepts the 11.3.18 core.
          Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" Condition="'$(Configuration)' == 'Debug'" />
-    <!-- File-type SVG rendering (FileTypeIconConverter → cached SvgImage). 11.3.0 is the only
-         11.3-line release; its Avalonia floor (>= 11.3.0) accepts our 11.3.18. It depends on
-         Svg.Skia 3.0.2 + SkiaSharp >= 3.116.1, which UPLIFTS the app's SkiaSharp above
-         Avalonia.Skia 11.3.18's own 2.88.9 build — verified to render at runtime (live Skia proof),
-         not by faith. Pre-agreed fallback if the uplift breaks rendering: Avalonia.Svg.Skia 11.2.0.3. -->
-    <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
     <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-    <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers).
-         Same pin as the WPF head (src/CSUploader.csproj). -->
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers). -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
+         Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
+         2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.5" />
   </ItemGroup>
 
   <ItemGroup>
@@ -87,8 +83,7 @@
        app with no file-type icons (a glob matching zero files is not an MSBuild error). Fail the
        build instead — same guard as the WPF head. -->
   <Target Name="EnsureVsCodeIconsSubmodule" BeforeTargets="BeforeBuild">
-    <Error Condition="!Exists('..\..\external\vscode-icons\icons\file_type_json.svg')"
-           Text="vscode-icons submodule not initialized — run: git submodule update --init --recursive" />
+    <Error Condition="!Exists('..\..\external\vscode-icons\icons\file_type_json.svg')" Text="vscode-icons submodule not initialized — run: git submodule update --init --recursive" />
   </Target>
 
   <ItemGroup>
@@ -102,8 +97,8 @@
        WebView2Loader copy are untouched. Permanent: the Avalonia head consumes only Microsoft.Web.WebView2.Core. -->
   <Target Name="_DropWebView2DesktopWrappers" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup>
-      <Reference Remove="@(Reference->WithMetadataValue('Filename','Microsoft.Web.WebView2.Wpf'))" />
-      <Reference Remove="@(Reference->WithMetadataValue('Filename','Microsoft.Web.WebView2.WinForms'))" />
+      <Reference Remove="@(Reference-&gt;WithMetadataValue('Filename','Microsoft.Web.WebView2.Wpf'))" />
+      <Reference Remove="@(Reference-&gt;WithMetadataValue('Filename','Microsoft.Web.WebView2.WinForms'))" />
     </ItemGroup>
   </Target>
 
