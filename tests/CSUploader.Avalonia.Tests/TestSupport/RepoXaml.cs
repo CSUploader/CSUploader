@@ -10,19 +10,18 @@ using System.Text.RegularExpressions;
 namespace CSUploader.Tests.Avalonia;
 
 /// <summary>
-/// Shared helpers for the WPF↔Avalonia parity drift gates (ImageResourceTests, ThemeTests): locate the
-/// repo root OutDir-independently and scrape the <c>x:Key</c> set out of a XAML resource dictionary.
-/// Extracted from ImageResourceTests so the theme gate can reuse the exact same parse (a WPF-side key
-/// addition then fails a test on both the image and theme sides, not a downstream view).
+/// Shared helpers for the Avalonia resource/theme gates (ImageResourceTests, ThemeTests): locate the repo
+/// root OutDir-independently and scrape the <c>x:Key</c> set out of a XAML resource dictionary. Post-cutover
+/// the Avalonia dictionaries are the sole source of truth, so a key present in one variant but not its
+/// sibling (or a token declared but not merged) fails a test here, not a downstream view.
 /// </summary>
 internal static class RepoXaml
 {
     /// <summary>
-    /// Every <c>x:Key</c> in a XAML resource dictionary. The keys sit one-per-line in the WPF
-    /// ImageResources.xaml / Theme.*.xaml and the Avalonia ImageGeometries.axaml / ThemeBrushes.axaml,
-    /// so a flat scan is exact. The captured value is the raw attribute text, so markup-extension keys
-    /// (e.g. <c>{x:Static SystemColors.GrayTextBrushKey}</c>) come back verbatim and the caller filters
-    /// them — see <see cref="IsLiteralKey"/>.
+    /// Every <c>x:Key</c> in a XAML resource dictionary. The keys sit one-per-line in the Avalonia
+    /// ImageGeometries.axaml / ThemeBrushes.axaml, so a flat scan is exact. The captured value is the raw
+    /// attribute text, so markup-extension keys (e.g. the <c>{x:Static ThemeVariant.Dark}</c> variant
+    /// marker) come back verbatim and the caller filters them — see <see cref="IsLiteralKey"/>.
     /// </summary>
     internal static HashSet<string> ParseXamlKeys(string path) => ParseXamlKeysFromText(File.ReadAllText(path));
 
@@ -42,20 +41,18 @@ internal static class RepoXaml
     /// </summary>
     internal static bool IsLiteralKey(string key) => !key.StartsWith('{');
 
-    // The keyed value-token element types shared by the WPF Tokens.xaml value block and the Avalonia
-    // Tokens.axaml. WPF writes `sys:Double`, Avalonia `x:Double`; both have the local name "Double", so
-    // the prefix is dropped and only the local type is compared. Style / ControlTemplate keys use other
-    // element names and are excluded by this set (belt) and by the <Style … slice (braces) below.
+    // The keyed value-token element types in the Avalonia Tokens.axaml value block. The element-name
+    // prefix (e.g. x:Double) is optional in the pattern and dropped, so only the local type is compared.
+    // Style / ControlTemplate keys use other element names and are excluded by this set (belt) and by the
+    // <Style … slice below.
     private static readonly Regex ValueTokenPattern =
         new("<(?:\\w+:)?(Double|FontFamily|Thickness|CornerRadius|GridLength)\\s+x:Key=\"([^\"]+)\"\\s*>([^<]*)</", RegexOptions.Compiled);
 
     /// <summary>
-    /// Value tokens (spacing/typography/sizing/corners + the grid font) as a <c>key → "Type=value"</c>
-    /// map, for the Tokens.xaml ↔ Tokens.axaml drift gate. Everything from the first <c>&lt;Style</c>
-    /// onward is sliced off first: the WPF Tokens.xaml re-templates (deliberately NOT ported) declare
-    /// their own keyed resources, and the value block always precedes them. Normalizing to
-    /// <c>"Type=value"</c> makes a WPF <c>sys:Double 13</c> compare equal to an Avalonia <c>x:Double 13</c>
-    /// while still catching a type OR value drift.
+    /// Value tokens (spacing/typography/sizing/corners + the grid font) of the Avalonia Tokens.axaml as a
+    /// <c>key → "Type=value"</c> map. Everything from the first <c>&lt;Style</c> onward is sliced off first
+    /// so any keyed Style/ControlTemplate resources (which follow the value block) are not scraped as value
+    /// tokens. Normalizing to <c>"Type=value"</c> captures both the element type and its value.
     /// </summary>
     internal static Dictionary<string, string> ParseValueTokens(string xaml)
     {

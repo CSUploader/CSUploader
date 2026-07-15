@@ -14,45 +14,23 @@ using SkiaSharp;
 namespace CSUploader.Tests.Avalonia.Resources;
 
 /// <summary>
-/// WPF key-parity gate for the ported image resources. The keys are load-bearing — the runtime
-/// converters (HosterIconConverter computes "FileHoster&lt;Name&gt;Image"; the status/action
-/// converters look keys up by name) resolve against these, so parity is enforced by test, not by
-/// eyeball. Runs under <see cref="AvaloniaFactAttribute"/> because it needs the real
-/// <c>App</c> instance's merged resource surface (bitmaps merged in <c>App.Initialize</c>, geometries
-/// via <c>App.axaml</c>).
+/// Load-bearing gate for the ported image resources. The keys are load-bearing — the runtime converters
+/// (HosterIconConverter computes "FileHoster&lt;Name&gt;Image"; the status/action converters look keys up
+/// by name) resolve against these, so a missing/blank icon is caught by test, not by eyeball. Runs under
+/// <see cref="AvaloniaFactAttribute"/> because it needs the real <c>App</c> instance's merged resource
+/// surface (bitmaps merged in <c>App.Initialize</c>, geometries via <c>App.axaml</c>).
 /// </summary>
 public class ImageResourceTests
 {
     [AvaloniaFact]
-    public void PortedKeys_MatchWpfImageResources_AndBitmapsLoad()
+    public void EveryBitmapEntry_ResolvesToLoadedBitmap()
     {
-        // Real drift gate (replaces the old self-referential count pin): parse the WPF
-        // ImageResources.xaml x:Key set (bitmaps AND geometries) and assert it is set-equal to the
-        // Avalonia port — BitmapImageResources.Entries keys plus the merged ImageGeometries.axaml
-        // keys. A WPF-side key addition that is not mirrored here (the Buzzheavier master-merge
-        // scenario) now FAILS this test instead of silently rendering a blank icon. Source files are
-        // located via CallerFilePath (OutDir-independent — the repo builds to a temp OutDir; same
-        // pattern as I18nRegenGateTests.FindRepoRoot).
-        string root = RepoXaml.FindRepoRoot();
-        HashSet<string> wpfKeys = RepoXaml.ParseXamlKeys(Path.Combine(root, "src", "Resources", "ImageResources.xaml"));
-        HashSet<string> geometryKeys = RepoXaml.ParseXamlKeys(
-            Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"));
-        HashSet<string> portedKeys = BitmapImageResources.Entries
-            .Select(e => e.Key)
-            .Concat(geometryKeys)
-            .ToHashSet(StringComparer.Ordinal);
-
-        // Symmetric-difference reporting so a drift names the offending key(s).
-        List<string> missing = wpfKeys.Except(portedKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        List<string> stale = portedKeys.Except(wpfKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        Assert.True(
-            missing.Count == 0,
-            $"WPF ImageResources.xaml keys not ported (add to BitmapImageResources.Entries or ImageGeometries.axaml): {string.Join(", ", missing)}");
-        Assert.True(
-            stale.Count == 0,
-            $"Ported keys with no WPF source (stale port): {string.Join(", ", stale)}");
-
-        // Runtime check: every bitmap entry resolves to an actually-loaded Bitmap.
+        // Post-cutover the Avalonia head is the sole source of truth (the WPF ImageResources.xaml drift
+        // reference is gone with the head). Assert every BitmapImageResources entry resolves in the App's
+        // merged resource surface to a real loaded Bitmap — the coverage that catches a hoster icon added
+        // to the map but not actually merged/shipped (the Buzzheavier master-merge scenario), which would
+        // otherwise render blank. Geometry keys are covered by EveryGeometryKey_Resolves.
+        Assert.NotEmpty(BitmapImageResources.Entries);
         foreach ((string key, _) in BitmapImageResources.Entries)
         {
             Assert.True(Application.Current!.TryFindResource(key, out object? value), $"missing resource: {key}");

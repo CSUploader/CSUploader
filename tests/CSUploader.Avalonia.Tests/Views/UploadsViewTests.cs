@@ -876,8 +876,9 @@ public class UploadsViewTests
         harness.SeedPackage("Alpha pack", "alpha1.bin");
         (Window window, UploadsView view) = Show(harness.Vm);
 
-        // App.Services is null under the test lifetime (the production ctor path is covered by the Task 7 DI
-        // hand-construction test), so swap the factory for the internal VM-injection wizard ctor.
+        // App.Services is null under the test lifetime (the production path, where the window resolves the
+        // DI-registered UploadWizardViewModel, is covered by the wizard DI-resolution test), so swap the
+        // factory for the internal VM-injection wizard ctor.
         UploadWizardWindow? opened = null;
         UploadWizardViewModel wizardVm = harness.BuildWizardViewModel();
         view.UploadWizardWindowFactory = _ => opened = new UploadWizardWindow(wizardVm);

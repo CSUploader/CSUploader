@@ -29,8 +29,8 @@ namespace CSUploader.Tests.Avalonia.Views;
 
 /// <summary>
 /// Headless verification of the ported <see cref="UploadWizardWindow"/> shell + step 0 (Phase 6 Task 7).
-/// The load-bearing checks: the seven-service hand-construction actually resolves against the head's DI graph
-/// (the WPF ctor's <c>App.Services</c> path — §Reality-check #9); step 0 is visible at <c>CurrentStep=0</c>;
+/// The load-bearing checks: the wizard VM's seven ctor dependencies all resolve against the head's DI graph
+/// (the VM is DI-registered Transient and resolved from <c>App.Services</c>, Reality-check #9); step 0 is visible at <c>CurrentStep=0</c>;
 /// the mode RadioButtons two-way <see cref="UploadWizardViewModel.Mode"/> (Directory↔Files) and the source
 /// pickers follow; added <see cref="FileEntry"/> rows realize and an <c>IsVisible=false</c> row collapses
 /// (§Reality-check #20 — the scoped DataGridRow style); Cancel closes with a non-completed result (rule 7);
@@ -40,13 +40,13 @@ namespace CSUploader.Tests.Avalonia.Views;
 /// </summary>
 public class UploadWizardShellTests
 {
-    // ── The hand-construction resolves (§Reality-check #9) ──
+    // --- The seven wizard-ctor dependencies resolve from the head DI graph (Reality-check #9) ---
 
     [AvaloniaFact]
-    public void HandConstruction_SevenWizardServices_AllResolveFromTheHeadDiGraph()
+    public void WizardViewModel_SevenCtorDependencies_AllResolveFromTheHeadDiGraph()
     {
-        // The wizard ctor `new`s an UploadWizardViewModel from exactly these seven services off App.Services.
-        // It is NOT DI-registered, so this asserts each dependency the ctor resolves is present in the graph
+        // UploadWizardViewModel is DI-registered (Transient) and the window resolves it from App.Services; its
+        // ctor depends on exactly these seven services, so this asserts each is present in the graph
         // the head composes at startup — a missing registration would throw at wizard-open time in production.
         string tempDir = Path.Combine(Path.GetTempPath(), "csu-ava-wizard-di-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);

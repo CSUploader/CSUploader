@@ -36,7 +36,7 @@ public class LocExtensionTests
             var textBlock = (TextBlock)AvaloniaRuntimeXamlLoader.Load(
                 """
                 <TextBlock xmlns="https://github.com/avaloniaui"
-                           xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Avalonia"
+                           xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader"
                            Text="{loc:Loc Main_Tab_Uploads}" />
                 """);
             var window = new Window { Content = textBlock };
@@ -78,7 +78,7 @@ public class LocExtensionTests
             var dataGrid = (DataGrid)AvaloniaRuntimeXamlLoader.Load(
                 """
                 <DataGrid xmlns="https://github.com/avaloniaui"
-                          xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Avalonia">
+                          xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader">
                   <DataGrid.Columns>
                     <DataGridTextColumn Header="{loc:Loc Main_Tab_Uploads}" />
                   </DataGrid.Columns>
@@ -148,7 +148,7 @@ public class LocExtensionTests
         var textBlock = (TextBlock)AvaloniaRuntimeXamlLoader.Load(
             """
             <TextBlock xmlns="https://github.com/avaloniaui"
-                       xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Avalonia"
+                       xmlns:loc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader"
                        Text="{loc:Loc Main_Tab_Uploads}" />
             """);
         _ = textBlock.Text; // force the binding to activate (subscribe) if it is lazy

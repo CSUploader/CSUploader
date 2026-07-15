@@ -95,14 +95,12 @@ public class ReflectionContractTests
     public void NoDriftGateFile_HidesAnXKeyInsideAnXmlComment()
     {
         // The drift gates parse x:Key with a flat regex that does not skip XML comments, so a commented-out
-        // <!-- ... x:Key="Foo" ... --> would be counted as a live key and mask a real drift. None of the
-        // five parsed files may contain an x:Key inside a comment.
+        // <!-- ... x:Key="Foo" ... --> would be counted as a live key and mask a real drift. Post-cutover the
+        // parsed files are the Avalonia dictionaries alone (the WPF originals are gone with the head); none
+        // may contain an x:Key inside a comment.
         string root = RepoXaml.FindRepoRoot();
         string[] parsedFiles =
         [
-            Path.Combine(root, "src", "Resources", "ImageResources.xaml"),
-            Path.Combine(root, "src", "Resources", "Theme.Light.xaml"),
-            Path.Combine(root, "src", "Resources", "Theme.Dark.xaml"),
             Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"),
             Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml"),
         ];

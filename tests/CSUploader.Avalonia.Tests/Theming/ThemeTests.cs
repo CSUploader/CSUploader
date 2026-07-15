@@ -16,70 +16,49 @@ using Moq;
 namespace CSUploader.Tests.Avalonia.Theming;
 
 /// <summary>
-/// Theme-token / ThemeVariant-dictionary parity gate plus the real <see cref="AvaloniaThemeApplier"/>.
-/// The drift gate parses the WPF <c>Theme.Light.xaml</c> key set (SystemColors overrides filtered out)
-/// and asserts it is set-equal to BOTH Avalonia variant dictionaries — so a WPF-side brush addition that
-/// is not mirrored into ThemeBrushes.axaml (or a stale Avalonia key) now fails a test, not a view. Reuses
-/// the same <see cref="RepoXaml"/> parse as the image drift gate. Runs under
-/// <see cref="AvaloniaFactAttribute"/> for the real App's merged resource surface. Tests that mutate
-/// process state (RequestedThemeVariant, app.Resources) restore it in a finally.
+/// Theme-token / ThemeVariant-dictionary gate plus the real <see cref="AvaloniaThemeApplier"/>. Post-cutover
+/// the Avalonia <c>ThemeBrushes.axaml</c> / <c>Tokens.axaml</c> are the sole source of truth: the gates assert
+/// the two variant dictionaries carry an identical key set and each key loads as a live IBrush in both
+/// variants, and that every value token resolves — so a one-sided or unmerged key fails a test, not a view.
+/// Reuses the <see cref="RepoXaml"/> parse. Runs under <see cref="AvaloniaFactAttribute"/> for the real App's
+/// merged resource surface. Tests that mutate process state (RequestedThemeVariant, app.Resources) restore it
+/// in a finally.
 /// </summary>
 public class ThemeTests
 {
     private static readonly string RepoRoot = RepoXaml.FindRepoRoot();
-    private static readonly string WpfThemePath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Light.xaml");
-    private static readonly string WpfThemeDarkPath = Path.Combine(RepoRoot, "src", "Resources", "Theme.Dark.xaml");
     private static readonly string AvaloniaThemePath =
         Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml");
-    private static readonly string WpfTokensPath = Path.Combine(RepoRoot, "src", "Resources", "Tokens.xaml");
     private static readonly string AvaloniaTokensPath =
         Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "Tokens.axaml");
 
     [Fact]
-    public void WpfThemeKeys_ParseToLiteralBrushKeys_DroppingSystemColorsOverrides()
+    public void LightAndDarkVariantDictionaries_HaveIdenticalKeySets()
     {
-        // Guards the drift gate's own input: the WPF theme parses to a real, non-empty literal-key set,
-        // and the ONLY keys filtered out are the SystemColors.*BrushKey overrides (WPF-only mechanics).
-        HashSet<string> all = RepoXaml.ParseXamlKeys(WpfThemePath);
-        HashSet<string> literal = WpfBrushKeys();
-
-        Assert.NotEmpty(literal);
-        Assert.Contains("SurfaceBrush", literal);
-        Assert.All(literal, k => Assert.DoesNotContain("SystemColors", k, StringComparison.Ordinal));
-        Assert.All(all.Except(literal), k => Assert.Contains("SystemColors", k, StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void WpfLightAndDarkThemes_HaveIdenticalLiteralKeySets()
-    {
-        // The drift gate below trusts Theme.Light.xaml as the single WPF source of truth (its comment
-        // asserts "Theme.Dark.xaml's set is byte-identical"). Pin that assumption: a brush added to only
-        // one WPF variant would otherwise pass the Light-vs-Avalonia gate while the app renders a missing
-        // key in the other variant. Symmetric-diff reporting names the one-sided key(s).
-        HashSet<string> lightKeys = WpfBrushKeys();
-        HashSet<string> darkKeys =
-            RepoXaml.ParseXamlKeys(WpfThemeDarkPath).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
+        // Post-cutover the Avalonia ThemeBrushes.axaml is the sole source of truth. A brush added to only
+        // one variant would render a missing key in the other; assert the two variant dictionaries carry an
+        // identical literal key set. Symmetric-diff reporting names the one-sided key(s).
+        (HashSet<string> lightKeys, HashSet<string> darkKeys) = AvaloniaVariantKeys();
+        Assert.NotEmpty(lightKeys);
 
         List<string> lightOnly = lightKeys.Except(darkKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
         List<string> darkOnly = darkKeys.Except(lightKeys).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        Assert.True(lightOnly.Count == 0, $"brush keys in Theme.Light.xaml but not Theme.Dark.xaml: {string.Join(", ", lightOnly)}");
-        Assert.True(darkOnly.Count == 0, $"brush keys in Theme.Dark.xaml but not Theme.Light.xaml: {string.Join(", ", darkOnly)}");
+        Assert.True(lightOnly.Count == 0, $"brush keys in the Light variant but not Dark: {string.Join(", ", lightOnly)}");
+        Assert.True(darkOnly.Count == 0, $"brush keys in the Dark variant but not Light: {string.Join(", ", darkOnly)}");
     }
 
     [AvaloniaFact]
-    public void EveryWpfBrushKey_MatchesBothVariantDictionaries_AndResolvesToABrush()
+    public void EveryBrushKey_ResolvesToABrush_InBothVariants()
     {
-        // Set-equality drift gate: the WPF brush keys must be exactly the key set of EACH Avalonia variant
-        // dictionary. A WPF-side brush not mirrored into a variant (or a stale Avalonia key with no WPF
-        // source) fails here, naming the offenders — not a downstream view.
-        HashSet<string> wpfKeys = WpfBrushKeys();
-        (HashSet<string> lightKeys, HashSet<string> darkKeys) = AvaloniaVariantKeys();
-        AssertSetEqual("Light", wpfKeys, lightKeys);
-        AssertSetEqual("Dark", wpfKeys, darkKeys);
+        // Drive off the Avalonia ThemeBrushes.axaml key set (sole source of truth post-cutover): every brush
+        // key must LOAD as an IBrush under BOTH explicit variant lookups — proving the file text became live
+        // resources, not just that the two dictionaries agree on paper. A key resolvable under one variant
+        // but not the other fails here, naming the offender; LightAndDarkVariantDictionaries_HaveIdenticalKeySets
+        // guards the key-set symmetry itself.
+        (HashSet<string> lightKeys, _) = AvaloniaVariantKeys();
+        Assert.NotEmpty(lightKeys);
 
-        // …and each ported key actually LOADS as an IBrush under both explicit variant lookups (proves the
-        // file text became live resources, not just that the two files agree).
-        foreach (string key in wpfKeys)
+        foreach (string key in lightKeys)
         {
             Assert.True(
                 Application.Current!.TryFindResource(key, ThemeVariant.Light, out object? light),
@@ -165,37 +144,20 @@ public class ThemeTests
         }
     }
 
-    [Fact]
-    public void WpfValueTokens_MatchAvaloniaTokens_KeyAndValue()
+    [AvaloniaFact]
+    public void EveryValueToken_ResolvesAtRuntime()
     {
-        // Third drift gate (image keys, theme brushes, now value tokens): the WPF Tokens.xaml value block
-        // and the Avalonia Tokens.axaml must agree on every key AND its value. A WPF-side spacing/sizing
-        // change not mirrored into the port (or a stale Avalonia token) fails here, not a downstream view.
-        Dictionary<string, string> wpf = RepoXaml.ParseValueTokens(File.ReadAllText(WpfTokensPath));
-        Dictionary<string, string> ava = RepoXaml.ParseValueTokens(File.ReadAllText(AvaloniaTokensPath));
+        // Post-cutover the Avalonia Tokens.axaml is the sole source of truth. Parse its value-token block
+        // and assert every declared token is merged as a live resource — a token declared in the file but
+        // not merged would silently render controls at their fallback size/spacing. NotEmpty guards a silent
+        // parse miss; the runtime value of two representative tokens is pinned by Tokens_ResolveToTheirPortedValues.
+        Dictionary<string, string> tokens = RepoXaml.ParseValueTokens(File.ReadAllText(AvaloniaTokensPath));
+        Assert.NotEmpty(tokens);
 
-        // Avalonia-only value tokens with no WPF analog, exempt from the stale gate: the Phase 9 Task 1
-        // header-metrics reclaim overrides the Fluent DataGrid theme's sort-icon reserve
-        // (DataGridSortIconMinWidth) — a DataGrid-control-theme resource the WPF head has no equivalent of.
-        // Excluding it keeps the WPF<->Avalonia parity check meaningful for genuinely-ported tokens.
-        HashSet<string> avaloniaOnly = new(StringComparer.Ordinal) { "DataGridSortIconMinWidth" };
-
-        // The plan's Task 5 ports exactly 22 value tokens; pinning the count guards against the parse
-        // silently matching a partial subset (which would let a value drift slip). If both files gain a
-        // token, bump this number with them.
-        Assert.Equal(22, wpf.Count);
-
-        List<string> missing = wpf.Keys.Except(ava.Keys).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        List<string> stale = ava.Keys.Except(wpf.Keys).Except(avaloniaOnly).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        Assert.True(missing.Count == 0, $"WPF value tokens not in Tokens.axaml: {string.Join(", ", missing)}");
-        Assert.True(stale.Count == 0, $"Tokens.axaml value tokens with no WPF source (stale): {string.Join(", ", stale)}");
-
-        List<string> mismatched = wpf
-            .Where(kv => !ava.TryGetValue(kv.Key, out string? v) || v != kv.Value)
-            .Select(kv => $"{kv.Key} (WPF {kv.Value} vs Avalonia {(ava.TryGetValue(kv.Key, out string? v) ? v : "<absent>")})")
-            .OrderBy(s => s, StringComparer.Ordinal)
-            .ToList();
-        Assert.True(mismatched.Count == 0, $"value drift between Tokens.xaml and Tokens.axaml: {string.Join(", ", mismatched)}");
+        foreach (string key in tokens.Keys)
+        {
+            Assert.True(Application.Current!.TryFindResource(key, out _), $"value token not merged as a live resource: {key}");
+        }
     }
 
     [AvaloniaFact]
@@ -207,11 +169,6 @@ public class ThemeTests
         Assert.True(Application.Current!.TryFindResource("ControlHeightSm", out object? height));
         Assert.Equal(24.0, Assert.IsType<double>(height));
     }
-
-    // The portable WPF brush keys: every x:Key in Theme.Light.xaml except the SystemColors.*BrushKey
-    // overrides (non-literal markup-extension keys). Theme.Dark.xaml's set is byte-identical.
-    private static HashSet<string> WpfBrushKeys()
-        => RepoXaml.ParseXamlKeys(WpfThemePath).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
 
     // ThemeBrushes.axaml declares both variant dictionaries in one file; split on the Dark variant marker
     // so each variant's literal key set is isolated (the {x:Static ThemeVariant.*} markers are non-literal).
@@ -227,17 +184,5 @@ public class ThemeTests
             => RepoXaml.ParseXamlKeysFromText(section).Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
 
         return (Literal(xaml[..darkIdx]), Literal(xaml[darkIdx..]));
-    }
-
-    private static void AssertSetEqual(string variant, HashSet<string> wpf, HashSet<string> ava)
-    {
-        List<string> missing = wpf.Except(ava).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        List<string> stale = ava.Except(wpf).OrderBy(k => k, StringComparer.Ordinal).ToList();
-        Assert.True(
-            missing.Count == 0,
-            $"WPF brush keys not in the Avalonia {variant} variant dictionary: {string.Join(", ", missing)}");
-        Assert.True(
-            stale.Count == 0,
-            $"Avalonia {variant} variant keys with no WPF source (stale): {string.Join(", ", stale)}");
     }
 }
