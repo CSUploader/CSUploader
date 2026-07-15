@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\CSUploader.csproj" />
+    <ProjectReference Include="..\src\CSUploader.Core\CSUploader.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
