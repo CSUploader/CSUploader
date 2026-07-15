@@ -13,11 +13,11 @@ public class HosterCredentialModesTests
     // both heads, so the pinned membership is asserted here — a reclassification or accidental removal
     // in HosterCredentialModes trips the matching test instead of silently changing an editor's UI.
     private static readonly string[] KnownApiKeyHosters =
-        ["Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile"];
+        ["Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile"];
 
     private static readonly string[] KnownSessionCookieHosters = ["Isracloud"];
 
-    private static readonly string[] KnownClassicHosters = ["Rapidgator", "Catbox", "MediaFire", "Buzzheavier"];
+    private static readonly string[] KnownClassicHosters = ["Rapidgator", "Catbox", "MediaFire"];
 
     [Theory]
     [InlineData("KatFile", HosterCredentialMode.ApiKey)]

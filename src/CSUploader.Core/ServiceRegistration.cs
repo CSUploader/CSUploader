@@ -144,6 +144,12 @@ public static class ServiceRegistration
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpstorePipeline>();
         // catbox.moe — anonymous-only single multipart POST to /user/api.php; response is the plain URL.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.CatboxPipeline>();
+        // Buzzheavier — anonymous OR account via the developer API (raw PUT to w.buzzheavier.com/<name>).
+        // Account auth is a Bearer of the account id captured via a Cloudflare-Turnstile WebView sign-in,
+        // so it needs IInteractiveAuthService.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.BuzzheavierPipeline(
+                sp.GetRequiredService<IInteractiveAuthService>()));
         // gofile.io — anonymous guest upload (create account → folder → multipart uploadfile).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GofilePipeline>();
         // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.

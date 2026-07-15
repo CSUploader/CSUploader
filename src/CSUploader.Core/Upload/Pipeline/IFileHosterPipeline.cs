@@ -93,6 +93,17 @@ public interface IFileHosterPipeline
     public long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => MaxFileSize;
 
     /// <summary>
+    /// Returns null when the hoster accepts a file named <paramref name="fileName"/>, or a short
+    /// user-facing reason when the hoster's server would REJECT the name outright — independent of
+    /// size or count (e.g. a disallowed character). The name-analog of <see cref="MaxFileSize"/>: the
+    /// wizard's Summary step drops such files from the hoster exactly like an oversized file (so they
+    /// surface in the orphan banner) and <see cref="RunAsync"/> fails fast on them before any bytes.
+    /// Defaults to null — no hoster restricts names unless it overrides this (currently only
+    /// Buzzheavier, which rejects <c>#</c> and <c>;</c>).
+    /// </summary>
+    public string? RejectedFileNameReason(string fileName) => null;
+
+    /// <summary>
     /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
     /// and outcomes. Must terminate with no more than one of <see cref="TransferCompleted"/>,
     /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the
