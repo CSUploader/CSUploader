@@ -28,9 +28,9 @@ public class ThemeTests
 {
     private static readonly string RepoRoot = RepoXaml.FindRepoRoot();
     private static readonly string AvaloniaThemePath =
-        Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml");
+        Path.Combine(RepoRoot, "src", "CSUploader", "Resources", "ThemeBrushes.axaml");
     private static readonly string AvaloniaTokensPath =
-        Path.Combine(RepoRoot, "src", "CSUploader.Avalonia", "Resources", "Tokens.axaml");
+        Path.Combine(RepoRoot, "src", "CSUploader", "Resources", "Tokens.axaml");
 
     [Fact]
     public void LightAndDarkVariantDictionaries_HaveIdenticalKeySets()

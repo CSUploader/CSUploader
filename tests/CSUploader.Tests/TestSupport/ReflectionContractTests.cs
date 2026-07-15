@@ -83,7 +83,7 @@ public class ReflectionContractTests
         // marker to isolate each variant's key set. A second occurrence would split mid-Dark-section and
         // silently under-count the Dark keys, weakening the set-equality drift gate.
         string themeBrushes = File.ReadAllText(Path.Combine(
-            RepoXaml.FindRepoRoot(), "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml"));
+            RepoXaml.FindRepoRoot(), "src", "CSUploader", "Resources", "ThemeBrushes.axaml"));
         int occurrences = Regex.Matches(themeBrushes, "ThemeVariant\\.Dark").Count;
         Assert.True(
             occurrences == 1,
@@ -101,8 +101,8 @@ public class ReflectionContractTests
         string root = RepoXaml.FindRepoRoot();
         string[] parsedFiles =
         [
-            Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"),
-            Path.Combine(root, "src", "CSUploader.Avalonia", "Resources", "ThemeBrushes.axaml"),
+            Path.Combine(root, "src", "CSUploader", "Resources", "ImageGeometries.axaml"),
+            Path.Combine(root, "src", "CSUploader", "Resources", "ThemeBrushes.axaml"),
         ];
 
         foreach (string file in parsedFiles)

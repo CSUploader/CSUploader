@@ -42,7 +42,7 @@ public partial class ToastWindow : Window
         Closed += (_, _) => _dismissTimer.Stop();
     }
 
-    // Test seam (InternalsVisibleTo -> CSUploader.Avalonia.Tests): the auto-dismiss timer's armed state, so
+    // Test seam (InternalsVisibleTo -> CSUploader.Tests): the auto-dismiss timer's armed state, so
     // a headless test can assert it arms on Opened, pauses on hover and stops on Closed WITHOUT a 5s
     // wall-clock wait (headless does not advance DispatcherTimer virtual time). Same pattern as
     // AvaloniaDialogService / MessageBoxWindow expose for their headless tests.

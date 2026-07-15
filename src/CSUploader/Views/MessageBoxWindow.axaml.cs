@@ -144,7 +144,7 @@ public partial class MessageBoxWindow : Window
     private static Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, string message, string title, MessageBoxMode mode, MessageBoxIcon icon)
         => ShowCoreAsync(owner, new MessageBoxWindow(message, title, mode, icon));
 
-    // The show/await seam, split out (InternalsVisibleTo → CSUploader.Avalonia.Tests) so a headless test can
+    // The show/await seam, split out (InternalsVisibleTo → CSUploader.Tests) so a headless test can
     // construct and drive the real window through either branch. Owns the null-owner policy (design:
     // "ownerless Show()+await Closed for the message box"): a non-null owner → modal ShowDialog<T> (its
     // result carries the outcome, and ShowInTaskbar stays the XAML-default False so the box rides its

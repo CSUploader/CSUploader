@@ -44,10 +44,10 @@ Conventions for writing tests in this project. Inherits everything from the root
 
 ## Avalonia head tests
 
-- `tests/CSUploader.Avalonia.Tests` covers the Avalonia head (`src/CSUploader.Avalonia`). It is a
-  separate assembly from the WPF `CSUploader.Tests`; only head-specific types live here (the
+- `tests/CSUploader.Tests` covers the Avalonia head (`src/CSUploader`). It is a
+  separate assembly from the Core suite `CSUploader.Core.Tests`; only head-specific types live here (the
   Avalonia UI-service implementations and the head DI smoke) — everything framework-free is tested
-  once in `CSUploader.Tests` against Core.
+  once in `CSUploader.Core.Tests` against Core.
 - Mark a test `[AvaloniaFact]` / `[AvaloniaTheory]` (from `Avalonia.Headless.XUnit`) when it touches any
   Avalonia UI surface — a control, a resource lookup (`Application.Current` / `TryFindResource`), the
   dispatcher, or anything that needs the headless session. **Pure logic** (a converter's arithmetic, a

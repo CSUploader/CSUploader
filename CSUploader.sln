@@ -5,15 +5,15 @@ VisualStudioVersion = 18.0.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Tests", "tests\CSUploader.Tests.csproj", "{E3A1466A-46F5-42BD-90A3-4F49B93BD365}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Core.Tests", "tests\CSUploader.Core.Tests.csproj", "{E3A1466A-46F5-42BD-90A3-4F49B93BD365}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Core", "src\CSUploader.Core\CSUploader.Core.csproj", "{924DC7AD-4773-4377-9CBE-6B8B94864791}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Avalonia", "src\CSUploader.Avalonia\CSUploader.Avalonia.csproj", "{1928C25A-B76B-4B0E-B3D5-4DF3EDCC173F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader", "src\CSUploader\CSUploader.csproj", "{1928C25A-B76B-4B0E-B3D5-4DF3EDCC173F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Avalonia.Tests", "tests\CSUploader.Avalonia.Tests\CSUploader.Avalonia.Tests.csproj", "{243893B0-9FE9-4D17-96B2-96FC783BE567}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSUploader.Tests", "tests\CSUploader.Tests\CSUploader.Tests.csproj", "{243893B0-9FE9-4D17-96B2-96FC783BE567}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

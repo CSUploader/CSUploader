@@ -65,7 +65,7 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
         _window = null;
     }
 
-    // Test seam (InternalsVisibleTo → CSUploader.Avalonia.Tests): the current (most-recent) window, so the
+    // Test seam (InternalsVisibleTo → CSUploader.Tests): the current (most-recent) window, so the
     // headless sink tests can assert fresh-window-per-Open, Report-updates-the-bar, and the never-Close
     // lifecycle contracts against the real controls.
     internal UpdateProgressWindow? CurrentWindow => _window;

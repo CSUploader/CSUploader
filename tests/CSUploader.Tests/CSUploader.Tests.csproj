@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+    <AssemblyName>CSUploader.Tests</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -32,7 +33,7 @@
   <ItemGroup>
     <!-- Transitively pulls in CSUploader.Core; gives the DI smoke access to App.ConfigureServices
          (internal, exposed via the head's InternalsVisibleTo) and the AvaloniaUiDispatcher type. -->
-    <ProjectReference Include="..\..\src\CSUploader.Avalonia\CSUploader.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\CSUploader\CSUploader.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,7 +17,7 @@ namespace CSUploader.Converters;
 /// (<c>src/Converters/FileTypeIconConverter.cs</c>) — same extension table, same fallbacks;
 /// differs only in the payload type (the WPF converter returned a pack URI for SharpVectors).
 /// The SVGs live under <c>external/vscode-icons/icons/</c> (git submodule) and are embedded at
-/// build time under the <c>FileTypes/</c> avares path — see <c>CSUploader.Avalonia.csproj</c>.
+/// build time under the <c>FileTypes/</c> avares path — see <c>CSUploader.csproj</c>.
 /// </summary>
 public class FileTypeIconConverter : IValueConverter
 {

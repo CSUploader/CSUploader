@@ -87,7 +87,7 @@
   </Target>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="CSUploader.Avalonia.Tests" />
+    <InternalsVisibleTo Include="CSUploader.Tests" />
   </ItemGroup>
 
   <!-- The WebView2 SDK references its WPF + WinForms wrapper assemblies for every net5+ TFM

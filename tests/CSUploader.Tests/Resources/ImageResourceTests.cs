@@ -78,7 +78,7 @@ public class ImageResourceTests
         // ImageGeometries.axaml is then covered automatically (and one removed can't leave a stale
         // assertion passing against a key that no longer exists). All keys in the file are literal.
         HashSet<string> geometryKeys = RepoXaml.ParseXamlKeys(
-            Path.Combine(RepoXaml.FindRepoRoot(), "src", "CSUploader.Avalonia", "Resources", "ImageGeometries.axaml"))
+            Path.Combine(RepoXaml.FindRepoRoot(), "src", "CSUploader", "Resources", "ImageGeometries.axaml"))
             .Where(RepoXaml.IsLiteralKey).ToHashSet(StringComparer.Ordinal);
         Assert.NotEmpty(geometryKeys);
 

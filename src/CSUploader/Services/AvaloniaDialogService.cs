@@ -37,7 +37,7 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
         return ToOptOutResult(outcome);
     }
 
-    // Test seam (InternalsVisibleTo → CSUploader.Avalonia.Tests): the MessageBoxOutcome → named-tuple
+    // Test seam (InternalsVisibleTo → CSUploader.Tests): the MessageBoxOutcome → named-tuple
     // projection, extracted so a headless test can pin the Confirmed/DontAskAgain field order — a
     // transposition here would silently swap "the user said yes" and "don't ask again". The core above
     // cannot be driven end-to-end headlessly (it opens an ownerless MessageBoxWindow the headless lifetime

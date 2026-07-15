@@ -2,15 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+    <AssemblyName>CSUploader.Core.Tests</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
-    <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>preview</LangVersion>
-    <!-- The Avalonia head's test project nests under tests/; keep this project's **/*.cs glob from
-         swallowing its sources (same fix as src/CSUploader.csproj for CSUploader.Core/Avalonia). -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);CSUploader.Avalonia.Tests\**</DefaultItemExcludes>
+    <!-- The Avalonia head's test project (CSUploader.Tests) nests under tests/; keep this project's
+         **/*.cs glob from swallowing its sources. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);CSUploader.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

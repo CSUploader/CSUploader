@@ -43,7 +43,7 @@ public class SettingsViewTests
     public void NumericSettingsFields_CarryLostFocusTrigger_InsideTheBindingBraces()
     {
         string axaml = System.IO.File.ReadAllText(System.IO.Path.Combine(
-            RepoXaml.FindRepoRoot(), "src", "CSUploader.Avalonia", "Views", "SettingsView.axaml"));
+            RepoXaml.FindRepoRoot(), "src", "CSUploader", "Views", "SettingsView.axaml"));
         foreach (string prop in new[]
         {
             "GridFontSize", "MaxConcurrentUploadJobs", "MaxUploadsPerHost", "MaxConcurrentCPUJobs", "SpeedLimitValue",

@@ -126,7 +126,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // Test seam (InternalsVisibleTo -> CSUploader.Avalonia.Tests): the post-dialog close-action decision,
+    // Test seam (InternalsVisibleTo -> CSUploader.Tests): the post-dialog close-action decision,
     // factored out of PromptCloseActionAsync so the Ask outcomes (persist-on-remember, hide-on-minimize,
     // forceClose+Close-on-exit) are drivable headlessly — Avalonia.Headless can't click a modal ShowDialog.
     // Behaviour is identical to inlining it after the dialog await; matches the codebase's seam pattern

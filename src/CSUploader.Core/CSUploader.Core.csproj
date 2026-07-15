@@ -26,9 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="CSUploader.Tests" />
+    <InternalsVisibleTo Include="CSUploader.Core.Tests" />
     <InternalsVisibleTo Include="CSUploader" />
-    <InternalsVisibleTo Include="CSUploader.Avalonia" />
   </ItemGroup>
 
 </Project>

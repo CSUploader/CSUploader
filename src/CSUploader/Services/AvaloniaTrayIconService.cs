@@ -20,8 +20,8 @@ public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger log
     : IDisposable, ITrayIconService
 {
     // Rename-proof: derive the avares authority from the running assembly's name rather than
-    // hard-coding "CSUploader.Avalonia", so an eventual assembly rename can't silently break the
-    // tray icon lookup. typeof(App) resolves to CSUploader.App in the head assembly.
+    // hard-coding it, so the assembly rename (CSUploader.Avalonia → CSUploader) didn't silently
+    // break the tray icon lookup. typeof(App) resolves to CSUploader.App in the head assembly.
     private static readonly Uri IconUri =
         new($"avares://{typeof(App).Assembly.GetName().Name}/Assets/icon.ico");
 
@@ -110,7 +110,7 @@ public sealed class AvaloniaTrayIconService(AppSettings settings, IAppLogger log
         }
     }
 
-    // Test seam (InternalsVisibleTo -> CSUploader.Avalonia.Tests): icon presence, for the EnsureIconForSession
+    // Test seam (InternalsVisibleTo -> CSUploader.Tests): icon presence, for the EnsureIconForSession
     // strand-fix test. Behaviourally identical to inlining the null-check at the call site.
     internal bool HasIcon => _trayIcon is not null;
 
