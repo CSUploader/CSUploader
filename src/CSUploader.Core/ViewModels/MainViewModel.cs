@@ -92,8 +92,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
         // so this stays a no-op there just as the old Application.Current guard did.
         // The tick discards the task (fire-and-forget) — harmonized with the startup check in
-        // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (its awaits are
-        // try/caught or route via IUiDispatcher).
+        // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (both its awaits —
+        // the check and the dispatcher apply — are wrapped in try/catch).
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync());
         _updateTimer.Start();
     }
@@ -119,7 +119,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
             result = UpdateCheckResult.Failed(ex.Message);
         }
 
-        await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, userInitiated));
+        try
+        {
+            await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, userInitiated));
+        }
+        catch (Exception ex)
+        {
+            // Keep the fire-and-forget timer tick fault-free: a throw while applying the result
+            // (Localizer/toast) is logged rather than left as an unobserved faulted task.
+            _logger.Log(this, LogType.Error, $"Applying update-check result failed: {ex.Message}");
+        }
+
         return result;
     }
 

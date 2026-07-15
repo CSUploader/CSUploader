@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -11,7 +12,14 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
+using CSUploader.Dal;
+using CSUploader.Lib.Update;
+using CSUploader.Services;
+using CSUploader.ViewModels;
 using CSUploader.Views;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace CSUploader.Tests.Avalonia.Views;
 
@@ -181,6 +189,69 @@ public class MainWindowMenuTests
         finally
         {
             w.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void MenuCheckForUpdates_WhenCheckFails_ShowsErrorDialog()
+    {
+        // A user-initiated check that FAILS must surface an error dialog (not the "you're on the latest"
+        // info box). Drives the real handler over a real MainViewModel whose IUpdateService returns Failed
+        // (the AvaloniaStartupDISmokeTests/UploadsViewTests DI pattern), then asserts the owned
+        // MessageBoxWindow is the Error shape — i.e. the handler took the Failed -> ShowErrorAsync branch.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-menu-updatefail-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        ServiceCollection services = new();
+        App.ConfigureServices(services, tempDir);
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("network down"));
+        services.AddSingleton<IUpdateService>(updater.Object); // last registration wins for GetRequiredService
+        ServiceProvider provider = services.BuildServiceProvider();
+        try
+        {
+            using (CSUploaderDbContext db = provider.GetRequiredService<IDbContextFactory<CSUploaderDbContext>>().CreateDbContext())
+            {
+                db.Database.EnsureCreated();
+            }
+
+            MainViewModel vm = provider.GetRequiredService<MainViewModel>();
+            var w = new MainWindow { DataContext = vm };
+            try
+            {
+                w.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                Menu menu = w.GetVisualDescendants().OfType<Menu>().First();
+                var help = (MenuItem)menu.Items[2]!;
+                var checkForUpdates = (MenuItem)help.Items[0]!;
+                checkForUpdates.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+
+                // The handler is async void: CheckForUpdatesAsync hops through the dispatcher (InvokeAsync)
+                // before ShowErrorAsync opens the box, so pump until the owned dialog appears (bounded).
+                MessageBoxWindow? box = null;
+                for (int i = 0; i < 20 && box is null; i++)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    box = w.OwnedWindows.OfType<MessageBoxWindow>().FirstOrDefault();
+                }
+
+                Assert.NotNull(box);
+                Assert.Equal(MessageBoxIcon.Error, box!.IconKind); // Failed rendered the error box, not the info box
+
+                box.Close();
+                Dispatcher.UIThread.RunJobs();
+            }
+            finally
+            {
+                w.Close();
+            }
+        }
+        finally
+        {
+            provider.Dispose(); // stops the VM's 6h timer + detaches its Localizer subscription
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { /* best-effort; Windows may still hold a handle on the SQLite file */ }
         }
     }
 
