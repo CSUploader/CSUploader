@@ -40,7 +40,7 @@
     <!-- DataGrid's 11.x line ends at 11.3.13; its dependency range accepts the 11.3.18 core.
          Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
-    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" Condition="'$(Configuration)' == 'Debug'" />
     <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
