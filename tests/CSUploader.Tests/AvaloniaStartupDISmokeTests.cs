@@ -25,7 +25,7 @@ namespace CSUploader.Tests.Avalonia;
 /// <remarks>
 /// <para>
 /// Runs under <see cref="AvaloniaFactAttribute"/> (headless UI thread) and resolves <b>inline</b> — no
-/// <c>Task.Run</c> watchdog like the WPF smoke uses. The ViewModel constructors call
+/// <c>Task.Run</c> watchdog like the Core suite's <c>StartupDISmokeTests</c> uses. The ViewModel constructors call
 /// <c>IUiDispatcher.CreateTimer(...)</c>, and <see cref="global::CSUploader.Services.AvaloniaUiDispatcher"/>
 /// creates a real Avalonia <c>DispatcherTimer</c>, which reads <c>Dispatcher.UIThread</c>; resolving off
 /// the UI thread would break the very construction this smoke exists to exercise.

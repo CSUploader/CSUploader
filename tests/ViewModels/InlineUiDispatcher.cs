@@ -7,7 +7,7 @@ namespace CSUploader.Tests.ViewModels;
 
 /// <summary>
 /// Deterministic IUiDispatcher for ViewModel tests: Post and InvokeAsync run INLINE
-/// (unlike WpfUiDispatcher, whose Post is a no-op without an Application), and timers
+/// on the calling thread (rather than being marshaled to a UI thread), and timers
 /// are manually tickable. This makes the VMs' Post-routed event handlers — the exact
 /// path the Avalonia head will drive through a real dispatcher — testable.
 /// </summary>
