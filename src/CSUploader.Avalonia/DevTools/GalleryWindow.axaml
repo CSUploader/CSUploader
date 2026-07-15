@@ -367,6 +367,12 @@
           <Button x:Name="DialogErrorButton"
                   AutomationProperties.AutomationId="DialogErrorButton"
                   Classes="secondary" Content="Show error" />
+          <Button x:Name="DialogWarningButton"
+                  AutomationProperties.AutomationId="DialogWarningButton"
+                  Classes="secondary" Content="Show warning" />
+          <Button x:Name="DialogInformationButton"
+                  AutomationProperties.AutomationId="DialogInformationButton"
+                  Classes="secondary" Content="Show information" />
           <Button x:Name="DialogConfirmButton"
                   AutomationProperties.AutomationId="DialogConfirmButton"
                   Classes="secondary" Content="Show confirm" />

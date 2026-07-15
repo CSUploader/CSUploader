@@ -6,6 +6,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CSUploader.Views;
 using static CSUploader.Tests.Avalonia.HeadlessInput;
@@ -275,6 +276,86 @@ public class MessageBoxWindowTests
         {
             box.Close();
             owner.Close();
+        }
+    }
+
+    // ── Per-type icons (Phase 9 add-on: WPF-parity system-icon glyphs) ──
+    // WPF drew OS system icons per MessageBoxImage; the custom box reproduces them under Fluent as themed
+    // MDI glyphs. These are [Fact]s (not [Theory]s) because the internal MessageBoxMode/MessageBoxIcon enums
+    // cannot be public-method parameters — the cases run through private local helpers instead. The map pins
+    // each type -> its (window-local geometry key, theme brush key); the window facts pin that the ctor
+    // wires IconKind + the icon's visibility + that both resources actually resolve.
+
+    [Fact]
+    public void ResolveIconResources_MapsEachTypeToItsGlyphAndBrush()
+    {
+        AssertMap(MessageBoxIcon.None, null, null);
+        AssertMap(MessageBoxIcon.Information, "MessageBoxInformationGeometry", "InfoAccentBrush");
+        AssertMap(MessageBoxIcon.Warning, "MessageBoxWarningGeometry", "WarningBrush");
+        AssertMap(MessageBoxIcon.Error, "MessageBoxErrorGeometry", "ErrorBrush");
+        AssertMap(MessageBoxIcon.Question, "MessageBoxQuestionGeometry", "AccentBrush");
+
+        static void AssertMap(MessageBoxIcon icon, string? geometryKey, string? brushKey)
+        {
+            (string? geometry, string? brush) = MessageBoxWindow.ResolveIconResources(icon);
+            Assert.Equal(geometryKey, geometry);
+            Assert.Equal(brushKey, brush);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Ctor_WiresIconKindAndVisibility_PerType()
+    {
+        // The full per-type mapping at the window level: each notification/confirmation shape the helpers
+        // build carries the right glyph, and only the opt-out box (None) is icon-less (WPF ConfirmationDialog).
+        AssertIcon(MessageBoxMode.Ok, MessageBoxIcon.Error, iconVisible: true);
+        AssertIcon(MessageBoxMode.Ok, MessageBoxIcon.Warning, iconVisible: true);
+        AssertIcon(MessageBoxMode.Ok, MessageBoxIcon.Information, iconVisible: true);
+        AssertIcon(MessageBoxMode.YesNo, MessageBoxIcon.Question, iconVisible: true);
+        AssertIcon(MessageBoxMode.YesNoDontAskAgain, MessageBoxIcon.None, iconVisible: false);
+
+        static void AssertIcon(MessageBoxMode mode, MessageBoxIcon icon, bool iconVisible)
+        {
+            var box = new MessageBoxWindow("Something happened.", "Notice", mode, icon);
+            try
+            {
+                box.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(icon, box.IconKind);
+                Assert.Equal(iconVisible, box.IconGlyph.IsVisible);
+            }
+            finally
+            {
+                box.Close();
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void VisibleIcons_ResolveGeometryAndBrush()
+    {
+        // A key typo would leave Data/Fill null (an invisible glyph) while the string map above still passed
+        // — so drive the real resource lookup: the ctor binds both, and the window-local geometry plus the
+        // app-wide theme brush must resolve on the constructed window.
+        foreach (MessageBoxIcon icon in new[] { MessageBoxIcon.Error, MessageBoxIcon.Warning, MessageBoxIcon.Information, MessageBoxIcon.Question })
+        {
+            (string? geometryKey, _) = MessageBoxWindow.ResolveIconResources(icon);
+            var box = new MessageBoxWindow("Something happened.", "Notice", MessageBoxMode.Ok, icon);
+            try
+            {
+                box.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(box.TryFindResource(geometryKey!, out object? geometry), $"geometry key did not resolve: {geometryKey}");
+                Assert.IsAssignableFrom<Geometry>(geometry);
+                Assert.NotNull(box.IconGlyph.Data); // ctor bound the resolved geometry
+                Assert.NotNull(box.IconGlyph.Fill); // ctor bound the resolved theme brush
+            }
+            finally
+            {
+                box.Close();
+            }
         }
     }
 }

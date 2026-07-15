@@ -203,7 +203,7 @@ public partial class MainWindow : Window
                 ? string.Format(System.Globalization.CultureInfo.CurrentCulture,
                     Localizer.Instance["Main_CheckForUpdates_Available_Format"], vm.AvailableVersion)
                 : Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"];
-            await MessageBoxWindow.ShowErrorAsync(this, message, Localizer.Instance["Main_CheckForUpdates_DialogTitle"]);
+            await MessageBoxWindow.ShowInformationAsync(this, message, Localizer.Instance["Main_CheckForUpdates_DialogTitle"]);
         }
     }
 

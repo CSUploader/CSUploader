@@ -108,6 +108,8 @@ public partial class GalleryWindow : Window
         ThemeToggleButton.Click += OnToggleTheme;
         GridFontButton.Click += OnApplyGridFont;
         DialogErrorButton.Click += OnShowError;
+        DialogWarningButton.Click += OnShowWarning;
+        DialogInformationButton.Click += OnShowInformation;
         DialogConfirmButton.Click += OnShowConfirm;
         DialogOptOutButton.Click += OnShowOptOut;
         DialogErrorDetailsButton.Click += OnShowErrorDetails;
@@ -175,6 +177,16 @@ public partial class GalleryWindow : Window
     // only needs to open the modal; the bridge reads the outcome by driving the buttons, not the return.
     private void OnShowError(object? sender, RoutedEventArgs e)
         => _ = _dialogService.ShowErrorAsync("Sign-in failed: invalid credentials for the selected hoster.");
+
+    // Warning / Information have no IDialogService member (WPF surfaced them from view code-behind, not the
+    // DialogService) — the gallery opens them directly on MessageBoxWindow (owner = this), the same call the
+    // ported EditProxy/EditAccount/SpeedLimit validators and the MainWindow update-check make. Owned by the
+    // gallery so the box centres on it, and the icon contact sheet captures the Warning/Information glyphs.
+    private void OnShowWarning(object? sender, RoutedEventArgs e)
+        => _ = MessageBoxWindow.ShowWarningAsync(this, "Port must be between 1 and 65535.", Localizer.Instance["Common_Error"]);
+
+    private void OnShowInformation(object? sender, RoutedEventArgs e)
+        => _ = MessageBoxWindow.ShowInformationAsync(this, "You are already on the latest version.", "Check for updates");
 
     private void OnShowConfirm(object? sender, RoutedEventArgs e)
         => _ = _dialogService.ShowConfirmationAsync("Delete 3 selected packages?\nThis cannot be undone.");

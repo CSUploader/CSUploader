@@ -64,8 +64,8 @@ public partial class SpeedLimitDialog : Window
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int limit) || limit <= 0)
         {
             // Non-positive / non-numeric: warn and stay open so the user can correct it. WPF used a blocking
-            // MessageBox.Show; the Avalonia custom box shows modally over this dialog (owner = this).
-            await MessageBoxWindow.ShowErrorAsync(
+            // MessageBox.Show(Warning); the Avalonia custom box shows modally over this dialog (owner = this).
+            await MessageBoxWindow.ShowWarningAsync(
                 this,
                 Localizer.Instance["SpeedLimit_Validation_Message"],
                 Localizer.Instance["SpeedLimit_Validation_Title"]);

@@ -332,7 +332,7 @@ public partial class EditAccountWindow : Window
             string apiKey = ApiKeyBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(apiKey) && string.IsNullOrEmpty(_sessionCookie))
             {
-                await MessageBoxWindow.ShowErrorAsync(
+                await MessageBoxWindow.ShowWarningAsync(
                     this,
                     Localizer.Instance["EditAccount_Validation_RequireLoginOrApiKey"],
                     Localizer.Instance["Common_Error"]);
@@ -385,7 +385,7 @@ public partial class EditAccountWindow : Window
         string password = PasswordBox.Text ?? string.Empty;
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-            await MessageBoxWindow.ShowErrorAsync(
+            await MessageBoxWindow.ShowWarningAsync(
                 this,
                 Localizer.Instance["EditAccount_Validation_RequireUsernameAndPassword"],
                 Localizer.Instance["Common_Error"]);

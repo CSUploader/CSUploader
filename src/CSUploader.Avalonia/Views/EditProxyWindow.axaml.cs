@@ -165,7 +165,7 @@ public partial class EditProxyWindow : Window
         string host = HostBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(host))
         {
-            await MessageBoxWindow.ShowErrorAsync(this, Localizer.Instance["EditProxy_Validation_HostRequired"], Localizer.Instance["Common_Error"]);
+            await MessageBoxWindow.ShowWarningAsync(this, Localizer.Instance["EditProxy_Validation_HostRequired"], Localizer.Instance["Common_Error"]);
             HostBox.Focus();
             return null;
         }
@@ -174,7 +174,7 @@ public partial class EditProxyWindow : Window
             || port < 1
             || port > 65535)
         {
-            await MessageBoxWindow.ShowErrorAsync(this, Localizer.Instance["EditProxy_Validation_PortInvalid"], Localizer.Instance["Common_Error"]);
+            await MessageBoxWindow.ShowWarningAsync(this, Localizer.Instance["EditProxy_Validation_PortInvalid"], Localizer.Instance["Common_Error"]);
             PortBox.Focus();
             PortBox.SelectAll();
             return null;

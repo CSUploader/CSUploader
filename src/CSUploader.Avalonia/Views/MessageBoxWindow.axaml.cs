@@ -4,7 +4,10 @@
 // </copyright>
 
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Path = Avalonia.Controls.Shapes.Path; // disambiguate from System.IO.Path (implicit usings)
 
 namespace CSUploader.Views;
 
@@ -15,29 +18,43 @@ namespace CSUploader.Views;
 /// notification, <see cref="MessageBoxMode.YesNo"/> the <c>MessageBox.Show(YesNo)</c> confirmation, and
 /// <see cref="MessageBoxMode.YesNoDontAskAgain"/> IS the <c>ConfirmationDialog</c> port (message plus a
 /// "Don't ask again" checkbox). Consumed through the static composition helpers below, which own the
-/// null-owner policy.
+/// null-owner policy and pick each shape's <see cref="MessageBoxIcon"/>.
 /// </summary>
 /// <remarks>
-/// WPF <c>MessageBox.Show</c> drew system Error/Question icons; this box shows none (the
-/// ConfirmationDialog styling for every mode) — a deliberate "close and consistent" deviation, noted at
-/// the phase gate. Avalonia's <c>IsDefault</c>/<c>IsCancel</c> route Enter/Esc through a button's
-/// <c>Click</c> but do NOT auto-close the window (unlike WPF), so each completion goes through an
-/// explicit <see cref="Complete"/> → <see cref="Window.Close(object?)"/> (port rule 7).
+/// WPF <c>MessageBox.Show</c> drew OS shell icons per <c>MessageBoxImage</c>; this box reproduces them
+/// under Fluent as themed Material-Design glyphs (Phase 9, resolving the phase-gate deviation): the Ok
+/// notification carries Error / Warning / Information per call site, the Yes/No confirmation carries
+/// Question, and the opt-out box carries none (WPF's <c>ConfirmationDialog</c> had no icon). Avalonia's
+/// <c>IsDefault</c>/<c>IsCancel</c> route Enter/Esc through a button's <c>Click</c> but do NOT auto-close
+/// the window (unlike WPF), so each completion goes through an explicit <see cref="Complete"/> →
+/// <see cref="Window.Close(object?)"/> (port rule 7).
 /// </remarks>
 public partial class MessageBoxWindow : Window
 {
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses
-    // the 3-arg overload. Defaults to an empty Ok box.
+    // the mode/icon overload. Defaults to an empty, icon-less Ok box.
     public MessageBoxWindow()
         : this(string.Empty, string.Empty, MessageBoxMode.Ok)
     {
     }
 
-    internal MessageBoxWindow(string message, string title, MessageBoxMode mode)
+    internal MessageBoxWindow(string message, string title, MessageBoxMode mode, MessageBoxIcon icon = MessageBoxIcon.None)
     {
         InitializeComponent();
         Title = title;
         MessageText.Text = message;
+        IconKind = icon;
+
+        // Reproduce the WPF system icon: bind the window-local glyph + a theme brush via DynamicResource so
+        // the tint tracks light/dark. None leaves the Path hidden, collapsing its Auto column to 0 width so
+        // the message is flush-left (the pre-Phase-9 look, and the WPF ConfirmationDialog's no-icon layout).
+        (string? geometryKey, string? brushKey) = ResolveIconResources(icon);
+        if (geometryKey is not null)
+        {
+            IconGlyph.IsVisible = true;
+            IconGlyph[!Path.DataProperty] = new DynamicResourceExtension(geometryKey);
+            IconGlyph[!Shape.FillProperty] = new DynamicResourceExtension(brushKey!);
+        }
 
         switch (mode)
         {
@@ -60,6 +77,9 @@ public partial class MessageBoxWindow : Window
         }
     }
 
+    /// <summary>The severity glyph this box carries, set at construction (None = no icon).</summary>
+    internal MessageBoxIcon IconKind { get; }
+
     /// <summary>
     /// The outcome, set by every button handler before <see cref="Window.Close(object?)"/>. The
     /// ownerless <c>Show()</c> + await <c>Closed</c> path reads this (nothing else carries the result
@@ -68,6 +88,20 @@ public partial class MessageBoxWindow : Window
     /// <c>(false, false)</c> = not confirmed, matching the WPF <c>DialogResult != true</c> path.
     /// </summary>
     internal MessageBoxOutcome Outcome { get; private set; }
+
+    /// <summary>
+    /// Maps a <see cref="MessageBoxIcon"/> to its window-local glyph geometry key and the theme brush
+    /// key that tints it, or <c>(null, null)</c> for <see cref="MessageBoxIcon.None"/>. Pure so the
+    /// per-type icon choice is pinned by a headless test without resolving resources.
+    /// </summary>
+    internal static (string? Geometry, string? Brush) ResolveIconResources(MessageBoxIcon icon) => icon switch
+    {
+        MessageBoxIcon.Error => ("MessageBoxErrorGeometry", "ErrorBrush"),
+        MessageBoxIcon.Warning => ("MessageBoxWarningGeometry", "WarningBrush"),
+        MessageBoxIcon.Information => ("MessageBoxInformationGeometry", "InfoAccentBrush"),
+        MessageBoxIcon.Question => ("MessageBoxQuestionGeometry", "AccentBrush"),
+        _ => (null, null),
+    };
 
     private void Ok_Click(object? sender, RoutedEventArgs e)
         => Complete(new MessageBoxOutcome(Confirmed: true, DontAskAgain: false));
@@ -86,21 +120,29 @@ public partial class MessageBoxWindow : Window
         Close(outcome);
     }
 
-    /// <summary>Shows an OK notification. Returns when the box is dismissed.</summary>
+    /// <summary>Shows an OK error notification (red close-circle glyph). Returns when dismissed.</summary>
     internal static async Task ShowErrorAsync(Window? owner, string message, string title)
-        => await ShowCoreAsync(owner, message, title, MessageBoxMode.Ok);
+        => await ShowCoreAsync(owner, message, title, MessageBoxMode.Ok, MessageBoxIcon.Error);
 
-    /// <summary>Shows a Yes/No confirmation. Returns whether the user chose Yes.</summary>
+    /// <summary>Shows an OK warning notification (amber alert glyph) — the WPF validation-warning boxes.</summary>
+    internal static async Task ShowWarningAsync(Window? owner, string message, string title)
+        => await ShowCoreAsync(owner, message, title, MessageBoxMode.Ok, MessageBoxIcon.Warning);
+
+    /// <summary>Shows an OK information notification (blue info glyph) — e.g. the update-check result.</summary>
+    internal static async Task ShowInformationAsync(Window? owner, string message, string title)
+        => await ShowCoreAsync(owner, message, title, MessageBoxMode.Ok, MessageBoxIcon.Information);
+
+    /// <summary>Shows a Yes/No confirmation (blue question glyph). Returns whether the user chose Yes.</summary>
     internal static async Task<bool> ShowConfirmationAsync(Window? owner, string message, string title)
-        => (await ShowCoreAsync(owner, message, title, MessageBoxMode.YesNo)).Confirmed;
+        => (await ShowCoreAsync(owner, message, title, MessageBoxMode.YesNo, MessageBoxIcon.Question)).Confirmed;
 
-    /// <summary>Shows the opt-out confirmation (Yes/No + "Don't ask again"). Returns the full outcome.</summary>
+    /// <summary>Shows the opt-out confirmation (Yes/No + "Don't ask again", no icon). Returns the outcome.</summary>
     internal static Task<MessageBoxOutcome> ShowOptOutAsync(Window? owner, string message, string title)
-        => ShowCoreAsync(owner, message, title, MessageBoxMode.YesNoDontAskAgain);
+        => ShowCoreAsync(owner, message, title, MessageBoxMode.YesNoDontAskAgain, MessageBoxIcon.None);
 
-    // Composition helper: builds the window for the requested mode and hands it to the show seam below.
-    private static Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, string message, string title, MessageBoxMode mode)
-        => ShowCoreAsync(owner, new MessageBoxWindow(message, title, mode));
+    // Composition helper: builds the window for the requested mode + icon and hands it to the show seam below.
+    private static Task<MessageBoxOutcome> ShowCoreAsync(Window? owner, string message, string title, MessageBoxMode mode, MessageBoxIcon icon)
+        => ShowCoreAsync(owner, new MessageBoxWindow(message, title, mode, icon));
 
     // The show/await seam, split out (InternalsVisibleTo → CSUploader.Avalonia.Tests) so a headless test can
     // construct and drive the real window through either branch. Owns the null-owner policy (design:
@@ -131,6 +173,19 @@ internal enum MessageBoxMode
     Ok,
     YesNo,
     YesNoDontAskAgain,
+}
+
+/// <summary>
+/// The severity glyph a <see cref="MessageBoxWindow"/> shows, reproducing WPF's <c>MessageBoxImage</c>
+/// system icons under Fluent. <see cref="None"/> shows no icon (the WPF <c>ConfirmationDialog</c> look).
+/// </summary>
+internal enum MessageBoxIcon
+{
+    None,
+    Information,
+    Warning,
+    Error,
+    Question,
 }
 
 /// <summary>
