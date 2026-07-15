@@ -201,6 +201,15 @@
 
 Use Help → Install Update to download and install.</value>
   </data>
+  <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
+    <value>Couldn't check for updates: {0}</value>
+  </data>
+  <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
+    <value>Update check failed</value>
+  </data>
+  <data name="Update_CheckFailed_ToastBody" xml:space="preserve">
+    <value>CSUploader couldn't check for updates. It'll try again later.</value>
+  </data>
   <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
     <value>Add new upload</value>
   </data>

@@ -31,12 +31,12 @@ public sealed class UpdateService : IUpdateService
 
     public bool IsInstalled => _manager.IsInstalled;
 
-    public async Task<UpdateAvailableInfo?> CheckAsync(CancellationToken cancellationToken = default)
+    public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         if (!_manager.IsInstalled)
         {
             // Loose builds and `dotnet run` don't have a Velopack package layout to update.
-            return null;
+            return UpdateCheckResult.NotInstalled;
         }
 
         try
@@ -44,16 +44,16 @@ public sealed class UpdateService : IUpdateService
             UpdateInfo? info = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
             if (info is null)
             {
-                return null;
+                return UpdateCheckResult.UpToDate;
             }
 
             string version = info.TargetFullRelease.Version.ToString();
-            return new UpdateAvailableInfo(version, info);
+            return UpdateCheckResult.Available(new UpdateAvailableInfo(version, info));
         }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Update check failed: {ex.Message}");
-            return null;
+            return UpdateCheckResult.Failed(ex.Message);
         }
     }
 

@@ -201,6 +201,15 @@
 
 请使用 帮助 → 安装更新 来下载并安装。</value>
   </data>
+  <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
+    <value>无法检查更新：{0}</value>
+  </data>
+  <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
+    <value>更新检查失败</value>
+  </data>
+  <data name="Update_CheckFailed_ToastBody" xml:space="preserve">
+    <value>CSUploader 无法检查更新，稍后将重试。</value>
+  </data>
   <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
     <value>添加新上传</value>
   </data>

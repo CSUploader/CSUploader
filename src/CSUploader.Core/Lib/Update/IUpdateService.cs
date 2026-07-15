@@ -24,10 +24,10 @@ public interface IUpdateService
     public bool IsInstalled { get; }
 
     /// <summary>
-    /// Polls the GitHub Releases endpoint. Returns null when no newer release is
-    /// available, or when the app isn't running from a Velopack-installed location.
+    /// Polls the GitHub Releases endpoint. Returns an explicit outcome so callers can tell
+    /// "up to date" from "check failed" (network, auth, 404) from "not installed".
     /// </summary>
-    public Task<UpdateAvailableInfo?> CheckAsync(CancellationToken cancellationToken = default);
+    public Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Downloads the update bundle into the local Velopack cache. Reports byte progress

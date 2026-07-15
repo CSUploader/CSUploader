@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
+using CSUploader.Lib.Update;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
@@ -198,12 +199,26 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel vm)
         {
-            await vm.CheckForUpdatesAsync();
-            string message = vm.IsUpdateAvailable
-                ? string.Format(System.Globalization.CultureInfo.CurrentCulture,
-                    Localizer.Instance["Main_CheckForUpdates_Available_Format"], vm.AvailableVersion)
-                : Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"];
-            await MessageBoxWindow.ShowInformationAsync(this, message, Localizer.Instance["Main_CheckForUpdates_DialogTitle"]);
+            UpdateCheckResult result = await vm.CheckForUpdatesAsync(userInitiated: true);
+            string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
+            switch (result.Status)
+            {
+                case UpdateCheckStatus.Available:
+                    await MessageBoxWindow.ShowInformationAsync(
+                        this,
+                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], result.Info!.NewVersion),
+                        title);
+                    break;
+                case UpdateCheckStatus.Failed:
+                    await MessageBoxWindow.ShowErrorAsync(
+                        this,
+                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Failed_Format"], result.FailureReason),
+                        title);
+                    break;
+                default: // UpToDate / NotInstalled
+                    await MessageBoxWindow.ShowInformationAsync(this, Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"], title);
+                    break;
+            }
         }
     }
 

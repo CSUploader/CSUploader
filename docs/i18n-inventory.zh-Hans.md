@@ -87,6 +87,9 @@ Main_Tab_Logs                     = 日志
 Main_CheckForUpdates_DialogTitle  = 检查更新
 Main_CheckForUpdates_AlreadyLatest = 您当前已是最新版本。
 Main_CheckForUpdates_Available_Format = 有可用更新：v{0}。\n\n请使用 帮助 → 安装更新 来下载并安装。   # {0} = available semver
+Main_CheckForUpdates_Failed_Format = 无法检查更新：{0}
+Update_CheckFailed_ToastTitle = 更新检查失败
+Update_CheckFailed_ToastBody = CSUploader 无法检查更新，稍后将重试。
 ```
 
 ---

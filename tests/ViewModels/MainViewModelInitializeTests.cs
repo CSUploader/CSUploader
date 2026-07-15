@@ -65,12 +65,13 @@ public class MainViewModelInitializeTests : IDisposable
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton(Mock.Of<IClipboardService>());
+        sc.AddSingleton(Mock.Of<IToastNotificationService>());
         sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
 
         // The ctor resolves these; CheckAsync returns null so the fire-and-forget startup update check
         // stays a silent no-op (no log, no state change) and can't add noise to the observed counts.
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UpdateAvailableInfo?)null);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         sc.AddSingleton(updater.Object);
         sc.AddSingleton(Mock.Of<IUpdateProgressSink>());
 

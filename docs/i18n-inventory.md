@@ -87,6 +87,9 @@ Main_Tab_Logs                     = Logs
 Main_CheckForUpdates_DialogTitle  = Check for Updates
 Main_CheckForUpdates_AlreadyLatest = You're on the latest version.
 Main_CheckForUpdates_Available_Format = Update available: v{0}.\n\nUse Help → Install Update to download and install.   # {0} = available semver
+Main_CheckForUpdates_Failed_Format = Couldn't check for updates: {0}
+Update_CheckFailed_ToastTitle = Update check failed
+Update_CheckFailed_ToastBody = CSUploader couldn't check for updates. It'll try again later.
 ```
 
 ---

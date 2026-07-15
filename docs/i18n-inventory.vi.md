@@ -95,6 +95,9 @@ Main_Tab_Logs                     = Nhật ký
 Main_CheckForUpdates_DialogTitle  = Kiểm tra cập nhật
 Main_CheckForUpdates_AlreadyLatest = Bạn đang dùng phiên bản mới nhất.
 Main_CheckForUpdates_Available_Format = Có bản cập nhật: v{0}.\n\nVui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuống và cài đặt.   # {0} = available semver
+Main_CheckForUpdates_Failed_Format = Không thể kiểm tra bản cập nhật: {0}
+Update_CheckFailed_ToastTitle = Kiểm tra cập nhật thất bại
+Update_CheckFailed_ToastBody = CSUploader không thể kiểm tra bản cập nhật. Sẽ thử lại sau.
 ```
 
 ---

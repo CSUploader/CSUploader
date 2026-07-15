@@ -24,9 +24,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IUpdateService _updateService;
     private readonly Services.IUpdateProgressSink _updateProgressSink;
     private readonly Services.IUiDispatcher _uiDispatcher;
+    private readonly Services.IToastNotificationService _toastService;
     private readonly Services.IUiTimer _updateTimer;
     private readonly PropertyChangedEventHandler _localizerChanged;
     private UpdateAvailableInfo? _availableUpdate;
+    private bool _backgroundCheckFailing;
     private bool _suppressDarkModePersist;
     private bool _initialized;
     private bool _disposed;
@@ -65,6 +67,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _updateService = services.GetRequiredService<IUpdateService>();
         _updateProgressSink = services.GetRequiredService<Services.IUpdateProgressSink>();
         _uiDispatcher = services.GetRequiredService<Services.IUiDispatcher>();
+        _toastService = services.GetRequiredService<Services.IToastNotificationService>();
 
         UploadsViewModel = services.GetRequiredService<UploadsViewModel>();
         UploadedViewModel = services.GetRequiredService<UploadedViewModel>();
@@ -96,32 +99,64 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Polls GitHub for a newer release. Safe to call from any thread; publishes results
-    /// onto the UI dispatcher when present. Silently no-ops on a non-installed (loose) build.
+    /// Polls for a newer release. Safe to call from any thread; publishes onto the UI dispatcher.
+    /// A background failure (<paramref name="userInitiated"/> == false) shows a debounced toast —
+    /// once per failure episode, re-armed after the next successful check — so a chronically
+    /// offline machine isn't nagged every poll. A user-initiated check shows nothing here; the
+    /// caller renders the returned <see cref="UpdateCheckResult"/>.
     /// </summary>
-    public async Task CheckForUpdatesAsync()
+    public async Task<UpdateCheckResult> CheckForUpdatesAsync(bool userInitiated = false)
     {
-        UpdateAvailableInfo? info;
+        UpdateCheckResult result;
         try
         {
-            info = await _updateService.CheckAsync().ConfigureAwait(false);
+            result = await _updateService.CheckAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
+            // Defensive: CheckAsync catches internally, but a poll tick must never fault.
             _logger.Log(this, LogType.Error, $"Update check failed: {ex.Message}");
-            return;
+            result = UpdateCheckResult.Failed(ex.Message);
         }
 
-        _availableUpdate = info;
-        await _uiDispatcher.InvokeAsync(() =>
+        await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, userInitiated));
+        return result;
+    }
+
+    private void ApplyCheckResult(UpdateCheckResult result, bool userInitiated)
+    {
+        switch (result.Status)
         {
-            IsUpdateAvailable = info is not null;
-            AvailableVersion = info?.NewVersion;
-            if (info is not null)
-            {
-                _logger.Log(this, LogType.Status, $"Update available: v{info.NewVersion} (current v{_updateService.CurrentVersion})");
-            }
-        });
+            case UpdateCheckStatus.Available:
+                _availableUpdate = result.Info;
+                IsUpdateAvailable = true;
+                AvailableVersion = result.Info!.NewVersion;
+                _backgroundCheckFailing = false;
+                _logger.Log(this, LogType.Status, $"Update available: v{result.Info.NewVersion} (current v{_updateService.CurrentVersion})");
+                break;
+
+            case UpdateCheckStatus.UpToDate:
+            case UpdateCheckStatus.NotInstalled:
+                _availableUpdate = null;
+                IsUpdateAvailable = false;
+                AvailableVersion = null;
+                _backgroundCheckFailing = false;
+                break;
+
+            case UpdateCheckStatus.Failed:
+                // A transient failure must NOT hide a previously-known available update, so leave
+                // IsUpdateAvailable/_availableUpdate as they are. Surface a background failure once
+                // per episode; a user-initiated failure is rendered by the caller from the result.
+                if (!userInitiated && !_backgroundCheckFailing)
+                {
+                    _backgroundCheckFailing = true;
+                    _toastService.ShowInfo(
+                        Localizer.Instance["Update_CheckFailed_ToastTitle"],
+                        Localizer.Instance["Update_CheckFailed_ToastBody"]);
+                }
+
+                break;
+        }
     }
 
     private bool CanInstallUpdate() => IsUpdateAvailable && _availableUpdate is not null;

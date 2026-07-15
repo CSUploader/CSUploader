@@ -70,10 +70,11 @@ public class MainViewModelDisposeTests : IDisposable
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton(Mock.Of<IClipboardService>());
+        sc.AddSingleton(Mock.Of<IToastNotificationService>());
         sc.AddSingleton<IUiDispatcher>(_dispatcher);
 
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UpdateAvailableInfo?)null);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         sc.AddSingleton(updater.Object);
         sc.AddSingleton(Mock.Of<IUpdateProgressSink>());
 

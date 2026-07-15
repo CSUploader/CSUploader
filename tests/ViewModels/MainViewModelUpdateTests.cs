@@ -62,6 +62,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
         sc.AddSingleton(Mock.Of<IClipboardService>());
+        sc.AddSingleton(Mock.Of<IToastNotificationService>());
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
         sc.AddSingleton<SettingsViewModel>();
@@ -94,7 +95,7 @@ public class MainViewModelUpdateTests : IDisposable
     public async Task CheckForUpdatesAsync_WhenNoUpdate_LeavesIsUpdateAvailableFalse()
     {
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UpdateAvailableInfo?)null);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         MainViewModel vm = CreateVm(updater.Object);
 
         await vm.CheckForUpdatesAsync();
@@ -110,7 +111,7 @@ public class MainViewModelUpdateTests : IDisposable
     {
         UpdateAvailableInfo info = new("2.3.4", new object());
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(info);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
 
         await vm.CheckForUpdatesAsync();
@@ -138,7 +139,7 @@ public class MainViewModelUpdateTests : IDisposable
     public async Task InstallUpdateCommand_WhenNoUpdate_CannotExecute()
     {
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UpdateAvailableInfo?)null);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         MainViewModel vm = CreateVm(updater.Object);
 
         await vm.CheckForUpdatesAsync();
@@ -151,7 +152,7 @@ public class MainViewModelUpdateTests : IDisposable
     {
         UpdateAvailableInfo info = new("9.9.9", new object());
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(info);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
 
         await vm.CheckForUpdatesAsync();
@@ -164,7 +165,7 @@ public class MainViewModelUpdateTests : IDisposable
     {
         UpdateAvailableInfo info = new("9.9.9", new object());
         Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(info);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater
             .Setup(u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()))
             .Returns((UpdateAvailableInfo _, IProgress<int>? p, CancellationToken _) =>
@@ -198,17 +199,83 @@ public class MainViewModelUpdateTests : IDisposable
         Assert.Equal(0, sink.CloseCount);
     }
 
-    private MainViewModel CreateVm(IUpdateService updater, IUpdateProgressSink? sink = null)
+    [Fact]
+    public async Task CheckForUpdatesAsync_BackgroundFailure_ShowsToastOnce()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("network down"));
+        Mock<IToastNotificationService> toast = new();
+        MainViewModel vm = CreateVm(updater.Object, toast: toast);
+
+        await vm.CheckForUpdatesAsync(); // background
+        await vm.CheckForUpdatesAsync(); // still failing → debounced, no second toast
+
+        toast.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        Assert.False(vm.IsUpdateAvailable);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_BackgroundFailure_ThenSuccess_ReArmsToast()
+    {
+        Mock<IUpdateService> updater = new();
+        Mock<IToastNotificationService> toast = new();
+        MainViewModel vm = CreateVm(updater.Object, toast: toast);
+
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("down"));
+        await vm.CheckForUpdatesAsync();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
+        await vm.CheckForUpdatesAsync(); // success re-arms
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("down again"));
+        await vm.CheckForUpdatesAsync();
+
+        toast.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_UserInitiatedFailure_NoToast_ReturnsFailed()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("boom"));
+        Mock<IToastNotificationService> toast = new();
+        MainViewModel vm = CreateVm(updater.Object, toast: toast);
+
+        UpdateCheckResult result = await vm.CheckForUpdatesAsync(userInitiated: true);
+
+        Assert.Equal(UpdateCheckStatus.Failed, result.Status);
+        Assert.Equal("boom", result.FailureReason);
+        toast.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_FailureAfterAvailable_KeepsUpdateAvailable()
+    {
+        UpdateAvailableInfo info = new("2.3.4", new object());
+        Mock<IUpdateService> updater = new();
+        MainViewModel vm = CreateVm(updater.Object);
+
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+        await vm.CheckForUpdatesAsync();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("blip"));
+        await vm.CheckForUpdatesAsync();
+
+        Assert.True(vm.IsUpdateAvailable); // a transient failure must not hide a known update
+        Assert.Equal("2.3.4", vm.AvailableVersion);
+    }
+
+    private MainViewModel CreateVm(IUpdateService updater, IUpdateProgressSink? sink = null, Mock<IToastNotificationService>? toast = null)
     {
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
-        ServiceProvider scoped = BuildScopedProvider(updater, sink ?? Mock.Of<IUpdateProgressSink>());
+        ServiceProvider scoped = BuildScopedProvider(
+            updater,
+            sink ?? Mock.Of<IUpdateProgressSink>(),
+            (toast ?? new Mock<IToastNotificationService>()).Object);
         MainViewModel vm = new(scoped);
         _vms.Add(vm); // disposed at teardown (MainViewModel is IDisposable — Phase 9 ledger fix c).
         return vm;
     }
 
-    private ServiceProvider BuildScopedProvider(IUpdateService updater, IUpdateProgressSink sink)
+    private ServiceProvider BuildScopedProvider(IUpdateService updater, IUpdateProgressSink sink, IToastNotificationService toast)
     {
         ServiceCollection sc = new();
         sc.AddSingleton(_services.GetRequiredService<IAppLogger>());
@@ -232,6 +299,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<LogsViewModel>());
         sc.AddSingleton(updater);
         sc.AddSingleton(sink);
+        sc.AddSingleton(toast);
         return sc.BuildServiceProvider();
     }
 

@@ -201,6 +201,15 @@
 
 ダウンロードとインストールには ヘルプ → 更新をインストール を使用してください。</value>
   </data>
+  <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
+    <value>更新を確認できませんでした: {0}</value>
+  </data>
+  <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
+    <value>更新の確認に失敗しました</value>
+  </data>
+  <data name="Update_CheckFailed_ToastBody" xml:space="preserve">
+    <value>CSUploader は更新を確認できませんでした。後でもう一度試します。</value>
+  </data>
   <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
     <value>新しいアップロードを追加</value>
   </data>

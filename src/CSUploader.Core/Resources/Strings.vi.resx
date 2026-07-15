@@ -201,6 +201,15 @@
 
 Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuống và cài đặt.</value>
   </data>
+  <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
+    <value>Không thể kiểm tra bản cập nhật: {0}</value>
+  </data>
+  <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
+    <value>Kiểm tra cập nhật thất bại</value>
+  </data>
+  <data name="Update_CheckFailed_ToastBody" xml:space="preserve">
+    <value>CSUploader không thể kiểm tra bản cập nhật. Sẽ thử lại sau.</value>
+  </data>
   <data name="Uploads_Toolbar_AddTip" xml:space="preserve">
     <value>Thêm lượt tải lên mới</value>
   </data>
