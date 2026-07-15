@@ -45,7 +45,7 @@ jobs:
 
       - name: Publish self-contained win-x64
         run: |
-          dotnet publish src/CSUploader.csproj `
+          dotnet publish src/CSUploader.Avalonia/CSUploader.Avalonia.csproj `
             -c Release `
             -r win-x64 `
             --self-contained true `

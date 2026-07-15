@@ -18,7 +18,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <RootNamespace>CSUploader</RootNamespace>
-    <AssemblyName>CSUploader.Avalonia</AssemblyName>
+    <AssemblyName>CSUploader</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
