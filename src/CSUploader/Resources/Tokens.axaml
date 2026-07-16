@@ -2,9 +2,11 @@
 <!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
 
 <!-- Design tokens ported 1:1 from the WPF Tokens.xaml:8-41 (spacing / typography / control sizing /
-     corners + the runtime-overridable grid font). The WPF Tokens.xaml re-templates (ComboBox/Menu/
-     ScrollBar/TabControl/DatePicker/Calendar, :155-895) are deliberately NOT ported — FluentTheme +
-     the ThemeVariant brush dictionaries cover dark mode, which is the only reason those existed. -->
+     corners + the runtime-overridable grid font). Most WPF Tokens.xaml re-templates (ComboBox/Menu/
+     ScrollBar/DatePicker/Calendar, :155-895) are deliberately NOT ported: FluentTheme +
+     the ThemeVariant brush dictionaries cover dark mode, which is the only reason those existed.
+     EXCEPTION: the TabControl/TabItem re-template (:431-486) ALSO carried the compact boxed-tab
+     look, so it IS ported, in Resources/TabControlThemes.axaml (WPF-parity, 2026-07-16). -->
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 

@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    WPF-parity tab styling.
+
+    The WPF Tokens.xaml TabControl/TabItem re-template (last-wpf src/Resources/Tokens.xaml:431-486) was
+    skipped in Phase 3 as "dark-mode only", but it ALSO carried the compact, classic BOXED-tab look —
+    so FluentTheme's large-text/pill default diverged from the WPF head. These
+    ControlThemes are keyed by {x:Type ...}, which makes them the implicit theme for TabControl/TabItem
+    app-wide (the main window shell tabs AND the HttpDetails/LogDetails dialog tab strips), the same way
+    the WPF style was a global TargetType style. All brushes/tokens resolve from Tokens.axaml +
+    ThemeBrushes.axaml (both merged in App.axaml before this dictionary), so dark mode still works.
+  -->
+
+  <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSm}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
+    <Setter Property="Padding" Value="10,4" />
+    <!-- -1 right overlaps the next tab's left border (single shared 1px line), as the WPF template did. -->
+    <Setter Property="Margin" Value="0,0,-1,0" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="Bd"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter x:Name="PART_ContentPresenter"
+                            Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+    </Style>
+
+    <!-- Selected tab takes the content-area background and drops its bottom border onto the strip's
+         bottom line (-1 bottom margin), so it reads as connected to the content, like the WPF head. -->
+    <Style Selector="^:selected">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      <Setter Property="Margin" Value="0,0,-1,-1" />
+    </Style>
+    <Style Selector="^:selected:pointerover">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="{x:Type TabControl}" TargetType="TabControl">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Horizontal" />
+      </ItemsPanelTemplate>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid RowDefinitions="Auto,*">
+          <!-- Tab strip: muted background + a single bottom line the selected tab connects into. -->
+          <Border Grid.Row="0"
+                  Background="{DynamicResource SurfaceAltBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="0,0,0,1">
+            <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+          </Border>
+          <!-- Content area. -->
+          <Border Grid.Row="1" Background="{TemplateBinding Background}">
+            <ContentPresenter x:Name="PART_SelectedContentHost"
+                              Content="{TemplateBinding SelectedContent}"
+                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+          </Border>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+</ResourceDictionary>

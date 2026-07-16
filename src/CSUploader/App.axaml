@@ -14,6 +14,9 @@
         <ResourceInclude Source="/Resources/Tokens.axaml" />
         <ResourceInclude Source="/Resources/ThemeBrushes.axaml" />
         <ResourceInclude Source="/Resources/ImageGeometries.axaml" />
+        <!-- Implicit {x:Type TabControl/TabItem} ControlThemes overriding FluentTheme's large-text/pill
+             tabs with the WPF head's compact boxed tab strip (needs the tokens + brushes above). -->
+        <ResourceInclude Source="/Resources/TabControlThemes.axaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <!-- App-level converter instance (mirror of the WPF App.xaml): the key column's
