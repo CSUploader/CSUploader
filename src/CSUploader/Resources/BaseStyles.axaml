@@ -10,11 +10,48 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- App-wide compact typography + palette (WPF parity: implicit Window style, Tokens.xaml:773-777). -->
+  <!-- App-wide compact typography + palette (WPF parity: implicit Window style, Tokens.xaml:773-777).
+       FontFamily: WPF sets no general font family anywhere (only GridFontFamily=Tahoma), so its body
+       text falls back to the WPF framework default — Segoe UI on Win10/11. Avalonia's FluentTheme
+       default is a DIFFERENT face, so same-size (13px) text read as a different font. Set Segoe UI
+       explicitly to match. Cascades to all text via FontFamily inheritance; the DataGrid keeps Tahoma
+       because its own style sets GridFontFamily on the control (shadows this inherited value). -->
   <Style Selector="Window">
     <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    <Setter Property="FontFamily" Value="Segoe UI" />
     <Setter Property="FontSize" Value="{DynamicResource FontSizeMd}" />
+  </Style>
+
+  <!-- Global button content centering (WPF parity). The WPF global Style TargetType="Button"
+       (Tokens.xaml:709) centered its ContentPresenter, but that style sat inside the 155-895
+       re-template range skipped as "dark-mode only", so Avalonia buttons fell back to FluentTheme's
+       left-aligned content in wider (MinWidth/Width) buttons. Link affordances are Classes="link"
+       TextBlocks (not Buttons), so they are unaffected. -->
+  <Style Selector="Button">
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <!-- Checked CheckBox = app accent fill (WPF parity). WPF's CheckBox style set only Foreground, so it
+       used the OS-default checked look: a solid accent-blue box. FluentTheme fills the checked box from
+       its own SystemAccentColor-derived CheckBoxCheckBackgroundFillChecked, a paler blue that read as
+       "inactive" next to the WPF head. Re-point the box fill (Border#NormalRectangle) at the app
+       AccentBrush — the same blue as the primary buttons — so a ticked box is unmistakably on.
+       Hover/pressed use AccentHoverBrush to mirror the button hover convention; the FluentTheme white
+       CheckGlyph (Path#CheckGlyph) stays legible on the accent, so it is left untouched. Global, all
+       checkboxes (the wizard file/hoster columns and any dialog checkboxes), matching WPF's global style. -->
+  <Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="CheckBox:checked:pointerover /template/ Border#NormalRectangle">
+    <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+  </Style>
+  <Style Selector="CheckBox:checked:pressed /template/ Border#NormalRectangle">
+    <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
   </Style>
 
   <!-- FormLabelStyle -> Classes="form-label" -->

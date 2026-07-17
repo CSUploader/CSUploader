@@ -244,9 +244,15 @@
             <Style Selector="DataGridRow">
               <Setter Property="IsVisible" Value="{Binding IsVisible}" />
             </Style>
+            <!-- Selection checkbox: truly centered in its column. HorizontalAlignment=Center alone left the
+                 box a few px left because the FluentTheme CheckBox (RootGrid ColumnDefinitions "20,*")
+                 reserves its 8px content Padding to the right of the box even with no content; zero the
+                 Padding/MinWidth so the control's width is just the 20px box, which then centers exactly. -->
             <Style Selector="DataGridCell.check-center CheckBox">
               <Setter Property="HorizontalAlignment" Value="Center" />
               <Setter Property="VerticalAlignment" Value="Center" />
+              <Setter Property="Padding" Value="0" />
+              <Setter Property="MinWidth" Value="0" />
             </Style>
           </DataGrid.Styles>
           <DataGrid.Columns>
