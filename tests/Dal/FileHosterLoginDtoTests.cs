@@ -100,4 +100,71 @@ public class FileHosterLoginDtoTests
         Assert.Contains(nameof(FileHosterLoginDto.StorageAvailableBytes), changed);
         Assert.Equal(750L, dto.StorageAvailableBytes);
     }
+
+    [Fact]
+    public void DisplayName_WithUsername_PrefersUsernameOverApiKey()
+    {
+        FileHosterLoginDto dto = new() { Username = "user@example.com", ApiKey = "0123456789abcdef" };
+        Assert.Equal("user@example.com", dto.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_NoUsername_WithApiKey_ReturnsFirstSixCharsMasked()
+    {
+        // API-key hosters (Ufile, NitroFlare) capture only a key, no email — the picker shows a
+        // partly-masked key so several key-only accounts stay distinguishable.
+        FileHosterLoginDto dto = new() { Username = null, ApiKey = "12GHte7890abcdef" };
+        Assert.Equal("12GHte**", dto.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_WhitespaceUsername_FallsBackToMaskedApiKey()
+    {
+        FileHosterLoginDto dto = new() { Username = "   ", ApiKey = "12GHte7890abcdef" };
+        Assert.Equal("12GHte**", dto.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_ApiKeyShorterThanSix_MasksWholeKey()
+    {
+        FileHosterLoginDto dto = new() { Username = null, ApiKey = "ab12" };
+        Assert.Equal("ab12**", dto.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_NoUsernameNoApiKey_ReturnsEmpty()
+    {
+        FileHosterLoginDto dto = new();
+        Assert.Equal(string.Empty, dto.DisplayName);
+    }
+
+    [Fact]
+    public void Username_Setter_AlsoNotifiesDisplayName()
+    {
+        // The account pickers bind DisplayName; a live refresh that fills Username in place must
+        // re-render the dropdown/label, so the Username setter cascades DisplayName too.
+        FileHosterLoginDto dto = new() { ApiKey = "12GHte7890abcdef" };
+        List<string?> changed = [];
+        dto.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dto.Username = "user@example.com";
+
+        Assert.Contains(nameof(FileHosterLoginDto.Username), changed);
+        Assert.Contains(nameof(FileHosterLoginDto.DisplayName), changed);
+    }
+
+    [Fact]
+    public void ApiKey_Setter_AlsoNotifiesDisplayName()
+    {
+        // The Settings Accounts grid (live-refreshing) binds DisplayName; a refresh that rotates a
+        // key-only account's ApiKey in place must re-render, so the ApiKey setter cascades DisplayName.
+        FileHosterLoginDto dto = new();
+        List<string?> changed = [];
+        dto.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        dto.ApiKey = "12GHte7890abcdef";
+
+        Assert.Contains(nameof(FileHosterLoginDto.ApiKey), changed);
+        Assert.Contains(nameof(FileHosterLoginDto.DisplayName), changed);
+    }
 }

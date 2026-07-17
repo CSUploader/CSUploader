@@ -39,8 +39,19 @@ public class FileHosterLoginDto : INotifyPropertyChanged
 
     // Notifies because RefreshSingleAccountAsync → ApplySessionCookieIfPresent can set this in
     // place from the verifier's DerivedUsername (API-key hosters like HitFile), and the grid's
-    // {Binding Username} column must re-render without a reload.
-    public string? Username { get; set => SetField(ref field, value); }
+    // {Binding Username} column must re-render without a reload. DisplayName is derived from it,
+    // so cascade that notification too — the wizard's account pickers bind DisplayName.
+    public string? Username
+    {
+        get;
+        set
+        {
+            if (SetField(ref field, value))
+            {
+                OnPropertyChanged(nameof(DisplayName));
+            }
+        }
+    }
 
     public string? Password { get; set; }
 
@@ -79,7 +90,48 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     /// API key for key-based REST APIs (currently Ex-Load). See
     /// <see cref="FileHosterLoginDbm.ApiKey"/> for semantics.
     /// </summary>
-    public string? ApiKey { get; set; }
+    // DisplayName masks this when there's no username, and the Settings Accounts grid + wizard
+    // pickers bind DisplayName — so a live refresh that rotates the key in place must re-render.
+    // Cascade the notification (mirrors Username). Set-once at load raises to no subscribers, so
+    // it's harmless there.
+    public string? ApiKey
+    {
+        get;
+        set
+        {
+            if (SetField(ref field, value))
+            {
+                OnPropertyChanged(nameof(DisplayName));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Label for the upload wizard's account pickers (dropdown + summary). Prefers
+    /// <see cref="Username"/> — an email for most hosters, or the localized "(anonymous)" tag the
+    /// wizard puts on its synthetic no-login entry. When a hoster's sign-in captures no username
+    /// (API-key hosters like Ufile/NitroFlare, whose dashboard probe yields only a key), falls back
+    /// to a partly-masked key: the first six characters plus "**" (e.g. "12GHte**"), so several
+    /// key-only accounts stay distinguishable in the list without exposing the full secret. Empty
+    /// only when an account carries neither a username nor a key. Not persisted.
+    /// </summary>
+    public string DisplayName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Username))
+            {
+                return Username;
+            }
+
+            if (!string.IsNullOrEmpty(ApiKey))
+            {
+                return string.Concat(ApiKey.AsSpan(0, Math.Min(6, ApiKey.Length)), "**");
+            }
+
+            return string.Empty;
+        }
+    }
 
     /// <summary>Bytes the account is currently consuming on the hoster (FileBoom's
     /// <c>storageSpace.used</c>). Null when not known.</summary>

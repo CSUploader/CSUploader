@@ -378,7 +378,7 @@
                   <Grid>
                     <ComboBox ItemsSource="{Binding AccountOptions}"
                               SelectedItem="{Binding SelectedAccount}"
-                              DisplayMemberBinding="{Binding Username}"
+                              DisplayMemberBinding="{Binding DisplayName}"
                               VerticalAlignment="Center" HorizontalAlignment="Left"
                               Width="200" Padding="4,2" FontSize="12"
                               IsVisible="{Binding CanUse}" />

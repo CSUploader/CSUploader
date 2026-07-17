@@ -597,15 +597,33 @@ public class PackageTests
     }
 
     [Fact]
-    public void AccountDisplay_AccountWithBlankUsername_ShowsEmptyNotAnonymous()
+    public void AccountDisplay_AccountWithNoUsernameNoKey_ShowsEmptyNotAnonymous()
     {
-        // A real account with no captured username (e.g. a HitFile account with no derived
-        // email) shows blank — it is NOT anonymous, so it must not show "(anonymous)".
+        // A real account with neither a captured username nor an API key shows blank — it is NOT
+        // anonymous, so it must not show "(anonymous)".
         Package package = MakePackageWithLogin(
             new FileHosterLoginDto { FileHosterName = "HitFile", Username = null, IsAnonymous = false });
 
         Assert.Equal(string.Empty, Assert.Single(package).AccountDisplay);
         Assert.Equal(string.Empty, package.AccountDisplay);
+    }
+
+    [Fact]
+    public void AccountDisplay_KeyOnlyAccount_ShowsMaskedApiKey()
+    {
+        // API-key hosters (Ufile/NitroFlare) capture only a key, no username — the Uploads grid's
+        // Account column shows a partly-masked key so several key-only accounts stay distinguishable
+        // instead of rendering as identical blank cells.
+        Package package = MakePackageWithLogin(new FileHosterLoginDto
+        {
+            FileHosterName = "Ufile",
+            Username = null,
+            IsAnonymous = false,
+            ApiKey = "12GHte7890abcdef",
+        });
+
+        Assert.Equal("12GHte**", Assert.Single(package).AccountDisplay);
+        Assert.Equal("12GHte**", package.AccountDisplay);
     }
 
     private static Package MakePackageWithLogin(FileHosterLoginDto login)

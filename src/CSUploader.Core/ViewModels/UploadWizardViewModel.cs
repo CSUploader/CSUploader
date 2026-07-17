@@ -482,7 +482,7 @@ public partial class UploadWizardViewModel : ObservableObject
             List<SummaryFileItem> items = [.. eligible.Select(f => new SummaryFileItem(f, included: true))];
             HosterUploadSummary summary = new(
                 hoster.FileHosterName,
-                account.Username ?? string.Empty,
+                account.DisplayName,
                 items,
                 available,
                 maxFileSize,

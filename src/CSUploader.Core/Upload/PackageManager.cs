@@ -461,9 +461,12 @@ public class PackageManager
                     FileSize = file.Size ?? 0,
                     FileHoster = file.FileHoster.Name,
                     FileHosterName = file.FileHoster.Name,
-                    // Denormalize the account name (username for a real account; null for anonymous,
-                    // which the History tab renders as the localized "(anonymous)" via FileHosterLoginId==0).
-                    FileHosterAccount = file.FileHosterLogin is { IsAnonymous: false } login ? login.Username : null,
+                    // Denormalize the account label (DisplayName: username, or a masked API key for
+                    // key-only hosters; null for anonymous, which the History tab renders as the
+                    // localized "(anonymous)" via FileHosterLoginId==0). Storing DisplayName persists
+                    // the masked key (e.g. "12GHte**") for key-only accounts so History stays as
+                    // distinguishable as the live grid; only newly recorded rows get it.
+                    FileHosterAccount = file.FileHosterLogin is { IsAnonymous: false } login ? login.DisplayName : null,
                     StartDateTime = DateTime.Now,
                     State = file.State,
                     IsHashingComplete = file.IsHashingComplete,

@@ -82,9 +82,21 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     /// </summary>
     public bool CanUse => HasAccounts || SupportsAnonymous;
 
-    public string AccountDisplayText => HasAccounts
-        ? (SelectedAccount?.Username ?? Localizer.Instance["Wizard_Step2_AccountSelect"])
-        : Localizer.Instance["Wizard_Step2_AccountAnonymous"];
+    public string AccountDisplayText
+    {
+        get
+        {
+            if (!HasAccounts)
+            {
+                return Localizer.Instance["Wizard_Step2_AccountAnonymous"];
+            }
+
+            // DisplayName falls back to a masked API key for key-only accounts (no username);
+            // it's empty only when the account has neither, which reads as "pick one".
+            string? name = SelectedAccount?.DisplayName;
+            return string.IsNullOrEmpty(name) ? Localizer.Instance["Wizard_Step2_AccountSelect"] : name;
+        }
+    }
 
     /// <summary>
     /// The hoster's per-file size cap in bytes for the currently selected account, or null when

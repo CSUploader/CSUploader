@@ -279,7 +279,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             FileHosterLoginDto login = FileHosterLogins.Values.First();
             return login.IsAnonymous
                 ? Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
-                : (string.IsNullOrWhiteSpace(login.Username) ? string.Empty : login.Username);
+                : login.DisplayName;
         }
     }
 

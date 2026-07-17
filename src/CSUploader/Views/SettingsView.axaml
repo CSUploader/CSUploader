@@ -821,9 +821,10 @@
           </DataGridTemplateColumn>
 
           <!-- Username: OneWay (rule 32 — read-only; Avalonia's default TwoWay would push the string back on
-               bind). -->
+               bind). Binds DisplayName, not Username, so key-only accounts (Ufile/NitroFlare, no username)
+               show a masked key instead of a blank cell and several stay distinguishable. -->
           <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Username}"
-                              Binding="{Binding Username, Mode=OneWay}" Width="180" />
+                              Binding="{Binding DisplayName, Mode=OneWay}" Width="180" />
 
           <!-- Password: fixed masked cell (WPF ElementStyle sets Text="******"). Accounts never show the
                cleartext secret even in WPF — a template column with a literal string mask. -->

@@ -138,13 +138,15 @@ public class PackageFile : INotifyPropertyChanged
     /// <summary>
     /// Display name of the account this file is uploaded with, mirroring <see cref="HosterDisplay"/>
     /// for unified XAML bindings. Anonymous uploads show the localized "(anonymous)" label rather
-    /// than the credential's <c>Username</c> (which is null on reloaded anonymous packages — see
-    /// PackageManager reconstitution). Fixed at construction like HosterDisplay, so no change
-    /// notification is needed.
+    /// than the credential's name (Username is null on reloaded anonymous packages — see
+    /// PackageManager reconstitution — so the IsAnonymous guard must stay in front). Real accounts
+    /// use <see cref="FileHosterLoginDto.DisplayName"/>, which falls back to a masked API key for
+    /// key-only hosters (Ufile/NitroFlare) that have no username. Fixed at construction like
+    /// HosterDisplay, so no change notification is needed.
     /// </summary>
     public string AccountDisplay => FileHosterLogin.IsAnonymous
         ? Lib.Localization.Localizer.Instance["Wizard_Step2_AccountAnonymous"]
-        : (string.IsNullOrWhiteSpace(FileHosterLogin.Username) ? string.Empty : FileHosterLogin.Username);
+        : FileHosterLogin.DisplayName;
 
     /// <summary>
     /// False — marks this row as a file row (not a package) for XAML template selection.
