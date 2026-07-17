@@ -277,21 +277,19 @@ public class MainWindowMenuTests
 
     private sealed class FakeUploadsVm : INotifyPropertyChanged
     {
-        private bool showUploadOverview = true;
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public bool ShowUploadOverview
         {
-            get => this.showUploadOverview;
+            get;
             set
             {
-                if (this.showUploadOverview != value)
+                if (field != value)
                 {
-                    this.showUploadOverview = value;
+                    field = value;
                     this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.ShowUploadOverview)));
                 }
             }
-        }
+        } = true;
     }
 }

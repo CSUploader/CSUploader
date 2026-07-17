@@ -56,7 +56,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [ObservableProperty]
-    private bool showUploadOverview = true;
+    public partial bool ShowUploadOverview { get; set; } = true;
 
     /// <summary>
     /// Whether the Upload Overview's stats row is shown beneath its title bar.
@@ -65,7 +65,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OverviewToggleGlyph))]
-    private bool isOverviewExpanded = true;
+    public partial bool IsOverviewExpanded { get; set; } = true;
 
     /// <summary>
     /// ▼ when the stats row is showing, ▶ when collapsed. Bound to the chevron next
@@ -76,41 +76,40 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     // -- Overview field visibility toggles --
 
     [ObservableProperty]
-    private bool showPackages = true;
+    public partial bool ShowPackages { get; set; } = true;
 
     [ObservableProperty]
-    private bool showLinks = true;
+    public partial bool ShowLinks { get; set; } = true;
 
     [ObservableProperty]
-    private bool showTotalBytes = true;
+    public partial bool ShowTotalBytes { get; set; } = true;
 
     [ObservableProperty]
-    private bool showUploadspeed = true;
+    public partial bool ShowUploadspeed { get; set; } = true;
 
     [ObservableProperty]
-    private bool showBytesLoaded = true;
+    public partial bool ShowBytesLoaded { get; set; } = true;
 
     [ObservableProperty]
-    private bool showRemainingBytes = true;
+    public partial bool ShowRemainingBytes { get; set; } = true;
 
     [ObservableProperty]
-    private bool showEta = true;
+    public partial bool ShowEta { get; set; } = true;
 
     [ObservableProperty]
-    private bool showRunningUploads = true;
+    public partial bool ShowRunningUploads { get; set; } = true;
 
     [ObservableProperty]
-    private bool showOpenConnections = true;
+    public partial bool ShowOpenConnections { get; set; } = true;
 
     [ObservableProperty]
-    private bool showFinishedLinks;
+    public partial bool ShowFinishedLinks { get; set; }
 
     [ObservableProperty]
-    private bool showSkippedLinks;
+    public partial bool ShowSkippedLinks { get; set; }
 
     [ObservableProperty]
-    private bool showFailedLinks;
-
+    public partial bool ShowFailedLinks { get; set; }
     public ObservableCollection<Package> Packages { get; } = [];
 
     /// <summary>
@@ -124,7 +123,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// Filters by package name (for package rows) and by file name (for file rows).
     /// </summary>
     [ObservableProperty]
-    private string filterText = string.Empty;
+    public partial string FilterText { get; set; } = string.Empty;
 
     /// <summary>
     /// Raised when <see cref="FilterText"/> is edited (the only site where the filter result can
@@ -583,7 +582,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// each MenuItem only carries a single CommandParameter (the column key).
     /// </summary>
     [ObservableProperty]
-    private object? selectedRow;
+    public partial object? SelectedRow { get; set; }
 
     /// <summary>
     /// The full multi-row selection (Package/PackageFile), snapshotted by the view when the

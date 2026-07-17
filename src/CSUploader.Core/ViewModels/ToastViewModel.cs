@@ -16,18 +16,17 @@ namespace CSUploader.ViewModels;
 public partial class ToastViewModel(IRelayCommand activateCommand, IRelayCommand closeCommand) : ObservableObject
 {
     [ObservableProperty]
-    private string title = string.Empty;
+    public partial string Title { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string message = string.Empty;
+    public partial string Message { get; set; } = string.Empty;
 
     /// <summary>
     /// Resource key from <c>ImageResources.xaml</c> — e.g. <c>StatusSuccessImage</c> for
     /// per-file completions, <c>PackageClosedImage</c> for package summaries.
     /// </summary>
     [ObservableProperty]
-    private string iconKey = "StatusSuccessImage";
-
+    public partial string IconKey { get; set; } = "StatusSuccessImage";
     public IRelayCommand ActivateCommand { get; } = activateCommand;
 
     public IRelayCommand CloseCommand { get; } = closeCommand;

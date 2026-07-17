@@ -16,32 +16,25 @@ namespace CSUploader.Views;
 /// </summary>
 public sealed class WebViewLoginViewModel : INotifyPropertyChanged
 {
-    private string _header = string.Empty;
-    private string _status = string.Empty;
-    private bool _isInitialized;
-    private string? _lastNavigationUrl;
-    private int _navigationCompletedCount;
-    private bool _isCompleted;
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>Hoster header line ("Sign in to X"). Bound to the header TextBlock.</summary>
-    public string Header { get => _header; set => Set(ref _header, value); }
+    public string Header { get; set => Set(ref field, value); } = string.Empty;
 
     /// <summary>Current status-strip text (initializing / loading URL / current source / cookie-read error).</summary>
-    public string Status { get => _status; set => Set(ref _status, value); }
+    public string Status { get; set => Set(ref field, value); } = string.Empty;
 
     /// <summary>True once the environment + controller are created and the first navigation is kicked off.</summary>
-    public bool IsInitialized { get => _isInitialized; set => Set(ref _isInitialized, value); }
+    public bool IsInitialized { get; set => Set(ref field, value); }
 
     /// <summary>Most recent navigated URL (SourceChanged / NavigationCompleted).</summary>
-    public string? LastNavigationUrl { get => _lastNavigationUrl; set => Set(ref _lastNavigationUrl, value); }
+    public string? LastNavigationUrl { get; set => Set(ref field, value); }
 
     /// <summary>Count of NavigationCompleted events — ava_vm's "did navigation actually happen" signal.</summary>
-    public int NavigationCompletedCount { get => _navigationCompletedCount; set => Set(ref _navigationCompletedCount, value); }
+    public int NavigationCompletedCount { get; set => Set(ref field, value); }
 
     /// <summary>True once a session cookie / probe value was captured (sign-in success).</summary>
-    public bool IsCompleted { get => _isCompleted; set => Set(ref _isCompleted, value); }
+    public bool IsCompleted { get; set => Set(ref field, value); }
 
     /// <summary>Bumps <see cref="NavigationCompletedCount"/> and records the URL in one call (window use).</summary>
     public void RecordNavigationCompleted(string? url)

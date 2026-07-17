@@ -139,7 +139,7 @@ public partial class UploadedViewModel : ObservableObject
     /// "Copy" submenu can locate the value to copy with just the column key as parameter.
     /// </summary>
     [ObservableProperty]
-    private UploadedFileRow? selectedRow;
+    public partial UploadedFileRow? SelectedRow { get; set; }
 
     /// <summary>
     /// The full multi-row selection, snapshotted by the view when the context menu opens.

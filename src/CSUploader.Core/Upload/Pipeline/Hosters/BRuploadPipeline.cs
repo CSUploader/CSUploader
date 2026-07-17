@@ -372,7 +372,6 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
             StorageQuotaBytes: storageTotal);
     }
 
-#pragma warning disable SA1202 // Elements should be ordered by access — TryFetchStorageStatsAsync is internal but used here from CheckAccountAsync (public).
 
     /// <summary>
     /// Calls <c>GET /?op=my_files</c> with the <c>xfss</c> cookie and scrapes the

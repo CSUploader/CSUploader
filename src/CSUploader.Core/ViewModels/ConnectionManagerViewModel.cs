@@ -105,7 +105,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     public ObservableCollection<ProxySettingItem> Proxies { get; } = [];
 
     [ObservableProperty]
-    private string saveStatus = string.Empty;
+    public partial string SaveStatus { get; set; } = string.Empty;
 
     /// <summary>
     /// Bound to the "Automatically disable failing proxies" checkbox above the grid.
@@ -113,7 +113,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     /// background paths (PackageManager → ReportResult → us) see the user's choice.
     /// </summary>
     [ObservableProperty]
-    private bool autoDisableFailingProxies = AppSettings.DefaultAutoDisableFailingProxies;
+    public partial bool AutoDisableFailingProxies { get; set; } = AppSettings.DefaultAutoDisableFailingProxies;
 
     /// <summary>
     /// Bound to the "Use proxies for uploads" checkbox above the grid. When false,
@@ -122,7 +122,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     /// <see cref="AppSettings.ProxiesEnabled"/> on Save.
     /// </summary>
     [ObservableProperty]
-    private bool proxiesEnabled = AppSettings.DefaultProxiesEnabled;
+    public partial bool ProxiesEnabled { get; set; } = AppSettings.DefaultProxiesEnabled;
 
     /// <summary>
     /// Bound to the "Accept invalid server certificates" checkbox. When ticked, the
@@ -134,7 +134,7 @@ public partial class ConnectionManagerViewModel : ObservableObject
     /// outbound request.
     /// </summary>
     [ObservableProperty]
-    private bool allowInvalidServerCertificates = AppSettings.DefaultAllowInvalidServerCertificates;
+    public partial bool AllowInvalidServerCertificates { get; set; } = AppSettings.DefaultAllowInvalidServerCertificates;
 
     /// <summary>
     /// Drop-down options shown in the Type column.

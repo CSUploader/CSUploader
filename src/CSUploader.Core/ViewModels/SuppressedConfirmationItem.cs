@@ -21,7 +21,7 @@ public partial class SuppressedConfirmationItem : ObservableObject
     {
         Key = key;
         LabelResourceKey = labelResourceKey;
-        this.askAgain = askAgain;
+        AskAgain = askAgain;
         Localizer.Instance.PropertyChanged += (_, _) => OnPropertyChanged(LabelChangedArgs);
     }
 
@@ -32,7 +32,7 @@ public partial class SuppressedConfirmationItem : ObservableObject
     public string Label => Localizer.Instance[LabelResourceKey];
 
     [ObservableProperty]
-    private bool askAgain;
+    public partial bool AskAgain { get; set; }
 
     private static readonly PropertyChangedEventArgs LabelChangedArgs = new(nameof(Label));
 }

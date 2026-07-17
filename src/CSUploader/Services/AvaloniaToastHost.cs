@@ -19,8 +19,6 @@ namespace CSUploader.Services;
 internal sealed class AvaloniaToastHost : IToastHost
 {
     private readonly ToastWindow _window;
-    private double _dipTop;
-    private double _dipLeft;
 
     public AvaloniaToastHost(ToastWindow window)
     {
@@ -33,20 +31,20 @@ internal sealed class AvaloniaToastHost : IToastHost
 
     public double Top
     {
-        get => _dipTop;
+        get;
         set
         {
-            _dipTop = value;
+            field = value;
             ApplyPosition();
         }
     }
 
     public double Left
     {
-        get => _dipLeft;
+        get;
         set
         {
-            _dipLeft = value;
+            field = value;
             ApplyPosition();
         }
     }
@@ -60,7 +58,7 @@ internal sealed class AvaloniaToastHost : IToastHost
     private void ApplyPosition()
     {
         double scaling = ResolvePrimaryScaling();
-        _window.Position = ToastPlacement.DipToPhysical(_dipLeft, _dipTop, scaling);
+        _window.Position = ToastPlacement.DipToPhysical(Left, Top, scaling);
     }
 
     private static double ResolvePrimaryScaling()

@@ -16,7 +16,6 @@ namespace CSUploader.Services;
 /// </summary>
 public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
 {
-    private UpdateProgressWindow? _window;
 
     /// <summary>
     /// Creates and shows a FRESH window, replacing any prior surface (the interface's retry contract: a
@@ -27,7 +26,7 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
     public void Open()
     {
         UpdateProgressWindow window = new();
-        _window = window;
+        CurrentWindow = window;
 
         // Owner = the visible MAIN window only, else ownerless — NOT the active-visible resolver a modal
         // dialog uses. This is a long-lived, non-modal surface that must outlive whatever launched the
@@ -50,9 +49,9 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
         }
     }
 
-    public void SetStatus(string status) => _window?.SetStatus(status);
+    public void SetStatus(string status) => CurrentWindow?.SetStatus(status);
 
-    public void Report(int percent) => _window?.SetProgress(percent);
+    public void Report(int percent) => CurrentWindow?.SetProgress(percent);
 
     /// <summary>
     /// Closes the current window and drops the reference. Unused by the current WPF caller (on success the
@@ -61,12 +60,12 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
     /// </summary>
     public void Close()
     {
-        _window?.Close();
-        _window = null;
+        CurrentWindow?.Close();
+        CurrentWindow = null;
     }
 
     // Test seam (InternalsVisibleTo → CSUploader.Tests): the current (most-recent) window, so the
     // headless sink tests can assert fresh-window-per-Open, Report-updates-the-bar, and the never-Close
     // lifecycle contracts against the real controls.
-    internal UpdateProgressWindow? CurrentWindow => _window;
+    internal UpdateProgressWindow? CurrentWindow { get; private set; }
 }

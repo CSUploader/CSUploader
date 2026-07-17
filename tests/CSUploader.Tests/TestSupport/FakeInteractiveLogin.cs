@@ -19,9 +19,7 @@ namespace CSUploader.Tests.Avalonia;
 /// </summary>
 internal sealed class FakeInteractiveLogin
 {
-    private readonly Func<string, Task<AccountCheckResult>> _inner;
-
-    private FakeInteractiveLogin(Func<string, Task<AccountCheckResult>> inner) => _inner = inner;
+    private FakeInteractiveLogin(Func<string, Task<AccountCheckResult>> inner) => Callback = inner;
 
     public int CallCount { get; private set; }
 
@@ -33,7 +31,7 @@ internal sealed class FakeInteractiveLogin
     {
         CallCount++;
         LastHoster = hoster;
-        return _inner(hoster);
+        return field(hoster);
     };
 
     public static FakeInteractiveLogin Success(AccountCheckResult result) => new(_ => Task.FromResult(result));

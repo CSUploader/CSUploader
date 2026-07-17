@@ -13,10 +13,10 @@ namespace CSUploader.ViewModels;
 public partial class FileHosterSelectionViewModel : ObservableObject
 {
     [ObservableProperty]
-    private bool use;
+    public partial bool Use { get; set; }
 
     [ObservableProperty]
-    private FileHosterLoginDto? selectedAccount;
+    public partial FileHosterLoginDto? SelectedAccount { get; set; }
 
     // Synthetic, non-persisted "Anonymous" entry shown in the account dropdown for hosters
     // that support anonymous upload. Null when the hoster doesn't. The pipeline routes on its

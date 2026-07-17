@@ -594,18 +594,16 @@ public partial class GalleryWindow : Window
     /// picked day back through <see cref="Converters.DateTimeOffsetConverter"/>.</summary>
     private sealed class GalleryDateModel : INotifyPropertyChanged
     {
-        private DateTime _galleryDate;
-
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public DateTime GalleryDate
         {
-            get => _galleryDate;
+            get;
             set
             {
-                if (_galleryDate != value)
+                if (field != value)
                 {
-                    _galleryDate = value;
+                    field = value;
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GalleryDate)));
                 }
             }

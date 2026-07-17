@@ -13,7 +13,7 @@ namespace CSUploader.ViewModels;
 public partial class LogsViewModel : ObservableObject
 {
     [ObservableProperty]
-    private bool autoScroll = true;
+    public partial bool AutoScroll { get; set; } = true;
 
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility

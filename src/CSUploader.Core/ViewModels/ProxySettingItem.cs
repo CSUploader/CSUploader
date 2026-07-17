@@ -103,7 +103,7 @@ public partial class ProxySettingItem(ProxySettingDto dto) : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasTestDetails))]
-    private string testStatus = string.Empty;
+    public partial string TestStatus { get; set; } = string.Empty;
 
     /// <summary>
     /// Coarse pass/fail/untested classification, set explicitly alongside <see cref="TestStatus"/>.
@@ -111,7 +111,7 @@ public partial class ProxySettingItem(ProxySettingDto dto) : ObservableObject
     /// parsed from <see cref="TestStatus"/>) so localised status strings don't break the icon.
     /// </summary>
     [ObservableProperty]
-    private ProxyTestOutcome testOutcome = ProxyTestOutcome.Untested;
+    public partial ProxyTestOutcome TestOutcome { get; set; } = ProxyTestOutcome.Untested;
 
     /// <summary>
     /// Full HTTP transaction (request + response, with headers) from the most recent
@@ -120,7 +120,7 @@ public partial class ProxySettingItem(ProxySettingDto dto) : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasTestDetails))]
-    private HttpTransaction? testTransaction;
+    public partial HttpTransaction? TestTransaction { get; set; }
 
     /// <summary>
     /// True when there's a captured transaction to show in the details modal — drives
@@ -133,5 +133,5 @@ public partial class ProxySettingItem(ProxySettingDto dto) : ObservableObject
     /// disable the Test command on this row.
     /// </summary>
     [ObservableProperty]
-    private bool isTesting;
+    public partial bool IsTesting { get; set; }
 }

@@ -37,22 +37,16 @@ public class FileHosterLoginDto : INotifyPropertyChanged
 
     public string? FileHosterName { get; set; }
 
-    private string? _username;
-
     // Notifies because RefreshSingleAccountAsync → ApplySessionCookieIfPresent can set this in
     // place from the verifier's DerivedUsername (API-key hosters like HitFile), and the grid's
     // {Binding Username} column must re-render without a reload.
-    public string? Username { get => _username; set => SetField(ref _username, value); }
+    public string? Username { get; set => SetField(ref field, value); }
 
     public string? Password { get; set; }
 
-    private bool _disabled;
+    public bool Disabled { get; set => SetField(ref field, value); }
 
-    public bool Disabled { get => _disabled; set => SetField(ref _disabled, value); }
-
-    private AccountType _accountType;
-
-    public AccountType AccountType { get => _accountType; set => SetField(ref _accountType, value); }
+    public AccountType AccountType { get; set => SetField(ref field, value); }
 
     /// <summary>
     /// Marks a synthetic, non-persisted "Anonymous" selection — the built-in no-login option
@@ -87,34 +81,30 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     /// </summary>
     public string? ApiKey { get; set; }
 
-    private long? _storageUsedBytes;
-
     /// <summary>Bytes the account is currently consuming on the hoster (FileBoom's
     /// <c>storageSpace.used</c>). Null when not known.</summary>
     public long? StorageUsedBytes
     {
-        get => _storageUsedBytes;
+        get;
         // StorageAvailableBytes is computed from this, so cascade its notification too.
         set
         {
-            if (SetField(ref _storageUsedBytes, value))
+            if (SetField(ref field, value))
             {
                 OnPropertyChanged(nameof(StorageAvailableBytes));
             }
         }
     }
 
-    private long? _storageQuotaBytes;
-
     /// <summary>Total storage quota the account is allowed (FileBoom's
     /// <c>storageSpace.total</c>). Null when not known.</summary>
     public long? StorageQuotaBytes
     {
-        get => _storageQuotaBytes;
+        get;
         // StorageAvailableBytes is computed from this, so cascade its notification too.
         set
         {
-            if (SetField(ref _storageQuotaBytes, value))
+            if (SetField(ref field, value))
             {
                 OnPropertyChanged(nameof(StorageAvailableBytes));
             }
@@ -129,17 +119,7 @@ public class FileHosterLoginDto : INotifyPropertyChanged
         ? Math.Max(0L, total - used)
         : null;
 
-    /// <summary>
-    /// Local-time stamp of the last verifier round-trip for this account, regardless of
-    /// whether it succeeded. Drives the Account Manager grid's "Refreshed at" column.
-    /// Null when the account has never been refreshed. Always set via
-    /// <see cref="MarkRefreshed"/> from real verification moments — NOT via
-    /// <see cref="SetCheckStatus"/>, which is reserved for in-flight markers ("Checking…")
-    /// and snapshot restores that must NOT touch the timestamp.
-    /// </summary>
-    private DateTime? _lastRefreshedDateTime;
-
-    public DateTime? LastRefreshedDateTime { get => _lastRefreshedDateTime; set => SetField(ref _lastRefreshedDateTime, value); }
+    public DateTime? LastRefreshedDateTime { get; set => SetField(ref field, value); }
 
     /// <summary>
     /// Local-time stamp of when this account was added (set once at insert, never changed).
@@ -148,26 +128,9 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     /// </summary>
     public DateTime? CreatedDateTime { get; set; }
 
-    /// <summary>
-    /// Outcome category for the last verification, used by the Account Manager grid to
-    /// pick the cell colour. Pairs with <see cref="StatusMessage"/>; always set both
-    /// together via <see cref="SetCheckStatus"/> so they can't drift.
-    /// </summary>
-    private AccountCheckStatus _checkStatus = AccountCheckStatus.NotChecked;
+    public AccountCheckStatus CheckStatus { get; set => SetField(ref field, value); } = AccountCheckStatus.NotChecked;
 
-    public AccountCheckStatus CheckStatus { get => _checkStatus; set => SetField(ref _checkStatus, value); }
-
-    /// <summary>
-    /// Non-persisted display field showing the last check result (e.g. "Premium until
-    /// 2099", "Wrong password", "The SSL connection could not be established..."). The
-    /// row's cell colour comes from <see cref="CheckStatus"/>, not from sniffing this
-    /// text — so the message can be anything the verifier returned without breaking
-    /// the colour scheme. Empty by default; the colour-coded cell carries the
-    /// NotChecked signal on its own.
-    /// </summary>
-    private string _statusMessage = string.Empty;
-
-    public string StatusMessage { get => _statusMessage; set => SetField(ref _statusMessage, value); }
+    public string StatusMessage { get; set => SetField(ref field, value); } = string.Empty;
 
     /// <summary>
     /// Sets <see cref="CheckStatus"/> and <see cref="StatusMessage"/> together — the only

@@ -121,7 +121,7 @@ public partial class UploadWizardViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDirectoryMode))]
     [NotifyPropertyChangedFor(nameof(IsFilesMode))]
-    private UploadWizardMode mode;
+    public partial UploadWizardMode Mode { get; set; }
 
     public bool IsDirectoryMode => Mode == UploadWizardMode.Directory;
 
@@ -132,17 +132,16 @@ public partial class UploadWizardViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
     [NotifyPropertyChangedFor(nameof(IsLastStep))]
     [NotifyPropertyChangedFor(nameof(NextButtonText))]
-    private int currentStep;
+    public partial int CurrentStep { get; set; }
 
     [ObservableProperty]
-    private string directoryPath = string.Empty;
+    public partial string DirectoryPath { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string packageTitle = string.Empty;
+    public partial string PackageTitle { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string fileFilter = string.Empty;
-
+    public partial string FileFilter { get; set; } = string.Empty;
     public ObservableCollection<FileEntry> Files { get; } = [];
 
     public ObservableCollection<FileHosterSelectionViewModel> FileHosters { get; } = [];
@@ -172,7 +171,7 @@ public partial class UploadWizardViewModel : ObservableObject
     /// keep a hoster within its available space — shown as an informational notice on Page 3.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasAutoFitNotice))]
-    private string autoFitNotice = string.Empty;
+    public partial string AutoFitNotice { get; set; } = string.Empty;
 
     public bool HasAutoFitNotice => !string.IsNullOrEmpty(AutoFitNotice);
 
@@ -192,13 +191,13 @@ public partial class UploadWizardViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsScheduledMode))]
-    private UploadStartMode startMode = UploadStartMode.Immediately;
+    public partial UploadStartMode StartMode { get; set; } = UploadStartMode.Immediately;
 
     [ObservableProperty]
-    private DateTime scheduledDate = DateTime.Now.Date.AddDays(1);
+    public partial DateTime ScheduledDate { get; set; } = DateTime.Now.Date.AddDays(1);
 
     [ObservableProperty]
-    private string scheduledTime = "00:00";
+    public partial string ScheduledTime { get; set; } = "00:00";
 
     public bool IsScheduledMode => StartMode == UploadStartMode.Scheduled;
 
@@ -665,7 +664,7 @@ public partial class UploadWizardViewModel : ObservableObject
         : Localizer.Instance["Wizard_Btn_Next"];
 
     [ObservableProperty]
-    private bool completed;
+    public partial bool Completed { get; set; }
 
     partial void OnFileFilterChanged(string value)
     {
@@ -1088,11 +1087,10 @@ public partial class UploadWizardViewModel : ObservableObject
 public partial class FileEntry : ObservableObject
 {
     [ObservableProperty]
-    private bool isSelected;
+    public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
-    private bool isVisible = true;
-
+    public partial bool IsVisible { get; set; } = true;
     public string FullPath { get; set; } = string.Empty;
 
     public string RelativePath { get; set; } = string.Empty;
@@ -1111,15 +1109,12 @@ public partial class FileEntry : ObservableObject
 public sealed partial class SummaryFileItem : ObservableObject
 {
     [ObservableProperty]
-    private bool included;
+    public partial bool Included { get; set; }
 
     public SummaryFileItem(FileEntry file, bool included)
     {
         File = file;
-
-        // Set the backing field directly: constructing the item must not raise a change
-        // notification (nothing is subscribed yet, and the owner recomputes once at the end).
-        this.included = included;
+        Included = included;
     }
 
     public FileEntry File { get; }
@@ -1180,7 +1175,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
     /// <summary>True while a live storage refresh for this hoster is in flight — drives the per-hoster
     /// "checking available space…" indicator.</summary>
     [ObservableProperty]
-    private bool isRefreshing;
+    public partial bool IsRefreshing { get; set; }
 
     /// <summary>True once the user has manually toggled a file on this hoster. A landing storage
     /// refresh then updates the available figure WITHOUT re-running the auto-fit, so it never wipes
@@ -1198,16 +1193,16 @@ public sealed partial class HosterUploadSummary : ObservableObject
 
     /// <summary>Bytes of the currently-checked files.</summary>
     [ObservableProperty]
-    private long includedBytes;
+    public partial long IncludedBytes { get; set; }
 
     /// <summary>Count of currently-checked files.</summary>
     [ObservableProperty]
-    private int includedCount;
+    public partial int IncludedCount { get; set; }
 
     /// <summary>True when the checked files exceed <see cref="AvailableBytes"/> (only possible for a
     /// quota-reporting hoster). Drives the red capacity line and the wizard's Next block.</summary>
     [ObservableProperty]
-    private bool isOverCapacity;
+    public partial bool IsOverCapacity { get; set; }
 
     /// <summary>True when this hoster's account reports a storage quota (so capacity applies).</summary>
     public bool HasQuota => AvailableBytes is not null;

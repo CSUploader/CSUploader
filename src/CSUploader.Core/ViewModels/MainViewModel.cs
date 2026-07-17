@@ -34,20 +34,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _disposed;
 
     [ObservableProperty]
-    private int selectedTabIndex;
+    public partial int SelectedTabIndex { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ThemeMenuLabel))]
-    private bool isDarkMode;
+    public partial bool IsDarkMode { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))]
-    private bool isUpdateAvailable;
+    public partial bool IsUpdateAvailable { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
-    private string? availableVersion;
+    public partial string? AvailableVersion { get; set; }
 
     public string ThemeMenuLabel => IsDarkMode
         ? Localizer.Instance["Main_Menu_View_LightMode"]

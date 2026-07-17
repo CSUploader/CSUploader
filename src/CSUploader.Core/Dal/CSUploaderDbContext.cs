@@ -9,7 +9,7 @@ namespace CSUploader.Dal;
 
 public class CSUploaderDbContext : DbContext
 {
-    private static readonly string DefaultDbPath = Path.Combine(
+    private static readonly string _defaultDbPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory,
         "CSUploader.db");
 
@@ -38,7 +38,7 @@ public class CSUploaderDbContext : DbContext
     {
         if (!optionsBuilder.IsConfigured)
         {
-            optionsBuilder.UseSqlite($"Data Source={DefaultDbPath}");
+            optionsBuilder.UseSqlite($"Data Source={_defaultDbPath}");
         }
     }
 

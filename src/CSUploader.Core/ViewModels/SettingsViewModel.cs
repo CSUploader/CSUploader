@@ -59,25 +59,25 @@ public partial class SettingsViewModel(
     // ── Upload settings ──
 
     [ObservableProperty]
-    private int maxConcurrentCPUJobs = AppSettings.DefaultMaxConcurrentCPUJobs;
+    public partial int MaxConcurrentCPUJobs { get; set; } = AppSettings.DefaultMaxConcurrentCPUJobs;
 
     [ObservableProperty]
-    private int maxConcurrentUploadJobs = AppSettings.DefaultMaxConcurrentUploadJobs;
+    public partial int MaxConcurrentUploadJobs { get; set; } = AppSettings.DefaultMaxConcurrentUploadJobs;
 
     [ObservableProperty]
-    private bool maxUploadsPerHostEnabled;
+    public partial bool MaxUploadsPerHostEnabled { get; set; }
 
     [ObservableProperty]
-    private int maxUploadsPerHost = AppSettings.DefaultMaxUploadsPerHost;
+    public partial int MaxUploadsPerHost { get; set; } = AppSettings.DefaultMaxUploadsPerHost;
 
     [ObservableProperty]
-    private RemoveFinishedUploadsMode removeFinishedUploads = AppSettings.DefaultRemoveFinishedUploads;
+    public partial RemoveFinishedUploadsMode RemoveFinishedUploads { get; set; } = AppSettings.DefaultRemoveFinishedUploads;
 
     [ObservableProperty]
-    private string gridFontFamily = AppSettings.DefaultGridFontFamily;
+    public partial string GridFontFamily { get; set; } = AppSettings.DefaultGridFontFamily;
 
     [ObservableProperty]
-    private double gridFontSize = AppSettings.DefaultGridFontSize;
+    public partial double GridFontSize { get; set; } = AppSettings.DefaultGridFontSize;
 
     /// <summary>
     /// All font families installed on the system, sorted by display name. Resolved
@@ -89,41 +89,40 @@ public partial class SettingsViewModel(
         fontEnumerationService?.GetSystemFontFamilyNames() ?? [];
 
     [ObservableProperty]
-    private IfFileExistsBehavior ifFileExists = AppSettings.DefaultIfFileExists;
+    public partial IfFileExistsBehavior IfFileExists { get; set; } = AppSettings.DefaultIfFileExists;
 
     [ObservableProperty]
-    private AutostartUploadsMode autostartUploads = AppSettings.DefaultAutostartUploads;
+    public partial AutostartUploadsMode AutostartUploads { get; set; } = AppSettings.DefaultAutostartUploads;
 
     /// <summary>
     /// BCP-47 tag for the active UI language. Bound to the language dropdown on the
     /// General page. Empty means "auto-detect" — only persisted that way pre-first-pick.
     /// </summary>
     [ObservableProperty]
-    private string language = "en";
+    public partial string Language { get; set; } = "en";
 
     [ObservableProperty]
-    private bool minimizeToTray = AppSettings.DefaultMinimizeToTray;
+    public partial bool MinimizeToTray { get; set; } = AppSettings.DefaultMinimizeToTray;
 
     [ObservableProperty]
-    private CloseAction closeAction = AppSettings.DefaultCloseAction;
+    public partial CloseAction CloseAction { get; set; } = AppSettings.DefaultCloseAction;
 
     [ObservableProperty]
-    private bool speedLimitEnabled;
+    public partial bool SpeedLimitEnabled { get; set; }
 
     [ObservableProperty]
-    private int speedLimitValue;
+    public partial int SpeedLimitValue { get; set; }
 
     // ── Notification settings ──
 
     [ObservableProperty]
-    private bool showCompletionToasts = AppSettings.DefaultShowCompletionToasts;
+    public partial bool ShowCompletionToasts { get; set; } = AppSettings.DefaultShowCompletionToasts;
 
     // ── Developer settings ──
 
     [ObservableProperty]
-    private bool useMockServer = AppSettings.DefaultUseMockServer;
+    public partial bool UseMockServer { get; set; } = AppSettings.DefaultUseMockServer;
 
-#pragma warning disable CA1822
     public LocalizedOption<RemoveFinishedUploadsMode>[] RemoveFinishedUploadsOptions { get; } =
     [
         new(RemoveFinishedUploadsMode.Never, "Settings_Upload_RemoveFinished_Never"),
@@ -170,36 +169,34 @@ public partial class SettingsViewModel(
         new(CloseAction.MinimizeToTray, "Settings_General_CloseAction_MinToTray"),
         new(CloseAction.Exit, "Settings_General_CloseAction_Exit"),
     ];
-#pragma warning restore CA1822
 
     // ── Navigation ──
 
     [ObservableProperty]
-    private int selectedCategoryIndex;
+    public partial int SelectedCategoryIndex { get; set; }
 
     // ── Account management ──
 
     [ObservableProperty]
-    private FileHosterLoginDto? selectedAccount;
+    public partial FileHosterLoginDto? SelectedAccount { get; set; }
 
     [ObservableProperty]
-    private string newAccountHoster = string.Empty;
+    public partial string NewAccountHoster { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string newAccountUsername = string.Empty;
+    public partial string NewAccountUsername { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string newAccountPassword = string.Empty;
+    public partial string NewAccountPassword { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private AccountType newAccountType = AccountType.Free;
+    public partial AccountType NewAccountType { get; set; } = AccountType.Free;
 
     [ObservableProperty]
-    private string checkAccountStatus = string.Empty;
+    public partial string CheckAccountStatus { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool isCheckingAccount;
-
+    public partial bool IsCheckingAccount { get; set; }
     public ObservableCollection<FileHosterLoginDto> Accounts { get; } = [];
 
     public ObservableCollection<SuppressedConfirmationItem> ConfirmationPrompts { get; } = [];
@@ -727,7 +724,7 @@ public partial class SettingsViewModel(
     }
 
     [RelayCommand]
-    private async Task AddAccountDialog()
+    private async Task AddAccountDialogAsync()
     {
         // Open EditAccountWindow in "add" mode with empty fields
         FileHosterLoginDto newAccount = new()
@@ -813,7 +810,7 @@ public partial class SettingsViewModel(
     }
 
     /// <summary>
-    /// Called by <see cref="AddAccountDialog"/> after the dialog returns Save. Exposed as
+    /// Called by <see cref="AddAccountDialogAsync"/> after the dialog returns Save. Exposed as
     /// internal (not private) so the unit test can drive it without a real WPF window —
     /// the dialog wiring is the only WPF dependency in this whole flow.
     /// </summary>
@@ -1193,7 +1190,7 @@ public partial class SettingsViewModel(
             : [.. selectedItems.OfType<FileHosterLoginDto>()];
 
     [RelayCommand]
-    private async Task EditAccount()
+    private async Task EditAccountAsync()
     {
         if (SelectedAccount is null)
         {

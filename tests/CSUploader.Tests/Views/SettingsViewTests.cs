@@ -96,16 +96,14 @@ public class SettingsViewTests
 
     private sealed class LostFocusProbe : System.ComponentModel.INotifyPropertyChanged
     {
-        private string? value;
-
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
         public string? Value
         {
-            get => this.value;
+            get;
             set
             {
-                this.value = value;
+                field = value;
                 PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Value)));
             }
         }

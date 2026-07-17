@@ -30,14 +30,12 @@ namespace CSUploader.Views;
 /// </summary>
 public partial class UploadWizardWindow : Window
 {
-    private readonly UploadWizardViewModel _vm;
-
     /// <summary>
     /// The wizard VM (resolved from DI, or injected in the headless suite). Internal so the gallery dev surface can seed a sample
     /// <see cref="UploadWizardViewModel.DirectoryPath"/> before showing (the agent bridge can't commit the
     /// LostFocus-bound directory box, so the gallery pre-loads a fake directory to exercise steps 0-1).
     /// </summary>
-    internal UploadWizardViewModel ViewModel => _vm;
+    internal UploadWizardViewModel ViewModel { get; }
 
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses the
     // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services
@@ -65,7 +63,7 @@ public partial class UploadWizardWindow : Window
     /// </summary>
     internal UploadWizardWindow(UploadWizardViewModel vm)
     {
-        _vm = vm;
+        ViewModel = vm;
         InitializeComponent();
 
         // Rule 19: DataGrid.SelectedItems is a plain IList (not a bindable AvaloniaProperty), so the bulk-
@@ -78,12 +76,12 @@ public partial class UploadWizardWindow : Window
         filesGrid.KeyBindings.Add(new KeyBinding
         {
             Gesture = new KeyGesture(Key.Delete),
-            Command = _vm.RemoveSelectedFilesCommand,
+            Command = ViewModel.RemoveSelectedFilesCommand,
             CommandParameter = filesGrid.SelectedItems,
         });
 
-        _vm.PropertyChanged += Vm_PropertyChanged;
-        DataContext = _vm;
+        ViewModel.PropertyChanged += Vm_PropertyChanged;
+        DataContext = ViewModel;
     }
 
     private static UploadWizardViewModel BuildViewModel()
@@ -91,7 +89,7 @@ public partial class UploadWizardWindow : Window
 
     private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(UploadWizardViewModel.Completed) && _vm.Completed)
+        if (e.PropertyName == nameof(UploadWizardViewModel.Completed) && ViewModel.Completed)
         {
             // Mirror the WPF DialogResult=true; the opener (Task 12) only checks that it wasn't cancelled.
             Close(true);
@@ -125,9 +123,9 @@ public partial class UploadWizardWindow : Window
     /// </summary>
     internal void InvokeAddAccountForHoster(FileHosterSelectionViewModel hoster)
     {
-        if (_vm.AddAccountForHosterCommand.CanExecute(hoster))
+        if (ViewModel.AddAccountForHosterCommand.CanExecute(hoster))
         {
-            _vm.AddAccountForHosterCommand.Execute(hoster);
+            ViewModel.AddAccountForHosterCommand.Execute(hoster);
         }
     }
 }

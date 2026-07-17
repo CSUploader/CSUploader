@@ -59,9 +59,7 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
 
     public static ByteUnit YiB => Tables.BySymbol[ByteUnitSymbol.YiB];
 
-#pragma warning disable SA1300 // Element should begin with upper-case letter — SI uses lowercase k by convention.
     public static ByteUnit kB => Tables.BySymbol[ByteUnitSymbol.kB];
-#pragma warning restore SA1300
 
     public static ByteUnit MB => Tables.BySymbol[ByteUnitSymbol.MB];
 
@@ -205,7 +203,7 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
 
         // Per-instance-base, ascending-Bytes ordered list. Hot path for ToFriendlyString
         // / Symbol / Prefix — replaces the original "re-run a Where on every call".
-        private static readonly FrozenDictionary<ByteBase, UnitMeta[]> ByBase;
+        private static readonly FrozenDictionary<ByteBase, UnitMeta[]> _byBase;
 
         static Tables()
         {
@@ -247,7 +245,7 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
             // Index by every ByteBase value that can appear as instance.Base:
             // pure Binary, pure Decimal, and the Binary|Decimal combo carried by B.
             ByteBase[] queryBases = [ByteBase.Binary, ByteBase.Decimal, ByteBase.Binary | ByteBase.Decimal];
-            ByBase = queryBases
+            _byBase = queryBases
                 .Select(qb => KeyValuePair.Create(
                     qb,
                     metas.Where(m => m.Unit.Base.HasFlag(qb)).OrderBy(m => m.Unit.Bytes).ToArray()))
@@ -274,9 +272,9 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
             // Fall back to the Decimal table if we ever see an out-of-band ByteBase
             // (e.g. default(ByteUnit) where Base is 0) — better to render something
             // sensible than throw on a binding-time read.
-            if (!ByBase.TryGetValue(b, out UnitMeta[]? arr))
+            if (!_byBase.TryGetValue(b, out UnitMeta[]? arr))
             {
-                arr = ByBase[ByteBase.Decimal];
+                arr = _byBase[ByteBase.Decimal];
             }
 
             UnitMeta pick = arr[0];
