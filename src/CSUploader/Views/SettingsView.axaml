@@ -122,10 +122,15 @@
       <Setter Property="Opacity" Value="0.45" />
     </Style>
 
-    <!-- Center the checkbox in the "On" column (WPF DataGridCheckBoxColumn.ElementStyle). -->
+    <!-- Center the checkbox in the proxy "On" and accounts enabled columns (WPF
+         DataGridCheckBoxColumn.ElementStyle). Padding/MinWidth=0 collapse the Fluent checkbox to its
+         box width — otherwise the content-presenter padding + default MinWidth widen the control and
+         HorizontalAlignment=Center leaves the box biased to the left of the cell. -->
     <Style Selector="DataGridCell.check-center CheckBox">
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
     </Style>
 
     <!-- Monospace timestamp cells in the accounts grid so Added/Refreshed columns align (WPF's
@@ -777,7 +782,8 @@
                glyph is subject to the SAME accepted divergence as the proxy "On" header (prep item 10 —
                systemic Fluent narrow-header-clipping): at 30px the header content clips to zero width. The
                glyph is decorative (WPF shows a checkmark); the Phase-9 metrics pass reclaims the room. -->
-          <DataGridTemplateColumn Header="&#x2713;" Width="30" CanUserResize="False">
+          <DataGridTemplateColumn Header="&#x2713;" Width="30" CanUserResize="False"
+                                  CellStyleClasses="check-center">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
