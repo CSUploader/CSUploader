@@ -203,6 +203,16 @@
     <Setter Property="RowHeight" Value="{DynamicResource DataGridRowHeight}" />
   </Style>
 
+  <!-- The DataGrid's FontFamily/FontSize do NOT inherit down to the generated cell TextBlocks (Avalonia's
+       DataGridCell carries its own font), so Settings > General > Grid Appearance never reached the cell
+       text of the Uploads/History/etc. grids. Bind the font on DataGridCell itself — it inherits to the
+       cell content. Per-cell class styles that pin a monospace FontFamily (e.g. hash/date/size cells)
+       still win for those columns; the FontSize follows the setting everywhere. -->
+  <Style Selector="DataGridCell">
+    <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
+    <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
+  </Style>
+
   <!-- Phase 9 header-metrics reclaim: trim the column-header padding (Fluent default 12,0,0,0) alongside the
        sort-icon reserve (DataGridSortIconMinWidth, Tokens.axaml) so short checkbox headers ('On', '&#x2713;')
        render fully instead of clipping to blank. Global (one-shot pass); tuned to 2,0 against the Task 1 contact
