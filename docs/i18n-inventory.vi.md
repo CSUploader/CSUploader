@@ -651,7 +651,7 @@ About_AppName                      = CSUploader
 About_Version_Format               = Phiên bản {0}                                             # {0} = assembly version, e.g. "1.2.3"
 About_Description                  = Trình quản lý tải tệp mạnh mẽ cho nhiều dịch vụ lưu trữ. Tính năng bao gồm băm, quản lý hàng đợi và theo dõi tiến độ thời gian thực.
 About_Field_Framework              = Nền tảng:
-About_Field_Framework_Value        = .NET 10.0 (WPF)
+About_Field_Framework_Value        = .NET 10.0 (Avalonia)
 About_Field_Database               = Cơ sở dữ liệu:
 About_Field_Database_Value         = SQLite via EF Core 10
 About_Field_License                = Giấy phép:

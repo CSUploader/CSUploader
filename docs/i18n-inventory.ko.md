@@ -643,7 +643,7 @@ About_AppName                      = CSUploader
 About_Version_Format               = 버전 {0}                                             # {0} = assembly version, e.g. "1.2.3"
 About_Description                  = 여러 호스팅 서비스를 위한 강력한 파일 업로드 관리자입니다. 해싱, 대기열 관리, 실시간 진행률 추적 등의 기능을 제공합니다.
 About_Field_Framework              = 프레임워크:
-About_Field_Framework_Value        = .NET 10.0 (WPF)
+About_Field_Framework_Value        = .NET 10.0 (Avalonia)
 About_Field_Database               = 데이터베이스:
 About_Field_Database_Value         = SQLite via EF Core 10
 About_Field_License                = 라이선스:

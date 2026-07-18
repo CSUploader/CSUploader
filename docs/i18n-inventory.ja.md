@@ -641,7 +641,7 @@ About_AppName                      = CSUploader
 About_Version_Format               = バージョン {0}                                             # {0} = assembly version, e.g. "1.2.3"
 About_Description                  = 複数のホスティングサービスに対応する強力なファイルアップロードマネージャーです。ハッシュ計算、キュー管理、リアルタイムの進捗追跡などの機能を備えています。
 About_Field_Framework              = フレームワーク:
-About_Field_Framework_Value        = .NET 10.0 (WPF)
+About_Field_Framework_Value        = .NET 10.0 (Avalonia)
 About_Field_Database               = データベース:
 About_Field_Database_Value         = SQLite via EF Core 10
 About_Field_License                = ライセンス:

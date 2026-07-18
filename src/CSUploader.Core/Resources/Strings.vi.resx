@@ -1400,7 +1400,7 @@ Vẫn thêm?</value>
     <value>Nền tảng:</value>
   </data>
   <data name="About_Field_Framework_Value" xml:space="preserve">
-    <value>.NET 10.0 (WPF)</value>
+    <value>.NET 10.0 (Avalonia)</value>
   </data>
   <data name="About_Field_Database" xml:space="preserve">
     <value>Cơ sở dữ liệu:</value>

@@ -643,7 +643,7 @@ About_AppName                      = CSUploader
 About_Version_Format               = 版本 {0}                                             # {0} = assembly version, e.g. "1.2.3"
 About_Description                  = 一款功能强大的多文件托管服务上传管理器，支持哈希校验、队列管理和实时进度跟踪。
 About_Field_Framework              = 框架：
-About_Field_Framework_Value        = .NET 10.0 (WPF)
+About_Field_Framework_Value        = .NET 10.0 (Avalonia)
 About_Field_Database               = 数据库：
 About_Field_Database_Value         = SQLite via EF Core 10
 About_Field_License                = 许可证：
