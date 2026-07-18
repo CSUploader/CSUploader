@@ -645,6 +645,29 @@ public class PackageTests
         return package;
     }
 
+    [Fact]
+    public void StartedDate_ReturnsEarliestStartedFile_OrNullWhenNoneStarted()
+    {
+        // The Uploads grid's "Started" column binds StartedDate on both package and file rows; the
+        // package aggregate must resolve (earliest started file) so it doesn't log a missing-accessor
+        // binding error, and be null before any file has started.
+        Package package = MakePackageWithFiles(FileState.Uploading, FileState.Idle, FileState.Completed);
+        PackageFile[] files = [.. package];
+        foreach (PackageFile f in files)
+        {
+            f.StartedDate = null;
+        }
+
+        Assert.Null(package.StartedDate);
+
+        DateTime early = new(2026, 7, 18, 10, 0, 0, DateTimeKind.Local);
+        files[0].StartedDate = early.AddMinutes(5);
+        files[2].StartedDate = early; // earliest of the started files
+        // files[1] never started (null) — ignored.
+
+        Assert.Equal(early, package.StartedDate);
+    }
+
     private static Package MakePackageWithFiles(params FileState[] fileStates)
     {
         string dir = Path.Combine(Path.GetTempPath(), $"csu-status-{Guid.NewGuid():N}");

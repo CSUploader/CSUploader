@@ -426,6 +426,24 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
+    /// Gets the earliest StartedDate across child files that have started, or null if none has.
+    /// Mirrors <see cref="PackageFile.StartedDate"/> so the Uploads grid's "Started" column — which
+    /// binds StartedDate for both package and file rows — resolves on package rows instead of logging
+    /// a missing-accessor binding error; a package "starts" when its first file does.
+    /// </summary>
+    public DateTime? StartedDate
+    {
+        get
+        {
+            PackageFile[] files;
+            lock (_filesLock)
+            { files = [.. PackageFiles]; }
+            DateTime[] started = [.. files.Where(f => f.StartedDate is not null).Select(f => f.StartedDate!.Value)];
+            return started.Length == 0 ? null : started.Min();
+        }
+    }
+
+    /// <summary>
     /// Gets the newline-joined URLs of child files that have finished uploading, or empty if none.
     /// </summary>
     public string FileUrl
