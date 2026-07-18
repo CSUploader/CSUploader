@@ -46,6 +46,16 @@
       <SolidColorBrush x:Key="SelectionBrush" Color="#B8D4EE" />
       <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#222222" />
 
+      <!-- Wire the WPF selection colour into Avalonia's DataGrid: its Fluent theme otherwise paints
+           the translucent SystemAccent (DataGridRowSelected*BackgroundBrush), which drowns the row's
+           dark text. One flat colour for all four selected states matches the WPF DataGridRow
+           IsSelected trigger; the cell text keeps TextPrimaryBrush and stays readable on this light
+           blue (WPF used #222 foreground — near-identical). -->
+      <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#B8D4EE" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#B8D4EE" />
+      <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#B8D4EE" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#B8D4EE" />
+
       <!-- Colors - Content Areas (JD2-style: near-white with subtle alternation) -->
       <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#FFFFFF" />
       <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#F5F7FA" />
@@ -176,6 +186,13 @@
       <!-- ═══ Selection ═══ -->
       <SolidColorBrush x:Key="SelectionBrush" Color="#334878" />
       <SolidColorBrush x:Key="SelectionForegroundBrush" Color="#F0F1F8" />
+
+      <!-- DataGrid selection = the WPF dark SelectionBrush (see the Light variant's note). Muted
+           enough that the light TextPrimaryBrush text stays legible, unlike Fluent's SystemAccent. -->
+      <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#334878" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#334878" />
+      <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#334878" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#334878" />
 
       <!-- ═══ Content Areas (lighter for readability) ═══ -->
       <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#2B2D3A" />
