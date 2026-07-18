@@ -15,6 +15,11 @@
   <FontFamily x:Key="GridFontFamily">Tahoma</FontFamily>
   <x:Double x:Key="GridFontSize">12</x:Double>
 
+  <!-- Compact the menu separator (Fluent default 12,4,12,4 → too much vertical space vs WPF). The menu
+       Separator is a template child reachable only via this resource key; overriding it app-wide is the
+       reliable route (compacts context-menu and drop-down separators alike). -->
+  <Thickness x:Key="MenuFlyoutSeparatorThemePadding">4,2,4,2</Thickness>
+
   <!-- Spacing -->
   <Thickness x:Key="SpacingNone">0</Thickness>
   <Thickness x:Key="SpacingXs">2</Thickness>

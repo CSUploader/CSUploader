@@ -768,9 +768,10 @@
                       Header="{loc:Loc Settings_Accounts_Context_Disable}"
                       Command="{Binding DisableSelectedAccountsCommand}" />
             <Separator x:Name="AccountsContextRowSeparator2" />
+            <!-- No InputGesture: WPF's Accounts Delete item shows no gesture text, and the Delete key
+                 is wired independently as a grid KeyBinding in code-behind (rule 24). -->
             <MenuItem x:Name="AccountsContextDeleteItem"
                       Header="{loc:Loc Settings_Accounts_Context_Delete}"
-                      InputGesture="Delete"
                       Command="{Binding RemoveSelectedAccountsCommand}" />
             <Separator x:Name="AccountsContextRowSeparator3" />
             <MenuItem Header="{loc:Loc Settings_Accounts_Btn_Add}" Command="{Binding AddAccountDialogCommand}" />

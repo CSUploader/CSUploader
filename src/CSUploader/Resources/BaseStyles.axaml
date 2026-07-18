@@ -222,4 +222,40 @@
     <Setter Property="Padding" Value="2,0" />
   </Style>
 
+  <!-- Compact, WPF-style context menus. WPF's SubmenuItemTemplate is ~8,4 padding, ~24px rows, 12px
+       font, square corners, and a SelectionBrush (#B8D4EE) highlight; Fluent's MenuItem is much taller
+       with a rounded accent-grey highlight. Scoped to items inside a ContextMenu so the top Menu bar
+       (File/View/Help) and its drop-downs keep their own metrics. Part names + the :selected pseudo-
+       class are from the Avalonia 11.3 Fluent MenuItem template (Padding is TemplateBound to
+       PART_LayoutRoot; MinHeight/FontSize apply at the control level). -->
+  <Style Selector="ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="ContextMenu MenuItem">
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <!-- Trim the 12px icon gutter and 24px gesture gap the Fluent template reserves. -->
+  <Style Selector="ContextMenu MenuItem /template/ ContentControl#PART_IconPresenter">
+    <Setter Property="Margin" Value="0,0,6,0" />
+  </Style>
+  <Style Selector="ContextMenu MenuItem /template/ TextBlock#PART_InputGestureText">
+    <Setter Property="Margin" Value="12,0,0,0" />
+  </Style>
+  <!-- Highlight = the WPF light-blue SelectionBrush (Avalonia highlights on :selected, not :pointerover). -->
+  <Style Selector="ContextMenu MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource SelectionBrush}" />
+  </Style>
+  <Style Selector="ContextMenu MenuItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+  </Style>
+  <Style Selector="ContextMenu MenuItem:selected /template/ TextBlock#PART_InputGestureText">
+    <Setter Property="Foreground" Value="{DynamicResource SelectionForegroundBrush}" />
+  </Style>
+
 </Styles>
