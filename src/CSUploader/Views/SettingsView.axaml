@@ -30,6 +30,7 @@
     <conv:ByteUnitConverter x:Key="ByteUnit" />
     <conv:DateTimeFormatConverter x:Key="DateTimeFormat" />
     <conv:InvertBoolConverter x:Key="InvertBool" />
+    <conv:StringToFontFamilyConverter x:Key="StringToFontFamily" />
     <conv:StorageAvailableDisplayMultiConverter x:Key="StorageAvailableDisplayMulti" />
 
     <!-- SidebarItem ListBoxItem template (rule 40): flat hover/selected fills over the sidebar,
@@ -270,7 +271,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Grid.Column="0" Text="{Binding}" />
                   <TextBlock Grid.Column="1" Text="AaBb 123"
-                             FontFamily="{Binding}"
+                             FontFamily="{Binding Converter={StaticResource StringToFontFamily}}"
                              Margin="12,0,0,0"
                              Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Grid>
