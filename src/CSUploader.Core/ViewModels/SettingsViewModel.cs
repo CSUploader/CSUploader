@@ -94,8 +94,6 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     public partial AutostartUploadsMode AutostartUploads { get; set; } = AppSettings.DefaultAutostartUploads;
 
-    private string _language = "en";
-
     /// <summary>
     /// BCP-47 tag for the active UI language. Bound to the language dropdown on the
     /// General page. Empty means "auto-detect" — only persisted that way pre-first-pick.
@@ -112,19 +110,19 @@ public partial class SettingsViewModel(
     /// </remarks>
     public string Language
     {
-        get => _language;
+        get;
         set
         {
-            if (string.IsNullOrWhiteSpace(value) || value == _language)
+            if (string.IsNullOrWhiteSpace(value) || value == field)
             {
                 return;
             }
 
-            _language = value;
+            field = value;
             OnPropertyChanged(nameof(Language));
             OnLanguageChanged(value);
         }
-    }
+    } = "en";
 
     [ObservableProperty]
     public partial bool MinimizeToTray { get; set; } = AppSettings.DefaultMinimizeToTray;
@@ -583,7 +581,10 @@ public partial class SettingsViewModel(
     private void OnLanguageChanged(string value)
     {
         if (_suppressAutoSave)
+        {
             return;
+        }
+
         _settings.Language = value;
         // Apply immediately so the open Settings page (and every other tab) re-renders
         // in the new language without a restart. Open dialogs keep whatever language
