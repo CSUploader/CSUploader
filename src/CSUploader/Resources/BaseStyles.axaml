@@ -62,7 +62,9 @@
        size. 0.7 ≈ a 14px box against the Fluent 20px; tune the factor to taste. -->
   <Style Selector="DataGridCell CheckBox">
     <Setter Property="RenderTransform" Value="scale(0.7)" />
-    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <!-- Percent syntax: Avalonia parses a bare "0.5,0.5" as ABSOLUTE pixels (0.5px from the top-left),
+         which scaled the box toward the corner and pushed it off-centre. 50% = the control's centre. -->
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
   </Style>
 
   <!-- FormLabelStyle -> Classes="form-label" -->
