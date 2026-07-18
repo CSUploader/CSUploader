@@ -79,6 +79,24 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Language_NullOrBlankPush_IsIgnored_KeepsCurrentAndDoesNotThrow()
+    {
+        // The language ComboBox binds SelectedValue two-way with a SelectedValueBinding, and Avalonia
+        // pushes a transient null back on attach (it matches SelectedValue before the value binding
+        // resolves). The setter must ignore null/blank: it previously crashed OnLanguageChanged's
+        // new CultureInfo(null) with ArgumentNullException, and storing the null would blank the
+        // dropdown. The current language must be preserved.
+        SettingsViewModel vm = CreateVm();
+        string current = vm.Language;
+
+        vm.Language = null!;
+        vm.Language = string.Empty;
+        vm.Language = "   ";
+
+        Assert.Equal(current, vm.Language);
+    }
+
+    [Fact]
     public async Task LoadAsync_DoesNotPersistOnHydrate()
     {
         // The auto-save partials must short-circuit during LoadAsync — otherwise hydrating

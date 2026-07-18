@@ -94,12 +94,37 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     public partial AutostartUploadsMode AutostartUploads { get; set; } = AppSettings.DefaultAutostartUploads;
 
+    private string _language = "en";
+
     /// <summary>
     /// BCP-47 tag for the active UI language. Bound to the language dropdown on the
     /// General page. Empty means "auto-detect" — only persisted that way pre-first-pick.
     /// </summary>
-    [ObservableProperty]
-    public partial string Language { get; set; } = "en";
+    /// <remarks>
+    /// Hand-rolled (not <c>[ObservableProperty]</c>) so the setter can reject a null/blank value.
+    /// The language ComboBox binds <c>SelectedValue</c> two-way with a <c>SelectedValueBinding</c>,
+    /// and Avalonia transiently pushes a null back on attach — it matches <c>SelectedValue</c> before
+    /// the value binding resolves, coerces to null, and (TwoWay) writes it to the source. A generated
+    /// setter would store that null, blanking the dropdown and crashing <see cref="OnLanguageChanged"/>'s
+    /// <c>new CultureInfo(null)</c>. Ignoring it keeps the current language; the ComboBox re-selects it
+    /// once the value binding is in place. (The enum pickers accept the same null harmlessly — the
+    /// null→enum conversion just fails — so only this string picker needed the guard.)
+    /// </remarks>
+    public string Language
+    {
+        get => _language;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value) || value == _language)
+            {
+                return;
+            }
+
+            _language = value;
+            OnPropertyChanged(nameof(Language));
+            OnLanguageChanged(value);
+        }
+    }
 
     [ObservableProperty]
     public partial bool MinimizeToTray { get; set; } = AppSettings.DefaultMinimizeToTray;
@@ -223,6 +248,11 @@ public partial class SettingsViewModel(
         // Load settings
         SettingDto[] settings = await _settingRepository.GetAllAsync(cancellationToken);
 
+        // Captured raw (may be null/empty) rather than pushed through the Language setter, which
+        // rejects blanks — an empty saved tag must still reach PickSupportedLanguage for OS
+        // auto-detect (a legacy DB can hold an empty Language row, "pre-first-pick").
+        string? savedLanguage = null;
+
         foreach (SettingDto setting in settings)
         {
             switch (setting.Key)
@@ -296,7 +326,7 @@ public partial class SettingsViewModel(
                     break;
 
                 case var k when k == SettingKey.Language:
-                    Language = setting.Value ?? string.Empty;
+                    savedLanguage = setting.Value;
                     break;
 
                 case var k when k == SettingKey.SpeedLimit:
@@ -380,7 +410,7 @@ public partial class SettingsViewModel(
 
         // Resolve the active UI language: saved value → fallback to OS detection if blank.
         // Display the resolved tag on the dropdown so it always reflects what's in effect.
-        string resolved = Localizer.PickSupportedLanguage(Language);
+        string resolved = Localizer.PickSupportedLanguage(savedLanguage);
         Language = resolved;
         _settings.Language = resolved;
         Localizer.Instance.Culture = new CultureInfo(resolved);
@@ -550,7 +580,7 @@ public partial class SettingsViewModel(
         _ = AutoSaveAsync(SettingKey.CloseAction, value.ToString());
     }
 
-    partial void OnLanguageChanged(string value)
+    private void OnLanguageChanged(string value)
     {
         if (_suppressAutoSave)
             return;
