@@ -140,15 +140,57 @@
       <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
     </Style>
 
-    <!-- Compact up/down priority buttons (WPF stripped the global Button padding so the glyphs fit). -->
+    <!-- Compact up/down priority buttons, styled like WPF's classic raised arrow buttons: the shared
+         jd2 chrome (flat light-grey fill, thin border, near-square 1px corners — the same look the
+         Add/Remove/Test All toolbar buttons use) at a compact 28x22 glyph size. Without the explicit
+         brushes they fall back to the full Fluent Button look (medium-grey rounded fill), which reads
+         too heavy next to WPF. MinWidth=0 stops them inheriting the Fluent Button MinWidth and widening.
+         Hover/pressed override PART_ContentPresenter to beat the Fluent accent-highlight states. -->
     <Style Selector="Button.prio-btn">
       <Setter Property="Padding" Value="0" />
       <Setter Property="Width" Value="28" />
       <Setter Property="Height" Value="22" />
+      <Setter Property="MinWidth" Value="0" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource JD2ButtonBgBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="1" />
+    </Style>
+    <Style Selector="Button.prio-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource JD2ButtonHoverBgBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonHoverBorderBrush}" />
+    </Style>
+    <Style Selector="Button.prio-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource JD2ButtonPressedBgBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JD2ButtonPressedBorderBrush}" />
+    </Style>
+
+    <!-- Flatten the inline Type dropdown to WPF's classic combo look. Grounded in the Avalonia 11.3
+         Fluent ComboBox template (parts Border#Background and PathIcon#DropDownGlyph; :pointerover/
+         :pressed paint the whole-control Border#Background, and CornerRadius is TemplateBound to both
+         border parts). Scoped via the grid-combo class so the General-tab and dialog combos keep the
+         Fluent look. The rest state stays transparent/borderless (set inline) so it blends into the
+         cell like WPF; here we (1) square the corners so any hover/focus box isn't the rounded Fluent
+         pill, (2) replace the Fluent accent hover/press with a flat themed grey, and (3) shrink the
+         chunky 12px chevron to a small 8px glyph tucked nearer the right edge. The 32px chevron COLUMN
+         is a template literal and can't be narrowed without copying the whole template — left as-is. -->
+    <Style Selector="ComboBox.grid-combo">
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+    <Style Selector="ComboBox.grid-combo:pointerover /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+    </Style>
+    <Style Selector="ComboBox.grid-combo:pressed /template/ Border#Background">
+      <Setter Property="Background" Value="{DynamicResource ContentAltBackgroundBrush}" />
+    </Style>
+    <Style Selector="ComboBox.grid-combo /template/ PathIcon#DropDownGlyph">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="8" />
+      <Setter Property="Margin" Value="0,0,6,0" />
     </Style>
   </UserControl.Styles>
 
@@ -580,7 +622,8 @@
           <DataGridTemplateColumn Header="{loc:Loc Settings_Conn_Col_Type}" Width="100" SortMemberPath="Type">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <ComboBox ItemsSource="{x:Static vm:ConnectionManagerViewModel.ProxyTypeOptions}"
+                <ComboBox Classes="grid-combo"
+                          ItemsSource="{x:Static vm:ConnectionManagerViewModel.ProxyTypeOptions}"
                           SelectedItem="{Binding Type}"
                           BorderThickness="0" Background="Transparent"
                           HorizontalAlignment="Stretch" VerticalAlignment="Center" />
