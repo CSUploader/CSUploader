@@ -932,6 +932,10 @@ public partial class SettingsViewModel(
             IsCheckingAccount = false;
         }
 
+        // A failed check auto-disables the new account (persisted by UpdateAsync below and shown
+        // when Accounts[i] = dto replaces the row); Valid/Unsupported leave it enabled.
+        AutoDisableIfFailed(dto, finalStatus);
+
         // Real verifier outcome (success OR failure) → MarkRefreshed stamps CheckStatus,
         // StatusMessage AND LastRefreshedDateTime atomically; the row's grid column for
         // "Refreshed at" picks this up after Accounts[i] = dto below.
@@ -1023,6 +1027,8 @@ public partial class SettingsViewModel(
                         refreshedAt);
                 }
 
+                // Auto-disable on a failed check (no-op for Valid); persisted by the UpdateAsync below.
+                AutoDisableIfFailed(account, statuses[account.Id].Status);
                 account.LastRefreshedDateTime = refreshedAt;
                 await _accountRepository.UpdateAsync(account, cancellationToken);
             }
@@ -1034,6 +1040,7 @@ public partial class SettingsViewModel(
                 DateTime refreshedAt = NowLocal();
                 statuses[account.Id] = new RowStatus(AccountCheckStatus.Failed, ex.Message, refreshedAt);
                 account.LastRefreshedDateTime = refreshedAt;
+                AutoDisableIfFailed(account, AccountCheckStatus.Failed);
                 // Persist the timestamp even on transport failure. Swallow secondary DB
                 // errors so they don't mask the original verifier exception in the UI.
                 try
@@ -1340,6 +1347,8 @@ public partial class SettingsViewModel(
             // its "Failed: " prefix because it has no colour and needs the prefix
             // to convey outcome.
             CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
+            // Auto-disable on a failed check; the live row unticks/dims via INPC (no reload here).
+            AutoDisableIfFailed(account, AccountCheckStatus.Failed);
             await _accountRepository.UpdateAsync(account, cancellationToken);
             return new RowStatus(
                 AccountCheckStatus.Failed,
@@ -1353,6 +1362,7 @@ public partial class SettingsViewModel(
             // via CheckStatus = Failed.
             DateTime refreshedAt = NowLocal();
             account.LastRefreshedDateTime = refreshedAt;
+            AutoDisableIfFailed(account, AccountCheckStatus.Failed);
             // Persist the timestamp even on transport failure. Swallow secondary DB
             // errors so they don't mask the verifier exception that's about to surface
             // in the row's status cell.
@@ -1402,6 +1412,25 @@ public partial class SettingsViewModel(
             CheckAccountStatus = LocF(
                 disable ? "Settings_Accounts_Status_AccountsBulkDisabled_Format" : "Settings_Accounts_Status_AccountsBulkEnabled_Format",
                 targets.Length);
+        }
+    }
+
+    /// <summary>
+    /// A check that settles <see cref="AccountCheckStatus.Failed"/> auto-disables the account, so a
+    /// broken account (bad credentials, dead host) is excluded from uploads until it's fixed and
+    /// re-enabled. Only Failed disables: <see cref="AccountCheckStatus.Valid"/> leaves the flag
+    /// untouched — a passing re-check does NOT auto-re-enable an account a failure (or the user)
+    /// disabled, which stays a deliberate choice via the Enable context-menu action — and
+    /// <see cref="AccountCheckStatus.Unsupported"/> means "no verifier for this hoster", not "broken".
+    /// Mutates only the in-memory flag; the caller's own UpdateAsync persists it, and
+    /// <see cref="FileHosterLoginDto.Disabled"/> raises PropertyChanged so the Accounts grid unticks
+    /// (and dims) the row live even on the no-reload Refresh-selected path.
+    /// </summary>
+    private static void AutoDisableIfFailed(FileHosterLoginDto account, AccountCheckStatus status)
+    {
+        if (status == AccountCheckStatus.Failed)
+        {
+            account.Disabled = true;
         }
     }
 

@@ -604,6 +604,112 @@ public class SettingsViewModelTests : IDisposable
         Assert.NotNull(target.LastRefreshedDateTime);
     }
 
+    [Fact]
+    public async Task RefreshSelectedAccounts_VerifierFailure_AutoDisablesAccount()
+    {
+        // A failed check auto-disables the account so a broken account is excluded from uploads
+        // until fixed. Refresh-selected updates in place (no reload) — the SAME live instance flips
+        // Disabled=true (the grid unticks/dims via INPC), and the flag is persisted.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
+        await _loginRepo.InsertAsync(seed);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
+        Assert.False(target.Disabled);
+
+        await vm.RefreshSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
+
+        Assert.True(target.Disabled);
+        Assert.Equal(AccountCheckStatus.Failed, target.CheckStatus);
+        Assert.True((await _loginRepo.FindAsync(seed.Id))!.Disabled);
+    }
+
+    [Fact]
+    public async Task RefreshSelectedAccounts_VerifierSuccess_DoesNotReEnableDisabledAccount()
+    {
+        // Asymmetry by design (a deliberate product decision): auto-disable fires on failure, but a later PASSING
+        // check must NOT silently re-enable an account — re-enabling stays a deliberate user action
+        // via the Enable context-menu command. Disable first (real command), then a valid refresh
+        // leaves it disabled.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "OK"));
+
+        FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
+        await _loginRepo.InsertAsync(seed);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
+        await vm.DisableSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
+        // The disable path reloads the collection — re-resolve the live instance.
+        target = vm.Accounts.Single(a => a.Id == seed.Id);
+        Assert.True(target.Disabled);
+
+        await vm.RefreshSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
+
+        Assert.True(vm.Accounts.Single(a => a.Id == seed.Id).Disabled);
+        Assert.True((await _loginRepo.FindAsync(seed.Id))!.Disabled);
+    }
+
+    [Fact]
+    public async Task RefreshAllAccounts_VerifierFailure_AutoDisablesAccount()
+    {
+        // Refresh-all reloads the collection at the end — the rebuilt row reads Disabled=true from
+        // the DB (the in-loop UpdateAsync persisted it).
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
+        await _loginRepo.InsertAsync(seed);
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
+
+        FileHosterLoginDto row = vm.Accounts.Single(a => a.Id == seed.Id);
+        Assert.True(row.Disabled);
+        Assert.Equal(AccountCheckStatus.Failed, row.CheckStatus);
+        Assert.True((await _loginRepo.FindAsync(seed.Id))!.Disabled);
+    }
+
+    [Fact]
+    public async Task AddAccountFromDialogAsync_VerifierFailure_AutoDisablesAccount()
+    {
+        // A newly added account whose check fails is added but auto-disabled (same rule as refresh).
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "u",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Failed, row.CheckStatus);
+        Assert.True(row.Disabled);
+        Assert.True((await _loginRepo.FindAsync(row.Id))!.Disabled);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition, int timeoutMs = 1000)
     {
         for (int i = 0; i < timeoutMs / 10; i++)
