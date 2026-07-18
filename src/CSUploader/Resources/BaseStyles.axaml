@@ -54,6 +54,17 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
   </Style>
 
+  <!-- Shrink the chunky Fluent checkbox inside grid cells toward WPF's small (~13px) checkbox. A render
+       scale shrinks the box AND the glyph proportionally, independent of the Fluent template's internal
+       layout (NormalRectangle and CheckGlyph are siblings, so resizing one part alone would misalign the
+       other). RenderTransform doesn't change layout bounds, so the full click target and the cells'
+       existing centering are preserved. Scoped to DataGridCell — labelled settings checkboxes keep full
+       size. 0.7 ≈ a 14px box against the Fluent 20px; tune the factor to taste. -->
+  <Style Selector="DataGridCell CheckBox">
+    <Setter Property="RenderTransform" Value="scale(0.7)" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+  </Style>
+
   <!-- FormLabelStyle -> Classes="form-label" -->
   <Style Selector="TextBlock.form-label">
     <Setter Property="VerticalAlignment" Value="Center" />
