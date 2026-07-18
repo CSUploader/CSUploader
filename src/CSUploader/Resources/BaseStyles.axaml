@@ -181,8 +181,9 @@
   </Style>
 
   <!-- DataGrid baseline: compact rows + the runtime-overridable grid font. RowHeight consumes the
-       DataGridRowHeight token so Tokens.axaml is the single source of truth (parity with the WPF head,
-       whose grid style binds the same token) — not a second hardcoded 26 that could silently drift. -->
+       DataGridRowHeight token (Tokens.axaml, single source of truth) — a fixed height because Fluent's
+       DataGrid does not auto-size as tightly as WPF's; the token is tuned to the observed WPF row
+       density (WPF auto-sizes to ~22px; its own 26 token is defined but never bound). -->
   <Style Selector="DataGrid">
     <Setter Property="FontFamily" Value="{DynamicResource GridFontFamily}" />
     <Setter Property="FontSize" Value="{DynamicResource GridFontSize}" />
