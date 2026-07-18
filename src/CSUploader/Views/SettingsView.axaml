@@ -722,6 +722,7 @@
                 IsReadOnly="True"
                 SelectionMode="Extended"
                 HeadersVisibility="Column"
+                CanUserResizeColumns="True"
                 GridLinesVisibility="All"
                 BorderThickness="1"
                 BorderBrush="{DynamicResource BorderBrush}"
