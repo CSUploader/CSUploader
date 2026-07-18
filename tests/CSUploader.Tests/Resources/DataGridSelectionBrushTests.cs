@@ -44,6 +44,17 @@ public class DataGridSelectionBrushTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData("DataGridCellFocusVisualPrimaryBrush")]
+    [InlineData("DataGridCellFocusVisualSecondaryBrush")]
+    public void CellFocusVisual_IsTransparent_InBothVariants(string key)
+    {
+        // The current-cell focus rectangle is suppressed (transparent stroke) so it doesn't show as
+        // black bars on the selected row — WPF has no per-cell focus adorner under full-row selection.
+        Assert.Equal(Colors.Transparent, ResolvedColor(key, ThemeVariant.Light));
+        Assert.Equal(Colors.Transparent, ResolvedColor(key, ThemeVariant.Dark));
+    }
+
     private static Color ResolvedColor(string key, ThemeVariant variant)
     {
         Assert.True(

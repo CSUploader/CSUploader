@@ -56,6 +56,14 @@
       <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#B8D4EE" />
       <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#B8D4EE" />
 
+      <!-- Suppress the DataGrid current-cell focus rectangle. Avalonia outlines the focused cell with
+           a dark primary/secondary stroke (the grid is editable for the Order cell, so a click makes a
+           cell "current"); the old saturated selection hid it, but on the lighter blue it shows as two
+           black bars. WPF draws no per-cell focus adorner under full-row selection — the row highlight
+           is the focus cue — so make the stroke transparent. -->
+      <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
+
       <!-- Colors - Content Areas (JD2-style: near-white with subtle alternation) -->
       <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#FFFFFF" />
       <SolidColorBrush x:Key="ContentAltBackgroundBrush" Color="#F5F7FA" />
@@ -193,6 +201,10 @@
       <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#334878" />
       <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#334878" />
       <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#334878" />
+
+      <!-- Suppress the current-cell focus rectangle (see the Light variant's note). -->
+      <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
 
       <!-- ═══ Content Areas (lighter for readability) ═══ -->
       <SolidColorBrush x:Key="ContentBackgroundBrush" Color="#2B2D3A" />
