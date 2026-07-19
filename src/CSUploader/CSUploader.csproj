@@ -16,7 +16,10 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
+    <!-- Multi-target: the Windows head keeps its full WebView2 sign-in + DWM dark-title-bar; the
+         portable net10.0 target builds a Linux-runnable app (Avalonia is cross-platform) with the
+         Windows-only bits conditioned out below. -->
+    <TargetFrameworks>net10.0-windows10.0.17763.0;net10.0</TargetFrameworks>
     <RootNamespace>CSUploader</RootNamespace>
     <AssemblyName>CSUploader</AssemblyName>
     <!-- First Avalonia release. release.yml derives the SHIPPED version from the pushed vX.Y.Z tag
@@ -28,14 +31,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>preview</LangVersion>
-    <!-- WebView2's managed API marshals COM; required for the WebView2 login host (CoreWebView2 COM marshaling). -->
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- WebView2's managed API marshals COM; required for the WebView2 login host (CoreWebView2 COM marshaling).
+         Windows-target only — the WebView2 host does not exist in the portable build. -->
+    <BuiltInComInteropSupport Condition="$(TargetFramework.Contains('windows'))">true</BuiltInComInteropSupport>
     <!-- Parity-first migration: the WPF XAML being ported uses reflection bindings throughout.
          Compiled bindings (x:DataType everywhere) are a deliberate opt-in AFTER the port. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
-    <ApplicationIcon>..\Properties\Images\Logo\icon.ico</ApplicationIcon>
-    <!-- Win32 supportedOS manifest — REQUIRED for Avalonia NativeControlHost / WebView2 hosting. -->
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="$(TargetFramework.Contains('windows'))">..\Properties\Images\Logo\icon.ico</ApplicationIcon>
+    <!-- Win32 supportedOS manifest — REQUIRED for Avalonia NativeControlHost / WebView2 hosting.
+         Windows-target only (a Win32 manifest is meaningless on Linux). -->
+    <ApplicationManifest Condition="$(TargetFramework.Contains('windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,8 +55,9 @@
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
-    <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers). -->
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers). Windows-target only —
+         Linux has no WebView2; the portable build stubs interactive sign-in. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" Condition="$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
          Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
          2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->
@@ -95,12 +101,25 @@
     <InternalsVisibleTo Include="CSUploader.Tests" />
   </ItemGroup>
 
+  <!-- Linux-port: the WebView2 sign-in host is Windows-only. Drop its source + the XAML login window
+       from the portable build; App registers UnsupportedInteractiveAuthService instead (see App.axaml.cs). -->
+  <ItemGroup Condition="!$(TargetFramework.Contains('windows'))">
+    <Compile Remove="Views\WebView2Host.cs" />
+    <Compile Remove="Views\WebViewLoginWindow.axaml.cs" />
+    <Compile Remove="Services\AvaloniaWebViewInteractiveAuthService.cs" />
+    <AvaloniaXaml Remove="Views\WebViewLoginWindow.axaml" />
+    <!-- The DEBUG dev gallery demos the WebView2 login window (and is a Windows-bridge tool); App only
+         launches it under #if DEBUG && WINDOWS, so drop it from the portable build. -->
+    <Compile Remove="DevTools\GalleryWindow.axaml.cs" />
+    <AvaloniaXaml Remove="DevTools\GalleryWindow.axaml" />
+  </ItemGroup>
+
   <!-- The WebView2 SDK references its WPF + WinForms wrapper assemblies for every net5+ TFM
        (no UseWpf/UseWindowsForms gate). This Avalonia head consumes ONLY the Core API; the WPF
        wrapper pulls in WPF's WindowsBase 5.0 → an unresolvable MSB3277 conflict against the
        net10 WindowsBase. Drop both desktop wrappers before RAR — Core.dll and the native
        WebView2Loader copy are untouched. Permanent: the Avalonia head consumes only Microsoft.Web.WebView2.Core. -->
-  <Target Name="_DropWebView2DesktopWrappers" BeforeTargets="ResolveAssemblyReferences">
+  <Target Name="_DropWebView2DesktopWrappers" BeforeTargets="ResolveAssemblyReferences" Condition="$(TargetFramework.Contains('windows'))">
     <ItemGroup>
       <Reference Remove="@(Reference-&gt;WithMetadataValue('Filename','Microsoft.Web.WebView2.Wpf'))" />
       <Reference Remove="@(Reference-&gt;WithMetadataValue('Filename','Microsoft.Web.WebView2.WinForms'))" />

@@ -98,10 +98,11 @@ public partial class App : Application
                 e.Handled = true;
             };
 
-#if DEBUG
+#if DEBUG && WINDOWS
             // DEBUG-only dev flag, opened from the Opened hook below: the dev gallery (--gallery, non-modal).
             // Declared under #if DEBUG so it never OPENS anything in Release; the window type ships as dead
-            // code (trigger-gated convention).
+            // code (trigger-gated convention). Also gated on WINDOWS: the gallery demos the WebView2 login
+            // window, which the portable build excludes.
             bool gallery = desktop.Args?.Contains("--gallery", StringComparer.Ordinal) == true;
 #endif
 
@@ -190,7 +191,7 @@ public partial class App : Application
 
                 _serviceProvider.GetRequiredService<ITrayIconService>().UpdateVisibility();
 
-#if DEBUG
+#if DEBUG && WINDOWS
                 if (gallery)
                 {
                     // Dev gallery: non-modal Show() so it coexists with the shell (the bridge drives
@@ -244,7 +245,13 @@ public partial class App : Application
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();
         services.AddSingleton<IThemeApplier, AvaloniaThemeApplier>();              // real: RequestedThemeVariant + grid-font resources
+#if WINDOWS
         services.AddSingleton<IInteractiveAuthService, AvaloniaWebViewInteractiveAuthService>(); // real WebView2 sign-in (Phase 8)
+#else
+        // Portable (Linux) build: WebView2 is Windows-only, so the captcha/WebView sign-in is unavailable.
+        // Register a stub that reports "cancelled" — anonymous + simple-credential hosters keep working.
+        services.AddSingleton<IInteractiveAuthService, UnsupportedInteractiveAuthService>();
+#endif
         services.AddSingleton<AvaloniaTrayIconService>();
         // Same singleton instance is reachable through the Core interface too, so the shared
         // ViewModels depend on ITrayIconService, not the Avalonia tray type.

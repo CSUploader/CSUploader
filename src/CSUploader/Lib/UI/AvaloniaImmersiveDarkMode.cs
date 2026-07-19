@@ -85,6 +85,13 @@ public static class AvaloniaImmersiveDarkMode
     /// where the HWND is unavailable (headless) or the OS predates the attribute.</summary>
     public static void Apply(Window window, bool dark)
     {
+        // The immersive-dark-mode title bar is a Windows DWM feature; on Linux/macOS the OS owns the
+        // window chrome. Skip the dwmapi/user32 P/Invokes there (they'd DllNotFound and be swallowed anyway).
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         try
         {
             if (window.TryGetPlatformHandle()?.Handle is not { } hwnd || hwnd == IntPtr.Zero)
