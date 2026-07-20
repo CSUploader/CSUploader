@@ -248,9 +248,10 @@ public partial class App : Application
 #if WINDOWS
         services.AddSingleton<IInteractiveAuthService, AvaloniaWebViewInteractiveAuthService>(); // real WebView2 sign-in (Phase 8)
 #else
-        // Portable (Linux) build: WebView2 is Windows-only, so the captcha/WebView sign-in is unavailable.
-        // Register a stub that reports "cancelled" — anonymous + simple-credential hosters keep working.
-        services.AddSingleton<IInteractiveAuthService, UnsupportedInteractiveAuthService>();
+        // Portable (Linux/macOS) build: WebView2 is Windows-only, so the captcha sign-in runs on CefGlue/CEF
+        // (behind the same seam). UnsupportedInteractiveAuthService is retained as the last-resort fallback for
+        // any non-Windows platform CEF cannot serve (e.g. musl/Alpine — glibc-only CEF), but is not registered.
+        services.AddSingleton<IInteractiveAuthService, CefGlueInteractiveAuthService>(); // real CefGlue sign-in (Linux/macOS)
 #endif
         services.AddSingleton<AvaloniaTrayIconService>();
         // Same singleton instance is reachable through the Core interface too, so the shared
