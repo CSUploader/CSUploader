@@ -16,7 +16,15 @@ public static class Program
     }
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    {
+        AppBuilder builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .LogToTrace();
+#if !WINDOWS
+        // Non-Windows interactive sign-in uses CefGlue/CEF; initialize CEF inside AfterSetup (after platform
+        // detect, before the desktop lifetime + any AvaloniaCefBrowser). Windows uses WebView2 (no CEF).
+        builder = builder.AfterSetup(_ => Services.CefBootstrap.Initialize());
+#endif
+        return builder;
+    }
 }
