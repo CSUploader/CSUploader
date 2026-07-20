@@ -58,6 +58,11 @@
     <!-- WebView2 login host (Core wrapper only; see _DropWebView2DesktopWrappers). Windows-target only —
          Linux has no WebView2; the portable build stubs interactive sign-in. -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" Condition="$(TargetFramework.Contains('windows'))" />
+    <!-- CefGlue/CEF interactive sign-in host — NON-Windows only (Linux/macOS); Windows uses WebView2 above.
+         120.6099.211 = CEF/Chromium 120. Avalonia.ReactiveUI is a transitive dep of CefGlue.Avalonia that
+         tops out at 11.3.9 (11.3.18 fails restore, NU1102) — pinned so it can't drag in 11.0.9. -->
+    <PackageReference Include="CefGlue.Avalonia" Version="120.6099.211" Condition="!$(TargetFramework.Contains('windows'))" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" Condition="!$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
          Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
          2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->
@@ -99,6 +104,15 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="CSUploader.Tests" />
+  </ItemGroup>
+
+  <!-- CefGlue sign-in code references the non-Windows-only CefGlue packages, so exclude it from the
+       WINDOWS compile (the inverse of the WebView2 exclusion below). Globs match zero files until the
+       Cef* files land (Tasks 4/5). -->
+  <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
+    <Compile Remove="Views\Cef\**" />
+    <AvaloniaXaml Remove="Views\Cef\**" />
+    <Compile Remove="Services\Cef*.cs" />
   </ItemGroup>
 
   <!-- Linux-port: the WebView2 sign-in host is Windows-only. Drop its source + the XAML login window
