@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using CSUploader.Views; // WebViewLoginProxy.SanitizeFolderName
 using Xilium.CefGlue;
 using Xilium.CefGlue.Common;
 using Xilium.CefGlue.Common.Shared;
@@ -56,6 +57,20 @@ internal static class CefBootstrap
             flags: new[] { new KeyValuePair<string, string>("no-sandbox", string.Empty) });
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
+    }
+
+    /// <summary>
+    /// Returns (creating if needed) the per-hoster cache directory for a login's <see cref="CefRequestContext"/>.
+    /// It is a child of <see cref="RootCachePath"/> — CEF requires a context cache path to equal or be a child
+    /// of the settings root — and stable per hoster so captcha-solver trust persists across runs, mirroring the
+    /// WebView2 per-hoster user-data folders. The process-wide login gate serializes logins, so two live
+    /// contexts never share one cache path at once.
+    /// </summary>
+    internal static string LoginCachePathFor(string hosterName)
+    {
+        string path = Path.Combine(RootCachePath, WebViewLoginProxy.SanitizeFolderName(hosterName));
+        Directory.CreateDirectory(path);
+        return path;
     }
 
     /// <summary>Shuts CEF down at process exit (best-effort; must run after all browsers have closed).</summary>

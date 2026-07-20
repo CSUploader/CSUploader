@@ -1,0 +1,57 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Modal captcha-gated sign-in browser for the NON-Windows (Linux/macOS) head — the CefGlue/CEF analog of
+     WebViewLoginWindow.axaml. Hosts an AvaloniaCefBrowser (created in code-behind, since it is bound to a
+     per-login CefRequestContext) inside the BrowserHost border. Header + status bind to WebViewLoginViewModel
+     (reused unchanged) so the navigation lifecycle is inspectable. Completion: the window assembles
+     InteractiveAuthResult and Close(result)s; Cancel/Esc/X -> Close(null). Excluded from the Windows compile. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.Cef.CefGlueLoginWindow"
+        Title="{loc:Loc WebViewLogin_WindowTitle}"
+        Width="900" Height="720"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SurfaceMutedBrush}"
+        Icon="/Assets/icon.ico">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Header: which hoster + what we're waiting for. -->
+    <Border Grid.Row="0" Padding="14,10" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+      <StackPanel>
+        <TextBlock Text="{Binding Header}"
+                   FontSize="13" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}" />
+        <TextBlock Text="{loc:Loc WebViewLogin_Instructions}"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Margin="0,2,0,0"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <!-- The AvaloniaCefBrowser is injected here in code-behind (it takes a per-login CefRequestContext factory
+         in its constructor, so it cannot be declared in XAML). -->
+    <Border Grid.Row="1" x:Name="BrowserHost" />
+
+    <!-- Status strip: cookie-discovery state (code-behind sets VM.Status on every navigation). -->
+    <Border Grid.Row="2" Padding="14,6" Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" x:Name="CancelButton"
+                Content="{loc:Loc Common_Cancel}"
+                Width="90" Height="26"
+                IsCancel="True"
+                Click="CancelButton_Click" />
+        <TextBlock Text="{Binding Status}"
+                   FontSize="11"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>
