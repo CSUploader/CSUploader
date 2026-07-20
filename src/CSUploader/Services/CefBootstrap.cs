@@ -25,11 +25,33 @@ internal static class CefBootstrap
 {
     // Root under which each login's per-CefRequestContext CachePath lives (Task 4). Stable (not per-launch)
     // so captcha-solver trust persists across runs, mirroring the WebView2 per-hoster user-data folders.
-    private static readonly string RootCachePath =
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CSUploader",
-            "cef");
+    private static readonly string RootCachePath = Path.Combine(ResolveLocalAppData(), "CSUploader", "cef");
+
+    // GetFolderPath(LocalApplicationData) returns an EMPTY string on Unix when ~/.local/share does not yet
+    // exist (documented .NET Unix behavior) — a fresh Linux/macOS user hits this, and an empty base makes the
+    // cache path relative, so Directory.CreateDirectory throws and crashes startup. Resolve robustly: the XDG
+    // dir, else $HOME/.local/share, else beside the executable (the app's DB convention). Windows always
+    // returns a valid LocalApplicationData, so this only changes non-Windows behavior.
+    private static string ResolveLocalAppData()
+    {
+        string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(appData) && Path.IsPathRooted(appData))
+        {
+            return appData;
+        }
+
+        string? xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+        if (!string.IsNullOrEmpty(xdg) && Path.IsPathRooted(xdg))
+        {
+            return xdg;
+        }
+
+        string home = Environment.GetEnvironmentVariable("HOME")
+            ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return !string.IsNullOrEmpty(home) && Path.IsPathRooted(home)
+            ? Path.Combine(home, ".local", "share")
+            : AppContext.BaseDirectory;
+    }
 
     private static bool _initialized;
 
