@@ -159,4 +159,16 @@ internal sealed class CefLoginDeleteCookiesCallback(TaskCompletionSource tcs) : 
 {
     protected override void OnComplete(int numDeleted) => tcs.TrySetResult();
 }
+
+/// <summary>
+/// Trivial <see cref="CefTask"/> that runs an <see cref="Action"/> on a CEF thread. Used to marshal
+/// <see cref="CefBrowserHost"/> / <see cref="CefRequestContext"/> / <see cref="CefCookieManager"/> calls onto the
+/// CEF UI thread (<c>CefRuntime.PostTask(CefThreadId.UI, …)</c>): those APIs have CEF UI-thread affinity, and
+/// CefGlue forces <c>MultiThreadedMessageLoop</c> on Linux, so CEF's UI thread is a dedicated native thread that
+/// the Avalonia UI thread (where the login window's callbacks otherwise run) is not.
+/// </summary>
+internal sealed class CefActionTask(Action action) : CefTask
+{
+    protected override void Execute() => action();
+}
 #endif

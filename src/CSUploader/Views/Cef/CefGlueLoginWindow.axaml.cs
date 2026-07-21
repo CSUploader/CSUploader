@@ -156,6 +156,8 @@ public partial class CefGlueLoginWindow : Window
         // OnRequestContextInitialized never fires so the proxy preference is silently dropped. BaseCefBrowser invokes
         // this factory DURING construction, immediately AFTER it has initialized CEF, so the context is created
         // against a live core. The lambda runs synchronously inside the ctor below, so _requestContext is set on return.
+        // NOTE: this stored wrapper is used only to build the browser (isolation) and to dispose at teardown — cookie
+        // calls go through the browser's OWN live context (GetLoginCookieManager), never this wrapper (see there).
         _browser = new AvaloniaCefBrowser(() => _requestContext = CefRequestContext.CreateContext(
             new CefRequestContextSettings { CachePath = cachePath, PersistSessionCookies = true },
             contextHandler))
@@ -457,20 +459,62 @@ public partial class CefGlueLoginWindow : Window
         }
     }
 
-    // ---- CEF cookie plumbing (IO-thread visitor/delete → TCS(RunContinuationsAsynchronously) → UI marshal) --
+    // ---- CEF cookie plumbing (CEF-UI-thread manager access → IO-thread visitor/delete → TCS → UI marshal) ----
+
+    // Runs an action on the CEF UI thread. CefRequestContext / CefCookieManager / CefBrowserHost calls have CEF
+    // UI-thread affinity, and CefGlue forces MultiThreadedMessageLoop on Linux, so CEF's UI thread is a dedicated
+    // native thread — NOT the Avalonia UI thread these methods are otherwise invoked from.
+    private static void RunOnCefUiThread(Action action)
+    {
+        if (CefRuntime.CurrentlyOn(CefThreadId.UI))
+        {
+            action();
+        }
+        else
+        {
+            CefRuntime.PostTask(CefThreadId.UI, new CefActionTask(action));
+        }
+    }
+
+    // Returns the login's cookie manager, sourced from the LIVE browser's request context — NOT the stored
+    // _requestContext wrapper. That wrapper's native pointer is released out from under us during CEF's browser
+    // setup (its managed lifetime is not ours to control), so calling GetCookieManager on it dereferences a freed
+    // context and segfaults. The browser host's own request context (GetHost().GetRequestContext()) is always the
+    // live per-login context (IsGlobal == false — isolation preserved). Must be called on the CEF UI thread.
+    private CefCookieManager? GetLoginCookieManager()
+    {
+        CefBrowser? browser = _cefBrowser;
+        if (browser is null)
+        {
+            return null;
+        }
+
+        using CefRequestContext context = browser.GetHost().GetRequestContext();
+        return context.GetCookieManager(null); // the manager holds its own ref; the context wrapper can be released
+    }
 
     private Task<IReadOnlyList<CefCookie>> VisitUrlCookiesAsync(string url)
     {
         TaskCompletionSource<IReadOnlyList<CefCookie>> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        CefCookieManager manager = _requestContext!.GetCookieManager(null);
         CefLoginCookieCollector visitor = new(tcs);
 
-        // includeHttpOnly:true — FileBoom's accessToken / XFS session cookies are HttpOnly; the CookieManager
-        // (not document.cookie) exposes them.
-        if (!manager.VisitUrlCookies(url, includeHttpOnly: true, visitor))
+        RunOnCefUiThread(() =>
         {
-            tcs.TrySetResult(Array.Empty<CefCookie>());
-        }
+            try
+            {
+                // includeHttpOnly:true — FileBoom's accessToken / XFS session cookies are HttpOnly; the
+                // CookieManager (not document.cookie) exposes them.
+                CefCookieManager? manager = GetLoginCookieManager();
+                if (manager is null || !manager.VisitUrlCookies(url, includeHttpOnly: true, visitor))
+                {
+                    tcs.TrySetResult(Array.Empty<CefCookie>());
+                }
+            }
+            catch
+            {
+                tcs.TrySetResult(Array.Empty<CefCookie>()); // torn down / disposed browser — treat as no cookies
+            }
+        });
 
         // Zero-result net: a cookieless URL never triggers Visit, so the TCS would hang without this.
         _ = Task.Delay(CookieVisitTimeout).ContinueWith(
@@ -481,31 +525,38 @@ public partial class CefGlueLoginWindow : Window
 
     private Task DeleteStaleCookiesAsync()
     {
-        CefCookieManager manager = _requestContext!.GetCookieManager(null);
-        List<Task> deletes = [DeleteCookieAsync(manager, _cookieName)];
+        List<string> names = [_cookieName];
 
         // In UA-override (cf_clearance) mode also drop the supplementary cookies — a value persisted under the
         // native UA would be captured stale (mirrors the WebView2 head).
         if (!string.IsNullOrEmpty(_userAgentOverride) && _additionalCookieNames is not null)
         {
-            foreach (string name in _additionalCookieNames)
-            {
-                deletes.Add(DeleteCookieAsync(manager, name));
-            }
+            names.AddRange(_additionalCookieNames);
         }
 
-        return Task.WhenAll(deletes);
+        return Task.WhenAll(names.Select(DeleteCookieAsync));
     }
 
-    private Task DeleteCookieAsync(CefCookieManager manager, string cookieName)
+    private Task DeleteCookieAsync(string cookieName)
     {
         TaskCompletionSource tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         CefLoginDeleteCookiesCallback callback = new(tcs);
 
-        if (!manager.DeleteCookies(_loginUrl, cookieName, callback))
+        RunOnCefUiThread(() =>
         {
-            tcs.TrySetResult();
-        }
+            try
+            {
+                CefCookieManager? manager = GetLoginCookieManager();
+                if (manager is null || !manager.DeleteCookies(_loginUrl, cookieName, callback))
+                {
+                    tcs.TrySetResult();
+                }
+            }
+            catch
+            {
+                tcs.TrySetResult(); // torn down / disposed browser — nothing to delete
+            }
+        });
 
         _ = Task.Delay(DeleteCookieTimeout).ContinueWith(
             _ => tcs.TrySetResult(), TaskScheduler.Default);

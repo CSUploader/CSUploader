@@ -78,15 +78,23 @@ internal static class CefBootstrap
 
         Directory.CreateDirectory(RootCachePath);
 
-        // The shipped CEF payload carries no chrome-sandbox binary, so the sandbox must be disabled or the
-        // render/GPU subprocess fails to launch on Linux. GPU-init failure auto-falls-back to software
-        // rendering (verified in the spike), so --disable-gpu is intentionally NOT forced here — it only
-        // suppresses harmless startup churn and would drop hardware acceleration on capable desktops.
+        // Use offscreen rendering (OSR). CefGlue.Avalonia's AvaloniaCefBrowser routes on this flag
+        // (BaseCefBrowser ctor): true selects the OSR adapter (CommonOffscreenBrowserAdapter, SetAsWindowless) it
+        // is DESIGNED for on Linux; false selects the WINDOWED adapter (CommonBrowserAdapter, SetAsChild) that
+        // reparents a native CEF X11 child window into Avalonia's NativeControlHost. The windowed path is FRAGILE
+        // on Linux — its GPU process fails init and it emits an X protocol error on window teardown
+        // ("X error received. DestroyWindowRequest") that an X server can treat as fatal — whereas OSR runs clean.
+        // The flag also gates CefGlue's own GPU switches: BrowserCefApp.OnBeforeCommandLineProcessing appends
+        // disable-gpu + disable-gpu-compositing + enable-begin-frame-scheduling ONLY in OSR mode, so OSR both
+        // selects the robust adapter AND disables the GPU up front (WebGL still renders via the software GL path —
+        // no extra SwiftShader flags needed; verified under WSLg software-GL). Matches the CefGlue.Demo.Avalonia
+        // canonical setup. The shipped CEF payload carries no chrome-sandbox binary, so no-sandbox stays (else the
+        // render subprocess can't launch on Linux).
         CefRuntimeLoader.Initialize(
             new CefSettings
             {
                 RootCachePath = RootCachePath,
-                WindowlessRenderingEnabled = false,
+                WindowlessRenderingEnabled = true,
             },
             flags: new[] { new KeyValuePair<string, string>("no-sandbox", string.Empty) });
 
