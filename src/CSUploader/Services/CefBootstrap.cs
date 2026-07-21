@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using CSUploader.Views; // WebViewLoginProxy.SanitizeFolderName
 using Xilium.CefGlue;
 using Xilium.CefGlue.Common;
@@ -64,6 +65,17 @@ internal static class CefBootstrap
         }
 
         _initialized = true;
+
+        // libcef.so ships in the CefGlueBrowserProcess SUBFOLDER (the cef.redist layout copies the whole CEF
+        // payload there, next to the subprocess host), which the OS loader does NOT search — it only probes the
+        // app root and the .NET runtime dir. Every P/Invoke in Xilium.CefGlue.dll declares [DllImport("libcef")],
+        // and the FIRST such call in the sign-in path (CefRequestContext.CreateContext) can fire before CefGlue's
+        // own internal libcef preload runs, so without help it throws "Unable to load shared library 'libcef'".
+        // Register a resolver on the CefGlue interop assembly that loads libcef from the subfolder — this makes a
+        // shipped build work with no LD_LIBRARY_PATH, independent of call ordering (the spike relies on CefGlue's
+        // implicit preload; this pins it deterministically).
+        RegisterLibcefResolver();
+
         Directory.CreateDirectory(RootCachePath);
 
         // The shipped CEF payload carries no chrome-sandbox binary, so the sandbox must be disabled or the
@@ -79,6 +91,26 @@ internal static class CefBootstrap
             flags: new[] { new KeyValuePair<string, string>("no-sandbox", string.Empty) });
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
+    }
+
+    // Resolves the "libcef" import to <app>/CefGlueBrowserProcess/libcef.so (where the cef.redist payload lives)
+    // when that file exists; otherwise falls back to the default loader (IntPtr.Zero). Registered on the assembly
+    // that owns the [DllImport("libcef")] declarations (Xilium.CefGlue.dll, the same one that declares CefRuntime)
+    // so the resolver fires for every libcef P/Invoke regardless of which CefGlue call triggers it first. Only ever
+    // reached on non-Windows (Windows uses WebView2). SetDllImportResolver is once-per-assembly; Initialize() is
+    // idempotent, so this registers exactly once.
+    private static void RegisterLibcefResolver()
+    {
+        string libcefPath = Path.Combine(AppContext.BaseDirectory, "CefGlueBrowserProcess", "libcef.so");
+        if (!File.Exists(libcefPath))
+        {
+            return; // nothing to redirect (e.g. a flat layout); leave default resolution untouched
+        }
+
+        NativeLibrary.SetDllImportResolver(typeof(CefRuntime).Assembly, (libraryName, _, _) =>
+            libraryName == "libcef" && NativeLibrary.TryLoad(libcefPath, out nint handle)
+                ? handle
+                : IntPtr.Zero);
     }
 
     /// <summary>

@@ -143,15 +143,22 @@ public partial class CefGlueLoginWindow : Window
         string? proxyServer = WebViewLoginProxy.BuildProxyServerArg(_proxy);
         CefLoginRequestContextHandler contextHandler = new(proxyServer);
         string cachePath = CefBootstrap.LoginCachePathFor(_hosterName);
-        _requestContext = CefRequestContext.CreateContext(
-            new CefRequestContextSettings { CachePath = cachePath, PersistSessionCookies = true },
-            contextHandler);
 
         _lifeSpanHandler = new CefLoginLifeSpanHandler();
         _lifeSpanHandler.AfterCreated += OnBrowserAfterCreated;
         _lifeSpanHandler.BeforeClose += OnBrowserBeforeClose;
 
-        _browser = new AvaloniaCefBrowser(() => _requestContext!)
+        // The per-login CefRequestContext MUST be created only AFTER CEF is initialized. CefGlue defers CEF init
+        // (libcef load + CefRuntime.Initialize) until the FIRST AvaloniaCefBrowser is constructed — its static/base
+        // ctor calls CefRuntimeLoader.Load. Creating the context BEFORE the browser would run
+        // cef_request_context_create_context against an uninitialized CEF core, returning an invalid native context
+        // whose finalizer NREs (cef_preference_manager_t.release → CefPreferenceManager.Finalize), and whose
+        // OnRequestContextInitialized never fires so the proxy preference is silently dropped. BaseCefBrowser invokes
+        // this factory DURING construction, immediately AFTER it has initialized CEF, so the context is created
+        // against a live core. The lambda runs synchronously inside the ctor below, so _requestContext is set on return.
+        _browser = new AvaloniaCefBrowser(() => _requestContext = CefRequestContext.CreateContext(
+            new CefRequestContextSettings { CachePath = cachePath, PersistSessionCookies = true },
+            contextHandler))
         {
             LifeSpanHandler = _lifeSpanHandler,
             RequestHandler = new CefLoginRequestHandler(_allowInvalidCertificates, _proxyCredentials, _userAgentOverride),
