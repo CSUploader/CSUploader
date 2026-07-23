@@ -15,25 +15,26 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// </summary>
 /// <remarks>
 /// <para>
-/// KatFile serves the same REST API on two domains: <c>katfile.cloud</c> (the marketed
-/// API URL) and <c>katfile.space</c> (the canonical web UI host). We pick
-/// <c>katfile.space</c> as <see cref="Host"/> because:
+/// KatFile has MIGRATED its live web + API host to <c>katfile.biz</c>. The older
+/// <c>katfile.space</c> now 301-redirects the web UI to <c>katfile.biz</c>
+/// (<c>katfile.space/login.html</c> → <c>katfile.biz/login.html</c>), and — critically —
+/// the session cookie is minted on the redirect target: after a WebView sign-in the server
+/// sets <c>Set-Cookie: xfss=…; domain=.katfile.biz</c>. So <see cref="Host"/> is
+/// <c>katfile.biz</c>: <see cref="XFileSharingApiPipeline.LoginUrl"/> and the sign-in cookie
+/// read must target the domain the <c>xfss</c> cookie actually lives on, and the
+/// <c>/api/account/info</c> + <c>/api/upload/server</c> API is served on the same host
+/// (XFileSharing convention — one host for web + API).
 /// </para>
-/// <list type="bullet">
-///   <item>Both domains serve <c>/api/account/info</c> and <c>/api/upload/server</c>
-///   identically, so the API-key-direct path works either way.</item>
-///   <item><c>katfile.cloud/login.html</c> and <c>katfile.cloud/?op=my_account</c>
-///   301-redirect to the corresponding <c>katfile.space</c> URLs. Our HTTP handler has
-///   <c>AllowAutoRedirect = false</c>, so using <c>.cloud</c> as Host would break the
-///   U/P bootstrap path (the my_account scrape would see an empty 301 body and the
-///   regexes would find nothing).</item>
-///   <item><c>katfile.space</c> serves both API and web with no redirects — single
-///   host, both paths work.</item>
-/// </list>
 /// <para>
-/// If KatFile ever turns off <c>.space</c> in favour of <c>.cloud</c>, the fix is to
-/// add a <c>protected virtual string ApiHost =&gt; Host</c> to the base and override it
-/// here.
+/// Was <c>katfile.space</c> until 2026-07-24, which broke the WebView sign-in: the completion
+/// poll read cookies for <c>katfile.space</c> and never saw the <c>xfss</c> set on
+/// <c>.katfile.biz</c>, so the login window never detected the session and never closed
+/// (identical on the WebView2 and CefGlue heads — it is engine-agnostic Core config).
+/// Diagnosed from a redacted Fiddler capture of the live login.
+/// </para>
+/// <para>
+/// If web and API ever split across hosts, add a <c>protected virtual string ApiHost =&gt; Host</c>
+/// to the base and override it here (leaving <see cref="Host"/> = the web/login host).
 /// </para>
 /// </remarks>
 public sealed class KatFilePipeline : XFileSharingApiPipeline
@@ -55,5 +56,5 @@ public sealed class KatFilePipeline : XFileSharingApiPipeline
 
     public override string Name => "KatFile";
 
-    protected override string Host => "https://katfile.space";
+    protected override string Host => "https://katfile.biz";
 }
