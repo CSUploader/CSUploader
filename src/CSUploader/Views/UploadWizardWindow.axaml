@@ -162,8 +162,10 @@
     <!-- Step content -->
     <Grid Grid.Row="1" Margin="20,16,20,8">
 
-      <!-- Step 0: source picker + file list (merged) -->
+      <!-- Step 0: source picker + file list (merged). IsSharedSizeScope lets the Package-title and Filter
+           label columns share one width (SharedSizeGroup=WizStep0Label) so both input boxes line up. -->
       <Grid x:Name="Step0Panel" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto"
+            Grid.IsSharedSizeScope="True"
             IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
 
         <!-- Row 0: mode picker (two-way EnumBool group) -->
@@ -193,8 +195,15 @@
           </StackPanel>
         </Grid>
 
-        <!-- Row 2: package title -->
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+        <!-- Row 2: package title. Shared label column (WizStep0Label) aligns the box with the Filter box
+             below; the trailing 88px spacer (Browse width 80 + its 8px margin) aligns the box's right edge
+             with the directory textbox above. -->
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" SharedSizeGroup="WizStep0Label" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="88" />
+          </Grid.ColumnDefinitions>
           <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_PackageTitleLabel}" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding PackageTitle}"
@@ -202,8 +211,13 @@
         </Grid>
 
         <!-- Row 3: filter (directory mode only — files-mode users curated the list themselves) -->
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,0,0,8"
+        <Grid Grid.Row="3" Margin="0,0,0,8"
               IsVisible="{Binding IsDirectoryMode}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" SharedSizeGroup="WizStep0Label" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="88" />
+          </Grid.ColumnDefinitions>
           <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step1_FilterLabel}" FontSize="12" VerticalAlignment="Center"
                      Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
           <TextBox Grid.Column="1" Text="{Binding FileFilter}"
