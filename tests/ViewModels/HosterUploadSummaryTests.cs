@@ -193,4 +193,37 @@ public class HosterUploadSummaryTests
         Assert.False(s.HasUncheckedFiles); // no quota → no capacity-reason clue
         Assert.Empty(s.UncheckedDisplay);
     }
+
+    [Fact]
+    public void ManualUncheck_OfAFittingFile_ShowsNoUncheckedToFitClue()
+    {
+        // Plenty of space (1000 free, 300 total) so auto-fit evicts nothing; the user unchecks one by hand.
+        HosterUploadSummary s = Summary(1000, Item("a", 100), Item("b", 200));
+        s.AutoFit(); // everything fits → no evictions
+
+        s.Files.First(f => f.Included).Included = false; // manual uncheck — NOT a space eviction
+
+        Assert.Equal(1, s.UncheckedCount);      // it is unchecked...
+        Assert.Equal(0, s.SpaceUncheckedCount); // ...but not to fit the available space
+        Assert.False(s.HasUncheckedFiles);      // so the "unchecked to fit" clue must NOT show
+        Assert.Empty(s.UncheckedDisplay);
+    }
+
+    [Fact]
+    public void SpaceUncheckedCount_CountsEvictionsButNotManualUnchecks()
+    {
+        // 1000 free; 900 + 200 + 200 → auto-fit keeps the 900 and evicts the two 200s (2 space evictions).
+        HosterUploadSummary s = Summary(1000, Item("big", 900), Item("a", 200), Item("b", 200));
+        s.AutoFit();
+        Assert.Equal(2, s.SpaceUncheckedCount);
+
+        // The user ALSO unchecks the 900 by hand → 3 unchecked total, but still only 2 were for space.
+        s.Files.First(f => f.Included).Included = false;
+        Assert.Equal(3, s.UncheckedCount);
+        Assert.Equal(2, s.SpaceUncheckedCount);
+
+        // Re-checking one of the evicted files removes it from the space-eviction tally.
+        s.Files.First(f => !f.Included && f.Size == 200).Included = true;
+        Assert.Equal(1, s.SpaceUncheckedCount);
+    }
 }

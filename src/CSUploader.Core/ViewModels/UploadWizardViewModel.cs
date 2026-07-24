@@ -598,13 +598,16 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
-    /// <summary>Keeps the page-level "N file(s) unchecked to fit" banner in sync with the live total of
-    /// unchecked files — auto-fit drops plus any manual toggles and post-refresh re-fits — so it never
-    /// goes stale when a landing storage refresh shrinks available space. Matches the per-hoster clue.</summary>
+    /// <summary>Keeps the page-level "N file(s) unchecked to fit" banner in sync with the live count of files
+    /// the capacity auto-fit evicted for space (and post-refresh re-fits) — excluding files the user
+    /// unchecked by hand — so it never goes stale when a landing storage refresh shrinks available space and
+    /// never miscounts a manual uncheck. Matches the per-hoster clue.</summary>
     private void RecomputeAutoFitNotice()
     {
-        List<HosterUploadSummary> constrained = [.. Summaries.Where(s => s.Files.Any(item => !item.Included))];
-        int unchecked_ = constrained.Sum(s => s.Files.Count(item => !item.Included));
+        // Count ONLY files the capacity auto-fit evicted for space — never a file the user unchecked by hand
+        // (that isn't a space eviction, yet the banner text specifically claims "to fit the available space").
+        List<HosterUploadSummary> constrained = [.. Summaries.Where(s => s.SpaceUncheckedCount > 0)];
+        int unchecked_ = constrained.Sum(s => s.SpaceUncheckedCount);
         if (unchecked_ == 0)
         {
             AutoFitNotice = string.Empty;
@@ -1122,6 +1125,13 @@ public sealed partial class SummaryFileItem : ObservableObject
     public string FileName => File.FileName;
 
     public long Size => File.Size;
+
+    /// <summary>True when the Summary step's capacity auto-fit unchecked THIS file to keep the hoster within
+    /// its available space — as opposed to the user unchecking it by hand. Only auto-evicted files count
+    /// toward the "N unchecked to fit the available space" notices; a manual toggle clears this (a file the
+    /// user unchecks isn't a space eviction). Plain field — not observable; the notices recompute on the
+    /// Included change that always accompanies it.</summary>
+    public bool AutoUncheckedForSpace { get; set; }
 }
 
 /// <summary>
@@ -1207,16 +1217,23 @@ public sealed partial class HosterUploadSummary : ObservableObject
     /// <summary>True when this hoster's account reports a storage quota (so capacity applies).</summary>
     public bool HasQuota => AvailableBytes is not null;
 
-    /// <summary>Number of this hoster's eligible files currently UNchecked. On first show this is the
-    /// auto-fit's drop count, so it doubles as a per-hoster reason for the deselection.</summary>
+    /// <summary>Number of this hoster's eligible files currently UNchecked, for any reason (auto-fit drop
+    /// OR a manual toggle).</summary>
     public int UncheckedCount => Files.Count - IncludedCount;
 
-    /// <summary>True for a quota hoster with unchecked files — drives a per-hoster "N unchecked to fit"
-    /// hint so the user sees, on each hoster, why files were deselected there (not just the page-level
-    /// banner). Never shows for an unlimited hoster (no capacity reason to deselect), nor while the
-    /// hoster is over capacity — there the red over-capacity hint stands alone rather than pairing
-    /// with an "unchecked to fit" line that would read oddly against "you're over, uncheck more".</summary>
-    public bool HasUncheckedFiles => HasQuota && UncheckedCount > 0 && !IsOverCapacity;
+    /// <summary>Number of this hoster's files the capacity auto-fit unchecked FOR SPACE and are still
+    /// unchecked (not since re-checked or hand-toggled). This — not <see cref="UncheckedCount"/> — drives
+    /// the "unchecked to fit" clue, so a file the user unchecks by hand is not miscounted as a space
+    /// eviction.</summary>
+    public int SpaceUncheckedCount => Files.Count(item => !item.Included && item.AutoUncheckedForSpace);
+
+    /// <summary>True for a quota hoster with files auto-unchecked FOR SPACE — drives a per-hoster
+    /// "N unchecked to fit" hint so the user sees, on each hoster, why files were deselected there (not just
+    /// the page-level banner). Never shows for an unlimited hoster (no capacity reason to deselect), for a
+    /// purely hand-unchecked hoster (not a space eviction), nor while the hoster is over capacity — there the
+    /// red over-capacity hint stands alone rather than pairing with an "unchecked to fit" line that would
+    /// read oddly against "you're over, uncheck more".</summary>
+    public bool HasUncheckedFiles => HasQuota && SpaceUncheckedCount > 0 && !IsOverCapacity;
 
     /// <summary>"N file(s) unchecked to fit the available space (X free)" for this hoster; empty when
     /// none. HasUncheckedFiles implies HasQuota, so AvailableBytes is always present here.</summary>
@@ -1224,7 +1241,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
         ? string.Format(
             CultureInfo.CurrentCulture,
             Localizer.Instance["Wizard_Summary_AutoFitNoticeWithFree_Format"],
-            UncheckedCount,
+            SpaceUncheckedCount,
             ByteUnit.FromBytes(available, ByteBase.Binary).ToFriendlyString())
         : string.Empty;
 
@@ -1323,6 +1340,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
         OnPropertyChanged(nameof(CapacityError));
         OnPropertyChanged(nameof(IncludedSummary));
         OnPropertyChanged(nameof(UncheckedCount));
+        OnPropertyChanged(nameof(SpaceUncheckedCount));
         OnPropertyChanged(nameof(HasUncheckedFiles));
         OnPropertyChanged(nameof(UncheckedDisplay));
     }
@@ -1353,6 +1371,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
                 {
                     running += item.Size;
                     item.Included = true;
+                    item.AutoUncheckedForSpace = false; // fits → not an eviction (also clears a prior re-fit drop)
                 }
                 else
                 {
@@ -1362,6 +1381,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
                     }
 
                     item.Included = false;
+                    item.AutoUncheckedForSpace = true; // evicted for space → this is what the "unchecked to fit" notices count
                 }
             }
 
@@ -1399,10 +1419,16 @@ public sealed partial class HosterUploadSummary : ObservableObject
         if (e.PropertyName == nameof(SummaryFileItem.Included))
         {
             // A toggle outside the auto-fit is the user's own edit — remember it so a landing storage
-            // refresh respects their choices rather than re-fitting over them.
+            // refresh respects their choices rather than re-fitting over them. It also means this file's
+            // checked-state is now user-driven, so it no longer counts as a capacity eviction — otherwise a
+            // hand-unchecked file is miscounted as "unchecked to fit the available space".
             if (!_applyingAutoFit)
             {
                 HasUserEdits = true;
+                if (sender is SummaryFileItem toggled)
+                {
+                    toggled.AutoUncheckedForSpace = false;
+                }
             }
 
             Recompute();

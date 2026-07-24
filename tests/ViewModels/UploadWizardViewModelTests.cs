@@ -663,6 +663,34 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Summary_ManualUncheck_OfAFittingFile_DoesNotShowAutoFitBanner()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        // Account reports 100000 bytes free — everything fits, so auto-fit evicts nothing.
+        FileHosterSelectionViewModel brupload = new(
+            "BRupload",
+            [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 100000L, StorageUsedBytes = 0L }]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
+        brupload.Use = true;
+
+        vm.CurrentStep = 2;
+
+        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        Assert.False(vm.HasAutoFitNotice); // nothing was auto-evicted (everything fit)
+
+        // The user unchecks a file by hand. It fit fine → this is NOT a space eviction, so the banner that
+        // claims "unchecked to fit the available space" must stay hidden.
+        entry.Files.First(f => f.Included).Included = false;
+
+        Assert.False(vm.HasAutoFitNotice);
+        Assert.Equal(string.Empty, vm.AutoFitNotice);
+    }
+
+    [Fact]
     public void Summary_TotalUploadSummary_SumsIncludedAcrossHosters_AndUpdatesLive()
     {
         DefaultFileHosterRegistry registry = new(
