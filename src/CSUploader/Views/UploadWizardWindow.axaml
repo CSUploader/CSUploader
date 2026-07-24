@@ -398,7 +398,7 @@
                               BorderBrush="{DynamicResource InputFieldBorderBrush}"
                               BorderThickness="1"
                               CornerRadius="2"
-                              Background="{DynamicResource ContentBackgroundBrush}"
+                              Background="{DynamicResource SurfaceMutedBrush}"
                               IsVisible="{Binding CanUse}" />
                     <TextBlock Classes="link" VerticalAlignment="Center" FontSize="12" Padding="6,2"
                                Text="{loc:Loc Wizard_Step2_AddAccountLink}"
@@ -574,9 +574,12 @@
                         <DataTemplate>
                           <Grid Margin="0,2" ColumnDefinitions="Auto,Auto,*,90">
                             <!-- Per-hoster include checkbox — independent of step 0's selection and of every
-                                 other hoster's copy; unchecking shrinks this hoster's used total. -->
+                                 other hoster's copy; unchecking shrinks this hoster's used total. Scaled to 0.8
+                                 (centred origin — bare "0.5,0.5" would be absolute px in Avalonia) so the dense
+                                 per-file rows read a touch lighter than the full-size step-1/step-2 boxes. -->
                             <CheckBox Grid.Column="0" IsChecked="{Binding Included}"
-                                      VerticalAlignment="Center" Margin="0,0,8,0" />
+                                      VerticalAlignment="Center" Margin="0,0,8,0"
+                                      RenderTransform="scale(0.8)" RenderTransformOrigin="50%,50%" />
                             <Image Grid.Column="1"
                                    Source="{Binding FileName, Converter={StaticResource FileTypeIconConverter}}"
                                    Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
