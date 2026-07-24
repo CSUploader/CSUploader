@@ -40,7 +40,9 @@ public class AppSettings
 
     public static bool DefaultAutoDisableFailingProxies { get; } = true;
 
-    public static bool DefaultProxiesEnabled { get; } = true;
+    // OFF by default: a fresh install has no working proxy, and defaulting "Use Proxies" on would route
+    // (or try to route) every request through a non-existent proxy. Users opt in via Connection Manager.
+    public static bool DefaultProxiesEnabled { get; } = false;
 
     public static bool DefaultShowCompletionToasts { get; } = true;
 

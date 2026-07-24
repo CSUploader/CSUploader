@@ -552,11 +552,41 @@ public partial class ConnectionManagerViewModel : ObservableObject
         }
     }
 
-    partial void OnAutoDisableFailingProxiesChanged(bool value) => ScheduleAutoSave();
+    // Apply each page-level toggle to the shared AppSettings IMMEDIATELY, not only inside the debounced
+    // auto-save. Services read these flags LIVE (the ProxyManager/AccountVerifier read ProxiesEnabled;
+    // the WebView/HTTP stack reads AllowInvalidServerCertificates), so deferring the in-memory update to
+    // the save left a window where an unchecked "Use Proxies" was ignored — a sign-in fired right after
+    // still routed through the (stale) enabled proxy. The DB persist stays debounced via ScheduleAutoSave.
 
-    partial void OnProxiesEnabledChanged(bool value) => ScheduleAutoSave();
+    partial void OnAutoDisableFailingProxiesChanged(bool value)
+    {
+        if (_appSettings is not null)
+        {
+            _appSettings.AutoDisableFailingProxies = value;
+        }
 
-    partial void OnAllowInvalidServerCertificatesChanged(bool value) => ScheduleAutoSave();
+        ScheduleAutoSave();
+    }
+
+    partial void OnProxiesEnabledChanged(bool value)
+    {
+        if (_appSettings is not null)
+        {
+            _appSettings.ProxiesEnabled = value;
+        }
+
+        ScheduleAutoSave();
+    }
+
+    partial void OnAllowInvalidServerCertificatesChanged(bool value)
+    {
+        if (_appSettings is not null)
+        {
+            _appSettings.AllowInvalidServerCertificates = value;
+        }
+
+        ScheduleAutoSave();
+    }
 
     private void ScheduleAutoSave()
     {
