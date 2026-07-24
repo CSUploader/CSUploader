@@ -1,8 +1,10 @@
 name: Release
 
 # Triggered by pushing a tag like v1.2.3.
-# Builds a Velopack package and uploads it to a GitHub Release with the same tag,
-# which UpdateService.cs then sees on its next periodic poll.
+# The Windows job builds a Velopack package, creates the GitHub Release, and uploads the
+# Windows assets. The Linux job then packs a Velopack AppImage and uploads the Linux assets
+# to the SAME release. UpdateService.cs (GithubSource) auto-selects the per-OS channel
+# ("win" default vs "linux") on its next periodic poll, so the two asset sets coexist.
 
 on:
   push:
@@ -13,7 +15,7 @@ permissions:
   contents: write   # needed to create the release
 
 jobs:
-  release:
+  release-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +56,7 @@ jobs:
             -o publish
 
       - name: Install Velopack CLI
-        run: dotnet tool install -g vpk
+        run: dotnet tool install -g vpk --version 1.2.0
 
       - name: Velopack pack
         run: |
@@ -65,7 +67,7 @@ jobs:
             --mainExe CSUploader.exe `
             --outputDir releases
 
-      - name: Create GitHub Release + upload assets
+      - name: Create GitHub Release + upload Windows assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
@@ -85,3 +87,73 @@ jobs:
               --title "${{ github.ref_name }}" `
               --generate-notes
           }
+
+  # The Linux job runs AFTER the Windows job (needs:) so the GitHub Release already exists —
+  # this job only UPLOADS its assets to it. Tests are the Windows job's gate; here we publish
+  # the portable net10.0 head (Linux-runnable), pack a Velopack AppImage, and attach it.
+  release-linux:
+    needs: release-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          tag="${{ github.ref_name }}"
+          if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Tag must look like v1.2.3 (got $tag)" >&2
+            exit 1
+          fi
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish self-contained linux-x64
+        run: |
+          dotnet publish src/CSUploader/CSUploader.csproj \
+            -f net10.0 \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -o publish-linux
+
+      - name: Set executable bits on native hosts
+        run: |
+          chmod +x publish-linux/CSUploader || true
+          chmod +x publish-linux/CefGlueBrowserProcess/Xilium.CefGlue.BrowserProcess || true
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk --version 1.2.0
+
+      # APPIMAGE_EXTRACT_AND_RUN lets vpk's bundled appimagetool run without libfuse2 (which
+      # modern Ubuntu no longer ships). CEF itself already launches with --no-sandbox
+      # (CefBootstrap.cs), which is exactly what a portable AppImage needs.
+      - name: Velopack pack (Linux AppImage)
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          vpk pack \
+            --packId CSUploader \
+            --packVersion ${{ steps.version.outputs.version }} \
+            --packDir publish-linux \
+            --mainExe CSUploader \
+            --packTitle CSUploader \
+            --packAuthors CSUploader \
+            --outputDir releases-linux \
+            -y
+
+      - name: Upload Linux assets to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" releases-linux/* \
+            --repo "${{ github.repository }}" --clobber
