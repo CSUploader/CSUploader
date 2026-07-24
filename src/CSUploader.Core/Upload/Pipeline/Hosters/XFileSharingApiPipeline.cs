@@ -196,8 +196,11 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         => RequiresCloudflareClearance
             ? new(Name, LoginUrl, CookieDomain, CookieName,
                 AdditionalCookieNames: [CloudflareClearanceCookieName],
-                UserAgentOverride: SignInUserAgentOverride)
-            : new(Name, LoginUrl, CookieDomain, CookieName);
+                UserAgentOverride: SignInUserAgentOverride,
+                // Wait for the post-login navigation before capturing xfss: some XFS hosters (KatFile) set an
+                // xfss guest cookie on the login page, which would otherwise close the window pre-authentication.
+                CaptureOnlyAfterLeavingLoginPage: true)
+            : new(Name, LoginUrl, CookieDomain, CookieName, CaptureOnlyAfterLeavingLoginPage: true);
 
     /// <summary>The value to persist as the session credential. Classic hosters store the bare
     /// <c>xfss</c> value; cf_clearance-mode stores a full <c>"xfss=…; cf_clearance=…"</c> Cookie

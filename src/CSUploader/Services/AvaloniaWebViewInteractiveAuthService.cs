@@ -127,7 +127,8 @@ public sealed class AvaloniaWebViewInteractiveAuthService(
             successProbeScript: spec.SuccessProbeScript,
             cookieCaptureUrl: spec.CookieCaptureUrl,
             userAgentOverride: spec.UserAgentOverride,
-            allowInvalidCertificates: settings.AllowInvalidServerCertificates);
+            allowInvalidCertificates: settings.AllowInvalidServerCertificates,
+            captureOnlyAfterLeavingLoginPage: spec.CaptureOnlyAfterLeavingLoginPage);
 
         return await window.ShowDialog<InteractiveAuthResult?>(owner);
     }

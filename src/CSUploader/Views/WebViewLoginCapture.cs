@@ -107,6 +107,32 @@ internal static class WebViewLoginCapture
 
         return pairs.Count > 0 ? string.Join("; ", pairs) : null;
     }
+
+    /// <summary>
+    /// True while the browser is still on (or has not yet navigated away from) the login page. Used to gate
+    /// cookie capture for hosters (KatFile) that set the session cookie on the login page BEFORE the user
+    /// authenticates — the caller waits for the post-login navigation instead of firing on the guest cookie.
+    /// Compares scheme-host and PATH (query/fragment ignored), so the XFS post-login <c>/?op=my_account</c>
+    /// (path "/") reads as "left the login page" vs the login page path (e.g. "/login.html"). An empty/absent
+    /// current URL (no navigation observed yet) counts as still on the login page. Unparseable URLs fall back
+    /// to an ordinal full-string compare.
+    /// </summary>
+    public static bool IsOnLoginPage(string? currentUrl, string loginUrl)
+    {
+        if (string.IsNullOrEmpty(currentUrl))
+        {
+            return true;
+        }
+
+        if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out Uri? cur)
+            || !Uri.TryCreate(loginUrl, UriKind.Absolute, out Uri? login))
+        {
+            return string.Equals(currentUrl, loginUrl, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return string.Equals(cur.Host, login.Host, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(cur.AbsolutePath.TrimEnd('/'), login.AbsolutePath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>The outcome of <see cref="WebViewLoginCapture.SelectCookies"/>: the session value (null until a

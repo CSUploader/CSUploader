@@ -113,6 +113,35 @@ public sealed class CefLoginLogicTests
         Assert.Equal(probe, CefProbeResult.WrapProbeScript(probe));
     }
 
+    // ---- WebViewLoginCapture.IsOnLoginPage: gate cookie capture until the browser leaves the login page -----
+
+    [Theory]
+    [InlineData(null)]                                                  // no navigation yet → still on login page
+    [InlineData("")]                                                    // ditto
+    [InlineData("https://katfile.biz/login.html")]                      // exact login page
+    [InlineData("https://katfile.biz/login.html?foo=bar")]             // login page with a query
+    [InlineData("https://KATFILE.biz/Login.html")]                      // host + path case-insensitive
+    public void IsOnLoginPage_StillOnLoginPage_ReturnsTrue(string? currentUrl)
+    {
+        Assert.True(WebViewLoginCapture.IsOnLoginPage(currentUrl, "https://katfile.biz/login.html"));
+    }
+
+    [Theory]
+    [InlineData("https://katfile.biz/?op=my_account")]                 // XFS post-login redirect target (path "/")
+    [InlineData("https://katfile.biz/")]                                // home as logged-in user
+    [InlineData("https://katfile.biz/?op=my_files")]
+    public void IsOnLoginPage_NavigatedAwayFromLoginPage_ReturnsFalse(string currentUrl)
+    {
+        Assert.False(WebViewLoginCapture.IsOnLoginPage(currentUrl, "https://katfile.biz/login.html"));
+    }
+
+    [Fact]
+    public void IsOnLoginPage_DifferentHostSamePath_ReturnsFalse()
+    {
+        // A cross-host bounce is "left the login page" — the path alone must not match across hosts.
+        Assert.False(WebViewLoginCapture.IsOnLoginPage("https://other.example/login.html", "https://katfile.biz/login.html"));
+    }
+
     // ---- CefNavigationSequencer.DeleteThenNavigateAsync: navigate only AFTER the async delete completes -----
 
     [Fact]

@@ -37,6 +37,7 @@ public partial class WebViewLoginWindow : Window
     private readonly string? _cookieCaptureUrl;
     private readonly string? _userAgentOverride;
     private readonly bool _allowInvalidCertificates;
+    private readonly bool _captureOnlyAfterLeavingLoginPage;
     private readonly ProxyChoice? _proxy;
     private readonly ProxyCredentials? _proxyCredentials;
 
@@ -74,7 +75,8 @@ public partial class WebViewLoginWindow : Window
         string? successProbeScript = null,
         string? cookieCaptureUrl = null,
         string? userAgentOverride = null,
-        bool allowInvalidCertificates = false)
+        bool allowInvalidCertificates = false,
+        bool captureOnlyAfterLeavingLoginPage = false)
     {
         _hosterName = hosterName;
         _loginUrl = loginUrl;
@@ -89,6 +91,7 @@ public partial class WebViewLoginWindow : Window
         _cookieCaptureUrl = cookieCaptureUrl;
         _userAgentOverride = userAgentOverride;
         _allowInvalidCertificates = allowInvalidCertificates;
+        _captureOnlyAfterLeavingLoginPage = captureOnlyAfterLeavingLoginPage;
 
         InitializeComponent();
         DataContext = _vm;
@@ -396,6 +399,14 @@ public partial class WebViewLoginWindow : Window
         // _torndown short-circuit (Task 3 race guard): a tick / NavigationCompleted queued behind teardown must
         // not read a Closed controller. _core is nulled by teardown too, but naming _torndown documents intent.
         if (_completed || _torndown || _core is null)
+        {
+            return;
+        }
+
+        // Some XFS hosters (KatFile) set the session cookie on the login page BEFORE authentication — wait for
+        // the post-login navigation so we don't capture a guest session and close the window too early.
+        if (_captureOnlyAfterLeavingLoginPage
+            && WebViewLoginCapture.IsOnLoginPage(_vm.LastNavigationUrl, _loginUrl))
         {
             return;
         }

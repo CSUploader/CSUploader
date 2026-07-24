@@ -139,7 +139,8 @@ public sealed class CefGlueInteractiveAuthService(
             successProbeScript: spec.SuccessProbeScript,
             cookieCaptureUrl: spec.CookieCaptureUrl,
             userAgentOverride: spec.UserAgentOverride,
-            allowInvalidCertificates: settings.AllowInvalidServerCertificates);
+            allowInvalidCertificates: settings.AllowInvalidServerCertificates,
+            captureOnlyAfterLeavingLoginPage: spec.CaptureOnlyAfterLeavingLoginPage);
 
         return await window.ShowDialog<InteractiveAuthResult?>(owner);
     }

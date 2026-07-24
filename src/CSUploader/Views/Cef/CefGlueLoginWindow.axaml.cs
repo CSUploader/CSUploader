@@ -62,6 +62,7 @@ public partial class CefGlueLoginWindow : Window
     private string? _cookieCaptureUrl;
     private string? _userAgentOverride;
     private bool _allowInvalidCertificates;
+    private bool _captureOnlyAfterLeavingLoginPage;
     private ProxyChoice? _proxy;
     private ProxyCredentials? _proxyCredentials;
 
@@ -101,7 +102,8 @@ public partial class CefGlueLoginWindow : Window
         string? successProbeScript = null,
         string? cookieCaptureUrl = null,
         string? userAgentOverride = null,
-        bool allowInvalidCertificates = false)
+        bool allowInvalidCertificates = false,
+        bool captureOnlyAfterLeavingLoginPage = false)
     {
         _hosterName = hosterName;
         _loginUrl = loginUrl;
@@ -117,6 +119,7 @@ public partial class CefGlueLoginWindow : Window
         _cookieCaptureUrl = cookieCaptureUrl;
         _userAgentOverride = userAgentOverride;
         _allowInvalidCertificates = allowInvalidCertificates;
+        _captureOnlyAfterLeavingLoginPage = captureOnlyAfterLeavingLoginPage;
 
         InitializeComponent();
         DataContext = _vm;
@@ -383,6 +386,14 @@ public partial class CefGlueLoginWindow : Window
     private async Task TryCaptureCookiesAsync()
     {
         if (_completed || _torndown || !_navigationStarted || _browser is null || _requestContext is null)
+        {
+            return;
+        }
+
+        // Some XFS hosters (KatFile) set the session cookie on the login page BEFORE authentication — wait for
+        // the post-login navigation so we don't capture a guest session and close the window too early.
+        if (_captureOnlyAfterLeavingLoginPage
+            && WebViewLoginCapture.IsOnLoginPage(_vm.LastNavigationUrl, _loginUrl))
         {
             return;
         }

@@ -65,6 +65,13 @@ namespace CSUploader.Services;
 /// bound to the EXACT User-Agent that solved the challenge; for the captured clearance to be reusable
 /// from the C# HTTP stack, the WebView must sign in with the SAME UA the handler sends (TakeFile sets
 /// this to <c>DefaultHttpHandlerFactory.DefaultUserAgent</c>). Null leaves the WebView2 default UA.</param>
+/// <param name="CaptureOnlyAfterLeavingLoginPage">When true, the cookie-capture completion is suppressed
+/// while the browser is still on the <see cref="LoginUrl"/> page — it fires only once the browser has
+/// navigated away (to the post-login page). XFileSharing hosters like KatFile set the session cookie
+/// (<c>xfss</c>) on the login page BEFORE the user authenticates, so bare cookie-presence closes the window
+/// too early and captures an un-authenticated guest session. XFS redirects to <c>/?op=my_account</c> on a
+/// real login, so waiting for that navigation distinguishes the authenticated session. Ignored on the
+/// probe path (which already keys on a post-login JS signal). Default false (cookie presence alone completes).</param>
 public readonly record struct InteractiveAuthSpec(
     string HosterName,
     string LoginUrl,
@@ -75,7 +82,8 @@ public readonly record struct InteractiveAuthSpec(
     IReadOnlyList<string>? AdditionalCookieNames = null,
     string? SuccessProbeScript = null,
     string? CookieCaptureUrl = null,
-    string? UserAgentOverride = null);
+    string? UserAgentOverride = null,
+    bool CaptureOnlyAfterLeavingLoginPage = false);
 
 /// <summary>
 /// Outcome of a successful <see cref="IInteractiveAuthService.AcquireSessionCookieAsync"/>
