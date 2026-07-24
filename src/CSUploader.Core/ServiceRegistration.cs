@@ -40,8 +40,13 @@ public static class ServiceRegistration
         AppSettings appSettings = new();
         services.AddSingleton(appSettings);
 
-        // EF Core
-        string dbPath = Path.Combine(baseDirectory, "CSUploader.db");
+        // EF Core. Windows keeps the shipped v1.0.0 location (beside the executable); a packaged
+        // non-Windows app runs from a read-only AppImage mount where SQLite can't create the file
+        // (Error 14), so the DB moves to the per-user data dir. Create the parent either way — a
+        // no-op on Windows (baseDirectory already exists), the actual fix on Linux/macOS. See AppDataPaths.
+        string dbPath = Lib.AppDataPaths.ComposeDbPath(
+            OperatingSystem.IsWindows(), baseDirectory, Lib.AppDataPaths.ResolveLocalAppData());
+        Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
         services.AddDbContextFactory<CSUploaderDbContext>(options =>
             options.UseSqlite($"Data Source={dbPath}"));
 
