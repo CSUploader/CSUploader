@@ -574,12 +574,14 @@
                         <DataTemplate>
                           <Grid Margin="0,2" ColumnDefinitions="Auto,Auto,*,90">
                             <!-- Per-hoster include checkbox — independent of step 0's selection and of every
-                                 other hoster's copy; unchecking shrinks this hoster's used total. Scaled to 0.8
-                                 (centred origin — bare "0.5,0.5" would be absolute px in Avalonia) so the dense
-                                 per-file rows read a touch lighter than the full-size step-1/step-2 boxes. -->
+                                 other hoster's copy; unchecking shrinks this hoster's used total. Scaled to 0.7
+                                 to match the step-1 Directory grid's boxes: those sit in DataGridCells and pick
+                                 up the global "DataGridCell CheckBox" scale(0.7) in BaseStyles; these summary
+                                 rows are a plain ItemsControl (no DataGridCell), so they'd render full-size
+                                 without this. Centred origin — bare "0.5,0.5" would be absolute px in Avalonia. -->
                             <CheckBox Grid.Column="0" IsChecked="{Binding Included}"
                                       VerticalAlignment="Center" Margin="0,0,8,0"
-                                      RenderTransform="scale(0.8)" RenderTransformOrigin="50%,50%" />
+                                      RenderTransform="scale(0.7)" RenderTransformOrigin="50%,50%" />
                             <Image Grid.Column="1"
                                    Source="{Binding FileName, Converter={StaticResource FileTypeIconConverter}}"
                                    Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
