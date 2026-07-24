@@ -292,6 +292,15 @@ public class ProxyManager : IProxySource
     /// </summary>
     ProxyChoice? IProxySource.GetById(int id)
     {
+        // The global "Use Proxies" switch wins over a per-account pin. When the user turns proxies
+        // off they expect a direct connection everywhere; a stale PinnedProxyId must NOT resurrect a
+        // proxy (or fall through to the OS system proxy). Mirrors NextProxy()/Next(). The pipeline
+        // sees Direct (id 0) ≠ the pinned id and re-signs-in through the direct connection.
+        if (!_settings.ProxiesEnabled)
+        {
+            return ProxyChoice.Direct;
+        }
+
         if (id == 0)
         {
             return ProxyChoice.Direct;

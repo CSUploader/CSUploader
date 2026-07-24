@@ -173,6 +173,30 @@ public class ProxyManagerSourceTests : IDisposable
         Assert.Null(choice);
     }
 
+    [Fact]
+    public async Task GetById_UseProxiesOff_ReturnsDirectForPinnedProxy_GlobalToggleWins()
+    {
+        // The master "Use Proxies" switch wins over a per-account pin: with proxies globally off,
+        // a stale PinnedProxyId must NOT resurrect a proxy (nor fall through to the OS system proxy).
+        // Mirrors Next() honouring the toggle. Regression for the sign-in/upload-uses-a-proxy-when-off bug.
+        await SeedProxyAsync(new ProxySettingDto
+        {
+            Type = ProxyType.Http,
+            Host = "10.0.0.9",
+            Port = 3128,
+            Enabled = true,
+            Priority = 0,
+        });
+        AppSettings settings = new() { ProxiesEnabled = false };
+        ProxyManager manager = new(new ProxySettingRepository(_factory), Mock.Of<IAppLogger>(), settings);
+        await manager.ReloadAsync();
+
+        ProxySettingDto seeded = (await new ProxySettingRepository(_factory).GetAllAsync()).Single();
+        ProxyChoice? choice = ((IProxySource)manager).GetById(seeded.Id);
+
+        Assert.Same(ProxyChoice.Direct, choice);
+    }
+
     private async Task SeedProxyAsync(ProxySettingDto dto)
     {
         // Go through the repo so the DTO → Dbm mapping stays the responsibility of one place.
