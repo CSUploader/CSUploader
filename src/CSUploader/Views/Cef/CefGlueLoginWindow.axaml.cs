@@ -175,6 +175,9 @@ public partial class CefGlueLoginWindow : Window
             Focusable = true,
             LifeSpanHandler = _lifeSpanHandler,
             RequestHandler = new CefLoginRequestHandler(_allowInvalidCertificates, _proxyCredentials, _userAgentOverride),
+            // Suppress the right-click menu — under OSR on Linux it opens then instantly dismisses (a flash); it
+            // has no use in a captcha/login flow and keyboard copy/paste still works.
+            ContextMenuHandler = new CefLoginContextMenuHandler(),
         };
         _browser.LoadEnd += OnBrowserLoadEnd;
         _browser.AddressChanged += OnBrowserAddressChanged;

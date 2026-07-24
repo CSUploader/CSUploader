@@ -30,6 +30,18 @@ internal sealed class CefLoginLifeSpanHandler : CommonHandlers.LifeSpanHandler
 }
 
 /// <summary>
+/// Suppresses the right-click context menu in the sign-in browser. Under CefGlue's offscreen rendering on Linux
+/// the context menu opens as an Avalonia popup that immediately loses focus and dismisses — a visible flash the
+/// user can't actually use. The menu has no purpose in a captcha/login flow (keyboard copy/paste still works),
+/// so clear the model in <c>OnBeforeContextMenu</c> and CEF then shows nothing at all instead of the flash.
+/// </summary>
+internal sealed class CefLoginContextMenuHandler : CommonHandlers.ContextMenuHandler
+{
+    protected override void OnBeforeContextMenu(CefBrowser browser, CefFrame frame, CefContextMenuParams state, CefMenuModel model)
+        => model.Clear();
+}
+
+/// <summary>
 /// Browser-level request handler for <see cref="CefGlueLoginWindow"/>: accepts invalid certificates when the
 /// user opted in (<c>OnCertificateError → Continue</c>, the CEF analog of WebView2's <c>AlwaysAllow</c>), feeds
 /// HTTP/HTTPS proxy Basic credentials on the 407 challenge (<c>GetAuthCredentials(isProxy:true)</c>), and — only
