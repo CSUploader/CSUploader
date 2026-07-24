@@ -48,11 +48,11 @@ public class AppSettings
 
     public static bool DefaultAllowInvalidServerCertificates { get; } = false;
 
-#if DEBUG
-    public static bool DefaultUseMockServer { get; } = true;
-#else
+    // OFF by default, even in DEBUG. When on, EVERY outbound hoster request is rewritten to
+    // MockServerBaseUrl (http://localhost:8080), so a fresh DB that defaulted this on silently sent
+    // all real sign-in/upload traffic to a mock that usually isn't running ("target machine actively
+    // refused it (localhost:8080)"). Developers testing against the mock enable it explicitly.
     public static bool DefaultUseMockServer { get; } = false;
-#endif
 
     private int? uploadsTabPageRefreshTimer;
     private int? maxConcurrentCPUJobs;
