@@ -165,11 +165,25 @@ public partial class CefGlueLoginWindow : Window
             new CefRequestContextSettings { CachePath = cachePath, PersistSessionCookies = true },
             contextHandler))
         {
+            // OSR keyboard fix (Linux/macOS use offscreen rendering). AvaloniaCefBrowser is a bare Control whose
+            // Focusable defaults to FALSE, so it never receives Avalonia keyboard focus — and in OSR the ONLY path
+            // that forwards keystrokes into CEF is the control's own KeyDown/KeyUp/TextInput handlers calling
+            // SendKeyEvent. Result: the page renders and the mouse works (pointer events don't need focus) but you
+            // can't type. Making the control focusable lets a click into a field — and the LoadEnd auto-focus below
+            // — route keystrokes. (Windowed builds let CEF's native child window handle keys, and the Windows head
+            // uses WebView2, a separate stack — both unaffected. Confirmed against OutSystems/CefGlue OSR source.)
+            Focusable = true,
             LifeSpanHandler = _lifeSpanHandler,
             RequestHandler = new CefLoginRequestHandler(_allowInvalidCertificates, _proxyCredentials, _userAgentOverride),
         };
         _browser.LoadEnd += OnBrowserLoadEnd;
         _browser.AddressChanged += OnBrowserAddressChanged;
+
+        // Auto-focus the page once content loads so the user can type without first clicking. Focus must land
+        // AFTER the CEF browser host exists — Focus() in Window.Opened (below) is too early because the browser is
+        // created lazily on first layout, so GotFocus→SetFocus(true) is dropped. LoadEnd fires on the CEF thread;
+        // marshal to the UI thread. Idempotent across redirects / sub-frame loads.
+        _browser.LoadEnd += (_, _) => Dispatcher.UIThread.Post(() => _browser?.Focus());
 
         BrowserHost.Child = _browser;
     }
