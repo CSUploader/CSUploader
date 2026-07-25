@@ -60,9 +60,17 @@ public partial class UploadedViewModel : ObservableObject
         _uiDispatcher = uiDispatcher;
         _clipboardService = clipboardService;
         SettingRepo = settingRepo;
+
+        // Coalesce completion events into a bounded number of reloads. Every completed file/package used to post a
+        // full LoadAsync to the UI thread; a few hundred completions then queued a few hundred O(N) grouped-DataGrid
+        // reloads and froze the window (a dump showed ~2,000 backed-up DispatcherOperations). The coalescer caps a
+        // burst to ≤ 2 reloads. Created BEFORE the subscriptions so a handler can never see it null.
+        _refresh = new UiRefreshCoalescer(_uiDispatcher, () => LoadAsync(), _logger);
         packageManager.PackageCompleted += OnPackageCompleted;
         packageManager.FileCompleted += OnFileCompleted;
     }
+
+    private readonly UiRefreshCoalescer _refresh;
 
     /// <summary>
     /// Flat list of files across all completed packages. Grouped by <see cref="UploadedFileRow.PackageName"/> in the view.
@@ -301,22 +309,7 @@ public partial class UploadedViewModel : ObservableObject
         }
     }
 
-    private void OnPackageCompleted(object? sender, Package package) => RefreshOnUiThread();
+    private void OnPackageCompleted(object? sender, Package package) => _refresh.Request();
 
-    private void OnFileCompleted(object? sender, PackageFile file) => RefreshOnUiThread();
-
-    private void RefreshOnUiThread()
-    {
-        _uiDispatcher.Post(async () =>
-        {
-            try
-            {
-                await LoadAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.Log(this, LogType.Error, $"Uploaded tab refresh failed: {ex.Message}");
-            }
-        });
-    }
+    private void OnFileCompleted(object? sender, PackageFile file) => _refresh.Request();
 }
