@@ -67,6 +67,11 @@ public partial class UploadWizardViewModel : ObservableObject
         FileHosters.CollectionChanged += FileHosters_CollectionChanged;
     }
 
+    // While true (a bulk Files population — see BulkMutateFiles), the per-item validation + footer recompute is
+    // suspended and run ONCE at the end. Otherwise each Files.Add re-runs RecomputeHosterValidation (O(files))
+    // and the footer stats (O(files)), making a directory scan O(files²) on the UI thread.
+    private bool _bulkLoadingFiles;
+
     private void Files_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems is not null)
@@ -90,8 +95,11 @@ public partial class UploadWizardViewModel : ObservableObject
             }
         }
         _summaryDirty = true;
-        RecomputeHosterValidation();
-        NotifySelectionStats(); // adds/removes change the footer's live count + total size
+        if (!_bulkLoadingFiles)
+        {
+            RecomputeHosterValidation();
+            NotifySelectionStats(); // adds/removes change the footer's live count + total size
+        }
     }
 
     private void FileHosters_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -380,8 +388,11 @@ public partial class UploadWizardViewModel : ObservableObject
         if (e.PropertyName == nameof(FileEntry.IsSelected))
         {
             _summaryDirty = true;
-            RecomputeHosterValidation();
-            NotifySelectionStats();
+            if (!_bulkLoadingFiles)
+            {
+                RecomputeHosterValidation();
+                NotifySelectionStats();
+            }
         }
     }
 
@@ -694,7 +705,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
     partial void OnModeChanged(UploadWizardMode value)
     {
-        Files.Clear();
+        ClearFiles(); // detaches per-entry handlers first (Clear()'s Reset can't); footer/validation recompute once
         DirectoryPath = string.Empty;
         FileFilter = string.Empty;
     }
@@ -731,7 +742,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
-    private void AppendFiles(IEnumerable<string> filePaths)
+    private void AppendFiles(IEnumerable<string> filePaths) => BulkMutateFiles(() =>
     {
         HashSet<string> existing = new(
             Files.Select(f => f.FullPath),
@@ -768,7 +779,7 @@ public partial class UploadWizardViewModel : ObservableObject
             Files.Add(entry);
             existing.Add(filePath);
         }
-    }
+    });
 
     [RelayCommand]
     private async Task GoNextAsync()
@@ -941,9 +952,45 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
-    private void LoadFiles()
+    // Runs a bulk Files population with the per-item validation + footer recompute SUSPENDED, then recomputes
+    // ONCE. Turns an otherwise O(files²) scan (each Add re-running both) into O(files). Re-entrancy-safe.
+    private void BulkMutateFiles(Action mutate)
     {
+        bool wasBulk = _bulkLoadingFiles;
+        _bulkLoadingFiles = true;
+        try
+        {
+            mutate();
+        }
+        finally
+        {
+            _bulkLoadingFiles = wasBulk;
+        }
+
+        if (!_bulkLoadingFiles)
+        {
+            _summaryDirty = true;
+            RecomputeHosterValidation();
+            NotifySelectionStats();
+        }
+    }
+
+    // Clears Files, detaching each entry's PropertyChanged first: ObservableCollection.Clear() raises a Reset
+    // with no OldItems, so Files_CollectionChanged can't unsubscribe them, and a lingering reference (e.g. a
+    // Summary's File) would keep firing stale IsSelected changes into this VM.
+    private void ClearFiles()
+    {
+        foreach (FileEntry entry in Files)
+        {
+            entry.PropertyChanged -= FileEntry_PropertyChanged;
+        }
+
         Files.Clear();
+    }
+
+    private void LoadFiles() => BulkMutateFiles(() =>
+    {
+        ClearFiles();
         FileFilter = string.Empty;
         if (string.IsNullOrEmpty(PackageTitle))
         {
@@ -965,7 +1012,7 @@ public partial class UploadWizardViewModel : ObservableObject
             };
             Files.Add(entry);
         }
-    }
+    });
 
     private void ApplyFilter()
     {

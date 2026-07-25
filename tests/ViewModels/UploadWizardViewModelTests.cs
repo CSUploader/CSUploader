@@ -721,6 +721,45 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void LoadFiles_BulkDirectoryScan_RecomputesFooterOnce_NotPerFile()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "csup-bulkload-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                File.WriteAllBytes(Path.Combine(dir, $"f{i}.bin"), new byte[100]);
+            }
+
+            DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+            UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+            int footerNotifications = 0;
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(vm.SelectedFileCount))
+                {
+                    footerNotifications++;
+                }
+            };
+
+            vm.DirectoryPath = dir; // triggers the bulk directory scan (LoadFiles)
+
+            // Correctness: the footer reflects the whole scan.
+            Assert.Equal(6, vm.SelectedFileCount);
+            Assert.Equal(ByteUnit.FromBytes(600, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+
+            // Batching: the footer recomputes ONCE at the end of the scan, not once per file (was ~6+ → O(N²)).
+            Assert.True(footerNotifications <= 2, $"expected footer to recompute at most twice, got {footerNotifications}");
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Summary_TotalUploadSummary_SumsIncludedAcrossHosters_AndUpdatesLive()
     {
         DefaultFileHosterRegistry registry = new(
