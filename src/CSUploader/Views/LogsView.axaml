@@ -93,7 +93,7 @@
                   Width="80" Height="24" Margin="4" />
           <DataGrid Grid.Row="1"
                     x:Name="StatusLogGrid"
-                    Classes="log-grid"
+                    Classes="log-grid listview"
                     ItemsSource="{Binding StatusLogs}"
                     Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
@@ -127,7 +127,7 @@
                   Width="80" Height="24" Margin="4" />
           <DataGrid Grid.Row="1"
                     x:Name="HttpLogGrid"
-                    Classes="log-grid"
+                    Classes="log-grid listview"
                     ItemsSource="{Binding HttpLogs}"
                     Tag="{x:Static upload:SettingKey.LogsHttpTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
@@ -170,7 +170,7 @@
                   Width="80" Height="24" Margin="4" />
           <DataGrid Grid.Row="1"
                     x:Name="ErrorLogGrid"
-                    Classes="log-grid"
+                    Classes="log-grid listview"
                     ItemsSource="{Binding ErrorLogs}"
                     Tag="{x:Static upload:SettingKey.LogsErrorsTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
@@ -204,7 +204,7 @@
                   Width="80" Height="24" Margin="4" />
           <DataGrid Grid.Row="1"
                     x:Name="UILogGrid"
-                    Classes="log-grid"
+                    Classes="log-grid listview"
                     ItemsSource="{Binding UILogs}"
                     Tag="{x:Static upload:SettingKey.LogsUITabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">

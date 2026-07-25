@@ -328,6 +328,7 @@
          BeginningEdit guard that cancels edits for every other column); all read-only text columns are
          Mode=OneWay so an interim edit can never write back through a throwing converter (rule 32). -->
     <DataGrid x:Name="uploadsGrid" Grid.Row="1"
+              Classes="listview"
               AutoGenerateColumns="False"
               IsReadOnly="False"
               CanUserResizeColumns="True"

@@ -167,6 +167,7 @@
 
     <DataGrid Grid.Row="1"
               x:Name="FilesGrid"
+              Classes="listview"
               AutoGenerateColumns="False"
               IsReadOnly="True"
               SelectionMode="Extended"

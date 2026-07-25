@@ -222,6 +222,16 @@
     <Setter Property="Padding" Value="2,0" />
   </Style>
 
+  <!-- Data list-view grids (Uploads / History / Logs) opt into a roomier LEFT header indent via the
+       'listview' class, so the leading text column ('Name', etc.) isn't hugging the window edge. Kept off the
+       global rule on purpose: the narrow checkbox-header columns in Settings / the upload wizard want the tight
+       2px budget — a wider left pad there shoves the short 'Use' / '&#x2713;' headers right and would re-clip the
+       30px '&#x2713;' column (Tokens.axaml sort-reserve math). Left only; the right-side sort-glyph reserve is
+       unchanged. -->
+  <Style Selector="DataGrid.listview DataGridColumnHeader">
+    <Setter Property="Padding" Value="8,0,2,0" />
+  </Style>
+
   <!-- Compact, WPF-style context menus. WPF's SubmenuItemTemplate is ~8,4 padding, ~24px rows, 12px
        font, square corners, and a SelectionBrush (#B8D4EE) highlight; Fluent's MenuItem is much taller
        with a rounded accent-grey highlight. Scoped to items inside a ContextMenu so the top Menu bar
