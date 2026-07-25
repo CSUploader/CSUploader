@@ -98,7 +98,11 @@ internal static class CefBootstrap
             },
             flags: new[] { new KeyValuePair<string, string>("no-sandbox", string.Empty) });
 
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
+        // NO ProcessExit → CefRuntime.Shutdown() here: CefGlue's own CefRuntimeLoader.InternalInitialize already
+        // registers one when the first browser is created (verified in the 120.6099.211 assembly). CefRuntime.Shutdown
+        // does not reset its initialized flag, so a second handler would call the native libcef.shutdown() TWICE at
+        // exit — the double-teardown UB class we hit elsewhere. If no sign-in ever runs, CEF is never initialized and
+        // there is nothing to shut down.
     }
 
     // Resolves the "libcef" import to <app>/CefGlueBrowserProcess/libcef.so (where the cef.redist payload lives)
@@ -133,19 +137,6 @@ internal static class CefBootstrap
         string path = Path.Combine(RootCachePath, WebViewLoginProxy.SanitizeFolderName(hosterName));
         Directory.CreateDirectory(path);
         return path;
-    }
-
-    /// <summary>Shuts CEF down at process exit (best-effort; must run after all browsers have closed).</summary>
-    public static void Shutdown()
-    {
-        try
-        {
-            CefRuntime.Shutdown();
-        }
-        catch
-        {
-            // Best-effort at exit — the process is going away regardless.
-        }
     }
 }
 #endif

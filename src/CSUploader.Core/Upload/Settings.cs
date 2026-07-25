@@ -184,7 +184,8 @@ public class AppSettings
 
     /// <summary>
     /// When true, all outbound file-hoster HTTP requests are rewritten to <see cref="MockServerBaseUrl"/>/&lt;hoster&gt;/...
-    /// for testing against a local mock server. Defaults to true in DEBUG builds, false in RELEASE.
+    /// for testing against a local mock server. Defaults to false in every build (see <see cref="DefaultUseMockServer"/>) —
+    /// a dev opts in via Settings → General for a session.
     /// </summary>
     public bool UseMockServer { get; set; } = DefaultUseMockServer;
 

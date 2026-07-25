@@ -182,12 +182,6 @@ public partial class CefGlueLoginWindow : Window
         _browser.LoadEnd += OnBrowserLoadEnd;
         _browser.AddressChanged += OnBrowserAddressChanged;
 
-        // Auto-focus the page once content loads so the user can type without first clicking. Focus must land
-        // AFTER the CEF browser host exists — Focus() in Window.Opened (below) is too early because the browser is
-        // created lazily on first layout, so GotFocus→SetFocus(true) is dropped. LoadEnd fires on the CEF thread;
-        // marshal to the UI thread. Idempotent across redirects / sub-frame loads.
-        _browser.LoadEnd += (_, _) => Dispatcher.UIThread.Post(() => _browser?.Focus());
-
         BrowserHost.Child = _browser;
     }
 
@@ -387,6 +381,13 @@ public partial class CefGlueLoginWindow : Window
             {
                 return;
             }
+
+            // Auto-focus the page once its main frame has loaded so the user can type without first clicking.
+            // Focus must land AFTER the CEF browser host exists — Focus() in Window.Opened is too early (the
+            // browser is created lazily on first layout, so its GotFocus→SetFocus(true) bridge is dropped). Done
+            // here (main-frame LoadEnd, already on the UI thread + torndown-guarded) rather than a second LoadEnd
+            // subscription, so there's nothing extra to unsubscribe in Teardown.
+            _browser?.Focus();
 
             _vm.RecordNavigationCompleted(url);
             _ = PollForCompletionAsync();
