@@ -27,8 +27,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private readonly IUiTimer _refreshTimer;
     private bool _disposed;
 
-    // ~10 s of aggregate-speed history at the 200 ms refresh tick — backs the toolbar speed sparkline.
-    private const int SpeedHistoryCapacity = 50;
+    // ~10 s of aggregate-speed history at the 500 ms refresh tick — backs the toolbar speed sparkline.
+    private const int SpeedHistoryCapacity = 20;
     private readonly Lib.SpeedSampleBuffer _speedSamples = new(SpeedHistoryCapacity);
 
     /// <summary>
@@ -55,7 +55,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _packageManager.FileCompleted += PackageManager_FileCompleted;
         _packageManager.PackageCompleted += PackageManager_PackageCompleted;
 
-        _refreshTimer = _uiDispatcher.CreateTimer(TimeSpan.FromMilliseconds(200), RefreshTimerTick);
+        _refreshTimer = _uiDispatcher.CreateTimer(TimeSpan.FromMilliseconds(500), RefreshTimerTick);
         _refreshTimer.Start();
     }
 

@@ -311,7 +311,7 @@
       </StackPanel>
 
         <!-- Speedometer (JDownloader-style): live aggregate upload speed + a sparkline of the last ~10 s
-             (50 samples at the 200 ms refresh tick). SpeedGraph derives its translucent area fill from the
+             (20 samples at the 500 ms refresh tick). SpeedGraph derives its translucent area fill from the
              accent LineBrush, so it follows the theme. -->
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
           <TextBlock Text="{Binding UploadSpeed}" FontWeight="SemiBold" FontSize="12"
