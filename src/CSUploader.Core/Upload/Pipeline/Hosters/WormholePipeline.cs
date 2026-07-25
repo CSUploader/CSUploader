@@ -47,26 +47,38 @@ public sealed class WormholePipeline : IFileHosterPipeline
     /// min(objectCount, this) and cycle the returned tokens across all objects.</summary>
     private const int MaxUploadTokens = 5;
 
+    /// <summary>How many times a single B2 blob PUT is retried on a TRANSIENT failure (5xx / 408 / 429, or a
+    /// mid-send body-transfer abort) before giving up on it. Backblaze documents 500/503 as retryable.</summary>
+    private const int MaxBlobRetries = 4;
+
     private readonly Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _sendJsonOverride;
     private readonly Func<string, byte[], IReadOnlyDictionary<string, string>, Action<long>, Task<HttpResponseSnapshot>>? _uploadBlobOverride;
     private readonly Func<int, byte[]>? _randBytesOverride;
+    private readonly Func<int, TimeSpan>? _retryBackoffOverride;
 
     public WormholePipeline()
     {
     }
 
-    /// <summary>Test ctor — stubs the JSON API calls, the B2 blob upload, and the key/salt generation so
-    /// the orchestration (event sequence, manifest, blob split, link) runs deterministically without the
-    /// network. The crypto/torrent are KAT-tested separately.</summary>
+    /// <summary>Test ctor — stubs the JSON API calls, the B2 blob upload, the key/salt generation and (optionally)
+    /// the retry backoff so the orchestration (event sequence, manifest, blob split, link, blob retry) runs
+    /// deterministically without the network or real delays. The crypto/torrent are KAT-tested separately.</summary>
     internal WormholePipeline(
         Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot> sendJson,
         Func<string, byte[], IReadOnlyDictionary<string, string>, Action<long>, HttpResponseSnapshot> uploadBlob,
-        Func<int, byte[]> randBytes)
+        Func<int, byte[]> randBytes,
+        Func<int, TimeSpan>? retryBackoff = null)
     {
         _sendJsonOverride = (m, u, j, h) => Task.FromResult(sendJson(m, u, j, h));
         _uploadBlobOverride = (u, b, h, p) => Task.FromResult(uploadBlob(u, b, h, p));
         _randBytesOverride = randBytes;
+        _retryBackoffOverride = retryBackoff;
     }
+
+    // Exponential backoff with jitter for a transient B2 blob failure: ~0.5s, 1s, 2s, 4s, capped at 8s.
+    private TimeSpan RetryBackoff(int attempt)
+        => _retryBackoffOverride?.Invoke(attempt)
+           ?? TimeSpan.FromMilliseconds(Math.Min(8000, 500 * Math.Pow(2, attempt - 1)) + Random.Shared.Next(0, 250));
 
     public string Name => "Wormhole";
 
@@ -309,39 +321,69 @@ public sealed class WormholePipeline : IFileHosterPipeline
                 }
 
                 string sha1 = Convert.ToHexStringLower(SHA1.HashData(blob));
-
-                // Fewer tokens than objects (the server caps the pool): reuse each B2 upload URL for its
-                // share of objects, round-robin. Sequential reuse of a B2 upload URL is allowed.
-                (string url, string token) = tokens[i % tokens.Count];
-                Dictionary<string, string> headers = new(StringComparer.Ordinal)
-                {
-                    ["Authorization"] = token,
-                    ["X-Bz-File-Name"] = $"{roomId}/{i}",
-                    ["X-Bz-Content-Sha1"] = sha1,
-                };
-
                 long blobBase = baseOffset;
                 void OnBlobProgress(long sentInBlob) => progress(blobBase + sentInBlob, ciphertextLength);
 
-                HttpResponseSnapshot resp;
-                try
+                // Fewer tokens than objects (the server caps the pool): reuse each B2 upload URL for its share
+                // of objects, round-robin (sequential reuse is allowed). On a TRANSIENT B2 failure — 5xx / 408 /
+                // 429, or a mid-send body-transfer abort — retry the blob with exponential backoff, rotating to
+                // the next upload URL in the pool (Backblaze documents 500/503 as retryable and advises a fresh
+                // upload URL). The blob is buffered in memory, and nothing is committed until finish-upload, so a
+                // retry just re-sends the same bytes to the deterministic object name.
+                int slot = i % tokens.Count;
+                int attempt = 0;
+                while (true)
                 {
-                    resp = await UploadBlob(ctx, url, blob, headers, OnBlobProgress);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // A body-not-fully-sent fault (UploadBytesAsync reclassified it) → retry the whole
-                    // pipeline; anything else is terminal.
-                    return (false, "wormhole.app B2 upload failed: " + ex.Message, Lib.Net.Http.UploadBodyTransferException.IsInChain(ex));
-                }
+                    (string url, string token) = tokens[slot];
+                    Dictionary<string, string> headers = new(StringComparer.Ordinal)
+                    {
+                        ["Authorization"] = token,
+                        ["X-Bz-File-Name"] = $"{roomId}/{i}",
+                        ["X-Bz-Content-Sha1"] = sha1,
+                    };
 
-                if (resp.StatusCode is < 200 or >= 300)
-                {
-                    return (false, $"wormhole.app B2 blob {i} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}", false);
+                    HttpResponseSnapshot? resp = null;
+                    Exception? transportEx = null;
+                    try
+                    {
+                        resp = await UploadBlob(ctx, url, blob, headers, OnBlobProgress);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        transportEx = ex;
+                    }
+
+                    if (resp is { StatusCode: >= 200 and < 300 })
+                    {
+                        break; // uploaded
+                    }
+
+                    bool bodyFault = transportEx is not null && Lib.Net.Http.UploadBodyTransferException.IsInChain(transportEx);
+                    bool httpTransient = resp is not null && resp.StatusCode is 500 or 502 or 503 or 408 or 429;
+                    if (!bodyFault && !httpTransient)
+                    {
+                        // Non-transient: a hard HTTP rejection or a non-body transport error — terminal.
+                        return transportEx is not null
+                            ? (false, "wormhole.app B2 upload failed: " + transportEx.Message, false)
+                            : (false, $"wormhole.app B2 blob {i} rejected (HTTP {resp!.StatusCode}): {Snippet(resp.Body)}", false);
+                    }
+
+                    if (++attempt > MaxBlobRetries)
+                    {
+                        // Exhausted. A persistent body-transfer fault still PROPAGATES so the shared retry layer
+                        // can re-run the whole pipeline against a fresh room (nothing was committed); a persistent
+                        // HTTP rejection is terminal for this attempt.
+                        return resp is not null
+                            ? (false, $"wormhole.app B2 blob {i} still failing after {MaxBlobRetries} retries (HTTP {resp.StatusCode}): {Snippet(resp.Body)}", false)
+                            : (false, $"wormhole.app B2 blob {i} upload aborted after {MaxBlobRetries} retries: {transportEx!.Message}", bodyFault);
+                    }
+
+                    await Task.Delay(RetryBackoff(attempt), ctx.Cancellation).ConfigureAwait(false);
+                    slot = (slot + 1) % tokens.Count; // rotate to a different upload URL for the retry
                 }
 
                 baseOffset += blobSize;

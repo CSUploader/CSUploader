@@ -171,6 +171,54 @@ public class WormholePipelineTests
         Assert.False(calls.Finished);
     }
 
+    [Fact]
+    public async Task RunAsync_BlobTransient500_RetriesAndSucceeds()
+    {
+        // Backblaze B2 returns a transient 500 (the reported incident) for the first two attempts, then accepts
+        // the blob. The pipeline must retry and complete — not fail on the first 500.
+        using var file = TempFile.OfSize(100); // 1 blob
+        WormholeCalls calls = new();
+        int blobCalls = 0;
+        WormholePipeline pipeline = MakePipeline(calls, blobResult: (_, _, _, progress) =>
+        {
+            progress(1);
+            return ++blobCalls <= 2
+                ? new HttpResponseSnapshot(500, """{"code":"internal_error","status":500}""", [])
+                : new HttpResponseSnapshot(200, """{"contentSha1":"ok"}""", []);
+        });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(file.Path, 100), CancellationToken.None));
+
+        Assert.Equal(3, blobCalls);                              // 2 transient 500s + 1 success
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.True(calls.Finished);                             // finish-upload ran → committed
+    }
+
+    [Fact]
+    public async Task RunAsync_BlobPersistent500_FailsAfterRetries_WithoutFinishOrPropagate()
+    {
+        // A persistent B2 500 exhausts the per-blob retries → a terminal AttemptFailed (an HTTP rejection is a
+        // server verdict, so it does NOT propagate to re-run the whole pipeline), and finish-upload never runs.
+        using var file = TempFile.OfSize(100);
+        WormholeCalls calls = new();
+        int blobCalls = 0;
+        WormholePipeline pipeline = MakePipeline(calls, blobResult: (_, _, _, progress) =>
+        {
+            progress(1);
+            blobCalls++;
+            return new HttpResponseSnapshot(500, """{"code":"internal_error"}""", []);
+        });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(file.Path, 100), CancellationToken.None));
+
+        Assert.Equal(5, blobCalls);                              // 1 initial + 4 retries
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("after 4 retries", fail.Reason, StringComparison.Ordinal);
+        Assert.Empty(events.OfType<TransferCompleted>());
+        Assert.False(calls.Finished);
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];
@@ -228,7 +276,8 @@ public class WormholePipelineTests
                 calls.Blobs.Add((url, blob.Length, headers["X-Bz-File-Name"], headers["X-Bz-Content-Sha1"]));
                 return new HttpResponseSnapshot(200, """{"contentSha1":"ok"}""", []);
             }),
-            randBytes: _ => rand.Dequeue());
+            randBytes: _ => rand.Dequeue(),
+            retryBackoff: _ => TimeSpan.Zero); // no real sleeps between blob retries in tests
     }
 
     // Mirrors wormhole's b2/auth-upload: hands back exactly the requested number of B2 upload URLs. Token 0
