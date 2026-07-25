@@ -372,7 +372,8 @@
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Padding="0" MinWidth="0"
                               IsVisible="{Binding CanUse}" />
-                    <Path Data="M2.75,7 L2.75,4.5 A3.25,3.25 0 0 1 9.25,4.5 L9.25,7 L7.75,7 L7.75,4.5 A1.75,1.75 0 0 0 4.25,4.5 L4.25,7 Z M1,8.5 A1.5,1.5 0 0 1 2.5,7 L9.5,7 A1.5,1.5 0 0 1 11,8.5 L11,12.5 A1.5,1.5 0 0 1 9.5,14 L2.5,14 A1.5,1.5 0 0 1 1,12.5 Z"
+                    <Path x:Name="UseLockGlyph"
+                          Data="M2.75,7 L2.75,4.5 A3.25,3.25 0 0 1 9.25,4.5 L9.25,7 L7.75,7 L7.75,4.5 A1.75,1.75 0 0 0 4.25,4.5 L4.25,7 Z M1,8.5 A1.5,1.5 0 0 1 2.5,7 L9.5,7 A1.5,1.5 0 0 1 11,8.5 L11,12.5 A1.5,1.5 0 0 1 9.5,14 L2.5,14 A1.5,1.5 0 0 1 1,12.5 Z"
                           Width="11" Height="13" Stretch="Uniform"
                           Fill="{DynamicResource TextSecondaryBrush}"
                           HorizontalAlignment="Center" VerticalAlignment="Center"

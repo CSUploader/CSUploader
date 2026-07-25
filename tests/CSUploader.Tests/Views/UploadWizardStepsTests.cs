@@ -265,8 +265,10 @@ public class UploadWizardStepsTests
     private static CheckBox CheckboxIn(DataGridRow row)
         => row.GetVisualDescendants().OfType<CheckBox>().First();
 
-    private static TextBlock GlyphIn(DataGridRow row)
-        => row.GetVisualDescendants().OfType<TextBlock>().First(tb => tb.Text == "");
+    // The account-required indicator in the Use column: a named vector padlock Path (was a Segoe MDL2
+    // glyph). Named so it is not confused with the CheckBox template's own checkmark Path in the row.
+    private static Control GlyphIn(DataGridRow row)
+        => row.GetVisualDescendants().OfType<global::Avalonia.Controls.Shapes.Path>().First(p => p.Name == "UseLockGlyph");
 
     private static (Window Window, UploadWizardWindow Wizard) Show(UploadWizardViewModel vm)
     {
