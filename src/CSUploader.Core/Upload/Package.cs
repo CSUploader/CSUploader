@@ -228,6 +228,73 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
+    /// Computes every footer aggregate this package contributes in ONE locked pass over its files,
+    /// instead of the ~9 separate aggregate getters above (each of which took the lock and copied the
+    /// whole file list). <c>UploadsViewModel</c>'s per-tick summary sums these across packages, so the
+    /// Upload Overview does one pass per package rather than ~14. Each numeric field mirrors the
+    /// corresponding footer "<c>?? 0</c>" sum; <see cref="PackageAggregate.Speed"/> is gated to actively
+    /// hashing/uploading files exactly as the <see cref="Speed"/> property is, so the total matches
+    /// <c>Packages.Sum(p =&gt; p.Speed ?? 0)</c>.
+    /// </summary>
+    public PackageAggregate ComputeAggregate()
+    {
+        int count = 0, uploading = 0, completed = 0, cancelled = 0, failed = 0;
+        long size = 0, loaded = 0, remaining = 0, speed = 0;
+        bool anyActiveSpeed = false;
+
+        lock (_filesLock)
+        {
+            foreach (PackageFile f in PackageFiles)
+            {
+                count++;
+                if (f.Size is long sz)
+                {
+                    size += sz;
+                }
+
+                if (f.BytesLoaded is long bl)
+                {
+                    loaded += bl;
+                }
+
+                if (f.BytesRemaining is long br)
+                {
+                    remaining += br;
+                }
+
+                if (f.Speed is long sp)
+                {
+                    speed += sp;
+                }
+
+                FileState state = f.State;
+                if ((state is FileState.Hashing or FileState.Uploading) && f.Speed.HasValue)
+                {
+                    anyActiveSpeed = true;
+                }
+
+                switch (state)
+                {
+                    case FileState.Uploading:
+                        uploading++;
+                        break;
+                    case FileState.Completed:
+                        completed++;
+                        break;
+                    case FileState.Cancelled:
+                        cancelled++;
+                        break;
+                    case FileState.Failed:
+                        failed++;
+                        break;
+                }
+            }
+        }
+
+        return new PackageAggregate(count, size, loaded, remaining, anyActiveSpeed ? speed : 0, uploading, completed, cancelled, failed);
+    }
+
+    /// <summary>
     /// Gets or sets the file hoster logins.
     /// </summary>
     public Dictionary<FileHosterClient, FileHosterLoginDto> FileHosterLogins { get; set; } = options.FileHosters;
@@ -715,3 +782,29 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
+
+/// <summary>
+/// Immutable per-package rollup produced by <see cref="Package.ComputeAggregate"/>: the file count,
+/// byte totals, active-upload speed, and terminal-state counts, all summed in a single pass. The Uploads
+/// footer adds these across packages instead of re-scanning every file once per displayed field.
+/// </summary>
+/// <param name="FileCount">Number of files in the package.</param>
+/// <param name="TotalBytes">Sum of file sizes (0 when none are known) — matches <c>Package.Size ?? 0</c>.</param>
+/// <param name="BytesLoaded">Sum of bytes uploaded — matches <c>Package.BytesLoaded ?? 0</c>.</param>
+/// <param name="BytesRemaining">Sum of bytes remaining — matches <c>Package.BytesRemaining ?? 0</c>.</param>
+/// <param name="Speed">Aggregate speed in bytes/sec, 0 unless a file is actively hashing/uploading —
+/// matches <c>Package.Speed ?? 0</c>.</param>
+/// <param name="Uploading">Files in <see cref="FileState.Uploading"/>.</param>
+/// <param name="Completed">Files in <see cref="FileState.Completed"/>.</param>
+/// <param name="Cancelled">Files in <see cref="FileState.Cancelled"/>.</param>
+/// <param name="Failed">Files in <see cref="FileState.Failed"/>.</param>
+public readonly record struct PackageAggregate(
+    int FileCount,
+    long TotalBytes,
+    long BytesLoaded,
+    long BytesRemaining,
+    long Speed,
+    int Uploading,
+    int Completed,
+    int Cancelled,
+    int Failed);

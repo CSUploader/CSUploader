@@ -31,6 +31,21 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private const int SpeedHistoryCapacity = 20;
     private readonly Lib.SpeedSampleBuffer _speedSamples = new(SpeedHistoryCapacity);
 
+    // Cached Upload Overview footer aggregates, recomputed in ONE pass per tick (RecomputeSummary) instead
+    // of ~14 independent O(files) LINQ scans — each of which locked and copied every package's file list.
+    // The footer getters below just return these fields. Only the tick writes them, and only the tick's
+    // PropertyChanged re-reads them, so the displayed values are identical to before — computed once, not
+    // fourteen times.
+    private int _fileCount;
+    private long _totalBytes;
+    private long _bytesLoaded;
+    private long _bytesRemaining;
+    private long _currentSpeed;
+    private int _runningUploads;
+    private int _finishedLinks;
+    private int _skippedLinks;
+    private int _failedLinks;
+
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
     /// via the head-side <c>DataGridColumnVisibilityPersistence</c> helper. Optional in tests.
@@ -164,56 +179,44 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     partial void OnFilterTextChanged(string value) => FilterInvalidated?.Invoke(this, EventArgs.Empty);
 
     // -- Summary properties for status bar --
+    // All but PackageCount are backed by cached fields refreshed once per tick in RecomputeSummary();
+    // reading them never re-scans the queue.
 
     public int PackageCount => Packages.Count;
 
-    public int FileCount => Packages.Sum(p => p.Count());
+    public int FileCount => _fileCount;
 
-    public string TotalBytes => ByteUnit.FromBytes(
-        Packages.Sum(p => p.Size ?? 0), ByteBase.Binary).ToFriendlyString();
+    public string TotalBytes => ByteUnit.FromBytes(_totalBytes, ByteBase.Binary).ToFriendlyString();
 
-    public string BytesLoaded => ByteUnit.FromBytes(
-        Packages.Sum(p => p.BytesLoaded ?? 0), ByteBase.Binary).ToFriendlyString();
+    public string BytesLoaded => ByteUnit.FromBytes(_bytesLoaded, ByteBase.Binary).ToFriendlyString();
 
-    public string RemainingBytes => ByteUnit.FromBytes(
-        Packages.Sum(p => p.BytesRemaining ?? 0), ByteBase.Binary).ToFriendlyString();
+    public string RemainingBytes => ByteUnit.FromBytes(_bytesRemaining, ByteBase.Binary).ToFriendlyString();
 
     /// <summary>Live aggregate upload speed in bytes/sec across all running uploads.</summary>
-    public long CurrentSpeedBytesPerSecond => Packages.Sum(p => p.Speed ?? 0);
+    public long CurrentSpeedBytesPerSecond => _currentSpeed;
 
     /// <summary>Recent aggregate-speed samples (bytes/sec), oldest→newest — the last ~10 s. Bound by the
     /// toolbar speed sparkline; a fresh array each tick so the graph re-renders.</summary>
     public IReadOnlyList<double> SpeedHistory => _speedSamples.Snapshot();
 
-    public string UploadSpeed
-    {
-        get
-        {
-            long speed = CurrentSpeedBytesPerSecond;
-            return speed > 0
-                ? ByteUnit.FromBytes(speed, ByteBase.Binary).ToFriendlyString() + "/s"
-                : "0 B/s";
-        }
-    }
+    public string UploadSpeed => _currentSpeed > 0
+        ? ByteUnit.FromBytes(_currentSpeed, ByteBase.Binary).ToFriendlyString() + "/s"
+        : "0 B/s";
 
-    public int RunningUploads => Packages.Sum(p =>
-        p.Count(pf => pf.State is FileState.Uploading));
+    public int RunningUploads => _runningUploads;
 
-    public int FinishedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.State == FileState.Completed));
+    public int FinishedLinks => _finishedLinks;
 
-    public int SkippedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.State == FileState.Cancelled));
+    public int SkippedLinks => _skippedLinks;
 
-    public int FailedLinks => Packages.Sum(p =>
-        p.Count(pf => pf.State == FileState.Failed));
+    public int FailedLinks => _failedLinks;
 
     public string Eta
     {
         get
         {
-            long remaining = Packages.Sum(p => p.BytesRemaining ?? 0);
-            long speed = Packages.Sum(p => p.Speed ?? 0);
+            long remaining = _bytesRemaining;
+            long speed = _currentSpeed;
             if (speed <= 0 || remaining <= 0)
             {
                 return "~";
@@ -854,8 +857,48 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Recomputes the cached Upload Overview aggregates in a single pass over the packages (one
+    /// <see cref="Package.ComputeAggregate"/> per package), replacing the ~14 independent full-queue LINQ
+    /// scans the footer getters used to run every tick. Call before raising the summary PropertyChanged
+    /// notifications so the bound getters return the fresh values.
+    /// </summary>
+    private void RecomputeSummary()
+    {
+        int files = 0, running = 0, finished = 0, skipped = 0, failed = 0;
+        long size = 0, loaded = 0, remaining = 0, speed = 0;
+
+        foreach (Package package in Packages)
+        {
+            PackageAggregate a = package.ComputeAggregate();
+            files += a.FileCount;
+            size += a.TotalBytes;
+            loaded += a.BytesLoaded;
+            remaining += a.BytesRemaining;
+            speed += a.Speed;
+            running += a.Uploading;
+            finished += a.Completed;
+            skipped += a.Cancelled;
+            failed += a.Failed;
+        }
+
+        _fileCount = files;
+        _totalBytes = size;
+        _bytesLoaded = loaded;
+        _bytesRemaining = remaining;
+        _currentSpeed = speed;
+        _runningUploads = running;
+        _finishedLinks = finished;
+        _skippedLinks = skipped;
+        _failedLinks = failed;
+    }
+
     private void RefreshTimerTick()
     {
+        // Recompute the footer aggregates ONCE (single pass over all packages) rather than letting the
+        // ~14 summary getters each re-scan the whole queue when their PropertyChanged fires below.
+        RecomputeSummary();
+
         // Have each Package (and its files) raise PropertyChanged for display props.
         // This updates cells in place without affecting row state.
         foreach (object row in VisibleRows)
@@ -871,7 +914,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
 
         // Sample the live aggregate speed into the rolling window (drives the toolbar sparkline).
-        _speedSamples.Add(CurrentSpeedBytesPerSecond);
+        _speedSamples.Add(_currentSpeed);
 
         // Refresh summary stats
         OnPropertyChanged(nameof(PackageCount));
