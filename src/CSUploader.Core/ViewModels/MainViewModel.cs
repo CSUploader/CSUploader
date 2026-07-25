@@ -33,8 +33,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _initialized;
     private bool _disposed;
 
+    /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so the Uploads tab is index 0.</summary>
+    private const int UploadsTabIndex = 0;
+
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
+
+    // Let the Uploads VM skip its 500 ms refresh while another tab is showing (nothing it refreshes is
+    // visible then). UploadsViewModel is assigned in the constructor before any tab change can fire this.
+    partial void OnSelectedTabIndexChanged(int value) => UploadsViewModel.SetActive(value == UploadsTabIndex);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ThemeMenuLabel))]

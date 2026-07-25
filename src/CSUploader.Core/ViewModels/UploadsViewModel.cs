@@ -46,6 +46,12 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private int _skippedLinks;
     private int _failedLinks;
 
+    // Fix C: the 500 ms refresh only does work while the Uploads tab is visible. Off-tab the grid, footer,
+    // and speedometer aren't on screen, so refreshing them is wasted — the model keeps updating in the
+    // background and SetActive(true) does one catch-up refresh when the tab is shown again. Defaults true so
+    // a VM with no shell wiring (e.g. tests) behaves exactly as before.
+    private bool _isActive = true;
+
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
     /// via the head-side <c>DataGridColumnVisibilityPersistence</c> helper. Optional in tests.
@@ -422,10 +428,16 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             if (item is Package pkg)
             {
                 pkg.SpeedLimitKBps = chosen;
+
+                // The per-tick refresh only touches running/changed rows now, so a speed-limit change on an
+                // idle package (and its files' inherited EffectiveSpeedLimitKBps) would otherwise not show
+                // until the row next runs. Surface it immediately — a one-off user action, not a hot path.
+                pkg.NotifyDisplayPropertiesChanged();
             }
             else if (item is PackageFile pf)
             {
                 pf.SpeedLimitKBps = chosen;
+                pf.NotifyDisplayPropertiesChanged();
             }
         }
     }
@@ -893,24 +905,45 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _failedLinks = failed;
     }
 
+    /// <summary>
+    /// Called by the shell when the Uploads tab is shown/hidden. While hidden the periodic refresh is
+    /// skipped entirely (nothing it updates is on screen); showing the tab triggers one immediate catch-up
+    /// refresh so state that changed off-tab appears without waiting for the next tick.
+    /// </summary>
+    public void SetActive(bool active)
+    {
+        if (_isActive == active)
+        {
+            return;
+        }
+
+        _isActive = active;
+        if (active)
+        {
+            RefreshTimerTick();
+        }
+    }
+
     private void RefreshTimerTick()
     {
+        // Fix C: nothing this refreshes is visible while the Uploads tab is hidden, so skip the whole pass.
+        // The model still updates in the background; SetActive(true) runs one catch-up refresh on return.
+        if (!_isActive)
+        {
+            return;
+        }
+
         // Recompute the footer aggregates ONCE (single pass over all packages) rather than letting the
         // ~14 summary getters each re-scan the whole queue when their PropertyChanged fires below.
         RecomputeSummary();
 
-        // Have each Package (and its files) raise PropertyChanged for display props.
-        // This updates cells in place without affecting row state.
-        foreach (object row in VisibleRows)
+        // Refresh only the rows that actually changed: each package re-notifies its running/transitioned
+        // files (and itself) and is skipped entirely when nothing in it is active — instead of raising ~16
+        // PropertyChanged for every one of the 500+ rows every tick. Iterate Packages (not VisibleRows) so a
+        // collapsed package's running children are still refreshed.
+        foreach (Package package in Packages)
         {
-            if (row is Package pkg)
-            {
-                pkg.NotifyDisplayPropertiesChanged();
-            }
-            else if (row is PackageFile file)
-            {
-                file.NotifyDisplayPropertiesChanged();
-            }
+            package.NotifyChangedRows();
         }
 
         // Sample the live aggregate speed into the rolling window (drives the toolbar sparkline).

@@ -94,6 +94,24 @@ public sealed class UploadsViewModelSummaryTests : IDisposable
         Assert.Equal(ByteUnit.FromBytes(1100, ByteBase.Binary).ToFriendlyString(), vm.RemainingBytes); // 600+500
     }
 
+    [Fact]
+    public void Tick_IsSkippedWhileInactive_AndSetActiveTrue_RunsAnImmediateCatchUpRefresh()
+    {
+        InlineUiDispatcher dispatcher = new();
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), dispatcher, Mock.Of<IClipboardService>());
+        Package p = MakePackage("P");
+        p.AddPackageFiles([MakeFile(p, size: 1000, loaded: 400, remaining: 600, speed: 50, FileState.Uploading)]);
+        vm.Packages.Add(p);
+
+        vm.SetActive(false); // user switched to another tab
+        dispatcher.Timers[0].Tick();
+        Assert.Equal(0, vm.RunningUploads); // tick did no work while inactive — cache stays empty
+
+        vm.SetActive(true); // returning to the Uploads tab refreshes immediately, without waiting for a tick
+        Assert.Equal(1, vm.RunningUploads);
+        Assert.Equal(50, vm.CurrentSpeedBytesPerSecond);
+    }
+
     private static Package MakePackage(string name)
     {
         FileHosterClient hoster = new("TestHost", Protocol.Http);

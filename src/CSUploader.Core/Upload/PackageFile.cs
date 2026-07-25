@@ -167,6 +167,15 @@ public class PackageFile : INotifyPropertyChanged
     public FileState State { get; set; } = FileState.Idle;
 
     /// <summary>
+    /// The <see cref="State"/> value the UI-refresh pass last raised change notifications for. Used by
+    /// <see cref="Package.NotifyChangedRows"/> to detect a transition and refresh this row exactly once
+    /// on it — <see cref="State"/> has a plain setter (no PropertyChanged), so before the per-row refresh
+    /// only re-notified running/changed rows, the 500 ms tick's blanket re-notify was what surfaced
+    /// transitions. Written only on the UI thread by that pass.
+    /// </summary>
+    internal FileState LastNotifiedState { get; set; } = FileState.Idle;
+
+    /// <summary>
     /// Gets or sets the cancellation token source owned by the scheduler.
     /// </summary>
     public CancellationTokenSource? Cts { get; set; }

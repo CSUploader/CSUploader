@@ -60,6 +60,71 @@ public class PackageAggregateTests
     public void ComputeAggregate_EmptyPackage_IsAllZero()
         => Assert.Equal(default, MakePackage().ComputeAggregate());
 
+    [Fact]
+    public void NotifyChangedRows_SteadyState_RefreshesOnlyRunningFilesAndTheirPackage()
+    {
+        Package pkg = MakePackage();
+        PackageFile running = MakeFile(pkg, size: 1000, loaded: 100, remaining: 900, speed: 50, FileState.Uploading);
+        PackageFile idle = MakeFile(pkg, size: 1000, loaded: null, remaining: 1000, speed: null, FileState.UploadQueued);
+        pkg.AddPackageFiles([running, idle]);
+        pkg.NotifyChangedRows(); // first pass acknowledges both current states
+
+        int pkgRaises = 0, runningRaises = 0, idleRaises = 0;
+        pkg.PropertyChanged += (_, _) => pkgRaises++;
+        running.PropertyChanged += (_, _) => runningRaises++;
+        idle.PropertyChanged += (_, _) => idleRaises++;
+
+        pkg.NotifyChangedRows(); // steady state: only the still-running file changes
+
+        Assert.True(runningRaises > 0);  // running file refreshed (progress ticks)
+        Assert.True(pkgRaises > 0);      // package aggregate refreshed (a child is running)
+        Assert.Equal(0, idleRaises);     // the unchanged queued row is skipped — no notify storm
+    }
+
+    [Fact]
+    public void NotifyChangedRows_NotifiesOnStateTransition_ThenSkipsWhenStable()
+    {
+        Package pkg = MakePackage();
+        PackageFile file = MakeFile(pkg, size: 1000, loaded: 1000, remaining: null, speed: null, FileState.UploadQueued);
+        pkg.AddPackageFiles([file]);
+        pkg.NotifyChangedRows(); // acknowledge Idle→UploadQueued
+
+        // State has a plain setter (no PropertyChanged of its own) — the transition must still surface.
+        file.State = FileState.Completed;
+
+        int raises = 0;
+        file.PropertyChanged += (_, _) => raises++;
+        pkg.NotifyChangedRows();
+        Assert.True(raises > 0); // transition surfaced exactly on the tick that saw it
+
+        raises = 0;
+        pkg.NotifyChangedRows();
+        Assert.Equal(0, raises); // a stable Completed row is not re-notified
+    }
+
+    [Fact]
+    public void NotifyChangedRows_NotifiesEachRunningFileOnce_NoPackageCascadeDoubleUp()
+    {
+        // The old tick notified an expanded file twice — once via the package cascade, once as its own row.
+        // NotifyChangedRows notifies the package's own props (no cascade) and the file once.
+        Package pkg = MakePackage();
+        PackageFile running = MakeFile(pkg, size: 1000, loaded: 100, remaining: 900, speed: 50, FileState.Uploading);
+        pkg.AddPackageFiles([running]);
+        pkg.NotifyChangedRows(); // acknowledge
+
+        int progressRaises = 0;
+        running.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PackageFile.Progress))
+            {
+                progressRaises++;
+            }
+        };
+        pkg.NotifyChangedRows();
+
+        Assert.Equal(1, progressRaises);
+    }
+
     private static Package MakePackage()
     {
         FileHosterClient hoster = new("TestHost", Protocol.Http);

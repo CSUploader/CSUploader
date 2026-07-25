@@ -31,6 +31,24 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// </summary>
     public void NotifyDisplayPropertiesChanged()
     {
+        NotifyOwnDisplayPropertiesChanged();
+
+        PackageFile[] snapshot;
+        lock (_filesLock)
+        { snapshot = [.. PackageFiles]; }
+        foreach (PackageFile file in snapshot)
+        {
+            file.NotifyDisplayPropertiesChanged();
+        }
+    }
+
+    /// <summary>
+    /// Raises PropertyChanged for this package's OWN aggregated display properties, without cascading to
+    /// its files. <see cref="NotifyChangedRows"/> uses this so an expanded file is notified once (as its
+    /// own row) rather than twice (also via the cascade).
+    /// </summary>
+    private void NotifyOwnDisplayPropertiesChanged()
+    {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Size)));
@@ -46,11 +64,42 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveSpeedLimitKBps)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileUrl)));
+    }
 
-        PackageFile[] snapshot;
+    /// <summary>
+    /// Per-tick UI refresh for one package. In a single locked pass, finds the files that are actively
+    /// transferring (<see cref="FileState.Uploading"/> / <see cref="FileState.Hashing"/> — whose progress
+    /// changes every tick) or have changed <see cref="PackageFile.State"/> since the last refresh, and
+    /// raises PropertyChanged for only those files plus this package. A package with nothing running or
+    /// transitioned is skipped entirely — no notifications, no allocation — which is what keeps a 500+ file
+    /// queue responsive while ~20 upload: the old blanket re-notify raised ~16 events for EVERY row every
+    /// tick regardless of whether it changed. Files are notified whether or not they are currently visible
+    /// (a collapsed/filtered row has no bound cells, so its notify is a cheap no-op).
+    /// </summary>
+    public void NotifyChangedRows()
+    {
+        List<PackageFile>? changed = null;
         lock (_filesLock)
-        { snapshot = [.. PackageFiles]; }
-        foreach (PackageFile file in snapshot)
+        {
+            foreach (PackageFile file in PackageFiles)
+            {
+                bool active = file.State is FileState.Uploading or FileState.Hashing;
+                bool stateChanged = file.State != file.LastNotifiedState;
+                if (active || stateChanged)
+                {
+                    (changed ??= []).Add(file);
+                    file.LastNotifiedState = file.State;
+                }
+            }
+        }
+
+        if (changed is null)
+        {
+            return;
+        }
+
+        NotifyOwnDisplayPropertiesChanged();
+        foreach (PackageFile file in changed)
         {
             file.NotifyDisplayPropertiesChanged();
         }
