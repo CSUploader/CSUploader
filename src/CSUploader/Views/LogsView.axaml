@@ -109,7 +109,7 @@
               <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -152,7 +152,7 @@
               <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -186,7 +186,7 @@
               <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -220,7 +220,7 @@
               <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="60"
+              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
