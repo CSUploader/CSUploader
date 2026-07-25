@@ -87,9 +87,24 @@ public sealed class GofilePipeline : IFileHosterPipeline
         string? setupError = null;
         try
         {
-            (string t, string rootFolder) = await EnsureGuestAsync(ctx);
-            token = t;
-            folderId = await CreateFolderAsync(ctx, token, rootFolder);
+            // One stale-account retry: gofile purges inactive guest accounts server-side, which surfaces as
+            // createfolder rejecting the CACHED account (StaleGuestAccountException — the cache is already
+            // dropped when it's thrown). The second pass mints a fresh account. A rejection of a FRESH
+            // account (second throw) falls through to the generic catch → a clear AttemptFailed.
+            for (int setupAttempt = 0; ; setupAttempt++)
+            {
+                try
+                {
+                    (string t, string rootFolder) = await EnsureGuestAsync(ctx);
+                    token = t;
+                    folderId = await CreateFolderAsync(ctx, token, rootFolder);
+                    break;
+                }
+                catch (StaleGuestAccountException) when (setupAttempt == 0)
+                {
+                    // loop once — the cache is empty now, so EnsureGuestAsync creates a fresh account
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -195,19 +210,46 @@ public sealed class GofilePipeline : IFileHosterPipeline
         return (RequireDataString(snap, "token", "accounts"), RequireDataString(snap, "rootFolder", "accounts"));
     }
 
-    /// <summary>POST /contents/createfolder (Bearer) → a fresh public folder; returns its id. A 401/403
-    /// means the cached guest token went stale — drop it so the next attempt mints a fresh account.</summary>
+    /// <summary>POST /contents/createfolder (Bearer) → a fresh public folder; returns its id. A rejection of
+    /// the CACHED guest account — HTTP 401/403, or gofile's HTTP-200 + <c>error-notFound</c>/<c>error-auth</c>
+    /// envelope (guest accounts are purged server-side after inactivity, taking their rootFolder with them) —
+    /// drops the cache and throws <see cref="StaleGuestAccountException"/> so the setup loop retries once
+    /// against a freshly minted account.</summary>
     private async Task<string> CreateFolderAsync(AttemptContext ctx, string token, string rootFolder)
     {
         string body = JsonSerializer.Serialize(new { parentFolderId = rootFolder, @public = true });
         HttpResponseSnapshot snap = await ApiWithRetryAsync(ctx, HttpMethod.Post, ApiBase + "/contents/createfolder", body, bearer: token);
-        if (snap.StatusCode is 401 or 403)
+        if (snap.StatusCode is 401 or 403 || BodyStatus(snap) is "error-notFound" or "error-auth")
         {
             _guest = null;
+            throw new StaleGuestAccountException(
+                $"createfolder rejected the guest account (HTTP {snap.StatusCode}): {Snippet(snap.Body)}");
         }
 
         return RequireDataString(snap, "id", "createfolder");
     }
+
+    /// <summary>The gofile envelope's <c>status</c> string, or null when the body isn't that shape.</summary>
+    private static string? BodyStatus(HttpResponseSnapshot snap)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(snap.Body);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                   && doc.RootElement.TryGetProperty("status", out JsonElement s)
+                   && s.ValueKind == JsonValueKind.String
+                ? s.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The cached guest account was rejected server-side (purged/expired). The cache has already
+    /// been dropped; the setup loop catches this once and re-runs against a fresh account.</summary>
+    private sealed class StaleGuestAccountException(string message) : InvalidOperationException(message);
 
     /// <summary>Issues an API call, retrying on a transient gateway failure (429 or 5xx) with backoff —
     /// gofile's own client classifies those as retryable (its guest API 502s under load). A success or a

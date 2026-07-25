@@ -114,6 +114,75 @@ public class GofilePipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_StaleGuestAccount_MintsFreshAccountAndRetriesOnce()
+    {
+        // gofile purges inactive guest accounts server-side: createfolder against the purged account's
+        // rootFolder comes back HTTP 200 + status "error-notFound" (the exact live failure). The pipeline
+        // must drop the cached account, mint a fresh one, and succeed — not fail (nor keep failing on the
+        // dead cache forever).
+        int accountsCalls = 0;
+        int createFolderCalls = 0;
+        List<ApiCall> api = [];
+        List<Dictionary<string, string>> uploadFields = [];
+        GofilePipeline pipeline = new(
+            api: (method, url, json, bearer) =>
+            {
+                api.Add(new ApiCall(method.Method, url, json, bearer));
+                if (url.EndsWith("/accounts", StringComparison.Ordinal))
+                {
+                    accountsCalls++;
+                    return Ok("{\"status\":\"ok\",\"data\":{\"token\":\"T" + accountsCalls + "\",\"rootFolder\":\"R" + accountsCalls + "\"}}");
+                }
+
+                // First createfolder: the cached account was purged → gofile's HTTP-200 notFound envelope.
+                return ++createFolderCalls == 1
+                    ? Ok("""{"status":"error-notFound","data":{}}""")
+                    : Ok("""{"status":"ok","data":{"id":"F2","code":"C2"}}""");
+            },
+            upload: (_, _, fields, _, _) =>
+            {
+                uploadFields.Add(new Dictionary<string, string>(fields));
+                return Ok("""{"status":"ok","data":{"downloadPage":"https://gofile.io/d/C2"}}""");
+            });
+
+        List<UploadEvent> events = await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, accountsCalls);                       // stale account dropped → fresh one minted
+        Assert.Equal(2, createFolderCalls);
+        Assert.Equal("T2", api.Last(c => c.Url.EndsWith("/contents/createfolder", StringComparison.Ordinal)).Bearer);
+        Assert.Equal("T2", Assert.Single(uploadFields)["token"]); // the upload rides the FRESH account
+    }
+
+    [Fact]
+    public async Task RunAsync_FreshGuestAccountAlsoRejected_FailsWithClearError_NoLoop()
+    {
+        // If even the freshly minted account is rejected, fail with a clear error after exactly one
+        // refresh — never loop.
+        int accountsCalls = 0;
+        GofilePipeline pipeline = new(
+            api: (method, url, json, bearer) =>
+            {
+                if (url.EndsWith("/accounts", StringComparison.Ordinal))
+                {
+                    accountsCalls++;
+                    return Ok("""{"status":"ok","data":{"token":"T","rootFolder":"R"}}""");
+                }
+
+                return Ok("""{"status":"error-notFound","data":{}}""");
+            },
+            upload: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run"));
+
+        List<UploadEvent> events = await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("rejected the guest account", fail.Reason, StringComparison.Ordinal);
+        Assert.Equal(2, accountsCalls); // one stale refresh, then stop
+        Assert.Empty(events.OfType<TransferCompleted>());
+    }
+
+    [Fact]
     public async Task RunAsync_ReusesGuestAccountAcrossUploads()
     {
         int accountsCalls = 0;
