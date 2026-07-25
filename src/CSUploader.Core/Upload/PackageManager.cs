@@ -353,6 +353,17 @@ public class PackageManager
             pf.Error = fileDto.Error;
             pf.FileUrl = fileDto.FileUrl;
 
+            // A restored Completed row: the transferred-byte / progress counters aren't persisted (only State
+            // is), so it would otherwise render an empty 0% progress bar, a blank "Bytes Loaded" and a full
+            // "Bytes Remaining" (the ctor defaults BytesRemaining = Size). Reconstruct them from the known
+            // outcome — a completed upload is 100%, fully sent, nothing left.
+            if (pf.State == FileState.Completed)
+            {
+                pf.Progress = 100.0;
+                pf.BytesLoaded = pf.Size;
+                pf.BytesRemaining = 0;
+            }
+
             files.Add(pf);
         }
 

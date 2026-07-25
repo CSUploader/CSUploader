@@ -166,6 +166,35 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task LoadPersistedPackagesAsync_CompletedFile_RestoresFullProgressAndBytes()
+    {
+        // The transferred-byte / progress counters aren't persisted (only State is). A restored Completed
+        // row must still read 100% with all bytes sent — not an empty 0% bar with blank "Bytes Loaded".
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            int pkgId = await InsertPackageAsync("done");           // default settings keep completed packages (Never)
+            await InsertFileAtAsync(tempDir, pkgId, "a.iso", FileState.Completed);
+
+            await _packageManager.LoadPersistedPackagesAsync();
+
+            Package pkg = _packageManager.Packages.Single(p => p.DbId == pkgId);
+            PackageFile file = Assert.Single(pkg);
+            Assert.Equal(FileState.Completed, file.State);
+            Assert.Equal(100.0, file.Progress);
+            Assert.Equal(file.Size, file.BytesLoaded);
+            Assert.Equal(0L, file.BytesRemaining);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
     public async Task LoadPersistedPackagesAsync_AtStartupMode_SoftRemovesFullySuccessfulPackages()
     {
         // RemoveFinishedUploadsMode.AtStartup: a package whose every file completed
