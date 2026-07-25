@@ -10,6 +10,10 @@
 *.userosscache
 *.sln.docstates
 
+# Machine-specific dev opt-in: sets AvaDevBridgeCsproj to enable the AvaDevBridge dev-loop in Debug.
+# Per-developer by design (kept out of the repo so CI / clean checkouts stay self-contained).
+Directory.Build.local.props
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
