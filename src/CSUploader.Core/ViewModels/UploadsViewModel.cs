@@ -27,6 +27,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private readonly IUiTimer _refreshTimer;
     private bool _disposed;
 
+    // ~10 s of aggregate-speed history at the 200 ms refresh tick — backs the toolbar speed sparkline.
+    private const int SpeedHistoryCapacity = 50;
+    private readonly Lib.SpeedSampleBuffer _speedSamples = new(SpeedHistoryCapacity);
+
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
     /// via the head-side <c>DataGridColumnVisibilityPersistence</c> helper. Optional in tests.
@@ -174,11 +178,18 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     public string RemainingBytes => ByteUnit.FromBytes(
         Packages.Sum(p => p.BytesRemaining ?? 0), ByteBase.Binary).ToFriendlyString();
 
+    /// <summary>Live aggregate upload speed in bytes/sec across all running uploads.</summary>
+    public long CurrentSpeedBytesPerSecond => Packages.Sum(p => p.Speed ?? 0);
+
+    /// <summary>Recent aggregate-speed samples (bytes/sec), oldest→newest — the last ~10 s. Bound by the
+    /// toolbar speed sparkline; a fresh array each tick so the graph re-renders.</summary>
+    public IReadOnlyList<double> SpeedHistory => _speedSamples.Snapshot();
+
     public string UploadSpeed
     {
         get
         {
-            long speed = Packages.Sum(p => p.Speed ?? 0);
+            long speed = CurrentSpeedBytesPerSecond;
             return speed > 0
                 ? ByteUnit.FromBytes(speed, ByteBase.Binary).ToFriendlyString() + "/s"
                 : "0 B/s";
@@ -859,6 +870,9 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             }
         }
 
+        // Sample the live aggregate speed into the rolling window (drives the toolbar sparkline).
+        _speedSamples.Add(CurrentSpeedBytesPerSecond);
+
         // Refresh summary stats
         OnPropertyChanged(nameof(PackageCount));
         OnPropertyChanged(nameof(FileCount));
@@ -866,6 +880,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(BytesLoaded));
         OnPropertyChanged(nameof(RemainingBytes));
         OnPropertyChanged(nameof(UploadSpeed));
+        OnPropertyChanged(nameof(SpeedHistory));
         OnPropertyChanged(nameof(RunningUploads));
         OnPropertyChanged(nameof(Eta));
         OnPropertyChanged(nameof(FinishedLinks));

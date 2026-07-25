@@ -12,6 +12,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
+             xmlns:ctrl="clr-namespace:CSUploader.Views.Controls"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              x:Class="CSUploader.Views.UploadsView">
 
@@ -258,7 +259,8 @@
     <Border Grid.Row="0" Background="{DynamicResource DataGridHeaderBrush}"
             BorderBrush="{DynamicResource DataGridGridLineBrush}" BorderThickness="0,0,0,1"
             Padding="4,2">
-      <StackPanel Orientation="Horizontal">
+      <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Grid.Column="0" Orientation="Horizontal">
         <Button x:Name="AddButton" Theme="{StaticResource ToolbarButtonTheme}" Click="AddUploadButton_Click"
                 ToolTip.Tip="{loc:Loc Uploads_Toolbar_AddTip}">
           <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource SuccessBrush}"
@@ -307,6 +309,19 @@
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
       </StackPanel>
+
+        <!-- Speedometer (JDownloader-style): live aggregate upload speed + a sparkline of the last ~10 s
+             (50 samples at the 200 ms refresh tick). SpeedGraph derives its translucent area fill from the
+             accent LineBrush, so it follows the theme. -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
+          <TextBlock Text="{Binding UploadSpeed}" FontWeight="SemiBold" FontSize="12"
+                     Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <Border Background="{DynamicResource SurfaceMutedBrush}" BorderBrush="{DynamicResource InputFieldBorderBrush}"
+                  BorderThickness="1" CornerRadius="2" Width="150" Height="24" Padding="2,1">
+            <ctrl:SpeedGraph Samples="{Binding SpeedHistory}" LineBrush="{DynamicResource AccentBrush}" />
+          </Border>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- Main DataGrid. IsReadOnly=False is here ONLY so the Order cell can be typed into (Task 11 adds the
