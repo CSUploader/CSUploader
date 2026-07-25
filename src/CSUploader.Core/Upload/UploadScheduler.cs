@@ -235,6 +235,15 @@ public class UploadScheduler : IDisposable
     public void StopAll() => Post(StopAllFiles);
 
     /// <summary>
+    /// Re-runs a scheduling pass now. <see cref="FillSlots"/> reads the concurrency caps
+    /// (<see cref="AppSettings.MaxConcurrentUploadJobs"/> etc.) live but only runs on scheduler events —
+    /// so RAISING a cap mid-run would otherwise not launch extra uploads until the next event (typically a
+    /// running upload finishing, which can be a long wait). The Settings tab calls this when a cap changes so
+    /// the new limit takes effect immediately. Thread-safe (posts onto the single-consumer loop).
+    /// </summary>
+    public void Reschedule() => Post(FillSlots);
+
+    /// <summary>
     /// Removes a package from the scheduler.
     /// </summary>
     /// <param name="package">The package to remove.</param>

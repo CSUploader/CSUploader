@@ -29,7 +29,8 @@ public partial class SettingsViewModel(
     IThemeApplier? themeApplier = null,
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
-    LogsViewModel? logsViewModel = null) : ObservableObject
+    LogsViewModel? logsViewModel = null,
+    Upload.UploadScheduler? uploadScheduler = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -450,12 +451,17 @@ public partial class SettingsViewModel(
     // _suppressAutoSave guard short-circuits writes during LoadAsync so hydrating the
     // VM doesn't round-trip through the DB.
 
+    // The four capacity hooks below also KICK the scheduler (Reschedule): FillSlots reads the caps live but
+    // only runs on scheduler events, so without the kick a RAISED cap wouldn't launch extra uploads until the
+    // next event (typically an upload finishing). With it, the new limit takes effect immediately.
+
     partial void OnMaxConcurrentCPUJobsChanged(int value)
     {
         if (_suppressAutoSave)
             return;
         _settings.MaxConcurrentCPUJobs = value;
         _ = AutoSaveAsync(SettingKey.MaxConcurrentCPUJobs, value.ToString(CultureInfo.InvariantCulture));
+        uploadScheduler?.Reschedule();
     }
 
     partial void OnMaxConcurrentUploadJobsChanged(int value)
@@ -464,6 +470,7 @@ public partial class SettingsViewModel(
             return;
         _settings.MaxConcurrentUploadJobs = value;
         _ = AutoSaveAsync(SettingKey.MaxConcurrentUploadJobs, value.ToString(CultureInfo.InvariantCulture));
+        uploadScheduler?.Reschedule();
     }
 
     partial void OnMaxUploadsPerHostEnabledChanged(bool value)
@@ -472,6 +479,7 @@ public partial class SettingsViewModel(
             return;
         _settings.MaxUploadsPerHostEnabled = value;
         _ = AutoSaveAsync(SettingKey.MaxUploadsPerHostEnabled, value ? "true" : "false");
+        uploadScheduler?.Reschedule();
     }
 
     partial void OnMaxUploadsPerHostChanged(int value)
@@ -480,6 +488,7 @@ public partial class SettingsViewModel(
             return;
         _settings.MaxUploadsPerHost = value;
         _ = AutoSaveAsync(SettingKey.MaxUploadsPerHost, value.ToString(CultureInfo.InvariantCulture));
+        uploadScheduler?.Reschedule();
     }
 
     partial void OnRemoveFinishedUploadsChanged(RemoveFinishedUploadsMode value)

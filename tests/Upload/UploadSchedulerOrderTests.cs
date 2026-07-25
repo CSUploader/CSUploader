@@ -53,6 +53,27 @@ public sealed class UploadSchedulerOrderTests : IDisposable
     }
 
     [Fact]
+    public async Task Reschedule_AfterRaisingUploadCap_LaunchesExtraUploadsImmediately()
+    {
+        // Raising "max simultaneous uploads" mid-run: FillSlots reads the cap live but only runs on scheduler
+        // events, so the raise must be accompanied by Reschedule() (what the Settings hook sends) to take
+        // effect immediately. The gated pipeline holds the first upload open, so no completion event can be
+        // the trigger — the kick alone must launch the extra uploads.
+        GatedPipeline pipeline = new("Rapidgator");
+        AppSettings settings = new();
+        (UploadScheduler scheduler, Package package) = Build(pipeline, maxUploads: 1, fileCount: 3, settings: settings);
+
+        scheduler.AddPackage(package);
+        await WaitFor(() => CountState(package, FileState.Uploading) == 1);
+
+        settings.MaxConcurrentUploadJobs = 3; // the Settings tab's immediate AppSettings write...
+        scheduler.Reschedule();               // ...plus the kick the capacity hooks now send
+
+        await WaitFor(() => CountState(package, FileState.Uploading) == 3);
+        pipeline.ReleaseAll();
+    }
+
+    [Fact]
     public async Task FillSlots_PicksLowestQueueOrderFirst()
     {
         GatedPipeline pipeline = new("Rapidgator");
@@ -329,15 +350,13 @@ public sealed class UploadSchedulerOrderTests : IDisposable
         Assert.True(condition(), "condition was not met within the timeout");
     }
 
-    private (UploadScheduler Scheduler, Package Package) Build(GatedPipeline pipeline, int maxUploads, int fileCount, int maxCpu = 4)
+    private (UploadScheduler Scheduler, Package Package) Build(GatedPipeline pipeline, int maxUploads, int fileCount, int maxCpu = 4, AppSettings? settings = null)
     {
         _pipelines.Add(pipeline);
 
-        AppSettings settings = new()
-        {
-            MaxConcurrentUploadJobs = maxUploads,
-            MaxConcurrentCPUJobs = maxCpu,
-        };
+        settings ??= new AppSettings();
+        settings.MaxConcurrentUploadJobs = maxUploads;
+        settings.MaxConcurrentCPUJobs = maxCpu;
         DefaultFileHosterRegistry registry = new([pipeline]);
         UploadScheduler scheduler = new(settings, BuildAttemptRunner(registry), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
         scheduler.Start();
