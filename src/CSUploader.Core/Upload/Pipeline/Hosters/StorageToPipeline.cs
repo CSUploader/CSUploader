@@ -45,6 +45,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     private const string HomeUrl = Host + "/";
     private const string InitBatchUrl = Host + "/api/upload/init-batch";
     private const string ConfirmBatchUrl = Host + "/api/upload/confirm-batch";
+    private const string CompleteMultipartUrl = Host + "/api/upload/complete-multipart";
 
     /// <summary>Anonymous per-file cap — 25 GB, the figure storage.to advertises for no-signup
     /// uploads (storage.to/send-large-files). The server is the real gate (it can reject at
@@ -58,22 +59,26 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postJsonOverride;
     private readonly Func<string, string, string, Action<long, long>, Func<long?>?, Task<HttpResponseSnapshot>>? _putOverride;
+    private readonly Func<string, int, HttpResponseSnapshot>? _putPartOverride;
 
     public StorageToPipeline()
     {
     }
 
-    /// <summary>Test ctor — drives the homepage GET, the two JSON API POSTs, and the R2 PUT from canned
-    /// responses so the bootstrap/init/transfer/confirm orchestration runs without the network. The PUT
-    /// override is handed the progress callback so a test can exercise the TransferProgress bridge.</summary>
+    /// <summary>Test ctor — drives the homepage GET, the JSON API POSTs, the single R2 PUT and (optionally)
+    /// the multipart part PUTs from canned responses so the bootstrap/init/transfer/complete/confirm
+    /// orchestration runs without the network. The single-PUT override is handed the progress callback so a
+    /// test can exercise the TransferProgress bridge; the part override receives (url, partNumber).</summary>
     internal StorageToPipeline(
         Func<string, HttpResponseSnapshot> getOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postJsonOverride,
-        Func<string, string, string, Action<long, long>, HttpResponseSnapshot> putOverride)
+        Func<string, string, string, Action<long, long>, HttpResponseSnapshot> putOverride,
+        Func<string, int, HttpResponseSnapshot>? putPartOverride = null)
     {
         _getOverride = (url, _) => Task.FromResult(getOverride(url));
         _postJsonOverride = (url, body, headers) => Task.FromResult(postJsonOverride(url, body, headers));
         _putOverride = (filePath, url, contentType, progress, _) => Task.FromResult(putOverride(filePath, url, contentType, progress));
+        _putPartOverride = putPartOverride;
     }
 
     public string Name => "Storage.to";
@@ -144,14 +149,15 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         }
 
         MergeSetCookies(cookieJar, initResponse.SetCookies);
-        (string? uploadUrl, string? r2Key, string? initError) = ParseInitBatch(initResponse);
-        if (uploadUrl is null || r2Key is null)
+        (InitBatch? init, string? initError) = ParseInitBatch(initResponse);
+        if (init is null)
         {
             yield return new AttemptFailed(initError ?? "storage.to init-batch returned no upload URL", null);
             yield break;
         }
 
-        // === Step 3: PUT the bytes straight to Cloudflare R2 ===
+        // === Step 3: transfer the bytes to Cloudflare R2 — either a single presigned PUT, or (when
+        // storage.to splits a large file into a multipart upload) N part PUTs + a complete-multipart call. ===
         yield return new TransferStarted(ctx.FileSize);
 
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
@@ -162,9 +168,11 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(sent, total, speed));
         }
 
-        Task<HttpResponseSnapshot> putTask = PutAsync(ctx, uploadUrl, contentType, Progress, ctx.SpeedLimitProvider);
+        Task<(bool Ok, string? Error)> transferTask = init.IsMultipart
+            ? UploadMultipartAsync(ctx, init, csrfToken, cookieJar, Progress)
+            : UploadSingleAsync(ctx, init.UploadUrl!, contentType, Progress);
 
-        _ = putTask.ContinueWith(
+        _ = transferTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -175,36 +183,136 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
             yield return progressEv;
         }
 
-        // Let a transport fault propagate out of RunAsync to the shared retry layer (AttemptRunner):
-        // UploadPutAsync reclassifies a connect-phase/mid-send abort as a safe-to-retry
-        // UploadBodyTransferException, and re-running the whole pipeline gets a FRESH init-batch +
-        // presigned URL. It never double-creates because the file record is only made by confirm-batch
-        // below, which a failed PUT never reaches. A server verdict (non-2xx) does NOT throw.
-        HttpResponseSnapshot putResponse = await putTask;
-        if (putResponse.StatusCode is < 200 or >= 300)
+        // A thrown transport fault (mid-send/connect abort) propagates RAW out of the await below:
+        // UploadPutAsync/PutChunkAsync reclassify it as a safe-to-retry UploadBodyTransferException and the
+        // shared retry layer (AttemptRunner) re-runs the whole pipeline against a FRESH init-batch — nothing is
+        // committed until confirm-batch, so no double-create. A server verdict (non-2xx) is terminal.
+        (bool transferOk, string? transferError) = await transferTask;
+        if (!transferOk)
         {
-            yield return new AttemptFailed(
-                $"storage.to R2 upload failed (HTTP {putResponse.StatusCode}): {Snippet(putResponse.Body)}",
-                null);
+            yield return new AttemptFailed(transferError ?? "storage.to upload failed", null);
             yield break;
         }
 
-        // Land the bar on 100% (the R2 PUT reports progress off the request-body write, which can finish
-        // a beat before the response returns).
+        // Land the bar on 100% (the PUTs report progress off the request-body write, which can finish a beat
+        // before the response returns).
         yield return new TransferProgress(ctx.FileSize, ctx.FileSize, ctx.FileSize / Math.Max(0.001, stopwatch.Elapsed.TotalSeconds));
 
-        // === Step 4: confirm-batch — register the uploaded object and get the share link ===
+        // === Step 4: confirm-batch — register the object and get the share link (identical for both paths) ===
         long uploadSpeed = (long)(ctx.FileSize / Math.Max(0.001, stopwatch.Elapsed.TotalSeconds));
+        (string? shareUrl, string? confirmError) = await ConfirmBatchAsync(ctx, csrfToken, cookieJar, contentType, init.R2Key, ctx.FileSize, uploadSpeed);
+        if (shareUrl is null)
+        {
+            yield return new AttemptFailed(confirmError ?? "storage.to confirm-batch failed", null);
+            yield break;
+        }
+
+        yield return new TransferCompleted(shareUrl);
+    }
+
+    /// <summary>Single presigned R2 PUT (small files). Returns (ok, error) for a server verdict; a mid-send/
+    /// connect transport fault is deliberately left to THROW so it propagates raw out of RunAsync to the shared
+    /// retry layer (the reclassified UploadBodyTransferException re-runs the whole pipeline from a fresh
+    /// init-batch). OperationCanceledException likewise propagates.</summary>
+    private async Task<(bool Ok, string? Error)> UploadSingleAsync(
+        AttemptContext ctx, string uploadUrl, string contentType, Action<long, long> progress)
+    {
+        HttpResponseSnapshot putResponse = await PutAsync(ctx, uploadUrl, contentType, progress, ctx.SpeedLimitProvider);
+        return putResponse.StatusCode is >= 200 and < 300
+            ? (true, null)
+            : (false, $"storage.to R2 upload failed (HTTP {putResponse.StatusCode}): {Snippet(putResponse.Body)}");
+    }
+
+    /// <summary>Multipart R2 upload (large files): PUT each 32-MiB part to its presigned URL, collect the
+    /// per-part ETags, then POST complete-multipart so storage.to finalises the R2 upload server-side. Returns
+    /// (ok, error) for a server verdict; like the single path, a part-PUT transport fault is left to THROW so it
+    /// propagates raw to the retry layer (nothing is committed until complete-multipart + confirm-batch).</summary>
+    private async Task<(bool Ok, string? Error)> UploadMultipartAsync(
+        AttemptContext ctx, InitBatch init, string csrfToken, Dictionary<string, string> cookieJar, Action<long, long> progress)
+    {
+        long total = ctx.FileSize;
+        DateTime started = DateTime.Now;
+        (int PartNumber, string ETag)[] parts = new (int, string)[init.PartUrls.Count];
+
+        void OnProgress(object? _, OperationProgressEventArgs e) => progress(e.BytesProcessed, e.Size);
+        ctx.Handler.UploadProgress += OnProgress;
+        try
+        {
+            await using FileStream? fs = _putPartOverride is null ? new FileStream(ctx.FilePath, FileMode.Open, FileAccess.Read) : null;
+            for (int i = 0; i < init.PartUrls.Count; i++)
+            {
+                int partNumber = i + 1;
+                long basePos = (long)i * init.PartSize;
+                long len = Math.Min(init.PartSize, total - basePos);
+
+                // A part-PUT transport fault (or cancellation) is left to THROW — like the single path it
+                // propagates raw to the retry layer, which re-runs from a fresh init-batch. Safe because
+                // nothing is committed until complete-multipart + confirm-batch below.
+                HttpResponseSnapshot resp = _putPartOverride is not null
+                    ? _putPartOverride(init.PartUrls[i], partNumber)
+                    : await ctx.Handler.PutChunkAsync(
+                        init.PartUrls[i], new ChunkSliceStream(fs!, len), len, basePos, total, started,
+                        headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
+
+                if (resp.StatusCode is < 200 or >= 300)
+                {
+                    return (false, $"storage.to R2 part {partNumber} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}");
+                }
+
+                if (string.IsNullOrEmpty(resp.ETag))
+                {
+                    return (false, $"storage.to R2 part {partNumber} returned no ETag");
+                }
+
+                parts[i] = (partNumber, resp.ETag);
+            }
+        }
+        finally
+        {
+            ctx.Handler.UploadProgress -= OnProgress;
+        }
+
+        // complete-multipart: hand storage.to the part ETags so it finalises the R2 multipart server-side.
+        string completeBody = JsonSerializer.Serialize(new
+        {
+            upload_id = init.MultipartUploadId,
+            parts = parts.Select(p => new { partNumber = p.PartNumber, etag = p.ETag }),
+        });
+
+        HttpResponseSnapshot completeResp;
+        try
+        {
+            completeResp = await PostJsonAsync(ctx, CompleteMultipartUrl, completeBody, BuildApiHeaders(csrfToken, cookieJar));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (false, "storage.to complete-multipart request failed: " + ex.Message);
+        }
+
+        MergeSetCookies(cookieJar, completeResp.SetCookies);
+        return completeResp.StatusCode is >= 200 and < 300 && IsSuccessEnvelope(completeResp.Body)
+            ? (true, null)
+            : (false, $"storage.to complete-multipart failed (HTTP {completeResp.StatusCode}): {Snippet(completeResp.Body)}");
+    }
+
+    /// <summary>confirm-batch — registers the uploaded object and returns the share link. Identical for the
+    /// single and multipart paths.</summary>
+    private async Task<(string? ShareUrl, string? Error)> ConfirmBatchAsync(
+        AttemptContext ctx, string csrfToken, Dictionary<string, string> cookieJar, string contentType, string r2Key, long fileSize, long uploadSpeed)
+    {
         string confirmBody = JsonSerializer.Serialize(new
         {
-            files = new[] { new { filename = ctx.FileName, size = ctx.FileSize, content_type = contentType, r2_key = r2Key } },
+            files = new[] { new { filename = ctx.FileName, size = fileSize, content_type = contentType, r2_key = r2Key } },
             collection_id = (string?)null,
             upload_speed = uploadSpeed,
             as_temp = false,
         });
 
-        HttpResponseSnapshot? confirmResponse = null;
-        string? confirmRequestError = null;
+        HttpResponseSnapshot confirmResponse;
         try
         {
             confirmResponse = await PostJsonAsync(ctx, ConfirmBatchUrl, confirmBody, BuildApiHeaders(csrfToken, cookieJar));
@@ -215,23 +323,27 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         }
         catch (Exception ex)
         {
-            confirmRequestError = "storage.to confirm-batch request failed: " + ex.Message;
+            return (null, "storage.to confirm-batch request failed: " + ex.Message);
         }
 
-        if (confirmResponse is null)
+        MergeSetCookies(cookieJar, confirmResponse.SetCookies);
+        return ParseConfirmBatch(confirmResponse);
+    }
+
+    /// <summary>True when a gofile/storage.to-style envelope is <c>{"success":true,…}</c>.</summary>
+    private static bool IsSuccessEnvelope(string body)
+    {
+        try
         {
-            yield return new AttemptFailed(confirmRequestError ?? "storage.to confirm-batch request failed", null);
-            yield break;
+            using JsonDocument doc = JsonDocument.Parse(body);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("success", out JsonElement s)
+                && s.ValueKind == JsonValueKind.True;
         }
-
-        (string? shareUrl, string? confirmError) = ParseConfirmBatch(confirmResponse);
-        if (shareUrl is null)
+        catch (JsonException)
         {
-            yield return new AttemptFailed(confirmError ?? "storage.to confirm-batch returned no link", null);
-            yield break;
+            return false;
         }
-
-        yield return new TransferCompleted(shareUrl);
     }
 
     /// <summary>
@@ -284,42 +396,72 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         return (token, jar, null);
     }
 
-    /// <summary>Parses <c>init-batch</c>: <c>{"success":true,"results":{"0":{"upload_url":…,"r2_key":…}}}</c>.
-    /// Returns the presigned URL + key, or an error with a body snippet.</summary>
-    private static (string? UploadUrl, string? R2Key, string? Error) ParseInitBatch(HttpResponseSnapshot response)
+    /// <summary>The parsed init-batch outcome: a single presigned R2 PUT (<see cref="UploadUrl"/>) for small
+    /// files, or a multipart upload (<see cref="MultipartUploadId"/> + <see cref="PartSize"/> + per-part
+    /// presigned URLs in <see cref="PartUrls"/>, 0-based so index i is part number i+1) for large ones.</summary>
+    private sealed record InitBatch(
+        bool IsMultipart,
+        string R2Key,
+        string? UploadUrl,
+        string? MultipartUploadId,
+        long PartSize,
+        IReadOnlyList<string> PartUrls);
+
+    /// <summary>Parses <c>init-batch</c>. Small files: <c>results.0.upload_url</c> + <c>r2_key</c> (single PUT).
+    /// Large files: <c>type:"multipart"</c> with <c>upload_id</c>, <c>part_size</c>, <c>total_parts</c> and
+    /// <c>initial_urls</c> (a <c>{"1":url,…}</c> map). Returns the parsed <see cref="InitBatch"/> or an error.</summary>
+    private static (InitBatch? Init, string? Error) ParseInitBatch(HttpResponseSnapshot response)
     {
         if (response.StatusCode is < 200 or >= 300)
         {
-            return (null, null, $"storage.to init-batch failed (HTTP {response.StatusCode}): {Snippet(response.Body)}");
+            return (null, $"storage.to init-batch failed (HTTP {response.StatusCode}): {Snippet(response.Body)}");
         }
 
         if (!TryFirstResult(response.Body, out JsonElement entry, out string? error))
         {
-            return (null, null, error);
+            return (null, error);
         }
 
-        // storage.to switches LARGE files to a chunked multipart R2 upload (type:"multipart", with
-        // upload_id / part_size / total_parts and no single upload_url). This pipeline only implements the
-        // single presigned-PUT path, so surface a clear, specific reason instead of a truncated "no upload
-        // URL" JSON dump — otherwise the user just sees a cut-off blob of JSON with no explanation.
+        string? r2Key = entry.TryGetProperty("r2_key", out JsonElement k) ? k.GetString() : null;
+        if (string.IsNullOrEmpty(r2Key))
+        {
+            return (null, $"storage.to init-batch returned no r2_key: {Snippet(response.Body)}");
+        }
+
+        // Large files: storage.to splits into a Cloudflare-R2 multipart upload (one 32-MiB part per presigned URL).
         if (entry.TryGetProperty("type", out JsonElement type) && type.GetString() == "multipart")
         {
+            string? uploadId = entry.TryGetProperty("upload_id", out JsonElement uid) ? uid.GetString() : null;
             long partSize = entry.TryGetProperty("part_size", out JsonElement ps) && ps.TryGetInt64(out long p) ? p : 0;
             int totalParts = entry.TryGetProperty("total_parts", out JsonElement tp) && tp.TryGetInt32(out int t) ? t : 0;
-            string partSizeText = partSize > 0 ? ByteUnit.FromBytes(partSize, ByteBase.Binary).ToFriendlyString() : "?";
-            return (null, null,
-                $"storage.to switched this file to a multipart upload ({totalParts} parts of {partSizeText}), which CSUploader "
-                + "doesn't support yet — storage.to does this for large files. Use a smaller file or a different hoster for now.");
+            if (string.IsNullOrEmpty(uploadId) || partSize <= 0 || totalParts <= 0
+                || !entry.TryGetProperty("initial_urls", out JsonElement urls) || urls.ValueKind != JsonValueKind.Object)
+            {
+                return (null, $"storage.to init-batch multipart response was incomplete: {Snippet(response.Body)}");
+            }
+
+            string[] partUrls = new string[totalParts];
+            for (int n = 1; n <= totalParts; n++)
+            {
+                if (!urls.TryGetProperty(n.ToString(CultureInfo.InvariantCulture), out JsonElement urlEl)
+                    || urlEl.GetString() is not { Length: > 0 } url)
+                {
+                    return (null, $"storage.to init-batch multipart response missing the URL for part {n}: {Snippet(response.Body)}");
+                }
+
+                partUrls[n - 1] = url;
+            }
+
+            return (new InitBatch(true, r2Key, null, uploadId, partSize, partUrls), null);
         }
 
         string? uploadUrl = entry.TryGetProperty("upload_url", out JsonElement u) ? u.GetString() : null;
-        string? r2Key = entry.TryGetProperty("r2_key", out JsonElement k) ? k.GetString() : null;
-        if (string.IsNullOrEmpty(uploadUrl) || string.IsNullOrEmpty(r2Key))
+        if (string.IsNullOrEmpty(uploadUrl))
         {
-            return (null, null, $"storage.to init-batch returned no upload URL: {Snippet(response.Body)}");
+            return (null, $"storage.to init-batch returned no upload URL: {Snippet(response.Body)}");
         }
 
-        return (uploadUrl, r2Key, null);
+        return (new InitBatch(false, r2Key, uploadUrl, null, 0, []), null);
     }
 
     /// <summary>Parses <c>confirm-batch</c>: <c>{"success":true,"results":{"0":{"file":{"url":…}}}}</c>.

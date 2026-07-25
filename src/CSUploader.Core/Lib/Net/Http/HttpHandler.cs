@@ -787,7 +787,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
             LogTransaction(transaction);
 
-            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+            // ETag surfaced for S3/R2 multipart part PUTs (storage.to's complete-multipart echoes each part's
+            // ETag). Kept verbatim/quoted; fall back to the raw header if the typed accessor rejects the format.
+            string? etag = response.Headers.ETag?.Tag
+                ?? (response.Headers.TryGetValues("ETag", out IEnumerable<string>? ev) ? ev.FirstOrDefault() : null);
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString, etag);
         }
         catch (OperationCanceledException)
         {

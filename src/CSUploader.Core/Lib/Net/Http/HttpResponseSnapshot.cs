@@ -23,4 +23,6 @@ namespace CSUploader.Lib.Net.Http;
 /// (the global handler is configured with <c>AllowAutoRedirect=false</c> because some
 /// hosters branch on the 302 itself — BRupload's login). Null when the server didn't
 /// send a Location header.</param>
-public sealed record HttpResponseSnapshot(int StatusCode, string Body, IReadOnlyList<string> SetCookies, string? LocationHeader = null);
+/// <param name="ETag">The <c>ETag</c> response header (quoted, verbatim), when present — needed by S3/R2
+/// multipart part PUTs, whose completion call echoes each part's ETag. Null for responses without one.</param>
+public sealed record HttpResponseSnapshot(int StatusCode, string Body, IReadOnlyList<string> SetCookies, string? LocationHeader = null, string? ETag = null);
