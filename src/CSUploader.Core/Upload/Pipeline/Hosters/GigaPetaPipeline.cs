@@ -90,6 +90,14 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
 
     public int? MaxFilesPerPackage => null;
 
+    /// <summary>
+    /// GigaPeta serialises uploads: its nodes return <c>403 Forbidden</c> when a second upload from the same
+    /// client runs concurrently, so cap this hoster at ONE upload at a time (independent of account — the
+    /// anonymous path is all there is). The scheduler takes the min of this and the user's per-host setting, so
+    /// GigaPeta never runs two at once even if the global/per-host limits are higher.
+    /// </summary>
+    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => 1;
+
     /// <summary>GigaPeta accepts uploads with no login — the wizard offers it as a built-in
     /// "Anonymous" option that needs no Accounts/Settings entry.</summary>
     public bool SupportsAnonymousUpload => true;

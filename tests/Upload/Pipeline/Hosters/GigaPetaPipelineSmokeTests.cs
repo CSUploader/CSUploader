@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Net.Http;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
@@ -34,6 +35,16 @@ public class GigaPetaPipelineSmokeTests
     {
         GigaPetaPipeline pipeline = new();
         Assert.True(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
+    }
+
+    [Fact]
+    public void MaxConcurrentUploadsFor_CapsAtOne_ForEveryCredential()
+    {
+        // GigaPeta's upload nodes 403 a second concurrent upload from the same client, so the pipeline must
+        // serialise the host to one upload at a time regardless of credentials (it's anonymous-only anyway).
+        GigaPetaPipeline pipeline = new();
+        Assert.Equal(1, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { FileHosterName = "GigaPeta", IsAnonymous = true }));
+        Assert.Equal(1, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { FileHosterName = "GigaPeta" }));
     }
 
     [Fact]
