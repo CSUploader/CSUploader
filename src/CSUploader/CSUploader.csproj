@@ -43,15 +43,6 @@
     <ApplicationManifest Condition="$(TargetFramework.Contains('windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
-  <!-- The CefGlue.* assemblies (referenced only by the non-Windows head below) are built for x64 (AMD64).
-       An AnyCPU/"Debug Any CPU" build of this MSIL project references them and trips MSB3270 (architecture
-       mismatch). It's benign here — the app only ever publishes/runs as x64 (win-x64 / linux-x64 RIDs), never
-       AnyCPU or x86 — and RID-specific builds don't warn at all. Silence the check for the CefGlue target so
-       "Any CPU" IDE builds are clean. -->
-  <PropertyGroup Condition="!$(TargetFramework.Contains('windows'))">
-    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.18" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />

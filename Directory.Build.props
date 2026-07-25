@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    Solution-wide build settings, auto-imported by every project in the repo.
+
+    x64-only. The app ships x64 exclusively (published as win-x64 / linux-x64), and the CefGlue native-interop
+    assemblies the Linux/macOS head references are built for x64 (AMD64). Building AnyCPU (MSIL) tripped MSB3270
+    (architecture mismatch) in "Any CPU" IDE builds. Targeting x64 outright makes the output architecture match
+    those references — fixing the warning at the source rather than suppressing it — and matches how every
+    artifact is actually published and run. Platforms drives the IDE's Configuration Manager (x64 only);
+    PlatformTarget forces x64 output regardless of how the build is invoked (IDE, dotnet CLI, CI).
+  -->
+  <PropertyGroup>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+</Project>
