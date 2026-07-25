@@ -298,6 +298,20 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
             return (null, null, error);
         }
 
+        // storage.to switches LARGE files to a chunked multipart R2 upload (type:"multipart", with
+        // upload_id / part_size / total_parts and no single upload_url). This pipeline only implements the
+        // single presigned-PUT path, so surface a clear, specific reason instead of a truncated "no upload
+        // URL" JSON dump — otherwise the user just sees a cut-off blob of JSON with no explanation.
+        if (entry.TryGetProperty("type", out JsonElement type) && type.GetString() == "multipart")
+        {
+            long partSize = entry.TryGetProperty("part_size", out JsonElement ps) && ps.TryGetInt64(out long p) ? p : 0;
+            int totalParts = entry.TryGetProperty("total_parts", out JsonElement tp) && tp.TryGetInt32(out int t) ? t : 0;
+            string partSizeText = partSize > 0 ? ByteUnit.FromBytes(partSize, ByteBase.Binary).ToFriendlyString() : "?";
+            return (null, null,
+                $"storage.to switched this file to a multipart upload ({totalParts} parts of {partSizeText}), which CSUploader "
+                + "doesn't support yet — storage.to does this for large files. Use a smaller file or a different hoster for now.");
+        }
+
         string? uploadUrl = entry.TryGetProperty("upload_url", out JsonElement u) ? u.GetString() : null;
         string? r2Key = entry.TryGetProperty("r2_key", out JsonElement k) ? k.GetString() : null;
         if (string.IsNullOrEmpty(uploadUrl) || string.IsNullOrEmpty(r2Key))
@@ -450,7 +464,9 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         string trimmed = body.Trim()
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal);
-        const int Max = 200;
+        // 2000 (not 200): API JSON responses are the whole diagnostic — a 200-char cut-off hid the actual
+        // failure shape (e.g. storage.to's multipart response) even in the Log Details view.
+        const int Max = 2000;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
 

@@ -143,6 +143,33 @@ public class StorageToPipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_InitBatchMultipart_YieldsClearUnsupportedError_WithoutPut()
+    {
+        // storage.to switches large files to a chunked multipart R2 upload (type:"multipart", no upload_url).
+        // The pipeline only does the single presigned PUT — it must explain that clearly, not emit a truncated
+        // "no upload URL" JSON dump.
+        const string multipartInit =
+            """{"success":true,"results":{"0":{"success":true,"type":"multipart","upload_id":"019f-52cd","r2_key":"478995e6","part_size":33554432,"total_parts":48}}}""";
+        StorageToCalls calls = new();
+        StorageToPipeline pipeline = MakePipeline(
+            calls,
+            home: new(200, HomeHtml, []),
+            init: new HttpResponseSnapshot(200, multipartInit, []),
+            confirm: new(200, ConfirmJson, []),
+            putStatus: 200);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("multipart upload", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("48 parts", fail.Reason, StringComparison.Ordinal);       // total_parts surfaced
+        Assert.Contains("32 MiB", fail.Reason, StringComparison.Ordinal);         // part_size formatted
+        Assert.DoesNotContain("no upload URL", fail.Reason, StringComparison.Ordinal); // not the old truncated dump
+        Assert.Null(calls.PutUrl);                                                // never attempted the PUT
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+    }
+
+    [Fact]
     public async Task RunAsync_R2PutNon2xx_YieldsAttemptFailedWithoutConfirm()
     {
         StorageToCalls calls = new();
