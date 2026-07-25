@@ -358,20 +358,26 @@
             </Style>
           </DataGrid.Styles>
           <DataGrid.Columns>
-            <!-- Use: the two-way enable checkbox when the row is usable, else an "account required" MDL2
-                 glyph (rule 33 both ways — IsVisible=CanUse / IsVisible=!CanUse). -->
+            <!-- Use: the two-way enable checkbox when the row is usable, else an "account required" padlock
+                 (rule 33 both ways — IsVisible=CanUse / IsVisible=!CanUse). The padlock is a vector Path, NOT
+                 the WPF head's Segoe MDL2 Assets glyph: MDL2 is a Windows-only font, so on Linux the glyph
+                 rendered as a missing-glyph box (tofu). The checkbox zeroes Padding/MinWidth so the box itself
+                 centres exactly (Fluent reserves 8px content padding right of the 20px box even with no
+                 content — the step-0 check-center fix), aligning it with the centred padlock. -->
             <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Use}" Width="42" SortMemberPath="Use">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <CheckBox IsChecked="{Binding Use}"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Padding="0" MinWidth="0"
                               IsVisible="{Binding CanUse}" />
-                    <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               IsVisible="{Binding !CanUse}"
-                               ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+                    <Path Data="M2.75,7 L2.75,4.5 A3.25,3.25 0 0 1 9.25,4.5 L9.25,7 L7.75,7 L7.75,4.5 A1.75,1.75 0 0 0 4.25,4.5 L4.25,7 Z M1,8.5 A1.5,1.5 0 0 1 2.5,7 L9.5,7 A1.5,1.5 0 0 1 11,8.5 L11,12.5 A1.5,1.5 0 0 1 9.5,14 L2.5,14 A1.5,1.5 0 0 1 1,12.5 Z"
+                          Width="11" Height="13" Stretch="Uniform"
+                          Fill="{DynamicResource TextSecondaryBrush}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          IsVisible="{Binding !CanUse}"
+                          ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
                   </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
