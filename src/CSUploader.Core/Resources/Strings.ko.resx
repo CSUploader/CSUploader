@@ -1256,6 +1256,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
     <value>개 파일</value>
   </data>
+  <data name="Wizard_Step1_TotalSizeLabel" xml:space="preserve">
+    <value>총 크기:</value>
+  </data>
   <data name="Wizard_Step2_Title" xml:space="preserve">
     <value>파일 호스터 선택</value>
   </data>

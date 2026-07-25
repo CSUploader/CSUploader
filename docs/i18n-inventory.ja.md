@@ -567,6 +567,7 @@ Wizard_Step1_Col_File              = ファイル
 Wizard_Step1_Col_Size              = サイズ
 Wizard_Step1_SelectedLabel         = 選択中:
 Wizard_Step1_FilesUnit             = 個のファイル
+Wizard_Step1_TotalSizeLabel        = 合計サイズ:
 
 Wizard_Step2_Title                 = ファイルホスターを選択
 Wizard_Step2_Desc                  = アップロード先のファイルホスターを選択し、アカウントを指定してください。

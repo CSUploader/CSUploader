@@ -587,6 +587,7 @@ Wizard_Step1_Col_File              = File
 Wizard_Step1_Col_Size              = Size
 Wizard_Step1_SelectedLabel         = Selected:
 Wizard_Step1_FilesUnit             = file(s)
+Wizard_Step1_TotalSizeLabel        = Total size:
 
 Wizard_Step2_Title                 = Select File Hosters
 Wizard_Step2_Desc                  = Choose which file hosters to upload to and select accounts.

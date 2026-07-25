@@ -1256,6 +1256,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
     <value>个文件</value>
   </data>
+  <data name="Wizard_Step1_TotalSizeLabel" xml:space="preserve">
+    <value>总大小：</value>
+  </data>
   <data name="Wizard_Step2_Title" xml:space="preserve">
     <value>选择文件托管商</value>
   </data>

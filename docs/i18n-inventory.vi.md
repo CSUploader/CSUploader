@@ -576,6 +576,7 @@ Wizard_Step1_Col_File              = Tệp
 Wizard_Step1_Col_Size              = Kích thước
 Wizard_Step1_SelectedLabel         = Đã chọn:
 Wizard_Step1_FilesUnit             = tệp
+Wizard_Step1_TotalSizeLabel        = Tổng dung lượng:
 
 Wizard_Step2_Title                 = Chọn nhà lưu trữ tập tin
 Wizard_Step2_Desc                  = Chọn các nhà lưu trữ tập tin để tải lên và chọn tài khoản.

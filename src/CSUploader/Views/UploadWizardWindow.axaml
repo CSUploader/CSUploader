@@ -297,15 +297,25 @@
           </DataGrid.Columns>
         </DataGrid>
 
-        <!-- Row 6: selected-count footer -->
-        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,4,0,0">
-          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                     Text="{loc:Loc Wizard_Step1_SelectedLabel}" />
-          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                     Margin="4,0,0,0" Text="{Binding Files.Count, Mode=OneWay}" />
-          <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                     Margin="4,0,0,0" Text="{loc:Loc Wizard_Step1_FilesUnit}" />
-        </StackPanel>
+        <!-- Row 6: selection footer — live ticked-file count (left) + live total size (right). Both bind
+             the VM's IsSelected-based stats (not Files.Count, which kept reading the same after unchecking
+             rows) so the footer always agrees with what Finish actually queues. -->
+        <Grid Grid.Row="6" ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
+          <StackPanel Grid.Column="0" Orientation="Horizontal">
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="{loc:Loc Wizard_Step1_SelectedLabel}" />
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="4,0,0,0" Text="{Binding SelectedFileCount, Mode=OneWay}" />
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="4,0,0,0" Text="{loc:Loc Wizard_Step1_FilesUnit}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Text="{loc:Loc Wizard_Step1_TotalSizeLabel}" />
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="4,0,0,0" Text="{Binding SelectedTotalSizeDisplay, Mode=OneWay}" />
+          </StackPanel>
+        </Grid>
       </Grid>
 
       <!-- Step 1: File Hosters (Task 8). Per-row enable checkbox + account association; the display

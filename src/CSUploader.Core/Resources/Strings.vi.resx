@@ -1256,6 +1256,9 @@ Vẫn thêm?</value>
   <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
     <value>tệp</value>
   </data>
+  <data name="Wizard_Step1_TotalSizeLabel" xml:space="preserve">
+    <value>Tổng dung lượng:</value>
+  </data>
   <data name="Wizard_Step2_Title" xml:space="preserve">
     <value>Chọn nhà lưu trữ tập tin</value>
   </data>

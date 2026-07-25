@@ -568,6 +568,7 @@ Wizard_Step1_Col_File              = File
 Wizard_Step1_Col_Size              = Laki
 Wizard_Step1_SelectedLabel         = Napili:
 Wizard_Step1_FilesUnit             = file(s)
+Wizard_Step1_TotalSizeLabel        = Kabuuang laki:
 
 Wizard_Step2_Title                 = Pumili ng File Hosters
 Wizard_Step2_Desc                  = Pumili kung saang file hosters mag-uupload at pumili ng accounts.

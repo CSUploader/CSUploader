@@ -691,6 +691,36 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Step1Footer_SelectedCountAndTotalSize_TrackTogglesAndRemovals()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        List<string> raised = [];
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
+
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
+        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
+
+        Assert.Equal(2, vm.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(900, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+
+        // Unchecking a file must live-update BOTH footer stats (and raise change notifications for them —
+        // that's what the Step-1 footer bindings ride on).
+        raised.Clear();
+        vm.Files[0].IsSelected = false;
+        Assert.Equal(1, vm.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(300, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+        Assert.Contains(nameof(vm.SelectedFileCount), raised);
+        Assert.Contains(nameof(vm.SelectedTotalSizeDisplay), raised);
+
+        // Removing the remaining ticked file zeroes the footer.
+        vm.Files.RemoveAt(1);
+        Assert.Equal(0, vm.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(0, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+    }
+
+    [Fact]
     public void Summary_TotalUploadSummary_SumsIncludedAcrossHosters_AndUpdatesLive()
     {
         DefaultFileHosterRegistry registry = new(

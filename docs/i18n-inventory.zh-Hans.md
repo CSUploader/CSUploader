@@ -568,6 +568,7 @@ Wizard_Step1_Col_File              = 文件
 Wizard_Step1_Col_Size              = 大小
 Wizard_Step1_SelectedLabel         = 已选：
 Wizard_Step1_FilesUnit             = 个文件
+Wizard_Step1_TotalSizeLabel        = 总大小：
 
 Wizard_Step2_Title                 = 选择文件托管商
 Wizard_Step2_Desc                  = 选择要上传到的文件托管商，并选择对应账户。

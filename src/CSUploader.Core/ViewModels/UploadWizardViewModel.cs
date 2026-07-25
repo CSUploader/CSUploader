@@ -91,6 +91,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
         _summaryDirty = true;
         RecomputeHosterValidation();
+        NotifySelectionStats(); // adds/removes change the footer's live count + total size
     }
 
     private void FileHosters_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -380,7 +381,24 @@ public partial class UploadWizardViewModel : ObservableObject
         {
             _summaryDirty = true;
             RecomputeHosterValidation();
+            NotifySelectionStats();
         }
+    }
+
+    /// <summary>Live count of files ticked for upload — the Step-1 footer's "Selected: N file(s)". Counts
+    /// <see cref="FileEntry.IsSelected"/> regardless of filter visibility: the filter only HIDES rows, and a
+    /// hidden-but-ticked file still uploads, so the footer must agree with what Finish actually queues.</summary>
+    public int SelectedFileCount => Files.Count(f => f.IsSelected);
+
+    /// <summary>Live friendly total ("2.71 GiB") of the ticked files' sizes — the Step-1 footer's
+    /// "Total size:" opposite the count. Same IsSelected-only basis as <see cref="SelectedFileCount"/>.</summary>
+    public string SelectedTotalSizeDisplay
+        => ByteUnit.FromBytes(Files.Where(f => f.IsSelected).Sum(f => f.Size), ByteBase.Binary).ToFriendlyString();
+
+    private void NotifySelectionStats()
+    {
+        OnPropertyChanged(nameof(SelectedFileCount));
+        OnPropertyChanged(nameof(SelectedTotalSizeDisplay));
     }
 
     private void Hoster_PropertyChanged(object? sender, PropertyChangedEventArgs e)

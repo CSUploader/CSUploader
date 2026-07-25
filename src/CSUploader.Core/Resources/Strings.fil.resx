@@ -1256,6 +1256,9 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step1_FilesUnit" xml:space="preserve">
     <value>file(s)</value>
   </data>
+  <data name="Wizard_Step1_TotalSizeLabel" xml:space="preserve">
+    <value>Kabuuang laki:</value>
+  </data>
   <data name="Wizard_Step2_Title" xml:space="preserve">
     <value>Pumili ng File Hosters</value>
   </data>
