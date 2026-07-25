@@ -721,6 +721,28 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void StartMode_SwitchingToScheduled_PrefillsDateTimeToNow()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        Assert.Equal(UploadStartMode.Immediately, vm.StartMode);
+
+        DateTime before = DateTime.Now;
+        vm.StartMode = UploadStartMode.Scheduled;
+        DateTime after = DateTime.Now;
+
+        // Date is today (was tomorrow by default); InRange spans the before/after dates for the midnight edge.
+        Assert.InRange(vm.ScheduledDate, before.Date, after.Date);
+
+        // Time parses (HH:mm) and, combined with the date, sits at "now" truncated to the minute — i.e. within
+        // the [before-1min, after] window (HH:mm drops up to 59s, never rounds up).
+        Assert.True(TimeSpan.TryParse(vm.ScheduledTime, out TimeSpan t));
+        DateTime filled = vm.ScheduledDate + t;
+        Assert.InRange(filled, before.AddMinutes(-1), after.AddSeconds(1));
+    }
+
+    [Fact]
     public void LoadFiles_BulkDirectoryScan_RecomputesFooterOnce_NotPerFile()
     {
         string dir = Path.Combine(Path.GetTempPath(), "csup-bulkload-" + Guid.NewGuid().ToString("N"));

@@ -710,6 +710,20 @@ public partial class UploadWizardViewModel : ObservableObject
         FileFilter = string.Empty;
     }
 
+    // Prefill the scheduled date + time to NOW the moment the user picks Scheduled, so they adjust from the
+    // current time rather than the tomorrow-at-midnight placeholder. Fires only on a real transition INTO
+    // Scheduled (re-selecting the already-active mode raises no change), so it won't clobber edits unless the
+    // user leaves Scheduled and returns. HH:mm to match the field's format hint.
+    partial void OnStartModeChanged(UploadStartMode value)
+    {
+        if (value == UploadStartMode.Scheduled)
+        {
+            DateTime now = DateTime.Now;
+            ScheduledDate = now.Date;
+            ScheduledTime = now.ToString("HH:mm", CultureInfo.CurrentCulture);
+        }
+    }
+
     [RelayCommand]
     private async Task BrowseDirectoryAsync()
     {
