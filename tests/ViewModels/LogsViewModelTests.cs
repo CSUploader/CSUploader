@@ -87,6 +87,26 @@ public class LogsViewModelTests
         Assert.Empty(vm.UILogs);
     }
 
+    [Fact]
+    public void AddLogEntry_PastTheCap_DropsTheOldestEntry_PerTab()
+    {
+        LogsViewModel vm = new(Mock.Of<IDialogService>());
+
+        for (int i = 0; i < LogsViewModel.MaxEntriesPerTab + 3; i++)
+        {
+            vm.AddLogEntry(new LogEvent { LogType = LogType.Http, DateTime = DateTime.Now, Message = $"http {i}" });
+        }
+
+        // Ring semantics: capped at the max, oldest dropped first, newest retained.
+        Assert.Equal(LogsViewModel.MaxEntriesPerTab, vm.HttpLogs.Count);
+        Assert.Equal("http 3", vm.HttpLogs[0].Message);
+        Assert.Equal($"http {LogsViewModel.MaxEntriesPerTab + 2}", vm.HttpLogs[^1].Message);
+
+        // The cap is per tab — other tabs are untouched by HTTP churn.
+        vm.AddLogEntry(new LogEvent { LogType = LogType.Error, DateTime = DateTime.Now, Message = "err" });
+        Assert.Single(vm.ErrorLogs);
+    }
+
     private static LogsViewModel SeedAllTypes()
     {
         LogsViewModel vm = new(Mock.Of<IDialogService>());

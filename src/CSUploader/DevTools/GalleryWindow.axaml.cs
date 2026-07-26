@@ -418,8 +418,9 @@ public partial class GalleryWindow : Window
     };
 
     // Mirrors the WPF reference driver's SynthTransaction: a complete POST with JSON bodies (so the
-    // Body-JSON sub-tabs pretty-print) and ResponseBodyBytes (so the Hex sub-tab renders). Duration is
-    // computed from Start/EndTime. Small deliberate duplication between two DEBUG-only dev tools.
+    // Body-JSON sub-tabs pretty-print; the Hex sub-tab renders from ResponseBodyBytes, now computed from
+    // ResponseBody). Duration is computed from Start/EndTime. Small deliberate duplication between two
+    // DEBUG-only dev tools.
     private static HttpTransaction SynthTransaction()
     {
         DateTime start = new(2026, 7, 12, 14, 30, 45);
@@ -445,7 +446,6 @@ public partial class GalleryWindow : Window
                 ["Server"] = ["nginx"],
             },
             ResponseBody = "{\"status\":\"ok\",\"fileId\":\"abc123\",\"url\":\"https://example-hoster.com/f/abc123\"}",
-            ResponseBodyBytes = Encoding.UTF8.GetBytes("{\"status\":\"ok\",\"fileId\":\"abc123\"}"),
         };
     }
 

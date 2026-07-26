@@ -41,7 +41,13 @@ public class HttpTransaction
 
     public string? ResponseBody { get; set; }
 
-    public byte[]? ResponseBodyBytes { get; set; }
+    /// <summary>
+    /// UTF-8 bytes of <see cref="ResponseBody"/>, computed on demand for the details window's Hex tab.
+    /// Every capture site derived this from the same string anyway, and materializing it up front
+    /// doubled the retained size of every logged transaction — with the log collections holding
+    /// thousands of entries over a long session, that duplication was pure memory waste.
+    /// </summary>
+    public byte[]? ResponseBodyBytes => ResponseBody is null ? null : System.Text.Encoding.UTF8.GetBytes(ResponseBody);
 
     // ── Timing ──
 

@@ -132,7 +132,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = result;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(result);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -189,7 +188,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -257,7 +255,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -346,7 +343,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -440,7 +436,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -581,7 +576,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -677,7 +671,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = responseBody;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(responseBody);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -782,7 +775,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -900,7 +892,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);
@@ -1029,7 +1020,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = body;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(body);
             CaptureResponseHeaders(transaction, response);
             LogTransaction(transaction);
 
@@ -1123,7 +1113,6 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             transaction.StatusCode = (int)response.StatusCode;
             transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
             transaction.ResponseBody = result;
-            transaction.ResponseBodyBytes = Encoding.UTF8.GetBytes(result);
             CaptureResponseHeaders(transaction, response);
 
             LogTransaction(transaction);

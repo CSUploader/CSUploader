@@ -174,7 +174,6 @@ public class DetailWindowTests
                 ["Server"] = ["nginx"],
             },
             ResponseBody = "{\"status\":\"ok\",\"fileId\":\"abc123\",\"url\":\"https://example-hoster.com/f/abc123\"}",
-            ResponseBodyBytes = Encoding.UTF8.GetBytes("{\"status\":\"ok\",\"fileId\":\"abc123\"}"),
         };
     }
 }

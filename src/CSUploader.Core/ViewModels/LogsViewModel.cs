@@ -33,6 +33,15 @@ public partial class LogsViewModel : ObservableObject
         SettingRepo = settingRepo;
     }
 
+    /// <summary>
+    /// Retention cap per tab. The collections were unbounded, and a long session with many concurrent
+    /// uploads accumulates hundreds of HTTP rows per minute — each retaining its full
+    /// <see cref="Lib.Net.Http.HttpTransaction"/> (headers + body) — so an hours-long run grew to
+    /// 100k+ rows and hundreds of MB. The Logs tab is a live-diagnostics view, not an archive: keep the
+    /// most recent entries and drop the oldest. Internal so tests can size their fixtures to it.
+    /// </summary>
+    internal const int MaxEntriesPerTab = 5000;
+
     public ObservableCollection<LogEntryViewModel> StatusLogs { get; } = [];
 
     public ObservableCollection<LogEntryViewModel> HttpLogs { get; } = [];
@@ -48,17 +57,29 @@ public partial class LogsViewModel : ObservableObject
         switch (logEvent.LogType)
         {
             case LogType.Status:
-                StatusLogs.Add(entry);
+                AddCapped(StatusLogs, entry);
                 break;
             case LogType.Http:
-                HttpLogs.Add(entry);
+                AddCapped(HttpLogs, entry);
                 break;
             case LogType.Error:
-                ErrorLogs.Add(entry);
+                AddCapped(ErrorLogs, entry);
                 break;
             case LogType.UI:
-                UILogs.Add(entry);
+                AddCapped(UILogs, entry);
                 break;
+        }
+    }
+
+    /// <summary>Appends and, past the cap, drops the oldest entry. At steady state that is one
+    /// <c>RemoveAt(0)</c> per append — a bounded reference shift, and the grids handle the index-0
+    /// removal like any other collection change (auto-scroll stays pinned to the end).</summary>
+    private static void AddCapped(ObservableCollection<LogEntryViewModel> logs, LogEntryViewModel entry)
+    {
+        logs.Add(entry);
+        if (logs.Count > MaxEntriesPerTab)
+        {
+            logs.RemoveAt(0);
         }
     }
 
