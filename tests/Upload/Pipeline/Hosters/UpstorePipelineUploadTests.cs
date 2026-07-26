@@ -62,10 +62,12 @@ public class UpstorePipelineUploadTests
     [Fact]
     public async Task RunAsync_FileExceedsAnonymousCap_YieldsAttemptFailedWithoutAnyHttp()
     {
-        // Nothing queued — the 2 GiB pre-check must fail before the homepage GET or the upload.
+        // Nothing queued — the 1 GiB pre-check must fail before the homepage GET or the upload. The size
+        // mirrors the live regression: a 1.36 GiB file sailed past the old 2 GiB pre-check, uploaded, and
+        // came back "Error (Size1gb)" — the server enforces the Dropzone widget's 1 GiB after all.
         UpstorePipeline pipeline = MakePipeline(new(), new(), out List<UploadCall> calls);
 
-        AttemptContext ctx = MakeContext(fileSize: (2L * 1024 * 1024 * 1024) + 1);
+        AttemptContext ctx = MakeContext(fileSize: (long)(1.36 * 1024 * 1024 * 1024));
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());

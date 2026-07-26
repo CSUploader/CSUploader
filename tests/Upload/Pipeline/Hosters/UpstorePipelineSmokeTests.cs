@@ -18,7 +18,7 @@ public class UpstorePipelineSmokeTests
         UpstorePipeline pipeline = new();
 
         Assert.Equal("Upstore", pipeline.Name);
-        Assert.Equal(2L * 1024 * 1024 * 1024, pipeline.MaxFileSize); // 2 GiB free/guest cap
+        Assert.Equal(1L * 1024 * 1024 * 1024, pipeline.MaxFileSize); // 1 GiB free/guest cap (server: Error (Size1gb))
         Assert.Null(pipeline.MaxFilesPerPackage);
         Assert.True(pipeline.SupportsAnonymousUpload);
         Assert.False(pipeline.RequiresHashingBeforeUpload);

@@ -47,12 +47,13 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     private const string AccountUrl = Host + "/account/";
     private const string PublicUrlPrefix = Host + "/";
 
-    /// <summary>Free/guest per-file cap — 2 GiB (confirmed by the account owner). The homepage's
-    /// Dropzone <c>maxFilesize: 1024</c> (MiB) is only the client-side widget hint; the server accepts
-    /// 2 GB for free + guest uploads, and we POST to it directly (not via Dropzone), so the server
-    /// limit applies. Premium (5 GB) isn't distinguished — premium accounts are capped at the free
-    /// value, which only rejects a >2 GB file early; it never lets a too-big file waste bytes.</summary>
-    private const long FreeTierMaxFileSizeBytes = 2L * 1024 * 1024 * 1024;
+    /// <summary>Free/guest per-file cap — 1 GiB, matching the homepage Dropzone's
+    /// <c>maxFilesize: 1024</c> (MiB). The server enforces it too: a 1.36 GiB upload came back
+    /// <c>Error (Size1gb)</c> (live, 2026-07-26), which corrected the earlier belief that the widget
+    /// value was only a client-side hint and the real server cap was 2 GiB. Premium (5 GB) isn't
+    /// distinguished — premium accounts are capped at the free value, which only rejects a too-big
+    /// file early; it never lets one waste bytes on a doomed upload.</summary>
+    private const long FreeTierMaxFileSizeBytes = 1L * 1024 * 1024 * 1024;
 
     // The Dropzone form action points at the rotating upload host (dNN.upstore.net/newupload/).
     // Anchoring on "newupload" keeps us off the page's login/registration forms (/account/...),
@@ -118,7 +119,7 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     {
         _ = ct;
 
-        // === Pre-check: per-file size cap (same 2 GiB for guests + free accounts) ===
+        // === Pre-check: per-file size cap (same 1 GiB for guests + free accounts) ===
         if (ctx.FileSize > FreeTierMaxFileSizeBytes)
         {
             yield return new AttemptFailed(
