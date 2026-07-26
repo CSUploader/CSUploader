@@ -113,6 +113,7 @@ Uploads_Context_SkipUpload        = Skip Upload
 Uploads_Context_Reset             = Reset
 Uploads_Context_OpenSourceDir     = Open Source Directory
 Uploads_Context_SetSpeedLimit     = Set Speed Limit...
+Uploads_Context_RenamePackage     = Rename Package...
 Uploads_Context_Move              = Move
 Uploads_Context_Remove            = Remove
 Uploads_Context_RemoveAllCompleted = Remove All Completed

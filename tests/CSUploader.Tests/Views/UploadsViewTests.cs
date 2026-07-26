@@ -436,6 +436,38 @@ public class UploadsViewTests
         }
     }
 
+    // ── Context menu "Rename Package…": jumps into the Name cell's inline editor for a package row ──
+
+    [AvaloniaFact]
+    public void TryBeginRenameForSelectedPackage_PackageSelected_BeginsNameCellEdit_FileSelectedDoesNot()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            // A package row: the edit begins on the Name column and an editing TextBox appears.
+            view.uploadsGrid.SelectedItem = package;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(view.TryBeginRenameForSelectedPackage());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(view.uploadsGrid.Columns[0], view.uploadsGrid.CurrentColumn);
+            Assert.Contains(
+                view.uploadsGrid.GetVisualDescendants().OfType<TextBox>(),
+                tb => tb.Text == "Alpha pack"); // the CellEditingTemplate's editor, seeded with the name
+
+            // A file row: no rename (the menu item is disabled for files; this is the belt-and-braces).
+            view.uploadsGrid.SelectedItem = file;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(view.TryBeginRenameForSelectedPackage());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Editable Name (package rename): CellEditEnding resolves the (package, trimmedName) tuple ──
 
     [AvaloniaFact]

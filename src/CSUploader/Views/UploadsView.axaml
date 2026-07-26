@@ -401,6 +401,11 @@
                     Command="{Binding SetSpeedLimitCommand}">
             <MenuItem.Icon><Image Source="{StaticResource ActionSpeedImage}" Width="16" Height="16" /></MenuItem.Icon>
           </MenuItem>
+          <!-- Enabled only for a package row (set in RowContextMenu_Opening); Click (not a command)
+               because beginning the inline edit needs the grid's cell/edit machinery. -->
+          <MenuItem x:Name="RenamePackageMenuItem"
+                    Header="{loc:Loc Uploads_Context_RenamePackage}"
+                    Click="RenamePackage_Click" />
           <MenuItem Header="{loc:Loc Uploads_Context_Move}">
             <MenuItem Header="{loc:Loc Uploads_Move_Up10}"   Command="{Binding MoveSelectedCommand}" CommandParameter="-10" />
             <MenuItem Header="{loc:Loc Uploads_Move_Up1}"    Command="{Binding MoveSelectedCommand}" CommandParameter="-1" />

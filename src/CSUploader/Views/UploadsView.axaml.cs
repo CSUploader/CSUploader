@@ -487,7 +487,39 @@ public partial class UploadsView : UserControl
             vm.SelectedRows = [.. uploadsGrid.SelectedItems.Cast<object>()];
         }
 
+        // Rename targets the focused row and only makes sense for a package.
+        RenamePackageMenuItem.IsEnabled = uploadsGrid.SelectedItem is Package;
+
         return !_rightClickOnItem;
+    }
+
+    /// <summary>
+    /// Context menu "Rename Package…" — jumps straight into the Name cell's inline editor for the
+    /// selected package row. Posted to the dispatcher so the edit begins AFTER the closing menu has
+    /// released focus (BeginEdit during menu close loses the editor immediately).
+    /// </summary>
+    private void RenamePackage_Click(object? sender, RoutedEventArgs e)
+        => global::Avalonia.Threading.Dispatcher.UIThread.Post(() => TryBeginRenameForSelectedPackage());
+
+    /// <summary>Moves the current cell to the Name column of the selected PACKAGE row and begins the
+    /// inline edit; false when the selection isn't a package (the menu item is disabled then, so this is
+    /// belt-and-braces). Internal so the headless test drives it directly.</summary>
+    internal bool TryBeginRenameForSelectedPackage()
+    {
+        if (uploadsGrid.SelectedItem is not Package package)
+        {
+            return false;
+        }
+
+        _nameColumn ??= ResolveNameColumn();
+        if (_nameColumn is null)
+        {
+            return false;
+        }
+
+        uploadsGrid.ScrollIntoView(package, _nameColumn);
+        uploadsGrid.CurrentColumn = _nameColumn;
+        return uploadsGrid.BeginEdit();
     }
 
     // ── Package-expanding copy (the DIVERGENCE from UploadedView) ──

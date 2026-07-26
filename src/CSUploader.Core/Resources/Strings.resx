@@ -249,6 +249,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>Set Speed Limit...</value>
   </data>
+  <data name="Uploads_Context_RenamePackage" xml:space="preserve">
+    <value>Rename Package...</value>
+  </data>
   <data name="Uploads_Context_Move" xml:space="preserve">
     <value>Move</value>
   </data>
