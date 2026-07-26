@@ -49,15 +49,23 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
     /// <summary>Anonymous (not-logged-in) upload verified against the live homepage form.</summary>
     public override bool SupportsAnonymousUpload => true;
 
+    /// <summary>Guest (anonymous) per-file cap — 100 GB, the figure the site states. Decimal, not
+    /// binary: the exact byte boundary behind a "100GB" claim is unstated, and of the two ways to be
+    /// wrong, rejecting a 100-107 GB file early costs nothing while accepting one the server then
+    /// refuses would waste an enormous upload (the Upstore lesson).</summary>
+    private const long GuestMaxFileSizeBytes = 100L * 1000 * 1000 * 1000;
+
     /// <summary>
-    /// No client-side per-file cap: the host's own <c>?op=api_get_limits</c> reports
-    /// <c>&lt;MaxUploadFilesize&gt;0&lt;/MaxUploadFilesize&gt;</c> — the XFileSharing convention for
-    /// "unlimited" — while the marketing page advertises multi-GB uploads. Rather than invent a
-    /// number that could reject a file the server would have accepted, let the server be the gate;
-    /// it rejects an over-limit upload up front (no wasted bytes) the way the other uncapped
-    /// anonymous hosters do.
+    /// No cap for signed-in accounts: registered, pro and premium users all upload unlimited-size
+    /// files, which the host's own <c>?op=api_get_limits</c> corroborates
+    /// (<c>&lt;MaxUploadFilesize&gt;0&lt;/MaxUploadFilesize&gt;</c> — the XFileSharing convention for
+    /// "unlimited"). The guest cap is applied per-credentials by <see cref="MaxFileSizeFor"/>.
     /// </summary>
     public override long? MaxFileSize => null;
+
+    /// <summary>Per-file cap by tier: guests 100 GB, any signed-in account unlimited.</summary>
+    public override long? MaxFileSizeFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? GuestMaxFileSizeBytes : null;
 
     /// <summary>
     /// Resolves the upload node from Send.now's <b>keyless JSON API</b> rather than by scraping the

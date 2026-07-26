@@ -63,7 +63,11 @@ public class XfsAnonymousHostersTests
         SendNowPipeline send = new();
         Assert.Equal("Send.now", send.Name);
         Assert.True(send.SupportsAnonymousUpload);
-        Assert.Null(send.MaxFileSize); // api_get_limits reports MaxUploadFilesize=0 (unlimited)
+        // Tiers: guests 100 GB, any signed-in account unlimited (api_get_limits: MaxUploadFilesize=0).
+        Assert.Null(send.MaxFileSize);
+        Assert.Equal(100L * 1000 * 1000 * 1000, send.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }));
+        Assert.Null(send.MaxFileSizeFor(new FileHosterLoginDto { Username = "u", Password = "p" }));
+        Assert.Null(send.MaxFileSizeFor(new FileHosterLoginDto { ApiKey = "k" }));
 
         UploadyPipeline uploady = new();
         Assert.Equal("Uploady", uploady.Name);
@@ -130,7 +134,25 @@ public class XfsAnonymousHostersTests
     }
 
     [Fact]
-    public async Task SendNow_Anonymous_ApiUnusable_FallsBackToTheHomepageScrape()
+    public async Task SendNow_GuestFileOverTheHundredGbCap_IsRejectedWithoutAnyHttp()
+    {
+        List<UploadCall> calls = [];
+        SendNowPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => throw new InvalidOperationException("must not fetch"),
+            uploadOverride: Capture(calls, "[]"));
+
+        AttemptContext ctx = MakeAnonymousContext("Send.now") with { FileSize = (100L * 1000 * 1000 * 1000) + 1 };
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Empty(calls);
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+    }
+
+    [Fact]
+    public async Task SendNow_ApiUnusable_FallsBackToTheHomepageScrape()
     {
         // A WAF challenge page (or any non-JSON answer) on the API must not be fatal — the family's
         // HTML scrape is still there as a second chance.
