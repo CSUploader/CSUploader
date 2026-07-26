@@ -67,15 +67,27 @@ public class HttpTransaction
             sb.AppendLine($"{Method} {Url} HTTP/1.1");
             foreach ((string? key, string[]? values) in RequestHeaders)
             {
-                foreach (string value in values)
-                {
-                    sb.AppendLine($"{key}: {value}");
-                }
+                sb.AppendLine($"{key}: {JoinHeaderValues(key, values)}");
             }
 
             return sb.ToString();
         }
     }
+
+    /// <summary>
+    /// Renders a header's values as the ONE line that actually goes on the wire. .NET stores some
+    /// headers pre-parsed into multiple values — notably User-Agent, which it splits into its product
+    /// tokens ("Mozilla/5.0", "(Windows NT 10.0…)", "Chrome/148.0.0.0", …) — and printing one line per
+    /// value made the log look like we send seven User-Agent headers. That is not what is sent (the
+    /// product tokens are rejoined with spaces), but it sent a real debugging session chasing a
+    /// malformed-UA ghost while the actual answer, a Cloudflare challenge, sat in the response.
+    /// Product-list headers rejoin with a space, everything else with the standard comma.
+    /// </summary>
+    private static string JoinHeaderValues(string key, string[] values)
+        => string.Join(
+            key.Equals("User-Agent", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("Server", StringComparison.OrdinalIgnoreCase) ? " " : ", ",
+            values);
 
     public string ResponseHeadersText
     {
@@ -85,10 +97,7 @@ public class HttpTransaction
             sb.AppendLine($"HTTP/1.1 {StatusCode} {StatusReason}");
             foreach ((string? key, string[]? values) in ResponseHeaders)
             {
-                foreach (string value in values)
-                {
-                    sb.AppendLine($"{key}: {value}");
-                }
+                sb.AppendLine($"{key}: {JoinHeaderValues(key, values)}");
             }
 
             return sb.ToString();
