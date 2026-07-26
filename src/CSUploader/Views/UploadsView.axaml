@@ -499,6 +499,15 @@
               </StackPanel>
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
+          <!-- Package-row rename editor (F2 / click the current cell). Files never enter edit — the
+               BeginningEdit guard cancels them (a file's Name is the real filename the hosters receive).
+               OneWay like the Order editor: the CellEditEnding handler routes the typed text through
+               RenamePackageCommand, so blank/unchanged input is dropped instead of written through. -->
+          <DataGridTemplateColumn.CellEditingTemplate>
+            <DataTemplate>
+              <TextBox Text="{Binding Name, Mode=OneWay}" VerticalContentAlignment="Center" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellEditingTemplate>
         </DataGridTemplateColumn>
 
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120"

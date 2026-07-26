@@ -121,9 +121,24 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     public DateTime? ScheduledStartTime { get; set; }
 
     /// <summary>
-    /// Gets or sets the name of the package.
+    /// Gets or sets the name of the package. Raises PropertyChanged on rename (the Uploads tab's
+    /// editable Name cell) — the per-tick refresh only re-notifies running/changed rows, so an idle
+    /// package's cell would otherwise keep the old name until its next state change.
     /// </summary>
-    public string Name { get; set; } = options.Title;
+    public string Name
+    {
+        get;
+        set
+        {
+            if (field == value)
+            {
+                return;
+            }
+
+            field = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+        }
+    } = options.Title;
 
     /// <summary>
     /// Gets the total size of the package.

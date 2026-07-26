@@ -386,8 +386,11 @@ public class UploadsViewTests
             // Order cell on a non-terminal (Idle) file → editable (not cancelled).
             Assert.False(view.ShouldCancelEdit(orderColumn, file));
 
-            // Any other column → cancelled (the grid is editable ONLY for the Order cell).
+            // Name cell on a FILE row → cancelled (a file's Name is the real upload filename).
             Assert.True(view.ShouldCancelEdit(nameColumn, file));
+
+            // Name cell on a PACKAGE row → editable (inline rename).
+            Assert.False(view.ShouldCancelEdit(nameColumn, package));
 
             // Package row → cancelled (packages show a blank order).
             Assert.True(view.ShouldCancelEdit(orderColumn, package));
@@ -426,6 +429,40 @@ public class UploadsViewTests
             Assert.Null(view.ResolveOrderEdit(orderColumn, package, new TextBox { Text = "3" }));
             Assert.Null(view.ResolveOrderEdit(orderColumn, file, new TextBox { Text = "abc" }));
             Assert.Null(view.ResolveOrderEdit(orderColumn, file, new Button()));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Editable Name (package rename): CellEditEnding resolves the (package, trimmedName) tuple ──
+
+    [AvaloniaFact]
+    public void CellEditEnding_Rename_ResolvesPackageTrimmedNameTuple_NullOtherwise()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGridColumn orderColumn = OrderColumnOf(view);
+            DataGridColumn nameColumn = view.uploadsGrid.Columns[0];
+
+            // Valid rename: trimmed text, package row, Name column.
+            (Package Package, string Name)? committed = view.ResolveRenameEdit(nameColumn, package, new TextBox { Text = "  Renamed pack  " });
+            Assert.NotNull(committed);
+            Assert.Same(package, committed!.Value.Package);
+            Assert.Equal("Renamed pack", committed.Value.Name); // trimmed
+
+            // No rename: blank input (must not wipe the name), the unchanged name (skip a pointless
+            // persist), a file row, a non-Name column, and a non-TextBox editing element.
+            Assert.Null(view.ResolveRenameEdit(nameColumn, package, new TextBox { Text = "   " }));
+            Assert.Null(view.ResolveRenameEdit(nameColumn, package, new TextBox { Text = "Alpha pack" }));
+            Assert.Null(view.ResolveRenameEdit(nameColumn, file, new TextBox { Text = "x" }));
+            Assert.Null(view.ResolveRenameEdit(orderColumn, package, new TextBox { Text = "x" }));
+            Assert.Null(view.ResolveRenameEdit(nameColumn, package, new Button()));
         }
         finally
         {

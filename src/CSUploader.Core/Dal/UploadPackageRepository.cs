@@ -47,6 +47,17 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCompleted, isCompleted), ct);
     }
 
+    /// <summary>Persists a package rename (the Uploads tab's editable Name cell). Single-field
+    /// ExecuteUpdate like the completed-flag setter. The History tab reads package names through the
+    /// load-time join against this row, so a reload picks the new name up automatically.</summary>
+    public async Task UpdateNameAsync(int packageId, string name, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageDbm>()
+            .Where(p => p.Id == packageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Name, name), ct);
+    }
+
     /// <summary>
     /// Hard-deletes the upload-history rows that are no longer visible in either tab — i.e.
     /// files soft-removed from Uploads and either soft-hidden from Uploaded or in a non-Completed

@@ -908,6 +908,36 @@ public class PackageManager
     }
 
     /// <summary>
+    /// Renames a package (the Uploads tab's editable Name cell): updates the in-memory name — the
+    /// setter raises PropertyChanged, so the grid cell and the name filter see it immediately — and
+    /// persists it when the package has a DB row. The History tab joins package names off that row at
+    /// load, so its groups pick the new name up on their next reload. Callers reject blank names;
+    /// this trusts its input.
+    /// </summary>
+    public void RenamePackage(Package package, string newName)
+    {
+        package.Name = newName;
+
+        if (package.DbId is int id)
+        {
+            // Fire-and-forget like the other post-mutation persistence — a failed write must not
+            // take down the rename (the in-memory name is already applied); it just won't survive
+            // a restart, and the error lands in the log.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _packageRepo.UpdateNameAsync(id, newName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log(this, LogType.Error, $"Persisting package rename failed: {ex.Message}");
+                }
+            });
+        }
+    }
+
+    /// <summary>
     /// Stops a specific package or package file.
     /// </summary>
     /// <param name="item">The package or file to stop.</param>

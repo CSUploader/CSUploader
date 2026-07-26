@@ -62,6 +62,9 @@ public partial class UploadsView : UserControl
     // header-text match is unambiguous.
     private DataGridColumn? _orderColumn;
 
+    // The "Name" column, resolved the same way for the package-rename edit path.
+    private DataGridColumn? _nameColumn;
+
     private bool _deleteWired;
 
     public UploadsView()
@@ -343,6 +346,12 @@ public partial class UploadsView : UserControl
         return uploadsGrid.Columns.FirstOrDefault(c => Equals(c.Header, orderHeader));
     }
 
+    private DataGridColumn? ResolveNameColumn()
+    {
+        string nameHeader = Localizer.Instance["Uploads_Col_Name"];
+        return uploadsGrid.Columns.FirstOrDefault(c => Equals(c.Header, nameHeader));
+    }
+
     /// <summary>
     /// Restricts editing to the Order cell on non-terminal file rows. The grid is editable (IsReadOnly=False)
     /// ONLY so the Order cell can be typed into; a grid-level IsReadOnly=True would force every column
@@ -354,13 +363,21 @@ public partial class UploadsView : UserControl
     private void UploadsGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
         => e.Cancel = ShouldCancelEdit(e.Column, e.Row.DataContext);
 
-    /// <summary>The BeginningEdit guard: true (cancel) for every column but Order, for package rows, and for
-    /// terminal file rows (which show a blank order). Internal so the headless test asserts the decision
-    /// directly (constructing a real DataGridBeginningEditEventArgs and raising the private event is not
-    /// feasible headlessly).</summary>
+    /// <summary>The BeginningEdit guard: the grid has exactly two editable cells — the Order cell on a
+    /// non-terminal FILE row, and the Name cell on a PACKAGE row (rename; a file row's Name is the real
+    /// filename the hosters receive, never editable). Everything else cancels before entering edit mode.
+    /// Internal so the headless test asserts the decision directly (constructing a real
+    /// DataGridBeginningEditEventArgs and raising the private event is not feasible headlessly).</summary>
     internal bool ShouldCancelEdit(DataGridColumn? column, object? rowItem)
     {
         _orderColumn ??= ResolveOrderColumn();
+        _nameColumn ??= ResolveNameColumn();
+
+        if (column == _nameColumn)
+        {
+            return rowItem is not Package; // rename is a package-row affair
+        }
+
         return column != _orderColumn
             || rowItem is not PackageFile file
             || file.State is FileState.Completed or FileState.Failed or FileState.Cancelled;
@@ -375,16 +392,40 @@ public partial class UploadsView : UserControl
     /// </summary>
     private void UploadsGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
     {
-        if (e.EditAction != DataGridEditAction.Commit)
+        if (e.EditAction != DataGridEditAction.Commit || DataContext is not UploadsViewModel vm)
         {
             return;
         }
 
-        if (ResolveOrderEdit(e.Column, e.Row.DataContext, e.EditingElement) is { } order
-            && DataContext is UploadsViewModel vm)
+        if (ResolveOrderEdit(e.Column, e.Row.DataContext, e.EditingElement) is { } order)
         {
             vm.SetOrderCommand.Execute(order);
         }
+        else if (ResolveRenameEdit(e.Column, e.Row.DataContext, e.EditingElement) is { } rename)
+        {
+            vm.RenamePackageCommand.Execute(rename);
+        }
+    }
+
+    /// <summary>
+    /// The CellEditEnding commit computation for the Name cell: the <c>(package, trimmedName)</c> tuple to
+    /// hand <see cref="UploadsViewModel.RenamePackageCommand"/>, or null when the column is not Name, the
+    /// row is not a <see cref="Package"/>, the editing element is not a TextBox, or the trimmed text is
+    /// blank/unchanged (blank must not wipe a name; unchanged skips a pointless persist round-trip).
+    /// Internal so the headless test asserts the exact tuple.
+    /// </summary>
+    internal (Package Package, string Name)? ResolveRenameEdit(DataGridColumn? column, object? rowItem, Control? editingElement)
+    {
+        _nameColumn ??= ResolveNameColumn();
+        if (column != _nameColumn || rowItem is not Package package)
+        {
+            return null;
+        }
+
+        string? trimmed = (editingElement as TextBox)?.Text?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed == package.Name
+            ? null
+            : (package, trimmed);
     }
 
     /// <summary>

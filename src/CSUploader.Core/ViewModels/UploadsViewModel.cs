@@ -333,6 +333,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private void SetOrder((PackageFile File, int Target) arg)
         => _packageManager.MoveFileTo(arg.File, arg.Target);
 
+    /// <summary>Commit of the editable Name cell on a package row — rename in memory (+ persisted when
+    /// the package has a DB row). The view's edit guard restricts Name edits to package rows and drops
+    /// blank/unchanged input before this runs.</summary>
+    [RelayCommand]
+    private void RenamePackage((Package Package, string Name) arg)
+        => _packageManager.RenamePackage(arg.Package, arg.Name);
+
     [RelayCommand]
     private void Retry(object? item)
     {
