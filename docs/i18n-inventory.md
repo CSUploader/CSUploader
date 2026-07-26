@@ -115,6 +115,7 @@ Uploads_Context_OpenSourceDir     = Open Source Directory
 Uploads_Context_SetSpeedLimit     = Set Speed Limit...
 Uploads_Context_Move              = Move
 Uploads_Context_Remove            = Remove
+Uploads_Context_RemoveAllCompleted = Remove All Completed
 Uploads_Move_Up10                 = Up 10
 Uploads_Move_Up1                  = Up 1
 Uploads_Move_Down1                = Down 1
@@ -211,6 +212,7 @@ Uploads_Remove_Generic            = Remove this item?
 Uploads_Remove_PackagesOnly_Format     = Remove {0} package(s) ({1} file(s))?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Remove {0} file(s) from the upload list?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Remove {0} package(s) and {1} file(s) ({2} item(s) total)?      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format    = Remove all {0} completed file(s) from the upload list?               # {0} = completed file count
 
 # Reset confirmation prompts (UploadsViewModel) — only shown when a completed file would
 # be re-hashed and re-uploaded; resetting purely Failed/Cancelled files skips the prompt.
@@ -649,6 +651,7 @@ Confirm_RemoveFileHosterAccount    = Remove a file hoster account
 Confirm_RemoveProxy                = Remove a proxy from Connection Manager
 Confirm_ResetCompletedUpload       = Reset a completed upload (re-hash and re-upload)
 Confirm_ResetColumns               = Reset columns to their defaults on the Uploads / History tab
+Confirm_RemoveCompletedUploads     = Remove all completed uploads from the Uploads tab
 ```
 
 ---

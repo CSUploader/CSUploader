@@ -94,6 +94,103 @@ public class UploadsViewModelRemoveTests : IDisposable
         Assert.Contains(pkg, vm.Packages);
     }
 
+    [Fact]
+    public async Task RemoveAllCompleted_RemovesCompletedFilesAndFullyCompletedPackages_KeepsTheRest()
+    {
+        // Package A: fully completed → whole package goes. Package B: mixed → only its completed file goes.
+        (Package a, FileHosterClient hosterA, FileHosterLoginDto loginA) = MakePackage();
+        PackageFile a1 = MakeFile(a, hosterA, loginA, @"C:\d\a1.bin");
+        PackageFile a2 = MakeFile(a, hosterA, loginA, @"C:\d\a2.bin");
+        a.AddPackageFiles(new[] { a1, a2 });
+        a1.State = FileState.Completed;
+        a2.State = FileState.Completed;
+
+        (Package b, FileHosterClient hosterB, FileHosterLoginDto loginB) = MakePackage();
+        PackageFile bDone = MakeFile(b, hosterB, loginB, @"C:\d\b1.bin");
+        PackageFile bQueued = MakeFile(b, hosterB, loginB, @"C:\d\b2.bin");
+        b.AddPackageFiles(new[] { bDone, bQueued });
+        bDone.State = FileState.Completed;
+        bQueued.State = FileState.UploadQueued;
+
+        Mock<IDialogService> dialog = new();
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(true);
+        UploadsViewModel vm = CreateVmShowing(dialog, (a, new[] { a1, a2 }), (b, new[] { bDone, bQueued }));
+
+        await vm.RemoveAllCompletedCommand.ExecuteAsync(null);
+
+        // Fully-completed package A is gone entirely; B keeps its queued file (and stays listed).
+        Assert.DoesNotContain(a, vm.Packages);
+        Assert.DoesNotContain(a, vm.VisibleRows);
+        Assert.DoesNotContain(a1, vm.VisibleRows);
+        Assert.DoesNotContain(bDone, vm.VisibleRows);
+        Assert.Contains(b, vm.Packages);
+        Assert.Contains(b, vm.VisibleRows);
+        Assert.Contains(bQueued, vm.VisibleRows);
+
+        // The opt-out prompt used the dedicated key and carried the completed count (3).
+        dialog.Verify(
+            d => d.ShowOptOutConfirmationAsync(
+                ConfirmationKeys.RemoveCompletedUploads,
+                It.Is<string>(m => m.Contains('3')),
+                It.IsAny<string>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RemoveAllCompleted_Declined_RemovesNothing()
+    {
+        (Package pkg, FileHosterClient hoster, FileHosterLoginDto login) = MakePackage();
+        PackageFile done = MakeFile(pkg, hoster, login, @"C:\d\a.bin");
+        pkg.AddPackageFiles(new[] { done });
+        done.State = FileState.Completed;
+
+        Mock<IDialogService> dialog = new();
+        dialog.Setup(d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(false);
+        UploadsViewModel vm = CreateVmShowing(dialog, (pkg, new[] { done }));
+
+        await vm.RemoveAllCompletedCommand.ExecuteAsync(null);
+
+        Assert.Contains(pkg, vm.Packages);
+        Assert.Contains(done, vm.VisibleRows);
+    }
+
+    [Fact]
+    public async Task RemoveAllCompleted_NothingCompleted_IsASilentNoOp_WithoutPrompt()
+    {
+        (Package pkg, FileHosterClient hoster, FileHosterLoginDto login) = MakePackage();
+        PackageFile queued = MakeFile(pkg, hoster, login, @"C:\d\a.bin");
+        pkg.AddPackageFiles(new[] { queued }); // stays Idle
+
+        Mock<IDialogService> dialog = new();
+        UploadsViewModel vm = CreateVmShowing(dialog, (pkg, new[] { queued }));
+
+        await vm.RemoveAllCompletedCommand.ExecuteAsync(null);
+
+        Assert.Contains(pkg, vm.Packages);
+        Assert.Contains(queued, vm.VisibleRows);
+        dialog.Verify(
+            d => d.ShowOptOutConfirmationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    /// <summary>Multi-package variant of <see cref="CreateVmShowing(Package, PackageFile[])"/> with an
+    /// injectable dialog mock, for the Remove-All-Completed sweeps.</summary>
+    private UploadsViewModel CreateVmShowing(Mock<IDialogService> dialog, params (Package Pkg, PackageFile[] Files)[] packages)
+    {
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), dialog.Object, new InlineUiDispatcher(), Mock.Of<IClipboardService>());
+        foreach ((Package pkg, PackageFile[] files) in packages)
+        {
+            vm.Packages.Add(pkg);
+            vm.VisibleRows.Add(pkg);
+            foreach (PackageFile f in files)
+            {
+                vm.VisibleRows.Add(f);
+            }
+        }
+
+        return vm;
+    }
+
     private UploadsViewModel CreateVmShowing(Package pkg, params PackageFile[] files)
     {
         Mock<IDialogService> dialog = new();

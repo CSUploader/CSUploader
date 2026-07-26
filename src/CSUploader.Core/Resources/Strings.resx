@@ -255,6 +255,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
+  <data name="Uploads_Context_RemoveAllCompleted" xml:space="preserve">
+    <value>Remove All Completed</value>
+  </data>
   <data name="Uploads_Move_Up10" xml:space="preserve">
     <value>Up 10</value>
   </data>
@@ -494,6 +497,9 @@ Use Help → Install Update to download and install.</value>
   </data>
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>Remove {0} package(s) and {1} file(s) ({2} item(s) total)?</value>
+  </data>
+  <data name="Uploads_RemoveCompleted_Format" xml:space="preserve">
+    <value>Remove all {0} completed file(s) from the upload list?</value>
   </data>
   <data name="Uploads_Reset_Title" xml:space="preserve">
     <value>Reset</value>
@@ -1434,6 +1440,9 @@ Add anyway?</value>
   </data>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>Reset columns to their defaults on the Uploads / History tab</value>
+  </data>
+  <data name="Confirm_RemoveCompletedUploads" xml:space="preserve">
+    <value>Remove all completed uploads from the Uploads tab</value>
   </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>About CSUploader</value>

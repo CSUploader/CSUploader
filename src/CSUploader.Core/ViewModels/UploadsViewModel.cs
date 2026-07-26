@@ -605,6 +605,66 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Context menu "Remove All Completed" — drops every <see cref="FileState.Completed"/> file across
+    /// ALL packages (selection-independent), plus any package whose files were all completed. One opt-out
+    /// confirmation (<see cref="ConfirmationKeys.RemoveCompletedUploads"/>) covers the whole sweep; a
+    /// grid with nothing completed is a silent no-op. The manual counterpart of the
+    /// <see cref="RemoveFinishedUploadsMode"/> auto-remove for users who keep that on Never.
+    /// </summary>
+    [RelayCommand]
+    private async Task RemoveAllCompletedAsync()
+    {
+        // Snapshot per package: its completed files, and whether that was ALL of them. Completed is a
+        // terminal state, so a "whole package" classification can't be invalidated mid-sweep; a file that
+        // completes after the snapshot simply stays for a later pass.
+        List<(Package Package, PackageFile[] Completed, bool WholePackage)> hits = [];
+        int completedCount = 0;
+        foreach (Package package in Packages)
+        {
+            PackageFile[] files = [.. package];
+            PackageFile[] completed = [.. files.Where(f => f.State == FileState.Completed)];
+            if (completed.Length == 0)
+            {
+                continue;
+            }
+
+            completedCount += completed.Length;
+            hits.Add((package, completed, completed.Length == files.Length));
+        }
+
+        if (completedCount == 0)
+        {
+            return;
+        }
+
+        string msg = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Uploads_RemoveCompleted_Format"], completedCount);
+        if (!await DialogServiceForView.ShowOptOutConfirmationAsync(ConfirmationKeys.RemoveCompletedUploads, msg, Localizer.Instance["Uploads_Remove_Title"]))
+        {
+            return;
+        }
+
+        foreach ((Package package, PackageFile[] completed, bool wholePackage) in hits)
+        {
+            if (wholePackage)
+            {
+                _packageManager.RemovePackage(package);
+                RemovePackageFromView(package, completed);
+            }
+            else
+            {
+                // Mixed package: drop just the completed files. It can't become empty here (mixed means
+                // non-completed files remain), so no empty-package pruning is needed.
+                foreach (PackageFile file in completed)
+                {
+                    _packageManager.RemovePackage(file);
+                }
+
+                VisibleRows.RemoveRange([.. completed]);
+            }
+        }
+    }
+
+    /// <summary>
     /// Currently focused row (Package or PackageFile). Driven from the DataGrid's
     /// SelectedItem so the per-column "Copy" submenu can find the row even though
     /// each MenuItem only carries a single CommandParameter (the column key).

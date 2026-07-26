@@ -20,6 +20,7 @@ public static class ConfirmationKeys
     public const string RemoveProxy = "remove-proxy";
     public const string ResetColumns = "reset-columns";
     public const string ResetCompletedUpload = "reset-completed-upload";
+    public const string RemoveCompletedUploads = "remove-completed-uploads";
 
     /// <summary>
     /// Ordered list of all known confirmation keys paired with the ResX resource key for the
@@ -35,5 +36,6 @@ public static class ConfirmationKeys
         (RemoveProxy, "Confirm_RemoveProxy"),
         (ResetColumns, "Confirm_ResetColumns"),
         (ResetCompletedUpload, "Confirm_ResetCompletedUpload"),
+        (RemoveCompletedUploads, "Confirm_RemoveCompletedUploads"),
     }.AsReadOnly();
 }

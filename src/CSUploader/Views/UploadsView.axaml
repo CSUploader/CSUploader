@@ -445,6 +445,10 @@
                     Header="{loc:Loc Uploads_Context_Remove}"
                     InputGesture="Delete"
                     Command="{Binding RemoveSelectedCommand}" />
+          <!-- Selection-independent sweep — no SelectedItems parameter, so no code-behind wiring. -->
+          <MenuItem x:Name="RemoveAllCompletedMenuItem"
+                    Header="{loc:Loc Uploads_Context_RemoveAllCompleted}"
+                    Command="{Binding RemoveAllCompletedCommand}" />
         </ContextMenu>
       </DataGrid.ContextMenu>
 
