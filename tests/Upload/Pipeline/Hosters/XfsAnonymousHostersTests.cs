@@ -97,15 +97,20 @@ public class XfsAnonymousHostersTests
         Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode(pipeline.Name)); // i.e. not ApiKey
     }
 
+    // Send.now's keyless upload-server API (live 2026-07-26). Note the ?u=api label, which the
+    // pipeline replaces with the browser's own query.
+    private const string SendNowApiJson =
+        """{"result":"https://u0626.send.now/cgi-bin/upload.cgi?u=api","status":200,"server_time":"2026-07-26 16:10:12","msg":"OK"}""";
+
     [Fact]
-    public async Task SendNow_Anonymous_ScrapesHomepageFormAndLinksToFileCode()
+    public async Task SendNow_Anonymous_ResolvesTheNodeFromTheKeylessApi_AndPostsTheBrowsersQuery()
     {
         List<string> getUrls = [];
         List<UploadCall> calls = [];
         SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowHomeHtml); },
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowApiJson); },
             uploadOverride: Capture(calls, """[{"file_code":"abc123xyz","file_status":"OK"}]"""));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
@@ -114,15 +119,51 @@ public class XfsAnonymousHostersTests
         Assert.Equal("https://send.now/abc123xyz", tc.FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
 
-        // Scraped from the homepage (the base default), cache-busted.
-        string url = Assert.Single(getUrls);
-        Assert.StartsWith("https://send.now/?_=", url, StringComparison.Ordinal);
+        // Resolved from the JSON API, not the homepage.
+        Assert.Equal("https://send.now/api/upload/server", Assert.Single(getUrls));
 
         UploadCall call = Assert.Single(calls);
-        Assert.Equal("https://dl8202.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", call.Endpoint);
+        // The API's ?u=api is dropped and the browser's captured query used instead.
+        Assert.Equal("https://u0626.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", call.Endpoint);
         Assert.Equal(string.Empty, call.ExtraFields["sess_id"]);
         Assert.Equal("anon", call.ExtraFields["utype"]);
     }
+
+    [Fact]
+    public async Task SendNow_Anonymous_ApiUnusable_FallsBackToTheHomepageScrape()
+    {
+        // A WAF challenge page (or any non-JSON answer) on the API must not be fatal — the family's
+        // HTML scrape is still there as a second chance.
+        Queue<string> gets = new([
+            "<!DOCTYPE html><html><body>Just a moment...</body></html>", // API answers with junk
+            SendNowHomeHtml,                                             // homepage still has the form
+        ]);
+        List<UploadCall> calls = [];
+        SendNowPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(gets.Dequeue()),
+            uploadOverride: Capture(calls, """[{"file_code":"fellback","file_status":"OK"}]"""));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
+
+        Assert.Equal("https://send.now/fellback", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal("https://dl8202.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", Assert.Single(calls).Endpoint);
+        Assert.Empty(gets); // both sources were consulted
+    }
+
+    [Theory]
+    // Real shape -> bare node (query stripped).
+    [InlineData("""{"result":"https://u0626.send.now/cgi-bin/upload.cgi?u=api","msg":"OK"}""", "https://u0626.send.now/cgi-bin/upload.cgi")]
+    [InlineData("""{"result":"https://dl8202.send.now/cgi-bin/upload.cgi","msg":"OK"}""", "https://dl8202.send.now/cgi-bin/upload.cgi")]
+    // Unusable answers -> null so the caller falls back.
+    [InlineData("""{"msg":"Invalid key","status":400}""", null)]
+    [InlineData("""{"result":"","msg":"OK"}""", null)]
+    [InlineData("""{"result":"https://send.now/somewhere/else","msg":"OK"}""", null)]
+    [InlineData("<html>Just a moment...</html>", null)]
+    [InlineData("", null)]
+    public void TryReadApiUploadNode_ExtractsTheNodeOrNull(string json, string? expected)
+        => Assert.Equal(expected, SendNowPipeline.TryReadApiUploadNode(json));
 
     /// <summary>Kept while DropGalaxy is disabled: it pins the (correct, live-verified) protocol
     /// wiring so a re-enable — should the cap ever become usable — starts from a known-good shim.</summary>

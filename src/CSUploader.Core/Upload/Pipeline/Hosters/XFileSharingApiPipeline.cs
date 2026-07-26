@@ -635,7 +635,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// (the rotating <c>…/cgi-bin/upload.cgi?…</c>). Returns (null, error) when the homepage
     /// fetch fails or no upload form is present.
     /// </summary>
-    private async Task<(string? UploadUrl, string? Error)> DiscoverAnonymousServerAsync(AttemptContext ctx, CancellationToken ct)
+    /// <summary>
+    /// Resolves the node an anonymous upload POSTs to. The family's usual way is to scrape the
+    /// rotating <c>action</c> off the web upload form (below), but a hoster that exposes a keyless
+    /// <c>/api/upload/server</c> can override this with the JSON call instead — a stable contract,
+    /// where the HTML page is subject to WAF/marketing variation (Send.now does exactly that).
+    /// </summary>
+    protected virtual async Task<(string? UploadUrl, string? Error)> DiscoverAnonymousServerAsync(AttemptContext ctx, CancellationToken ct)
     {
         // Cache-bust the form page: it's cached per-connection/edge, so a plain re-GET hands back
         // the SAME (often dead) upload server — defeating the retry. A unique query param forces a
@@ -2027,7 +2033,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             ? summary
             : summary + Environment.NewLine + Environment.NewLine + responseBody;
 
-    private async Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
+    /// <summary>Fetches a page/endpoint through the pipeline's own (test-overridable) GET, following
+    /// redirects manually. <c>protected</c> so a subclass overriding a discovery step keeps using the
+    /// same seam the test ctor stubs.</summary>
+    protected async Task<string> GetAsync(AttemptContext ctx, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
     {
         if (_getOverride is not null)
         {
