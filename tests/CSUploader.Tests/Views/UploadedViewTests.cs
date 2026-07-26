@@ -6,8 +6,10 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Net.Http;
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -79,6 +81,43 @@ public class UploadedViewTests
             grid.ExpandRowGroup(firstGroup, expandAllSubgroups: false);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(7, RealizedRowCount(grid));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Repro: right-click a group header through the REAL pointer chain (hit-test + tunnel handler),
+    //    not the direct ApplyRightClickSelection call the other targeting tests use. Field report: on the
+    //    History tab, right-clicking a package selected nothing and the menu's Remove no-oped. ──
+
+    [AvaloniaFact]
+    public void RightClick_OnGroupHeader_RealPointerEvent_SelectsTheWholeGroup()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            DataGridRowGroupHeader header = grid.GetVisualDescendants().OfType<DataGridRowGroupHeader>().First();
+            Point centre = header.TranslatePoint(
+                new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window) ?? default;
+
+            window.MouseDown(centre, MouseButton.Right);
+            window.MouseUp(centre, MouseButton.Right);
+            Dispatcher.UIThread.RunJobs();
+
+            // The DataGrid's OWN press handling cleared the tunnel handler's selection here (observed as
+            // +3 then -3 in SelectionChanged) — the fix re-applies the intended targets when the menu
+            // opens. Drive the Opening path exactly as the ContextMenu does.
+            bool suppressed = view.SnapshotSelectionAndDecideSuppression();
+
+            // The first (photos) group has 3 rows — the menu must open (not suppressed) over all of them.
+            Assert.False(suppressed);
+            Assert.Equal(3, grid.SelectedItems.Count);
+            Assert.Equal(3, harness.Vm.SelectedRows.Count); // the snapshot the commands act on
         }
         finally
         {

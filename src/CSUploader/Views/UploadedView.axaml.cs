@@ -44,6 +44,14 @@ public partial class UploadedView : UserControl
     // carries no pointer source, so the decision is recorded here where the source is available.
     private bool _rightClickOnItem;
 
+    // The selection the last right-click intended (the row, the preserved multi-selection, or a group's
+    // rows). The tunnel press handler applies it immediately, but the DataGrid's OWN press handling runs
+    // AFTER the tunnel phase and clears the selection again when the press landed on a group header —
+    // observed as +3 then -3 in SelectionChanged — so the menu opened over an empty selection and Remove
+    // no-oped. Opening re-applies this stash, which is ordering-proof: it runs after all press handling,
+    // immediately before the menu shows.
+    private IReadOnlyList<object>? _rightClickTargets;
+
     public UploadedView()
     {
         InitializeComponent();
@@ -232,6 +240,7 @@ public partial class UploadedView : UserControl
                 FilesGrid.SelectedItems.Add(item);
             }
 
+            _rightClickTargets = [.. FilesGrid.SelectedItems.Cast<object>()];
             _rightClickOnItem = true;
             return;
         }
@@ -246,10 +255,12 @@ public partial class UploadedView : UserControl
                 FilesGrid.SelectedItems.Add(groupItem);
             }
 
+            _rightClickTargets = [.. group.Items.Cast<object>()];
             _rightClickOnItem = true;
             return;
         }
 
+        _rightClickTargets = null;
         _rightClickOnItem = false;
     }
 
@@ -265,6 +276,19 @@ public partial class UploadedView : UserControl
     /// </summary>
     internal bool SnapshotSelectionAndDecideSuppression()
     {
+        // Re-apply the press's intended targets if anything (the DataGrid's own group-header press
+        // handling) cleared them between the tunnel press and the menu opening. No-op when the selection
+        // already matches — the common row case.
+        if (_rightClickOnItem && _rightClickTargets is { Count: > 0 } targets
+            && !targets.SequenceEqual(FilesGrid.SelectedItems.Cast<object>()))
+        {
+            FilesGrid.SelectedItems.Clear();
+            foreach (object target in targets)
+            {
+                FilesGrid.SelectedItems.Add(target);
+            }
+        }
+
         if (DataContext is UploadedViewModel vm)
         {
             vm.SelectedRows = [.. FilesGrid.SelectedItems.OfType<UploadedFileRow>()];

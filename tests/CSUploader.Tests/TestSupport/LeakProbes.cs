@@ -24,9 +24,16 @@ internal static class LeakProbes
     /// </summary>
     internal static int CollectionChangedSubscriberCount(INotifyCollectionChanged source)
     {
-        FieldInfo field = source.GetType().GetField(
-            "CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var handler = (NotifyCollectionChangedEventHandler?)field.GetValue(source);
+        // Walk the inheritance chain: GetField never returns a PRIVATE field declared on a base type, so
+        // probing a subclass (e.g. RangeObservableCollection, the Uploads tab's VisibleRows type) directly
+        // on GetType() came back null. The backing field lives wherever the event is declared.
+        FieldInfo? field = null;
+        for (Type? t = source.GetType(); t is not null && field is null; t = t.BaseType)
+        {
+            field = t.GetField("CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+        }
+
+        var handler = (NotifyCollectionChangedEventHandler?)field!.GetValue(source);
         return handler?.GetInvocationList().Length ?? 0;
     }
 }
