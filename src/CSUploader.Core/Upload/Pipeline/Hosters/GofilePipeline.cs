@@ -129,7 +129,7 @@ public sealed class GofilePipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += OnProgress;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, token!, folderId!);
+        Task<HttpResponseSnapshot> uploadTask = UploadWithRetryAsync(ctx, token!, folderId!);
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
             CancellationToken.None,
@@ -267,6 +267,24 @@ public sealed class GofilePipeline : IFileHosterPipeline
     }
 
     private static bool IsTransient(int status) => status == 429 || status is >= 500 and < 600;
+
+    /// <summary>Runs the upload POST, retrying a transient gateway verdict (429/5xx) with the same bounded
+    /// backoff as the API steps — gofile's edge intermittently 502s "Error forwarding request to upload
+    /// server" even when the platform is otherwise healthy. Re-sending is safe: a 5xx means no confirmed
+    /// file record, and the worst ambiguous case only duplicates the file inside this upload's OWN fresh
+    /// folder (same downloadPage either way). Only status verdicts retry here — a mid-send transport fault
+    /// still throws and propagates to the shared retry layer, which re-runs the whole pipeline.</summary>
+    private async Task<HttpResponseSnapshot> UploadWithRetryAsync(AttemptContext ctx, string token, string folderId)
+    {
+        HttpResponseSnapshot snap = await UploadAsync(ctx, token, folderId);
+        for (int attempt = 0; IsTransient(snap.StatusCode) && attempt < 3; attempt++)
+        {
+            await _retryDelay(attempt, ctx.Cancellation).ConfigureAwait(false);
+            snap = await UploadAsync(ctx, token, folderId);
+        }
+
+        return snap;
+    }
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string token, string folderId)
     {

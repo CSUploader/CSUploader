@@ -251,6 +251,50 @@ public class GofilePipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_Upload502_RetriesThenSucceeds()
+    {
+        // gofile's edge intermittently 502s the upload POST ("Error forwarding request to upload server")
+        // even when setup succeeded — the upload step retries transient gateway verdicts like the API steps.
+        int uploadCalls = 0;
+        GofilePipeline pipeline = new(
+            api: (_, url, _, _) => Ok(SetupResponse(url)),
+            upload: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return uploadCalls < 3
+                    ? new HttpResponseSnapshot(502, "Error forwarding request to upload server", [])
+                    : Ok("""{"status":"ok","data":{"downloadPage":"https://gofile.io/d/C"}}""");
+            });
+
+        List<UploadEvent> events = await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        TransferCompleted done = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://gofile.io/d/C", done.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(3, uploadCalls); // 502, 502, ok
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadPersistent502_FailsAfterBoundedRetries()
+    {
+        int uploadCalls = 0;
+        GofilePipeline pipeline = new(
+            api: (_, url, _, _) => Ok(SetupResponse(url)),
+            upload: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return new HttpResponseSnapshot(502, "Error forwarding request to upload server", []);
+            });
+
+        List<UploadEvent> events = await Drain(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("HTTP 502", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Equal(4, uploadCalls); // the initial send + 3 bounded retries, then a terminal verdict
+    }
+
+    [Fact]
     public async Task RunAsync_UploadTransportFault_PropagatesOutOfRunAsync()
     {
         // A mid-send abort after setup must PROPAGATE (retryable) — no file was created, so the shared
