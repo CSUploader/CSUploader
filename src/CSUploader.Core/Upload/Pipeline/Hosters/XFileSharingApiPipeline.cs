@@ -653,9 +653,18 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         Match m = _anonUploadActionRegex.Match(html);
-        return m.Success
-            ? (m.Groups[1].Value, null)
-            : (null, $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found at {url}");
+        if (m.Success)
+        {
+            return (m.Groups[1].Value, null);
+        }
+
+        // Include what actually came back. GetAsync returns the body whatever the status is, so an
+        // edge/WAF answer (a Cloudflare interstitial, an "Attention Required" 1015 rate-limit page,
+        // a geo block) reads as a plain "form not found" — the snippet is what tells those apart
+        // from a genuine template change, without needing a packet capture.
+        return (null,
+            $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found at {url} "
+            + $"(received {html.Length} bytes: {Snippet(html)})");
     }
 
     /// <summary>
