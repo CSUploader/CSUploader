@@ -124,23 +124,86 @@ public class GigaPetaPipelineUploadTests
     }
 
     [Fact]
-    public async Task RunAsync_UploadReturnsNoDownloadLink_YieldsAttemptFailed()
+    public async Task RunAsync_UploadReturnsNoDownloadLink_YieldsAttemptFailed_WithoutRetry()
     {
+        // A 200 with no link is a parse-shape failure, not a transient verdict — it must fail
+        // terminally on the FIRST response (the 403/429/5xx class is what retries).
         Queue<HttpResponseSnapshot> home = new(new[]
         {
             new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
         });
         Queue<HttpResponseSnapshot> uploads = new(new[]
         {
-            new HttpResponseSnapshot(403, "<html><head><title>403 Forbidden</title></head></html>", Array.Empty<string>(), null),
+            new HttpResponseSnapshot(200, "<html><body>no link anywhere</body></html>", Array.Empty<string>(), null),
         });
-        GigaPetaPipeline pipeline = MakePipeline(home, uploads, out _);
+        GigaPetaPipeline pipeline = MakePipeline(home, uploads, out List<UploadCall> calls);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("did not return a download link", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Single(calls); // no retry for a non-transient verdict
+    }
+
+    [Fact]
+    public async Task RunAsync_Upload403_RetriesAgainstFreshlyScrapedNode_ThenSucceeds()
+    {
+        // The nodes 403 while the client's serialization slot is held (or a node is unhealthy). The
+        // retry must NOT reuse the old node: it re-scrapes the homepage and posts to the fresh
+        // assignment (here g7/disk7, proving the second scrape was used).
+        const string Home2 = """
+            <form id="upload-form" action="http://g7.upload.gigapeta.com:81/disk7" method="post">
+              <input type="hidden" name="MAX_FILE_SIZE" value="262144000" />
+            </form>
+            """;
+        Queue<HttpResponseSnapshot> home = new(new[]
+        {
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, Home2, Array.Empty<string>()),
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(403, "<html><head><title>403 Forbidden</title></head><body><center>nginx/1.2.3</center></body></html>", Array.Empty<string>(), null),
+            new HttpResponseSnapshot(302, string.Empty, Array.Empty<string>(), "http://gigapeta.com/dl/retriedOk?done"),
+        });
+        GigaPetaPipeline pipeline = MakePipeline(home, uploads, out List<UploadCall> calls);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("http://gigapeta.com/dl/retriedOk", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, calls.Count);
+        Assert.StartsWith("http://g25.upload.gigapeta.com:81/disk37?", calls[0].Endpoint, StringComparison.Ordinal);
+        Assert.StartsWith("http://g7.upload.gigapeta.com:81/disk7?", calls[1].Endpoint, StringComparison.Ordinal); // fresh node
+    }
+
+    [Fact]
+    public async Task RunAsync_UploadPersistent403_FailsAfterBoundedRetries()
+    {
+        Queue<HttpResponseSnapshot> home = new(new[]
+        {
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()),
+        });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(403, "403 Forbidden", Array.Empty<string>(), null),
+            new HttpResponseSnapshot(403, "403 Forbidden", Array.Empty<string>(), null),
+            new HttpResponseSnapshot(403, "403 Forbidden", Array.Empty<string>(), null),
+            new HttpResponseSnapshot(403, "403 Forbidden", Array.Empty<string>(), null),
+        });
+        GigaPetaPipeline pipeline = MakePipeline(home, uploads, out List<UploadCall> calls);
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("403", fail.Reason, StringComparison.Ordinal);
         Assert.DoesNotContain(events, e => e is TransferCompleted);
+        Assert.Equal(4, calls.Count); // the initial send + 3 bounded retries, then terminal
     }
 
     [Fact]

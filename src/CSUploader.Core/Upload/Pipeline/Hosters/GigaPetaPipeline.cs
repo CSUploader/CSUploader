@@ -65,19 +65,23 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<int, CancellationToken, Task> _retryDelay;
 
     public GigaPetaPipeline()
     {
+        _retryDelay = static (attempt, ct) => Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct);
     }
 
     /// <summary>Test ctor — drives the homepage GET and the multipart upload from canned
-    /// responses so the scrape/parse logic can be exercised without the network.</summary>
+    /// responses so the scrape/parse logic can be exercised without the network, and zeroes the
+    /// retry backoff.</summary>
     internal GigaPetaPipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
         _uploadOverride = uploadOverride;
+        _retryDelay = static (_, _) => Task.CompletedTask;
     }
 
     public string Name => "GigaPeta";
@@ -136,9 +140,9 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, actionUrl, maxFileSizeField, cookieHeader);
+        Task<(string? Url, string? Error)> workTask = UploadWithRetryAsync(ctx, actionUrl, maxFileSizeField, cookieHeader);
 
-        _ = uploadTask.ContinueWith(
+        _ = workTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -156,11 +160,9 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
         // UploadBodyTransferException, and re-running this whole pipeline scrapes a FRESH rotating
         // upload node — the right recovery, and it never double-creates because the body never
         // finished. A genuine user cancel surfaces as OperationCanceledException and is classified by
-        // AttemptRunner. A SERVER VERDICT does NOT throw (UploadMultipartAsync returns the snapshot),
-        // so it still flows through ParseUploadResponse below.
-        HttpResponseSnapshot uploadResponse = await uploadTask;
-
-        (string? url, string? error) = ParseUploadResponse(uploadResponse);
+        // AttemptRunner. A SERVER VERDICT does NOT throw — it is handled (and possibly retried)
+        // inside UploadWithRetryAsync.
+        (string? url, string? error) = await workTask;
         if (error is not null)
         {
             yield return new AttemptFailed(error, null);
@@ -168,6 +170,45 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
         }
 
         yield return new TransferCompleted(url!);
+    }
+
+    /// <summary>Upload attempts allowed after the first (bounded — a persistently 403ing host still
+    /// terminates after re-sending at most this many times).</summary>
+    private const int MaxUploadRetries = 3;
+
+    /// <summary>Verdicts worth re-sending for: GigaPeta's nodes answer <c>403 Forbidden</c> while the
+    /// client's serialization slot is still held (they allow ONE upload per client — see
+    /// <see cref="MaxConcurrentUploadsFor"/>; the slot can linger briefly after the previous upload, and
+    /// other clients behind the same IP count too) or when a rotated-to node is unhealthy; 429/5xx are the
+    /// usual transient gateway class.</summary>
+    private static bool IsRetryableVerdict(int status) => status is 403 or 429 or (>= 500 and < 600);
+
+    /// <summary>Runs the upload, retrying a retryable server verdict up to <see cref="MaxUploadRetries"/>
+    /// times with backoff — each retry re-scrapes the homepage first so it POSTs to a FRESHLY assigned
+    /// rotating node (the per-load assignment is the recovery lever for a bad node). Safe to re-send:
+    /// success is the only thing that returns a download link, so a verdict response means no file record
+    /// exists. Transport faults are NOT caught — they propagate to the shared retry layer as before.</summary>
+    private async Task<(string? Url, string? Error)> UploadWithRetryAsync(AttemptContext ctx, string actionUrl, long maxFileSizeField, string cookieHeader)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            HttpResponseSnapshot response = await UploadAsync(ctx, actionUrl, maxFileSizeField, cookieHeader);
+            (string? url, string? error) = ParseUploadResponse(response);
+            if (url is not null || !IsRetryableVerdict(response.StatusCode) || attempt >= MaxUploadRetries)
+            {
+                return (url, error);
+            }
+
+            await _retryDelay(attempt, ctx.Cancellation).ConfigureAwait(false);
+
+            (string? freshAction, long freshMax, string freshCookies, string? scrapeError) = await FetchUploadFormAsync(ctx);
+            if (freshAction is null)
+            {
+                return (null, scrapeError);
+            }
+
+            (actionUrl, maxFileSizeField, cookieHeader) = (freshAction, freshMax, freshCookies);
+        }
     }
 
     /// <summary>
