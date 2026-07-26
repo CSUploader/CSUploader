@@ -943,6 +943,12 @@ public class PackageManager
         // HttpHandler at entry, so the retry naturally picks the next proxy.
         file.Error = null;
 
+        // A re-queued row must not keep showing the previous attempt's Elapsed/Started/Finished/
+        // progress while it waits (the loader restores those from the persisted attempt across a
+        // restart — a Failed file re-queued after relaunch otherwise sits in the queue displaying
+        // the dead attempt's 3-hour Duration).
+        file.ResetAttemptDisplay();
+
         // Re-queueing a TERMINAL file (manual Retry / per-row Start of a Failed or Cancelled
         // file) appends to the end: clear its stale QueueOrder so the subsequent
         // FillAvailableSlots → FillSlots → EnsureQueueOrdered (on the scheduler loop) gives it a

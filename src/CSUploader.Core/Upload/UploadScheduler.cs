@@ -763,6 +763,11 @@ public class UploadScheduler : IDisposable
                     file.Error = null;
                 }
 
+                // Same rule as PackageManager.ForceQueueIfStartable: a re-queued row must not keep
+                // showing the previous attempt's Elapsed/Started/Finished/progress while it waits
+                // (Idle rows have nothing set, so this only affects genuine re-queues).
+                file.ResetAttemptDisplay();
+
                 // Re-queueing a TERMINAL file (Failed/Cancelled) appends to the end: clear its
                 // stale QueueOrder so EnsureQueueOrdered (via the FillSlots after StartAll) gives
                 // it a fresh position past the current max. Idle is already 0; Paused kept its

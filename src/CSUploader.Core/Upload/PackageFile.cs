@@ -438,4 +438,25 @@ public class PackageFile : INotifyPropertyChanged
         BytesLoaded = null;
         Progress = null;
     }
+
+    /// <summary>
+    /// Clears the PREVIOUS attempt's display values when the file is re-queued (Start/Retry of an
+    /// Idle/Paused/Failed/Cancelled row — including one restored from an earlier session, whose
+    /// Duration/dates the loader rebuilds from the persisted attempt). A queued file must read like a
+    /// queued file: no stale Elapsed/Started/Finished/progress from the attempt that failed. Distinct
+    /// from <see cref="ResetProgressValues"/>, which runs when the NEW attempt actually starts (and
+    /// stamps <see cref="StartedDate"/> = now); this one leaves the row blank while it waits. Error is
+    /// intentionally not touched — the two re-queue call sites keep their existing clearing rules.
+    /// </summary>
+    internal void ResetAttemptDisplay()
+    {
+        StartedDate = null;
+        FinishedDate = null;
+        Duration = null;
+        Speed = null;
+        TimeRemaining = null;
+        BytesLoaded = null;
+        Progress = null;
+        BytesRemaining = Size;
+    }
 }
