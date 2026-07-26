@@ -126,6 +126,43 @@ public sealed class UploadsViewModelSummaryTests : IDisposable
     }
 
     [Fact]
+    public void Tick_RunsTheElapsedClock_AndProjectsFinishAt_FreezingElapsedWhenTheRunEnds()
+    {
+        InlineUiDispatcher dispatcher = new();
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), dispatcher, Mock.Of<IClipboardService>());
+        Package p = MakePackage("P");
+        PackageFile f = MakeFile(p, size: 1000, loaded: 400, remaining: 600, speed: 50, FileState.Uploading);
+        f.StartedDate = DateTime.Now.AddSeconds(-90);
+        p.AddPackageFiles([f]);
+        vm.Packages.Add(p);
+
+        // Before any tick both read "~" (no run observed, nothing projected).
+        Assert.Equal("~", vm.Elapsed);
+        Assert.Equal("~", vm.FinishAt);
+
+        dispatcher.Timers[0].Tick();
+
+        // The run clock seeds from the active file's StartedDate (~90 s ago), not from tick time.
+        Assert.NotEqual("~", vm.Elapsed);
+        Assert.Contains("m:", vm.Elapsed, StringComparison.Ordinal); // ≈ 01m:30s
+
+        // Finish projection = now + remaining/speed (600/50 = 12 s), rendered as a wall-clock time.
+        Assert.True(DateTime.TryParse(
+            vm.FinishAt, System.Globalization.CultureInfo.CurrentCulture, System.Globalization.DateTimeStyles.None, out DateTime finish));
+        Assert.True(Math.Abs((finish - DateTime.Now.AddSeconds(12)).TotalMinutes) < 2);
+
+        // The run ends: Elapsed FREEZES at the batch total (still readable) instead of resetting; the
+        // finish projection clears.
+        f.State = FileState.Completed;
+        f.Speed = null;
+        f.BytesRemaining = null;
+        dispatcher.Timers[0].Tick();
+        Assert.NotEqual("~", vm.Elapsed);
+        Assert.Contains("m:", vm.Elapsed, StringComparison.Ordinal);
+        Assert.Equal("~", vm.FinishAt);
+    }
+
+    [Fact]
     public void Tick_IsSkippedWhileInactive_AndSetActiveTrue_RunsAnImmediateCatchUpRefresh()
     {
         InlineUiDispatcher dispatcher = new();

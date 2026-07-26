@@ -729,6 +729,8 @@
               <MenuItem Header="{loc:Loc Uploads_Overview_BytesLoaded}" ToggleType="CheckBox" IsChecked="{Binding ShowBytesLoaded, Mode=TwoWay}" />
               <MenuItem Header="{loc:Loc Uploads_Overview_RemainingBytes}" ToggleType="CheckBox" IsChecked="{Binding ShowRemainingBytes, Mode=TwoWay}" />
               <MenuItem Header="{loc:Loc Uploads_Overview_Eta}" ToggleType="CheckBox" IsChecked="{Binding ShowEta, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_Elapsed}" ToggleType="CheckBox" IsChecked="{Binding ShowElapsed, Mode=TwoWay}" />
+              <MenuItem Header="{loc:Loc Uploads_Overview_FinishAt}" ToggleType="CheckBox" IsChecked="{Binding ShowFinishAt, Mode=TwoWay}" />
               <MenuItem Header="{loc:Loc Uploads_Overview_RunningUploads}" ToggleType="CheckBox" IsChecked="{Binding ShowRunningUploads, Mode=TwoWay}" />
               <MenuItem Header="{loc:Loc Uploads_Overview_OpenConnections}" ToggleType="CheckBox" IsChecked="{Binding ShowOpenConnections, Mode=TwoWay}" />
               <Separator />
@@ -755,6 +757,14 @@
             <StackPanel Classes="stat" IsVisible="{Binding ShowEta}">
               <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_EtaLabel}" />
               <TextBlock Classes="stat-value" Text="{Binding Eta}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowElapsed}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_ElapsedLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding Elapsed}" />
+            </StackPanel>
+            <StackPanel Classes="stat" IsVisible="{Binding ShowFinishAt}">
+              <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_FinishAtLabel}" />
+              <TextBlock Classes="stat-value" Text="{Binding FinishAt}" />
             </StackPanel>
             <StackPanel Classes="stat" IsVisible="{Binding ShowOpenConnections}">
               <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_OpenConnectionsLabel}" />

@@ -52,6 +52,15 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     // a VM with no shell wiring (e.g. tests) behaves exactly as before.
     private bool _isActive = true;
 
+    // Overview "Elapsed" run clock: set when the tick first observes running uploads (seeded from the
+    // oldest still-active file's StartedDate so a run that began off-tab isn't under-counted), frozen
+    // into _lastRunElapsed when running returns to 0 — so after a batch finishes the footer keeps showing
+    // how long it took, until the next run restarts the clock. "Finish at" is the wall-clock projection
+    // now + remaining/speed, recomputed per tick alongside the other aggregates.
+    private DateTime? _runStartedAt;
+    private TimeSpan? _lastRunElapsed;
+    private DateTime? _finishAt;
+
     /// <summary>
     /// Exposed to the view's code-behind so the column-toggle menu can persist visibility
     /// via the head-side <c>DataGridColumnVisibilityPersistence</c> helper. Optional in tests.
@@ -120,6 +129,12 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial bool ShowEta { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool ShowElapsed { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool ShowFinishAt { get; set; } = true;
 
     [ObservableProperty]
     public partial bool ShowRunningUploads { get; set; } = true;
@@ -225,18 +240,37 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         {
             long remaining = _bytesRemaining;
             long speed = _currentSpeed;
-            if (speed <= 0 || remaining <= 0)
-            {
-                return "~";
-            }
-
-            var eta = TimeSpan.FromSeconds(remaining / (double)speed);
-            return eta.Hours > 0
-                ? eta.ToString(@"h\h\:mm\m\:ss\s", CultureInfo.InvariantCulture)
-                : eta.Minutes > 0
-                    ? eta.ToString(@"mm\m\:ss\s", CultureInfo.InvariantCulture)
-                    : eta.ToString(@"ss\s", CultureInfo.InvariantCulture);
+            return speed <= 0 || remaining <= 0
+                ? "~"
+                : FormatDuration(TimeSpan.FromSeconds(remaining / (double)speed));
         }
+    }
+
+    /// <summary>How long the current upload run has been going — the clock starts when uploads start
+    /// running and, once the run ends, freezes at the batch's total so it reads as "that took 2h:10m"
+    /// until the next run. "~" before any run.</summary>
+    public string Elapsed => _runStartedAt is { } started
+        ? FormatDuration(DateTime.Now - started)
+        : _lastRunElapsed is { } last ? FormatDuration(last) : "~";
+
+    /// <summary>Wall-clock time the queue is projected to finish (now + remaining/speed) — today shows
+    /// just the time, another day shows date + time. "~" while nothing is transferring.</summary>
+    public string FinishAt => _finishAt is { } finish
+        ? finish.Date == DateTime.Today
+            ? finish.ToString("T", CultureInfo.CurrentCulture)
+            : finish.ToString("g", CultureInfo.CurrentCulture)
+        : "~";
+
+    /// <summary>Compact duration: <c>5h:03m:20s</c> / <c>03m:20s</c> / <c>20s</c>. Hours use the TOTAL
+    /// count (a 30-hour run shows 30h, not 6h), which the old per-component format got wrong past a day.</summary>
+    private static string FormatDuration(TimeSpan span)
+    {
+        int totalHours = (int)span.TotalHours;
+        return totalHours > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{totalHours}h:{span.Minutes:00}m:{span.Seconds:00}s")
+            : span.Minutes > 0
+                ? span.ToString(@"mm\m\:ss\s", CultureInfo.InvariantCulture)
+                : span.ToString(@"ss\s", CultureInfo.InvariantCulture);
     }
 
     // -- Commands --
@@ -945,6 +979,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     {
         int files = 0, running = 0, finished = 0, skipped = 0, failed = 0;
         long size = 0, loaded = 0, remaining = 0, speed = 0;
+        DateTime? oldestActiveStart = null;
 
         foreach (Package package in Packages)
         {
@@ -958,6 +993,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             finished += a.Completed;
             skipped += a.Cancelled;
             failed += a.Failed;
+            if (a.OldestActiveStart is { } start && (oldestActiveStart is null || start < oldestActiveStart))
+            {
+                oldestActiveStart = start;
+            }
         }
 
         _fileCount = files;
@@ -969,6 +1008,24 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _finishedLinks = finished;
         _skippedLinks = skipped;
         _failedLinks = failed;
+
+        // Elapsed run clock: start on the first tick that sees uploads running (seeded from the oldest
+        // active file's StartedDate so a run discovered mid-flight isn't under-counted); freeze the total
+        // when running returns to 0 so the finished batch's duration stays readable.
+        if (running > 0)
+        {
+            _runStartedAt ??= oldestActiveStart ?? DateTime.Now;
+        }
+        else if (_runStartedAt is { } startedAt)
+        {
+            _lastRunElapsed = DateTime.Now - startedAt;
+            _runStartedAt = null;
+        }
+
+        // Wall-clock finish projection, same inputs as the relative ETA.
+        _finishAt = speed > 0 && remaining > 0
+            ? DateTime.Now.AddSeconds(remaining / (double)speed)
+            : null;
     }
 
     /// <summary>
@@ -1025,6 +1082,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SpeedHistory));
         OnPropertyChanged(nameof(RunningUploads));
         OnPropertyChanged(nameof(Eta));
+        OnPropertyChanged(nameof(Elapsed));
+        OnPropertyChanged(nameof(FinishAt));
         OnPropertyChanged(nameof(FinishedLinks));
         OnPropertyChanged(nameof(SkippedLinks));
         OnPropertyChanged(nameof(FailedLinks));

@@ -378,6 +378,12 @@ Use Help → Install Update to download and install.</value>
   <data name="Uploads_Overview_Eta" xml:space="preserve">
     <value>ETA</value>
   </data>
+  <data name="Uploads_Overview_Elapsed" xml:space="preserve">
+    <value>Elapsed</value>
+  </data>
+  <data name="Uploads_Overview_FinishAt" xml:space="preserve">
+    <value>Finish at</value>
+  </data>
   <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
     <value>Running Uploads</value>
   </data>
@@ -413,6 +419,12 @@ Use Help → Install Update to download and install.</value>
   </data>
   <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
     <value>ETA:</value>
+  </data>
+  <data name="Uploads_Overview_ElapsedLabel" xml:space="preserve">
+    <value>Elapsed:</value>
+  </data>
+  <data name="Uploads_Overview_FinishAtLabel" xml:space="preserve">
+    <value>Finish at:</value>
   </data>
   <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
     <value>Running Uploads:</value>

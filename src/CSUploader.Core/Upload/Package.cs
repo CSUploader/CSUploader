@@ -290,6 +290,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
         int count = 0, uploading = 0, completed = 0, cancelled = 0, failed = 0;
         long size = 0, loaded = 0, remaining = 0, speed = 0;
         bool anyActiveSpeed = false;
+        DateTime? oldestActiveStart = null;
 
         lock (_filesLock)
         {
@@ -317,9 +318,19 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                 }
 
                 FileState state = f.State;
-                if ((state is FileState.Hashing or FileState.Uploading) && f.Speed.HasValue)
+                if (state is FileState.Hashing or FileState.Uploading)
                 {
-                    anyActiveSpeed = true;
+                    if (f.Speed.HasValue)
+                    {
+                        anyActiveSpeed = true;
+                    }
+
+                    // Earliest start among the still-active files — seeds the Overview's Elapsed clock
+                    // when a run is discovered already in flight (e.g. it began while the tab was hidden).
+                    if (f.StartedDate is { } started && (oldestActiveStart is null || started < oldestActiveStart))
+                    {
+                        oldestActiveStart = started;
+                    }
                 }
 
                 switch (state)
@@ -340,7 +351,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             }
         }
 
-        return new PackageAggregate(count, size, loaded, remaining, anyActiveSpeed ? speed : 0, uploading, completed, cancelled, failed);
+        return new PackageAggregate(count, size, loaded, remaining, anyActiveSpeed ? speed : 0, uploading, completed, cancelled, failed, oldestActiveStart);
     }
 
     /// <summary>
@@ -847,6 +858,9 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 /// <param name="Completed">Files in <see cref="FileState.Completed"/>.</param>
 /// <param name="Cancelled">Files in <see cref="FileState.Cancelled"/>.</param>
 /// <param name="Failed">Files in <see cref="FileState.Failed"/>.</param>
+/// <param name="OldestActiveStart">Earliest <see cref="PackageFile.StartedDate"/> among files currently
+/// hashing/uploading, or null when none are active — seeds the Overview's Elapsed clock when a run is
+/// first observed already in flight.</param>
 public readonly record struct PackageAggregate(
     int FileCount,
     long TotalBytes,
@@ -856,4 +870,5 @@ public readonly record struct PackageAggregate(
     int Uploading,
     int Completed,
     int Cancelled,
-    int Failed);
+    int Failed,
+    DateTime? OldestActiveStart = null);
