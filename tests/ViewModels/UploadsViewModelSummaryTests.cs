@@ -95,6 +95,37 @@ public sealed class UploadsViewModelSummaryTests : IDisposable
     }
 
     [Fact]
+    public void ExpandCollapse_LargePackage_KeepsVisibleRowsCorrect_ViaTheBulkResetPath()
+    {
+        // A package big enough for the RangeObservableCollection Reset regime — pins that the bulk
+        // insert/remove path (single Reset instead of per-row events) yields exactly the same rows the
+        // old per-item path produced: package row followed by its files in order, then clean removal.
+        InlineUiDispatcher dispatcher = new();
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), dispatcher, Mock.Of<IClipboardService>());
+
+        const int FileCount = RangeObservableCollection<object>.RangeThreshold + 10;
+        Package big = MakePackage("Big");
+        PackageFile[] files = [.. Enumerable.Range(0, FileCount)
+            .Select(i => MakeFile(big, size: 100, loaded: null, remaining: 100, speed: null, FileState.UploadQueued))];
+        big.AddPackageFiles(files);
+
+        vm.Packages.Add(big);
+        vm.VisibleRows.Add(big);
+        vm.VisibleRows.InsertRange(1, [.. files]);
+        Assert.Equal(FileCount + 1, vm.VisibleRows.Count);
+        Assert.Same(big, vm.VisibleRows[0]);
+        Assert.Same(files[0], vm.VisibleRows[1]);            // files follow the package row, in order
+        Assert.Same(files[^1], vm.VisibleRows[FileCount]);
+
+        vm.VisibleRows.RemoveRange([.. files]);              // collapse
+        Assert.Equal([big], vm.VisibleRows);                 // only the package row survives
+
+        vm.VisibleRows.InsertRange(1, [.. files]);           // re-expand restores the identical layout
+        Assert.Equal(FileCount + 1, vm.VisibleRows.Count);
+        Assert.Same(files[0], vm.VisibleRows[1]);
+    }
+
+    [Fact]
     public void Tick_IsSkippedWhileInactive_AndSetActiveTrue_RunsAnImmediateCatchUpRefresh()
     {
         InlineUiDispatcher dispatcher = new();

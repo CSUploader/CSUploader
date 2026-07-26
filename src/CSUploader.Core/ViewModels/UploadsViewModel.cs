@@ -140,8 +140,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Flat list of rows for the DataGrid: packages interleaved with their files
     /// (when the package is expanded). Single shared column widths across all rows.
+    /// Range-capable so expanding/collapsing/adding/removing a large package mutates the grid in one
+    /// Reset instead of thousands of per-row events (see <see cref="RangeObservableCollection{T}"/>).
     /// </summary>
-    public ObservableCollection<object> VisibleRows { get; } = [];
+    public RangeObservableCollection<object> VisibleRows { get; } = [];
 
     /// <summary>
     /// Filter text bound to the JD2-style filter bar at the bottom of the Uploads tab.
@@ -707,12 +709,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     {
         package.PropertyChanged -= Package_PropertyChanged;
         package.PackageFilesAdded -= Package_FilesAdded;
-        foreach (PackageFile file in files)
-        {
-            VisibleRows.Remove(file);
-        }
 
-        VisibleRows.Remove(package);
+        // One bulk removal covering the file rows AND the package row (single Reset for big packages),
+        // instead of a per-row Remove that scanned VisibleRows once per file.
+        VisibleRows.RemoveRange([.. files, package]);
         Packages.Remove(package);
     }
 
@@ -851,22 +851,28 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // Insert after any existing file rows for this package (idempotent)
+        // Insert the package's not-yet-present files as one consecutive block after the package row
+        // (idempotent). Presence is checked against a set built in one pass — the old per-file
+        // VisibleRows.Contains was an O(N) scan each, O(n²) for a large package — and the block goes in
+        // via InsertRange, which raises a single Reset for big packages instead of one event per row.
+        HashSet<object> present = [.. VisibleRows];
+        List<object> toInsert = [];
         foreach (PackageFile file in package)
         {
-            if (!VisibleRows.Contains(file))
+            if (!present.Contains(file))
             {
-                VisibleRows.Insert(insertIndex++, file);
+                toInsert.Add(file);
             }
         }
+
+        VisibleRows.InsertRange(insertIndex, toInsert);
     }
 
     private void RemovePackageFiles(Package package)
     {
-        foreach (PackageFile file in package)
-        {
-            VisibleRows.Remove(file);
-        }
+        // Set-based bulk removal: one pass over VisibleRows (single Reset for big packages) instead of a
+        // per-file Remove, each of which was its own O(N) scan + shift + grid event.
+        VisibleRows.RemoveRange([.. package]);
     }
 
     /// <summary>
