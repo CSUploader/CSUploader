@@ -24,8 +24,8 @@
     <AssemblyName>CSUploader</AssemblyName>
     <!-- First Avalonia release. release.yml derives the SHIPPED version from the pushed vX.Y.Z tag
          (-p:Version), so this is the loose-build fallback — keep it in sync with the release tag. -->
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

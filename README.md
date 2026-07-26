@@ -1,6 +1,6 @@
 # CSUploader
 
-CSUploader is a Windows desktop application for uploading files to file hosting services. It provides an upload wizard, a queue with real-time progress tracking, and history of past uploads.
+CSUploader is a desktop application for **Windows** and **Linux** for uploading files to file hosting services. It provides an upload wizard, a queue with real-time progress tracking, and history of past uploads.
 
 ![CSUploader main window](docs/images/main-window.png)
 
@@ -17,8 +17,21 @@ CSUploader is a Windows desktop application for uploading files to file hosting 
 
 ## Requirements
 
-- Windows 10 (build 17763 / 1809+) or Windows 11
+- **Windows**: Windows 10 (build 17763 / 1809+) or Windows 11
+- **Linux**: x64 with glibc (tested on Ubuntu) — ships as a portable AppImage
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for development; published builds are self-contained
+
+## Install
+
+- **Windows**: run the installer from the latest release; the app keeps itself up to date.
+- **Linux**: download `CSUploader.AppImage` from the latest release, then:
+
+  ```bash
+  chmod +x CSUploader.AppImage
+  ./CSUploader.AppImage
+  ```
+
+  No installer and no dependencies; the app self-updates from the same release feed.
 
 ## Build & Run
 
