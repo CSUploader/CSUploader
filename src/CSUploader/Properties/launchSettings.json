@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "CSUploader": {
-      "commandName": "Project",
-      "commandLineArgs": "--agent"
-    }
-  }
-}

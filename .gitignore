@@ -14,6 +14,10 @@
 # Per-developer by design (kept out of the repo so CI / clean checkouts stay self-contained).
 Directory.Build.local.props
 
+# Per-developer VS run profiles. Local copies carry dev-only switches (e.g. --agent, which forces
+# AutostartUploads=Never and starts the scheduler paused) that must not become everyone's default.
+launchSettings.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
