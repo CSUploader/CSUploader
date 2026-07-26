@@ -210,6 +210,17 @@
             <MenuItem Header="{loc:Loc Uploaded_Col_Hash}" Command="{Binding CopyColumnCommand}" CommandParameter="Hash" />
             <MenuItem Header="{loc:Loc Uploaded_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
           </MenuItem>
+          <!-- Paste-ready link export of the selected rows (a group right-click selects the whole
+               package). Keys are LinkExport.ParseKey inputs; SelectedRows is snapshotted at Opening. -->
+          <MenuItem Header="{loc:Loc Common_CopyLinks}">
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFilePlain}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.Plain" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFileBBCode}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.BBCode" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFileMarkdown}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.Markdown" />
+            <Separator />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterPlain}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.Plain" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterBBCode}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.BBCode" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterMarkdown}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.Markdown" />
+          </MenuItem>
           <MenuItem x:Name="OpenUrlMenuItem"
                     Header="{loc:Loc Common_Context_OpenUrl}"
                     Command="{Binding OpenUrlCommand}" />

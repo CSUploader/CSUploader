@@ -758,6 +758,69 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         && selectedItems.Cast<object>().OfType<PackageFile>().Any(f => !string.IsNullOrEmpty(f.FileUrl));
 
     /// <summary>
+    /// Context menu "Copy Links" — formats the selection's COMPLETED links into a paste-ready block
+    /// (grouped by file or hoster; plain/BBCode/Markdown per the menu item's key) and puts it on the
+    /// clipboard. Selected packages contribute their completed files; a selected file whose package is
+    /// also selected is not doubled. Nothing completed in the selection → no-op (clipboard untouched).
+    /// </summary>
+    [RelayCommand]
+    private async Task CopyLinksAsync(string? formatKey)
+    {
+        IReadOnlyList<object> selection = SelectedRows.Count > 0
+            ? SelectedRows
+            : (SelectedRow is { } only ? [only] : []);
+
+        List<LinkExportRow> links = CollectExportRows(selection);
+        if (links.Count == 0 || LinkExport.ParseKey(formatKey) is not { } opts)
+        {
+            return;
+        }
+
+        try
+        {
+            await _clipboardService.SetTextAsync(LinkExport.Format(links, opts.GroupBy, opts.Format));
+        }
+        catch
+        {
+            // Clipboard contention — swallow like the other copy commands.
+        }
+    }
+
+    /// <summary>The selection's exportable links, in selection/package order: completed files with a
+    /// URL, packages expanded to their files, and a selected child of a selected package counted once
+    /// (mirrors <see cref="RemoveSelectedAsync"/>'s dedup). Internal for direct unit testing.</summary>
+    internal static List<LinkExportRow> CollectExportRows(IReadOnlyList<object> selection)
+    {
+        HashSet<Package> packages = [.. selection.OfType<Package>()];
+        List<LinkExportRow> rows = [];
+
+        void AddIfExportable(PackageFile f)
+        {
+            if (f.State == FileState.Completed && !string.IsNullOrEmpty(f.FileUrl))
+            {
+                rows.Add(new LinkExportRow(f.Name, f.FileHoster.Name, f.FileUrl!));
+            }
+        }
+
+        foreach (object item in selection)
+        {
+            if (item is Package pkg)
+            {
+                foreach (PackageFile f in pkg)
+                {
+                    AddIfExportable(f);
+                }
+            }
+            else if (item is PackageFile file && !packages.Contains(file.Package))
+            {
+                AddIfExportable(file);
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     /// Copies the value of <paramref name="columnKey"/> from <see cref="SelectedRow"/>
     /// to the clipboard. Column keys mirror the resx <c>Uploads_Col_*</c> suffix so
     /// XAML can drive the submenu without a separate enum.

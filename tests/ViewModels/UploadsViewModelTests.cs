@@ -99,6 +99,31 @@ public class UploadsViewModelTests
     }
 
     [Fact]
+    public void CollectExportRows_ExpandsPackages_DedupesChildren_KeepsOnlyCompletedWithUrl()
+    {
+        (Package pkg, FileHosterClient h, FileHosterLoginDto l) = MakePackage();
+        PackageFile done = MakeFile(pkg, h, l, @"C:\d\a.r00", "https://rg/a0");
+        PackageFile noUrl = MakeFile(pkg, h, l, @"C:\d\a.r01", null);          // completed but URL-less
+        PackageFile queued = MakeFile(pkg, h, l, @"C:\d\a.r02", "https://x");  // not completed
+        pkg.AddPackageFiles(new[] { done, noUrl, queued });
+        done.State = FileState.Completed;
+        noUrl.State = FileState.Completed;
+        queued.State = FileState.UploadQueued;
+
+        (Package other, FileHosterClient h2, FileHosterLoginDto l2) = MakePackage();
+        PackageFile loose = MakeFile(other, h2, l2, @"C:\d\b.bin", "https://kf/b");
+        other.AddPackageFiles(new[] { loose });
+        loose.State = FileState.Completed;
+
+        // Selection: the package, its own child again (must not double), and a loose completed file.
+        List<LinkExportRow> rows = UploadsViewModel.CollectExportRows([pkg, done, loose]);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(new LinkExportRow("a.r00", "TestHost", "https://rg/a0"), rows[0]);
+        Assert.Equal(new LinkExportRow("b.bin", "TestHost", "https://kf/b"), rows[1]);
+    }
+
+    [Fact]
     public void TryBuildExplorerSelectArgument_ExistingFile_ReturnsQuotedSelectArgument()
     {
         string full = Path.Combine(@"C:\src\My Uploads", "movie.mkv");

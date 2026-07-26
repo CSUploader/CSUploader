@@ -292,6 +292,34 @@ public class UploadedViewModelTests : IDisposable
         Assert.Single(vm.Files); // visible-tab behavior is unchanged: completions reload (coalesced)
     }
 
+    [Fact]
+    public async Task CopyLinks_FormatsSelectedRowsToClipboard_UnknownKeyOrNoLinksNoOps()
+    {
+        Mock<IClipboardService> clipboard = new();
+        UploadedViewModel vm = new(
+            _packageRepo, _fileRepo, _packageManager, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(),
+            new InlineUiDispatcher(), clipboard.Object);
+        vm.SelectedRows =
+        [
+            new UploadedFileRow { FileName = "a.r00", FileHosterName = "Rapidgator", FileUrl = "https://rg/a0" },
+            new UploadedFileRow { FileName = "a.r00", FileHosterName = "KatFile", FileUrl = "https://kf/a0" },
+            new UploadedFileRow { FileName = "x.bin", FileHosterName = "Rapidgator", FileUrl = null }, // skipped
+        ];
+
+        await vm.CopyLinksCommand.ExecuteAsync("ByHoster.Plain");
+
+        string expected = string.Join(
+            Environment.NewLine,
+            "Rapidgator", "https://rg/a0", string.Empty, "KatFile", "https://kf/a0");
+        clipboard.Verify(c => c.SetTextAsync(expected), Times.Once);
+
+        // Unknown key and an all-URL-less selection both leave the clipboard untouched.
+        await vm.CopyLinksCommand.ExecuteAsync("Bogus.Key");
+        vm.SelectedRows = [new UploadedFileRow { FileName = "x", FileHosterName = "H", FileUrl = null }];
+        await vm.CopyLinksCommand.ExecuteAsync("ByFile.Plain");
+        clipboard.Verify(c => c.SetTextAsync(It.IsAny<string>()), Times.Once);
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>(), new InlineUiDispatcher(), Mock.Of<IClipboardService>());
 

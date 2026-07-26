@@ -53,6 +53,13 @@ Common_Preparing                  = Preparing…
 Common_Unknown                    = unknown
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks                  = Copy Links
+Common_CopyLinks_ByFilePlain      = By File (Plain)
+Common_CopyLinks_ByFileBBCode     = By File (BBCode)
+Common_CopyLinks_ByFileMarkdown   = By File (Markdown)
+Common_CopyLinks_ByHosterPlain    = By Hoster (Plain)
+Common_CopyLinks_ByHosterBBCode   = By Hoster (BBCode)
+Common_CopyLinks_ByHosterMarkdown = By Hoster (Markdown)
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account

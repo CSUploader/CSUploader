@@ -348,6 +348,34 @@ public partial class UploadedViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Context menu "Copy Links" — formats the selected History rows' links into a paste-ready block
+    /// (grouped by file or hoster; plain/BBCode/Markdown per the menu item's key). Every History row is
+    /// a completed upload, so only URL-less rows are skipped. Operates on <see cref="SelectedRows"/>,
+    /// which the view snapshots when the menu opens (group right-click = the whole package).
+    /// </summary>
+    [RelayCommand]
+    private async Task CopyLinksAsync(string? formatKey)
+    {
+        List<LinkExportRow> links = [.. SelectedRows
+            .Where(r => !string.IsNullOrEmpty(r.FileUrl))
+            .Select(r => new LinkExportRow(r.FileName, r.FileHosterName, r.FileUrl!))];
+
+        if (links.Count == 0 || LinkExport.ParseKey(formatKey) is not { } opts)
+        {
+            return;
+        }
+
+        try
+        {
+            await _clipboardService.SetTextAsync(LinkExport.Format(links, opts.GroupBy, opts.Format));
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Copy links failed: {ex.Message}");
+        }
+    }
+
     private void OnPackageCompleted(object? sender, Package package) => RequestRefresh();
 
     private void OnFileCompleted(object? sender, PackageFile file) => RequestRefresh();

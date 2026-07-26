@@ -139,6 +139,27 @@
   <data name="Common_Context_OpenUrl" xml:space="preserve">
     <value>Open URL</value>
   </data>
+  <data name="Common_CopyLinks" xml:space="preserve">
+    <value>Copy Links</value>
+  </data>
+  <data name="Common_CopyLinks_ByFilePlain" xml:space="preserve">
+    <value>By File (Plain)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileBBCode" xml:space="preserve">
+    <value>By File (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileMarkdown" xml:space="preserve">
+    <value>By File (Markdown)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterPlain" xml:space="preserve">
+    <value>By Hoster (Plain)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterBBCode" xml:space="preserve">
+    <value>By Hoster (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterMarkdown" xml:space="preserve">
+    <value>By Hoster (Markdown)</value>
+  </data>
   <data name="Main_Title" xml:space="preserve">
     <value>CSUploader</value>
   </data>

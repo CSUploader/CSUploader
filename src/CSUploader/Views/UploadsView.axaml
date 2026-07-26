@@ -445,6 +445,17 @@
             <MenuItem Header="{loc:Loc Uploads_Col_URL}" Command="{Binding CopyColumnCommand}" CommandParameter="URL" />
             <MenuItem Header="{loc:Loc Uploads_Col_Error}" Command="{Binding CopyColumnCommand}" CommandParameter="Error" />
           </MenuItem>
+          <!-- Paste-ready link export of the selection's COMPLETED files (packages expand to their
+               files). Keys are LinkExport.ParseKey inputs. -->
+          <MenuItem Header="{loc:Loc Common_CopyLinks}">
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFilePlain}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.Plain" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFileBBCode}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.BBCode" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByFileMarkdown}" Command="{Binding CopyLinksCommand}" CommandParameter="ByFile.Markdown" />
+            <Separator />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterPlain}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.Plain" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterBBCode}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.BBCode" />
+            <MenuItem Header="{loc:Loc Common_CopyLinks_ByHosterMarkdown}" Command="{Binding CopyLinksCommand}" CommandParameter="ByHoster.Markdown" />
+          </MenuItem>
           <Separator />
           <MenuItem x:Name="RemoveMenuItem"
                     Header="{loc:Loc Uploads_Context_Remove}"
