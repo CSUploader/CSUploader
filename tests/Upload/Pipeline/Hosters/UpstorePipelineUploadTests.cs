@@ -187,6 +187,52 @@ public class UpstorePipelineUploadTests
     }
 
     [Fact]
+    public async Task RunAsync_PremiumAccount_FileOverFreeCap_UploadsFine()
+    {
+        // The regression size that the FREE tier rejects (server "Error (Size1gb)") must sail through for
+        // a premium account — the pre-check reads the per-tier cap off the persisted AccountType.
+        Queue<HttpResponseSnapshot> home = new(new[] { new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()) });
+        Queue<HttpResponseSnapshot> uploads = new(new[] { new HttpResponseSnapshot(200, """{"hash":"premHash"}""", Array.Empty<string>(), null) });
+        HttpResponseSnapshot loginResp = new(302, string.Empty, new[] { "usid=USID123; path=/", "upst=sess; path=/" }, "/");
+
+        UpstorePipeline pipeline = new(
+            getSnapshotOverride: _ => home.Dequeue(),
+            postFormOverride: (_, _) => loginResp,
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(uploads.Dequeue()));
+
+        AttemptContext ctx = MakeContextWith(PremiumLogin(), fileSize: (long)(1.36 * 1024 * 1024 * 1024));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal("https://upstore.net/premHash", tc.FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+    }
+
+    [Fact]
+    public async Task RunAsync_PremiumAccount_FileOverPremiumCap_YieldsAttemptFailedWithoutAnyHttp()
+    {
+        UpstorePipeline pipeline = MakePipeline(new(), new(), out List<UploadCall> calls);
+
+        AttemptContext ctx = MakeContextWith(PremiumLogin(), fileSize: (5L * 1000 * 1000 * 1000) + 1);
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("per-file limit", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(events, e => e is TransferStarted);
+        Assert.Empty(calls); // rejected before the homepage GET, the login, or the upload
+    }
+
+    private static FileHosterLoginDto PremiumLogin() => new()
+    {
+        Id = 51,
+        FileHosterName = "Upstore",
+        Username = "u@example.com",
+        Password = "pw",
+        IsAnonymous = false,
+        AccountType = AccountType.Premium,
+    };
+
+    [Fact]
     public async Task RunAsync_Account_LoginFails_YieldsAttemptFailedWithoutUpload()
     {
         // Wrong credentials: the login re-renders the page (200) with NO usid cookie.

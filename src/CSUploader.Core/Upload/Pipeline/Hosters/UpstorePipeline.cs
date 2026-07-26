@@ -50,10 +50,15 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     /// <summary>Free/guest per-file cap — 1 GiB, matching the homepage Dropzone's
     /// <c>maxFilesize: 1024</c> (MiB). The server enforces it too: a 1.36 GiB upload came back
     /// <c>Error (Size1gb)</c> (live, 2026-07-26), which corrected the earlier belief that the widget
-    /// value was only a client-side hint and the real server cap was 2 GiB. Premium (5 GB) isn't
-    /// distinguished — premium accounts are capped at the free value, which only rejects a too-big
-    /// file early; it never lets one waste bytes on a doomed upload.</summary>
+    /// value was only a client-side hint and the real server cap was 2 GiB.</summary>
     private const long FreeTierMaxFileSizeBytes = 1L * 1024 * 1024 * 1024;
+
+    /// <summary>Premium per-file cap — 5 GB, the tier's advertised figure. Deliberately the DECIMAL
+    /// reading: the server's exact premium byte limit is uncaptured (the free tier turned out to be the
+    /// binary 1024 MiB), and if premium is really 5 GiB the decimal cap only early-rejects the
+    /// 5.00–5.37 GB sliver — it never lets a doomed file waste bytes, the failure mode the 1 GiB fix
+    /// cured. Revisit with a live premium verdict.</summary>
+    private const long PremiumMaxFileSizeBytes = 5L * 1000 * 1000 * 1000;
 
     // The Dropzone form action points at the rotating upload host (dNN.upstore.net/newupload/).
     // Anchoring on "newupload" keeps us off the page's login/registration forms (/account/...),
@@ -107,7 +112,19 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
 
     public bool RequiresHashingAfterUpload => false;
 
+    /// <summary>The most restrictive (free/anonymous) cap; premium gets more via
+    /// <see cref="MaxFileSizeFor"/>.</summary>
     public long? MaxFileSize => FreeTierMaxFileSizeBytes;
+
+    /// <summary>Per-file cap by tier: premium 5 GB, free/guest 1 GiB. Premium classification comes from
+    /// the persisted <see cref="Dal.FileHosterLoginDto.AccountType"/>; until <see cref="CheckAccountAsync"/>
+    /// can detect premium off the <c>/account/</c> page (its premium indicator is uncaptured), accounts
+    /// persist as Free and stay on the conservative cap.</summary>
+    public long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => credentials.AccountType switch
+    {
+        AccountType.Premium => PremiumMaxFileSizeBytes,
+        _ => FreeTierMaxFileSizeBytes, // Free / anonymous
+    };
 
     public int? MaxFilesPerPackage => null;
 
@@ -119,11 +136,12 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     {
         _ = ct;
 
-        // === Pre-check: per-file size cap (same 1 GiB for guests + free accounts) ===
-        if (ctx.FileSize > FreeTierMaxFileSizeBytes)
+        // === Pre-check: per-file size cap (1 GiB guest/free, 5 GB premium) ===
+        long maxBytes = MaxFileSizeFor(ctx.Credentials) ?? FreeTierMaxFileSizeBytes;
+        if (ctx.FileSize > maxBytes)
         {
             yield return new AttemptFailed(
-                $"File exceeds Upstore's free/guest {ByteUnit.FromBytes(FreeTierMaxFileSizeBytes, ByteBase.Binary).ToFriendlyString()} per-file limit "
+                $"File exceeds Upstore's {ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString()} per-file limit for this account tier "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Binary).ToFriendlyString()}).",
                 null);
             yield break;
