@@ -261,6 +261,33 @@ public class XfsAnonymousHostersTests
     }
 
     [Fact]
+    public async Task Anonymous_CloudflareChallengeInterstitial_SaysSoInsteadOfFormNotFound()
+    {
+        // A real user hit this: send.now answered 403 + Cf-Mitigated: challenge with the "Just a
+        // moment..." page. That is a wall this app cannot pass (a managed challenge validates the
+        // client itself), so the message must name it rather than report a parse failure.
+        const string ChallengeHtml = """
+            <!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title></head>
+            <body><script>window._cf_chl_opt={cType:'managed',cZone:'send.now'};</script>
+            <script src="/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1"></script></body></html>
+            """;
+        List<UploadCall> calls = [];
+        SendNowPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(ChallengeHtml),
+            uploadOverride: Capture(calls, "[]"));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("Cloudflare", fail.Reason, StringComparison.Ordinal);
+        Assert.Contains("challenge", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("not found", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(calls); // no bytes sent
+    }
+
+    [Fact]
     public async Task Anonymous_FormPageWithoutAnUploadForm_YieldsAttemptFailedWithoutUpload()
     {
         List<UploadCall> calls = [];

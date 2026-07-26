@@ -664,14 +664,36 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return (m.Groups[1].Value, null);
         }
 
+        if (LooksLikeCloudflareChallenge(html))
+        {
+            return (null,
+                $"{Name}: Cloudflare is serving this client its \"Just a moment…\" challenge instead of the "
+                + "upload page. A managed challenge validates the browser itself (TLS fingerprint, JS "
+                + "execution), so no header or cookie sent from here can satisfy it — the host is "
+                + "effectively unavailable to this app while the challenge is applied to you.");
+        }
+
         // Include what actually came back. GetAsync returns the body whatever the status is, so an
-        // edge/WAF answer (a Cloudflare interstitial, an "Attention Required" 1015 rate-limit page,
-        // a geo block) reads as a plain "form not found" — the snippet is what tells those apart
-        // from a genuine template change, without needing a packet capture.
+        // edge/WAF answer (an "Attention Required" 1015 rate-limit page, a geo block) reads as a plain
+        // "form not found" — the snippet is what tells those apart from a genuine template change,
+        // without needing a packet capture.
         return (null,
             $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found at {url} "
             + $"(received {html.Length} bytes: {Snippet(html)})");
     }
+
+    /// <summary>
+    /// True when a response body is a Cloudflare challenge interstitial rather than the requested
+    /// page. Worth naming explicitly: the wall it represents (a <c>managed</c> challenge fingerprints
+    /// the HTTP client) is one this app provably cannot pass — the cf_clearance-forwarding path that
+    /// exists on this base was built, tested and found insufficient against managed challenges
+    /// (TakeFile/UbiqFile) — so telling the user that outright beats an inscrutable parse failure.
+    /// </summary>
+    protected static bool LooksLikeCloudflareChallenge(string body)
+        => body.Contains("Just a moment", StringComparison.OrdinalIgnoreCase)
+           || body.Contains("_cf_chl_opt", StringComparison.Ordinal)
+           || body.Contains("cf-mitigated", StringComparison.OrdinalIgnoreCase)
+           || body.Contains("challenge-platform", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// The page carrying the anonymous upload form, with <paramref name="cacheBuster"/> mixed into the
