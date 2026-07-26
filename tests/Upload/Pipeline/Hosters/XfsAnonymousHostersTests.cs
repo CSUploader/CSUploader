@@ -65,11 +65,6 @@ public class XfsAnonymousHostersTests
         Assert.True(send.SupportsAnonymousUpload);
         Assert.Null(send.MaxFileSize); // api_get_limits reports MaxUploadFilesize=0 (unlimited)
 
-        DropGalaxyPipeline drop = new();
-        Assert.Equal("DropGalaxy", drop.Name);
-        Assert.True(drop.SupportsAnonymousUpload);
-        Assert.Equal(1L * 1024 * 1024 * 1024, drop.MaxFileSize); // conservative XFS base default
-
         UploadyPipeline uploady = new();
         Assert.Equal("Uploady", uploady.Name);
         Assert.True(uploady.SupportsAnonymousUpload);
@@ -79,13 +74,27 @@ public class XfsAnonymousHostersTests
     [Fact]
     public void EachHoster_IsRegisteredWithADomainAndTheApiKeyCredentialMode()
     {
-        foreach (string name in new[] { "Send.now", "DropGalaxy", "Uploady" })
+        foreach (string name in new[] { "Send.now", "Uploady" })
         {
             Assert.True(FileHosterClient.FileHosters.ContainsKey(name), $"{name} missing from the hoster registry");
             Assert.False(string.IsNullOrWhiteSpace(FileHosterClient.FileHosters[name]), $"{name} has no domain");
             // Accounts use the family's standard WebView-sign-in -> API-key flow, like their siblings.
             Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode(name));
         }
+    }
+
+    [Fact]
+    public void DropGalaxy_IsDisabled_AndStaysOutOfTheRegistryAndCredentialModes()
+    {
+        // DISABLED 2026-07-26, the day it was added: anonymous uploads cap at 0.00001 MB (~10 bytes —
+        // the host answers "File size limit is 0.00001 Mbytes") and registration is closed, so the
+        // API-key path is unreachable too. The pipeline class is retained (its protocol wiring is
+        // correct and live-verified) but must not be offerable. Flipping this test is step 4 of the
+        // re-enable checklist in DropGalaxyPipeline.cs.
+        DropGalaxyPipeline pipeline = new();
+        Assert.Equal("DropGalaxy", pipeline.Name);
+        Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode(pipeline.Name)); // i.e. not ApiKey
     }
 
     [Fact]
@@ -115,6 +124,8 @@ public class XfsAnonymousHostersTests
         Assert.Equal("anon", call.ExtraFields["utype"]);
     }
 
+    /// <summary>Kept while DropGalaxy is disabled: it pins the (correct, live-verified) protocol
+    /// wiring so a re-enable — should the cap ever become usable — starts from a known-good shim.</summary>
     [Fact]
     public async Task DropGalaxy_Anonymous_PostsToTheSeparateUploadDomainFromTheForm()
     {

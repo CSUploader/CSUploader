@@ -38,9 +38,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
         // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
         { "Catbox", "catbox.moe" },
-        // DropGalaxy — classic XFileSharing, anonymous web-form upload (its homepage form posts to a
-        // rotating dg.a2zupload.com node). See DropGalaxyPipeline.cs.
-        { "DropGalaxy", "dropgalaxy.com" },
+        // DropGalaxy DISABLED 2026-07-26 (the day it was added) — anonymous uploads are capped at
+        // 0.00001 MB (~10 bytes; the host answers "File size limit is 0.00001 Mbytes"), and account
+        // registration is closed, so the API-key path can't be reached either. The pipeline is a
+        // correct XFS shim and is retained; DI registration + the ApiKeyHosters entry are commented
+        // out alongside this. Do NOT re-add without a usable cap or open registration — see
+        // DropGalaxyPipeline.cs class-level remarks for the full diagnosis + re-enable checklist.
+        // { "DropGalaxy", "dropgalaxy.com" },
         { "Ex-Load", "www.ex-load.com" },
         // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
         // the web UI's chunked protocol can't be captured (UI also failing). Pipeline

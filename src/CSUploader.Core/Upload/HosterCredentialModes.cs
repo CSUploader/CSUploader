@@ -47,8 +47,11 @@ public static class HosterCredentialModes
     // api-key flow. See HotlinkPipeline.cs class-level remarks for the diagnosis + re-enable checklist.
     // "TakeFile" DISABLED 2026-06-28 (Cloudflare managed-challenge TLS wall — see TakeFilePipeline.cs);
     // removed here alongside its registry + DI entries.
+    // "DropGalaxy" DISABLED 2026-07-26, the day it was added — anonymous uploads are capped at
+    // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
+    // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
     private static readonly HashSet<string> ApiKeyHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "DropGalaxy", "Uploady"];
+        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploady"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
