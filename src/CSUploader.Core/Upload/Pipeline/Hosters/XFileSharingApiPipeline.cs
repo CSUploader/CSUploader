@@ -637,10 +637,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// </summary>
     private async Task<(string? UploadUrl, string? Error)> DiscoverAnonymousServerAsync(AttemptContext ctx, CancellationToken ct)
     {
-        // Cache-bust the homepage: it's cached per-connection/edge, so a plain re-GET of "/"
-        // hands back the SAME (often dead) upload server — defeating the retry. A unique query
-        // param forces a fresh assignment so each attempt actually tries a different server.
-        string url = $"{Host}/?_={Guid.NewGuid():N}";
+        // Cache-bust the form page: it's cached per-connection/edge, so a plain re-GET hands back
+        // the SAME (often dead) upload server — defeating the retry. A unique query param forces a
+        // fresh assignment so each attempt actually tries a different server.
+        string url = BuildAnonUploadFormUrl(Guid.NewGuid().ToString("N"));
 
         string html;
         try
@@ -655,8 +655,17 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         Match m = _anonUploadActionRegex.Match(html);
         return m.Success
             ? (m.Groups[1].Value, null)
-            : (null, $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found on the homepage");
+            : (null, $"{Name}: anonymous upload form (a <form action=\"…/upload.cgi…\">) not found at {url}");
     }
+
+    /// <summary>
+    /// The page carrying the anonymous upload form, with <paramref name="cacheBuster"/> mixed into the
+    /// query (see <see cref="DiscoverAnonymousServerAsync"/> — a cached page would defeat the
+    /// rotating-server retry). Defaults to the homepage, which is where the family renders it
+    /// (Hexload, Send.now, DropGalaxy). Override for hosters that render the anonymous form ONLY on
+    /// the upload page (uploady.io: its homepage carries no form at all).
+    /// </summary>
+    protected virtual string BuildAnonUploadFormUrl(string cacheBuster) => $"{Host}/?_={cacheBuster}";
 
     /// <summary>
     /// True when an upload POST failed because the server couldn't be reached at all — DNS

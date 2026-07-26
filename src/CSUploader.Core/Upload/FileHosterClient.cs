@@ -38,6 +38,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
         // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
         { "Catbox", "catbox.moe" },
+        // DropGalaxy — classic XFileSharing, anonymous web-form upload (its homepage form posts to a
+        // rotating dg.a2zupload.com node). See DropGalaxyPipeline.cs.
+        { "DropGalaxy", "dropgalaxy.com" },
         { "Ex-Load", "www.ex-load.com" },
         // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
         // the web UI's chunked protocol can't be captured (UI also failing). Pipeline
@@ -123,6 +126,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // { "TakeFile", "takefile.link" },
         // storage.to is a Laravel front end that hands bytes to Cloudflare R2 via a presigned PUT
         // (anonymous, no login). See StorageToPipeline.cs.
+        // Send.now — classic XFileSharing, anonymous web-form upload. Formerly send.cm (tusfiles /
+        // sendit lineage); send.cm 301s here, so this single entry covers both. See SendNowPipeline.cs.
+        { "Send.now", "send.now" },
         { "Storage.to", "storage.to" },
         { "TezFiles", "tezfiles.com" },
         // transfer.it is a frontend over MEGA — uploads use MEGA's end-to-end-encrypted protocol
@@ -149,6 +155,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ufile.io anonymous chunked upload — GET / (csrf+session) → select_storage → create_session →
         // 99 MB multipart chunks → finalise → ufile.io/<slug>. See UfileIoPipeline.cs.
         { "Ufile", "ufile.io" },
+        // Uploady — classic XFileSharing, anonymous web-form upload; its form lives on ?op=upload_form
+        // (not the homepage) and its upload nodes are on gamezizo.com. See UploadyPipeline.cs.
+        { "Uploady", "uploady.io" },
         { "Upstore", "upstore.net" },
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the
         // link carries the decryption key in its #fragment. See WormholePipeline.cs + the Wormhole/ helpers.
