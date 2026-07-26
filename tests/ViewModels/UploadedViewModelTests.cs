@@ -251,6 +251,47 @@ public class UploadedViewModelTests : IDisposable
         Assert.False(UploadedViewModel.CanOpenUrl(null));
     }
 
+    [Fact]
+    public async Task RequestRefresh_WhileTabHidden_DefersTheReload_UntilSetActiveDrainsIt()
+    {
+        int packageId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SetActive(false); // user is parked on the Uploads tab during a run
+
+        // A completion lands while the History tab is hidden — the full-table reload must NOT run.
+        vm.RequestRefresh();
+        await Task.Delay(100); // ample time for a wrongly-started reload against the in-memory DB
+        Assert.Empty(vm.Files);
+
+        // Showing the tab drains the pending request into one coalesced reload.
+        vm.SetActive(true);
+        for (int i = 0; i < 200 && vm.Files.Count == 0; i++)
+        {
+            await Task.Delay(10); // LoadAsync completes asynchronously after the inline Post
+        }
+
+        Assert.Single(vm.Files);
+    }
+
+    [Fact]
+    public async Task RequestRefresh_WhileTabVisible_ReloadsAsBefore()
+    {
+        int packageId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>()); // default state is active
+
+        vm.RequestRefresh();
+        for (int i = 0; i < 200 && vm.Files.Count == 0; i++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.Single(vm.Files); // visible-tab behavior is unchanged: completions reload (coalesced)
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>(), new InlineUiDispatcher(), Mock.Of<IClipboardService>());
 

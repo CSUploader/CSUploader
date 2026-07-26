@@ -33,15 +33,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _initialized;
     private bool _disposed;
 
-    /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so the Uploads tab is index 0.</summary>
+    /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so Uploads is 0 and Uploaded is 1.</summary>
     private const int UploadsTabIndex = 0;
+    private const int UploadedTabIndex = 1;
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
 
-    // Let the Uploads VM skip its 500 ms refresh while another tab is showing (nothing it refreshes is
-    // visible then). UploadsViewModel is assigned in the constructor before any tab change can fire this.
-    partial void OnSelectedTabIndexChanged(int value) => UploadsViewModel.SetActive(value == UploadsTabIndex);
+    // Visibility-gate the per-tab refresh work: the Uploads VM skips its 500 ms tick and the Uploaded VM
+    // defers its completion-driven full reloads while their tab isn't showing (nothing either refreshes
+    // is visible then). Both VMs are assigned in the constructor before any tab change can fire this.
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        UploadsViewModel.SetActive(value == UploadsTabIndex);
+        UploadedViewModel.SetActive(value == UploadedTabIndex);
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ThemeMenuLabel))]
@@ -81,6 +87,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SettingsViewModel = services.GetRequiredService<SettingsViewModel>();
         ConnectionManagerViewModel = services.GetRequiredService<ConnectionManagerViewModel>();
         LogsViewModel = services.GetRequiredService<LogsViewModel>();
+
+        // Sync the per-tab visibility gates to the STARTUP tab: the app opens on Uploads (index 0) and no
+        // OnSelectedTabIndexChanged fires for the initial value, so without this the Uploaded VM would
+        // stay in its default-active state and keep full-reloading on every completion burst even though
+        // its tab has never been shown. (Startup history population is unaffected — InitializeAsync calls
+        // UploadedViewModel.LoadAsync() directly, bypassing the gate.)
+        UploadsViewModel.SetActive(SelectedTabIndex == UploadsTabIndex);
+        UploadedViewModel.SetActive(SelectedTabIndex == UploadedTabIndex);
 
         _logger.OnLogOutput += Logger_OnLogOutput;
 

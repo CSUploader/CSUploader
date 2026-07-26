@@ -72,6 +72,45 @@ public partial class UploadedViewModel : ObservableObject
 
     private readonly UiRefreshCoalescer _refresh;
 
+    // Completion-driven reloads only run while the History tab is visible. Each reload is a FULL
+    // re-read of the done-files table into the grouped grid — O(entire history), which grows every
+    // run — so during a big upload session (user parked on the Uploads tab) the constant rebuilds were
+    // pure waste. Hidden → completions just set the pending flag; showing the tab drains it into one
+    // coalesced reload. Defaults active so a VM without shell wiring (tests) behaves exactly as before.
+    private volatile bool _isActive = true;
+    private int _reloadPending; // 0/1 via Interlocked — completions arrive on background threads
+
+    /// <summary>
+    /// Called by the shell when the History tab is shown/hidden. Showing the tab drains any reload
+    /// that was requested while hidden (one coalesced pass), so off-tab completions appear immediately
+    /// on return without having reloaded per burst in the background.
+    /// </summary>
+    public void SetActive(bool active)
+    {
+        _isActive = active;
+        if (active)
+        {
+            DrainPendingRefresh();
+        }
+    }
+
+    /// <summary>Completion-event entry point: marks a reload pending and runs it only if the tab is
+    /// visible. Set-then-drain on both this path and <see cref="SetActive"/> means an activation racing
+    /// a completion can't strand the flag. Internal so tests can drive the gate directly.</summary>
+    internal void RequestRefresh()
+    {
+        Interlocked.Exchange(ref _reloadPending, 1);
+        DrainPendingRefresh();
+    }
+
+    private void DrainPendingRefresh()
+    {
+        if (_isActive && Interlocked.Exchange(ref _reloadPending, 0) == 1)
+        {
+            _refresh.Request();
+        }
+    }
+
     /// <summary>
     /// Flat list of files across all completed packages. Grouped by <see cref="UploadedFileRow.PackageName"/> in the view.
     /// </summary>
@@ -309,7 +348,7 @@ public partial class UploadedViewModel : ObservableObject
         }
     }
 
-    private void OnPackageCompleted(object? sender, Package package) => _refresh.Request();
+    private void OnPackageCompleted(object? sender, Package package) => RequestRefresh();
 
-    private void OnFileCompleted(object? sender, PackageFile file) => _refresh.Request();
+    private void OnFileCompleted(object? sender, PackageFile file) => RequestRefresh();
 }
