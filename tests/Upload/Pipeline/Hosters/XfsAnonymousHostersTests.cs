@@ -24,17 +24,6 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// </summary>
 public class XfsAnonymousHostersTests
 {
-    // Send.now homepage (live 2026-07-26) — the family's standard anonymous form.
-    private const string SendNowHomeHtml = """
-        <!DOCTYPE html><html><body>
-        <form method="post" action="/?op=login"><input name="login"></form>
-        <form id="uploadfile" action="https://dl8202.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon">
-          <input type="hidden" name="sess_id" value="">
-          <input type="hidden" name="utype" value="anon">
-        </form>
-        </body></html>
-        """;
-
     // DropGalaxy homepage (live 2026-07-26) — same shape, but the upload node is on a DIFFERENT domain.
     private const string DropGalaxyHomeHtml = """
         <!DOCTYPE html><html><body>
@@ -152,33 +141,33 @@ public class XfsAnonymousHostersTests
     }
 
     [Fact]
-    public async Task SendNow_ApiUnusable_FallsBackToTheHomepageScrape()
+    public async Task SendNow_ApiReturnsJunk_FailsWithoutEverFetchingTheChallengedHomepage()
     {
-        // A WAF challenge page (or any non-JSON answer) on the API must not be fatal — the family's
-        // HTML scrape is still there as a second chance.
-        Queue<string> gets = new([
-            "<!DOCTYPE html><html><body>Just a moment...</body></html>", // API answers with junk
-            SendNowHomeHtml,                                             // homepage still has the form
-        ]);
+        // Fetching send.now's homepage is what trips its Cloudflare managed challenge (a real run got
+        // 403 + Cf-Mitigated: challenge on GET /?_=...), while the JSON API was served normally. So an
+        // unusable API answer must fail outright — falling back to the page could never succeed and
+        // would only add challenge-flagged traffic. Exactly ONE request, and it is the API.
+        List<string> getUrls = [];
         List<UploadCall> calls = [];
         SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(gets.Dequeue()),
-            uploadOverride: Capture(calls, """[{"file_code":"fellback","file_status":"OK"}]"""));
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult("""{"msg":"Something else","status":500}"""); },
+            uploadOverride: Capture(calls, "[]"));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
 
-        Assert.Equal("https://send.now/fellback", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
-        Assert.Equal("https://dl8202.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", Assert.Single(calls).Endpoint);
-        Assert.Empty(gets); // both sources were consulted
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("upload-server API", fail.Reason, StringComparison.Ordinal);
+        Assert.Equal("https://send.now/api/upload/server", Assert.Single(getUrls)); // the homepage is never touched
+        Assert.Empty(calls);
     }
 
     [Theory]
     // Real shape -> bare node (query stripped).
     [InlineData("""{"result":"https://u0626.send.now/cgi-bin/upload.cgi?u=api","msg":"OK"}""", "https://u0626.send.now/cgi-bin/upload.cgi")]
     [InlineData("""{"result":"https://dl8202.send.now/cgi-bin/upload.cgi","msg":"OK"}""", "https://dl8202.send.now/cgi-bin/upload.cgi")]
-    // Unusable answers -> null so the caller falls back.
+    // Unusable answers -> null so the caller reports a clear failure.
     [InlineData("""{"msg":"Invalid key","status":400}""", null)]
     [InlineData("""{"result":"","msg":"OK"}""", null)]
     [InlineData("""{"result":"https://send.now/somewhere/else","msg":"OK"}""", null)]
@@ -290,14 +279,16 @@ public class XfsAnonymousHostersTests
     [Fact]
     public async Task Anonymous_FormPageWithoutAnUploadForm_YieldsAttemptFailedWithoutUpload()
     {
+        // Uploady (not Send.now) exercises the base's HTML-scraping path — Send.now resolves its node
+        // from the JSON API and never fetches a page.
         List<UploadCall> calls = [];
-        SendNowPipeline pipeline = new(
+        UploadyPipeline pipeline = new(
             authService: null,
             loginRepository: null,
             getOverride: (_, _) => Task.FromResult("<html><body>under maintenance</body></html>"),
             uploadOverride: Capture(calls, "[]"));
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
 
         Assert.Single(events.OfType<AttemptFailed>());
         Assert.DoesNotContain(events, e => e is TransferCompleted);

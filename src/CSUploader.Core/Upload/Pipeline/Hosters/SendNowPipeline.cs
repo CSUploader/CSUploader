@@ -16,12 +16,24 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// live brand is the one wired here — a single entry covers traffic addressed to either.
 /// </para>
 /// <para>
-/// Probed live 2026-07-26: the homepage renders the family's anonymous form
-/// (<c>&lt;form action="https://dlNNNN.send.now/cgi-bin/upload.cgi?upload_type=file&amp;utype=anon"&gt;</c>
-/// with an empty <c>sess_id</c>), so the base's anonymous path applies unchanged. It is genuinely
-/// stock XFS: <c>?op=api_get_limits</c> answers with the standard
-/// <c>&lt;Data&gt;…&lt;ServerURL&gt;…</c> XML, and <c>/api/upload/server</c> hands out a node. Cloudflare
-/// is passive (plain GETs succeed from the C# stack).
+/// It is genuinely stock XFS — <c>?op=api_get_limits</c> answers with the standard
+/// <c>&lt;Data&gt;…&lt;ServerURL&gt;…</c> XML — and the upload itself is the family's ordinary anonymous
+/// POST (empty <c>sess_id</c>, <c>utype=anon</c>, <c>file_0</c>, answered with
+/// <c>[{"file_status":"OK","file_code":…}]</c>), confirmed against a live browser capture 2026-07-26.
+/// </para>
+/// <para>
+/// <b>Cloudflare shapes how this hoster must be driven.</b> Its HTML pages sit behind a <i>managed</i>
+/// challenge: a real run got <c>403</c> + <c>Cf-Mitigated: challenge</c> + <c>cType:'managed'</c> merely
+/// for fetching the homepage, while the JSON API calls from the same client were served normally. So
+/// this pipeline resolves the upload node from <c>/api/upload/server</c> and never scrapes a page —
+/// see <see cref="DiscoverAnonymousServerAsync"/>.
+/// </para>
+/// <para>
+/// Known risk for the ACCOUNT path (untested — no account has been used yet): the base's
+/// <c>CheckAccountAsync</c> scrapes <c>?op=my_account</c> with the C# handler to extract the API key,
+/// and that is an HTML page on the challenged domain. The upload itself is safe (it uses the same
+/// <c>/api/upload/server</c> endpoint), so if sign-in fails with a challenge, the fix is to source the
+/// key without touching an HTML page — not to give up on the hoster.
 /// </para>
 /// </summary>
 public sealed class SendNowPipeline : XFileSharingApiPipeline
@@ -68,17 +80,21 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
         => credentials.IsAnonymous ? GuestMaxFileSizeBytes : null;
 
     /// <summary>
-    /// Resolves the upload node from Send.now's <b>keyless JSON API</b> rather than by scraping the
-    /// homepage form, falling back to the family's HTML scrape if the API is unhelpful.
+    /// Resolves the upload node from Send.now's <b>keyless JSON API</b>, and deliberately never falls
+    /// back to scraping the homepage.
     /// <para>
-    /// Why: <c>GET /api/upload/server</c> answers
+    /// Why the API: <c>GET /api/upload/server</c> answers
     /// <c>{"result":"https://uNNNN.send.now/cgi-bin/upload.cgi?u=api","msg":"OK","status":200}</c> with
     /// no credentials at all, and hands out the SAME rotating node pool the browser's form does
-    /// (verified against the user's 2026-07-26 capture, whose browser posted to <c>u0626</c>, and by
-    /// sampling both sources). A JSON contract is a far better thing to depend on than the marketing
-    /// homepage, which sits behind Cloudflare and demonstrably renders differently for different
-    /// clients — a real user hit "anonymous upload form not found" on a page that serves the form
-    /// fine to other callers.
+    /// (verified against the 2026-07-26 capture, whose browser posted to <c>u0626</c>, and by sampling
+    /// both sources).
+    /// </para>
+    /// <para>
+    /// Why no homepage fallback: <b>fetching the homepage is what trips Cloudflare</b>. A real run got
+    /// <c>403</c> + <c>Cf-Mitigated: challenge</c> + <c>cType:'managed'</c> on <c>GET /?_=…</c> while the
+    /// API calls from the same client went through untouched. A managed challenge validates the browser
+    /// itself, so a fallback there could never succeed — it would only turn a clear API error into a
+    /// confusing one and put more challenge-flagged traffic on the user's address.
     /// </para>
     /// <para>
     /// The API labels its URL <c>?u=api</c>; we keep only the node and rebuild the query the browser
@@ -93,10 +109,9 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
         {
             json = await GetAsync(ctx, ApiUploadServerUrl, headers: null, ct);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Transport trouble on the API — let the HTML scrape have a go before failing.
-            return await base.DiscoverAnonymousServerAsync(ctx, ct);
+            return (null, $"{Name}: upload-server API request failed: {ex.Message}");
         }
 
         if (TryReadApiUploadNode(json) is { } node)
@@ -104,7 +119,17 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
             return (node + "?upload_type=file&utype=anon", null);
         }
 
-        return await base.DiscoverAnonymousServerAsync(ctx, ct);
+        // The API is the one endpoint observed to stay clear of the challenge, but say so properly if
+        // that ever changes rather than reporting an unhelpful parse failure.
+        if (LooksLikeCloudflareChallenge(json))
+        {
+            return (null,
+                $"{Name}: Cloudflare is serving this client its \"Just a moment…\" challenge instead of the "
+                + "upload-server API. A managed challenge validates the browser itself (TLS fingerprint, JS "
+                + "execution), so no header or cookie sent from here can satisfy it.");
+        }
+
+        return (null, $"{Name}: upload-server API returned no usable node: {Snippet(json)}");
     }
 
     /// <summary>Pulls <c>result</c> out of the upload-server envelope and strips its query, yielding

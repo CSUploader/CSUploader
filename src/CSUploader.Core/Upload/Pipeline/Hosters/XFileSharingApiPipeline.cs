@@ -2029,7 +2029,9 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         return string.IsNullOrEmpty(captured) ? null : captured;
     }
 
-    private static string Snippet(string body)
+    /// <summary>Trimmed, single-line excerpt of a response body for error messages. <c>protected</c>
+    /// so a subclass overriding a discovery step can describe an unexpected response the same way.</summary>
+    protected static string Snippet(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
         {
