@@ -130,6 +130,18 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// <inheritdoc/>
     public virtual long? MaxFileSizeFor(FileHosterLoginDto credentials) => MaxFileSize;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.MaxConcurrentUploadsFor" path="/summary"/>
+    /// <para>
+    /// Declared here (rather than left to the interface's default) so subclasses can actually override
+    /// it: this class is where <see cref="IFileHosterPipeline"/> enters the hierarchy, so the interface
+    /// slot is bound HERE. A same-named method added further down does not claim that slot — it simply
+    /// never gets called through the interface, which is how a Send.now concurrency cap silently did
+    /// nothing until a test asserted it through <see cref="IFileHosterPipeline"/>.
+    /// </para>
+    /// </summary>
+    public virtual int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => null;
+
     /// <inheritdoc/>
     public bool RequiresHashingBeforeUpload => false;
 
@@ -517,6 +529,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         yield return new TransferStarted(ctx.FileSize);
 
         HttpRequestException? lastUnreachable = null;
+        bool retriedNodeFailure = false;
 
         for (int attempt = 0; attempt < AnonymousServerAttempts; attempt++)
         {
@@ -603,15 +616,40 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             if (url is not null)
             {
                 yield return new TransferCompleted(url);
-            }
-            else
-            {
-                yield return new AttemptFailed(error ?? $"{Name}: anonymous upload returned no download link", null);
+                yield break;
             }
 
+            // A node whose own backend broke — its fs.cgi answering 500, a gateway error — is a bad
+            // draw from the rotating pool, not a verdict on the file, and a fresh node usually works
+            // (observed on uploady.io: "failed while requesting fs.cgi: …500 Internal Server Error").
+            // Retry ONCE only: unlike the dead-DNS retry above this one re-sends the entire file, so
+            // it must not become a loop — and the predicate stays narrow so a real rejection
+            // ("File too big") is never re-uploaded to be refused again.
+            if (!retriedNodeFailure && attempt < AnonymousServerAttempts - 1 && IsTransientNodeFailure(error))
+            {
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({error}); retrying once with a fresh server.");
+                continue;
+            }
+
+            yield return new AttemptFailed(error ?? $"{Name}: anonymous upload returned no download link", null);
             yield break;
         }
     }
+
+    /// <summary>
+    /// True when an upload's <c>file_status</c> describes the NODE failing rather than the file being
+    /// refused. XFileSharing nodes proxy the bytes on to their storage CGI and surface its failure
+    /// verbatim, so a broken node reads as e.g. <c>failed while requesting fs.cgi: …500 Internal Server
+    /// Error…</c>. Deliberately narrow: everything it does not match (quota, size, extension, "File too
+    /// big") is a verdict that re-uploading would only earn again, at the cost of the whole file.
+    /// </summary>
+    private static bool IsTransientNodeFailure(string? error)
+        => error is not null
+           && (error.Contains("fs.cgi", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Internal Server Error", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Bad Gateway", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Fresh-server attempts for an anonymous upload before giving up. The homepage rotates the

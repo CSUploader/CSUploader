@@ -229,6 +229,98 @@ public class XfsAnonymousHostersTests
     public void TryReadServerUrl_ExtractsTheNodeDirectoryOrNull(string body, string? expected)
         => Assert.Equal(expected, SendNowPipeline.TryReadServerUrl(body));
 
+    [Fact]
+    public async Task Anonymous_NodeBackendFailure_RetriesOnceWithAFreshNode()
+    {
+        // Live from uploady.io: the node accepted the bytes, then its own storage CGI died and the
+        // failure came back inside file_status. That is a bad draw from the rotating pool, not a
+        // verdict on the file, so a fresh node gets one more go.
+        const string NodeBroke =
+            """[{"file_code":"undef","file_status":"failed while requesting fs.cgi: <html><title>500 Internal Server Error</title></html>"}]""";
+
+        List<string> getUrls = [];
+        int uploadCalls = 0;
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(UploadyFormPageHtml); },
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200,
+                    uploadCalls == 1 ? NodeBroke : """[{"file_code":"second","file_status":"OK"}]""",
+                    Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+
+        Assert.Equal("https://uploady.io/second", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, uploadCalls);      // re-sent once
+        Assert.Equal(2, getUrls.Count);    // ...to a freshly scraped node
+        Assert.Single(events.OfType<TransferStarted>()); // one transfer from the UI's point of view
+    }
+
+    [Fact]
+    public async Task Anonymous_NodeBackendFailurePersists_FailsAfterExactlyOneRetry()
+    {
+        // The retry re-sends the whole file, so it must never become a loop.
+        const string NodeBroke =
+            """[{"file_code":"undef","file_status":"failed while requesting fs.cgi: 500 Internal Server Error"}]""";
+
+        int uploadCalls = 0;
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadyFormPageHtml),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(200, NodeBroke, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("fs.cgi", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, uploadCalls); // the original send + exactly one retry
+    }
+
+    [Fact]
+    public async Task Anonymous_FileRejected_IsNeverReUploaded()
+    {
+        // The counterpart guard: a verdict on the FILE must not be retried, or a too-big file is sent
+        // twice to be refused twice.
+        int uploadCalls = 0;
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadyFormPageHtml),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200, """[{"file_code":"undef","file_status":"File too big"}]""", Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+
+        Assert.Contains("File too big", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Equal(1, uploadCalls); // sent once, never again
+    }
+
+    [Fact]
+    public void SendNow_ConcurrencyCap_IsReachableThroughTheInterface()
+    {
+        // Regression guard: MaxConcurrentUploadsFor has a DEFAULT implementation on the interface, so
+        // if the class's version is ever made static (a linter will suggest exactly that, since it
+        // touches no instance state) it stops implementing the member and the cap silently reverts to
+        // "no limit". Asserting through the interface is what catches that.
+        IFileHosterPipeline pipeline = new SendNowPipeline();
+        Assert.Equal(4, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { IsAnonymous = true }));
+    }
+
     /// <summary>Kept while DropGalaxy is disabled: it pins the (correct, live-verified) protocol
     /// wiring so a re-enable — should the cap ever become usable — starts from a known-good shim.</summary>
     [Fact]

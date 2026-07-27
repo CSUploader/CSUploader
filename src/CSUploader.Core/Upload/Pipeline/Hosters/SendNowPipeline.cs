@@ -110,7 +110,7 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
     /// hands out hour-long lockouts), and four parallel uploads is what was observed to work; the
     /// scheduler takes the min of this and the user's own per-host setting, so this only ever narrows.
     /// </summary>
-    public int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => 4;
+    public override int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => 4;
 
     /// <summary>
     /// Resolves the upload node from <c>?op=api_get_limits</c> and <b>caches it for the batch</b>.
