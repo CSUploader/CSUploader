@@ -355,6 +355,11 @@
             </Style>
             <Style Selector="TextBlock.no-accounts">
               <Setter Property="FontStyle" Value="Italic" />
+              <!-- Italic glyphs lean past the advance width the layout measures, so the last letter's
+                   overhang gets clipped at the TextBlock's right edge — visible as a missing final
+                   character on names ending in e/d/o ("Wormhole" losing its e). Reserve a few pixels
+                   for the lean. Set here, on the style that causes it, so the two travel together. -->
+              <Setter Property="Padding" Value="0,0,4,0" />
             </Style>
           </DataGrid.Styles>
           <DataGrid.Columns>
