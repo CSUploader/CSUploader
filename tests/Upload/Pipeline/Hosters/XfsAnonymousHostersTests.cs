@@ -90,20 +90,24 @@ public class XfsAnonymousHostersTests
         Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode(pipeline.Name)); // i.e. not ApiKey
     }
 
-    // Send.now's keyless upload-server API (live 2026-07-26). Note the ?u=api label, which the
-    // pipeline replaces with the browser's own query.
-    private const string SendNowApiJson =
-        """{"result":"https://u0626.send.now/cgi-bin/upload.cgi?u=api","status":200,"server_time":"2026-07-26 16:10:12","msg":"OK"}""";
+    // Send.now's ?op=api_get_limits (live 2026-07-27). ServerURL is the node DIRECTORY, no script name.
+    private const string SendNowLimitsXml =
+        """<Data><ExtAllowed></ExtAllowed><MaxUploadFilesize>0</MaxUploadFilesize><ServerURL>https://u9750.send.now/cgi-bin</ServerURL><SessionID></SessionID><SiteName>Send.now</SiteName></Data>""";
+
+    // The lockout the keyless /api/upload/server hands out once it has counted enough anonymous calls
+    // as failed authentications. HTTP 200 with the refusal in the envelope.
+    private const string SendNowLockoutJson =
+        """{"server_time":"2026-07-27 15:02:58","msg":"Too many failed attempts. Please try again in 60 minutes.","status":429}""";
 
     [Fact]
-    public async Task SendNow_Anonymous_ResolvesTheNodeFromTheKeylessApi_AndPostsTheBrowsersQuery()
+    public async Task SendNow_Anonymous_ResolvesTheNodeFromApiGetLimits_AndPostsTheBrowsersQuery()
     {
         List<string> getUrls = [];
         List<UploadCall> calls = [];
         SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowApiJson); },
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowLimitsXml); },
             uploadOverride: Capture(calls, """[{"file_code":"abc123xyz","file_status":"OK"}]"""));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
@@ -112,14 +116,64 @@ public class XfsAnonymousHostersTests
         Assert.Equal("https://send.now/abc123xyz", tc.FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
 
-        // Resolved from the JSON API, not the homepage.
-        Assert.Equal("https://send.now/api/upload/server", Assert.Single(getUrls));
+        // The session/limits endpoint - NOT the homepage (Cloudflare-challenged) and NOT the keyless
+        // /api/upload/server (which answers a while, then locks the IP out for an hour).
+        Assert.Equal("https://send.now/?op=api_get_limits", Assert.Single(getUrls));
 
         UploadCall call = Assert.Single(calls);
-        // The API's ?u=api is dropped and the browser's captured query used instead.
-        Assert.Equal("https://u0626.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", call.Endpoint);
+        // ServerURL + the script + the browser's captured query.
+        Assert.Equal("https://u9750.send.now/cgi-bin/upload.cgi?upload_type=file&utype=anon", call.Endpoint);
         Assert.Equal(string.Empty, call.ExtraFields["sess_id"]);
         Assert.Equal("anon", call.ExtraFields["utype"]);
+    }
+
+    [Fact]
+    public async Task SendNow_CachesTheNode_SoAPackageCostsOneLookupNotOnePerFile()
+    {
+        // The regression this prevents: every queued file performed its own lookup, and Send.now treats
+        // a burst of anonymous lookups as abuse - one package earned a 60-minute lockout.
+        List<string> getUrls = [];
+        List<UploadCall> calls = [];
+        SendNowPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowLimitsXml); },
+            uploadOverride: Capture(calls, """[{"file_code":"ok","file_status":"OK"}]"""));
+
+        // Three files through the SAME pipeline instance (it is a DI singleton in production).
+        for (int i = 0; i < 3; i++)
+        {
+            await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
+        }
+
+        Assert.Equal(3, calls.Count);   // all three uploaded
+        Assert.Single(getUrls);         // ...from ONE node lookup
+    }
+
+    [Fact]
+    public async Task SendNow_DeadNode_RefetchesAFreshNodeForTheRetry()
+    {
+        // Caching must not defeat the rotating-node retry: when the node it handed out is unreachable,
+        // the same attempt comes back and must be given a freshly looked-up node.
+        List<string> getUrls = [];
+        int uploadCalls = 0;
+        SendNowPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowLimitsXml); },
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return uploadCalls == 1
+                    ? Task.FromException<HttpResponseSnapshot>(new HttpRequestException(HttpRequestError.NameResolutionError, "dead node"))
+                    : Task.FromResult(new HttpResponseSnapshot(200, """[{"file_code":"retried","file_status":"OK"}]""", Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
+
+        Assert.Equal("https://send.now/retried", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal(2, uploadCalls);
+        Assert.Equal(2, getUrls.Count); // the cache was dropped and a fresh node fetched
     }
 
     [Fact]
@@ -141,40 +195,39 @@ public class XfsAnonymousHostersTests
     }
 
     [Fact]
-    public async Task SendNow_ApiReturnsJunk_FailsWithoutEverFetchingTheChallengedHomepage()
+    public async Task SendNow_LookupRefused_ReportsTheHostsOwnMessage_AndTouchesNothingElse()
     {
-        // Fetching send.now's homepage is what trips its Cloudflare managed challenge (a real run got
-        // 403 + Cf-Mitigated: challenge on GET /?_=...), while the JSON API was served normally. So an
-        // unusable API answer must fail outright — falling back to the page could never succeed and
-        // would only add challenge-flagged traffic. Exactly ONE request, and it is the API.
+        // The real 429 lockout envelope. Whatever the lookup answers, exactly ONE request is made and
+        // it is the limits endpoint - no fallback to the Cloudflare-challenged homepage, and never a
+        // call to the keyless API that hands out the lockout in the first place.
         List<string> getUrls = [];
         List<UploadCall> calls = [];
         SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult("""{"msg":"Something else","status":500}"""); },
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowLockoutJson); },
             uploadOverride: Capture(calls, "[]"));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Contains("upload-server API", fail.Reason, StringComparison.Ordinal);
-        Assert.Equal("https://send.now/api/upload/server", Assert.Single(getUrls)); // the homepage is never touched
+        Assert.Contains("Too many failed attempts", fail.Reason, StringComparison.Ordinal); // the host's words reach the user
+        Assert.Equal("https://send.now/?op=api_get_limits", Assert.Single(getUrls));
         Assert.Empty(calls);
     }
 
     [Theory]
-    // Real shape -> bare node (query stripped).
-    [InlineData("""{"result":"https://u0626.send.now/cgi-bin/upload.cgi?u=api","msg":"OK"}""", "https://u0626.send.now/cgi-bin/upload.cgi")]
-    [InlineData("""{"result":"https://dl8202.send.now/cgi-bin/upload.cgi","msg":"OK"}""", "https://dl8202.send.now/cgi-bin/upload.cgi")]
+    // Real shape -> the node directory, verbatim.
+    [InlineData("<Data><ServerURL>https://u9750.send.now/cgi-bin</ServerURL></Data>", "https://u9750.send.now/cgi-bin")]
+    [InlineData("<Data><ServerURL>  https://u0626.send.now/cgi-bin  </ServerURL></Data>", "https://u0626.send.now/cgi-bin")]
     // Unusable answers -> null so the caller reports a clear failure.
-    [InlineData("""{"msg":"Invalid key","status":400}""", null)]
-    [InlineData("""{"result":"","msg":"OK"}""", null)]
-    [InlineData("""{"result":"https://send.now/somewhere/else","msg":"OK"}""", null)]
-    [InlineData("<html>Just a moment...</html>", null)]
+    [InlineData("<Data><ServerURL></ServerURL></Data>", null)]
+    [InlineData("<Data><SessionID></SessionID></Data>", null)]
+    [InlineData("""{"status":429,"msg":"Too many failed attempts."}""", null)]
+    [InlineData("<html><title>Just a moment...</title></html>", null)]
     [InlineData("", null)]
-    public void TryReadApiUploadNode_ExtractsTheNodeOrNull(string json, string? expected)
-        => Assert.Equal(expected, SendNowPipeline.TryReadApiUploadNode(json));
+    public void TryReadServerUrl_ExtractsTheNodeDirectoryOrNull(string body, string? expected)
+        => Assert.Equal(expected, SendNowPipeline.TryReadServerUrl(body));
 
     /// <summary>Kept while DropGalaxy is disabled: it pins the (correct, live-verified) protocol
     /// wiring so a re-enable — should the cap ever become usable — starts from a known-good shim.</summary>
