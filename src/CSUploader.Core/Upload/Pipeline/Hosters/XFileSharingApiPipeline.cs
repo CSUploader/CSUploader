@@ -662,13 +662,20 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// verbatim, so a broken node reads as e.g. <c>failed while requesting fs.cgi: …500 Internal Server
     /// Error…</c>. Deliberately narrow: everything it does not match (quota, size, extension, "File too
     /// big") is a verdict that re-uploading would only earn again, at the cost of the whole file.
+    /// <para>
+    /// <c>No file on disk (/var/www/cgi-bin/temp/NN/CGItempNNNNN)</c> belongs here too, seen on
+    /// uploady.io under 20 parallel uploads: the node took the bytes into its own CGI spool and the
+    /// spool file was gone by the time it went to store them. The path it names is the node's scratch
+    /// space, not anything of ours, so it says nothing about the file we sent.
+    /// </para>
     /// </summary>
     private static bool IsTransientNodeFailure(string? error)
         => error is not null
            && (error.Contains("fs.cgi", StringComparison.OrdinalIgnoreCase)
                || error.Contains("Internal Server Error", StringComparison.OrdinalIgnoreCase)
                || error.Contains("Bad Gateway", StringComparison.OrdinalIgnoreCase)
-               || error.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase));
+               || error.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("No file on disk", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Fresh-server attempts for an anonymous upload before giving up. The homepage rotates the
@@ -1053,94 +1060,137 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // === Upload (identical machinery to the API path) ===
-        bool authExpiredDuringUpload = false;
-        string? attemptFailure = null;
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        string? finalUrl = null;
+        // Looped so a node that breaks AFTER taking the bytes can be retried once against a freshly
+        // resolved server — see IsTransientNodeFailure. One TransferStarted covers the whole thing:
+        // the retry is our business, not something the user asked for or should see twice.
+        string currentUploadUrl = uploadUrl;
+        string currentSessId = sessId;
+        bool retriedNodeFailure = false;
 
         yield return new TransferStarted(ctx.FileSize);
 
-        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        void onProgress(object? _, OperationProgressEventArgs e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
-
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        while (true)
         {
-            yield return progressEv;
-        }
+            bool authExpiredDuringUpload = false;
+            string? attemptFailure = null;
+            bool attemptCancelled = false;
+            Exception? attemptException = null;
+            string? finalUrl = null;
 
-        ctx.Handler.UploadProgress -= onProgress;
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
 
-        HttpResponseSnapshot? uploadResponse = null;
-        try
-        {
-            uploadResponse = await uploadTask;
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            attemptCancelled = true;
-        }
-        catch (Exception ex)
-        {
-            attemptException = ex;
-        }
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, currentUploadUrl, currentSessId);
 
-        if (uploadResponse is not null)
-        {
-            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
-            if (AuthExpired)
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
             {
-                await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
-                authExpiredDuringUpload = true;
+                yield return progressEv;
             }
-            else if (Error is not null)
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            HttpResponseSnapshot? uploadResponse = null;
+            try
             {
-                attemptFailure = Error;
+                uploadResponse = await uploadTask;
             }
-            else
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
-                finalUrl = Url;
+                attemptCancelled = true;
             }
-        }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+            }
 
-        if (authExpiredDuringUpload)
-        {
-            yield return new AuthFailed("session expired mid-upload");
-            yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+            if (uploadResponse is not null)
+            {
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                if (AuthExpired)
+                {
+                    await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    authExpiredDuringUpload = true;
+                }
+                else if (Error is not null)
+                {
+                    attemptFailure = Error;
+                }
+                else
+                {
+                    finalUrl = Url;
+                }
+            }
+
+            if (authExpiredDuringUpload)
+            {
+                yield return new AuthFailed("session expired mid-upload");
+                yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+                yield break;
+            }
+
+            if (attemptCancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (attemptException is not null)
+            {
+                yield return new AttemptFailed(attemptException.Message, attemptException);
+                yield break;
+            }
+
+            if (attemptFailure is not null)
+            {
+                if (retriedNodeFailure || !IsTransientNodeFailure(attemptFailure))
+                {
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({attemptFailure}); retrying once with a fresh server.");
+
+                // Re-read the upload form: it hands out the node, so this is what makes the retry land
+                // somewhere else rather than repeat itself against the server that just failed.
+                (string? retryUrl, string? retrySessId, string? retryError, bool retryAuthExpired) =
+                    await GetWebFormUploadServerAsync(ctx, xfss, ct);
+
+                if (retryAuthExpired)
+                {
+                    await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    yield return new AuthFailed("session expired — sign in again from Settings → Accounts");
+                    yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+                    yield break;
+                }
+
+                if (retryUrl is null || retrySessId is null)
+                {
+                    // Report the node's own failure — the reason we were retrying at all — rather than
+                    // the re-resolve's, which is a symptom of it.
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                currentUploadUrl = retryUrl;
+                currentSessId = retrySessId;
+                continue;
+            }
+
+            if (finalUrl is not null)
+            {
+                yield return new TransferCompleted(finalUrl);
+            }
+
             yield break;
-        }
-
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        if (attemptFailure is not null)
-        {
-            yield return new AttemptFailed(attemptFailure, null);
-            yield break;
-        }
-
-        if (finalUrl is not null)
-        {
-            yield return new TransferCompleted(finalUrl);
         }
     }
 

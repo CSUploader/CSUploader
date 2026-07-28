@@ -276,6 +276,106 @@ public class UploadyPipelineTests
         Assert.NotNull(result.Detail); // the full page goes to the Details dialog
     }
 
+    // Live from uploady.io under 20 parallel uploads: the node took the bytes, then couldn't find its
+    // own CGI spool file when it went to store them. The path is the NODE's scratch space, so this
+    // says nothing about our file — it is the same class of fault as the fs.cgi 500.
+    private const string NoFileOnDiskJson =
+        """[{"file_code":"undef","file_status":"No file on disk (/var/www/cgi-bin/temp/04/CGItemp19791)"}]""";
+
+    [Fact]
+    public async Task WebForm_NodeLosesItsSpoolFile_RetriesOnceAgainstAFreshlyResolvedNode()
+    {
+        List<string> getUrls = [];
+        List<string> endpoints = [];
+        int uploadCalls = 0;
+
+        // The form hands out the node, so a second read is what moves the retry off the broken one.
+        Queue<string> formPages = new([UploadFormHtml, UploadFormHtml.Replace("s5.gamezizo.com", "s9.gamezizo.com", StringComparison.Ordinal)]);
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(formPages.Dequeue()); },
+            uploadOverride: (_, endpoint, _, _, _) =>
+            {
+                endpoints.Add(endpoint);
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200,
+                    uploadCalls == 1 ? NoFileOnDiskJson : """[{"file_code":"retried","file_status":"OK"}]""",
+                    Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(ValidCookieCredentials()), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Equal("https://uploady.io/retried", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, uploadCalls);   // re-sent once…
+        Assert.Equal(2, getUrls.Count); // …after re-reading the form for a different node
+        Assert.StartsWith("https://s5.gamezizo.com/", endpoints[0], StringComparison.Ordinal);
+        Assert.StartsWith("https://s9.gamezizo.com/", endpoints[1], StringComparison.Ordinal);
+
+        // One transfer as far as the UI is concerned — the retry is ours, not the user's.
+        Assert.Single(events.OfType<TransferStarted>());
+    }
+
+    [Fact]
+    public async Task WebForm_NodeFailurePersists_FailsAfterExactlyOneRetry()
+    {
+        // The retry re-sends the whole file, so it must never become a loop.
+        int uploadCalls = 0;
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadFormHtml),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(200, NoFileOnDiskJson, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(ValidCookieCredentials()), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("No file on disk", fail.Reason, StringComparison.Ordinal); // the node's own words
+        Assert.Equal(2, uploadCalls); // the original send + exactly one retry
+    }
+
+    [Fact]
+    public async Task WebForm_FileRejected_IsNeverReUploaded()
+    {
+        // The counterpart guard: a verdict on the FILE must not be retried, or an oversized file is
+        // sent twice to be refused twice.
+        int uploadCalls = 0;
+        UploadyPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadFormHtml),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploadCalls++;
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200, """[{"file_code":"undef","file_status":"File too big"}]""", Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = [];
+        await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(ValidCookieCredentials()), CancellationToken.None))
+        {
+            events.Add(ev);
+        }
+
+        Assert.Contains("File too big", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Empty(events.OfType<TransferCompleted>());
+        Assert.Equal(1, uploadCalls); // sent once, never again
+    }
+
     [Fact]
     public async Task ParallelUploads_OnAnAccountWithNoCookieYet_OpenExactlyOneSignInWindow()
     {
