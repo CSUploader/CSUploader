@@ -100,9 +100,10 @@ public static class ServiceRegistration
         // drops the managed challenge. See TakeFilePipeline.cs class-level remarks.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
-        // Send.now / Uploady are stock XFileSharing hosters wired as thin shims on the shared base
-        // (anonymous web-form upload verified live 2026-07-26; accounts use the family's standard
-        // API-key path, so they take the same auth service + repo as their siblings).
+        // Send.now / Uploady are stock XFileSharing hosters wired as thin shims on the shared base, so
+        // both take the same auth service + repo as their siblings. They land on opposite paths: Send.now
+        // uploads anonymously (verified live 2026-07-26), while Uploady is account-only on the web-form
+        // path — its anonymous upload fails server-side, in a real browser too (capture 2026-07-27).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SendNowPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadyPipeline>();
         // DropGalaxy DISABLED 2026-07-26 — anonymous cap is 0.00001 MB (~10 bytes) and registration

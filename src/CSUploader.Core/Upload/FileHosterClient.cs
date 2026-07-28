@@ -159,8 +159,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ufile.io anonymous chunked upload — GET / (csrf+session) → select_storage → create_session →
         // 99 MB multipart chunks → finalise → ufile.io/<slug>. See UfileIoPipeline.cs.
         { "Ufile", "ufile.io" },
-        // Uploady — classic XFileSharing, anonymous web-form upload; its form lives on ?op=upload_form
-        // (not the homepage) and its upload nodes are on gamezizo.com. See UploadyPipeline.cs.
+        // Uploady — classic XFileSharing on the web-form (no-API) path: account-only, because its
+        // anonymous upload is broken server-side. Upload nodes are on gamezizo.com. See UploadyPipeline.cs.
         { "Uploady", "uploady.io" },
         { "Upstore", "upstore.net" },
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the

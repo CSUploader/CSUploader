@@ -167,6 +167,23 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     protected string MyFilesUrl => Host + "/?op=my_files";
 
     /// <summary>
+    /// Which logged-in page the web-form account check and storage refresh read. The family default is
+    /// the file manager, whose stock template carries both the storage bar and the account menu; forks
+    /// that moved those elsewhere point this at their own page (Uploady keeps its storage figures on
+    /// <c>my_account</c> and leaves <c>my_files</c> with none). Whatever page this names must carry the
+    /// logout link, since it doubles as the still-signed-in probe.
+    /// </summary>
+    protected virtual string WebFormAccountPageUrl => MyFilesUrl;
+
+    /// <summary>
+    /// Reads (used, quota) out of the <see cref="WebFormAccountPageUrl"/> page. The default understands
+    /// the stock <c>&lt;span class="storage"&gt;&lt;b&gt;X&lt;/b&gt; of &lt;b&gt;Y&lt;/b&gt;</c> bar;
+    /// forks with a re-skinned dashboard override this. Either figure may come back null — callers
+    /// treat "both null" as "nothing to report" and keep the previous snapshot.
+    /// </summary>
+    protected virtual (long? Used, long? Quota) ParseStorageUsage(string html) => TryParseStorageBar(html);
+
+    /// <summary>
     /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
     /// returns a real <c>Max-Age</c>; seven days matches the standard "remember me"
     /// horizon on the server side. Once bootstrap completes we throw the cookie away
@@ -289,8 +306,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     // Logged-in web-form upload (isra.cloud, captured 2026-06-26): the ?op=upload_form page renders
     //   <form id="uploadfile" action="https://fsNN.HOST/cgi-bin/upload.cgi?upload_type=file&utype=reg">
     //     <input type="hidden" name="sess_id" value="<session>">
-    // _anonUploadActionRegex captures the action (the only upload.cgi form on the page); this pulls
-    // the hidden sess_id. The value equals the xfss session-cookie value, but we read it from the
+    // _anonUploadActionRegex captures the action; this pulls the hidden sess_id. Note the action
+    // scrape takes the FIRST upload.cgi form, which matters on pages carrying several — Uploady
+    // renders the file uploader, then a remote-URL form, then a torrent form, all posting to some
+    // upload.cgi, and only the first is the one we want. The value equals the xfss session-cookie value, but we read it from the
     // form so a server that mints a distinct per-session token is honoured verbatim. Handles either
     // attribute order (name-then-value / value-then-name).
     private static readonly Regex _sessIdInputRegex = new(
@@ -1158,8 +1177,8 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
 
     /// <summary>
     /// Account verification for web-form (no-API) hosters: WebView sign-in to capture the <c>xfss</c>
-    /// cookie, then a <c>my_account</c> HTML scrape for logged-in confirmation, the username, and
-    /// storage usage. No API key is involved; the persisted credential is the session cookie (reused
+    /// cookie, then an HTML scrape of <see cref="WebFormAccountPageUrl"/> for logged-in confirmation,
+    /// the username, and storage usage. No API key is involved; the persisted credential is the session cookie (reused
     /// by <see cref="RunWebFormAsync"/> and by the non-interactive storage refresh). Quota is always
     /// null — these hosters don't advertise a cap, so the grid's Available cell shows "Unlimited".
     /// </summary>
@@ -1192,22 +1211,22 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         int hops;
         try
         {
-            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
+            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, WebFormAccountPageUrl, cookieHeader, ct);
         }
         catch (Exception ex)
         {
-            return new AccountCheckResult(false, AccountType.Free, "my_files fetch failed: " + ex.Message);
+            return new AccountCheckResult(false, AccountType.Free, "Account page fetch failed: " + ex.Message);
         }
 
         if (!LooksLoggedIn(html))
         {
             string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-            string summary = $"Signed in, but the file manager didn't load as logged-in{trail}. The sign-in may not have completed.";
+            string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
             return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
         }
 
         string? scrapedUsername = ExtractMyAccountUsername(html);
-        (long? used, long? quota) = TryParseStorageBar(html);
+        (long? used, long? quota) = ParseStorageUsage(html);
 
         return new AccountCheckResult(
             IsValid: true,
@@ -1222,8 +1241,8 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// Non-interactive storage refresh for web-form hosters: GET <c>my_files</c> with the STORED
-    /// <c>xfss</c> cookie (never a WebView) and scrape the storage bar (used + quota). Returns null
+    /// Non-interactive storage refresh for web-form hosters: GET <see cref="WebFormAccountPageUrl"/>
+    /// with the STORED <c>xfss</c> cookie (never a WebView) and scrape it for used + quota. Returns null
     /// when there's no usable stored cookie, the fetch fails, the page isn't logged-in, or neither
     /// figure parsed — callers keep the last-known snapshot. Subclasses that implement
     /// <see cref="IStorageRefreshablePipeline"/> delegate here.
@@ -1242,7 +1261,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         string html;
         try
         {
-            (html, _, _) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
+            (html, _, _) = await FetchMyAccountAsync(handler, WebFormAccountPageUrl, cookieHeader, ct);
         }
         catch (OperationCanceledException)
         {
@@ -1258,7 +1277,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        (long? used, long? quota) = TryParseStorageBar(html);
+        (long? used, long? quota) = ParseStorageUsage(html);
         return used is null && quota is null ? null : new StorageUsage(used, quota);
     }
 

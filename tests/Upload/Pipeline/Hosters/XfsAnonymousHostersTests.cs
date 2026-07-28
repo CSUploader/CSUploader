@@ -17,10 +17,14 @@ using Xunit;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// The 2026-07-26 XFileSharing batch — Send.now, DropGalaxy, Uploady — all thin shims on
-/// <see cref="XFileSharingApiPipeline"/>. The HTML fixtures below are the real shapes captured from
-/// each live site, so these pin the two things a shim can get wrong: WHERE the anonymous form is
-/// scraped from, and WHICH form is picked when a page carries more than one <c>upload.cgi</c> form.
+/// The anonymous half of the 2026-07-26 XFileSharing batch — Send.now, plus the retained-but-disabled
+/// DropGalaxy — as thin shims on <see cref="XFileSharingApiPipeline"/>. The fixtures below are the
+/// real shapes captured from each live site, so these pin what a shim can get wrong: WHERE the
+/// anonymous upload node is discovered, and how the shared anonymous retry rules behave.
+/// <para>
+/// Uploady was part of that batch but is no longer anonymous — its guest path is broken server-side —
+/// so it lives in <see cref="UploadyPipelineTests"/> on the web-form path.
+/// </para>
 /// </summary>
 public class XfsAnonymousHostersTests
 {
@@ -29,19 +33,6 @@ public class XfsAnonymousHostersTests
         <!DOCTYPE html><html><body>
         <form id="uploadfile" action="https://dg.a2zupload.com/cgi-bin/upload.cgi?upload_type=file&utype=anon">
           <input type="hidden" name="sess_id" value="">
-        </form>
-        </body></html>
-        """;
-
-    // Uploady ?op=upload_form (live 2026-07-26) — TWO upload.cgi forms: the file uploader first, then
-    // the remote/URL uploader posting to the same path WITHOUT the query. Its homepage has neither.
-    private const string UploadyFormPageHtml = """
-        <!DOCTYPE html><html><body>
-        <form id="uploadfile" action="https://lsw2.gamezizo.com/cgi-bin/upload.cgi?upload_type=file&utype=anon">
-          <input type="hidden" name="sess_id" value="">
-        </form>
-        <form method="post" id="uploadurl" action="https://s2.gamezizo.com/cgi-bin/upload.cgi">
-          <input type="text" name="url_mass">
         </form>
         </body></html>
         """;
@@ -57,23 +48,15 @@ public class XfsAnonymousHostersTests
         Assert.Equal(100L * 1000 * 1000 * 1000, send.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }));
         Assert.Null(send.MaxFileSizeFor(new FileHosterLoginDto { Username = "u", Password = "p" }));
         Assert.Null(send.MaxFileSizeFor(new FileHosterLoginDto { ApiKey = "k" }));
-
-        UploadyPipeline uploady = new();
-        Assert.Equal("Uploady", uploady.Name);
-        Assert.True(uploady.SupportsAnonymousUpload);
-        Assert.Equal(5120L * 1024 * 1024, uploady.MaxFileSize); // api_get_limits: 5120 MB
     }
 
     [Fact]
-    public void EachHoster_IsRegisteredWithADomainAndTheApiKeyCredentialMode()
+    public void SendNow_IsRegisteredWithADomainAndTheApiKeyCredentialMode()
     {
-        foreach (string name in new[] { "Send.now", "Uploady" })
-        {
-            Assert.True(FileHosterClient.FileHosters.ContainsKey(name), $"{name} missing from the hoster registry");
-            Assert.False(string.IsNullOrWhiteSpace(FileHosterClient.FileHosters[name]), $"{name} has no domain");
-            // Accounts use the family's standard WebView-sign-in -> API-key flow, like their siblings.
-            Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode(name));
-        }
+        Assert.True(FileHosterClient.FileHosters.ContainsKey("Send.now"), "Send.now missing from the hoster registry");
+        Assert.False(string.IsNullOrWhiteSpace(FileHosterClient.FileHosters["Send.now"]), "Send.now has no domain");
+        // Accounts use the family's standard WebView-sign-in -> API-key flow, like most of its siblings.
+        Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode("Send.now"));
     }
 
     [Fact]
@@ -241,7 +224,7 @@ public class XfsAnonymousHostersTests
     [Fact]
     public async Task Anonymous_NodeBackendFailure_RetriesOnceWithAFreshNode()
     {
-        // Live from uploady.io: the node accepted the bytes, then its own storage CGI died and the
+        // Seen live on this family: the node accepted the bytes, then its own storage CGI died and the
         // failure came back inside file_status. That is a bad draw from the rotating pool, not a
         // verdict on the file, so a fresh node gets one more go.
         const string NodeBroke =
@@ -249,10 +232,10 @@ public class XfsAnonymousHostersTests
 
         List<string> getUrls = [];
         int uploadCalls = 0;
-        UploadyPipeline pipeline = new(
+        SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(UploadyFormPageHtml); },
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(SendNowApiJson); },
             uploadOverride: (_, _, _, _, _) =>
             {
                 uploadCalls++;
@@ -262,12 +245,12 @@ public class XfsAnonymousHostersTests
                     Array.Empty<string>()));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
 
-        Assert.Equal("https://uploady.io/second", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal("https://send.now/second", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
         Assert.Equal(2, uploadCalls);      // re-sent once
-        Assert.Equal(2, getUrls.Count);    // ...to a freshly scraped node
+        Assert.Equal(2, getUrls.Count);    // ...to a freshly resolved node
         Assert.Single(events.OfType<TransferStarted>()); // one transfer from the UI's point of view
     }
 
@@ -279,17 +262,17 @@ public class XfsAnonymousHostersTests
             """[{"file_code":"undef","file_status":"failed while requesting fs.cgi: 500 Internal Server Error"}]""";
 
         int uploadCalls = 0;
-        UploadyPipeline pipeline = new(
+        SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(UploadyFormPageHtml),
+            getOverride: (_, _) => Task.FromResult(SendNowApiJson),
             uploadOverride: (_, _, _, _, _) =>
             {
                 uploadCalls++;
                 return Task.FromResult(new HttpResponseSnapshot(200, NodeBroke, Array.Empty<string>()));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
 
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("fs.cgi", fail.Reason, StringComparison.OrdinalIgnoreCase);
@@ -302,10 +285,10 @@ public class XfsAnonymousHostersTests
         // The counterpart guard: a verdict on the FILE must not be retried, or a too-big file is sent
         // twice to be refused twice.
         int uploadCalls = 0;
-        UploadyPipeline pipeline = new(
+        SendNowPipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(UploadyFormPageHtml),
+            getOverride: (_, _) => Task.FromResult(SendNowApiJson),
             uploadOverride: (_, _, _, _, _) =>
             {
                 uploadCalls++;
@@ -313,9 +296,10 @@ public class XfsAnonymousHostersTests
                     200, """[{"file_code":"undef","file_status":"File too big"}]""", Array.Empty<string>()));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Send.now"), CancellationToken.None));
 
         Assert.Contains("File too big", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Empty(events.OfType<TransferCompleted>());
         Assert.Equal(1, uploadCalls); // sent once, never again
     }
 
@@ -351,59 +335,6 @@ public class XfsAnonymousHostersTests
     }
 
     [Fact]
-    public async Task Uploady_Anonymous_ScrapesTheUploadFormPage_AndPicksTheFileFormNotTheUrlForm()
-    {
-        // Both halves of Uploady's deviation in one assertion set: its homepage carries no form at
-        // all (so the scrape must target ?op=upload_form), and that page carries a SECOND upload.cgi
-        // form (the remote/URL uploader) that must not be chosen.
-        List<string> getUrls = [];
-        List<UploadCall> calls = [];
-        UploadyPipeline pipeline = new(
-            authService: null,
-            loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(UploadyFormPageHtml); },
-            uploadOverride: Capture(calls, """[{"file_code":"upl77","file_status":"OK"}]"""));
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
-
-        TransferCompleted tc = Assert.Single(events.OfType<TransferCompleted>());
-        Assert.Equal("https://uploady.io/upl77", tc.FileUrl);
-
-        string url = Assert.Single(getUrls);
-        Assert.Contains("op=upload_form", url, StringComparison.Ordinal); // NOT the homepage
-        Assert.Contains("&_=", url, StringComparison.Ordinal);            // still cache-busted
-
-        // The file uploader (with the utype=anon query), never the url_mass form.
-        Assert.Equal("https://lsw2.gamezizo.com/cgi-bin/upload.cgi?upload_type=file&utype=anon", Assert.Single(calls).Endpoint);
-    }
-
-    [Fact]
-    public async Task Uploady_AnonymousRetries_RefetchTheFormPageWithDistinctCacheBusters()
-    {
-        // The rotating-node retry must keep working through the overridden form URL.
-        List<string> getUrls = [];
-        int uploadCalls = 0;
-        UploadyPipeline pipeline = new(
-            authService: null,
-            loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(UploadyFormPageHtml); },
-            uploadOverride: (_, _, _, _, _) =>
-            {
-                uploadCalls++;
-                return uploadCalls < 2
-                    ? Task.FromException<HttpResponseSnapshot>(new HttpRequestException(HttpRequestError.NameResolutionError, "dead node"))
-                    : Task.FromResult(new HttpResponseSnapshot(200, """[{"file_code":"ok","file_status":"OK"}]""", Array.Empty<string>()));
-            });
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
-
-        Assert.Single(events.OfType<TransferCompleted>());
-        Assert.Equal(2, getUrls.Count);
-        Assert.All(getUrls, u => Assert.Contains("op=upload_form", u, StringComparison.Ordinal));
-        Assert.NotEqual(getUrls[0], getUrls[1]);
-    }
-
-    [Fact]
     public async Task Anonymous_CloudflareChallengeInterstitial_SaysSoInsteadOfFormNotFound()
     {
         // A real user hit this: send.now answered 403 + Cf-Mitigated: challenge with the "Just a
@@ -433,55 +364,20 @@ public class XfsAnonymousHostersTests
     [Fact]
     public async Task Anonymous_FormPageWithoutAnUploadForm_YieldsAttemptFailedWithoutUpload()
     {
-        // Uploady (not Send.now) exercises the base's HTML-scraping path — Send.now resolves its node
+        // Hexload (not Send.now) exercises the base's HTML-scraping path — Send.now resolves its node
         // from the JSON API and never fetches a page.
         List<UploadCall> calls = [];
-        UploadyPipeline pipeline = new(
+        HexloadPipeline pipeline = new(
             authService: null,
             loginRepository: null,
             getOverride: (_, _) => Task.FromResult("<html><body>under maintenance</body></html>"),
             uploadOverride: Capture(calls, "[]"));
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Hexload"), CancellationToken.None));
 
         Assert.Single(events.OfType<AttemptFailed>());
         Assert.DoesNotContain(events, e => e is TransferCompleted);
         Assert.Empty(calls);
-    }
-
-    [Fact]
-    public async Task Anonymous_ServerRejectsTheFile_SurfacesTheHostersReason()
-    {
-        List<UploadCall> calls = [];
-        UploadyPipeline pipeline = new(
-            authService: null,
-            loginRepository: null,
-            getOverride: (_, _) => Task.FromResult(UploadyFormPageHtml),
-            uploadOverride: Capture(calls, """[{"file_code":"","file_status":"File too big"}]"""));
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeAnonymousContext("Uploady"), CancellationToken.None));
-
-        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Contains("File too big", fail.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain(events, e => e is TransferCompleted);
-    }
-
-    [Fact]
-    public async Task Uploady_FileOverTheFiveGbCap_IsRejectedWithoutAnyHttp()
-    {
-        List<UploadCall> calls = [];
-        UploadyPipeline pipeline = new(
-            authService: null,
-            loginRepository: null,
-            getOverride: (_, _) => throw new InvalidOperationException("must not fetch"),
-            uploadOverride: Capture(calls, "[]"));
-
-        AttemptContext ctx = MakeAnonymousContext("Uploady") with { FileSize = (5120L * 1024 * 1024) + 1 };
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
-
-        Assert.Single(events.OfType<AttemptFailed>());
-        Assert.Empty(calls);
-        Assert.DoesNotContain(events, e => e is TransferStarted);
     }
 
     private static Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> Capture(

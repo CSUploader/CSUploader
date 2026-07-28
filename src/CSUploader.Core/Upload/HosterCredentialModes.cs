@@ -51,17 +51,18 @@ public static class HosterCredentialModes
     // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
     // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
     private static readonly HashSet<string> ApiKeyHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploady"];
+        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
-    /// API key to paste (isra.cloud is a classic XFileSharing host that exposes no REST API). The
-    /// dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/> but HIDES the
-    /// "OR paste an API key" box, and keys sign-in success / Save on the captured cookie instead of
-    /// an API key.
+    /// API key to paste. The dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/>
+    /// but HIDES the "OR paste an API key" box, and keys sign-in success / Save on the captured cookie
+    /// instead of an API key. Both members are classic XFileSharing hosts running the pipeline's
+    /// web-form path: isra.cloud exposes no REST API at all, and uploady.io mints an API key only on
+    /// request (its my_account reports "No API Key Found"), so neither has a key to paste.
     /// </summary>
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
