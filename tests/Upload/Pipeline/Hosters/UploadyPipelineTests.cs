@@ -276,6 +276,42 @@ public class UploadyPipelineTests
         Assert.NotNull(result.Detail); // the full page goes to the Details dialog
     }
 
+    [Fact]
+    public async Task ParallelUploads_OnAnAccountWithNoCookieYet_OpenExactlyOneSignInWindow()
+    {
+        // Reported from a real run: signing in once wasn't enough — a WebView appeared for every
+        // upload. Each concurrent attempt independently found "no cookie" and opened its own window,
+        // because the web-form path never used the per-account gate the API-key bootstrap has. The
+        // sign-in must be serialised AND re-checked behind the gate, so the first attempt's cookie
+        // satisfies everyone queued behind it.
+        FakeAuthService auth = new("xfss_uploady_like", signInDuration: TimeSpan.FromMilliseconds(150));
+        UploadyPipeline pipeline = new(
+            authService: auth,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(UploadFormHtml),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                200, """[{"file_code":"parallel","file_status":"OK"}]""", Array.Empty<string>())));
+
+        // One account, one shared credentials instance — exactly how a package's files are queued.
+        FileHosterLoginDto shared = new() { Id = 42, FileHosterName = "Uploady", Username = "typed_name" };
+
+        List<UploadEvent>[] results = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Task.Run(async () =>
+        {
+            List<UploadEvent> events = [];
+            await foreach (UploadEvent ev in pipeline.RunAsync(MakeContext(shared), CancellationToken.None))
+            {
+                events.Add(ev);
+            }
+
+            return events;
+        })));
+
+        Assert.Equal(1, auth.CallCount);                       // ONE window, not five
+        Assert.All(results, r => Assert.Single(r.OfType<TransferCompleted>()));
+        Assert.Equal("xfss_uploady_like", shared.SessionCookie); // and everyone shares the one cookie
+        Assert.NotNull(shared.SessionCookieExpiresUtc);
+    }
+
     private static FileHosterLoginDto ValidCookieCredentials() => new()
     {
         Id = 1,
@@ -307,10 +343,23 @@ public class UploadyPipelineTests
         IReadOnlyDictionary<string, string> ExtraFields,
         IReadOnlyDictionary<string, string>? Headers);
 
-    private sealed class FakeAuthService(string? cannedCookie) : IInteractiveAuthService
+    /// <summary>Stands in for the sign-in WebView. <paramref name="signInDuration"/> holds the call
+    /// open the way a real window does, so a concurrency test can tell "one window" from "five".</summary>
+    private sealed class FakeAuthService(string? cannedCookie, TimeSpan signInDuration = default) : IInteractiveAuthService
     {
-        public Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
-            => Task.FromResult<InteractiveAuthResult?>(
-                cannedCookie is null ? null : new InteractiveAuthResult(cannedCookie, CapturedUsername: null));
+        private int _callCount;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public async Task<InteractiveAuthResult?> AcquireSessionCookieAsync(InteractiveAuthSpec spec, string username, ProxyChoice? proxy, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _callCount);
+            if (signInDuration > TimeSpan.Zero)
+            {
+                await Task.Delay(signInDuration, cancellationToken);
+            }
+
+            return cannedCookie is null ? null : new InteractiveAuthResult(cannedCookie, CapturedUsername: null);
+        }
     }
 }

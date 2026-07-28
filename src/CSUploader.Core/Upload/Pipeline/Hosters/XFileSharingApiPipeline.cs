@@ -854,7 +854,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
 
     private async Task<(string? ApiKey, bool DidBootstrap, string? Error)> BootstrapApiKeyAsync(AttemptContext ctx, CancellationToken ct)
     {
-        string? xfss = await GetOrAcquireXfssCookieAsync(ctx, ct);
+        // Ungated: EnsureApiKeyAsync already holds this account's gate, and it isn't reentrant.
+        string? xfss = HasValidStoredSessionCookie(ctx)
+            ? ctx.Credentials.SessionCookie
+            : await AcquireXfssCookieAsync(ctx, ct).ConfigureAwait(false);
         if (xfss is null)
         {
             return (null, true, "sign-in cancelled or no usable proxy available");
@@ -913,18 +916,50 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         return (apiKey, true, null);
     }
 
+    /// <summary>
+    /// Returns the stored session cookie, signing in through the WebView only when there isn't a
+    /// usable one. Sign-in is serialised per account behind <see cref="_bootstrapGates"/> — the same
+    /// gate the API-key bootstrap uses, and for the same reason: without it, N parallel uploads that
+    /// all start without a cookie each open their own sign-in window. The re-check after taking the
+    /// gate is what actually collapses them — whoever gets in first signs in and writes the cookie to
+    /// the shared credentials, and everyone queued behind then finds it already there.
+    /// </summary>
     private async Task<string?> GetOrAcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
     {
-        bool pinMatches = ctx.Credentials.PinnedProxyId is null || ctx.Credentials.PinnedProxyId == ctx.Proxy.Id;
-
-        if (pinMatches
-            && !string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
-            && ctx.Credentials.SessionCookieExpiresUtc is DateTime expiresUtc
-            && expiresUtc > DateTime.UtcNow)
+        if (HasValidStoredSessionCookie(ctx))
         {
             return ctx.Credentials.SessionCookie;
         }
 
+        if (_authService is null)
+        {
+            return null;
+        }
+
+        SemaphoreSlim gate = _bootstrapGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // A sibling attempt may have signed in while this one waited.
+            return HasValidStoredSessionCookie(ctx)
+                ? ctx.Credentials.SessionCookie
+                : await AcquireXfssCookieAsync(ctx, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// The sign-in itself, WITHOUT taking <see cref="_bootstrapGates"/> — callers must already hold
+    /// the gate for this account. <see cref="SemaphoreSlim"/> is not reentrant, so the API-key
+    /// bootstrap (which signs in from inside the gate it took in <see cref="EnsureApiKeyAsync"/>)
+    /// must come here rather than through <see cref="GetOrAcquireXfssCookieAsync"/>, or it deadlocks
+    /// against itself.
+    /// </summary>
+    private async Task<string?> AcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
+    {
         if (_authService is null)
         {
             return null;
