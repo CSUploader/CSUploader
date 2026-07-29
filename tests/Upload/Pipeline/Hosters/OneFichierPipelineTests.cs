@@ -23,26 +23,8 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// </summary>
 public class OneFichierPipelineTests
 {
-    // The homepage. The JS block is real and matters: it re-assigns the form action for the
-    // send_ssl toggle, so the page mentions the same upload.cgi URL twice more (once over plain
-    // http) in a form the action scrape must NOT pick up.
-    private const string HomeHtml = """
-        <!DOCTYPE html><html><body>
-        <script>
-        $('input[name=send_ssl]').change( function() {
-          if( $('input[name=send_ssl]').is(':checked') ) $("#files").prop('action', 'https://up2.1fichier.com/upload.cgi?id=9kGjlUU2CV');
-          else $("#files").prop('action', 'http://up2.1fichier.com/upload.cgi?id=9kGjlUU2CV');
-          return false; });
-        </script>
-        <form enctype="multipart/form-data" id="files" action="https://up2.1fichier.com/upload.cgi?id=9kGjlUU2CV" method="post" autocomplete="off">
-          <input type="file" name="file[]" title="Select the file to upload" multiple="multiple" />
-          <input type="checkbox" name="send_ssl" checked="checked" />
-          <input type="password" name="dpass" value="" />
-          <input type="text" name="user" value="" />
-          <input id="sub" type="submit" name="submit" value="Send" />
-        </form>
-        </body></html>
-        """;
+    // What the documented node lookup answers. The node host is bare (no scheme, no path).
+    private const string NodeJson = """{"url":"up2.1fichier.com","id":"9kGjlUU2CV"}""";
 
     // The result page named by the 302. Note the removal link: same host, same id, one character of
     // difference in shape ("/remove/" vs "/?") — picking it would hand the user a link that DELETES
@@ -62,7 +44,7 @@ public class OneFichierPipelineTests
     private const string UploadAction = "https://up2.1fichier.com/upload.cgi?id=9kGjlUU2CV";
 
     [Fact]
-    public async Task RunAsync_HappyPath_ScrapesTheNode_PostsToIt_ThenReadsTheLinkOffTheResultPage()
+    public async Task RunAsync_HappyPath_ResolvesTheNode_PostsToIt_ThenReadsTheLinkOffTheResultPage()
     {
         List<string> getUrls = [];
         OneFichierPipeline pipeline = MakePipeline(getUrls, out List<UploadCall> calls);
@@ -73,16 +55,16 @@ public class OneFichierPipelineTests
         Assert.Equal("https://1fichier.com/?jxbpw7mo2qfc3ayoz701", tc.FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
 
-        // The POST goes to the scraped node, query intact — the ?id= IS the upload session.
+        // The POST goes to the resolved node, query intact — the ?id= IS the upload session.
         UploadCall call = Assert.Single(calls);
         Assert.Equal(UploadAction, call.Endpoint);
         Assert.Empty(call.ExtraFields); // the live probe proved a bare file[] is accepted
         Assert.Equal("https://1fichier.com", call.Headers!["Origin"]);
         Assert.Equal("https://1fichier.com/", call.Headers["Referer"]);
 
-        // Two GETs: the homepage, then the result page — on the NODE host, not the apex.
+        // Two calls: the API node lookup, then the result page — on the NODE host, not the apex.
         Assert.Equal(2, getUrls.Count);
-        Assert.Equal("https://1fichier.com/", getUrls[0]);
+        Assert.Equal("https://api.1fichier.com/v1/upload/get_upload_server.cgi", getUrls[0]);
         Assert.Equal("https://up2.1fichier.com/end.pl?xid=9kGjlUU2CV", getUrls[1]);
     }
 
@@ -106,7 +88,7 @@ public class OneFichierPipelineTests
         // The link lives ONLY on the page the 302 names, so no Location means no link to find.
         List<string> getUrls = [];
         OneFichierPipeline pipeline = new(
-            getSnapshotOverride: url => { getUrls.Add(url); return new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>()); },
+            getSnapshotOverride: url => { getUrls.Add(url); return new HttpResponseSnapshot(200, NodeJson, Array.Empty<string>()); },
             uploadOverride: (_, _, _, _, _) => Task.FromResult(
                 new HttpResponseSnapshot(200, "<html><body>please wait</body></html>", Array.Empty<string>())));
 
@@ -115,15 +97,25 @@ public class OneFichierPipelineTests
         AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("result page", fail.Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(events.OfType<TransferCompleted>());
-        Assert.Single(getUrls); // homepage only — nothing to follow
+        Assert.Single(getUrls); // node lookup only — nothing to follow
     }
 
+    [Theory]
+    [InlineData("""{"url":"up3.1fichier.com","id":"cprKQv815C"}""", "https://up3.1fichier.com/upload.cgi?id=cprKQv815C")]
+    [InlineData("{\n   \"id\" : \"Z2G3wqUd3I\",\n   \"url\" : \"ru-3.1fichier.com\"\n}", "https://ru-3.1fichier.com/upload.cgi?id=Z2G3wqUd3I")] // pretty-printed, keys reversed
+    [InlineData("""{"message":"Content-Type not JSON #24","status":"KO"}""", null)]                 // the refusal envelope
+    [InlineData("""{"url":"up3.1fichier.com"}""", null)]                                            // no id
+    [InlineData("""{"url":"evil.example.com/../x","id":"abc"}""", null)]                            // host must be bare
+    [InlineData("<html>not json</html>", null)]
+    public void TryReadUploadNode_BuildsThePostTargetOrRefuses(string json, string? expected)
+        => Assert.Equal(expected, OneFichierPipeline.TryReadUploadNode(json));
+
     [Fact]
-    public async Task RunAsync_HomepageWithoutTheForm_FailsBeforeSendingAnyBytes()
+    public async Task RunAsync_NodeLookupRefused_FailsBeforeSendingAnyBytes()
     {
         List<UploadCall> calls = [];
         OneFichierPipeline pipeline = new(
-            getSnapshotOverride: _ => new HttpResponseSnapshot(200, "<html><body>maintenance</body></html>", Array.Empty<string>()),
+            getSnapshotOverride: _ => new HttpResponseSnapshot(400, """{"message":"Content-Type not JSON #24","status":"KO"}""", Array.Empty<string>()),
             uploadOverride: (filePath, endpoint, fields, headers, _) =>
             {
                 calls.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(fields), null));
@@ -199,7 +191,7 @@ public class OneFichierPipelineTests
                 getUrls.Add(url);
                 return url.Contains("end.pl", StringComparison.Ordinal)
                     ? new HttpResponseSnapshot(200, EndHtml, Array.Empty<string>())
-                    : new HttpResponseSnapshot(200, HomeHtml, Array.Empty<string>());
+                    : new HttpResponseSnapshot(200, NodeJson, Array.Empty<string>());
             },
             uploadOverride: (filePath, endpoint, extraFields, headers, _) =>
             {

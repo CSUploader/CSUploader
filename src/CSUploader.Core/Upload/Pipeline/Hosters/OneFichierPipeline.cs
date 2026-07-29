@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
@@ -17,11 +18,13 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// 2026-07-29, including a real (since-deleted) file, so the shape below is what the server
 /// actually did rather than what its markup implies.
 /// <list type="number">
-///   <item><b>Scrape the rotating node.</b> GET <c>https://1fichier.com/</c> — plain nginx, no
-///   Cloudflare, no cookies — which renders
-///   <c>&lt;form id="files" action="https://NODE.1fichier.com/upload.cgi?id=XID"&gt;</c>. BOTH halves
-///   rotate per page load (<c>up2</c>, <c>up3</c>, <c>ru-3</c> … and a fresh 10-character
-///   <c>XID</c>), and the XID is what the result page is keyed by, so this is scraped for EVERY
+///   <item><b>Ask the API for a node.</b> <c>POST /v1/upload/get_upload_server.cgi</c> →
+///   <c>{"url":"NODE.1fichier.com","id":"XID"}</c>. This is 1Fichier's own documented endpoint
+///   (api.html) and needs NO account — only a JSON content type, without which it answers
+///   <c>{"message":"Content-Type not JSON #24"}</c>. The homepage renders the same pair into a
+///   <c>&lt;form action="…/upload.cgi?id=XID"&gt;</c>, but the API says it without an HTML scrape.
+///   Both halves rotate per call (<c>up2</c>, <c>up3</c>, <c>ru-3</c> … and a fresh 10-character
+///   <c>XID</c>), and the XID is what the result page is keyed by, so a node is fetched for EVERY
 ///   upload and never cached.</item>
 ///   <item><b>POST the file</b> as a single multipart to that action. The file field is
 ///   <c>file[]</c> — the site's form is a multi-file picker. The browser also sends <c>dpass</c>
@@ -48,6 +51,10 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     private const string Host = "https://1fichier.com";
     private const string HomeUrl = Host + "/";
 
+    /// <summary>Documented node lookup (api.html). Unauthenticated, but it insists on a JSON content
+    /// type — a plain GET without one is refused with <c>"Content-Type not JSON #24"</c>.</summary>
+    private const string ApiUploadServerUrl = "https://api.1fichier.com/v1/upload/get_upload_server.cgi";
+
     /// <summary>
     /// Guest per-file cap — 5 GB, stated by the homepage itself. Read as DECIMAL: the exact byte
     /// boundary behind a "5GB" claim is unstated, and of the two ways to be wrong, early-rejecting the
@@ -55,11 +62,6 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     /// entire upload. Same reasoning as Send.now's guest figure.
     /// </summary>
     private const long AnonymousMaxFileSizeBytes = 5L * 1000 * 1000 * 1000;
-
-    // The upload form's action is the rotating node. Anchored on upload.cgi so it can only match the
-    // uploader, never another form on the page, and captured verbatim because the ?id= query IS the
-    // upload session — dropping it would post into nowhere.
-    private static readonly Regex _uploadActionRegex = UploadActionRegex();
 
     // The share link on the result page: https://1fichier.com/?<20-char id>. The '?' is part of
     // 1fichier's link format, not a query we should strip.
@@ -111,11 +113,11 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
             yield break;
         }
 
-        // === Step 1: scrape this upload's node + session id ===
-        (string? actionUrl, string? scrapeError) = await FetchUploadFormAsync(ctx);
+        // === Step 1: ask the API for this upload's node + session id ===
+        (string? actionUrl, string? lookupError) = await FetchUploadNodeAsync(ctx);
         if (actionUrl is null)
         {
-            yield return new AttemptFailed(scrapeError ?? "1Fichier upload form not found", null);
+            yield return new AttemptFailed(lookupError ?? "1Fichier upload node lookup failed", null);
             yield break;
         }
 
@@ -175,23 +177,54 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
             "1Fichier login isn't supported yet — uploads use the built-in Anonymous option in the upload wizard."));
     }
 
-    /// <summary>GETs the homepage and scrapes this upload's node + session id out of the form action.</summary>
-    private async Task<(string? ActionUrl, string? Error)> FetchUploadFormAsync(AttemptContext ctx)
+    /// <summary>Asks the API for this upload's node + session id and builds the POST target from them.</summary>
+    private async Task<(string? ActionUrl, string? Error)> FetchUploadNodeAsync(AttemptContext ctx)
     {
         HttpResponseSnapshot snap;
         try
         {
-            snap = await GetSnapshotAsync(ctx, HomeUrl);
+            snap = await FetchNodeSnapshotAsync(ctx);
         }
         catch (Exception ex)
         {
-            return (null, "1Fichier homepage fetch failed: " + ex.Message);
+            return (null, "1Fichier upload-node lookup failed: " + ex.Message);
         }
 
-        Match action = _uploadActionRegex.Match(snap.Body);
-        return action.Success
-            ? (action.Groups[1].Value, null)
-            : (null, $"1Fichier homepage did not contain an upload-form action URL (HTTP {snap.StatusCode}): {Snippet(snap.Body)}");
+        return TryReadUploadNode(snap.Body) is { } action
+            ? (action, null)
+            : (null, $"1Fichier upload-node lookup returned no usable node (HTTP {snap.StatusCode}): {Snippet(snap.Body)}");
+    }
+
+    /// <summary>
+    /// Builds <c>https://NODE/upload.cgi?id=XID</c> from the lookup's <c>{"url","id"}</c>. Null for
+    /// anything that isn't that shape — a refusal envelope (<c>{"status":"KO"}</c>), an error page,
+    /// unparseable JSON. Internal for testing.
+    /// </summary>
+    internal static string? TryReadUploadNode(string json)
+    {
+        string? url;
+        string? id;
+        try
+        {
+            using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            url = doc.RootElement.TryGetProperty("url", out System.Text.Json.JsonElement u) && u.ValueKind == System.Text.Json.JsonValueKind.String ? u.GetString() : null;
+            id = doc.RootElement.TryGetProperty("id", out System.Text.Json.JsonElement i) && i.ValueKind == System.Text.Json.JsonValueKind.String ? i.GetString() : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+
+        // The node is a bare host name ("up3.1fichier.com"), so it is scheme-less by design; reject
+        // anything carrying a scheme or path rather than pasting it into a URL and hoping.
+        return string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(id) || url.Contains('/', StringComparison.Ordinal)
+            ? null
+            : $"https://{url}/upload.cgi?id={id}";
     }
 
     /// <summary>
@@ -259,6 +292,14 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
             cancellationToken: ctx.Cancellation);
     }
 
+    /// <summary>The node lookup. A POST with a JSON body is how the endpoint's own documented cURL
+    /// example calls it, and it is also the shape that gets the content type onto the wire — a GET
+    /// carries no content, so .NET would drop the Content-Type header and the API would refuse us.</summary>
+    private Task<HttpResponseSnapshot> FetchNodeSnapshotAsync(AttemptContext ctx)
+        => _getSnapshotOverride is not null
+            ? _getSnapshotOverride(ApiUploadServerUrl)
+            : ctx.Handler.SendJsonAsync(HttpMethod.Post, ApiUploadServerUrl, "{}", headers: null, ctx.Cancellation);
+
     private Task<HttpResponseSnapshot> GetSnapshotAsync(AttemptContext ctx, string url)
         => _getSnapshotOverride is not null
             ? _getSnapshotOverride(url)
@@ -277,9 +318,6 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
-
-    [GeneratedRegex("""action=["']([^"']*\.1fichier\.com/upload\.cgi\?[^"']*)["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
-    private static partial Regex UploadActionRegex();
 
     [GeneratedRegex("""https?://(?:www\.)?1fichier\.com/\?[0-9a-zA-Z]+""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
     private static partial Regex DownloadLinkRegex();

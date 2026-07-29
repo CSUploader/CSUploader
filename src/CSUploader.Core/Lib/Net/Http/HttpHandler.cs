@@ -997,10 +997,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                     this,
                     new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
                 cancellationToken);
-            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             multipartContent.Add(chunkPart, fileFieldName);
             chunkPart.Headers.ContentDisposition = null;
+
+            // Content-Disposition first, then Content-Type — same browser-shaped ordering (and the
+            // same reason) as AddFilePart; see the note there.
             chunkPart.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fileFieldName, fileName));
+            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
             using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
             if (headers is not null)
@@ -1215,17 +1218,24 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// with a real MIME type guessed from the extension instead of the generic
     /// <c>application/octet-stream</c>.
     /// </summary>
-    private static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
+    internal static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
     {
         string fileName = Path.GetFileName(filePath);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeGuesser.Guess(filePath));
 
         // Add first with the (content, name) overload so .NET sets a baseline
         // Content-Disposition; then overwrite it with our cleaner version.
         multipart.Add(fileContent, fieldName);
         fileContent.Headers.ContentDisposition = null;
 
+        // ORDER IS LOAD-BEARING: Content-Disposition must be the part's FIRST header, because that
+        // is what every browser and curl emit and some servers parse positionally rather than by
+        // name. 1fichier.com's upload.cgi is one — with Content-Type first it accepts the whole body
+        // and answers "Pas de fichier trouvé dans l'envoi" ("no file found in the upload"), a silent
+        // 200 that costs the entire transfer (isolated live 2026-07-29: same bytes, same field name,
+        // only the two headers swapped — Content-Type first 200s, Content-Disposition first 302s).
+        // Headers serialise in insertion order, so add the disposition BEFORE the content type.
         fileContent.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fieldName, fileName));
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeGuesser.Guess(filePath));
     }
 
     /// <summary>
