@@ -40,6 +40,14 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   from the request body).</item>
 /// </list>
 /// <para>
+/// A node that refuses the upload says why in its own page, and it is quoted back rather than dumped
+/// as HTML — see <see cref="TryReadServerMessage"/>. One of those messages,
+/// <c>Ne peut ouvrir le fichier destination</c>, is the node failing to open its own storage target
+/// (observed once in fourteen parallel uploads), so it earns exactly one retry against a freshly
+/// resolved node; every other refusal is final. Anything that goes wrong AFTER the POST succeeds is
+/// never retried — the file is already stored, and re-sending would duplicate it.
+/// </para>
+/// <para>
 /// <b>Anonymous is capped at 5 GB</b>, not the 300 GB the service is known for — the homepage states
 /// "File size is limited to 300GB for customers, 5GB for guests, 50GB for registered users". Wiring
 /// an account later is a worthwhile follow-up purely for the cap: it raises the per-file limit
@@ -66,6 +74,11 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     // The share link on the result page: https://1fichier.com/?<20-char id>. The '?' is part of
     // 1fichier's link format, not a query we should strip.
     private static readonly Regex _downloadLinkRegex = DownloadLinkRegex();
+
+    // 1Fichier states its outcome — success or failure — in the page's first non-empty "bloc2" div.
+    private static readonly Regex _blocMessageRegex = BlocMessageRegex();
+    private static readonly Regex _tagRegex = TagRegex();
+    private static readonly Regex _whitespaceRegex = WhitespaceRegex();
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
@@ -228,29 +241,77 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// POSTs the file, then resolves the share link. The POST's own body is the "please wait" page —
-    /// the link only exists on the result page named by the <c>Location</c> header, so the redirect is
-    /// followed by hand (the handler leaves 3xx alone).
+    /// Uploads and resolves the share link, retrying ONCE against a freshly resolved node when the
+    /// node reports its own failure. The retry re-sends the whole file, so it is deliberately capped
+    /// at one and gated on a narrow predicate — see <see cref="IsTransientNodeFailure"/>. Progress
+    /// restarts from zero on the retry, but the attempt stays a single transfer as far as the UI is
+    /// concerned, since this all runs inside one work task.
     /// </summary>
     private async Task<(string? Url, string? Error)> UploadAndResolveLinkAsync(AttemptContext ctx, string actionUrl)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            (string? url, string? error, bool transient) = await UploadOnceAsync(ctx, actionUrl);
+            if (url is not null)
+            {
+                return (url, null);
+            }
+
+            if (!transient || attempt >= 1)
+            {
+                return (null, error);
+            }
+
+            ctx.Logger.Log(this, LogType.Status, $"1Fichier: upload node reported a backend failure ({error}); retrying once with a fresh node.");
+
+            // A fresh lookup means a fresh node AND a fresh session id — the retry cannot land back
+            // on the node that just failed to open its destination file.
+            (string? retryAction, string? _) = await FetchUploadNodeAsync(ctx);
+            if (retryAction is null)
+            {
+                // Report the node's own failure — the reason we were retrying — not the lookup's,
+                // which is a symptom of it.
+                return (null, error);
+            }
+
+            actionUrl = retryAction;
+        }
+    }
+
+    /// <summary>
+    /// One POST plus the result-page fetch. The POST's own body is the "please wait" page — the link
+    /// only exists on the result page named by the <c>Location</c> header, so the redirect is followed
+    /// by hand (the handler leaves 3xx alone).
+    /// </summary>
+    private async Task<(string? Url, string? Error, bool Transient)> UploadOnceAsync(AttemptContext ctx, string actionUrl)
     {
         HttpResponseSnapshot response = await UploadAsync(ctx, actionUrl);
 
         // Defensive: if a future template ever inlines the link in the POST response, take it.
         if (_downloadLinkRegex.Match(response.Body) is { Success: true } inlineLink)
         {
-            return (inlineLink.Value, null);
+            return (inlineLink.Value, null, false);
         }
 
         if (response.LocationHeader is not { } location || location.Length == 0)
         {
-            return (null, $"1Fichier upload did not redirect to a result page (HTTP {response.StatusCode}): {Snippet(response.Body)}");
+            // No redirect means the node refused the upload, and it says why in its own page — quote
+            // that rather than dumping HTML at the user.
+            string? message = TryReadServerMessage(response.Body);
+            string reason = message is null
+                ? $"1Fichier upload did not redirect to a result page (HTTP {response.StatusCode}): {Snippet(response.Body)}"
+                : $"1Fichier upload was refused: {message}";
+            return (null, reason, IsTransientNodeFailure(message, response.StatusCode));
         }
 
+        // Everything past this point follows a SUCCESSFUL POST — the file is already stored. So none
+        // of it is retryable, whatever goes wrong: re-sending would upload the same file twice and
+        // leave the user a duplicate they never asked for. These failures lose the link, not the file.
+        //
         // Location is relative ("/end.pl?xid=…") and belongs to the NODE, not the apex host.
         if (!Uri.TryCreate(new Uri(actionUrl), location, out Uri? resultPage))
         {
-            return (null, $"1Fichier returned an unusable result-page location: {location}");
+            return (null, $"1Fichier returned an unusable result-page location: {location}", false);
         }
 
         HttpResponseSnapshot end;
@@ -260,14 +321,55 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
         }
         catch (Exception ex)
         {
-            return (null, "1Fichier result-page fetch failed: " + ex.Message);
+            return (null, "1Fichier result-page fetch failed: " + ex.Message, false);
         }
 
         Match link = _downloadLinkRegex.Match(end.Body);
         return link.Success
-            ? (link.Value, null)
-            : (null, $"1Fichier result page carried no download link (HTTP {end.StatusCode}): {Snippet(end.Body)}");
+            ? (link.Value, null, false)
+            : (null, $"1Fichier result page carried no download link (HTTP {end.StatusCode}): {Snippet(end.Body)}", false);
     }
+
+    /// <summary>
+    /// The message 1Fichier prints on its own result/error page. It always lands in the first
+    /// <c>&lt;div class="bloc2"&gt;</c> — verified across three live pages: the refusal
+    /// ("Pas de fichier trouvé dans l'envoi"), the node failure ("Ne peut ouvrir le fichier
+    /// destination") and even the success redirect ("Moved ! Temporary Redirect"). The second
+    /// <c>bloc2</c> on the page is an empty layout box, hence "first NON-EMPTY". Messages are French
+    /// regardless of the site's UI language. Internal for testing.
+    /// </summary>
+    internal static string? TryReadServerMessage(string html)
+    {
+        foreach (Match m in _blocMessageRegex.Matches(html))
+        {
+            string text = System.Net.WebUtility.HtmlDecode(_tagRegex.Replace(m.Groups[1].Value, " "));
+            text = _whitespaceRegex.Replace(text, " ").Trim();
+            if (text.Length > 0)
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True when the node's message describes IT failing rather than the upload being refused on its
+    /// merits. <c>Ne peut ouvrir le fichier destination</c> ("cannot open the destination file") is
+    /// the node failing to open its own storage target — seen once out of fourteen parallel uploads,
+    /// so it is a concurrency/storage hiccup on their side and a different node will take the file.
+    /// <para>
+    /// Deliberately narrow, because the retry re-sends the whole file. In particular <c>Pas de fichier
+    /// trouvé dans l'envoi</c> is NOT here: that one means the request we built was wrong (it was our
+    /// part-header order — see <c>HttpHandler.AddFilePart</c>), and re-sending a malformed upload just
+    /// spends the bytes twice to be told the same thing.
+    /// </para>
+    /// </summary>
+    private static bool IsTransientNodeFailure(string? message, int statusCode)
+        => statusCode >= 500
+           || (message is not null
+               && (message.Contains("fichier destination", StringComparison.OrdinalIgnoreCase)
+                   || message.Contains("destination file", StringComparison.OrdinalIgnoreCase)));
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string actionUrl)
     {
@@ -321,4 +423,13 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
 
     [GeneratedRegex("""https?://(?:www\.)?1fichier\.com/\?[0-9a-zA-Z]+""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]
     private static partial Regex DownloadLinkRegex();
+
+    [GeneratedRegex("""<div[^>]*\bclass=["']bloc2["'][^>]*>(.*?)</div>""", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.Singleline, "ja-JP")]
+    private static partial Regex BlocMessageRegex();
+
+    [GeneratedRegex("""<[^>]+>""", RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex TagRegex();
+
+    [GeneratedRegex("""\s+""", RegexOptions.Compiled, "ja-JP")]
+    private static partial Regex WhitespaceRegex();
 }

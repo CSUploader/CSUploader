@@ -43,6 +43,32 @@ public class OneFichierPipelineTests
 
     private const string UploadAction = "https://up2.1fichier.com/upload.cgi?id=9kGjlUU2CV";
 
+    // A refusal page, trimmed from the live response. The outcome sits in the first "bloc2" div; the
+    // second is an empty layout box. This particular message is the NODE failing to open its own
+    // storage target — seen once in fourteen parallel uploads.
+    private const string DestinationErrorHtml = """
+        <!DOCTYPE html><html><head><title>1fichier.com: Cloud Storage</title></head><body>
+        <div id="header"><a href="https://1fichier.com" title="1fichier.com"><img id="logo" /></a></div>
+        <div class="center-container2">
+          <div class="bloc2">
+            <span class="spacer spacer-20"></span>
+                        Ne peut ouvrir le fichier destination
+            <span class="spacer spacer-20"></span>
+          </div>
+          <div class="bloc2" style="width:750px;height:110px;margin:auto"></div>
+        </div>
+        </body></html>
+        """;
+
+    // The other refusal seen live — and the one that must NEVER be retried, because it meant OUR
+    // request was malformed (the part-header order), not that their node had a bad moment.
+    private const string NoFileFoundHtml = """
+        <!DOCTYPE html><html><body><div class="center-container2">
+          <div class="bloc2"><span class="spacer"></span>Pas de fichier trouv&eacute; dans l'envoi<span class="spacer"></span></div>
+          <div class="bloc2" style="height:110px"></div>
+        </div></body></html>
+        """;
+
     [Fact]
     public async Task RunAsync_HappyPath_ResolvesTheNode_PostsToIt_ThenReadsTheLinkOffTheResultPage()
     {
@@ -109,6 +135,123 @@ public class OneFichierPipelineTests
     [InlineData("<html>not json</html>", null)]
     public void TryReadUploadNode_BuildsThePostTargetOrRefuses(string json, string? expected)
         => Assert.Equal(expected, OneFichierPipeline.TryReadUploadNode(json));
+
+    [Theory]
+    [InlineData(DestinationErrorHtml, "Ne peut ouvrir le fichier destination")]
+    [InlineData(NoFileFoundHtml, "Pas de fichier trouvé dans l'envoi")]  // HTML entity decoded
+    [InlineData("<html><body><div class=\"bloc2\"></div><div class=\"bloc2\">Moved !</div></body></html>", "Moved !")]
+    [InlineData("<html><body>no bloc at all</body></html>", null)]
+    [InlineData("<html><body><div class=\"bloc2\"> <span></span> </div></body></html>", null)] // whitespace-only
+    public void TryReadServerMessage_TakesTheFirstNonEmptyBloc(string html, string? expected)
+        => Assert.Equal(expected, OneFichierPipeline.TryReadServerMessage(html));
+
+    [Fact]
+    public async Task RunAsync_NodeCannotOpenDestination_RetriesOnceAgainstAFreshNode()
+    {
+        // The live failure: 1 of 14 parallel uploads came back HTTP 200 with "Ne peut ouvrir le
+        // fichier destination". That is the node fumbling its own storage, so a different node gets
+        // one more go — and the node comes from the lookup, so the retry re-resolves.
+        List<string> getUrls = [];
+        List<string> endpoints = [];
+        int uploads = 0;
+
+        // Second lookup hands out a different node, proving the retry moves off the broken one.
+        Queue<string> nodes = new([NodeJson, """{"url":"up9.1fichier.com","id":"ZZZZZZZZZZ"}"""]);
+        OneFichierPipeline pipeline = new(
+            getSnapshotOverride: url =>
+            {
+                getUrls.Add(url);
+                return url.Contains("end.pl", StringComparison.Ordinal)
+                    ? new HttpResponseSnapshot(200, EndHtml, Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, nodes.Dequeue(), Array.Empty<string>());
+            },
+            uploadOverride: (_, endpoint, _, _, _) =>
+            {
+                endpoints.Add(endpoint);
+                return Task.FromResult(++uploads == 1
+                    ? new HttpResponseSnapshot(200, DestinationErrorHtml, Array.Empty<string>())
+                    : new HttpResponseSnapshot(302, "<html>please wait</html>", Array.Empty<string>(), "/end.pl?xid=ZZZZZZZZZZ"));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Equal("https://1fichier.com/?jxbpw7mo2qfc3ayoz701", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, uploads);
+        Assert.StartsWith("https://up2.1fichier.com/", endpoints[0], StringComparison.Ordinal);
+        Assert.StartsWith("https://up9.1fichier.com/", endpoints[1], StringComparison.Ordinal);
+
+        // Two lookups (one per send) then the result page.
+        Assert.Equal(3, getUrls.Count);
+        Assert.EndsWith("get_upload_server.cgi", getUrls[0], StringComparison.Ordinal);
+        Assert.EndsWith("get_upload_server.cgi", getUrls[1], StringComparison.Ordinal);
+        Assert.Contains("end.pl", getUrls[2], StringComparison.Ordinal);
+
+        Assert.Single(events.OfType<TransferStarted>()); // one transfer as far as the UI is concerned
+    }
+
+    [Fact]
+    public async Task RunAsync_DestinationFailurePersists_StopsAfterExactlyOneRetry_AndQuotesTheNode()
+    {
+        int uploads = 0;
+        OneFichierPipeline pipeline = new(
+            getSnapshotOverride: _ => new HttpResponseSnapshot(200, NodeJson, Array.Empty<string>()),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(200, DestinationErrorHtml, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        // The node's own words, not a dump of its HTML.
+        Assert.Contains("Ne peut ouvrir le fichier destination", fail.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("<html", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, uploads); // original + exactly one retry
+    }
+
+    [Fact]
+    public async Task RunAsync_NoFileFoundInTheUpload_IsNeverRetried()
+    {
+        // This message means the request WE built was wrong (the part-header order bug), so re-sending
+        // spends the whole file again to be told exactly the same thing.
+        int uploads = 0;
+        OneFichierPipeline pipeline = new(
+            getSnapshotOverride: _ => new HttpResponseSnapshot(200, NodeJson, Array.Empty<string>()),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(200, NoFileFoundHtml, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Contains("Pas de fichier trouvé", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Equal(1, uploads); // sent once, never again
+    }
+
+    [Fact]
+    public async Task RunAsync_ResultPageMissingItsLink_DoesNotReUploadTheFile()
+    {
+        // The POST succeeded, so the file IS stored. Retrying here would leave the user a duplicate;
+        // what's lost is the link, not the file.
+        int uploads = 0;
+        OneFichierPipeline pipeline = new(
+            getSnapshotOverride: url => url.Contains("end.pl", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, "<html><body>temporary page expired</body></html>", Array.Empty<string>())
+                : new HttpResponseSnapshot(200, NodeJson, Array.Empty<string>()),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(302, string.Empty, Array.Empty<string>(), "/end.pl?xid=9kGjlUU2CV"));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Contains("no download link", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, uploads); // NOT re-sent — that would duplicate the stored file
+    }
 
     [Fact]
     public async Task RunAsync_NodeLookupRefused_FailsBeforeSendingAnyBytes()
