@@ -32,7 +32,7 @@ The best first adds, ranked by value ÷ effort. All are alive, anonymous (no log
 | 1 | **Buzzheavier** | Low | Simplest possible pipeline: a single raw `PUT` of the file body reusing `HttpHandler.UploadPutAsync`, parse the JSON `id`. Anonymous, no cap, no captcha, no managed Cloudflare. |
 | 2 | **Send.cm** | Low | Classic XFS host — **anonymous upload verified live 2026-07-08** (`/api/upload/server` returned a keyless upload node). Maps 1:1 onto `XFileSharingApiPipeline`. ~20 GB free. |
 | 3 | **Filestank** | Low | Stock XFS, anonymous drag-and-drop, **20 GB** free per file, no Cloudflare, files kept indefinitely. Cleanest XFS batch pick. |
-| 4 | **1Fichier** | Medium | Major, well-known host. Anonymous web-form upload, **~300 GB/file**, no upload-side captcha. Standalone pipeline shaped like the existing Upstore/GigaPeta flow. |
+| 4 | ~~**1Fichier**~~ | — | **SHIPPED 2026-07-29.** Note the cap correction below: anonymous is **5 GB**, not the ~300 GB first recorded here. |
 | 5 | **Krakenfiles** | Medium | Anonymous 1 GB, no gating. `GET /api/server/available` → single multipart POST → parse `data.url`. Gofile/Upstore-shaped standalone. |
 | 6 | **Sendspace** | Medium | Well-known brand. Anonymous 300 MB, no captcha, plain nginx. Upstore-shaped web-form standalone. (Do **not** use the decommissioned `api.sendspace.com/rest/` XML API.) |
 | 7 | **VikingFile** | Medium | Documented public API, true anonymous, no captcha, effectively unlimited. Reuses Storage.to/Gofile primitives. |
@@ -111,7 +111,7 @@ Bespoke HTTP flows that don't fit XFS or the MoneyPlatform backend. Each needs i
 | Host | Domain | Anon | Cap | Gating | Effort | Note |
 |---|---|---|---|---|---|---|
 | **Buzzheavier** | buzzheavier.com | yes | unlimited | none | **Low** | Single raw `PUT` (reuse `UploadPutAsync`). Top pick. |
-| **1Fichier** | 1fichier.com | yes | ~300 GB | none | Medium | Rotating-node scrape → multipart POST → regex link. Upstore/GigaPeta-shaped. Account/API path is an easy later add. |
+| ~~**1Fichier**~~ | 1fichier.com | yes | **5 GB** | none | — | **SHIPPED 2026-07-29** (OneFichierPipeline). The ~300 GB recorded here was the PREMIUM figure — the homepage states "300GB for customers, 5GB for guests, 50GB for registered users", so anonymous is 5 GB and an account would raise it to 50 GB. Wire shape as predicted: rotating-node scrape → multipart `file[]` → 302 → result page carries the link. |
 | **Krakenfiles** | krakenfiles.com | yes | 1 GB (2 GB acct) | none | Medium | `GET /api/server/available` → multipart POST. Gofile-shaped. |
 | **Sendspace** | sendspace.com | yes | 300 MB | none | Medium | Scrape rotating form action → single-file POST. Upstore-shaped. |
 | **VikingFile** | vikingfile.com | yes | unlimited | none | Medium | Documented API; get-server single POST **or** presigned-PUT+ETag (Storage.to-shaped). |

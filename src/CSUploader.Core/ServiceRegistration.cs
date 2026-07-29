@@ -138,6 +138,10 @@ public static class ServiceRegistration
         // full diagnosis + re-enable checklist.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
+        // 1Fichier — anonymous only (no auth service needed): homepage scrape for a rotating node +
+        // per-upload session id, one multipart POST, then the result page named by the 302. See
+        // OneFichierPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.OneFichierPipeline>();
         // transfer.it (MEGA backend) — anonymous, no auth service needed.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).

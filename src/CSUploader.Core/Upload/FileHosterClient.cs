@@ -29,6 +29,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     /// </summary>
     public static FrozenDictionary<string, string> FileHosters { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        // 1fichier.com anonymous upload — GET / for a rotating node + per-upload session id
+        // (upNN.1fichier.com/upload.cgi?id=XID), one multipart POST of file[], then the result page the
+        // 302 names (end.pl?xid=XID) carries the link. Guest cap 5 GB. See OneFichierPipeline.cs.
+        { "1Fichier", "1fichier.com" },
         { "Alfafile", "www.alfafile.net" },
         { "BRupload", "www.brupload.net" },
         // buzzheavier.com — anonymous OR account via the developer API: a single raw PUT to

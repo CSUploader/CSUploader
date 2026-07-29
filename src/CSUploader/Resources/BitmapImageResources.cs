@@ -54,6 +54,9 @@ internal static class BitmapImageResources
         ("AccountImage", "account.png"),
 
         // File Hoster Images
+        // "1Fichier" keeps its leading digit and lowercases the rest, exactly as
+        // HosterIconConverter builds the key — hence "1fichier", not "1Fichier".
+        ("FileHoster1fichierImage", "FileHosters/filehoster_1fichier.png"),
         ("FileHosterAlfafileImage", "FileHosters/filehoster_alfafile.png"),
         ("FileHosterBruploadImage", "FileHosters/filehoster_brupload.png"),
         ("FileHosterBuzzheavierImage", "FileHosters/filehoster_buzzheavier.png"),
