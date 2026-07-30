@@ -183,7 +183,20 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     }
 
     /// <summary>
-    /// Gets the duration the file is uploading (when uploading; pause/stopped/etc. time is not included).
+    /// Gets how long the package has taken as a WALL-CLOCK span: earliest file start → latest file
+    /// finish, or → now while any file is still in flight. Null until the first file starts.
+    /// <para>
+    /// This deliberately does NOT sum the files' own durations, which is what it used to do. Files
+    /// upload in parallel, so that sum reads roughly (concurrency × real time): a run of 81 files
+    /// averaging ~3m42s each reported <c>4h59m48s</c> for what was actually a 17-minute upload. A
+    /// column labelled "Elapsed" can only mean the span, and the summed figure — total transfer time
+    /// across all workers — is not shown anywhere, by choice.
+    /// </para>
+    /// <para>
+    /// A span includes idle gaps BETWEEN files (a paused run keeps counting once it resumes past the
+    /// gap), which is what makes it agree with the Overview's own elapsed clock. Per-file
+    /// <see cref="PackageFile.Duration"/> is unchanged and still excludes paused time.
+    /// </para>
     /// </summary>
     public TimeSpan? Duration
     {
@@ -192,7 +205,43 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
             PackageFile[] files;
             lock (_filesLock)
             { files = [.. PackageFiles]; }
-            return files.Select(pf => pf.Duration).DefaultIfEmpty().Aggregate((result, ts) => result.HasValue && ts.HasValue ? result.Value.Add(ts.Value) : ts ?? result);
+
+            DateTime? start = null;
+            DateTime? end = null;
+            bool anyInFlight = false;
+
+            foreach (PackageFile f in files)
+            {
+                if (f.StartedDate is { } started)
+                {
+                    if (start is null || started < start)
+                    {
+                        start = started;
+                    }
+
+                    // Started but not finished — the package is still running, so the span runs to now.
+                    if (f.FinishedDate is null)
+                    {
+                        anyInFlight = true;
+                    }
+                }
+
+                if (f.FinishedDate is { } finished && (end is null || finished > end))
+                {
+                    end = finished;
+                }
+            }
+
+            if (start is null)
+            {
+                return null;
+            }
+
+            DateTime stop = anyInFlight ? DateTime.Now : end ?? start.Value;
+            TimeSpan span = stop - start.Value;
+
+            // Clocks can step backwards (NTP, DST); never render a negative elapsed.
+            return span < TimeSpan.Zero ? TimeSpan.Zero : span;
         }
     }
 
