@@ -94,6 +94,7 @@ internal static class BitmapImageResources
         ("FileHosterUploadgigImage", "FileHosters/filehoster_uploadgig.png"),
         ("FileHosterUfileImage", "FileHosters/filehoster_ufile.png"),
         ("FileHosterUpstoreImage", "FileHosters/filehoster_upstore.png"),
+        ("FileHosterVikingfileImage", "FileHosters/filehoster_vikingfile.png"),
         ("FileHosterWormholeImage", "FileHosters/filehoster_wormhole.png"),
 
         // Logo Images

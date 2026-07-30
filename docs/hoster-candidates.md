@@ -35,7 +35,7 @@ The best first adds, ranked by value ÷ effort. All are alive, anonymous (no log
 | 4 | ~~**1Fichier**~~ | — | **SHIPPED 2026-07-29.** Note the cap correction below: anonymous is **5 GB**, not the ~300 GB first recorded here. |
 | 5 | **Krakenfiles** | Medium | Anonymous 1 GB, no gating. `GET /api/server/available` → single multipart POST → parse `data.url`. Gofile/Upstore-shaped standalone. |
 | 6 | **Sendspace** | Medium | Well-known brand. Anonymous 300 MB, no captcha, plain nginx. Upstore-shaped web-form standalone. (Do **not** use the decommissioned `api.sendspace.com/rest/` XML API.) |
-| 7 | **VikingFile** | Medium | Documented public API, true anonymous, no captcha, effectively unlimited. Reuses Storage.to/Gofile primitives. |
+| 7 | ~~**VikingFile**~~ | — | **SHIPPED 2026-07-30.** Documented API held up: reused the Storage.to presigned-PUT + ETag primitives as predicted. |
 | 8 | **Uploady** / **WIP Files** | Low | Confirmed stock XFS, anonymous (Uploady 5 GB / WIP Files no-Cloudflare). Direct XFS-base shims. |
 | 9 | **Turbobit** | Medium | Big brand and the same-operator sibling of the already-shipped **HitFile** — its upload wire shape is nearly identical, so it's a low-risk copy. Anonymous 200 MB (100 GB registered). |
 | 10 | **Koofr** | Medium | The one cloud drive that is **not** OAuth — HTTP Basic app-password + plain REST, models cleanly on the MediaFire/Pixeldrain account pipelines. 10 GB free. |
@@ -114,7 +114,7 @@ Bespoke HTTP flows that don't fit XFS or the MoneyPlatform backend. Each needs i
 | ~~**1Fichier**~~ | 1fichier.com | yes | **5 GB** | none | — | **SHIPPED 2026-07-29** (OneFichierPipeline). The ~300 GB recorded here was the PREMIUM figure — the homepage states "300GB for customers, 5GB for guests, 50GB for registered users", so anonymous is 5 GB and an account would raise it to 50 GB. Wire shape as predicted: rotating-node scrape → multipart `file[]` → 302 → result page carries the link. |
 | **Krakenfiles** | krakenfiles.com | yes | 1 GB (2 GB acct) | none | Medium | `GET /api/server/available` → multipart POST. Gofile-shaped. |
 | **Sendspace** | sendspace.com | yes | 300 MB | none | Medium | Scrape rotating form action → single-file POST. Upstore-shaped. |
-| **VikingFile** | vikingfile.com | yes | unlimited | none | Medium | Documented API; get-server single POST **or** presigned-PUT+ETag (Storage.to-shaped). |
+| ~~**VikingFile**~~ | vikingfile.com | yes | unlimited | none | — | **SHIPPED 2026-07-30** (VikingFilePipeline). Took the presigned-PUT route: `get-upload-url` → R2 part PUTs + ETag → `complete-upload` with an empty `user`. The doc's `partSize` (1 GiB) is NOT what the live service returns (100 MiB) — read it from the response. Free files are deleted 15 days after last download; `delete-file` needs an account hash. |
 | **Webshare** | webshare.cz | yes | 20 GB | none | Medium | Get upload_url → multipart POST name+data → parse `ident`. Upstore-shaped. |
 | **Turbobit** | turbobit.net | yes | 200 MB (100 GB acct) | reCAPTCHA (login) | Medium | Near-identical to the shipped HitFile pipeline. Login captcha via WebView. |
 | **Fikper** | fikper.com | yes | ~1 GB (10 GB+ prem) | CF-passive | Medium | `sapi.fikper.com` + `x-api-key` (NitroFlare-shaped). ⚠ Infra was 522-timing-out during research; verify live. |

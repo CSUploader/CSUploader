@@ -167,6 +167,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // anonymous upload is broken server-side. Upload nodes are on gamezizo.com. See UploadyPipeline.cs.
         { "Uploady", "uploady.io" },
         { "Upstore", "upstore.net" },
+        // vikingfile.com anonymous upload over its own documented API: POST /api/get-upload-url (size)
+        // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
+        // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
+        { "VikingFile", "vikingfile.com" },
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the
         // link carries the decryption key in its #fragment. See WormholePipeline.cs + the Wormhole/ helpers.
         { "Wormhole", "wormhole.app" },
