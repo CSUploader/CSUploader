@@ -50,13 +50,23 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 
 ### A1 · Anonymous-capable, low/no gating (best value)
 
+> ⚠ **This whole section is largely STALE as of 2026-07-31 — treat every "anonymous" claim below as
+> unverified until re-probed.** A sweep of ten of these (dailyuploads, easybytez, fileaxa, megaup,
+> drop.download, apkadmin, elitefile, fastfile, rosefile, uploadrar) found **not one** still rendering
+> an anonymous `upload.cgi …utype=anon` form. Clicknupload — the only one of the batch that still
+> answers the XFS `?op=api_get_limits` marker at all — accepts an anonymous POST and replies
+> `uploads are not enabled for your account type`; its advertised `MaxUploadFilesize 2048` describes
+> REGISTERED users. That matches DropGalaxy and Uploady, both of which turned out the same way.
+> The XFS family has broadly moved to account-required uploads, so budget an account (and a live
+> re-probe) before planning any host below as "anonymous".
+
 | Host | Domain | Free cap | Gating | Conf. | Note |
 |---|---|---|---|---|---|
 | **Send.cm** | send.cm (→ send.now) | ~20 GB | CF-passive | high | Anon verified live 2026-07-08. tusfiles/file.cm/sendit lineage. |
 | **Filestank** | filestank.com | 20 GB | none | high | Anon drag-drop, kept "forever", public API. |
 | **WIP Files** | wipfiles.net | XFS default | none | high | Genuine Sibsoft XFS, no Cloudflare. |
 | **Uploady** | uploady.io | 5 GB anon / 10 GB acct | CF-passive | high | Confirmed `op=upload/sess_id/utype`. |
-| **Clicknupload** | clicknupload.click | 2 GB guest | CF-passive | high | Domain rotates (.click/.org/.co/.vip) — make base domain configurable. |
+| **Clicknupload** | clicknupload.click | ❌ **account-only** | CF-passive | high | **Anonymous is DISABLED (probed 2026-07-31)** — an anonymous POST to its own advertised `ServerURL` answers `[{"file_code":"undef","file_status":"uploads are not enabled for your account type"}]`. Its `?op=api_get_limits` is genuine XFS (`MaxUploadFilesize 2048`, `ServerURL https://green01.clicknupload.net/cgi-bin`, empty `SessionID`) and serves no CF challenge, so the ACCOUNT path should be a clean shim. Domain rotates (.click/.org/.co/.vip) — keep the base domain configurable. |
 | **Dropgalaxy** | dropgalaxy.com | ~1–2 GB | CF-passive | high | Anon files auto-expire 1 day after last download. |
 | **Dailyuploads** | dailyuploads.net | ~1–5 GB | CF-passive | high | Actively maintained (domain to 2027). |
 | **Easybytez** | easybytez**.org** | ~1–5 GB | CF-passive | high | Reference XFS host. Target `.org` (`.com` refused). |
