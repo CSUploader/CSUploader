@@ -81,6 +81,43 @@ public class DDownloadPipelineTests
         Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode("DDownload"));
     }
 
+    [Fact]
+    public async Task CheckAccount_WithoutAPastedKey_SaysWhereToGetItInsteadOfAttemptingSignIn()
+    {
+        // DDownload's modernised dashboard dropped the api-url input, so the family bootstrap can only
+        // ever end in "my_account did not contain an api-url input after generate" — which reads like
+        // a parser bug. Fail immediately with the actual remedy instead. Note authService is null: if
+        // this ever tried to sign in, it would report "Sign-in service unavailable" and this fails.
+        DDownloadPipeline pipeline = new();
+        HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            username: "someone", password: "secret", apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("Affiliate", result.Message, StringComparison.OrdinalIgnoreCase);   // where it lives
+        Assert.Contains("Paste", result.Message, StringComparison.OrdinalIgnoreCase);       // what to do
+        Assert.DoesNotContain("api-url", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Sign-in service unavailable", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithoutAnApiKey_FailsWithTheSameGuidance_NotAScrapeError()
+    {
+        DDownloadPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => throw new InvalidOperationException("must not call my_account"),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
+
+        List<UploadEvent> events = await DrainAsync(
+            pipeline.RunAsync(MakeContext(new FileHosterLoginDto { Id = 1, FileHosterName = "DDownload", Username = "someone" }), CancellationToken.None));
+
+        AttemptFailed fail = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("Affiliate", fail.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(events.OfType<TransferStarted>());
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];

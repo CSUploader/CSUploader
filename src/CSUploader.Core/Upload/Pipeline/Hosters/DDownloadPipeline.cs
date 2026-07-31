@@ -71,6 +71,18 @@ public sealed class DDownloadPipeline : XFileSharingApiPipeline
     protected override string ApiHost => "https://api-v2.ddownload.com";
 
     /// <summary>
+    /// The key cannot be bootstrapped here. DDownload's modernised dashboard no longer renders the
+    /// family's <c>api-url</c> input on <c>?op=my_account</c> — nor is there a
+    /// <c>generate_api_key</c> link to click — so signing in through the WebView can only ever end in
+    /// "my_account did not contain an api-url input after generate". Its own API docs say where the
+    /// key actually lives, and that is what this tells the user.
+    /// </summary>
+    protected override string? ApiKeyMustBePastedReason =>
+        "DDownload doesn't publish the API key on its account page, so signing in here can't retrieve it. "
+        + "Paste the key into the box above instead — find it on ddownload.com under "
+        + "Affiliate → Settings (its API documentation at ddownload.com/api says the same).";
+
+    /// <summary>
     /// No cap enforced client-side: the host declares none, and a wrong guess is the expensive kind of
     /// wrong — it would reject files the server would have taken. See the class remarks.
     /// </summary>

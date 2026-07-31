@@ -153,6 +153,19 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     protected string LoginUrl => Host + LoginPagePath;
     protected string MyAccountUrl => Host + "/?op=my_account";
     protected string PublicUrlPrefix => Host + "/";
+    /// <summary>
+    /// Null when the API key can be bootstrapped the family way — scraped from <c>my_account</c>, or
+    /// generated there and re-scraped. A NON-null value means this host has stopped publishing the key
+    /// on that page, so no amount of signing in will produce one and the user has to paste it; the
+    /// string is shown to them verbatim and should say exactly WHERE to find it.
+    /// <para>
+    /// Worth checking for any XFS host that has modernised its dashboard: the bootstrap fails with
+    /// "my_account did not contain an api-url input after generate", which reads like a parser bug
+    /// rather than "this page no longer has the thing".
+    /// </para>
+    /// </summary>
+    protected virtual string? ApiKeyMustBePastedReason => null;
+
     /// <summary>Host serving the REST API. Almost always the same host that serves the pages, but not
     /// always: DDownload answers its API only on <c>api-v2.ddownload.com</c> while links, my_account and
     /// sign-in stay on <c>ddownload.com</c> (the main host returns an HTML page for <c>/api/*</c>).
@@ -869,6 +882,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
                 return (ctx.Credentials.ApiKey, false, null);
             }
 
+            // Hosts that no longer publish the key on my_account can't be bootstrapped at all; the
+            // only route is a pasted key, so report that instead of failing obscurely mid-upload.
+            if (ApiKeyMustBePastedReason is { } pasteReason)
+            {
+                return (null, false, pasteReason);
+            }
+
             if (string.IsNullOrEmpty(ctx.Credentials.Username))
             {
                 return (null, false, "no API key set and no username supplied — open Settings → Accounts and either paste an API key or sign in with username/password");
@@ -1486,6 +1506,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // U/P mode — bootstrap an API key via WebView + my_account scrape.
+        // Unless this host has stopped publishing the key there, in which case say so NOW rather than
+        // walking the user through a sign-in that cannot possibly end in a key.
+        if (ApiKeyMustBePastedReason is { } pasteReason)
+        {
+            return new AccountCheckResult(false, AccountType.Free, pasteReason);
+        }
+
         if (_authService is null)
         {
             return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
