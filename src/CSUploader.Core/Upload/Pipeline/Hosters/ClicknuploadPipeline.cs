@@ -59,6 +59,15 @@ public sealed class ClicknuploadPipeline : XFileSharingApiPipeline, IStorageRefr
         """Used\s+space:\s*<strong>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</strong>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // The account name appears exactly once on the page, in the Connection info table:
+    //   <tr><td>FTP Login:</td><td>the_account_name</td></tr>
+    // There is no fa-user menu here, so the family's username scrape finds nothing — and because this
+    // is a session-cookie hoster the dialog collects no username either, which would leave the account
+    // showing a BLANK name in the wizard and Accounts grid.
+    private static readonly Regex _ftpLoginRegex = new(
+        """FTP\s+Login:\s*</td>\s*<td[^>]*>\s*([^<\s][^<]*?)\s*</td>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public ClicknuploadPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
         : base(authService, loginRepository)
     {
@@ -113,6 +122,17 @@ public sealed class ClicknuploadPipeline : XFileSharingApiPipeline, IStorageRefr
     {
         Match used = _usedSpaceRegex.Match(html);
         return (used.Success ? ParseSizeToBytes(used.Groups[1].Value, used.Groups[2].Value) : null, null);
+    }
+
+    /// <summary>
+    /// Reads the account name from the Connection info table's "FTP Login" row — the one place this
+    /// theme prints it. Without this the account would show up unnamed, since the family scrape wants
+    /// an <c>fa-user</c> menu this page doesn't have and session-cookie hosters collect no username.
+    /// </summary>
+    protected override string? ParseAccountUsername(string html)
+    {
+        Match m = _ftpLoginRegex.Match(html);
+        return m.Success ? m.Groups[1].Value : null;
     }
 
     /// <summary>

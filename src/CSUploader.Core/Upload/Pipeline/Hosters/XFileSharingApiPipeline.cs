@@ -186,6 +186,15 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     protected virtual (long? Used, long? Quota) ParseStorageUsage(string html) => TryParseStorageBar(html);
 
     /// <summary>
+    /// Pulls the account name out of the <see cref="WebFormAccountPageUrl"/> page. The default reads the
+    /// stock account menu (the token after the <c>fa-user</c> icon); forks that render the name
+    /// elsewhere override this. Returning null is NOT harmless for a session-cookie hoster: those hide
+    /// the username field entirely, so there is no typed value to fall back on and the account lands in
+    /// the grid with a BLANK name, indistinguishable from any other account on that host.
+    /// </summary>
+    protected virtual string? ParseAccountUsername(string html) => ExtractMyAccountUsername(html);
+
+    /// <summary>
     /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
     /// returns a real <c>Max-Age</c>; seven days matches the standard "remember me"
     /// horizon on the server side. Once bootstrap completes we throw the cookie away
@@ -1312,7 +1321,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
         }
 
-        string? scrapedUsername = ExtractMyAccountUsername(html);
+        string? scrapedUsername = ParseAccountUsername(html);
         (long? used, long? quota) = ParseStorageUsage(html);
 
         return new AccountCheckResult(

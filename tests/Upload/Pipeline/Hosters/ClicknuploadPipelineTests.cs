@@ -33,6 +33,11 @@ public class ClicknuploadPipelineTests
         <div class="UserHead" style="display:none;"><span>&#9776;</span> Balance: <strong>$0</strong>,
           Used space: <strong>1.50 GB</strong>, Traffic available today: <strong>Unlimited</strong> </div>
         <a href="https://clicknupload.click/?op=logout">Logout</a>
+        <table><tr><td colspan="2"><b>Connection info</b></td></tr>
+          <tr><td>FTP Host:</td><td>ftp.clicknupload.click</td></tr>
+          <tr><td>FTP Login:</td><td>demo_account</td></tr>
+          <tr><td>FTP Password:</td><td>*****</td></tr>
+        </table>
         <form id="uploadfile" action="https://white01.clicknupload.net/cgi-bin/upload.cgi?upload_type=file&utype=reg">
           <input type="hidden" name="sess_id" value="sess_demo_16ch">
           <input type="hidden" name="utype" value="reg">
@@ -146,12 +151,16 @@ public class ClicknuploadPipelineTests
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
 
         HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        // Session-cookie mode hides the username field, so NOTHING is typed — exactly the situation
+        // that left the account nameless in the grid before the FTP-Login scrape existed.
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            username: "typed_name", password: string.Empty, apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+            username: string.Empty, password: string.Empty, apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal("xfss_cnu_like", result.SessionCookie); // the credential is the cookie…
         Assert.Null(result.ApiKey);                          // …never an API key
+        Assert.Equal("demo_account", result.DerivedUsername); // scraped from the Connection info table
         Assert.Equal(1536L * 1024 * 1024, result.StorageUsedBytes); // "1.50 GB", binary
 
         // "Traffic available today: Unlimited" sits in the same div and is BANDWIDTH — it must never
