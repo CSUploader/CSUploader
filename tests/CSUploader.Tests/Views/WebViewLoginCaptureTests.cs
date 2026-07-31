@@ -122,4 +122,36 @@ public class WebViewLoginCaptureTests
     [Fact]
     public void BuildCookieHeader_EmptyJar_ReturnsNull()
         => Assert.Null(WebViewLoginCapture.BuildCookieHeader([]));
+
+    // ---- IsOnLoginPage: gates cookie capture, so getting it wrong either captures a guest session
+    // (too early) or never closes the sign-in window at all (too late).
+
+    [Theory]
+    // Path-routed login — the family default. Leaving /login.html means the path changes.
+    [InlineData("https://katfile.com/login.html", "https://katfile.com/login.html", true)]
+    [InlineData("https://katfile.com/?op=my_account", "https://katfile.com/login.html", false)]
+    // …and a host that appends its own query to a FAILED attempt is still on the login page.
+    [InlineData("https://katfile.com/login.html?err=1", "https://katfile.com/login.html", true)]
+    // Query-routed login (Clicknupload): path is "/" on BOTH sides, so only the query separates them.
+    [InlineData("https://clicknupload.click/?op=login", "https://clicknupload.click/?op=login", true)]
+    [InlineData("https://clicknupload.click/?op=my_files", "https://clicknupload.click/?op=login", false)]
+    [InlineData("https://clicknupload.click/?op=my_account.html", "https://clicknupload.click/?op=login", false)]
+    [InlineData("https://clicknupload.click/", "https://clicknupload.click/?op=login", false)]
+    // A different host is never the login page, whatever the path says.
+    [InlineData("https://evil.example/?op=login", "https://clicknupload.click/?op=login", false)]
+    // No navigation seen yet → treat as still there, so capture can't fire on a pre-auth cookie.
+    [InlineData(null, "https://clicknupload.click/?op=login", true)]
+    [InlineData("", "https://clicknupload.click/?op=login", true)]
+    public void IsOnLoginPage_ComparesQueryOnlyWhenTheLoginUrlHasOne(string? currentUrl, string loginUrl, bool expected)
+        => Assert.Equal(expected, WebViewLoginCapture.IsOnLoginPage(currentUrl, loginUrl));
+
+    [Fact]
+    public void IsOnLoginPage_QueryRoutedLogin_LetsCaptureFireAfterSignIn()
+    {
+        // The Clicknupload symptom in one assertion: sign-in completes, the browser lands on the account
+        // page, and if this still reported "on the login page" the window would hang open forever.
+        const string Login = "https://clicknupload.click/?op=login";
+        Assert.True(WebViewLoginCapture.IsOnLoginPage(Login, Login));
+        Assert.False(WebViewLoginCapture.IsOnLoginPage("https://clicknupload.click/?op=my_files", Login));
+    }
 }

@@ -112,10 +112,17 @@ internal static class WebViewLoginCapture
     /// True while the browser is still on (or has not yet navigated away from) the login page. Used to gate
     /// cookie capture for hosters (KatFile) that set the session cookie on the login page BEFORE the user
     /// authenticates — the caller waits for the post-login navigation instead of firing on the guest cookie.
-    /// Compares scheme-host and PATH (query/fragment ignored), so the XFS post-login <c>/?op=my_account</c>
-    /// (path "/") reads as "left the login page" vs the login page path (e.g. "/login.html"). An empty/absent
-    /// current URL (no navigation observed yet) counts as still on the login page. Unparseable URLs fall back
-    /// to an ordinal full-string compare.
+    /// <para>
+    /// Compares host and PATH, and — only when the login URL carries a query — the QUERY as well. That
+    /// exception is load-bearing: hosters that route by query rather than path put login at
+    /// <c>/?op=login</c>, whose path is just "/", and so is the path of every page you land on afterwards
+    /// (<c>/?op=my_files</c>). Comparing paths alone reads as "still on the login page" forever, capture
+    /// never fires and the sign-in window can never close (Clicknupload, 2026-07-31). Path-routed logins
+    /// (<c>/login.html</c>) keep the old behaviour exactly, including staying "on the login page" when the
+    /// host appends its own query to a failed attempt.
+    /// </para>
+    /// An empty/absent current URL (no navigation observed yet) counts as still on the login page.
+    /// Unparseable URLs fall back to an ordinal full-string compare.
     /// </summary>
     public static bool IsOnLoginPage(string? currentUrl, string loginUrl)
     {
@@ -130,8 +137,16 @@ internal static class WebViewLoginCapture
             return string.Equals(currentUrl, loginUrl, StringComparison.OrdinalIgnoreCase);
         }
 
-        return string.Equals(cur.Host, login.Host, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(cur.AbsolutePath.TrimEnd('/'), login.AbsolutePath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(cur.Host, login.Host, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(cur.AbsolutePath.TrimEnd('/'), login.AbsolutePath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Same host and path. If the login URL identifies itself by query, that query is the only thing
+        // separating the login page from the rest of the site, so it has to be compared too.
+        return login.Query.Length == 0
+            || string.Equals(cur.Query, login.Query, StringComparison.OrdinalIgnoreCase);
     }
 }
 
