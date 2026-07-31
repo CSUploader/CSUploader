@@ -1,4 +1,4 @@
-// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
+﻿// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -153,27 +153,8 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     protected string LoginUrl => Host + LoginPagePath;
     protected string MyAccountUrl => Host + "/?op=my_account";
     protected string PublicUrlPrefix => Host + "/";
-    /// <summary>
-    /// Null when the API key can be bootstrapped the family way — scraped from <c>my_account</c>, or
-    /// generated there and re-scraped. A NON-null value means this host has stopped publishing the key
-    /// on that page, so no amount of signing in will produce one and the user has to paste it; the
-    /// string is shown to them verbatim and should say exactly WHERE to find it.
-    /// <para>
-    /// Worth checking for any XFS host that has modernised its dashboard: the bootstrap fails with
-    /// "my_account did not contain an api-url input after generate", which reads like a parser bug
-    /// rather than "this page no longer has the thing".
-    /// </para>
-    /// </summary>
-    protected virtual string? ApiKeyMustBePastedReason => null;
-
-    /// <summary>Host serving the REST API. Almost always the same host that serves the pages, but not
-    /// always: DDownload answers its API only on <c>api-v2.ddownload.com</c> while links, my_account and
-    /// sign-in stay on <c>ddownload.com</c> (the main host returns an HTML page for <c>/api/*</c>).
-    /// Only the two <c>/api/</c> URLs below follow this — everything else stays on <see cref="Host"/>.</summary>
-    protected virtual string ApiHost => Host;
-
-    protected string ApiAccountInfoUrl => ApiHost + "/api/account/info";
-    protected string ApiUploadServerUrl => ApiHost + "/api/upload/server";
+    protected string ApiAccountInfoUrl => Host + "/api/account/info";
+    protected string ApiUploadServerUrl => Host + "/api/upload/server";
 
     /// <summary>The logged-in web upload form (web-form mode only). Carries the per-session
     /// upload-server <c>action</c> and the hidden <c>sess_id</c> we scrape in
@@ -882,13 +863,6 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
                 return (ctx.Credentials.ApiKey, false, null);
             }
 
-            // Hosts that no longer publish the key on my_account can't be bootstrapped at all; the
-            // only route is a pasted key, so report that instead of failing obscurely mid-upload.
-            if (ApiKeyMustBePastedReason is { } pasteReason)
-            {
-                return (null, false, pasteReason);
-            }
-
             if (string.IsNullOrEmpty(ctx.Credentials.Username))
             {
                 return (null, false, "no API key set and no username supplied — open Settings → Accounts and either paste an API key or sign in with username/password");
@@ -1346,7 +1320,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "Account page fetch failed: " + ex.Message);
         }
 
-        if (!LooksLoggedIn(html))
+        if (!LooksSignedIn(html))
         {
             string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
             string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
@@ -1400,7 +1374,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        if (!LooksLoggedIn(html))
+        if (!LooksSignedIn(html))
         {
             return null;
         }
@@ -1413,6 +1387,14 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// logout link. A logged-out fetch lands on the login page, which has none.</summary>
     private static bool LooksLoggedIn(string html)
         => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether a fetched account page shows us as signed in. The default looks for the family's
+    /// <c>?op=logout</c> link; forks with rewritten routes override it (DDownload's dashboard links
+    /// plain <c>/logout</c>). Getting this wrong rejects a perfectly good sign-in with "the account
+    /// page didn't load as logged-in", so check it against the real page before trusting the default.
+    /// </summary>
+    protected virtual bool LooksSignedIn(string html) => LooksLoggedIn(html);
 
     private static string? ExtractMyAccountUsername(string html)
     {
@@ -1506,13 +1488,6 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // U/P mode — bootstrap an API key via WebView + my_account scrape.
-        // Unless this host has stopped publishing the key there, in which case say so NOW rather than
-        // walking the user through a sign-in that cannot possibly end in a key.
-        if (ApiKeyMustBePastedReason is { } pasteReason)
-        {
-            return new AccountCheckResult(false, AccountType.Free, pasteReason);
-        }
-
         if (_authService is null)
         {
             return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");

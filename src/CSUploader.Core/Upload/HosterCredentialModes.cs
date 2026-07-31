@@ -51,7 +51,7 @@ public static class HosterCredentialModes
     // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
     // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
     private static readonly HashSet<string> ApiKeyHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "DDownload"];
+        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
@@ -61,8 +61,12 @@ public static class HosterCredentialModes
     /// web-form path: isra.cloud exposes no REST API at all, and uploady.io mints an API key only on
     /// request (its my_account reports "No API Key Found"), so neither has a key to paste.
     /// </summary>
+    // "DDownload" is here rather than in ApiKeyHosters on purpose: it HAS a working REST API, but the
+    // key is only obtainable from its Affiliate Dashboard (Affiliate → Settings) and can't be
+    // bootstrapped from my_account, so requiring one would mean every user enabling an affiliate
+    // account before their first upload. Signing in is the shippable flow.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
