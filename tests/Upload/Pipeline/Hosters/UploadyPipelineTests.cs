@@ -58,6 +58,15 @@ public class UploadyPipelineTests
     private const string MyAccountHtml = """
         <!doctype html><html><body>
         <a href="/?op=logout" class="btn">Logout</a>
+        <!-- The decoy that broke this: the family scrape anchors on fa-user and takes the next token,
+             and Uploady puts that icon on a TAB LABEL. Every account used to be saved as "Profile". -->
+        <a data-toggle="tab" href="#profile" class="nav-link active" role="tab"><i class="far fa-user mr-1"></i>Profile</a>
+        <h1 class="dashboard-title mb-4">Welcome back, demo_user!</h1>
+        <div class="tab-row">
+          <div class="tab-row-label"><h6>Username</h6></div>
+          <div class="tab-row-value"><span class="font-weight-bold text-dark">demo_user</span></div>
+        </div>
+        <span class="copy" data-clipboard-text="https://uploady.io/users/demo_user"> https://uploady.io/users/demo_user </span>
         <div class="dash-stat"><div class="dash-stat-label">Available Funds</div>
           <div class="dash-stat-value">$0.00</div></div>
         <div class="dash-stat">
@@ -244,8 +253,11 @@ public class UploadyPipelineTests
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>())));
 
         HttpHandler handler = new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+        // Empty, because session-cookie mode hides the username field — this is what the dialog really
+        // passes, and a fixture that supplied one would hide whatever the scrape does.
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            username: "typed_name", password: string.Empty, apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
+            username: string.Empty, password: string.Empty, apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal("xfss_uploady_like", result.SessionCookie); // the credential is the cookie…
@@ -253,10 +265,33 @@ public class UploadyPipelineTests
         Assert.Equal(0L, result.StorageUsedBytes);
         Assert.Equal(Quota1000Gb, result.StorageQuotaBytes);
 
-        // Uploady's dashboard exposes no username in a shape the family scrape recognises, so the name
-        // the user typed is kept rather than blanked. Cosmetic — sign-in keys on the cookie.
-        Assert.Equal("typed_name", result.DerivedUsername);
+        // The real account name — NOT "Profile", which is what the family fa-user scrape picks off the
+        // tab label sitting in this same fixture.
+        Assert.Equal("demo_user", result.DerivedUsername);
+        Assert.NotEqual("Profile", result.DerivedUsername);
     }
+
+    [Theory]
+    // Labelled row — the primary source.
+    [InlineData("""<div class="tab-row-label"><h6>Username</h6></div> <div class="tab-row-value"><span class="x">demo_user</span></div>""", "demo_user")]
+    // UI in another language: the label is gone, so the profile URL carries it instead.
+    [InlineData("""<h6>Utilisateur</h6></div><div><span>x</span></div> <span data-clipboard-text="https://uploady.io/users/demo_user">…</span>""", "demo_user")]
+    // The decoy alone must yield NOTHING rather than the tab label.
+    [InlineData("""<a href="#profile"><i class="far fa-user mr-1"></i>Profile</a>""", null)]
+    [InlineData("<html><body>signed out</body></html>", null)]
+    public void ParseAccountUsername_TakesTheAccountName_NeverTheProfileTabLabel(string html, string? expected)
+    {
+        // Exercised through CheckAccount's public contract would need a WebView; assert the parse
+        // directly via the pipeline's own override by round-tripping a page that contains only this.
+        UploadyPipeline pipeline = new();
+        string? actual = InvokeParseUsername(pipeline, html);
+        Assert.Equal(expected, actual);
+    }
+
+    private static string? InvokeParseUsername(UploadyPipeline pipeline, string html)
+        => (string?)typeof(XFileSharingApiPipeline)
+            .GetMethod("ParseAccountUsername", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(pipeline, [html]);
 
     [Fact]
     public async Task CheckAccount_LandsOnLoginPage_FailsWithDetail()

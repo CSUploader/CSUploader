@@ -191,6 +191,12 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// elsewhere override this. Returning null is NOT harmless for a session-cookie hoster: those hide
     /// the username field entirely, so there is no typed value to fall back on and the account lands in
     /// the grid with a BLANK name, indistinguishable from any other account on that host.
+    /// <para>
+    /// <b>Check what the default actually matches before relying on it</b> — a theme that uses
+    /// <c>fa-user</c> for something OTHER than the account menu makes it return a wrong name rather
+    /// than none, which is harder to notice and worse to live with. Uploady renders that icon on its
+    /// "Profile" tab and every account was saved as "Profile" until it overrode this.
+    /// </para>
     /// </summary>
     protected virtual string? ParseAccountUsername(string html) => ExtractMyAccountUsername(html);
 

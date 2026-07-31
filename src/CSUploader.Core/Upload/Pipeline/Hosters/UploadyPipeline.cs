@@ -55,6 +55,20 @@ public sealed class UploadyPipeline : XFileSharingApiPipeline, IStorageRefreshab
         """Space\s+used\s*</span>\s*<span[^>]*>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // The account name, from its explicitly labelled row:
+    //   <div class="tab-row-label"><h6>Username</h6></div>
+    //   <div class="tab-row-value"><span class="font-weight-bold text-dark">the_name</span></div>
+    private static readonly Regex _usernameRowRegex = new(
+        """<h6>\s*Username\s*</h6>\s*</div>\s*<div[^>]*>\s*<span[^>]*>\s*([^<\s][^<]*?)\s*</span>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Language-independent fallback: the account's own profile URL, which the page renders both as
+    // visible text and in a copy-to-clipboard attribute. Survives the UI being switched to French etc.,
+    // where the "Username" label above would not.
+    private static readonly Regex _profileUrlRegex = new(
+        """uploady\.io/users/([A-Za-z0-9._\-]{1,64})""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public UploadyPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
         : base(authService, loginRepository)
     {
@@ -138,6 +152,28 @@ public sealed class UploadyPipeline : XFileSharingApiPipeline, IStorageRefreshab
         Match quota = _storageQuotaRegex.Match(html);
         return (used.Success ? ParseSizeToBytes(used.Groups[1].Value, used.Groups[2].Value) : null,
                 quota.Success ? ParseSizeToBytes(quota.Groups[1].Value, quota.Groups[2].Value) : null);
+    }
+
+    /// <summary>
+    /// Reads the account name from the dashboard's labelled "Username" row, falling back to the
+    /// profile URL it publishes (<c>uploady.io/users/&lt;name&gt;</c>) when the UI is in another
+    /// language.
+    /// <para>
+    /// This override exists because the family default doesn't merely miss here — it matches the WRONG
+    /// THING. It anchors on the <c>fa-user</c> icon and takes the next token, and Uploady uses that
+    /// icon for its <b>"Profile" tab label</b>, so every account was saved as literally "Profile":
+    /// wrong, and identical for every account on the host. A silently wrong name is worse than a blank
+    /// one, which is why this is pinned by a test using the real markup.
+    /// </para>
+    /// </summary>
+    protected override string? ParseAccountUsername(string html)
+    {
+        if (_usernameRowRegex.Match(html) is { Success: true } row)
+        {
+            return row.Groups[1].Value;
+        }
+
+        return _profileUrlRegex.Match(html) is { Success: true } url ? url.Groups[1].Value : null;
     }
 
     /// <summary>
