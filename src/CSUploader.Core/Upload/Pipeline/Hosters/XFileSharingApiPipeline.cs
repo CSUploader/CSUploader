@@ -153,8 +153,14 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     protected string LoginUrl => Host + LoginPagePath;
     protected string MyAccountUrl => Host + "/?op=my_account";
     protected string PublicUrlPrefix => Host + "/";
-    protected string ApiAccountInfoUrl => Host + "/api/account/info";
-    protected string ApiUploadServerUrl => Host + "/api/upload/server";
+    /// <summary>Host serving the REST API. Almost always the same host that serves the pages, but not
+    /// always: DDownload answers its API only on <c>api-v2.ddownload.com</c> while links, my_account and
+    /// sign-in stay on <c>ddownload.com</c> (the main host returns an HTML page for <c>/api/*</c>).
+    /// Only the two <c>/api/</c> URLs below follow this — everything else stays on <see cref="Host"/>.</summary>
+    protected virtual string ApiHost => Host;
+
+    protected string ApiAccountInfoUrl => ApiHost + "/api/account/info";
+    protected string ApiUploadServerUrl => ApiHost + "/api/upload/server";
 
     /// <summary>The logged-in web upload form (web-form mode only). Carries the per-session
     /// upload-server <c>action</c> and the hidden <c>sess_id</c> we scrape in

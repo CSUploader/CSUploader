@@ -53,6 +53,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // out alongside this. Do NOT re-add without a usable cap or open registration — see
         // DropGalaxyPipeline.cs class-level remarks for the full diagnosis + re-enable checklist.
         // { "DropGalaxy", "dropgalaxy.com" },
+        // ddownload.com (ex ddl.to) — XFileSharing Pro, API-key path. Its /api/* is served ONLY from
+        // api-v2.ddownload.com; links and my_account stay here. Free accounts can upload (verified
+        // 2026-08-01). See DDownloadPipeline.cs.
+        { "DDownload", "ddownload.com" },
         { "Ex-Load", "www.ex-load.com" },
         // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
         // the web UI's chunked protocol can't be captured (UI also failing). Pipeline

@@ -88,7 +88,7 @@ Wire like the existing session-cookie XFS hosts (Isracloud / Hxfile / Filehoster
 
 | Host | Domain | Free cap | Conf. | Note |
 |---|---|---|---|---|
-| **DDownload** | ddownload.com | 2 GB | high | Clean XFS **API-key** path (`api-v2.ddownload.com/api/upload/server?key=`). Strong. Ex-ddl.to. |
+| ~~**DDownload**~~ | ddownload.com | no stated cap | high | **SHIPPED 2026-08-01** (DDownloadPipeline) — the thinnest shim yet: pure config on the API-key path, verified end-to-end through our own client with a FREE account (upload accepted, link served, file deleted). Two corrections to this row: the API answers ONLY on `api-v2.ddownload.com` (the main host returns HTML for `/api/*`), and the "2 GB" was unverified — the host publishes NO per-file figure anywhere (`/api/upload/limits` → "Invalid operation"), so `MaxFileSize` is null and the server decides. Free accounts CAN upload, unlike Uploady/DropGalaxy/Clicknupload. |
 | **Rosefile** | rosefile.net | 5 GB (80 GB prem) | high | Leech-listed; standard XFS. |
 | **Sharemods** | sharemods.com | multi-GB | high | 13-yr host; `op=upload_form` confirmed. |
 | **Userscloud** | userscloud.com | "unlimited" | high | Same operator family as Usersdrive. |

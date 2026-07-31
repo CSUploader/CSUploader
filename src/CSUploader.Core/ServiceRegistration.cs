@@ -148,6 +148,9 @@ public static class ServiceRegistration
         // Clicknupload — stock XFileSharing on the web-form path; account-only (its anonymous upload
         // is refused with "uploads are not enabled for your account type"). See ClicknuploadPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ClicknuploadPipeline>();
+        // DDownload — XFileSharing Pro on the standard API-key path; its API answers only on
+        // api-v2.ddownload.com. See DDownloadPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DDownloadPipeline>();
         // transfer.it (MEGA backend) — anonymous, no auth service needed.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).

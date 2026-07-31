@@ -67,6 +67,7 @@ internal static class BitmapImageResources
         // so "Send.now" resolves to FileHosterSend.nowImage — same shape as Storage.to/Transfer.it.
         ("FileHosterSend.nowImage", "FileHosters/filehoster_send.now.png"),
         ("FileHosterUploadyImage", "FileHosters/filehoster_uploady.png"),
+        ("FileHosterDdownloadImage", "FileHosters/filehoster_ddownload.png"),
         ("FileHosterExloadImage", "FileHosters/filehoster_exload.png"),
         ("FileHosterExtmatrixImage", "FileHosters/filehoster_extmatrix.png"),
         ("FileHosterFileboomImage", "FileHosters/filehoster_fileboom.png"),
