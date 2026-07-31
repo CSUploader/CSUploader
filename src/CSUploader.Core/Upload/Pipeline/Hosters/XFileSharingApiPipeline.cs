@@ -159,7 +159,9 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// <summary>The logged-in web upload form (web-form mode only). Carries the per-session
     /// upload-server <c>action</c> and the hidden <c>sess_id</c> we scrape in
     /// <see cref="GetWebFormUploadServerAsync"/>.</summary>
-    protected string UploadFormUrl => Host + "/?op=upload_form";
+    /// <summary>Virtual because forks move it: Clicknupload renders the uploader on
+    /// <c>?op=my_account.html</c> and has no <c>?op=upload_form</c> at all.</summary>
+    protected virtual string UploadFormUrl => Host + "/?op=upload_form";
 
     /// <summary>The logged-in file manager (web-form mode only). Source of the account's storage bar
     /// (<c>used of total</c>), the username, and the logged-in check — see

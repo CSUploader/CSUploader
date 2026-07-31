@@ -145,6 +145,9 @@ public static class ServiceRegistration
         // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
         // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
+        // Clicknupload — stock XFileSharing on the web-form path; account-only (its anonymous upload
+        // is refused with "uploads are not enabled for your account type"). See ClicknuploadPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ClicknuploadPipeline>();
         // transfer.it (MEGA backend) — anonymous, no auth service needed.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).

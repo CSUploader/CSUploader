@@ -42,6 +42,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
         // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
         { "Catbox", "catbox.moe" },
+        // Clicknupload — stock XFileSharing, ACCOUNT-ONLY (guests are refused outright). Web-form path:
+        // WebView sign-in for xfss → GET ?op=my_account.html → scrape the form action + sess_id →
+        // classic multipart. Domain rotates (.click/.org/.co/.vip). See ClicknuploadPipeline.cs.
+        { "Clicknupload", "clicknupload.click" },
         // DropGalaxy DISABLED 2026-07-26 (the day it was added) — anonymous uploads are capped at
         // 0.00001 MB (~10 bytes; the host answers "File size limit is 0.00001 Mbytes"), and account
         // registration is closed, so the API-key path can't be reached either. The pipeline is a
