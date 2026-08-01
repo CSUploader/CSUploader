@@ -468,6 +468,46 @@ public class UploadedViewTests
             .OfType<DataGridRow>()
             .First(r => r.DataContext is UploadedFileRow row && row.FileName == fileName);
 
+    // ── The path/hash tooltips must not spray binding errors when they open. Both live on DESCENDANT
+    //    selectors, and a tooltip presents its string INSIDE the element it belongs to — the presenter
+    //    builds a TextBlock whose DataContext is that string, which the selector matches too. A
+    //    DataContext-relative binding is then re-applied against a System.String and logs "Could not
+    //    find a matching property accessor for 'FileDirectory'" on every hover. Same shape as the
+    //    LogsView message tooltip that surfaced this. ──
+
+    [AvaloniaTheory]
+    [InlineData("path-cell")]
+    [InlineData("hash-cell")]
+    public void OpeningACellTooltip_RaisesNoBindingErrors(string cellClass)
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        using BindingErrorSink sink = BindingErrorSink.Install();
+        try
+        {
+            DataGridCell cell = view.FilesGrid.GetVisualDescendants()
+                .OfType<DataGridCell>()
+                .First(c => c.Classes.Contains(cellClass));
+            TextBlock text = cell.GetVisualDescendants().OfType<TextBlock>().First();
+
+            ToolTip.SetIsOpen(text, true);
+            Dispatcher.UIThread.RunJobs();
+            ToolTip.SetIsOpen(text, false);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(sink.Errors);
+
+            // …and the tooltip still reveals the full value the trimmed cell is hiding.
+            Assert.Equal(text.Text, ToolTip.GetTip(text));
+            Assert.False(string.IsNullOrEmpty(text.Text));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static (Window Window, UploadedView View) Show(UploadedViewModel vm)
     {
         // Wide enough that every column (~2150px total) is in the horizontal viewport — the DataGrid

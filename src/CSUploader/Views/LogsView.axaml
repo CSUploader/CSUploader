@@ -57,17 +57,26 @@
     </Style>
 
     <!-- Rule-20 cell classes: single-line ellipsis with a full-text tooltip (WPF LogMessageStyle /
-         LogUrlStyle). The ToolTip.Tip Binding setters resolve against the row item (the cell TextBlock's
-         DataContext) — the URL tooltip shows the url-decoded value for readability. -->
+         LogUrlStyle).
+
+         The tooltip reads $self.Text, NOT the row item's property. Both of these selectors are
+         DESCENDANT selectors, and a tooltip's content is presented inside the element it belongs to:
+         showing one builds a TextBlock whose DataContext is the tooltip's string, which the selector
+         then matches too. A DataContext-relative binding ({Binding Message}) is re-applied against
+         that System.String and logs "Could not find a matching property accessor for 'Message'" on
+         every hover. $self.Text has no such dependency and is exactly the same value — the cell's
+         Text is already bound to Message, and the URL column already applies UrlDecodeConverter, so
+         the tooltip needed neither the property path nor a second converter. Trimming is visual
+         only, so Text is still the full string the tooltip is there to reveal. -->
     <Style Selector="DataGridCell.msg-cell TextBlock">
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="ToolTip.Tip" Value="{Binding Message}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}" />
     </Style>
     <Style Selector="DataGridCell.url-cell TextBlock">
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="ToolTip.Tip" Value="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}" />
     </Style>
   </UserControl.Styles>
 
