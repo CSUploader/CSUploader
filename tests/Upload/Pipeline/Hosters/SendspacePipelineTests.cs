@@ -146,6 +146,109 @@ public class SendspacePipelineTests
         Assert.Empty(events.OfType<TransferCompleted>());
     }
 
+    /// <summary>Verbatim from a live batch, 2026-08-01: fs03u answered a release part with nginx's
+    /// own error page while other files in the same batch went through.</summary>
+    private const string NginxUnavailableHtml = """
+        <html>
+        <head><title>503 Service Temporarily Unavailable</title></head>
+        <body><center><h1>503 Service Temporarily Unavailable</h1></center><hr><center>nginx</center></body>
+        </html>
+        <!-- a padding to disable MSIE and Chrome friendly error page -->
+        """;
+
+    [Fact]
+    public async Task RunAsync_NodeIsDown_RetriesOnceAgainstAFreshlyScrapedNode()
+    {
+        // The homepage assigns a rotating node, so re-scraping is what moves the retry off the one
+        // that is out. Without this a single sick node fails a file that the next one would take.
+        List<string> endpoints = [];
+        int gets = 0, uploads = 0;
+
+        SendspacePipeline pipeline = new(
+            getOverride: (_, _) =>
+            {
+                gets++;
+                string html = gets == 1
+                    ? HomepageHtml
+                    : HomepageHtml.Replace("fs03u", "fs12u", StringComparison.Ordinal);
+                return Task.FromResult(new HttpResponseSnapshot(200, html, Array.Empty<string>()));
+            },
+            uploadOverride: (_, endpoint, _, _, _) =>
+            {
+                endpoints.Add(endpoint);
+                uploads++;
+                return Task.FromResult(uploads == 1
+                    ? new HttpResponseSnapshot(503, NginxUnavailableHtml, Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, ResultPageHtml, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Equal("https://www.sendspace.com/file/fqpliq2h", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, gets);      // re-scraped…
+        Assert.Equal(2, uploads);   // …and re-sent once
+        Assert.StartsWith("https://fs03u.", endpoints[0], StringComparison.Ordinal);
+        Assert.StartsWith("https://fs12u.", endpoints[1], StringComparison.Ordinal); // a DIFFERENT node
+
+        // One transfer as far as the UI is concerned.
+        Assert.Single(events.OfType<TransferStarted>());
+    }
+
+    [Fact]
+    public async Task RunAsync_NodesKeepFailing_StopsAfterExactlyOneRetry()
+    {
+        // The retry re-sends the whole file, so it must never become a loop.
+        int uploads = 0;
+        SendspacePipeline pipeline = new(
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, HomepageHtml, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(503, NginxUnavailableHtml, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        string reason = Assert.Single(events.OfType<AttemptFailed>()).Reason;
+        Assert.Contains("node is unavailable", reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("503", reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("padding to disable", reason, StringComparison.Ordinal); // not 500 bytes of nginx filler
+        Assert.Equal(2, uploads); // the original send + exactly one retry
+    }
+
+    [Fact]
+    public async Task RunAsync_FileRefused_IsNeverReUploaded()
+    {
+        // The counterpart guard: /uploadprocerr.html is a verdict on the FILE (prohibited type, file
+        // in use). Re-sending only earns it again, at the cost of the whole transfer.
+        int uploads = 0, gets = 0;
+        SendspacePipeline pipeline = new(
+            getOverride: (_, _) => { gets++; return Task.FromResult(new HttpResponseSnapshot(200, HomepageHtml, Array.Empty<string>())); },
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(
+                    301, string.Empty, Array.Empty<string>(), "https://www.sendspace.com/uploadprocerr.html?e=0"));
+            });
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Equal(1, uploads); // sent once…
+        Assert.Equal(1, gets);    // …and no second ticket was even fetched
+    }
+
+    [Theory]
+    [InlineData(503, true)]
+    [InlineData(502, true)]
+    [InlineData(500, true)]
+    [InlineData(504, true)]
+    [InlineData(301, false)]  // the error-page redirect is a verdict on the file
+    [InlineData(200, false)]
+    [InlineData(403, false)]  // not a node fault — do not burn the file on it twice
+    public void IsNodeUnavailable_MatchesGatewayFaultsOnly(int status, bool expected)
+        => Assert.Equal(expected, SendspacePipeline.IsNodeUnavailable(new HttpResponseSnapshot(status, string.Empty, Array.Empty<string>())));
+
     [Fact]
     public async Task RunAsync_HomepageWithoutAForm_FailsWithoutUploading()
     {

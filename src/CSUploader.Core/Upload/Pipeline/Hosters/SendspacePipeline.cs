@@ -136,49 +136,80 @@ public sealed class SendspacePipeline : IFileHosterPipeline
         }
 
         // === Step 2: send the bytes ===
+        // Looped so a node that is simply down can be retried once against a freshly scraped ticket
+        // — which is a DIFFERENT node, since the homepage hands out a rotating one. One
+        // TransferStarted covers the whole thing: the retry is our business, not the user's.
+        UploadTicket current = ticket.Value;
+        bool retriedNodeFailure = false;
+
         yield return new TransferStarted(ctx.FileSize);
 
-        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        void onProgress(object? _, OperationProgressEventArgs e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
-
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, ticket.Value);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        while (true)
         {
-            yield return progressEv;
-        }
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
 
-        ctx.Handler.UploadProgress -= onProgress;
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, current);
 
-        // A transport fault propagates raw to AttemptRunner, which re-runs this pipeline and scrapes
-        // a FRESH ticket — the ticket is single-use, so a retry could not reuse this one anyway, and
-        // nothing exists server-side until the node answers.
-        HttpResponseSnapshot response = await uploadTask;
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
 
-        (string? url, string? error) = ParseUploadResponse(response);
-        if (error is not null)
-        {
-            yield return new AttemptFailed(error, null);
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+            {
+                yield return progressEv;
+            }
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            // A transport fault propagates raw to AttemptRunner, which re-runs this pipeline and
+            // scrapes a FRESH ticket — the ticket is single-use, so a retry could not reuse this one
+            // anyway, and nothing exists server-side until the node answers.
+            HttpResponseSnapshot response = await uploadTask;
+
+            (string? url, string? error) = ParseUploadResponse(response);
+            if (error is not null)
+            {
+                if (retriedNodeFailure || !IsNodeUnavailable(response))
+                {
+                    yield return new AttemptFailed(error, null);
+                    yield break;
+                }
+
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node returned HTTP {response.StatusCode}; retrying once against a fresh node.");
+
+                // Re-scrape: the homepage is what assigns the node, so this is what moves the retry
+                // off the one that is down rather than repeating against it.
+                (UploadTicket? retryTicket, string? retryError) = await GetTicketAsync(ctx);
+                if (retryTicket is null)
+                {
+                    // Report the node's own failure — the reason we were retrying — rather than the
+                    // re-scrape's, which is a symptom of it.
+                    _ = retryError;
+                    yield return new AttemptFailed(error, null);
+                    yield break;
+                }
+
+                current = retryTicket.Value;
+                continue;
+            }
+
+            // The result page is the ONLY place the delete link ever appears — it is not on the
+            // file's own page, and an anonymous upload has no account behind it to manage. Log it,
+            // because discarding it means the upload can never be taken down.
+            if (ParseDeleteLink(response.Body) is { } deleteLink)
+            {
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: delete link for {ctx.FileName} — {deleteLink}");
+            }
+
+            yield return new TransferCompleted(url!);
             yield break;
         }
-
-        // The result page is the ONLY place the delete link ever appears — it is not on the file's
-        // own page, and an anonymous upload has no account behind it to manage. Log it, because
-        // discarding it means the upload can never be taken down.
-        if (ParseDeleteLink(response.Body) is { } deleteLink)
-        {
-            ctx.Logger.Log(this, LogType.Status, $"{Name}: delete link for {ctx.FileName} — {deleteLink}");
-        }
-
-        yield return new TransferCompleted(url!);
     }
 
     /// <summary>
@@ -260,8 +291,31 @@ public sealed class SendspacePipeline : IFileHosterPipeline
                     + "prohibited file type, antivirus interference, or the file being open in another program.");
         }
 
+        // A dead node answers with nginx's own error page. Say what happened instead of pasting 500
+        // bytes of "a padding to disable MSIE and Chrome friendly error page" into the failure.
+        if (IsNodeUnavailable(response))
+        {
+            return (null, $"Sendspace's upload node is unavailable (HTTP {response.StatusCode}).");
+        }
+
         return (null, $"Sendspace returned no link (HTTP {response.StatusCode}): {Snippet(body)}");
     }
+
+    /// <summary>
+    /// True when the answer is the NODE being down rather than a verdict on the file: nginx's own
+    /// 5xx page, served before the upload handler ever runs. Observed live as a bare
+    /// <c>503 Service Temporarily Unavailable</c> from <c>fs03u</c> in the middle of a batch, while
+    /// other files in the same batch went through — the homepage assigns a rotating node, and any
+    /// one of them can be out.
+    /// <para>
+    /// Deliberately narrow: <c>/uploadprocerr.html?e=N</c> is checked first and is a verdict on the
+    /// FILE (prohibited type, file in use), which re-sending would only earn again at the cost of
+    /// the whole transfer.
+    /// </para>
+    /// Internal for testing.
+    /// </summary>
+    internal static bool IsNodeUnavailable(HttpResponseSnapshot response)
+        => response.StatusCode is 500 or 502 or 503 or 504;
 
     /// <summary>The result page also carries a delete link. It isn't used — nothing in the app deletes
     /// an upload — but it is the only way an anonymous upload can ever be removed, so it is worth
