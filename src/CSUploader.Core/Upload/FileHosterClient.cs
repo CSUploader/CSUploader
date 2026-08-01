@@ -191,6 +191,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
         // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
         { "VikingFile", "vikingfile.com" },
+        // uploadrar.com — classic XFileSharing on the REST API path (/api/account/info, /api/upload/server).
+        // ACCOUNT-only: ?op=api_get_limits reports MaxUploadFilesize 0.00001 for a signed-out caller.
+        // ⚠ It BLOCKS mp4/mpg/wmv/mkv/m4v/avi/mp3 and only enforces that at the finalise step, so the
+        // pipeline pre-checks the extension locally. See UploadrarPipeline.cs.
+        { "Uploadrar", "uploadrar.com" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.

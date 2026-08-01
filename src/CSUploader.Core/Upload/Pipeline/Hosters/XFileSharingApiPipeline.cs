@@ -385,6 +385,16 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             yield break;
         }
 
+        // Some hosts in this family refuse a file on grounds they only check at the FINAL step —
+        // Uploadrar publishes an extension blocklist and enforces it in import_file, i.e. after the
+        // entire file has been transferred. Asking here costs nothing and turns that into an instant
+        // refusal instead of a wasted upload. See PreflightRejection.
+        if (PreflightRejection(ctx) is { } preflightError)
+        {
+            yield return new AttemptFailed(preflightError, null);
+            yield break;
+        }
+
         // === Anonymous (not-logged-in) upload ===
         // When the hoster supports it and the attempt carries the wizard's anonymous
         // selection, skip the entire API-key flow and post to the web form's per-session
@@ -1445,6 +1455,20 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// page didn't load as logged-in", so check it against the real page before trusting the default.
     /// </summary>
     protected virtual bool LooksSignedIn(string html) => LooksLoggedIn(html);
+
+    /// <summary>
+    /// Why this hoster will refuse <paramref name="ctx"/>'s file before a byte is sent, or null when
+    /// it will take it. Default: nothing to check.
+    /// <para>
+    /// Exists because this family can reject a file at the LAST step. Uploadrar publishes an
+    /// extension blocklist (<c>?op=api_get_limits</c> → <c>ExtNotAllowed</c>) but only enforces it in
+    /// <c>import_file</c>, so a blocked file uploads in full and is then thrown away — observed in a
+    /// capture where a 5 MB .avi transferred fine and the finalise answered
+    /// <c>{"error":"unallowed extension"}</c>. Checking locally costs nothing and reports the real
+    /// reason immediately.
+    /// </para>
+    /// </summary>
+    protected virtual string? PreflightRejection(AttemptContext ctx) => null;
 
     private static string? ExtractMyAccountUsername(string html)
     {
