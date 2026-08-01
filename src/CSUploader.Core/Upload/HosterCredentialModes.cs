@@ -51,7 +51,7 @@ public static class HosterCredentialModes
     // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
     // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
     private static readonly HashSet<string> ApiKeyHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now"];
+        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Turbobit", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no

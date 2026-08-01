@@ -174,6 +174,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Uploady — classic XFileSharing on the web-form (no-API) path: account-only, because its
         // anonymous upload is broken server-side. Upload nodes are on gamezizo.com. See UploadyPipeline.cs.
         { "Uploady", "uploady.io" },
+        // turbobit.net — HitFile's sibling (same operator/platform): WebView sign-in yields a durable
+        // appId, then POST app.turbobit.net/api/upload/urls → multipart Filedata + apptype=fd1 +
+        // user_id=appId → {"id"}; link turbobit.net/<id>.html. Account-only. See TurbobitPipeline.cs.
+        { "Turbobit", "turbobit.net" },
         { "Upstore", "upstore.net" },
         // vikingfile.com anonymous upload over its own documented API: POST /api/get-upload-url (size)
         // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an

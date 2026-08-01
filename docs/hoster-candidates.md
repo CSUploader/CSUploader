@@ -37,7 +37,7 @@ The best first adds, ranked by value ÷ effort. All are alive, anonymous (no log
 | 6 | **Sendspace** | Medium | Well-known brand. Anonymous 300 MB, no captcha, plain nginx. Upstore-shaped web-form standalone. (Do **not** use the decommissioned `api.sendspace.com/rest/` XML API.) |
 | 7 | ~~**VikingFile**~~ | — | **SHIPPED 2026-07-30.** Documented API held up: reused the Storage.to presigned-PUT + ETag primitives as predicted. |
 | 8 | **Uploady** / **WIP Files** | Low | Confirmed stock XFS, anonymous (Uploady 5 GB / WIP Files no-Cloudflare). Direct XFS-base shims. |
-| 9 | **Turbobit** | Medium | Big brand and the same-operator sibling of the already-shipped **HitFile** — its upload wire shape is nearly identical, so it's a low-risk copy. Anonymous 200 MB (100 GB registered). |
+| 9 | ~~**Turbobit**~~ | — | **SHIPPED 2026-08-01.** The sibling theory held exactly: same platform, same `kohanasession7` cookie, same endpoints. Account-only here — the one value that differs is `apptype` (`fd1`, not HitFile's `fd2`). |
 | 10 | **Koofr** | Medium | The one cloud drive that is **not** OAuth — HTTP Basic app-password + plain REST, models cleanly on the MediaFire/Pixeldrain account pipelines. 10 GB free. |
 
 If image hosting is ever in scope, **Imgur** (anonymous via a shipped Client-ID) is a small Medium add.
@@ -126,7 +126,7 @@ Bespoke HTTP flows that don't fit XFS or the MoneyPlatform backend. Each needs i
 | **Sendspace** | sendspace.com | yes | 300 MB | none | Medium | Scrape rotating form action → single-file POST. Upstore-shaped. |
 | ~~**VikingFile**~~ | vikingfile.com | yes | unlimited | none | — | **SHIPPED 2026-07-30** (VikingFilePipeline). Took the presigned-PUT route: `get-upload-url` → R2 part PUTs + ETag → `complete-upload` with an empty `user`. The doc's `partSize` (1 GiB) is NOT what the live service returns (100 MiB) — read it from the response. Free files are deleted 15 days after last download; `delete-file` needs an account hash. |
 | **Webshare** | webshare.cz | yes | 20 GB | none | Medium | Get upload_url → multipart POST name+data → parse `ident`. Upstore-shaped. |
-| **Turbobit** | turbobit.net | yes | 200 MB (100 GB acct) | reCAPTCHA (login) | Medium | Near-identical to the shipped HitFile pipeline. Login captcha via WebView. |
+| ~~**Turbobit**~~ | turbobit.net | acct | no stated cap | reCAPTCHA (login) | — | **SHIPPED 2026-08-01** (TurbobitPipeline). HitFile's sibling: WebView sign-in → the page fetches its own `appId` → `POST app.turbobit.net/api/upload/urls {"count":1}` → multipart `Filedata`+`apptype=fd1`+`folder_id=0`+`user_id=appId` → `{"result":true,"id":…}`; link `turbobit.net/<id>.html`. **`apptype` is fd1, NOT HitFile's fd2.** Anonymous left off (guest cap ~200 MB is under one release part). Storage not reported — HitFile's folder-walk would port, and a third sibling would justify a shared base. |
 | **Fikper** | fikper.com | yes | ~1 GB (10 GB+ prem) | CF-passive | Medium | `sapi.fikper.com` + `x-api-key` (NitroFlare-shaped). ⚠ Infra was 522-timing-out during research; verify live. |
 | **Koofr** | koofr.eu | no | no cap (10 GB storage) | none | Medium | **Cloud drive without OAuth** — HTTP Basic app-password + REST. MediaFire-shaped. |
 | **Imgur** | imgur.com | yes | ~20 MB / 200 MB gif | none | Medium | Image-only. v3 API + shipped Client-ID. Catbox-shaped. |

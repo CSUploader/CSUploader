@@ -189,6 +189,11 @@ public static class ServiceRegistration
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
                 sp.GetRequiredService<IInteractiveAuthService>()));
+        // Turbobit — HitFile's sibling (same operator, same SPA platform, apptype fd1 not fd2);
+        // account-only, WebView sign-in yields the durable appId. See TurbobitPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.TurbobitPipeline(
+                sp.GetRequiredService<IInteractiveAuthService>()));
         // NitroFlare: reCAPTCHA-gated WebView sign-in yields a durable 40-hex upload hash (HitFile
         // shape), so it needs IInteractiveAuthService.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
