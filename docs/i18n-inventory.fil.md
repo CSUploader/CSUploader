@@ -576,6 +576,7 @@ Wizard_Step2_Col_Use               = Gamitin
 Wizard_Step2_Col_FileHoster        = File Hoster
 Wizard_Step2_Col_Account           = Account
 Wizard_Step2_Col_MaxFileSize       = Max na laki ng file
+Wizard_Step2_Col_MaxConcurrent     = Max na sabay
 Wizard_Step2_NoLimit               = Walang limitasyon
 Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)

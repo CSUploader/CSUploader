@@ -1277,6 +1277,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Col_MaxFileSize" xml:space="preserve">
     <value>最大ファイルサイズ</value>
   </data>
+  <data name="Wizard_Step2_Col_MaxConcurrent" xml:space="preserve">
+    <value>最大並列数</value>
+  </data>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>制限なし</value>
   </data>

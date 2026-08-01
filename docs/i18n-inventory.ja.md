@@ -575,6 +575,7 @@ Wizard_Step2_Col_Use               = 使用
 Wizard_Step2_Col_FileHoster        = ファイルホスター
 Wizard_Step2_Col_Account           = アカウント
 Wizard_Step2_Col_MaxFileSize       = 最大ファイルサイズ
+Wizard_Step2_Col_MaxConcurrent     = 最大並列数
 Wizard_Step2_NoLimit               = 制限なし
 Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)

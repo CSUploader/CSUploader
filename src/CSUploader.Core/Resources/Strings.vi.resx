@@ -1277,6 +1277,9 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_Col_MaxFileSize" xml:space="preserve">
     <value>Kích thước tệp tối đa</value>
   </data>
+  <data name="Wizard_Step2_Col_MaxConcurrent" xml:space="preserve">
+    <value>Tối đa song song</value>
+  </data>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>Không giới hạn</value>
   </data>

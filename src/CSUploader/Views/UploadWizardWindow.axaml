@@ -456,6 +456,22 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- How many uploads this hoster takes at once for the selected account — "No limit" for most.
+                 This is the HOSTER's ceiling, not the effective one: the scheduler uses the smaller of it
+                 and the per-host setting in Settings. Re-resolves with the account dropdown (tiers differ)
+                 and is read-only display (rule 32). -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxConcurrent}" Width="100" IsReadOnly="True"
+                                    SortMemberPath="MaxConcurrentUploads"
+                                    ClipboardContentBinding="{Binding MaxConcurrentUploadsDisplay}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding MaxConcurrentUploadsDisplay}" FontSize="12"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                             Classes.blocked="{Binding !CanUse}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
 

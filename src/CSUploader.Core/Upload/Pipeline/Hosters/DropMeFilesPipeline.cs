@@ -118,9 +118,14 @@ public sealed class DropMeFilesPipeline : IFileHosterPipeline
 
     public int? MaxFilesPerPackage => null;
 
-    /// <summary>One at a time, whatever the account: each file needs its own drop, and the host's
-    /// anti-abuse answers a burst of <c>upload/create</c> calls with "Spam". See the class remarks.</summary>
-    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => 1;
+    /// <summary>
+    /// Five at a time, whatever the account. Each file needs its own drop, and the host's anti-abuse
+    /// answers a burst of <c>upload/create</c> calls with "Spam" — so this is capped rather than
+    /// unlimited. Five is a judgement, not a measured limit: the refusal was seen at roughly ten
+    /// rapid creates while probing, and whether it counts concurrency, rate or total was never
+    /// established. If a batch starts failing with "Spam", lower it.
+    /// </summary>
+    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => 5;
 
     /// <summary>No account exists to attach an upload to — the drop is the whole identity.</summary>
     public bool SupportsAnonymousUpload => true;
