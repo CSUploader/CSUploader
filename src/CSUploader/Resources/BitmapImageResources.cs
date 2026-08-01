@@ -97,6 +97,7 @@ internal static class BitmapImageResources
         ("FileHosterTurbobitImage", "FileHosters/filehoster_turbobit.png"),
         ("FileHosterUfileImage", "FileHosters/filehoster_ufile.png"),
         ("FileHosterUpstoreImage", "FileHosters/filehoster_upstore.png"),
+        ("FileHosterUsersdriveImage", "FileHosters/filehoster_usersdrive.png"),
         ("FileHosterVikingfileImage", "FileHosters/filehoster_vikingfile.png"),
         ("FileHosterWormholeImage", "FileHosters/filehoster_wormhole.png"),
 

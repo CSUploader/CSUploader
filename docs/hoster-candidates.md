@@ -59,6 +59,12 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 > REGISTERED users. That matches DropGalaxy and Uploady, both of which turned out the same way.
 > The XFS family has broadly moved to account-required uploads, so budget an account (and a live
 > re-probe) before planning any host below as "anonymous".
+>
+> ⚠ **But the converse is ALSO untrue — do not read this as "anonymous XFS is dead".** That sweep only
+> covered hosts this doc already CLAIMED were anonymous. **Usersdrive**, filed below in the
+> account-only tier A2, turned out to serve a live anonymous upload at 5250 MB and shipped on
+> 2026-08-01. A host's listed tier is a hypothesis; probe the homepage for a `utype=anon` form before
+> believing either direction.
 
 | Host | Domain | Free cap | Gating | Conf. | Note |
 |---|---|---|---|---|---|
@@ -92,7 +98,7 @@ Wire like the existing session-cookie XFS hosts (Isracloud / Hxfile / Filehoster
 | **Rosefile** | rosefile.net | 5 GB (80 GB prem) | high | Leech-listed; standard XFS. |
 | **Sharemods** | sharemods.com | multi-GB | high | 13-yr host; `op=upload_form` confirmed. |
 | **Userscloud** | userscloud.com | "unlimited" | high | Same operator family as Usersdrive. |
-| **Usersdrive** | usersdrive.com | multi-GB | high | Sibling of Userscloud. |
+| ~~**Usersdrive**~~ | usersdrive.com | **5250 MB anon** | high | **SHIPPED 2026-08-01** (UsersDrivePipeline) — and it is **ANONYMOUS**, despite being filed in this account-only tier. Homepage renders `<form id="uploadfile" action="https://dNNN.userdrive.org/cgi-bin/upload.cgi?upload_type=file&utype=anon">` with an empty `sess_id`; a real upload answers `file_status: OK` and the link `usersdrive.com/<code>` serves a live download page. Nodes rotate (d900/d300…), no Cloudflare. Pure config shim on the XFS base. |
 | **Modsbase** | modsbase.com | not stated | high | Account-required; mods host. |
 | **Uploadrar** | uploadrar.com | 6 GB registered | high | Anon disabled (~0 cap). Account only. |
 | **Filefox** | filefox.cc | unknown | med | Account-only; WebView → `xfss` → upload. |

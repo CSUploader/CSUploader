@@ -174,6 +174,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Uploady — classic XFileSharing on the web-form (no-API) path: account-only, because its
         // anonymous upload is broken server-side. Upload nodes are on gamezizo.com. See UploadyPipeline.cs.
         { "Uploady", "uploady.io" },
+        // usersdrive.com — classic XFS, ANONYMOUS upload live (homepage form → dNNN.userdrive.org
+        // upload.cgi?utype=anon, empty sess_id). 5250 MB guest cap. See UsersDrivePipeline.cs.
+        { "UsersDrive", "usersdrive.com" },
         // turbobit.net — HitFile's sibling (same operator/platform): WebView sign-in yields a durable
         // appId, then POST app.turbobit.net/api/upload/urls → multipart Filedata + apptype=fd1 +
         // user_id=appId → {"id"}; link turbobit.net/<id>.html. Account-only. See TurbobitPipeline.cs.

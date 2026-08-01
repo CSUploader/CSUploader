@@ -100,6 +100,9 @@ public static class ServiceRegistration
         // drops the managed challenge. See TakeFilePipeline.cs class-level remarks.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
+        // UsersDrive — classic XFS with a live ANONYMOUS upload (verified by uploading a file, not just
+        // by the form rendering). 5250 MB guest cap. See UsersDrivePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UsersDrivePipeline>();
         // Send.now / Uploady are stock XFileSharing hosters wired as thin shims on the shared base, so
         // both take the same auth service + repo as their siblings. They land on opposite paths: Send.now
         // uploads anonymously (verified live 2026-07-26), while Uploady is account-only on the web-form
