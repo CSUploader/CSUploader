@@ -191,6 +191,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
         // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
         { "VikingFile", "vikingfile.com" },
+        // sendspace.com — anonymous, no login and no captcha: scrape the homepage's rotating upload
+        // ticket (fsNNu node + signature) → multipart POST `upload_file[]` → the reply IS the result
+        // page, carrying sendspace.com/file/<code>. 300 MB. See SendspacePipeline.cs.
+        { "Sendspace", "www.sendspace.com" },
         // webshare.cz — anonymous, via the site's own plupload uploader: POST /api/upload_url/ (keyless,
         // XML) → node, then multipart `file` + wst=""/folder/private/adult/total/offset/name → {"ident"}.
         // Chunked at 1 GiB, threading the ident. Link is webshare.cz/file/<ident>/<slug> — the plain

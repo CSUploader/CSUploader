@@ -152,6 +152,9 @@ public static class ServiceRegistration
         // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
         // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
+        // Sendspace — anonymous only (no auth service needed): scrape the homepage's rotating upload
+        // ticket, then post the site's own form to it. See SendspacePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SendspacePipeline>();
         // Webshare — anonymous only (no auth service needed): keyless /api/upload_url/ node lookup, then
         // the site's own plupload multipart with an empty wst. See WebsharePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.WebsharePipeline>();
