@@ -455,94 +455,139 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // === Upload ===
-        bool authExpiredDuringUpload = false;
-        string? attemptFailure = null;
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        string? finalUrl = null;
+        // Looped for the same reason as the web-form path: a node that breaks AFTER taking the bytes
+        // gets one retry against a freshly resolved server — see IsTransientNodeFailure. One
+        // TransferStarted covers the whole thing; the retry is our business, not something the user
+        // asked for or should see twice.
+        string currentUploadUrl = uploadUrl;
+        string currentSessId = sessId;
+        bool retriedNodeFailure = false;
 
         yield return new TransferStarted(ctx.FileSize);
 
-        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        void onProgress(object? _, OperationProgressEventArgs e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
-
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        while (true)
         {
-            yield return progressEv;
-        }
+            bool authExpiredDuringUpload = false;
+            string? attemptFailure = null;
+            bool attemptCancelled = false;
+            Exception? attemptException = null;
+            string? finalUrl = null;
 
-        ctx.Handler.UploadProgress -= onProgress;
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
 
-        HttpResponseSnapshot? uploadResponse = null;
-        try
-        {
-            uploadResponse = await uploadTask;
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            attemptCancelled = true;
-        }
-        catch (Exception ex)
-        {
-            attemptException = ex;
-        }
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, currentUploadUrl, currentSessId);
 
-        if (uploadResponse is not null)
-        {
-            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
-            if (AuthExpired)
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
             {
-                await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
-                authExpiredDuringUpload = true;
+                yield return progressEv;
             }
-            else if (Error is not null)
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            HttpResponseSnapshot? uploadResponse = null;
+            try
             {
-                attemptFailure = Error;
+                uploadResponse = await uploadTask;
             }
-            else
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
-                finalUrl = Url;
+                attemptCancelled = true;
             }
-        }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+            }
 
-        if (authExpiredDuringUpload)
-        {
-            yield return new AuthFailed("API key rejected mid-upload");
-            yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+            if (uploadResponse is not null)
+            {
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                if (AuthExpired)
+                {
+                    await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    authExpiredDuringUpload = true;
+                }
+                else if (Error is not null)
+                {
+                    attemptFailure = Error;
+                }
+                else
+                {
+                    finalUrl = Url;
+                }
+            }
+
+            if (authExpiredDuringUpload)
+            {
+                yield return new AuthFailed("API key rejected mid-upload");
+                yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+                yield break;
+            }
+
+            if (attemptCancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (attemptException is not null)
+            {
+                yield return new AttemptFailed(attemptException.Message, attemptException);
+                yield break;
+            }
+
+            if (attemptFailure is not null)
+            {
+                if (retriedNodeFailure || !IsTransientNodeFailure(attemptFailure))
+                {
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({attemptFailure}); retrying once with a fresh server.");
+
+                // Re-ask the API for a server: it hands out the node, so this is what makes the retry
+                // land somewhere else rather than repeat itself against the one that just failed.
+                (string? retrySessId, string? retryUrl, string? retryError, bool retryAuthExpired) =
+                    await GetUploadServerAsync(apiKey, ctx, ct);
+
+                if (retryAuthExpired)
+                {
+                    await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    yield return new AuthFailed("API key rejected — re-authenticate from Settings → Accounts");
+                    yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+                    yield break;
+                }
+
+                if (retryUrl is null || retrySessId is null)
+                {
+                    // Report the node's own failure — the reason we were retrying at all — rather than
+                    // the re-resolve's, which is a symptom of it.
+                    _ = retryError;
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                currentUploadUrl = retryUrl;
+                currentSessId = retrySessId;
+                continue;
+            }
+
+            if (finalUrl is not null)
+            {
+                yield return new TransferCompleted(finalUrl);
+            }
+
             yield break;
-        }
-
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        if (attemptFailure is not null)
-        {
-            yield return new AttemptFailed(attemptFailure, null);
-            yield break;
-        }
-
-        if (finalUrl is not null)
-        {
-            yield return new TransferCompleted(finalUrl);
         }
     }
 
@@ -684,6 +729,11 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// uploady.io under 20 parallel uploads: the node took the bytes into its own CGI spool and the
     /// spool file was gone by the time it went to store them. The path it names is the node's scratch
     /// space, not anything of ours, so it says nothing about the file we sent.
+    /// </para>
+    /// <para>
+    /// All three upload paths consult this — anonymous, web-form and API-key. Nothing about a broken
+    /// node is specific to how the caller authenticated, and the API path went without the retry for
+    /// a while purely because the fault was first diagnosed on the web-form one.
     /// </para>
     /// </summary>
     private static bool IsTransientNodeFailure(string? error)

@@ -153,6 +153,112 @@ public class ExLoadPipelineTests
         Assert.Null(credentials.ApiKey); // cleared so next attempt re-bootstraps
     }
 
+    // === Transient node failures on the API-key path ===
+    // These mirror the web-form path's retry (see UploadyPipelineTests). Nothing about a broken node
+    // is specific to how the caller authenticated, but the API path went without the retry until
+    // 2026-08-01 — it was simply where the fault wasn't first diagnosed. Every API-key XFS hoster
+    // (KatFile, Hexload, Hxfile, Send.now, Ufile, …) inherits this from the shared base.
+
+    private const string NodeFailureJson =
+        """[{"file_code":"undef","file_status":"failed while requesting fs.cgi: <html><title>500 Internal Server Error</title></html>"}]""";
+
+    private const string UploadServerSecondNodeJson =
+        """{"msg":"OK","server_time":"2026-05-25 16:15:02","status":200,"sess_id":"sess_two","result":"http://fs77.ex-load.com/cgi-bin/upload.cgi"}""";
+
+    [Fact]
+    public async Task RunAsync_ApiPath_NodeBreaksAfterTakingTheBytes_RetriesOnceAgainstAFreshServer()
+    {
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        // The API hands out the node, so a second /api/upload/server call is what moves the retry off
+        // the broken one — the retry must not simply re-send to the server that just failed.
+        Queue<string> getResponses = new(new[] { UploadServerOkJson, UploadServerSecondNodeJson });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, NodeFailureJson, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()),
+        });
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "key_x" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Equal("https://ex-load.com/xyz789", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Empty(events.OfType<AttemptFailed>());
+
+        Assert.Equal(2, uploadCalls.Count);
+        Assert.Equal("http://fs40.ex-load.com/cgi-bin/upload.cgi", uploadCalls[0].Endpoint);
+        Assert.Equal("http://fs77.ex-load.com/cgi-bin/upload.cgi", uploadCalls[1].Endpoint); // a DIFFERENT node
+        Assert.Equal("sess_two", uploadCalls[1].ExtraFields["sess_id"]);                     // and its own sess_id
+
+        // One transfer as far as the UI is concerned — the retry is ours, not the user's.
+        Assert.Single(events.OfType<TransferStarted>());
+    }
+
+    [Fact]
+    public async Task RunAsync_ApiPath_NodeFailurePersists_FailsAfterExactlyOneRetry()
+    {
+        // The retry re-sends the whole file, so it must never become a loop.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson, UploadServerSecondNodeJson });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, NodeFailureJson, Array.Empty<string>()),
+            new HttpResponseSnapshot(200, NodeFailureJson, Array.Empty<string>()),
+        });
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "key_x" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Contains("fs.cgi", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, uploadCalls.Count); // the original send + exactly one retry
+    }
+
+    [Fact]
+    public async Task RunAsync_ApiPath_FileRejected_IsNeverReUploaded()
+    {
+        // The counterpart guard: a verdict on the FILE must not be retried, or an oversized file is
+        // sent twice to be refused twice.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, """[{"file_code":"undef","file_status":"File is too big"}]""", Array.Empty<string>()),
+        });
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "key_x" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Contains("too big", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(uploadCalls);   // sent once…
+        Assert.Single(getCalls);      // …and no second server was even asked for
+    }
+
+    [Fact]
+    public async Task RunAsync_ApiPath_RetryCannotResolveAServer_ReportsTheNodesOwnFailure()
+    {
+        // The re-resolve failing is a symptom; the node's refusal is the diagnosis. Reporting
+        // "couldn't resolve upload server" would send the user looking in the wrong place.
+        Queue<(string, IReadOnlyDictionary<string, string>?)> getCalls = new();
+        Queue<string> getResponses = new(new[] { UploadServerOkJson, """{"msg":"maintenance","status":500,"sess_id":"","result":""}""" });
+        Queue<HttpResponseSnapshot> uploads = new(new[]
+        {
+            new HttpResponseSnapshot(200, NodeFailureJson, Array.Empty<string>()),
+        });
+        ExLoadPipeline pipeline = MakePipeline(new FakeAuthService(null), getCalls, getResponses, uploads, out List<UploadCall> uploadCalls);
+
+        FileHosterLoginDto credentials = new() { Id = 1, FileHosterName = "Ex-Load", ApiKey = "key_x" };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Contains("fs.cgi", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(uploadCalls); // nothing re-sent, because there was nowhere to send it
+    }
+
     [Fact]
     public async Task RunAsync_NoApiKeyAndNoUsername_FailsWithoutPoppingWebView()
     {
