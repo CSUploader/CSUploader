@@ -131,6 +131,81 @@ public class FilestankPipelineTests
         Assert.Empty(events.OfType<TransferCompleted>());
     }
 
+    /// <summary>Verbatim from a live refusal, 2026-08-01 — the node's answer to the 100 MB first
+    /// chunk of a release part once the account's daily allowance was gone.</summary>
+    private const string DailyCapJson = """[{"size":0,"type":"","name":"Max uploads reached.","error":"You have reached the maximum permitted uploads for today."}]""";
+
+    [Fact]
+    public async Task RunAsync_DailyCapReached_FailsThisFileAndThenTheRestOfTheBatchForFree()
+    {
+        // Filestank allows a limited number of uploads per day. The refusal arrives only AFTER a
+        // chunk has been pushed, and every remaining file in the batch would pay the same toll — 80
+        // files means gigabytes spent learning the same fact 80 times.
+        int scrapes = 0, uploads = 0;
+        FilestankPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) =>
+            {
+                scrapes++;
+                return Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>()));
+            },
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploads++;
+                return Task.FromResult(new HttpResponseSnapshot(200, DailyCapJson, Array.Empty<string>()));
+            });
+
+        FileHosterLoginDto shared = new()
+        {
+            Id = 3,
+            FileHosterName = "Filestank",
+            SessionCookie = Session,
+            SessionCookieExpiresUtc = DateTime.UtcNow.AddHours(4),
+        };
+
+        List<UploadEvent> first = await DrainAsync(pipeline.RunAsync(MakeContext() with { Credentials = shared }, CancellationToken.None));
+        Assert.Contains("daily upload allowance", Assert.Single(first.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+
+        List<UploadEvent> second = await DrainAsync(pipeline.RunAsync(MakeContext() with { Credentials = shared }, CancellationToken.None));
+        Assert.Contains("daily upload allowance", Assert.Single(second.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Equal(1, scrapes);  // the second file didn't even ask for a ticket…
+        Assert.Equal(1, uploads);  // …and sent nothing
+        Assert.Empty(second.OfType<TransferStarted>());
+    }
+
+    [Fact]
+    public async Task RunAsync_DailyCapIsTrackedPerAccount_NotGlobally()
+    {
+        FilestankPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                200, DailyCapJson, Array.Empty<string>())));
+
+        FileHosterLoginDto spent = new() { Id = 4, FileHosterName = "Filestank", SessionCookie = Session, SessionCookieExpiresUtc = DateTime.UtcNow.AddHours(4) };
+        await DrainAsync(pipeline.RunAsync(MakeContext() with { Credentials = spent }, CancellationToken.None));
+
+        // A second Filestank account has its own allowance and must still be tried.
+        FileHosterLoginDto other = new() { Id = 5, FileHosterName = "Filestank", SessionCookie = Session, SessionCookieExpiresUtc = DateTime.UtcNow.AddHours(4) };
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext() with { Credentials = other }, CancellationToken.None));
+
+        Assert.Single(events.OfType<TransferStarted>());
+    }
+
+    [Theory]
+    [InlineData(DailyCapJson, true)]
+    [InlineData("""[{"name":"x","error":"You have reached the maximum permitted uploads for today."}]""", true)]
+    [InlineData("""{"files":[{"name":"Max uploads reached.","error":""}]}""", true)]
+    // "maximum" alone is not enough — the size refusal says it too, and that one is about the FILE.
+    [InlineData("""[{"name":"x.avi","error":"File exceeds the maximum allowed size."}]""", false)]
+    [InlineData("""[{"name":"x.avi","error":null,"url":"https://www.filestank.com/abc"}]""", false)]
+    [InlineData("not json", false)]
+    public void IsDailyCapRefusal_MatchesTheAllowanceWordingOnly(string body, bool expected)
+        => Assert.Equal(expected, FilestankPipeline.IsDailyCapRefusal(body));
+
     [Fact]
     public async Task RunAsync_WithoutASignedInSessionAndNoWebView_FailsBeforeAnyRequest()
     {

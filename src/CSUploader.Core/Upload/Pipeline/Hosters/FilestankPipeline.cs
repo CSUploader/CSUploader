@@ -45,14 +45,25 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// <b>Files over 100 MB are chunked</b>, because the site's own uploader chunks them: its
 /// jQuery-File-Upload options set <c>maxChunkSize: 100000000</c>, which makes the widget split the
 /// file into 100 MB parts, each POSTed to the same URL with a <c>Content-Range</c> header (the
-/// node's CORS pre-flight allows exactly that header). ⚠ Only the single-POST path is capture-
-/// verified — the observed upload was 5 MB. The chunked path is implemented from the widget's
-/// documented behaviour and needs a real &gt;100 MB upload to confirm.
+/// node's CORS pre-flight allows exactly that header). A live 100 MB chunk was accepted and
+/// answered normally by the node on 2026-08-01; what is still unconfirmed is a full multi-chunk
+/// file assembling into one link, which needs a run with allowance left.
 /// </para>
 /// <para>
 /// <b>Per-file cap is 20 GiB</b> — <c>maxFileSize: 21474836480</c> in that same options block, which
 /// the uploader also renders as "Max file size: 20.00 GB". A candidate note claimed 20 GB without a
-/// source; this is that number, read from the account's own uploader.
+/// source; this is that number, read from the account's own uploader. It is read per upload rather
+/// than hard-coded, because it is a per-SESSION figure: 1 GiB for an anonymous trial account and
+/// <b>0 for a signed-out session</b>, which is served a complete, valid-looking ticket regardless.
+/// </para>
+/// <para>
+/// <b>There is also a daily upload COUNT limit</b> (about ten files on a free account, observed
+/// 2026-08-01). It is invisible until spent, and then the node answers
+/// <c>{"name":"Max uploads reached.","error":"You have reached the maximum permitted uploads for
+/// today."}</c> — inside an HTTP 200, like every other refusal, and only after a chunk has been
+/// pushed. That is the one refusal that says something about the ACCOUNT rather than the file, so
+/// it is recognised and remembered per account for the rest of the day: the remaining files in a
+/// batch fail instantly instead of each paying 100 MB to learn the same thing.
 /// </para>
 /// <para>
 /// <b>Why sign-in and not the REST API.</b> Filestank publishes a full <c>/api/v2/</c> (authorize
@@ -115,9 +126,31 @@ public sealed class FilestankPipeline : IFileHosterPipeline
         @"<span[^>]*class=""[^""]*user-screen-name[^""]*""[^>]*>(?<name>[^<]{1,64})</span>",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+    /// <summary>Wording the node uses when the day's allowance is spent — <c>"Max uploads reached."</c>
+    /// in <c>name</c>, <c>"You have reached the maximum permitted uploads for today."</c> in
+    /// <c>error</c>. Matched on the distinctive phrases rather than on "maximum", which also appears
+    /// in the size refusal.</summary>
+    private static readonly string[] DailyCapPhrases = ["permitted uploads", "max uploads reached"];
+
+    private const string DailyCapMessage =
+        "Filestank's daily upload allowance for this account is used up (it allows a limited number of "
+        + "files per day). Remaining files will fail until it resets — requeue them tomorrow.";
+
     /// <summary>Sign-in is serialised per account: without this, N parallel uploads that all start
     /// without a cookie each open their own WebView.</summary>
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _signInGates = new();
+
+    /// <summary>
+    /// When each account last hit the daily upload cap. A batch is the whole point: the 11th file of
+    /// 80 gets refused AFTER pushing a 100 MB chunk, and so would the other 69. Remembering it turns
+    /// gigabytes of doomed transfer into instant, accurate failures.
+    /// <para>
+    /// Keyed on the UTC day. The server's reset boundary is its own timezone, not ours, so this can
+    /// be up to a day out of step — deliberately in the forgiving direction: a stale entry costs one
+    /// wasted attempt after the real reset, where over-blocking would cost the host for a whole day.
+    /// </para>
+    /// </summary>
+    private readonly ConcurrentDictionary<int, DateTime> _dailyCapHitUtc = new();
 
     private readonly IInteractiveAuthService? _authService;
     private readonly FileHosterLoginRepository? _loginRepository;
@@ -161,6 +194,14 @@ public sealed class FilestankPipeline : IFileHosterPipeline
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;
+
+        // Once the account's daily upload allowance is gone, every remaining file in the batch will
+        // be refused the same way — after pushing a chunk each. Fail them here instead.
+        if (DailyCapAlreadyHit(ctx.Credentials.Id))
+        {
+            yield return new AttemptFailed(DailyCapMessage, null);
+            yield break;
+        }
 
         bool needSignIn = !HasValidStoredSession(ctx);
         if (needSignIn)
@@ -256,6 +297,14 @@ public sealed class FilestankPipeline : IFileHosterPipeline
         (string? url, string? error) = ParseUploadResponse(response);
         if (error is not null)
         {
+            if (IsDailyCapRefusal(response.Body))
+            {
+                _dailyCapHitUtc[ctx.Credentials.Id] = DateTime.UtcNow;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: daily upload allowance is spent; the rest of this batch will fail immediately.");
+                yield return new AttemptFailed(DailyCapMessage, null);
+                yield break;
+            }
+
             yield return new AttemptFailed(error, null);
             yield break;
         }
@@ -449,6 +498,32 @@ public sealed class FilestankPipeline : IFileHosterPipeline
     }
 
     /// <summary>
+    /// True when the node's refusal is the daily-allowance one rather than a per-file problem. It
+    /// arrives inside an HTTP 200 like every other refusal, and it is the one failure that says
+    /// something about the ACCOUNT rather than about this file. Internal for testing.
+    /// </summary>
+    internal static bool IsDailyCapRefusal(string body)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(body);
+            JsonElement root = doc.RootElement;
+            JsonElement files = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("files", out JsonElement wrapped) ? wrapped : root;
+            if (files.ValueKind != JsonValueKind.Array || files.GetArrayLength() == 0 || files[0].ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            string haystack = $"{ReadString(files[0], "error")} {ReadString(files[0], "name")}";
+            return DailyCapPhrases.Any(p => haystack.Contains(p, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Turns the session's declared cap into a refusal, or null when the file fits. Zero is its own
     /// case: the session is signed out or barred from uploading, which is a different problem from
     /// the file being too big and deserves a different sentence. Internal for testing.
@@ -471,6 +546,9 @@ public sealed class FilestankPipeline : IFileHosterPipeline
                 + $"Filestank's limit for this account is {ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()}."
             : null;
     }
+
+    private bool DailyCapAlreadyHit(int credentialsId)
+        => _dailyCapHitUtc.TryGetValue(credentialsId, out DateTime hitUtc) && hitUtc.Date == DateTime.UtcNow.Date;
 
     private static bool HasValidStoredSession(AttemptContext ctx)
     {
