@@ -99,6 +99,36 @@ public class UploadrarPipelineTests
         Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode("Uploadrar"));
     }
 
+    // ── Sign-in routing. Both members below are protected, so these read them by reflection: they are
+    //    worth the awkwardness because getting either wrong breaks sign-in SILENTLY — KatFile's login
+    //    window never closed when its host moved, and DDownload's good sessions were reported as
+    //    signed-out. Uploadrar trips both traps at once. ──
+
+    [Fact]
+    public void LoginPage_IsTheForksOwnRoute_NotTheFamilyDefault()
+    {
+        // /login.html 404s on this host (checked live 2026-08-02); /login/ serves the form. The base
+        // default would open the WebView on a not-found page and no account could ever be added.
+        object? path = typeof(XFileSharingApiPipeline)
+            .GetProperty("LoginPagePath", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(new UploadrarPipeline());
+
+        Assert.Equal("/login/", path);
+    }
+
+    [Theory]
+    [InlineData("""<a href="/logout/">Logout</a>""", true)]        // what this fork's templates emit
+    [InlineData("""<a href="/?op=logout">Logout</a>""", true)]     // the family form, still honoured
+    [InlineData("""<a href="/login/">Login</a> <a href="/register/">Sign Up</a>""", false)]
+    public void LooksSignedIn_AcceptsThisForksTrailingSlashLogout(string html, bool expected)
+    {
+        object? result = typeof(XFileSharingApiPipeline)
+            .GetMethod("LooksSignedIn", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(new UploadrarPipeline(), [html]);
+
+        Assert.Equal(expected, result);
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];

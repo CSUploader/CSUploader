@@ -77,6 +77,30 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
 
     protected override string Host => "https://uploadrar.com";
 
+    /// <summary>
+    /// <c>/login/</c>, not the family's <c>/login.html</c> — which <b>404s</b> here (checked live
+    /// 2026-08-02). Without this the sign-in WebView opens a not-found page and no account can ever
+    /// be added.
+    /// <para>
+    /// The site is inconsistent about it: its own signed-out redirects still point at
+    /// <c>/login.html</c> (<c>/?op=my_account</c> and <c>/files/</c> both 302 there), so following one
+    /// lands on a 404. That is their bug, not ours — we navigate to the page that works.
+    /// </para>
+    /// </summary>
+    protected override string LoginPagePath => "/login/";
+
+    /// <summary>
+    /// This fork's templates use trailing-slash routes rather than the family's <c>?op=</c> ones — the
+    /// live login page links <c>/login/</c> and never <c>?op=login</c>, and a captured session logged
+    /// out via <c>/logout/</c>. The base's default looks for <c>op=logout</c> and would therefore call
+    /// a perfectly good session signed-out, exactly as it did for DDownload. Both forms are accepted
+    /// because the server honours both, so which one a given page happens to emit is not worth
+    /// betting the sign-in on.
+    /// </summary>
+    protected override bool LooksSignedIn(string html)
+        => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase)
+           || html.Contains("/logout/", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>True when Uploadrar's published blocklist covers this extension. Internal for testing.</summary>
     internal static bool IsBlockedExtension(string fileName)
         => BlockedExtensions.Contains(Path.GetExtension(fileName).TrimStart('.'));
