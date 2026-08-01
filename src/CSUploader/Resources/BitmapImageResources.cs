@@ -63,6 +63,7 @@ internal static class BitmapImageResources
         ("FileHosterCatboxImage", "FileHosters/filehoster_catbox.png"),
         ("FileHosterClicknuploadImage", "FileHosters/filehoster_clicknupload.png"),
         ("FileHosterDropgalaxyImage", "FileHosters/filehoster_dropgalaxy.png"),
+        ("FileHosterDropmefilesImage", "FileHosters/filehoster_dropmefiles.png"),
         // Keys mirror HosterIconConverter's normalisation (spaces/hyphens dropped, dots KEPT),
         // so "Send.now" resolves to FileHosterSend.nowImage — same shape as Storage.to/Transfer.it.
         ("FileHosterSend.nowImage", "FileHosters/filehoster_send.now.png"),

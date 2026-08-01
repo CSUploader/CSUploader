@@ -152,6 +152,9 @@ public static class ServiceRegistration
         // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
         // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
+        // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
+        // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();
         // Sendspace — anonymous only (no auth service needed): scrape the homepage's rotating upload
         // ticket, then post the site's own form to it. See SendspacePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SendspacePipeline>();

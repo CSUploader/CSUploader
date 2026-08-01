@@ -719,6 +719,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <see cref="UploadPutAsync"/>/storage.to model, so the same <c>BodyFullySent</c> reclassification
     /// applies here.
     /// </remarks>
+    /// <param name="method">Verb for the chunk. Defaults to PUT (the xfspro/R2 shape). DropMeFiles
+    /// runs the same raw-body-plus-headers protocol over POST, so the verb is a parameter rather than
+    /// a second near-identical method.</param>
     public async Task<HttpResponseSnapshot> PutChunkAsync(
         string endpoint,
         Stream chunkData,
@@ -728,17 +731,20 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         DateTime dateTimeStarted,
         IReadOnlyDictionary<string, string>? headers = null,
         Func<long?>? getBytesPerSecond = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        HttpMethod? method = null)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
 
+        HttpMethod verb = method ?? HttpMethod.Put;
+
         HttpTransaction transaction = new()
         {
-            Method = "PUT",
+            Method = verb.Method,
             Url = endpoint,
             Proxy = _proxyDescription,
             StartTime = dateTimeStarted,
-            RequestBody = $"[PUT chunk @ {basePosition}: {chunkLength} bytes]",
+            RequestBody = $"[{verb.Method} chunk @ {basePosition}: {chunkLength} bytes]",
         };
 
         ProgressStreamContent? progressContent = null;
@@ -757,12 +763,19 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 cancellationToken);
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
-            using HttpRequestMessage request = new(HttpMethod.Put, endpoint) { Content = progressContent };
+            using HttpRequestMessage request = new(verb, endpoint) { Content = progressContent };
             if (headers is not null)
             {
                 foreach (KeyValuePair<string, string> h in headers)
                 {
-                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    // Content-* headers belong on the CONTENT, and .NET refuses them on the request:
+                    // TryAddWithoutValidation returns false and the header is silently dropped. A
+                    // resumable-upload protocol keyed on Content-Range would then fail with nothing
+                    // in the log to say why (DropMeFiles answers 415), so route them explicitly.
+                    if (!request.Headers.TryAddWithoutValidation(h.Key, h.Value))
+                    {
+                        progressContent.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    }
                 }
             }
 

@@ -191,6 +191,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
         // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
         { "VikingFile", "vikingfile.com" },
+        // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
+        // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
+        // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.
+        // Serialised to one upload at a time — its anti-abuse answers bursts with "Spam". See
+        // DropMeFilesPipeline.cs.
+        { "DropMeFiles", "dropmefiles.com" },
         // sendspace.com — anonymous, no login and no captcha: scrape the homepage's rotating upload
         // ticket (fsNNu node + signature) → multipart POST `upload_file[]` → the reply IS the result
         // page, carrying sendspace.com/file/<code>. 300 MB. See SendspacePipeline.cs.
