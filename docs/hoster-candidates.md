@@ -113,9 +113,16 @@ Wire like the existing session-cookie XFS hosts (Isracloud / Hxfile / Filehoster
 | **Datanodes** | datanodes.to | unknown | med | ⚠ Upload restricted to approved webmasters — low real-world value. |
 | **Sim File Share** | simfileshare.net | Sims-only | med | ⚠ Invite-only registration, The Sims content only — low value. |
 
-### A3 · Presumed XFS, needs a live browser capture first
+### A3 · Presumed XFS — swept 2026-08-01, **none render an anonymous form**
 
-Confirmed alive and XFS-shaped, but anon-vs-account, cap, and/or gating unverified (fetches were bot-blocked or transiently errored):
+> ✅ **Swept in full on 2026-08-01 and the result is a clean negative: not one of these serves a
+> `utype=anon` / `upload.cgi` upload form.** Six answered normally (filedot.to, filerio.in,
+> prefiles.com, xubster.com, hot4share.com, kenfiles.com, salefiles.com, filextras.com) and their
+> homepages simply have no anonymous uploader; three were unreachable (filenext.com and
+> indishare.org 523, mexa.sh / filesfly.cc / nelion.me no answer). So **the anonymous-XFS seam this
+> project mined all session is now genuinely exhausted** — unlike the earlier over-broad claim
+> (see the A1 banner), this sweep covered the hosts that had NOT been checked, which is the set
+> Usersdrive came out of. Any of these would need an account before it can be planned at all.
 
 Filedot (filedot.to), Filenext (filenext.com), Filerio (filerio.in), Indishare (indishare.org), Prefiles (prefiles.com), Mexashare (mexa.sh), Xubster (xubster.com), Hot4share (hot4share.com), Kenfiles (kenfiles.com), Filesfly (filesfly.cc), Silkfiles (silkfiles.com), Nelion (nelion.me), Filextras (filextras.com), Salefiles (salefiles.com), **Filespace** (filespace.com — *untrusted TLS chain, needs cert-validation relaxation like FlashBit/GigaPeta*).
 
