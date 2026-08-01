@@ -65,8 +65,11 @@ public static class HosterCredentialModes
     // key is only obtainable from its Affiliate Dashboard (Affiliate → Settings) and can't be
     // bootstrapped from my_account, so requiring one would mean every user enabling an affiliate
     // account before their first upload. Signing in is the shippable flow.
+    // "Filestank" is the same story on a different platform — YetiShare, not XFileSharing. Its
+    // /api/v2 wants two 64-character keys and its account area exposes no page that yields them, so
+    // the credential is the filehosting session cookie captured by the WebView.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>

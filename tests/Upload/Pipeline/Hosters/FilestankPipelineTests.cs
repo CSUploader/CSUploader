@@ -8,6 +8,7 @@ using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.Upload.Pipeline.Hosters;
@@ -16,62 +17,92 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Filestank on the YetiShare API: authorise with two account keys, then a multipart upload. Response
-/// shapes are from the host's own published API docs (its live /authorize refusals were probed
-/// 2026-08-01). What's pinned hardest is the token reuse the API explicitly asks for, and the
-/// per-file <c>error</c> that rides inside an otherwise-successful 200.
+/// Filestank on the YetiShare/blueimp web path. Every fixture below is the shape observed in the
+/// signed-in browser capture of 2026-08-01 — the generated <c>uploader.js</c>, the storage node's
+/// JSON array, and the account stats endpoint. What's pinned hardest is that the node is
+/// authenticated by the scraped <c>_sessionid</c> FIELD rather than by a cookie, and that the ticket
+/// is re-scraped per upload because every part of it rotates.
 /// </summary>
 public class FilestankPipelineTests
 {
-    private const string Key1 = "k1_0000000000000000000000000000000000000000000000000000000000000";
-    private const string Key2 = "k2_0000000000000000000000000000000000000000000000000000000000000";
+    private const string Session = "a408l2ekdmaemu6m290q2pqv7t";
+    private const string NodeUrl = "https://str2.filestank.com/ajax/file_upload_handler?r=www.filestank.com&p=https&csaKey1=aaa&csaKey2=bbb";
 
-    private const string AuthOkJson = """{"data":{"access_token":"tok_demo","account_id":"158642"},"_status":"success"}""";
-    private const string UploadOkJson = """{"response":"File uploaded","data":[{"name":"x.zip","size":"4096","error":null,"url":"https://www.filestank.com/2Vv","delete_url":"https://www.filestank.com/2Vv~d?abc"}]}""";
+    /// <summary>The three values in their real setting: the node URL is a jQuery-File-Upload option,
+    /// the other two are assembled into formData on submit. The decoy <c>url_upload_handler</c> line
+    /// is real too — it sits in the same file with a DIFFERENT csaKey pair.</summary>
+    private const string UploaderJs = """
+        function initUploader(uploadSourceParam) {
+          var maxChunkSize = 0;
+          if (browserXHR2Support() == true) { maxChunkSize = 100000000; var uploaderMaxSize = 21474836480; }
+          $('#fileUpload #uploader').fileupload({
+            sequentialUploads: false, limitConcurrentUploads: 8,
+            url: 'https://str2.filestank.com/ajax/file_upload_handler?r=www.filestank.com&p=https&csaKey1=aaa&csaKey2=bbb',
+            maxFileSize: uploaderMaxSize, maxChunkSize: maxChunkSize, maxNumberOfFiles: 50 });
+          $('#rowUrl').prop('src', 'https://str2.filestank.com/ajax/url_upload_handler?csaKey1=zzz&csaKey2=yyy&rowId=' + i);
+          $('#fileUpload #uploader').bind('fileuploadsubmit', function (e, data) {
+            data.formData = {_sessionid: 'a408l2ekdmaemu6m290q2pqv7t', cTracker: 'a19c479804646fa6e289fcc06b26009a', maxChunkSize: maxChunkSize, folderId: fileFolder, uploadSource: uploadSource};
+          });
+        }
+        """;
+
+    private const string UploadOkJson = """[{"name":"x.avi","size":5225142,"type":"video/avi","error":null,"url":"https://www.filestank.com/0e788016ff766b8e","delete_url":"https://www.filestank.com/0e788016ff766b8e~d?abc","short_url":"0e788016ff766b8e","file_id":"153881"}]""";
 
     [Fact]
-    public async Task RunAsync_AuthorisesThenUploads_AndReturnsTheServersUrl()
+    public async Task RunAsync_ScrapesTheTicketThenUploads_AndReturnsTheNodesUrl()
     {
-        List<string> authCalls = [];
+        List<string> gets = [];
         List<UploadCall> uploads = [];
 
         FilestankPipeline pipeline = new(
-            postFormOverride: (url, form) =>
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, headers) =>
             {
-                authCalls.Add(url);
-                Assert.Equal(Key1, form["key1"]);
-                Assert.Equal(Key2, form["key2"]);
-                return Task.FromResult(new HttpResponseSnapshot(200, AuthOkJson, Array.Empty<string>()));
+                gets.Add(url);
+                Assert.Equal($"filehosting={Session}", headers!["Cookie"]);
+                return Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>()));
             },
             uploadOverride: (filePath, endpoint, extra, headers, _) =>
             {
-                uploads.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra)));
+                uploads.Add(new UploadCall(filePath, endpoint, new Dictionary<string, string>(extra), headers));
                 return Task.FromResult(new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()));
             });
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
-        Assert.Equal("https://www.filestank.com/2Vv", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal("https://www.filestank.com/0e788016ff766b8e", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
         Assert.Empty(events.OfType<AttemptFailed>());
-        Assert.EndsWith("/api/v2/authorize", Assert.Single(authCalls), StringComparison.Ordinal);
+        Assert.StartsWith("https://www.filestank.com/assets/js/uploader.js?r=", Assert.Single(gets), StringComparison.Ordinal);
 
         UploadCall call = Assert.Single(uploads);
-        Assert.EndsWith("/api/v2/file/upload", call.Endpoint, StringComparison.Ordinal);
-        Assert.Equal("tok_demo", call.ExtraFields["access_token"]);
-        Assert.Equal("158642", call.ExtraFields["account_id"]);
+        Assert.Equal(NodeUrl, call.Endpoint);
+        Assert.Equal(Session, call.ExtraFields["_sessionid"]);
+        Assert.Equal("a19c479804646fa6e289fcc06b26009a", call.ExtraFields["cTracker"]);
+        Assert.Equal("100000000", call.ExtraFields["maxChunkSize"]);
+        Assert.Equal("-1", call.ExtraFields["folderId"]);
+        Assert.Equal("file_manager", call.ExtraFields["uploadSource"]);
+
+        // The node is authenticated by the _sessionid FIELD. The browser sends it no cookie at all;
+        // sending one would be a different (unobserved) request shape.
+        Assert.NotNull(call.Headers);
+        Assert.False(call.Headers!.ContainsKey("Cookie"));
+        Assert.Equal("https://www.filestank.com", call.Headers["Origin"]);
     }
 
     [Fact]
-    public async Task RunAsync_SecondUpload_ReusesTheAccessToken()
+    public async Task RunAsync_ReScrapesTheTicketForEveryUpload()
     {
-        // The API's own docs: "you shouldn't generate a new access_token for each request." A batch of
-        // 80 files must cost one authorise, not 80.
-        int auths = 0;
+        // Every part of the ticket rotates — in the capture, two assets rendered seconds apart carried
+        // DIFFERENT csaKey pairs. Caching one across a batch would post to a stale node.
+        int gets = 0;
         FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) =>
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) =>
             {
-                auths++;
-                return Task.FromResult(new HttpResponseSnapshot(200, AuthOkJson, Array.Empty<string>()));
+                gets++;
+                return Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>()));
             },
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>())));
 
@@ -79,134 +110,235 @@ public class FilestankPipelineTests
         await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
         await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
-        Assert.Equal(1, auths);
-    }
-
-    [Fact]
-    public async Task RunAsync_ExpiredToken_ReAuthorisesOnceAndSucceeds()
-    {
-        int auths = 0, uploadAttempts = 0;
-        FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) =>
-            {
-                auths++;
-                return Task.FromResult(new HttpResponseSnapshot(200, AuthOkJson, Array.Empty<string>()));
-            },
-            uploadOverride: (_, _, _, _, _) =>
-            {
-                uploadAttempts++;
-                return Task.FromResult(uploadAttempts == 1
-                    ? new HttpResponseSnapshot(200, """{"_status":"error","response":"Invalid access_token supplied."}""", Array.Empty<string>())
-                    : new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>()));
-            });
-
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
-
-        Assert.Single(events.OfType<TransferCompleted>());
-        Assert.Equal(2, auths);           // initial + one refresh
-        Assert.Equal(2, uploadAttempts);  // and exactly one re-send
-        Assert.Single(events.OfType<TransferStarted>()); // one transfer as far as the UI is concerned
+        Assert.Equal(3, gets);
     }
 
     [Fact]
     public async Task RunAsync_PerFileError_IsReportedEvenThoughTheEnvelopeLooksFine()
     {
-        // YetiShare puts a per-file "error" INSIDE a 200 with a data array — the Krakenfiles shape.
-        // Reading past it to a missing url would report something far less useful.
+        // The node refuses inside an HTTP 200 with a populated array — reading past it to a missing
+        // url would report something far less useful than the node's own sentence.
         FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, AuthOkJson, Array.Empty<string>())),
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>())),
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
-                200, """{"response":"File uploaded","data":[{"name":"x.zip","error":"File too large","url":null}]}""", Array.Empty<string>())));
+                200, """[{"name":"x.avi","size":0,"error":"File is too large","url":null}]""", Array.Empty<string>())));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
-        Assert.Contains("File too large", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Contains("File is too large", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
         Assert.Empty(events.OfType<TransferCompleted>());
     }
 
     [Fact]
-    public async Task RunAsync_WithoutBothKeys_FailsBeforeAnyRequest()
+    public async Task RunAsync_WithoutASignedInSessionAndNoWebView_FailsBeforeAnyRequest()
     {
         FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) => throw new InvalidOperationException("must not authorise"),
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => throw new InvalidOperationException("must not scrape"),
             uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
 
         AttemptContext ctx = MakeContext() with
         {
-            Credentials = new FileHosterLoginDto { Id = 9, FileHosterName = "Filestank", Username = Key1 }, // key2 missing
+            Credentials = new FileHosterLoginDto { Id = 9, FileHosterName = "Filestank" }, // no stored cookie
         };
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
 
-        Assert.Contains("API key", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sign in", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(events.OfType<TransferStarted>());
     }
 
     [Fact]
-    public async Task CheckAccountAsync_NeverReturnsADerivedUsername()
+    public async Task RunAsync_ExpiredStoredCookie_SignsInAgainAndSucceeds()
     {
-        // The Settings VM copies DerivedUsername straight onto the DTO's Username. For every other
-        // hoster that field is a display name; here it is key1, half the credential. Surfacing the
-        // account id would overwrite it and break the account on its own verify — so this stays null
-        // and the id lives in the message.
+        // A lapsed session still returns 200 — with the signed-out uploader.js, which has no ticket in
+        // it. That is the only signal there is, so it must drive a re-sign-in rather than a hard fail.
+        int scrapes = 0, signIns = 0;
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .Callback(() => signIns++)
+            .ReturnsAsync(new InteractiveAuthResult(Session, null));
+
         FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, AuthOkJson, Array.Empty<string>())),
-            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run during a check"));
+            auth.Object,
+            loginRepository: null,
+            getOverride: (_, _) =>
+            {
+                scrapes++;
+                return Task.FromResult(scrapes == 1
+                    ? new HttpResponseSnapshot(200, "function initUploader() { /* signed out */ }", Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>()));
+            },
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>())));
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync(
-            Key1, Key2, apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
-        Assert.True(result.IsValid);
-        Assert.Null(result.DerivedUsername);
-        Assert.Contains("158642", result.Message, StringComparison.Ordinal);
+        Assert.Single(events.OfType<TransferCompleted>());
+        Assert.Equal(1, signIns);  // the stored cookie was good enough to try; only the stale answer forced a WebView
+        Assert.Equal(2, scrapes);
+        Assert.Single(events.OfType<AuthSucceeded>());
     }
 
     [Fact]
-    public async Task CheckAccountAsync_BadKeyPair_SurfacesTheHostsOwnWording()
+    public async Task RunAsync_ParallelUploadsOnOneAccount_OpenASingleSignInWindow()
     {
+        // Without the per-account gate, ten files starting at once each pop their own WebView.
+        int signIns = 0;
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                Interlocked.Increment(ref signIns);
+                await Task.Delay(30);
+                return (InteractiveAuthResult?)new InteractiveAuthResult(Session, null);
+            });
+
         FilestankPipeline pipeline = new(
-            postFormOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(
-                403, """{"_status":"error","response":"Could not authenticate user. The key pair may be invalid."}""", Array.Empty<string>())),
-            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("upload must not run during a check"));
+            auth.Object,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, UploaderJs, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, UploadOkJson, Array.Empty<string>())));
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync(
-            Key1, Key2, apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        // One shared DTO, exactly as a real batch on one account has.
+        FileHosterLoginDto shared = new() { Id = 7, FileHosterName = "Filestank" };
+        await Task.WhenAll(Enumerable.Range(0, 10)
+            .Select(_ => DrainAsync(pipeline.RunAsync(MakeContext() with { Credentials = shared }, CancellationToken.None))));
 
-        Assert.False(result.IsValid);
-        Assert.Contains("key pair may be invalid", result.Message, StringComparison.Ordinal);
+        Assert.Equal(1, signIns);
+    }
+
+    [Fact]
+    public void ParseUploaderScript_TakesTheFileHandlerUrl_NotTheUrlUploadHandler()
+    {
+        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript(UploaderJs, 200);
+
+        Assert.Null(error);
+        Assert.False(stale);
+        Assert.Equal(NodeUrl, ticket!.Value.UploadUrl);   // …csaKey1=aaa, not the url_upload_handler's zzz
+        Assert.Equal(Session, ticket.Value.SessionId);
+        Assert.Equal("a19c479804646fa6e289fcc06b26009a", ticket.Value.Tracker);
     }
 
     [Theory]
-    [InlineData(AuthOkJson, "tok_demo", "158642")]
-    [InlineData("""{"data":{"access_token":"t","account_id":158642}}""", "t", "158642")] // numeric account_id
-    [InlineData("""{"_status":"error","response":"Could not authenticate user. The key pair may be invalid."}""", null, null)]
-    [InlineData("""{"data":{"account_id":"1"}}""", null, null)]
-    [InlineData("nonsense", null, null)]
-    public void ParseAuthorizeResponse_ReadsTheTokenOrRefuses(string json, string? token, string? accountId)
+    [InlineData("function initUploader() { }", 200, true)]   // signed out: 200, no ticket
+    [InlineData("", 403, true)]
+    [InlineData("", 500, false)]                             // a server fault is not "your session lapsed"
+    public void ParseUploaderScript_WithoutATicket_ReportsWhetherTheSessionLooksStale(string js, int status, bool expectStale)
     {
-        (string? gotToken, string? gotAccount, string? error) = FilestankPipeline.ParseAuthorizeResponse(json);
-        Assert.Equal(token, gotToken);
-        Assert.Equal(accountId, gotAccount);
-        if (token is null && json.Contains("key pair", StringComparison.Ordinal))
+        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript(js, status);
+
+        Assert.Null(ticket);
+        Assert.NotNull(error);
+        Assert.Equal(expectStale, stale);
+    }
+
+    [Theory]
+    [InlineData(UploadOkJson, "https://www.filestank.com/0e788016ff766b8e", null)]
+    [InlineData("""{"files":[{"url":"https://www.filestank.com/abc","error":null}]}""", "https://www.filestank.com/abc", null)]
+    [InlineData("""{"data":[{"url":"https://www.filestank.com/def"}]}""", "https://www.filestank.com/def", null)]
+    [InlineData("""[{"name":"x","error":"Upload failed"}]""", null, "Upload failed")]
+    [InlineData("[]", null, "no link")]
+    [InlineData("<html>gateway timeout</html>", null, "unreadable")]
+    public void ParseUploadResponse_ReadsEitherEnvelope_AndPrefersThePerFileError(string body, string? url, string? errorFragment)
+    {
+        (string? gotUrl, string? gotError) = FilestankPipeline.ParseUploadResponse(new HttpResponseSnapshot(200, body, Array.Empty<string>()));
+
+        Assert.Equal(url, gotUrl);
+        if (errorFragment is null)
         {
-            Assert.Contains("key pair", error!, StringComparison.Ordinal); // the host's own words
+            Assert.Null(gotError);
+        }
+        else
+        {
+            Assert.Contains(errorFragment, gotError!, StringComparison.OrdinalIgnoreCase);
         }
     }
 
     [Fact]
-    public void Filestank_IsAccountOnly_AndUsesThePlainTwoFieldCredentialUi()
+    public void ParseAccountStats_ReadsTheStringEncodedByteCounts()
+    {
+        const string Json = """{"totalActiveFileSize":0,"totalFileStorage":"107374182400","totalFileStorageFormatted":"100.0 GB"}""";
+
+        (long? used, long? quota) = FilestankPipeline.ParseAccountStats(Json);
+
+        Assert.Equal(0L, used);
+        Assert.Equal(100L * 1024 * 1024 * 1024, quota); // the "100.0 GB" the site shows, in bytes
+    }
+
+    [Theory]
+    [InlineData("""<span class="user-screen-name hidden-sm hidden-md">demo_account</span>""", "demo_account")]
+    [InlineData("""<span class="user-screen-name">  spaced  </span>""", "spaced")]
+    [InlineData("""<span class="user-screen-name"></span>""", null)]
+    [InlineData("<div>no header here</div>", null)]
+    public void ParseScreenName_ReadsTheHeaderLabelOnly(string html, string? expected)
+        => Assert.Equal(expected, FilestankPipeline.ParseScreenName(html));
+
+    [Fact]
+    public void Filestank_IsAccountOnly_OnTheSessionCookieCredentialUi()
     {
         FilestankPipeline pipeline = new();
         Assert.Equal("Filestank", pipeline.Name);
-        Assert.Null(pipeline.MaxFileSize); // no published per-file figure — the server decides
         Assert.False(pipeline.SupportsAnonymousUpload);
+
+        // 20 GiB — the uploader's own maxFileSize (21474836480), which it renders as "20.00 GB".
+        Assert.Equal(21474836480L, pipeline.MaxFileSize);
 
         Assert.True(FileHosterClient.FileHosters.ContainsKey("Filestank"));
         Assert.Equal("www.filestank.com", FileHosterClient.FileHosters["Filestank"]);
 
-        // Two keys need two fields: the API-key mode's single paste box plus a sign-in button that
-        // could never produce them would be worse.
-        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("Filestank"));
+        // The credential is the captured cookie: there is no API key to paste and no username/password
+        // the pipeline could use, because the login is reCAPTCHA-gated.
+        Assert.Equal(HosterCredentialMode.SessionCookie, HosterCredentialModes.GetMode("Filestank"));
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WithoutTheEmbeddedBrowser_FailsWithAnActionableMessage()
+    {
+        FilestankPipeline pipeline = new();
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user", "pass", apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("embedded browser", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_CancelledSignIn_IsNotAValidAccount()
+    {
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InteractiveAuthResult?)null);
+
+        FilestankPipeline pipeline = new(auth.Object);
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "user", string.Empty, apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Null(result.SessionCookie);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WaitsForThePostLoginNavigation()
+    {
+        // The filehosting cookie is issued to anonymous visitors and keeps the SAME value through
+        // login, so bare cookie-presence would close the window on a guest session.
+        InteractiveAuthSpec? seen = null;
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .Callback<InteractiveAuthSpec, string, ProxyChoice?, CancellationToken>((s, _, _, _) => seen = s)
+            .ReturnsAsync((InteractiveAuthResult?)null);
+
+        await new FilestankPipeline(auth.Object).CheckAccountAsync(
+            "user", string.Empty, apiKey: null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(seen!.Value.CaptureOnlyAfterLeavingLoginPage);
+        Assert.Equal("filehosting", seen.Value.CookieName);
+        Assert.Equal("https://www.filestank.com/account/login", seen.Value.LoginUrl);
     }
 
     private static HttpHandler MakeHandler() => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
@@ -225,11 +357,17 @@ public class FilestankPipelineTests
     private static AttemptContext MakeContext() => new()
     {
         AttemptId = Guid.NewGuid(),
-        FilePath = @"C:\nope\x.zip",
-        FileName = "x.zip",
-        FileSize = 4096,
+        FilePath = @"C:\nope\x.avi",
+        FileName = "x.avi",
+        FileSize = 5225142,
         HosterName = "Filestank",
-        Credentials = new FileHosterLoginDto { Id = 1, FileHosterName = "Filestank", Username = Key1, Password = Key2 },
+        Credentials = new FileHosterLoginDto
+        {
+            Id = 1,
+            FileHosterName = "Filestank",
+            SessionCookie = Session,
+            SessionCookieExpiresUtc = DateTime.UtcNow.AddHours(4),
+        },
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
@@ -237,5 +375,9 @@ public class FilestankPipelineTests
         Cancellation = default,
     };
 
-    private sealed record UploadCall(string FilePath, string Endpoint, IReadOnlyDictionary<string, string> ExtraFields);
+    private sealed record UploadCall(
+        string FilePath,
+        string Endpoint,
+        IReadOnlyDictionary<string, string> ExtraFields,
+        IReadOnlyDictionary<string, string>? Headers);
 }

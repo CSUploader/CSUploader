@@ -4,72 +4,133 @@
 // </copyright>
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
+using CSUploader.Services;
 
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Filestank (filestank.com) — account upload over the site's own documented REST API. It is NOT
-/// XFileSharing: it runs <b>YetiShare</b> (<c>/api/v2/</c>, <c>themes/spirit</c>), a commercial
-/// file-sharing script used by a number of hosts, so this pipeline is shaped to be worth copying if a
-/// second YetiShare host is ever added.
+/// Filestank (filestank.com) — account upload. It is NOT XFileSharing: it runs <b>YetiShare</b>
+/// (<c>/api/v2/</c>, <c>themes/spirit</c>), a different commercial script whose uploader is
+/// blueimp jQuery-File-Upload against a separate storage node. Built from a browser capture of a
+/// signed-in upload, 2026-08-01.
 /// <list type="number">
-///   <item><b>Authorise.</b> <c>POST /api/v2/authorize</c> with <c>key1</c> + <c>key2</c> (two
-///   64-character account keys) → <c>{"data":{"access_token":…,"account_id":…}}</c>.</item>
-///   <item><b>Upload.</b> <c>POST /api/v2/file/upload</c> — multipart <c>upload_file</c> plus the
-///   <c>access_token</c> and <c>account_id</c> → <c>{"response":"File uploaded","data":[{…,"url":…}]}</c>.
-///   The share link is that <c>url</c>.</item>
+///   <item><b>Sign in.</b> WebView at <c>/account/login</c> (reCAPTCHA), capturing the
+///   <c>filehosting</c> session cookie. That cookie exists BEFORE login and keeps the same value
+///   after it, so completion waits for the browser to leave the login page rather than for the
+///   cookie to appear.</item>
+///   <item><b>Scrape the upload ticket.</b> <c>GET /assets/js/uploader.js</c> is generated per
+///   session and carries all three moving parts: the node URL
+///   (<c>strN.filestank.com/ajax/file_upload_handler?…csaKey1=…&amp;csaKey2=…</c>), the
+///   <c>_sessionid</c>, and a <c>cTracker</c>. All of them rotate, so this runs per upload.</item>
+///   <item><b>Upload.</b> Multipart POST to that node: <c>_sessionid</c>, <c>cTracker</c>,
+///   <c>maxChunkSize</c>, <c>folderId</c>, <c>uploadSource</c> and the file under <c>files[]</c> →
+///   a JSON array <c>[{…,"url":…,"error":null}]</c>. The share link is that <c>url</c>.</item>
 /// </list>
 /// <para>
-/// <b>Credentials are the two API keys, entered as username + password</b> — key1 in the username box,
-/// key2 in the password box. That mapping is deliberate rather than elegant: the account dialog's
-/// API-key mode offers a single paste box plus a "Sign in" button, and neither fits a host that needs
-/// TWO keys and has no sign-in that could produce them. Two plain fields for two keys at least can't
-/// mislead. The keys come from the account's own API page on filestank.com.
+/// <b>The storage node is authenticated by a form field, not a cookie.</b> The browser sends no
+/// session cookie to <c>strN.</c> at all — <c>_sessionid</c> in the body is the whole credential
+/// there. Sending the cookie instead would upload as a guest (or be refused outright), so the
+/// scrape is not optional plumbing: it IS the authentication.
 /// </para>
 /// <para>
-/// <b>The access token is cached per account</b>, because the API's own documentation says so: "the
-/// same access_token can be used multiple times in the same session, so you shouldn't generate a new
-/// access_token for each request." A batch of 80 files therefore costs one authorise, not eighty. A
-/// rejected upload drops the cache once and re-authorises, so an expired token self-heals.
+/// <b>Files over 100 MB are chunked</b>, because the site's own uploader chunks them: its
+/// jQuery-File-Upload options set <c>maxChunkSize: 100000000</c>, which makes the widget split the
+/// file into 100 MB parts, each POSTed to the same URL with a <c>Content-Range</c> header (the
+/// node's CORS pre-flight allows exactly that header). ⚠ Only the single-POST path is capture-
+/// verified — the observed upload was 5 MB. The chunked path is implemented from the widget's
+/// documented behaviour and needs a real &gt;100 MB upload to confirm.
 /// </para>
 /// <para>
-/// <b>No per-file cap is declared</b> — the site publishes no figure and the API exposes none, so
-/// <see cref="MaxFileSize"/> stays null and the server's own refusal is the authority. (A candidate
-/// note claimed 20 GB; it is unverified, and encoding a guess would reject files the server would
-/// have taken.)
+/// <b>Per-file cap is 20 GiB</b> — <c>maxFileSize: 21474836480</c> in that same options block, which
+/// the uploader also renders as "Max file size: 20.00 GB". A candidate note claimed 20 GB without a
+/// source; this is that number, read from the account's own uploader.
+/// </para>
+/// <para>
+/// <b>Why sign-in and not the REST API.</b> Filestank publishes a full <c>/api/v2/</c> (authorize
+/// with two 64-character keys → <c>access_token</c> → <c>file/upload</c>) and this pipeline was
+/// first built on it. The account area exposes no API page and no way to obtain those keys, and
+/// even if it did, "go find two 64-character keys" is a worse first-run credential than signing in
+/// — the same reasoning that moved DDownload off its (working) API. If the keys ever become
+/// reachable, the API is the more durable path: it has no cookie to expire.
 /// </para>
 /// </summary>
 public sealed class FilestankPipeline : IFileHosterPipeline
 {
-    private const string ApiBase = "https://www.filestank.com/api/v2/";
-    private const string AuthorizeUrl = ApiBase + "authorize";
-    private const string UploadUrl = ApiBase + "file/upload";
+    private const string SiteBase = "https://www.filestank.com";
+    private const string LoginUrl = SiteBase + "/account/login";
+    private const string AccountUrl = SiteBase + "/account";
+    private const string StatsUrl = SiteBase + "/account/ajax/get_account_file_stats";
 
-    /// <summary>Authorised sessions by credentials id. See the class remarks — the API asks callers to
-    /// reuse the token rather than re-authorise per request.</summary>
-    private readonly ConcurrentDictionary<int, (string AccessToken, string AccountId)> _sessions = new();
-    private readonly ConcurrentDictionary<int, SemaphoreSlim> _authGates = new();
+    /// <summary>Server-generated per session — the only place the node URL, <c>_sessionid</c> and
+    /// <c>cTracker</c> appear together.</summary>
+    private const string UploaderScriptUrl = SiteBase + "/assets/js/uploader.js";
 
-    private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
+    private const string CookieName = "filehosting";
+    private const string CookieDomain = "www.filestank.com";
+
+    /// <summary>blueimp's field name, as sent by the site.</summary>
+    private const string FileFieldName = "files[]";
+
+    /// <summary>The uploader's own <c>maxChunkSize</c>. Files at or below this go in one POST.</summary>
+    private const long MaxChunkSize = 100_000_000;
+
+    /// <summary>The uploader's own <c>maxFileSize</c>: 20 GiB.</summary>
+    private const long UploaderMaxSize = 21_474_836_480;
+
+    /// <summary>The node's <c>Set-Cookie</c> gives the session 24 h; expire ours earlier so an
+    /// upload never starts against a session about to lapse mid-transfer.</summary>
+    private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(18);
+
+    private static readonly Regex UploadUrlRegex = new(
+        @"url:\s*'(?<url>https://[^']*?/ajax/file_upload_handler[^']*)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex SessionIdRegex = new(
+        @"_sessionid:\s*'(?<v>[^']+)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex TrackerRegex = new(
+        @"cTracker:\s*'(?<v>[^']+)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>The header's own account label (<c>&lt;span class="user-screen-name"&gt;</c>) — the
+    /// site's chosen display name for the signed-in user, not a scraped guess at one.</summary>
+    private static readonly Regex ScreenNameRegex = new(
+        @"<span[^>]*class=""[^""]*user-screen-name[^""]*""[^>]*>(?<name>[^<]{1,64})</span>",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Sign-in is serialised per account: without this, N parallel uploads that all start
+    /// without a cookie each open their own WebView.</summary>
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _signInGates = new();
+
+    private readonly IInteractiveAuthService? _authService;
+    private readonly FileHosterLoginRepository? _loginRepository;
+
+    private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
-    public FilestankPipeline()
+    public FilestankPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
     {
+        _authService = authService;
+        _loginRepository = loginRepository;
     }
 
-    /// <summary>Test ctor — drives the authorise call and the upload from canned responses.</summary>
+    /// <summary>Test ctor — drives the uploader.js scrape and the upload from canned responses.</summary>
     internal FilestankPipeline(
-        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
+        IInteractiveAuthService? authService,
+        FileHosterLoginRepository? loginRepository,
+        Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
     {
-        _postFormOverride = postFormOverride;
+        _authService = authService;
+        _loginRepository = loginRepository;
+        _getOverride = getOverride;
         _uploadOverride = uploadOverride;
     }
 
@@ -79,34 +140,73 @@ public sealed class FilestankPipeline : IFileHosterPipeline
 
     public bool RequiresHashingAfterUpload => false;
 
-    /// <summary>No cap is published by the site or the API; the server decides.</summary>
-    public long? MaxFileSize => null;
+    /// <summary>20 GiB — the uploader's own <c>maxFileSize</c>.</summary>
+    public long? MaxFileSize => UploaderMaxSize;
 
     public int? MaxFilesPerPackage => null;
 
-    /// <summary>Account-only — every API call needs an authorised token.</summary>
+    /// <summary>Account-only: the node authenticates on a signed-in <c>_sessionid</c>.</summary>
     public bool SupportsAnonymousUpload => false;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;
 
-        (string? key1, string? key2) = ReadKeys(ctx.Credentials);
-        if (key1 is null || key2 is null)
+        bool needSignIn = !HasValidStoredSession(ctx);
+        if (needSignIn)
         {
+            yield return new AuthStarted();
+        }
+
+        string? session = await GetOrAcquireSessionAsync(ctx, ctx.Cancellation);
+        if (session is null)
+        {
+            if (needSignIn)
+            {
+                yield return new AuthFailed("Filestank sign-in was cancelled or didn't complete.");
+            }
+
             yield return new AttemptFailed(
-                "Filestank needs both API keys — open Settings → Accounts and enter API key 1 as the username and API key 2 as the password.",
+                "Filestank needs an account — open Settings → Accounts and sign in.",
                 null);
             yield break;
         }
 
-        (string? token, string? accountId, string? authError) = await EnsureSessionAsync(ctx, key1, key2, forceRefresh: false);
-        if (token is null)
+        if (needSignIn)
         {
-            yield return new AttemptFailed(authError!, null);
+            yield return new AuthSucceeded();
+        }
+
+        // === Scrape this upload's ticket (node URL + _sessionid + cTracker) ===
+        (UploadTicket? ticket, string? ticketError, bool stale) = await GetUploadTicketAsync(ctx, session);
+
+        // A session that has lapsed server-side renders the signed-out uploader.js — no ticket in it.
+        // Drop the stored cookie and sign in once more, then try again.
+        if (ticket is null && stale)
+        {
+            ctx.Logger.Log(this, LogType.Status, $"{Name}: stored session is no longer signed in; signing in again.");
+            await ClearSessionAsync(ctx.Credentials, ctx.Cancellation);
+            yield return new AuthStarted();
+
+            string? fresh = await GetOrAcquireSessionAsync(ctx, ctx.Cancellation);
+            if (fresh is null)
+            {
+                yield return new AuthFailed("Filestank sign-in was cancelled or didn't complete.");
+                yield return new AttemptFailed("Filestank needs an account — open Settings → Accounts and sign in.", null);
+                yield break;
+            }
+
+            yield return new AuthSucceeded();
+            (ticket, ticketError, _) = await GetUploadTicketAsync(ctx, fresh);
+        }
+
+        if (ticket is null)
+        {
+            yield return new AttemptFailed(ticketError!, null);
             yield break;
         }
 
+        // === Upload ===
         yield return new TransferStarted(ctx.FileSize);
 
         var progressChannel = Channel.CreateUnbounded<UploadEvent>();
@@ -114,9 +214,9 @@ public sealed class FilestankPipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += onProgress;
 
-        Task<(string? Url, string? Error, bool Unauthorised)> workTask = UploadOnceAsync(ctx, token, accountId!);
+        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, ticket.Value);
 
-        _ = workTask.ContinueWith(
+        _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
@@ -129,24 +229,11 @@ public sealed class FilestankPipeline : IFileHosterPipeline
 
         ctx.Handler.UploadProgress -= onProgress;
 
-        (string? url, string? error, bool unauthorised) = await workTask;
+        // A transport fault propagates raw to AttemptRunner, which re-runs this pipeline and scrapes a
+        // FRESH ticket — nothing is committed until the node answers, so no double-create.
+        HttpResponseSnapshot response = await uploadTask;
 
-        // A cached token that has expired shows up as an auth refusal on the upload. Re-authorise ONCE
-        // and re-send; anything else is a real verdict and is reported as-is. The retry re-sends the
-        // whole file, so it is capped at one and gated on an auth failure specifically.
-        if (unauthorised)
-        {
-            ctx.Logger.Log(this, LogType.Status, $"{Name}: access token rejected; re-authorising and retrying once.");
-            (string? freshToken, string? freshAccountId, string? refreshError) = await EnsureSessionAsync(ctx, key1, key2, forceRefresh: true);
-            if (freshToken is null)
-            {
-                yield return new AttemptFailed(refreshError!, null);
-                yield break;
-            }
-
-            (url, error, _) = await UploadOnceAsync(ctx, freshToken, freshAccountId!);
-        }
-
+        (string? url, string? error) = ParseUploadResponse(response);
         if (error is not null)
         {
             yield return new AttemptFailed(error, null);
@@ -158,226 +245,197 @@ public sealed class FilestankPipeline : IFileHosterPipeline
 
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
     {
+        _ = password;
         _ = apiKey;
-        _ = proxy;
 
-        string? key1 = string.IsNullOrWhiteSpace(username) ? null : username.Trim();
-        string? key2 = string.IsNullOrWhiteSpace(password) ? null : password.Trim();
-        if (key1 is null || key2 is null)
+        if (_authService is null)
         {
             return new AccountCheckResult(
                 false,
                 AccountType.Free,
-                "Filestank needs both API keys: enter API key 1 as the username and API key 2 as the password (find them on your Filestank account's API page).");
+                "Filestank sign-in needs the desktop app's embedded browser.");
         }
 
-        HttpResponseSnapshot snap;
+        InteractiveAuthResult? captured;
         try
         {
-            snap = _postFormOverride is not null
-                ? await _postFormOverride(AuthorizeUrl, BuildAuthForm(key1, key2))
-                : await handler.PostFormAsync(AuthorizeUrl, BuildAuthForm(key1, key2), headers: null, ct);
+            captured = await _authService.AcquireSessionCookieAsync(BuildSignInSpec(), username, proxy, ct);
         }
         catch (Exception ex)
         {
-            return new AccountCheckResult(false, AccountType.Free, "Filestank authorise request failed: " + ex.Message);
+            return new AccountCheckResult(false, AccountType.Free, "Filestank sign-in failed: " + ex.Message);
         }
 
-        (string? token, string? accountId, string? error) = ParseAuthorizeResponse(snap.Body);
-
-        // DELIBERATELY no DerivedUsername, even though the response hands us an account id. The
-        // Settings VM copies DerivedUsername straight onto the DTO's Username — safe for every other
-        // hoster, because theirs is a display name, but here Username IS key1. Returning anything
-        // would overwrite half the credential and break the account on its first verify. The id goes
-        // in the status text instead.
-        return token is null
-            ? new AccountCheckResult(false, AccountType.Free, error ?? "Filestank rejected the key pair.")
-            : new AccountCheckResult(true, AccountType.Free, $"Filestank keys accepted (account {accountId}).");
-    }
-
-    /// <summary>key1 = username, key2 = password. See the class remarks for why.</summary>
-    private static (string? Key1, string? Key2) ReadKeys(FileHosterLoginDto credentials)
-        => (string.IsNullOrWhiteSpace(credentials.Username) ? null : credentials.Username!.Trim(),
-            string.IsNullOrWhiteSpace(credentials.Password) ? null : credentials.Password!.Trim());
-
-    private static Dictionary<string, string> BuildAuthForm(string key1, string key2) => new(StringComparer.Ordinal)
-    {
-        ["key1"] = key1,
-        ["key2"] = key2,
-    };
-
-    /// <summary>
-    /// Returns a usable (token, accountId), authorising only when there isn't one cached — or when
-    /// <paramref name="forceRefresh"/> says the cached one was just rejected. Serialised per account so
-    /// a batch starting 20 files at once produces ONE authorise, not 20.
-    /// </summary>
-    private async Task<(string? Token, string? AccountId, string? Error)> EnsureSessionAsync(
-        AttemptContext ctx, string key1, string key2, bool forceRefresh)
-    {
-        if (!forceRefresh && _sessions.TryGetValue(ctx.Credentials.Id, out (string AccessToken, string AccountId) cached))
+        if (captured is not InteractiveAuthResult result || string.IsNullOrEmpty(result.SessionCookieValue))
         {
-            return (cached.AccessToken, cached.AccountId, null);
+            return new AccountCheckResult(
+                false,
+                AccountType.Free,
+                "Filestank sign-in was cancelled, or didn't complete before the window was closed.");
         }
 
-        SemaphoreSlim gate = _authGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(ctx.Cancellation).ConfigureAwait(false);
-        try
-        {
-            // Re-check: a sibling attempt may have authorised while this one queued. On a forced
-            // refresh the FIRST caller through the gate drops the stale entry, so the others behind it
-            // pick up the fresh token instead of each re-authorising.
-            if (_sessions.TryGetValue(ctx.Credentials.Id, out cached))
-            {
-                if (!forceRefresh)
-                {
-                    return (cached.AccessToken, cached.AccountId, null);
-                }
+        string session = result.SessionCookieValue;
+        (string? screenName, long? used, long? quota) = await ReadAccountDetailsAsync(handler, session, ct);
 
-                _sessions.TryRemove(ctx.Credentials.Id, out _);
-            }
-
-            HttpResponseSnapshot snap;
-            try
-            {
-                snap = _postFormOverride is not null
-                    ? await _postFormOverride(AuthorizeUrl, BuildAuthForm(key1, key2))
-                    : await ctx.Handler.PostFormAsync(AuthorizeUrl, BuildAuthForm(key1, key2), headers: null, ctx.Cancellation);
-            }
-            catch (Exception ex)
-            {
-                return (null, null, $"{Name}: authorise request failed: {ex.Message}");
-            }
-
-            (string? token, string? accountId, string? error) = ParseAuthorizeResponse(snap.Body);
-            if (token is null || accountId is null)
-            {
-                return (null, null, error ?? $"{Name}: authorise returned no access token (HTTP {snap.StatusCode}): {Snippet(snap.Body)}");
-            }
-
-            _sessions[ctx.Credentials.Id] = (token, accountId);
-            return (token, accountId, null);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        return new AccountCheckResult(
+            true,
+            AccountType.Free,
+            "Signed in to Filestank.",
+            SessionCookie: session,
+            SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
+            PinnedProxyId: proxy.Id,
+            DerivedUsername: screenName,
+            StorageUsedBytes: used,
+            StorageQuotaBytes: quota);
     }
 
     /// <summary>
-    /// Reads <c>{"data":{"access_token":…,"account_id":…}}</c>, or the API's own error text out of
-    /// <c>{"_status":"error","response":"…"}</c> — its refusals are legible ("The key pair may be
-    /// invalid…") and worth surfacing verbatim. <c>account_id</c> arrives as a string in the docs'
-    /// sample but is treated leniently. Internal for testing.
+    /// The three values a single upload needs, all read out of the per-session <c>uploader.js</c>.
+    /// They rotate — the node URL's <c>csaKey</c> pair differed between two assets rendered seconds
+    /// apart in the capture — so none of them can be cached across uploads.
     /// </summary>
-    internal static (string? Token, string? AccountId, string? Error) ParseAuthorizeResponse(string json)
+    internal readonly record struct UploadTicket(string UploadUrl, string SessionId, string Tracker);
+
+    /// <summary>
+    /// Pulls the ticket out of <c>uploader.js</c>. Returns <c>Stale: true</c> when the script came
+    /// back but carried no ticket — the signed-out shape, i.e. "the cookie is no good any more"
+    /// rather than "the site is broken". Internal for testing.
+    /// </summary>
+    internal static (UploadTicket? Ticket, string? Error, bool Stale) ParseUploaderScript(string js, int statusCode)
     {
-        try
+        Match url = UploadUrlRegex.Match(js);
+        Match sid = SessionIdRegex.Match(js);
+        Match tracker = TrackerRegex.Match(js);
+
+        if (url.Success && sid.Success && tracker.Success)
         {
-            using JsonDocument doc = JsonDocument.Parse(json);
-            JsonElement root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object)
-            {
-                return (null, null, null);
-            }
-
-            if (root.TryGetProperty("data", out JsonElement data) && data.ValueKind == JsonValueKind.Object)
-            {
-                string? token = ReadString(data, "access_token");
-                string? accountId = ReadLoose(data, "account_id");
-                if (!string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(accountId))
-                {
-                    return (token, accountId, null);
-                }
-            }
-
-            string? message = ReadString(root, "response");
-            return (null, null, string.IsNullOrWhiteSpace(message) ? null : "Filestank: " + message);
+            return (new UploadTicket(
+                System.Net.WebUtility.HtmlDecode(url.Groups["url"].Value),
+                sid.Groups["v"].Value,
+                tracker.Groups["v"].Value), null, false);
         }
-        catch (JsonException)
-        {
-            return (null, null, null);
-        }
-    }
 
-    private async Task<(string? Url, string? Error, bool Unauthorised)> UploadOnceAsync(AttemptContext ctx, string token, string accountId)
-    {
-        Dictionary<string, string> extraFields = new(StringComparer.Ordinal)
-        {
-            ["access_token"] = token,
-            ["account_id"] = accountId,
-        };
-
-        HttpResponseSnapshot response = _uploadOverride is not null
-            ? await _uploadOverride(ctx.FilePath, UploadUrl, extraFields, null, ctx.SpeedLimitProvider)
-            : await ctx.Handler.UploadMultipartAsync(
-                ctx.FilePath,
-                UploadUrl,
-                fileFieldName: "upload_file",
-                extraFields: extraFields,
-                headers: null,
-                getBytesPerSecond: ctx.SpeedLimitProvider,
-                cancellationToken: ctx.Cancellation);
-
-        return ParseUploadResponse(response);
+        bool stale = statusCode is 200 or 302 or 401 or 403;
+        return (null,
+                $"Filestank did not return an upload ticket (HTTP {statusCode}) — the sign-in may have expired.",
+                stale);
     }
 
     /// <summary>
-    /// Success is <c>{"response":"File uploaded","data":[{…,"url":…}]}</c>. Two failure shapes matter:
-    /// the envelope-level <c>{"_status":"error","response":…}</c> (which is also how an expired token
-    /// arrives, hence the Unauthorised flag), and a PER-FILE <c>error</c> inside an otherwise
-    /// successful-looking 200 — a shape that has bitten this project before, so it is checked before
-    /// the url. Internal for testing.
+    /// Success is a JSON array of one file object: <c>[{…,"url":…,"error":null}]</c>. blueimp also
+    /// wraps it as <c>{"files":[…]}</c> depending on the handler's configuration, and YetiShare's own
+    /// REST API uses <c>{"data":[…]}</c> for the same object, so all three envelopes are read. The
+    /// per-file <c>error</c> is checked BEFORE the url: it rides inside an HTTP 200 and is the only
+    /// place a refusal appears.
     /// </summary>
-    internal static (string? Url, string? Error, bool Unauthorised) ParseUploadResponse(HttpResponseSnapshot response)
+    internal static (string? Url, string? Error) ParseUploadResponse(HttpResponseSnapshot response)
     {
         try
         {
             using JsonDocument doc = JsonDocument.Parse(response.Body);
             JsonElement root = doc.RootElement;
 
-            if (root.ValueKind == JsonValueKind.Object
-                && root.TryGetProperty("data", out JsonElement data)
-                && data.ValueKind == JsonValueKind.Array
-                && data.GetArrayLength() > 0
-                && data[0].ValueKind == JsonValueKind.Object)
+            JsonElement files = root;
+            if (root.ValueKind == JsonValueKind.Object)
             {
-                JsonElement first = data[0];
+                if (root.TryGetProperty("files", out JsonElement wrapped))
+                {
+                    files = wrapped;
+                }
+                else if (root.TryGetProperty("data", out JsonElement data))
+                {
+                    files = data;
+                }
+            }
 
-                // A per-file error rides inside the 200 — report it rather than the missing url.
+            if (files.ValueKind == JsonValueKind.Array && files.GetArrayLength() > 0 && files[0].ValueKind == JsonValueKind.Object)
+            {
+                JsonElement first = files[0];
+
                 if (ReadString(first, "error") is { Length: > 0 } fileError)
                 {
-                    return (null, $"Filestank refused the file: {fileError}", false);
+                    return (null, $"Filestank refused the file: {fileError}");
                 }
 
                 if (ReadString(first, "url") is { Length: > 0 } url)
                 {
-                    return (url, null, false);
+                    return (url, null);
                 }
             }
 
-            string? message = root.ValueKind == JsonValueKind.Object ? ReadString(root, "response") : null;
-            bool unauthorised = message is not null
-                && (message.Contains("access_token", StringComparison.OrdinalIgnoreCase)
-                    || message.Contains("authenticate", StringComparison.OrdinalIgnoreCase)
-                    || message.Contains("authoris", StringComparison.OrdinalIgnoreCase)
-                    || message.Contains("authoriz", StringComparison.OrdinalIgnoreCase));
-
-            return (null,
-                    $"Filestank upload failed: {message ?? Snippet(response.Body)} (HTTP {response.StatusCode})",
-                    unauthorised);
+            return (null, $"Filestank upload returned no link (HTTP {response.StatusCode}): {Snippet(response.Body)}");
         }
         catch (JsonException)
         {
-            return (null, $"Filestank upload returned an unreadable response (HTTP {response.StatusCode}): {Snippet(response.Body)}", false);
+            return (null, $"Filestank upload returned an unreadable response (HTTP {response.StatusCode}): {Snippet(response.Body)}");
         }
     }
+
+    /// <summary>Reads <c>totalActiveFileSize</c> / <c>totalFileStorage</c> out of
+    /// <c>get_account_file_stats</c>. Both arrive as strings or numbers depending on the field, so
+    /// both kinds are accepted. Internal for testing.</summary>
+    internal static (long? Used, long? Quota) ParseAccountStats(string json)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return (null, null);
+            }
+
+            return (ReadLong(doc.RootElement, "totalActiveFileSize"), ReadLong(doc.RootElement, "totalFileStorage"));
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+    }
+
+    /// <summary>Reads the header's account label. Internal for testing.</summary>
+    internal static string? ParseScreenName(string html)
+    {
+        Match m = ScreenNameRegex.Match(html);
+        if (!m.Success)
+        {
+            return null;
+        }
+
+        string name = System.Net.WebUtility.HtmlDecode(m.Groups["name"].Value).Trim();
+        return name.Length == 0 ? null : name;
+    }
+
+    private static bool HasValidStoredSession(AttemptContext ctx)
+    {
+        bool pinMatches = ctx.Credentials.PinnedProxyId is null || ctx.Credentials.PinnedProxyId == ctx.Proxy.Id;
+        return pinMatches
+            && !string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
+            && ctx.Credentials.SessionCookieExpiresUtc is DateTime expiresUtc
+            && expiresUtc > DateTime.UtcNow;
+    }
+
+    private static Dictionary<string, string> SiteHeaders(string session) => new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Cookie"] = $"{CookieName}={session}",
+        ["Referer"] = AccountUrl,
+        ["X-Requested-With"] = "XMLHttpRequest",
+    };
+
+    /// <summary>
+    /// Headers for the storage node. Deliberately carries NO cookie — the browser sends none either,
+    /// and the node authenticates on the <c>_sessionid</c> field. Origin/Referer are what its CORS
+    /// check answers to.
+    /// </summary>
+    private static Dictionary<string, string> NodeHeaders() => new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Origin"] = SiteBase,
+        ["Referer"] = SiteBase + "/",
+    };
 
     private static string? ReadString(JsonElement obj, string name)
         => obj.TryGetProperty(name, out JsonElement el) && el.ValueKind == JsonValueKind.String ? el.GetString() : null;
 
-    /// <summary>Reads a value the API may send as a string OR a number (account_id is documented as a
-    /// string but arrives from a numeric column).</summary>
-    private static string? ReadLoose(JsonElement obj, string name)
+    private static long? ReadLong(JsonElement obj, string name)
     {
         if (!obj.TryGetProperty(name, out JsonElement el))
         {
@@ -386,8 +444,8 @@ public sealed class FilestankPipeline : IFileHosterPipeline
 
         return el.ValueKind switch
         {
-            JsonValueKind.String => el.GetString(),
-            JsonValueKind.Number => el.ToString(),
+            JsonValueKind.Number when el.TryGetInt64(out long n) => n,
+            JsonValueKind.String when long.TryParse(el.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long s) => s,
             _ => null,
         };
     }
@@ -404,5 +462,236 @@ public sealed class FilestankPipeline : IFileHosterPipeline
             .Replace("\n", " ", StringComparison.Ordinal);
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
+    }
+
+    /// <summary>
+    /// The <c>filehosting</c> cookie is issued to anonymous visitors and keeps the SAME value across
+    /// login, so cookie-presence would complete the WebView before the user has authenticated —
+    /// hence <c>CaptureOnlyAfterLeavingLoginPage</c>, which waits for the post-login navigation to
+    /// <c>/account</c>.
+    /// </summary>
+    private InteractiveAuthSpec BuildSignInSpec() => new(
+        HosterName: Name,
+        LoginUrl: LoginUrl,
+        CookieDomain: CookieDomain,
+        CookieName: CookieName,
+        CaptureOnlyAfterLeavingLoginPage: true);
+
+    private async Task<string?> GetOrAcquireSessionAsync(AttemptContext ctx, CancellationToken ct)
+    {
+        if (HasValidStoredSession(ctx))
+        {
+            return ctx.Credentials.SessionCookie;
+        }
+
+        if (_authService is null)
+        {
+            return null;
+        }
+
+        SemaphoreSlim gate = _signInGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // A sibling attempt may have signed in while this one queued.
+            if (HasValidStoredSession(ctx))
+            {
+                return ctx.Credentials.SessionCookie;
+            }
+
+            InteractiveAuthResult? captured;
+            try
+            {
+                captured = await _authService.AcquireSessionCookieAsync(BuildSignInSpec(), ctx.Credentials.Username ?? string.Empty, ctx.Proxy, ct);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (captured is not InteractiveAuthResult result || string.IsNullOrEmpty(result.SessionCookieValue))
+            {
+                return null;
+            }
+
+            ctx.Credentials.SessionCookie = result.SessionCookieValue;
+            ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + SessionLifetime;
+            ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
+
+            if (_loginRepository is not null)
+            {
+                await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false);
+            }
+
+            return result.SessionCookieValue;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task ClearSessionAsync(FileHosterLoginDto credentials, CancellationToken ct)
+    {
+        credentials.SessionCookie = null;
+        credentials.SessionCookieExpiresUtc = null;
+        credentials.PinnedProxyId = null;
+
+        if (_loginRepository is not null)
+        {
+            await _loginRepository.UpdateAsync(credentials, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<(UploadTicket? Ticket, string? Error, bool Stale)> GetUploadTicketAsync(AttemptContext ctx, string session)
+    {
+        // The site appends an epoch cache-buster; any changing value does the same job.
+        string url = $"{UploaderScriptUrl}?r={DateTime.UtcNow.Ticks}";
+
+        HttpResponseSnapshot snap;
+        try
+        {
+            snap = _getOverride is not null
+                ? await _getOverride(url, SiteHeaders(session))
+                : await ctx.Handler.GetSnapshotAsync(url, SiteHeaders(session), ctx.Cancellation);
+        }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Filestank uploader lookup failed: {ex.Message}", false);
+        }
+
+        return ParseUploaderScript(snap.Body, snap.StatusCode);
+    }
+
+    private static Dictionary<string, string> BuildUploadFields(UploadTicket ticket) => new(StringComparer.Ordinal)
+    {
+        ["_sessionid"] = ticket.SessionId,
+        ["cTracker"] = ticket.Tracker,
+        ["maxChunkSize"] = MaxChunkSize.ToString(CultureInfo.InvariantCulture),
+        ["folderId"] = "-1",
+        ["uploadSource"] = "file_manager",
+    };
+
+    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, UploadTicket ticket)
+    {
+        Dictionary<string, string> fields = BuildUploadFields(ticket);
+
+        if (_uploadOverride is not null || ctx.FileSize <= MaxChunkSize)
+        {
+            return _uploadOverride is not null
+                ? await _uploadOverride(ctx.FilePath, ticket.UploadUrl, fields, NodeHeaders(), ctx.SpeedLimitProvider)
+                : await ctx.Handler.UploadMultipartAsync(
+                    ctx.FilePath,
+                    ticket.UploadUrl,
+                    fileFieldName: FileFieldName,
+                    extraFields: fields,
+                    headers: NodeHeaders(),
+                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    cancellationToken: ctx.Cancellation);
+        }
+
+        return await UploadChunkedAsync(ctx, ticket, fields);
+    }
+
+    /// <summary>
+    /// The widget's chunked mode: the same multipart body per chunk, plus <c>Content-Range</c>. Only
+    /// the last chunk's response carries the link, so intermediate answers are checked for an explicit
+    /// refusal and otherwise ignored. ⚠ Unverified against the live node — see the class remarks.
+    /// </summary>
+    private static async Task<HttpResponseSnapshot> UploadChunkedAsync(AttemptContext ctx, UploadTicket ticket, Dictionary<string, string> fields)
+    {
+        long total = ctx.FileSize;
+        DateTime started = DateTime.Now;
+        HttpResponseSnapshot last = new(0, string.Empty, Array.Empty<string>());
+
+        await using FileStream file = new(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true);
+
+        for (long basePos = 0; basePos < total; basePos += MaxChunkSize)
+        {
+            ctx.Cancellation.ThrowIfCancellationRequested();
+
+            long len = Math.Min(MaxChunkSize, total - basePos);
+
+            // ChunkSliceStream serves exactly `len` bytes from the shared FileStream (whose position
+            // advances as each slice is consumed) and never disposes it.
+            ChunkSliceStream slice = new(file, len);
+
+            Dictionary<string, string> headers = NodeHeaders();
+            headers["Content-Range"] = string.Create(
+                CultureInfo.InvariantCulture, $"bytes {basePos}-{basePos + len - 1}/{total}");
+
+            last = await ctx.Handler.PostFileChunkAsync(
+                ticket.UploadUrl,
+                fields,
+                fileFieldName: FileFieldName,
+                fileName: ctx.FileName,
+                chunkData: slice,
+                chunkLength: len,
+                basePosition: basePos,
+                totalFileSize: total,
+                dateTimeStarted: started,
+                headers: headers,
+                getBytesPerSecond: ctx.SpeedLimitProvider,
+                cancellationToken: ctx.Cancellation);
+
+            // An explicit per-file error means the node has given up; sending the rest wastes the
+            // whole upload's bandwidth. A missing url is expected on every chunk but the last.
+            (string? _, string? chunkError) = ParseUploadResponse(last);
+            if (chunkError is not null && basePos + len < total && LooksLikeRefusal(last.Body))
+            {
+                return last;
+            }
+        }
+
+        return last;
+    }
+
+    /// <summary>True when the body carries a per-file <c>error</c> string — the node's way of
+    /// refusing mid-upload, as opposed to the url simply not being there yet.</summary>
+    private static bool LooksLikeRefusal(string body)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(body);
+            JsonElement root = doc.RootElement;
+            JsonElement files = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("files", out JsonElement wrapped) ? wrapped : root;
+            return files.ValueKind == JsonValueKind.Array
+                && files.GetArrayLength() > 0
+                && files[0].ValueKind == JsonValueKind.Object
+                && ReadString(files[0], "error") is { Length: > 0 };
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<(string? ScreenName, long? Used, long? Quota)> ReadAccountDetailsAsync(HttpHandler handler, string session, CancellationToken ct)
+    {
+        string? screenName = null;
+        try
+        {
+            HttpResponseSnapshot page = await handler.GetSnapshotAsync(AccountUrl, SiteHeaders(session), ct);
+            screenName = ParseScreenName(page.Body);
+        }
+        catch (Exception)
+        {
+            // Identity and storage are decoration — never fail a good sign-in over them.
+        }
+
+        try
+        {
+            HttpResponseSnapshot stats = await handler.PostFormAsync(StatsUrl, new Dictionary<string, string>(StringComparer.Ordinal), SiteHeaders(session), ct);
+            (long? used, long? quota) = ParseAccountStats(stats.Body);
+            return (screenName, used, quota);
+        }
+        catch (Exception)
+        {
+            return (screenName, null, null);
+        }
     }
 }

@@ -64,9 +64,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // commented out alongside this. Do NOT uncomment without re-validating the
         // upload endpoint and walking the re-enable checklist in ExtMatrixPipeline.cs.
         // { "ExtMatrix", "www.extmatrix.com" },
-        // filestank.com — YetiShare (/api/v2/), NOT XFileSharing: POST authorize (key1+key2, 64 chars
-        // each) → access_token + account_id, then POST file/upload with upload_file → data[0].url.
-        // Account-only; the two keys are entered as username/password. See FilestankPipeline.cs.
+        // filestank.com — YetiShare, NOT XFileSharing. Account-only, on the session-cookie path:
+        // WebView sign-in (filehosting cookie) → per-upload uploader.js scrape for the node URL +
+        // _sessionid + cTracker → blueimp multipart files[] to strN.filestank.com. See
+        // FilestankPipeline.cs, including why its published /api/v2 isn't the shipped path.
         { "Filestank", "www.filestank.com" },
         { "FileBoom", "www.fileboom.me" },
         // filegarden.com account upload — login (POST api.filegarden.com/token → auth cookie + userId) →
