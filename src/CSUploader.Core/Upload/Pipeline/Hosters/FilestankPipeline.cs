@@ -99,6 +99,16 @@ public sealed class FilestankPipeline : IFileHosterPipeline
     private static readonly Regex TrackerRegex = new(
         @"cTracker:\s*'(?<v>[^']+)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// The cap the server declares for THIS session, written into the uploader's
+    /// <c>maxFileSize</c> option. It is the authority, not <see cref="MaxFileSize"/>: 21474836480
+    /// (20 GiB) for a registered account, 1073741824 (1 GiB) for an anonymous trial account, and
+    /// <b>0 for a session that isn't allowed to upload at all</b> — a plain signed-out visitor gets
+    /// a complete, valid-looking upload ticket and a zero cap.
+    /// </summary>
+    private static readonly Regex MaxSizeRegex = new(
+        @"uploaderMaxSize\s*=\s*(?<n>\d+)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     /// <summary>The header's own account label (<c>&lt;span class="user-screen-name"&gt;</c>) — the
     /// site's chosen display name for the signed-in user, not a scraped guess at one.</summary>
     private static readonly Regex ScreenNameRegex = new(
@@ -206,6 +216,16 @@ public sealed class FilestankPipeline : IFileHosterPipeline
             yield break;
         }
 
+        // The ticket carries the cap the server declares for THIS session, which beats the static
+        // MaxFileSize: it already accounts for the account's tier, and a zero means this session may
+        // not upload at all. Checking it costs nothing and turns a doomed multi-GB transfer into an
+        // instant, accurate refusal.
+        if (SessionLimitRefusal(ticket.Value.SessionMaxFileSize, ctx.FileSize, ctx.FileName) is { } limitError)
+        {
+            yield return new AttemptFailed(limitError, null);
+            yield break;
+        }
+
         // === Upload ===
         yield return new TransferStarted(ctx.FileSize);
 
@@ -290,11 +310,13 @@ public sealed class FilestankPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// The three values a single upload needs, all read out of the per-session <c>uploader.js</c>.
-    /// They rotate — the node URL's <c>csaKey</c> pair differed between two assets rendered seconds
+    /// What a single upload needs, all read out of the per-session <c>uploader.js</c>. The first
+    /// three rotate — the node URL's <c>csaKey</c> pair differed between two assets rendered seconds
     /// apart in the capture — so none of them can be cached across uploads.
+    /// <paramref name="SessionMaxFileSize"/> is the server's cap for this session (null when the
+    /// script declared none).
     /// </summary>
-    internal readonly record struct UploadTicket(string UploadUrl, string SessionId, string Tracker);
+    internal readonly record struct UploadTicket(string UploadUrl, string SessionId, string Tracker, long? SessionMaxFileSize);
 
     /// <summary>
     /// Pulls the ticket out of <c>uploader.js</c>. Returns <c>Stale: true</c> when the script came
@@ -312,13 +334,34 @@ public sealed class FilestankPipeline : IFileHosterPipeline
             return (new UploadTicket(
                 System.Net.WebUtility.HtmlDecode(url.Groups["url"].Value),
                 sid.Groups["v"].Value,
-                tracker.Groups["v"].Value), null, false);
+                tracker.Groups["v"].Value,
+                ReadSessionMaxSize(js)), null, false);
         }
 
         bool stale = statusCode is 200 or 302 or 401 or 403;
         return (null,
                 $"Filestank did not return an upload ticket (HTTP {statusCode}) — the sign-in may have expired.",
                 stale);
+    }
+
+    /// <summary>
+    /// The script declares the cap twice — <c>var uploaderMaxSize = 0;</c> up front, then the real
+    /// figure inside the XHR2 branch — so the largest wins. A session that may not upload declares
+    /// only the zero, which is a real answer rather than a missing one. Internal for testing.
+    /// </summary>
+    internal static long? ReadSessionMaxSize(string js)
+    {
+        long? best = null;
+        foreach (Match m in MaxSizeRegex.Matches(js))
+        {
+            if (long.TryParse(m.Groups["n"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long n)
+                && (best is null || n > best))
+            {
+                best = n;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>
@@ -403,6 +446,30 @@ public sealed class FilestankPipeline : IFileHosterPipeline
 
         string name = System.Net.WebUtility.HtmlDecode(m.Groups["name"].Value).Trim();
         return name.Length == 0 ? null : name;
+    }
+
+    /// <summary>
+    /// Turns the session's declared cap into a refusal, or null when the file fits. Zero is its own
+    /// case: the session is signed out or barred from uploading, which is a different problem from
+    /// the file being too big and deserves a different sentence. Internal for testing.
+    /// </summary>
+    internal static string? SessionLimitRefusal(long? sessionMax, long fileSize, string fileName)
+    {
+        if (sessionMax is not long cap)
+        {
+            return null;
+        }
+
+        if (cap == 0)
+        {
+            return "Filestank isn't accepting uploads from this session — the sign-in may have "
+                + "lapsed. Re-check the account under Settings → Accounts.";
+        }
+
+        return fileSize > cap
+            ? $"{fileName} is {ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()}; "
+                + $"Filestank's limit for this account is {ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()}."
+            : null;
     }
 
     private static bool HasValidStoredSession(AttemptContext ctx)

@@ -220,6 +220,78 @@ public class FilestankPipelineTests
         Assert.Equal(NodeUrl, ticket!.Value.UploadUrl);   // …csaKey1=aaa, not the url_upload_handler's zzz
         Assert.Equal(Session, ticket.Value.SessionId);
         Assert.Equal("a19c479804646fa6e289fcc06b26009a", ticket.Value.Tracker);
+        Assert.Equal(21474836480L, ticket.Value.SessionMaxFileSize);
+    }
+
+    [Theory]
+    // The script declares the cap twice — a zero placeholder, then the real figure — so the largest
+    // wins. All three figures are live: probed signed-out, and captured as trial and as registered.
+    [InlineData("var uploaderMaxSize = 0; if (x) { var uploaderMaxSize = 21474836480; }", 21474836480L)] // registered: 20 GiB
+    [InlineData("var uploaderMaxSize = 0; if (x) { var uploaderMaxSize = 1073741824; }", 1073741824L)]   // anonymous trial: 1 GiB
+    [InlineData("var uploaderMaxSize = 0; if (x) { var uploaderMaxSize = 0; }", 0L)]                     // signed out: may not upload
+    [InlineData("no cap here", null)]
+    public void ReadSessionMaxSize_TakesTheLargestDeclaration(string js, long? expected)
+        => Assert.Equal(expected, FilestankPipeline.ReadSessionMaxSize(js));
+
+    [Theory]
+    [InlineData(1073741824L, 500L, null)]                                  // fits
+    [InlineData(null, 999_999_999_999L, null)]                             // undeclared → let the server decide
+    [InlineData(0L, 10L, "isn't accepting uploads")]                       // signed out is its own sentence…
+    [InlineData(1073741824L, 2_000_000_000L, "limit for this account")]    // …and not the same as "too big"
+    public void SessionLimitRefusal_SeparatesTooBigFromNotAllowed(long? sessionMax, long fileSize, string? fragment)
+    {
+        string? refusal = FilestankPipeline.SessionLimitRefusal(sessionMax, fileSize, "x.avi");
+
+        if (fragment is null)
+        {
+            Assert.Null(refusal);
+        }
+        else
+        {
+            Assert.Contains(fragment, refusal!, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_SessionThatMayNotUpload_FailsWithoutSendingAByte()
+    {
+        // A signed-out visitor is served a complete, valid-looking ticket — node URL, _sessionid and
+        // cTracker all present — with a cap of 0. Trusting the ticket alone would push the whole file
+        // at a node that was never going to take it.
+        string signedOutJs = UploaderJs.Replace("var uploaderMaxSize = 21474836480", "var uploaderMaxSize = 0", StringComparison.Ordinal);
+
+        FilestankPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, signedOutJs, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Contains("isn't accepting uploads", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Empty(events.OfType<TransferStarted>());
+    }
+
+    [Fact]
+    public async Task RunAsync_FileOverTheSessionsCap_FailsBeforeTheTransferStarts()
+    {
+        // The session's own cap beats the static MaxFileSize: an anonymous trial account is capped at
+        // 1 GiB where a registered one gets 20 GiB, and only the ticket knows which this is.
+        string trialJs = UploaderJs.Replace("var uploaderMaxSize = 21474836480", "var uploaderMaxSize = 1073741824", StringComparison.Ordinal);
+
+        FilestankPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, trialJs, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
+
+        AttemptContext ctx = MakeContext() with { FileSize = 3L * 1024 * 1024 * 1024 };
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        string reason = Assert.Single(events.OfType<AttemptFailed>()).Reason;
+        Assert.Contains("3 GiB", reason, StringComparison.Ordinal);  // the file
+        Assert.Contains("1 GiB", reason, StringComparison.Ordinal);  // the cap
+        Assert.Empty(events.OfType<TransferStarted>());
     }
 
     [Theory]
