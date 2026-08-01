@@ -71,6 +71,7 @@ internal static class BitmapImageResources
         ("FileHosterExloadImage", "FileHosters/filehoster_exload.png"),
         ("FileHosterExtmatrixImage", "FileHosters/filehoster_extmatrix.png"),
         ("FileHosterFileboomImage", "FileHosters/filehoster_fileboom.png"),
+        ("FileHosterFilestankImage", "FileHosters/filehoster_filestank.png"),
         ("FileHosterFlashbitImage", "FileHosters/filehoster_flashbit.png"),
         ("FileHosterGigapetaImage", "FileHosters/filehoster_gigapeta.png"),
         ("FileHosterFilegardenImage", "FileHosters/filehoster_filegarden.png"),

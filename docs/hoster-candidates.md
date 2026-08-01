@@ -31,7 +31,7 @@ The best first adds, ranked by value ÷ effort. All are alive, anonymous (no log
 |---|---|---|---|
 | 1 | **Buzzheavier** | Low | Simplest possible pipeline: a single raw `PUT` of the file body reusing `HttpHandler.UploadPutAsync`, parse the JSON `id`. Anonymous, no cap, no captcha, no managed Cloudflare. |
 | 2 | **Send.cm** | Low | Classic XFS host — **anonymous upload verified live 2026-07-08** (`/api/upload/server` returned a keyless upload node). Maps 1:1 onto `XFileSharingApiPipeline`. ~20 GB free. |
-| 3 | **Filestank** | Low | Stock XFS, anonymous drag-and-drop, **20 GB** free per file, no Cloudflare, files kept indefinitely. Cleanest XFS batch pick. |
+| 3 | ~~**Filestank**~~ | — | **SHIPPED 2026-08-01.** Three of the four things this row claimed were wrong: it is **YetiShare**, not XFS; it is **account-only**, not anonymous; and the 20 GB cap is published nowhere. See the corrected Tier A1 row. |
 | 4 | ~~**1Fichier**~~ | — | **SHIPPED 2026-07-29.** Note the cap correction below: anonymous is **5 GB**, not the ~300 GB first recorded here. |
 | 5 | **Krakenfiles** | **PARKED** | ⏸ **Anonymous upload is disabled on THEIR side (2026-07-30).** The protocol was fully worked out — see the Tier B row — but nothing can be built until it comes back. Re-check before spending time on it. |
 | 6 | **Sendspace** | Medium | Well-known brand. Anonymous 300 MB, no captcha, plain nginx. Upstore-shaped web-form standalone. (Do **not** use the decommissioned `api.sendspace.com/rest/` XML API.) |
@@ -65,11 +65,16 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 > account-only tier A2, turned out to serve a live anonymous upload at 5250 MB and shipped on
 > 2026-08-01. A host's listed tier is a hypothesis; probe the homepage for a `utype=anon` form before
 > believing either direction.
+>
+> ⚠ **And the FAMILY label is a hypothesis too.** **Filestank**, listed here as "stock XFS", turned out
+> to run **YetiShare** — a different script entirely, with its own `/api/v2/` and no XFS endpoint of any
+> kind. Check the page source for the platform's own markers (`themes/spirit` + `/api/v2/` = YetiShare;
+> `?op=` routes + `upload.cgi` = XFS) before budgeting a host as "a thin shim on the XFS base".
 
 | Host | Domain | Free cap | Gating | Conf. | Note |
 |---|---|---|---|---|---|
 | **Send.cm** | send.cm (→ send.now) | ~20 GB | CF-passive | high | Anon verified live 2026-07-08. tusfiles/file.cm/sendit lineage. |
-| **Filestank** | filestank.com | 20 GB | none | high | Anon drag-drop, kept "forever", public API. |
+| ~~**Filestank**~~ | filestank.com | ❌ **account-only** | none | high | **SHIPPED 2026-08-01** (FilestankPipeline) — and it is **not an XFS host at all**, so it does not belong in this tier. It runs **YetiShare** (`/api/v2/`, `themes/spirit`), a different commercial script: `POST /api/v2/authorize` with two 64-character account keys (`key1`+`key2`) → `access_token`+`account_id`, then `POST /api/v2/file/upload` (multipart `upload_file`) → `{"response":"File uploaded","data":[{…,"url":…}]}`. No anonymous route and no username/password auth exists — the keys come from the account's own API page, so they are entered as username (key1) + password (key2). The API asks callers to **reuse** the token rather than re-authorise per request, so it is cached per account. The "20 GB" here is unverified and published nowhere on the site or in the API, so `MaxFileSize` is null and the server's refusal is the authority. First YetiShare host — the pipeline is shaped to be worth copying for a second. |
 | **WIP Files** | wipfiles.net | XFS default | none | high | Genuine Sibsoft XFS, no Cloudflare. |
 | **Uploady** | uploady.io | 5 GB anon / 10 GB acct | CF-passive | high | Confirmed `op=upload/sess_id/utype`. |
 | ~~**Clicknupload**~~ | clicknupload.click | ❌ **account-only** | CF-passive | high | **SHIPPED 2026-07-31 as an ACCOUNT hoster** (ClicknuploadPipeline, web-form path — uploader lives on `?op=my_account.html`, multipart is the family default verbatim). Anonymous is DISABLED (probed 2026-07-31) — an anonymous POST to its own advertised `ServerURL` answers `[{"file_code":"undef","file_status":"uploads are not enabled for your account type"}]`. Its `?op=api_get_limits` is genuine XFS (`MaxUploadFilesize 2048`, `ServerURL https://green01.clicknupload.net/cgi-bin`, empty `SessionID`) and serves no CF challenge, so the ACCOUNT path should be a clean shim. Domain rotates (.click/.org/.co/.vip) — keep the base domain configurable. |
