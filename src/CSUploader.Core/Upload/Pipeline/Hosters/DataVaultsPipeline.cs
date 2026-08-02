@@ -82,4 +82,26 @@ public sealed class DataVaultsPipeline : XFileSharingApiPipeline
     /// </para>
     /// </summary>
     public override long? MaxFileSize => 5120L * 1024 * 1024;
+
+    /// <summary>
+    /// <b>Four.</b> Its origin serves exactly four concurrent API requests and drops the rest —
+    /// measured 2026-08-02 by holding everything else constant and varying only concurrency:
+    /// <list type="bullet">
+    ///   <item>sequential ×6 → six 200s;</item>
+    ///   <item>concurrency 2, 3, 4 → all 200, repeatedly;</item>
+    ///   <item>concurrency 5 → <b>four 200s and one 520, on both runs</b>;</item>
+    ///   <item>concurrency 6 and 8 → a 520 each.</item>
+    /// </list>
+    /// Cloudflare returns that as <c>520</c> with the body <c>error code: 520</c>, which reads like a
+    /// site outage and is really a queue depth. The user who reported it guessed "maybe 4" from
+    /// watching the wizard, which is exactly what the measurement says.
+    /// <para>
+    /// The lookup also retries an unreadable answer (see
+    /// <c>XFileSharingApiPipeline.GetUploadServerAsync</c>), but that is the safety net, not the fix:
+    /// retrying into a limit that persists for as long as the batch runs just spends the retries. The
+    /// cure is not to exceed it, so the scheduler caps this host at four uploads at once — the same
+    /// arrangement Send.now needs.
+    /// </para>
+    /// </summary>
+    public override int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => 4;
 }

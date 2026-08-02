@@ -162,6 +162,10 @@ public class DataVaultsPipelineTests
         // ApiKey, not SessionCookie: unlike DDownload the key is one click away on My Account, and the
         // base's existing generate_api_key step drives that link.
         Assert.Equal(HosterCredentialMode.ApiKey, HosterCredentialModes.GetMode("DataVaults"));
+
+        // Four concurrent, measured: at 5 the origin serves four and 520s the fifth, every time.
+        // Without this the scheduler's default of 5 lands exactly on the failure.
+        Assert.Equal(4, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { FileHosterName = "DataVaults" }));
     }
 
     private static AttemptContext MakeContext() => new()

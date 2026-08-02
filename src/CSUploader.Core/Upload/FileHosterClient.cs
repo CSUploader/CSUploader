@@ -221,7 +221,8 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // the base's existing generate step drives it). ACCOUNT-only. 5 GB/file, storage unlimited
         // (storage_left "inf"). ⚠ Its anonymous upload.cgi answers file_status OK with file_code
         // "undef" — a success shape for a discarded upload; the base rejects "undef" because of it.
-        // See DataVaultsPipeline.cs.
+        // ⚠ Its origin serves exactly FOUR concurrent API requests and 520s the rest, so uploads are
+        // capped at 4. See DataVaultsPipeline.cs.
         { "DataVaults", "datavaults.co" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
