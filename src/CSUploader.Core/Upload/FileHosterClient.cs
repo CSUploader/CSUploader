@@ -191,6 +191,9 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
         // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
         { "VikingFile", "vikingfile.com" },
+        // dailyuploads.net — ANONYMOUS xfspro, same base as FILEAXA. Its finalise returns only a
+        // file_code (no links object), so the link is dailyuploads.net/<code>. See DailyUploadsPipeline.cs.
+        { "DailyUploads", "dailyuploads.net" },
         // fileaxa.com — ANONYMOUS upload on the XFileSharing "xfspro" chunked plugin (filehoster.io's
         // family): GET /server → node, PUT put_chunk.cgi + X-Upload-SID, then a MULTIPART api.cgi
         // op=import_file whose sess_id is simply left empty. It also exposes the XFS REST API, but its

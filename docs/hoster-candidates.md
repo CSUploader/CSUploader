@@ -66,6 +66,15 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 > 2026-08-01. A host's listed tier is a hypothesis; probe the homepage for a `utype=anon` form before
 > believing either direction.
 >
+> ⛔ **CORRECTION (2026-08-02, later): the two "clean negative" sweeps below tested the WRONG THING.**
+> Both looked for a static `utype=anon` / `upload.cgi` form in the served HTML. FILEAXA renders no
+> such form and uploads anonymously anyway — its uploader is JS-driven. Re-probing the same hosts
+> with the right question (`GET /server`, the keyless xfspro node lookup) found **five** that answer
+> it: **dailyuploads.net** and **fileaxa.com** (both now SHIPPED and verified with real bytes), plus
+> **filedot.to**, **kenfiles.com**, **terabytez.org** and **fastfile.cc** — node lookup confirmed
+> keyless, upload not yet tried. So the anonymous seam was never closed; the test was bad. Absence of
+> a form in HTML says nothing when the uploader is a script.
+>
 > ✅ **The four rows this section had never actually probed are now done too (2026-08-02):
 > UploadBank, TeraBytez, Fileq and Filecat.** None renders a `utype=anon` / `upload.cgi` form, and
 > `?op=api_get_limits` answers with an HTML page on all four rather than the XFS key=value block —
@@ -87,7 +96,7 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 | **Uploady** | uploady.io | 5 GB anon / 10 GB acct | CF-passive | high | Confirmed `op=upload/sess_id/utype`. |
 | ~~**Clicknupload**~~ | clicknupload.click | ❌ **account-only** | CF-passive | high | **SHIPPED 2026-07-31 as an ACCOUNT hoster** (ClicknuploadPipeline, web-form path — uploader lives on `?op=my_account.html`, multipart is the family default verbatim). Anonymous is DISABLED (probed 2026-07-31) — an anonymous POST to its own advertised `ServerURL` answers `[{"file_code":"undef","file_status":"uploads are not enabled for your account type"}]`. Its `?op=api_get_limits` is genuine XFS (`MaxUploadFilesize 2048`, `ServerURL https://green01.clicknupload.net/cgi-bin`, empty `SessionID`) and serves no CF challenge, so the ACCOUNT path should be a clean shim. Domain rotates (.click/.org/.co/.vip) — keep the base domain configurable. |
 | **Dropgalaxy** | dropgalaxy.com | ~1–2 GB | CF-passive | high | Anon files auto-expire 1 day after last download. |
-| **Dailyuploads** | dailyuploads.net | ~1–5 GB | CF-passive | high | Actively maintained (domain to 2027). |
+| ~~**Dailyuploads**~~ | dailyuploads.net | **ANONYMOUS** | CF-passive | high | **SHIPPED 2026-08-02** (DailyUploadsPipeline, on the shared `XfsProAnonymousPipeline`) — anonymous xfspro, verified live with real bytes. `GET /server` → node → `put_chunk.cgi` + `X-Upload-SID` → multipart `api.cgi` with an empty `sess_id`. Its finalise returns **only a `file_code`** (no `links` object), so the link is `dailyuploads.net/<code>`. ⚠ **Its nodes rotate and some are DEAD** — `dn12` answered every PUT with a 500 while `cdn89`/`cdn183` took the same bytes, so the base retries once against a freshly looked-up node. |
 | **Easybytez** | easybytez**.org** | ~1–5 GB | CF-passive | high | Reference XFS host. Target `.org` (`.com` refused). |
 | **UploadBank** | uploadbank.com | 2 GB anon (≤20 files) | CF-passive | med | Clear anon cap; clean shim. |
 | ~~**Fileaxa**~~ | fileaxa.com | **ANONYMOUS** | CF-passive | high | **SHIPPED 2026-08-02** (FileaxaPipeline) — **anonymous**, on the XFileSharing **xfspro** chunked plugin (filehoster.io's family), verified live with real bytes through our own client. `GET /server` → `{"url":"https://sNN.fileaxa.com/cgi-bin"}` (keyless) → PUT ≤100 MiB slices to `put_chunk.cgi` with an `X-Upload-SID` header → **multipart** `api.cgi op=import_file` → `{"status":"OK","links":{"download_link":…}}`. **Anonymity is one empty field**: a capture of an anonymous AND a signed-in upload differ ONLY in `sess_id` (empty vs the `xfss` session) — both returned working links, and the anonymous one took a `.avi`. ⚠ **This row was wrong twice, both times from reading the homepage instead of watching it work**: it was first shipped as an account-only REST shim because `/api/*` exists (it does — but the site's own client never uses it, so that upload path was never verified), and "no `utype=anon` form on the homepage" only meant the anonymous uploader is JS-driven. Accounts unbuilt: the account path needs nothing but a real `sess_id`. `MaxFileSize` null — nothing publishes a figure this code can read, and the base's **1 GiB default would silently skip larger files**, the trap to check in every thin shim. |

@@ -152,6 +152,8 @@ public static class ServiceRegistration
         // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
         // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
+        // DailyUploads — ANONYMOUS xfspro chunked upload, sharing XfsProAnonymousPipeline with FILEAXA.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DailyUploadsPipeline>();
         // FILEAXA — ANONYMOUS xfspro chunked upload (no auth service needed): GET /server → put_chunk.cgi
         // → multipart api.cgi with an empty sess_id. See FileaxaPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileaxaPipeline>();

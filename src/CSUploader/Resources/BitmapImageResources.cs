@@ -61,6 +61,7 @@ internal static class BitmapImageResources
         ("FileHosterBruploadImage", "FileHosters/filehoster_brupload.png"),
         ("FileHosterBuzzheavierImage", "FileHosters/filehoster_buzzheavier.png"),
         ("FileHosterCatboxImage", "FileHosters/filehoster_catbox.png"),
+        ("FileHosterDailyuploadsImage", "FileHosters/filehoster_dailyuploads.png"),
         ("FileHosterClicknuploadImage", "FileHosters/filehoster_clicknupload.png"),
         ("FileHosterDropgalaxyImage", "FileHosters/filehoster_dropgalaxy.png"),
         ("FileHosterDropmefilesImage", "FileHosters/filehoster_dropmefiles.png"),
