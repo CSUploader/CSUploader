@@ -78,6 +78,15 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
     protected override string Host => "https://uploadrar.com";
 
     /// <summary>
+    /// No declared cap — the server decides. NOT the base's 1 GiB default, which would silently skip
+    /// every file above it at queue time on a host whose registered tier is advertised at 6 GB. That
+    /// 6 GB is itself unverified, and encoding a guess rejects files the server would have taken;
+    /// the only figure this host publishes is <c>?op=api_get_limits</c>'s <c>MaxUploadFilesize
+    /// 0.00001</c>, which describes the ANONYMOUS tier we don't use.
+    /// </summary>
+    public override long? MaxFileSize => null;
+
+    /// <summary>
     /// <c>/login/</c>, not the family's <c>/login.html</c> — which <b>404s</b> here (checked live
     /// 2026-08-02). Without this the sign-in WebView opens a not-found page and no account can ever
     /// be added.
