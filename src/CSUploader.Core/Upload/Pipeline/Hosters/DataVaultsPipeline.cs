@@ -75,8 +75,10 @@ public sealed class DataVaultsPipeline : XFileSharingApiPipeline
     /// is 5120 Mb"); the signed-out page advertises 1024 Mb, which is moot since anonymous uploads are
     /// refused. Read as binary — this family's limits are 1024-based.
     /// <para>
-    /// Storage itself is unlimited: <c>/api/account/info</c> reports <c>storage_left: "inf"</c>, which
-    /// the base already maps to "no quota" rather than a number.
+    /// Storage is NOT unlimited, whatever the homepage says. Its API doc's example prints
+    /// <c>storage_left: "inf"</c>, but a live free account reports a real number — about 10 GB —
+    /// which the base turns into a quota (used + left). Both shapes are handled; the figure comes from
+    /// the account, not from here.
     /// </para>
     /// </summary>
     public override long? MaxFileSize => 5120L * 1024 * 1024;

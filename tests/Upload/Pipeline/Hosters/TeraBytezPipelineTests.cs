@@ -121,6 +121,27 @@ public class TeraBytezPipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_CloudflareFiveTwenty_FailsTheAttempt_ButKeepsTheSignIn()
+    {
+        // The nastier half of the 520 Data Vaults surfaced. On this path "no upload form on the page"
+        // is what tells us the cookie went stale — so an edge error, which also has no upload form,
+        // used to be read as a dead session: cookie discarded, WebView re-popped, and the user asked
+        // to sign in again over a blip that lasted seconds.
+        FileHosterLoginDto credentials = ValidCookieCredentials();
+        TeraBytezPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult("error code: 520"),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(credentials), CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Empty(events.OfType<AuthFailed>());
+        Assert.Equal("xfss_tbz_like", credentials.SessionCookie); // the sign-in survives
+    }
+
+    [Fact]
     public async Task RunAsync_FileOverTheHundredMegabyteCap_RejectedBeforeAnyTransfer()
     {
         // The smallest cap of any hoster in the tree, so this is the one most likely to bite: a

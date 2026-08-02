@@ -1,4 +1,4 @@
-﻿// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
+// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -77,6 +77,12 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// on the wrong endpoint), and the fix is a one-line override here once a Fiddler
     /// trace of the live web UI confirms which protocol the hoster actually expects.
     /// </summary>
+    /// <summary>
+    /// How many times the upload-server lookup may ask before giving up, counting the first. Only
+    /// unreadable answers are re-asked — see <see cref="GetUploadServerAsync"/>.
+    /// </summary>
+    private const int UploadServerAttempts = 3;
+
     protected virtual bool UsesChunkedUpload => false;
 
     /// <summary>
@@ -1292,7 +1298,47 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return (null, null, "upload_form fetch failed: " + ex.Message, false);
         }
 
+        // An edge/origin error is NOT a logged-out page, and the difference matters: every resolver
+        // below decides "no upload form → the session expired", which makes the caller throw the
+        // stored cookie away and re-pop the WebView. A momentary Cloudflare 520 must not cost the user
+        // their sign-in. Fail the attempt instead and leave the session alone.
+        if (LooksLikeEdgeFailure(html))
+        {
+            return (null, null, $"the upload page came back as an infrastructure error, not a page ({Snippet(html)}) — this is usually momentary", false);
+        }
+
         return await ResolveWebFormUploadServerAsync(ctx, html, xfss, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// True when a fetched body is the CDN or origin failing rather than the site answering.
+    /// Deliberately narrow: it decides whether a stored session is thrown away, so it must not match
+    /// a real page that happens to mention an error. Cloudflare's own shapes are a bare
+    /// <c>error code: 5xx</c> body (what Data Vaults produced) or its "Error 52x" interstitial.
+    /// Internal for testing.
+    /// </summary>
+    internal static bool LooksLikeEdgeFailure(string body)
+    {
+        string trimmed = body.TrimStart();
+        if (trimmed.Length == 0)
+        {
+            return true;
+        }
+
+        if (trimmed.StartsWith("error code:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // The HTML interstitial: short, Cloudflare-branded, and naming a 52x. Length-bounded so a real
+        // page carrying a support link to Cloudflare can't trip it.
+        return trimmed.Length < 8192
+               && trimmed.Contains("cloudflare", StringComparison.OrdinalIgnoreCase)
+               && (trimmed.Contains("Error 520", StringComparison.OrdinalIgnoreCase)
+                   || trimmed.Contains("Error 521", StringComparison.OrdinalIgnoreCase)
+                   || trimmed.Contains("Error 522", StringComparison.OrdinalIgnoreCase)
+                   || trimmed.Contains("Error 523", StringComparison.OrdinalIgnoreCase)
+                   || trimmed.Contains("Error 524", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -1714,7 +1760,40 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             StorageQuotaBytes: storageQuota);
     }
 
+    /// <summary>
+    /// Asks the API for an upload node, retrying when the answer is infrastructure noise rather than
+    /// the API speaking.
+    /// <para>
+    /// Observed on Data Vaults: Cloudflare answered <c>520</c> with the body <c>error code: 520</c>
+    /// while the same key worked on eight consecutive calls seconds later. Without a retry that
+    /// momentary edge failure fails the user's file outright, since a yielded AttemptFailed is
+    /// terminal — <c>AttemptRunner</c> only re-runs on its two never-double-create faults.
+    /// </para>
+    /// <para>
+    /// Only UNREADABLE answers are retried. A JSON verdict — "Wrong auth", a 403, a non-200 status —
+    /// is the API's decision and gets none, so a bad key still fails on the first call.
+    /// </para>
+    /// </summary>
     private async Task<(string? SessId, string? UploadUrl, string? Error, bool AuthExpired)> GetUploadServerAsync(string apiKey, AttemptContext ctx, CancellationToken ct)
+    {
+        (string? SessId, string? UploadUrl, string? Error, bool AuthExpired) result = default;
+
+        for (int attempt = 1; ; attempt++)
+        {
+            bool transient;
+            (result, transient) = await TryGetUploadServerOnceAsync(apiKey, ctx, ct).ConfigureAwait(false);
+
+            if (!transient || attempt >= UploadServerAttempts)
+            {
+                return result;
+            }
+
+            ctx.Logger.Log(this, LogType.Status, $"{Name}: upload-server lookup got no usable answer ({result.Error}); retrying ({attempt + 1} of {UploadServerAttempts}).");
+            await Task.Delay(TimeSpan.FromSeconds(attempt), ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<((string? SessId, string? UploadUrl, string? Error, bool AuthExpired) Result, bool Transient)> TryGetUploadServerOnceAsync(string apiKey, AttemptContext ctx, CancellationToken ct)
     {
         string url = $"{ApiUploadServerUrl}?key={Uri.EscapeDataString(apiKey)}";
         string body;
@@ -1722,9 +1801,14 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         {
             body = await GetAsync(ctx, url, headers: null, ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            return (null, null, "upload/server request failed: " + ex.Message, false);
+            // A dropped connection or timeout is the same class of problem as a 520.
+            return ((null, null, "upload/server request failed: " + ex.Message, false), true);
         }
 
         UploadServerResponse? response;
@@ -1734,14 +1818,20 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
         catch
         {
-            return (null, null, $"upload/server: response was not valid JSON: {Snippet(body)}", false);
+            return ((null, null, $"upload/server: response was not valid JSON: {Snippet(body)}", false), true);
         }
 
         if (response is null)
         {
-            return (null, null, $"upload/server: empty response: {Snippet(body)}", false);
+            return ((null, null, $"upload/server: empty response: {Snippet(body)}", false), true);
         }
 
+        return (GetUploadServerVerdict(response), false);
+    }
+
+    /// <summary>The API's own answer, once we know we're reading the API and not an edge error.</summary>
+    private (string? SessId, string? UploadUrl, string? Error, bool AuthExpired) GetUploadServerVerdict(UploadServerResponse response)
+    {
         if (response.Status == 403 || response.Status == 401)
         {
             return (null, null, response.Msg ?? "API key rejected", true);

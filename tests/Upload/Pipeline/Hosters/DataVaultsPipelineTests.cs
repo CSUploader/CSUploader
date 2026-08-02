@@ -76,6 +76,55 @@ public class DataVaultsPipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_CloudflareFiveTwenty_IsRetried_NotFailed()
+    {
+        // Reported live: GET /api/upload/server answered HTTP 520 with the body "error code: 520",
+        // while the same key returned 200 on eight consecutive calls seconds later. A yielded
+        // AttemptFailed is terminal — AttemptRunner only re-runs on its two never-double-create faults
+        // — so without a retry that momentary edge blip loses the user's file.
+        int lookups = 0;
+        DataVaultsPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(++lookups == 1 ? "error code: 520" : UploadServerJson),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                200, """[{"file_code":"t0evpf0suani","file_status":"OK"}]""", Array.Empty<string>())));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("https://datavaults.co/t0evpf0suani", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal(2, lookups);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectedKey_IsNotRetried()
+    {
+        // The counterpart guard: a JSON verdict is the API deciding, and re-asking would only earn the
+        // same answer. Only UNREADABLE responses get another go.
+        int lookups = 0;
+        DataVaultsPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => { lookups++; return Task.FromResult("""{"status":403,"msg":"Wrong auth"}"""); },
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("must not upload"));
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Equal(1, lookups);
+    }
+
+    [Theory]
+    [InlineData("error code: 520", true)]
+    [InlineData("  error code: 522\n", true)]
+    [InlineData("", true)]
+    [InlineData("<html><head><title>datavaults</title></head><body>Error 520 <a>cloudflare</a></body></html>", true)]
+    [InlineData("<html><body><form id=\"uploadfile\" action=\"https://d1.datavaults.co/cgi-bin/upload.cgi\"></form></body></html>", false)]
+    [InlineData("<html><body>Login</body></html>", false)]
+    public void LooksLikeEdgeFailure_SeparatesInfrastructureFromPages(string body, bool expected)
+        => Assert.Equal(expected, XFileSharingApiPipeline.LooksLikeEdgeFailure(body));
+
+    [Fact]
     public async Task RunAsync_FileOverTheFiveGigabyteCap_RejectedBeforeAnyTransfer()
     {
         List<string> endpoints = [];
