@@ -205,12 +205,44 @@ Bespoke HTTP flows that don't fit XFS or the MoneyPlatform backend. Each needs i
 
 ## Tier C — High effort: consumer cloud drives (new OAuth/cloud pattern)
 
-CSUploader has **no** OAuth/cloud-drive pipeline yet. Each of these needs the brand-new pattern: OAuth2 (or worse) consent in an embedded WebView + refresh-token storage. Building the **first** one is the real cost; subsequent ones get cheaper. None is Cloudflare-blocked — the gate is the auth flow itself.
+CSUploader has **no** OAuth/cloud-drive pipeline yet. Building the **first** one is the real cost;
+subsequent ones get cheaper. None is Cloudflare-blocked — the gate is the auth flow itself.
+
+> ⏸ **DEFERRED 2026-08-02 pending user demand.** Scoped but not built: revisit when someone actually
+> asks for a cloud drive. The research below is the part that would otherwise be re-derived, and one
+> finding invalidates this section's own premise.
+>
+> ⛔ **"Consent in an embedded WebView" — the sentence this section used to open with — is IMPOSSIBLE
+> for Google.** Google blocks OAuth from embedded webviews with `disallowed_useragent` (enforced
+> 2021-09-30, extended to account sign-in 2023-07-24), because an embedding app can inject JS and read
+> what the user types. **Our CefGlue sign-in window is exactly what is blocked.** So a cloud drive
+> cannot reuse `IInteractiveAuthService` the way all 46 hosters do: consent must open in the user's
+> SYSTEM browser, with a loopback listener on `127.0.0.1` catching the `code`. That is a different
+> sign-in experience from every other account in the app — a product decision, not just plumbing — and
+> it applies equally to Dropbox, OneDrive and pCloud.
+>
+> ✅ **Scope/verification is NOT the obstacle.** `drive.file` is classified **non-sensitive** and grants
+> access only to files the app itself creates — exactly an uploader's needs — so **no verification
+> review, no security assessment, no 100-user cap**. Lightweight "brand verification" is needed only to
+> put a name and logo on the consent screen. Client type is **Desktop app**; Google's own model treats
+> an installed app's client secret as **non-confidential** (it ships in the binary, as rclone and gcloud
+> do), so embedding it is the expected practice rather than a compromise.
+>
+> **The real costs**, in the order they bite: (1) somebody must own a Google Cloud project and appear
+> on the consent screen; (2) the system-browser sign-in diverges from the app's established flow;
+> (3) storage needs a refresh token — one new persisted field on `FileHosterLoginDto`, which touches
+> ~8 sites (see the field checklist); (4) after upload, a link needs `permissions.create`
+> (`role=reader`, `type=anyone`) before `webViewLink` is public.
+>
+> ⚠ **And a fit question worth settling FIRST:** Drive throttles heavily-downloaded public files
+> ("download quota exceeded", ~24 h) and public sharing of large archive sets is what gets consumer
+> accounts flagged. Drive is personal storage you can share, not a filehost — for an app whose output
+> is public links to release parts, that may matter more than any of the engineering above.
 
 | Host | Auth | Free tier | Note |
 |---|---|---|---|
-| **Google Drive** | OAuth2 + resumable upload | 15 GB shared | Cleanest OAuth2 target; registered Google Cloud client needed. Best "first cloud drive" candidate. |
-| **Dropbox** | OAuth2 + PKCE | 2 GB | Single-shot ≤150 MB or chunked `upload_session`; `create_shared_link` for the public URL. |
+| **Google Drive** | OAuth2 (**system browser** + loopback) + resumable upload | 15 GB shared | Scope `drive.file` (non-sensitive → no verification). Desktop-app client, secret ships in the binary. ⛔ Consent CANNOT use the in-app WebView — see the banner. |
+| **Dropbox** | OAuth2 + PKCE | 2 GB | **No client secret at all** (PKCE public client), so it's the cleanest first target for the shared plumbing even though 2 GB makes it weak on its own. Single-shot ≤150 MB or chunked `upload_session`; `create_shared_link` for the public URL. |
 | **Yandex Disk** | OAuth2 | 1 GB (50 GB paid) | Byte transfer is a raw PUT (reuse `UploadPutAsync`); only the auth layer is novel. SmartCaptcha on login (WebView). |
 | **4Shared** | **OAuth 1.0** | 15 GB | Heavier than OAuth2 (HMAC-SHA1 per-request signing + consumer key/secret). Possible cheaper cookie-login alt is unproven. |
 | **TeraBox** | proprietary (ndus cookie + jsToken) | 1 TB (~4 GB/file) | Baidu-PCS chunked flow; fragile scraped-token auth. Also a no-login 5 GB "TeraTransfer" (24 h links). |
