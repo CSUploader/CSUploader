@@ -68,8 +68,10 @@ public static class HosterCredentialModes
     // "Filestank" is the same story on a different platform — YetiShare, not XFileSharing. Its
     // /api/v2 wants two 64-character keys and its account area exposes no page that yields them, so
     // the credential is the filehosting session cookie captured by the WebView.
+    // "Filedot" likewise: its REST API answers the family's "Invalid key", but My Account, My Files,
+    // Reports and Earn Money were all walked and none of them ever prints a key.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>

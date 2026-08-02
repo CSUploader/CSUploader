@@ -204,6 +204,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ It BLOCKS mp4/mpg/wmv/mkv/m4v/avi/mp3 and only enforces that at the finalise step, so the
         // pipeline pre-checks the extension locally. See UploadrarPipeline.cs.
         { "Uploadrar", "uploadrar.com" },
+        // filedot.to — XFileSharing, ACCOUNT-only ("uploads are not enabled for your account type" to
+        // an anonymous post). Ships on SIGN-IN: the REST API answers, but no page in the signed-in UI
+        // hands out a key. Node comes from GET /server (the file form has no action — the only one on
+        // the page is the URL-uploader's). 5 GB/file, 10 TB storage, BLOCKS exe/jpg/jpeg/gif/png.
+        // See FiledotPipeline.cs.
+        { "Filedot", "filedot.to" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.

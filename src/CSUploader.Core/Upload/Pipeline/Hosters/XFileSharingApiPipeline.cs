@@ -1292,22 +1292,54 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return (null, null, "upload_form fetch failed: " + ex.Message, false);
         }
 
-        Match action = _anonUploadActionRegex.Match(html);
+        return await ResolveWebFormUploadServerAsync(ctx, html, xfss, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Turns the fetched upload page into the upload URL and <c>sess_id</c>. Split out from
+    /// <see cref="GetWebFormUploadServerAsync"/> so a fork can replace the RESOLUTION without
+    /// reimplementing the fetch, the cookie handling or the upload loop around it.
+    /// <para>
+    /// The default is the family's: the page's own form <c>action</c>, plus the hidden
+    /// <c>sess_id</c> (falling back to the cookie, which it equals in every capture so far).
+    /// Override on forks whose FILE form carries no <c>action</c> because a script fetches the node
+    /// separately — filedot.to is one, and the only <c>action</c> on its page belongs to the
+    /// URL-uploader (<c>…/upload.cgi?upload_type=url</c>), which would be silently the wrong target.
+    /// </para>
+    /// <para>
+    /// Returning <c>AuthExpired</c> makes the caller drop the stored cookie and sign in again, so
+    /// reserve it for "this page says we are logged out" rather than for any failure.
+    /// </para>
+    /// </summary>
+    protected virtual Task<(string? UploadUrl, string? SessId, string? Error, bool AuthExpired)> ResolveWebFormUploadServerAsync(
+        AttemptContext ctx, string uploadFormHtml, string xfss, CancellationToken ct)
+    {
+        _ = ctx;
+        _ = ct;
+
+        Match action = _anonUploadActionRegex.Match(uploadFormHtml);
         if (!action.Success)
         {
-            return (null, null, "upload form not found — the session may have expired", true);
+            return Task.FromResult<(string?, string?, string?, bool)>((null, null, "upload form not found — the session may have expired", true));
         }
 
+        return Task.FromResult<(string?, string?, string?, bool)>((action.Groups[1].Value, ScrapeSessId(uploadFormHtml, xfss), null, false));
+    }
+
+    /// <summary>
+    /// The hidden <c>sess_id</c> from an upload page, falling back to the session cookie when the
+    /// form omits it — they are the same value in every capture taken so far, filedot.to included.
+    /// Worth getting right: XFileSharing authenticates an upload by <c>sess_id</c> ALONE, and a wrong
+    /// one uploads anonymously rather than failing.
+    /// </summary>
+    protected static string ScrapeSessId(string html, string xfss)
+    {
         Match sess = _sessIdInputRegex.Match(html);
         string sessId = sess.Success
             ? (sess.Groups[1].Success && sess.Groups[1].Length > 0 ? sess.Groups[1].Value : sess.Groups[2].Value)
             : string.Empty;
-        if (string.IsNullOrEmpty(sessId))
-        {
-            sessId = xfss;
-        }
 
-        return (action.Groups[1].Value, sessId, null, false);
+        return string.IsNullOrEmpty(sessId) ? xfss : sessId;
     }
 
     /// <summary>Mirror of the cookie-validity check inside <see cref="GetOrAcquireXfssCookieAsync"/>:

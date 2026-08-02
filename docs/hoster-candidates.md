@@ -75,6 +75,15 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 > keyless, upload not yet tried. So the anonymous seam was never closed; the test was bad. Absence of
 > a form in HTML says nothing when the uploader is a script.
 >
+> ⚖ **Follow-up (2026-08-02): answering `/server` does NOT imply anonymous.** filedot.to answers the
+> lookup keylessly and then refuses the upload — posting the anonymous shape to its own node returns
+> `[{"file_code":"undef","file_status":"uploads are not enabled for your account type"}]`, and so does
+> `utype=reg` without a session. It also runs *classic* `upload.cgi`, not xfspro's chunked
+> `put_chunk.cgi`, so the node lookup is shared family plumbing rather than an anonymity signal. It is
+> now **SHIPPED as account-only** (`FiledotPipeline`, web-form/sign-in path). The correction above
+> stands — the lookup is still the right question to ask — but the answer to check is the upload's,
+> not the lookup's. **kenfiles.com, terabytez.org and fastfile.cc remain untried.**
+>
 > ✅ **The four rows this section had never actually probed are now done too (2026-08-02):
 > UploadBank, TeraBytez, Fileq and Filecat.** None renders a `utype=anon` / `upload.cgi` form, and
 > `?op=api_get_limits` answers with an HTML page on all four rather than the XFS key=value block —
@@ -141,7 +150,10 @@ Wire like the existing session-cookie XFS hosts (Isracloud / Hxfile / Filehoster
 > (see the A1 banner), this sweep covered the hosts that had NOT been checked, which is the set
 > Usersdrive came out of. Any of these would need an account before it can be planned at all.
 
-Filedot (filedot.to), Filenext (filenext.com), Filerio (filerio.in), Indishare (indishare.org), Prefiles (prefiles.com), Mexashare (mexa.sh), Xubster (xubster.com), Hot4share (hot4share.com), Kenfiles (kenfiles.com), Filesfly (filesfly.cc), Silkfiles (silkfiles.com), Nelion (nelion.me), Filextras (filextras.com), Salefiles (salefiles.com), **Filespace** (filespace.com — *untrusted TLS chain, needs cert-validation relaxation like FlashBit/GigaPeta*).
+~~Filedot (filedot.to)~~ **SHIPPED 2026-08-02 as account-only** — see `FiledotPipeline.cs`. Its
+anonymous upload is refused by the host, so the sweep's verdict was right for the wrong reason: it
+concluded "no anonymous form" from HTML that has no static form at all.
+Filenext (filenext.com), Filerio (filerio.in), Indishare (indishare.org), Prefiles (prefiles.com), Mexashare (mexa.sh), Xubster (xubster.com), Hot4share (hot4share.com), Kenfiles (kenfiles.com), Filesfly (filesfly.cc), Silkfiles (silkfiles.com), Nelion (nelion.me), Filextras (filextras.com), Salefiles (salefiles.com), **Filespace** (filespace.com — *untrusted TLS chain, needs cert-validation relaxation like FlashBit/GigaPeta*).
 
 ### A4 · XFS but with an upload-time reCAPTCHA (bumped to Medium)
 

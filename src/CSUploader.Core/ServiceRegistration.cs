@@ -161,6 +161,10 @@ public static class ServiceRegistration
         // repo as its siblings. Account-only, and it blocks common media extensions (checked before
         // upload — the host itself only rejects them after taking the file). See UploadrarPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadrarPipeline>();
+        // filedot.to — XFileSharing on the web-form (sign-in) path: its REST API works but publishes no
+        // key anywhere a user can reach. Account-only, and it blocks image extensions (checked before
+        // upload). Takes its node from GET /server, not the page's form action. See FiledotPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FiledotPipeline>();
         // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
         // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();
