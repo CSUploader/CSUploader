@@ -104,7 +104,7 @@ public class SharemodsPipelineTests
     }
 
     [Fact]
-    public void ShareMods_IsAnonymous_AndThrottled()
+    public void ShareMods_IsAnonymous_ButDisabled()
     {
         SharemodsPipeline pipeline = new();
         Assert.Equal("ShareMods", pipeline.Name);
@@ -113,11 +113,16 @@ public class SharemodsPipelineTests
         // Verified with real bytes: two guest uploads, both link pages served the file.
         Assert.True(pipeline.SupportsAnonymousUpload);
 
-        // It answers bursts from one address with 403, so this stays low deliberately — the ceiling
-        // was never measured cleanly because every attempt to bracket it tripped the limiter.
+        // It escalates against volume from one address, so this stays low deliberately — the ceiling
+        // was never measured cleanly because every attempt to bracket it tripped the escalation.
         Assert.Equal(2, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { FileHosterName = "ShareMods" }));
 
-        Assert.Equal("sharemods.com", FileHosterClient.FileHosters["ShareMods"]);
+        // DISABLED 2026-08-02: Cloudflare began challenging this client and the cause was never
+        // settled (see SharemodsPipeline.cs). The pipeline is finished; only the wire-up is off.
+        // Before flipping this to Assert.True, re-enable the entries in ServiceRegistration.cs and
+        // FileHosterClient.cs — and only after an upload completes from an address that hasn't been
+        // probing the host.
+        Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
     }
 
     private static AttemptContext MakeContext() => new()

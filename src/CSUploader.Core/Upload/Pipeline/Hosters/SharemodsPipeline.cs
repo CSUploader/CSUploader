@@ -10,9 +10,16 @@ using CSUploader.Services;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// ShareMods (sharemods.com) — a genuinely <b>anonymous</b> XFileSharing host, which by 2026-08-02
-/// makes it a rarity: the family has all but moved to account-required uploads (filedot, TeraBytez,
-/// kenfiles, fastfile, DataVaults and Clicknupload all refuse guests outright).
+/// ShareMods (sharemods.com) — <b>DISABLED 2026-08-02, the day it was written</b>. Not because the
+/// upload failed: it is genuinely anonymous and two guest uploads were verified with real bytes. It
+/// is off because Cloudflare then began challenging this client and the reason was never settled —
+/// see the warning below, which is the whole story and the re-enable condition. The four wire-up
+/// touchpoints are commented out; this class and its tests are complete and stay in the tree.
+/// <para>
+/// Were it enabled, it would be a rarity: by 2026-08-02 the family has all but moved to
+/// account-required uploads (filedot, TeraBytez, kenfiles, fastfile, DataVaults and Clicknupload all
+/// refuse guests outright).
+/// </para>
 /// <para>
 /// <b>Verified end to end, anonymously, before a line of this was written:</b> its homepage renders
 /// the classic guest form (<c>utype=anon</c> beside an empty <c>sess_id</c>), a multipart post to the
@@ -43,14 +50,12 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// <c>TakeFilePipeline</c> documents and which no header or cookie can climb.
 /// </para>
 /// <para>
-/// What cannot be told apart from here is a PERMANENT block on this client (in which case this host
-/// belongs with TakeFile, disabled) from an IP+client reputation penalty EARNED by that probing (in
-/// which case an ordinary user uploading a few files never sees it). The same .NET stack succeeded
-/// here before the volume, which is what keeps the second reading alive. It ships enabled on that
-/// basis, and because the base already reports the challenge in plain words rather than failing
-/// obscurely. <b>If a first upload from a clean address is challenged too, disable this the way
-/// TakeFile is disabled — do not spend time on cf_clearance forwarding, which was already built and
-/// proven not to beat a managed challenge.</b>
+/// What cannot be told apart from here is a PERMANENT block on this client from an IP+client
+/// reputation penalty EARNED by that probing. The same .NET stack succeeded here before the volume,
+/// so both readings survive the evidence. <b>Re-enable condition: one upload completing from an
+/// address that has not been probing.</b> Nothing else needs building — the pipeline is finished and
+/// tested. Do NOT spend time on cf_clearance forwarding, which was already built for TakeFile and
+/// proven not to beat a managed challenge.
 /// </para>
 /// <para>
 /// A mods-oriented host by branding, general-purpose by mechanism. 200 MB per file, no account, no

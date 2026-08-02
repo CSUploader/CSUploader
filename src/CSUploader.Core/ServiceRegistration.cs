@@ -173,10 +173,14 @@ public static class ServiceRegistration
         // My Account, so the base derives one at sign-in. Account-only, 5 GB/file, storage unlimited.
         // See DataVaultsPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataVaultsPipeline>();
-        // ShareMods — ANONYMOUS XFileSharing (rare now): the homepage's guest form, with the action
-        // rewritten from the URL-importer to the file uploader. 200 MB, capped at 2 at once because it
-        // 403s bursts. See SharemodsPipeline.cs.
-        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SharemodsPipeline>();
+        // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
+        // anonymous uploads were verified with real bytes) but because Cloudflare began answering
+        // every .NET request with a managed challenge and had not relented after a cooldown, while
+        // other clients kept getting 200s. Whether that is permanent or reputation earned by probing
+        // was never resolved, and shipping a host that might greet users with a challenge is worse
+        // than not offering it. Re-enable ONLY after a clean address completes an upload — the
+        // pipeline itself is finished and tested. See SharemodsPipeline.cs class-level remarks.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SharemodsPipeline>();
         // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
         // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();
