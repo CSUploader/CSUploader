@@ -173,6 +173,10 @@ public static class ServiceRegistration
         // My Account, so the base derives one at sign-in. Account-only, 5 GB/file, storage unlimited.
         // See DataVaultsPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataVaultsPipeline>();
+        // ShareMods — ANONYMOUS XFileSharing (rare now): the homepage's guest form, with the action
+        // rewritten from the URL-importer to the file uploader. 200 MB, capped at 2 at once because it
+        // 403s bursts. See SharemodsPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SharemodsPipeline>();
         // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
         // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();

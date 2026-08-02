@@ -224,6 +224,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ Its origin serves exactly FOUR concurrent API requests and 520s the rest, so uploads are
         // capped at 4. See DataVaultsPipeline.cs.
         { "DataVaults", "datavaults.co" },
+        // sharemods.com — ANONYMOUS XFileSharing, verified with real bytes 2026-08-02 (two guest
+        // uploads, both link pages served). Rare now: the rest of the family refuses guests.
+        // ⚠ The page's only upload.cgi action is the URL-IMPORTER's (?upload_type=url) — the file
+        // form's is script-set — so the scrape is rewritten to upload_type=file, else files would be
+        // posted to a link importer that stores nothing. ⚠ 403s bursts from one IP → capped at 2.
+        // 200 MB/file. See SharemodsPipeline.cs.
+        { "ShareMods", "sharemods.com" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.

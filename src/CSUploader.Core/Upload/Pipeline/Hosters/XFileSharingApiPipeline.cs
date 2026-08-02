@@ -886,8 +886,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// 2026-06-13, in this order): <c>utype=anon</c> + an empty <c>sess_id</c> are what
     /// distinguish it from the logged-in classic POST. The empties must be present — the
     /// XFileSharing multipart parser is field-presence sensitive (see brupload-multipart-quirks).
+    /// <para>
+    /// <c>protected virtual</c> for the same reason <see cref="BuildClassicExtraFields"/> is: a fork
+    /// whose live upload was proven with a different set replicates ITS set rather than trusting a
+    /// near-miss to be equivalent.
+    /// </para>
     /// </summary>
-    private static Dictionary<string, string> BuildAnonymousExtraFields() => new(StringComparer.Ordinal)
+    protected virtual Dictionary<string, string> BuildAnonymousExtraFields() => new(StringComparer.Ordinal)
     {
         ["sess_id"] = string.Empty,
         ["utype"] = "anon",
