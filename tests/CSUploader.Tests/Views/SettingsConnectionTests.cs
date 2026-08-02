@@ -421,20 +421,28 @@ public class SettingsConnectionTests
         }
     }
 
-    // ── §Reality-check #19: the panel resolves the ConnectionManagerViewModel via the Window ancestor ──
+    // ── §Reality-check #19: the panel's CONTENT resolves the ConnectionManagerViewModel via the Window
+    //    ancestor, while the panel Grid itself stays on the SettingsViewModel ──
 
     [AvaloniaFact]
-    public void PanelDataContext_ResolvesConnectionVm_ViaWindowAncestor()
+    public void PanelContent_ResolvesConnectionVm_ViaWindowAncestor_WhileTheGridKeepsTheSettingsVm()
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        HostStub host = new(harness.Vm);
+        (Window window, SettingsView view) = Show(host);
         try
         {
-            // The panel Grid binds DataContext to the Window's MainViewModel.ConnectionManagerViewModel; the
-            // grid inherits it — proof the RelativeSource AncestorType=Window + nested path resolves on 11.3.18.
+            // Each row child binds DataContext to the Window's MainViewModel.ConnectionManagerViewModel —
+            // still the proof that RelativeSource AncestorType=Window + a nested path resolves on 11.3.18.
             Assert.Same(harness.Vm, view.ProxyGrid.DataContext);
-            Assert.Same(harness.Vm, view.ConnectionPanel.DataContext);
+
+            // …but the Grid itself deliberately does NOT, and inherits the SettingsViewModel instead.
+            // That is what lets its IsVisible bind straight to SelectedCategoryIndex. With the override
+            // on the Grid, IsVisible had to reach back up through
+            // $visualParent[UserControl].DataContext, which is evaluated before the DataContext arrives
+            // (MainWindow hosts this view inside a TabItem) and logged two binding errors every startup.
+            Assert.Same(host, view.ConnectionPanel.DataContext);
         }
         finally
         {
@@ -458,6 +466,46 @@ public class SettingsConnectionTests
     private static ProxySettingItem Row(string host, int port, ProxyType type, bool enabled, string? user = null, string? pass = null)
         => new(new ProxySettingDto { Host = host, Port = port, Type = type, Enabled = enabled, Username = user, Password = pass });
 
+    // ── The panel's visibility must not reach up through a DataContext that can be transiently null.
+    //
+    //    In the app this logged, on every startup:
+    //      [Binding] An error occurred binding 'IsVisible' to
+    //      '$visualParent[UserControl].DataContext.SelectedCategoryIndex' at 'DataContext':
+    //      'Value is null.' (Grid #ConnectionPanel)
+    //
+    //    MainWindow hosts <views:SettingsView DataContext="{Binding SettingsViewModel}" /> inside a
+    //    TabItem, so the control is in the visual tree before that binding resolves, and the explicit
+    //    `.DataContext.` hop is evaluated against null.
+    //
+    //    This is asserted on the MARKUP rather than at runtime, deliberately. Three headless
+    //    reproductions were tried — assigning the DataContext late, binding it late (which does
+    //    suppress inheritance, unlike assignment), and doing so inside a TabControl realised on
+    //    selection — and NONE reproduced the null window; each passed against the original markup too.
+    //    A runtime test that cannot fail is worse than none, so what is guarded here is the property
+    //    that makes the error impossible: this panel binds its visibility to the inherited DataContext,
+    //    with no ancestor hop, exactly as every sibling panel does. ──
+
+    [Fact]
+    public void ConnectionPanelVisibility_DoesNotReachThroughAnAncestorDataContext()
+    {
+        string xaml = File.ReadAllText(Path.Combine(RepoXaml.FindRepoRoot(), "src", "CSUploader", "Views", "SettingsView.axaml"));
+
+        int panel = xaml.IndexOf("x:Name=\"ConnectionPanel\"", StringComparison.Ordinal);
+        Assert.True(panel > 0, "ConnectionPanel not found — did the panel get renamed?");
+
+        // The Grid's own attributes run to the end of its opening tag.
+        int tagEnd = xaml.IndexOf('>', panel);
+        string gridTag = xaml[panel..tagEnd];
+
+        Assert.Contains("IsVisible=\"{Binding SelectedCategoryIndex", gridTag, StringComparison.Ordinal);
+        Assert.DoesNotContain("AncestorType=UserControl", gridTag, StringComparison.Ordinal);
+
+        // …and it must not re-acquire a DataContext override, which is what forced the hop before:
+        // the panel's visibility lives on the SettingsViewModel, so the Grid stays on it and the three
+        // row children carry the ConnectionManagerViewModel instead.
+        Assert.DoesNotContain("DataContext=", gridTag, StringComparison.Ordinal);
+    }
+
     private static (Window Window, SettingsView View) Show(HostStub host)
     {
         // Wide enough that every proxy column (~1010px min) is in the horizontal viewport — the DataGrid
@@ -480,6 +528,10 @@ public class SettingsConnectionTests
         public ConnectionManagerViewModel ConnectionManagerViewModel { get; } = vm;
 
         public int SelectedCategoryIndex { get; set; } = 2;
+
+        /// <summary>Stands in for <c>MainViewModel.SettingsViewModel</c> so a test can bind the view's
+        /// DataContext the way MainWindow does. Returning itself keeps the one duck-typed stub.</summary>
+        public HostStub SettingsViewModel => this;
     }
 
     /// <summary>

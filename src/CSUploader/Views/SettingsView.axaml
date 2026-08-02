@@ -499,20 +499,32 @@
       </StackPanel>
     </ScrollViewer>
 
-    <!-- 2: Connection Manager (editable proxies grid). Its DataContext is the ConnectionManagerViewModel,
+    <!-- 2: Connection Manager (editable proxies grid). Its CONTENT runs on the ConnectionManagerViewModel,
          reached via the parent Window's MainViewModel (the SettingsView's own DataContext is the
-         SettingsViewModel); §Reality-check #19. The panel visibility keys off the SettingsView's
-         SelectedCategoryIndex, so IsVisible reaches back up to the UserControl for it (mirror of the WPF
-         RelativeSource AncestorType=UserControl). Rule 32 is PER-GRID and THIS grid is the exception: the
-         Host/Port/User/Password DataGridTextColumns, the Enabled DataGridCheckBoxColumn and the Type
-         template ComboBox ALL stay TWO-WAY (rule 37) — a blanket OneWay would silently drop every edit. -->
+         SettingsViewModel); §Reality-check #19.
+
+         The Grid itself deliberately does NOT override DataContext — each of its three row children
+         carries the ConnectionManagerViewModel instead. That looks like duplication and is load-bearing:
+         this panel's visibility belongs to the SettingsViewModel, so with the override here IsVisible had
+         to reach back up as `$visualParent[UserControl].DataContext.SelectedCategoryIndex`, and that
+         explicit DataContext hop is evaluated BEFORE the DataContext arrives — MainWindow hosts this view
+         as <views:SettingsView DataContext="{Binding SettingsViewModel}" /> inside a TabItem, so it is in
+         the visual tree first. Result: two "'Value is null.' (Grid #ConnectionPanel)" binding errors on
+         every startup. Leaving the Grid on the inherited SettingsViewModel lets IsVisible bind straight to
+         SelectedCategoryIndex with no hop to be null — which is exactly how every sibling panel here works,
+         and why none of them ever logged this.
+
+         Rule 32 is PER-GRID and THIS grid is the exception: the Host/Port/User/Password
+         DataGridTextColumns, the Enabled DataGridCheckBoxColumn and the Type template ComboBox ALL stay
+         TWO-WAY (rule 37) — a blanket OneWay would silently drop every edit. -->
     <Grid Grid.Column="2" x:Name="ConnectionPanel"
           Background="{DynamicResource SurfaceBrush}"
           RowDefinitions="Auto,*,Auto"
-          DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
-          IsVisible="{Binding DataContext.SelectedCategoryIndex, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+          IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
 
-      <StackPanel Grid.Row="0" Margin="20,16,20,0">
+      <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment. -->
+      <StackPanel Grid.Row="0" Margin="20,16,20,0"
+                  DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
           <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24"
                  VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -537,6 +549,7 @@
       <!-- The grid dims (Opacity 0.45, via the proxies-off conditional class) when Use-proxies is off but
            stays interactive so proxies can be curated before flipping the master switch back on. -->
       <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8"
+                DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
                 Classes.proxies-off="{Binding !ProxiesEnabled}"
                 ItemsSource="{Binding Proxies}"
                 AutoGenerateColumns="False"
@@ -670,7 +683,8 @@
            resolve the grid's VM + live SelectedItems (the flyout lives in a separate popup namescope, so a
            cross-popup ElementName/SelectedItems binding is not reliable — same rule-19 reason the grid menu's
            params are code-behind). Add / Test All are plain buttons bound directly to the inherited VM. -->
-      <DockPanel Grid.Row="2" Margin="20,0,20,16">
+      <DockPanel Grid.Row="2" Margin="20,0,20,16"
+                 DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Classes="jd2" Margin="0,0,8,0">
             <Button.Flyout>
