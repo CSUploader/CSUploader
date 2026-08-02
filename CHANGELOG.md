@@ -4,6 +4,81 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-02
+
+Eighteen new file hosters (46 in total, twenty of them no-login), a per-hoster parallel-upload limit
+in the wizard, and a run of reliability work aimed at uploads that fail quietly. See
+[docs/release-notes/v1.2.0.md](docs/release-notes/v1.2.0.md) for the full notes.
+
+### Added
+
+- **Eighteen file hosters.** No account needed: **1Fichier**, **VikingFile**, **Sendspace**,
+  **Webshare**, **DropMeFiles**, **UsersDrive**, **DailyUploads**, **FILEAXA** and **Send.now**. With
+  an account: **DDownload**, **Clicknupload**, **Uploady**, **Uploadrar**, **Filedot**, **TeraBytez**,
+  **Turbobit**, **Filestank** (the first YetiShare host) and **DataVaults**.
+- **"Max parallel" column** on the wizard's hoster step, showing each host's own concurrency limit —
+  and the scheduler now honours it (DropMeFiles 5, Send.now 4, DataVaults 4, GigaPeta 1, ufile.io by
+  tier).
+- **Pre-upload rejection of blocked file types** on hosts that publish a blocklist but only enforce it
+  after the transfer (Uploadrar blocks video, filedot.to blocks images).
+- **Daily-allowance handling for Filestank**, which stops a batch cleanly when a free account's ~10
+  uploads a day are spent.
+
+### Changed
+
+- **Dead upload nodes are remembered for ten minutes** on hosts that hand out a rotating node, so one
+  broken node no longer costs every file in a batch.
+- **Sign-in is serialised per account** — ten parallel uploads to a new host open one browser window,
+  not ten.
+
+### Fixed
+
+- A server that accepts an upload and stores nothing (`file_status: OK` with `file_code: undef`) is
+  reported as a failure instead of producing a link to nothing.
+- A momentary Cloudflare 5xx during the upload-server lookup is retried, and an error page is no
+  longer mistaken for an expired session — which used to discard a valid sign-in.
+- `Content-Disposition` now precedes `Content-Type` on multipart file parts, matching browsers; one
+  host silently accepted whole uploads and then reported "no file found" without it.
+- Accounts added from the upload wizard appear in Settings → Accounts.
+- Account names are read correctly on themes that don't publish one the usual way (some saved blank,
+  others picked up the word "Profile").
+- A sign-in window that stayed open after a successful login on query-routed login pages now closes.
+- A package's **Elapsed** is a wall-clock span rather than the sum of its files' times.
+- Binding errors from the Logs/Uploaded tooltips and the Settings Connection panel are gone.
+- Log entries render each HTTP header as the single line that goes on the wire.
+- Wizard grid headers use the app's header chrome; italic hoster names are no longer clipped.
+
+### Notes
+
+- **DropGalaxy** and **ShareMods** ship disabled — DropGalaxy caps anonymous uploads at ~10 bytes with
+  signups closed, and ShareMods began serving this client a Cloudflare challenge before release.
+
+## [1.1.0] - 2026-07-26
+
+Linux support via a portable AppImage, large-file uploads to Storage.to, a responsiveness overhaul for
+large queues, package renaming, and paste-ready link export. See
+[docs/release-notes/v1.1.0.md](docs/release-notes/v1.1.0.md) for the full notes.
+
+### Added
+
+- **Portable Linux AppImage**, including the in-app captcha/sign-in browser via bundled Chromium.
+- **Copy Links** — export a completed package's links as plain text, BBCode or Markdown, grouped by
+  file or by hoster.
+- **Rename packages** inline (F2 or the context menu), **Remove All Completed**, and **Elapsed** /
+  **Finish at** in the Upload Overview.
+
+### Changed
+
+- **Storage.to** uploads large files through Cloudflare R2 multipart, removing the previous size
+  ceiling.
+- Responsiveness overhaul for queues of 500+ files.
+
+## [1.0.0] - 2026-07-19
+
+**Rebuilt on Avalonia UI.** The whole interface was reimplemented off WPF onto Avalonia on .NET 10,
+keeping the same layout, features and workflow; existing installs update in place with settings,
+accounts and history intact. See [docs/release-notes/v1.0.0.md](docs/release-notes/v1.0.0.md).
+
 ## [0.0.6] - 2026-07-05
 
 Eleven new file hosters (including three end-to-end-encrypted, no-login services), byte-weighted package progress and ETA, a per-hoster max-file-size column in the wizard, and a SQLite security fix. See [docs/release-notes/v0.0.6.md](docs/release-notes/v0.0.6.md) for the full notes.
@@ -131,6 +206,9 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.2.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.2.0
+[1.1.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.1.0
+[1.0.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.0.0
 [0.0.6]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.6
 [0.0.5]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.5
 [0.0.4]: https://github.com/CSUploader/CSUploader/releases/tag/v0.0.4
