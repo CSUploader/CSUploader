@@ -1063,10 +1063,17 @@ public partial class UploadWizardViewModel : ObservableObject
                 ? null
                 : account => account is not null ? pipeline.MaxFileSizeFor(account) : pipeline.MaxFileSize;
 
+            // The same figure the scheduler caps this hoster's uploads by. A blank DTO stands in for
+            // "no account chosen yet" so the column reads sensibly before a selection is made — every
+            // pipeline that caps does so per tier at most, and none dereference the DTO.
+            Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = pipeline is null
+                ? null
+                : account => pipeline.MaxConcurrentUploadsFor(account ?? new FileHosterLoginDto { FileHosterName = fileHosterName });
+
             FileHosterSelectionViewModel? sticky = _stickyHosters.Find(
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
 
-            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver);
+            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver, maxConcurrentResolver);
             if (sticky is not null)
             {
                 vm.Use = sticky.Use;

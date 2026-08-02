@@ -51,17 +51,25 @@ public static class HosterCredentialModes
     // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
     // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
     private static readonly HashSet<string> ApiKeyHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploady"];
+        [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Turbobit", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploadrar"];
 
     /// <summary>
     /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
-    /// API key to paste (isra.cloud is a classic XFileSharing host that exposes no REST API). The
-    /// dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/> but HIDES the
-    /// "OR paste an API key" box, and keys sign-in success / Save on the captured cookie instead of
-    /// an API key.
+    /// API key to paste. The dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/>
+    /// but HIDES the "OR paste an API key" box, and keys sign-in success / Save on the captured cookie
+    /// instead of an API key. Both members are classic XFileSharing hosts running the pipeline's
+    /// web-form path: isra.cloud exposes no REST API at all, and uploady.io mints an API key only on
+    /// request (its my_account reports "No API Key Found"), so neither has a key to paste.
     /// </summary>
+    // "DDownload" is here rather than in ApiKeyHosters on purpose: it HAS a working REST API, but the
+    // key is only obtainable from its Affiliate Dashboard (Affiliate → Settings) and can't be
+    // bootstrapped from my_account, so requiring one would mean every user enabling an affiliate
+    // account before their first upload. Signing in is the shippable flow.
+    // "Filestank" is the same story on a different platform — YetiShare, not XFileSharing. Its
+    // /api/v2 wants two 64-character keys and its account area exposes no page that yields them, so
+    // the credential is the filehosting session cookie captured by the WebView.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>

@@ -1277,6 +1277,9 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step2_Col_MaxFileSize" xml:space="preserve">
     <value>Max na laki ng file</value>
   </data>
+  <data name="Wizard_Step2_Col_MaxConcurrent" xml:space="preserve">
+    <value>Max na sabay</value>
+  </data>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>Walang limitasyon</value>
   </data>

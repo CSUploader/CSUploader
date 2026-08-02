@@ -100,9 +100,17 @@ public static class ServiceRegistration
         // drops the managed challenge. See TakeFilePipeline.cs class-level remarks.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TakeFilePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HexloadPipeline>();
-        // Send.now / Uploady are stock XFileSharing hosters wired as thin shims on the shared base
-        // (anonymous web-form upload verified live 2026-07-26; accounts use the family's standard
-        // API-key path, so they take the same auth service + repo as their siblings).
+        // UsersDrive — classic XFS with a live ANONYMOUS upload (verified by uploading a file, not just
+        // by the form rendering). 5250 MB guest cap. See UsersDrivePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UsersDrivePipeline>();
+        // Filestank — YetiShare (NOT XFileSharing), on the session-cookie path: WebView sign-in for the
+        // filehosting cookie → per-upload uploader.js scrape → blueimp multipart to a strN. node. DI
+        // fills its IInteractiveAuthService + repo. See FilestankPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilestankPipeline>();
+        // Send.now / Uploady are stock XFileSharing hosters wired as thin shims on the shared base, so
+        // both take the same auth service + repo as their siblings. They land on opposite paths: Send.now
+        // uploads anonymously (verified live 2026-07-26), while Uploady is account-only on the web-form
+        // path — its anonymous upload fails server-side, in a real browser too (capture 2026-07-27).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SendNowPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadyPipeline>();
         // DropGalaxy DISABLED 2026-07-26 — anonymous cap is 0.00001 MB (~10 bytes) and registration
@@ -137,6 +145,35 @@ public static class ServiceRegistration
         // full diagnosis + re-enable checklist.
         // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HotlinkPipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaPetaPipeline>();
+        // 1Fichier — anonymous only (no auth service needed): homepage scrape for a rotating node +
+        // per-upload session id, one multipart POST, then the result page named by the 302. See
+        // OneFichierPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.OneFichierPipeline>();
+        // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
+        // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
+        // FILEAXA — ANONYMOUS xfspro chunked upload (no auth service needed): GET /server → put_chunk.cgi
+        // → multipart api.cgi with an empty sess_id. See FileaxaPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileaxaPipeline>();
+        // Uploadrar — classic XFileSharing on the API-key path, so it needs the same auth service +
+        // repo as its siblings. Account-only, and it blocks common media extensions (checked before
+        // upload — the host itself only rejects them after taking the file). See UploadrarPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadrarPipeline>();
+        // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
+        // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();
+        // Sendspace — anonymous only (no auth service needed): scrape the homepage's rotating upload
+        // ticket, then post the site's own form to it. See SendspacePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SendspacePipeline>();
+        // Webshare — anonymous only (no auth service needed): keyless /api/upload_url/ node lookup, then
+        // the site's own plupload multipart with an empty wst. See WebsharePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.WebsharePipeline>();
+        // Clicknupload — stock XFileSharing on the web-form path; account-only (its anonymous upload
+        // is refused with "uploads are not enabled for your account type"). See ClicknuploadPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.ClicknuploadPipeline>();
+        // DDownload — XFileSharing Pro on the standard API-key path; its API answers only on
+        // api-v2.ddownload.com. See DDownloadPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DDownloadPipeline>();
         // transfer.it (MEGA backend) — anonymous, no auth service needed.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TransferItPipeline>();
         // mega.nz — account upload into a Cloud Drive over the same MEGA protocol (password login + node verbs).
@@ -174,6 +211,11 @@ public static class ServiceRegistration
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.WormholePipeline>();
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
             new Upload.Pipeline.Hosters.HitFilePipeline(
+                sp.GetRequiredService<IInteractiveAuthService>()));
+        // Turbobit — HitFile's sibling (same operator, same SPA platform, apptype fd1 not fd2);
+        // account-only, WebView sign-in yields the durable appId. See TurbobitPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.TurbobitPipeline(
                 sp.GetRequiredService<IInteractiveAuthService>()));
         // NitroFlare: reCAPTCHA-gated WebView sign-in yields a durable 40-hex upload hash (HitFile
         // shape), so it needs IInteractiveAuthService.

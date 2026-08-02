@@ -1,4 +1,4 @@
-// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
+﻿// <copyright file="XFileSharingApiPipeline.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -130,6 +130,18 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// <inheritdoc/>
     public virtual long? MaxFileSizeFor(FileHosterLoginDto credentials) => MaxFileSize;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.MaxConcurrentUploadsFor" path="/summary"/>
+    /// <para>
+    /// Declared here (rather than left to the interface's default) so subclasses can actually override
+    /// it: this class is where <see cref="IFileHosterPipeline"/> enters the hierarchy, so the interface
+    /// slot is bound HERE. A same-named method added further down does not claim that slot — it simply
+    /// never gets called through the interface, which is how a Send.now concurrency cap silently did
+    /// nothing until a test asserted it through <see cref="IFileHosterPipeline"/>.
+    /// </para>
+    /// </summary>
+    public virtual int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => null;
+
     /// <inheritdoc/>
     public bool RequiresHashingBeforeUpload => false;
 
@@ -147,12 +159,46 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// <summary>The logged-in web upload form (web-form mode only). Carries the per-session
     /// upload-server <c>action</c> and the hidden <c>sess_id</c> we scrape in
     /// <see cref="GetWebFormUploadServerAsync"/>.</summary>
-    protected string UploadFormUrl => Host + "/?op=upload_form";
+    /// <summary>Virtual because forks move it: Clicknupload renders the uploader on
+    /// <c>?op=my_account.html</c> and has no <c>?op=upload_form</c> at all.</summary>
+    protected virtual string UploadFormUrl => Host + "/?op=upload_form";
 
     /// <summary>The logged-in file manager (web-form mode only). Source of the account's storage bar
     /// (<c>used of total</c>), the username, and the logged-in check — see
     /// <see cref="CheckAccountViaWebFormAsync"/> / <see cref="RefreshStorageViaMyFilesAsync"/>.</summary>
     protected string MyFilesUrl => Host + "/?op=my_files";
+
+    /// <summary>
+    /// Which logged-in page the web-form account check and storage refresh read. The family default is
+    /// the file manager, whose stock template carries both the storage bar and the account menu; forks
+    /// that moved those elsewhere point this at their own page (Uploady keeps its storage figures on
+    /// <c>my_account</c> and leaves <c>my_files</c> with none). Whatever page this names must carry the
+    /// logout link, since it doubles as the still-signed-in probe.
+    /// </summary>
+    protected virtual string WebFormAccountPageUrl => MyFilesUrl;
+
+    /// <summary>
+    /// Reads (used, quota) out of the <see cref="WebFormAccountPageUrl"/> page. The default understands
+    /// the stock <c>&lt;span class="storage"&gt;&lt;b&gt;X&lt;/b&gt; of &lt;b&gt;Y&lt;/b&gt;</c> bar;
+    /// forks with a re-skinned dashboard override this. Either figure may come back null — callers
+    /// treat "both null" as "nothing to report" and keep the previous snapshot.
+    /// </summary>
+    protected virtual (long? Used, long? Quota) ParseStorageUsage(string html) => TryParseStorageBar(html);
+
+    /// <summary>
+    /// Pulls the account name out of the <see cref="WebFormAccountPageUrl"/> page. The default reads the
+    /// stock account menu (the token after the <c>fa-user</c> icon); forks that render the name
+    /// elsewhere override this. Returning null is NOT harmless for a session-cookie hoster: those hide
+    /// the username field entirely, so there is no typed value to fall back on and the account lands in
+    /// the grid with a BLANK name, indistinguishable from any other account on that host.
+    /// <para>
+    /// <b>Check what the default actually matches before relying on it</b> — a theme that uses
+    /// <c>fa-user</c> for something OTHER than the account menu makes it return a wrong name rather
+    /// than none, which is harder to notice and worse to live with. Uploady renders that icon on its
+    /// "Profile" tab and every account was saved as "Profile" until it overrode this.
+    /// </para>
+    /// </summary>
+    protected virtual string? ParseAccountUsername(string html) => ExtractMyAccountUsername(html);
 
     /// <summary>
     /// Cookie lifetime applied during the U/P bootstrap window. XFileSharing rarely
@@ -277,8 +323,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     // Logged-in web-form upload (isra.cloud, captured 2026-06-26): the ?op=upload_form page renders
     //   <form id="uploadfile" action="https://fsNN.HOST/cgi-bin/upload.cgi?upload_type=file&utype=reg">
     //     <input type="hidden" name="sess_id" value="<session>">
-    // _anonUploadActionRegex captures the action (the only upload.cgi form on the page); this pulls
-    // the hidden sess_id. The value equals the xfss session-cookie value, but we read it from the
+    // _anonUploadActionRegex captures the action; this pulls the hidden sess_id. Note the action
+    // scrape takes the FIRST upload.cgi form, which matters on pages carrying several — Uploady
+    // renders the file uploader, then a remote-URL form, then a torrent form, all posting to some
+    // upload.cgi, and only the first is the one we want. The value equals the xfss session-cookie value, but we read it from the
     // form so a server that mints a distinct per-session token is honoured verbatim. Handles either
     // attribute order (name-then-value / value-then-name).
     private static readonly Regex _sessIdInputRegex = new(
@@ -334,6 +382,16 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
                 $"File exceeds {Name}'s {ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString()} per-file limit "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Binary).ToFriendlyString()})",
                 null);
+            yield break;
+        }
+
+        // Some hosts in this family refuse a file on grounds they only check at the FINAL step —
+        // Uploadrar publishes an extension blocklist and enforces it in import_file, i.e. after the
+        // entire file has been transferred. Asking here costs nothing and turns that into an instant
+        // refusal instead of a wasted upload. See PreflightRejection.
+        if (PreflightRejection(ctx) is { } preflightError)
+        {
+            yield return new AttemptFailed(preflightError, null);
             yield break;
         }
 
@@ -407,94 +465,139 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // === Upload ===
-        bool authExpiredDuringUpload = false;
-        string? attemptFailure = null;
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        string? finalUrl = null;
+        // Looped for the same reason as the web-form path: a node that breaks AFTER taking the bytes
+        // gets one retry against a freshly resolved server — see IsTransientNodeFailure. One
+        // TransferStarted covers the whole thing; the retry is our business, not something the user
+        // asked for or should see twice.
+        string currentUploadUrl = uploadUrl;
+        string currentSessId = sessId;
+        bool retriedNodeFailure = false;
 
         yield return new TransferStarted(ctx.FileSize);
 
-        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        void onProgress(object? _, OperationProgressEventArgs e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
-
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        while (true)
         {
-            yield return progressEv;
-        }
+            bool authExpiredDuringUpload = false;
+            string? attemptFailure = null;
+            bool attemptCancelled = false;
+            Exception? attemptException = null;
+            string? finalUrl = null;
 
-        ctx.Handler.UploadProgress -= onProgress;
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
 
-        HttpResponseSnapshot? uploadResponse = null;
-        try
-        {
-            uploadResponse = await uploadTask;
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            attemptCancelled = true;
-        }
-        catch (Exception ex)
-        {
-            attemptException = ex;
-        }
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, currentUploadUrl, currentSessId);
 
-        if (uploadResponse is not null)
-        {
-            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
-            if (AuthExpired)
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
             {
-                await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
-                authExpiredDuringUpload = true;
+                yield return progressEv;
             }
-            else if (Error is not null)
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            HttpResponseSnapshot? uploadResponse = null;
+            try
             {
-                attemptFailure = Error;
+                uploadResponse = await uploadTask;
             }
-            else
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
-                finalUrl = Url;
+                attemptCancelled = true;
             }
-        }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+            }
 
-        if (authExpiredDuringUpload)
-        {
-            yield return new AuthFailed("API key rejected mid-upload");
-            yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+            if (uploadResponse is not null)
+            {
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                if (AuthExpired)
+                {
+                    await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    authExpiredDuringUpload = true;
+                }
+                else if (Error is not null)
+                {
+                    attemptFailure = Error;
+                }
+                else
+                {
+                    finalUrl = Url;
+                }
+            }
+
+            if (authExpiredDuringUpload)
+            {
+                yield return new AuthFailed("API key rejected mid-upload");
+                yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+                yield break;
+            }
+
+            if (attemptCancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (attemptException is not null)
+            {
+                yield return new AttemptFailed(attemptException.Message, attemptException);
+                yield break;
+            }
+
+            if (attemptFailure is not null)
+            {
+                if (retriedNodeFailure || !IsTransientNodeFailure(attemptFailure))
+                {
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({attemptFailure}); retrying once with a fresh server.");
+
+                // Re-ask the API for a server: it hands out the node, so this is what makes the retry
+                // land somewhere else rather than repeat itself against the one that just failed.
+                (string? retrySessId, string? retryUrl, string? retryError, bool retryAuthExpired) =
+                    await GetUploadServerAsync(apiKey, ctx, ct);
+
+                if (retryAuthExpired)
+                {
+                    await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    yield return new AuthFailed("API key rejected — re-authenticate from Settings → Accounts");
+                    yield return new AttemptFailed("API key rejected — retry will re-authenticate", null);
+                    yield break;
+                }
+
+                if (retryUrl is null || retrySessId is null)
+                {
+                    // Report the node's own failure — the reason we were retrying at all — rather than
+                    // the re-resolve's, which is a symptom of it.
+                    _ = retryError;
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                currentUploadUrl = retryUrl;
+                currentSessId = retrySessId;
+                continue;
+            }
+
+            if (finalUrl is not null)
+            {
+                yield return new TransferCompleted(finalUrl);
+            }
+
             yield break;
-        }
-
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        if (attemptFailure is not null)
-        {
-            yield return new AttemptFailed(attemptFailure, null);
-            yield break;
-        }
-
-        if (finalUrl is not null)
-        {
-            yield return new TransferCompleted(finalUrl);
         }
     }
 
@@ -517,6 +620,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         yield return new TransferStarted(ctx.FileSize);
 
         HttpRequestException? lastUnreachable = null;
+        bool retriedNodeFailure = false;
 
         for (int attempt = 0; attempt < AnonymousServerAttempts; attempt++)
         {
@@ -603,15 +707,52 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             if (url is not null)
             {
                 yield return new TransferCompleted(url);
-            }
-            else
-            {
-                yield return new AttemptFailed(error ?? $"{Name}: anonymous upload returned no download link", null);
+                yield break;
             }
 
+            // A node whose own backend broke — its fs.cgi answering 500, a gateway error — is a bad
+            // draw from the rotating pool, not a verdict on the file, and a fresh node usually works
+            // (observed on uploady.io: "failed while requesting fs.cgi: …500 Internal Server Error").
+            // Retry ONCE only: unlike the dead-DNS retry above this one re-sends the entire file, so
+            // it must not become a loop — and the predicate stays narrow so a real rejection
+            // ("File too big") is never re-uploaded to be refused again.
+            if (!retriedNodeFailure && attempt < AnonymousServerAttempts - 1 && IsTransientNodeFailure(error))
+            {
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({error}); retrying once with a fresh server.");
+                continue;
+            }
+
+            yield return new AttemptFailed(error ?? $"{Name}: anonymous upload returned no download link", null);
             yield break;
         }
     }
+
+    /// <summary>
+    /// True when an upload's <c>file_status</c> describes the NODE failing rather than the file being
+    /// refused. XFileSharing nodes proxy the bytes on to their storage CGI and surface its failure
+    /// verbatim, so a broken node reads as e.g. <c>failed while requesting fs.cgi: …500 Internal Server
+    /// Error…</c>. Deliberately narrow: everything it does not match (quota, size, extension, "File too
+    /// big") is a verdict that re-uploading would only earn again, at the cost of the whole file.
+    /// <para>
+    /// <c>No file on disk (/var/www/cgi-bin/temp/NN/CGItempNNNNN)</c> belongs here too, seen on
+    /// uploady.io under 20 parallel uploads: the node took the bytes into its own CGI spool and the
+    /// spool file was gone by the time it went to store them. The path it names is the node's scratch
+    /// space, not anything of ours, so it says nothing about the file we sent.
+    /// </para>
+    /// <para>
+    /// All three upload paths consult this — anonymous, web-form and API-key. Nothing about a broken
+    /// node is specific to how the caller authenticated, and the API path went without the retry for
+    /// a while purely because the fault was first diagnosed on the web-form one.
+    /// </para>
+    /// </summary>
+    private static bool IsTransientNodeFailure(string? error)
+        => error is not null
+           && (error.Contains("fs.cgi", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Internal Server Error", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Bad Gateway", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("Service Unavailable", StringComparison.OrdinalIgnoreCase)
+               || error.Contains("No file on disk", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Fresh-server attempts for an anonymous upload before giving up. The homepage rotates the
@@ -797,7 +938,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
 
     private async Task<(string? ApiKey, bool DidBootstrap, string? Error)> BootstrapApiKeyAsync(AttemptContext ctx, CancellationToken ct)
     {
-        string? xfss = await GetOrAcquireXfssCookieAsync(ctx, ct);
+        // Ungated: EnsureApiKeyAsync already holds this account's gate, and it isn't reentrant.
+        string? xfss = HasValidStoredSessionCookie(ctx)
+            ? ctx.Credentials.SessionCookie
+            : await AcquireXfssCookieAsync(ctx, ct).ConfigureAwait(false);
         if (xfss is null)
         {
             return (null, true, "sign-in cancelled or no usable proxy available");
@@ -856,18 +1000,50 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         return (apiKey, true, null);
     }
 
+    /// <summary>
+    /// Returns the stored session cookie, signing in through the WebView only when there isn't a
+    /// usable one. Sign-in is serialised per account behind <see cref="_bootstrapGates"/> — the same
+    /// gate the API-key bootstrap uses, and for the same reason: without it, N parallel uploads that
+    /// all start without a cookie each open their own sign-in window. The re-check after taking the
+    /// gate is what actually collapses them — whoever gets in first signs in and writes the cookie to
+    /// the shared credentials, and everyone queued behind then finds it already there.
+    /// </summary>
     private async Task<string?> GetOrAcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
     {
-        bool pinMatches = ctx.Credentials.PinnedProxyId is null || ctx.Credentials.PinnedProxyId == ctx.Proxy.Id;
-
-        if (pinMatches
-            && !string.IsNullOrEmpty(ctx.Credentials.SessionCookie)
-            && ctx.Credentials.SessionCookieExpiresUtc is DateTime expiresUtc
-            && expiresUtc > DateTime.UtcNow)
+        if (HasValidStoredSessionCookie(ctx))
         {
             return ctx.Credentials.SessionCookie;
         }
 
+        if (_authService is null)
+        {
+            return null;
+        }
+
+        SemaphoreSlim gate = _bootstrapGates.GetOrAdd(ctx.Credentials.Id, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // A sibling attempt may have signed in while this one waited.
+            return HasValidStoredSessionCookie(ctx)
+                ? ctx.Credentials.SessionCookie
+                : await AcquireXfssCookieAsync(ctx, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// The sign-in itself, WITHOUT taking <see cref="_bootstrapGates"/> — callers must already hold
+    /// the gate for this account. <see cref="SemaphoreSlim"/> is not reentrant, so the API-key
+    /// bootstrap (which signs in from inside the gate it took in <see cref="EnsureApiKeyAsync"/>)
+    /// must come here rather than through <see cref="GetOrAcquireXfssCookieAsync"/>, or it deadlocks
+    /// against itself.
+    /// </summary>
+    private async Task<string?> AcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
+    {
         if (_authService is null)
         {
             return null;
@@ -961,94 +1137,137 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         }
 
         // === Upload (identical machinery to the API path) ===
-        bool authExpiredDuringUpload = false;
-        string? attemptFailure = null;
-        bool attemptCancelled = false;
-        Exception? attemptException = null;
-        string? finalUrl = null;
+        // Looped so a node that breaks AFTER taking the bytes can be retried once against a freshly
+        // resolved server — see IsTransientNodeFailure. One TransferStarted covers the whole thing:
+        // the retry is our business, not something the user asked for or should see twice.
+        string currentUploadUrl = uploadUrl;
+        string currentSessId = sessId;
+        bool retriedNodeFailure = false;
 
         yield return new TransferStarted(ctx.FileSize);
 
-        var progressChannel = Channel.CreateUnbounded<UploadEvent>();
-        void onProgress(object? _, OperationProgressEventArgs e) =>
-            progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
-        ctx.Handler.UploadProgress += onProgress;
-
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadUrl, sessId);
-
-        _ = uploadTask.ContinueWith(
-            _ => progressChannel.Writer.Complete(),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-
-        await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
+        while (true)
         {
-            yield return progressEv;
-        }
+            bool authExpiredDuringUpload = false;
+            string? attemptFailure = null;
+            bool attemptCancelled = false;
+            Exception? attemptException = null;
+            string? finalUrl = null;
 
-        ctx.Handler.UploadProgress -= onProgress;
+            var progressChannel = Channel.CreateUnbounded<UploadEvent>();
+            void onProgress(object? _, OperationProgressEventArgs e) =>
+                progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
+            ctx.Handler.UploadProgress += onProgress;
 
-        HttpResponseSnapshot? uploadResponse = null;
-        try
-        {
-            uploadResponse = await uploadTask;
-        }
-        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
-        {
-            attemptCancelled = true;
-        }
-        catch (Exception ex)
-        {
-            attemptException = ex;
-        }
+            Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, currentUploadUrl, currentSessId);
 
-        if (uploadResponse is not null)
-        {
-            (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
-            if (AuthExpired)
+            _ = uploadTask.ContinueWith(
+                _ => progressChannel.Writer.Complete(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            await foreach (UploadEvent progressEv in progressChannel.Reader.ReadAllAsync(CancellationToken.None))
             {
-                await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
-                authExpiredDuringUpload = true;
+                yield return progressEv;
             }
-            else if (Error is not null)
+
+            ctx.Handler.UploadProgress -= onProgress;
+
+            HttpResponseSnapshot? uploadResponse = null;
+            try
             {
-                attemptFailure = Error;
+                uploadResponse = await uploadTask;
             }
-            else
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
-                finalUrl = Url;
+                attemptCancelled = true;
             }
-        }
+            catch (Exception ex)
+            {
+                attemptException = ex;
+            }
 
-        if (authExpiredDuringUpload)
-        {
-            yield return new AuthFailed("session expired mid-upload");
-            yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+            if (uploadResponse is not null)
+            {
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                if (AuthExpired)
+                {
+                    await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    authExpiredDuringUpload = true;
+                }
+                else if (Error is not null)
+                {
+                    attemptFailure = Error;
+                }
+                else
+                {
+                    finalUrl = Url;
+                }
+            }
+
+            if (authExpiredDuringUpload)
+            {
+                yield return new AuthFailed("session expired mid-upload");
+                yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+                yield break;
+            }
+
+            if (attemptCancelled)
+            {
+                yield return new AttemptCancelled();
+                yield break;
+            }
+
+            if (attemptException is not null)
+            {
+                yield return new AttemptFailed(attemptException.Message, attemptException);
+                yield break;
+            }
+
+            if (attemptFailure is not null)
+            {
+                if (retriedNodeFailure || !IsTransientNodeFailure(attemptFailure))
+                {
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                retriedNodeFailure = true;
+                ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node reported a backend failure ({attemptFailure}); retrying once with a fresh server.");
+
+                // Re-read the upload form: it hands out the node, so this is what makes the retry land
+                // somewhere else rather than repeat itself against the server that just failed.
+                (string? retryUrl, string? retrySessId, string? retryError, bool retryAuthExpired) =
+                    await GetWebFormUploadServerAsync(ctx, xfss, ct);
+
+                if (retryAuthExpired)
+                {
+                    await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
+                    yield return new AuthFailed("session expired — sign in again from Settings → Accounts");
+                    yield return new AttemptFailed("session expired — retry will re-authenticate", null);
+                    yield break;
+                }
+
+                if (retryUrl is null || retrySessId is null)
+                {
+                    // Report the node's own failure — the reason we were retrying at all — rather than
+                    // the re-resolve's, which is a symptom of it.
+                    yield return new AttemptFailed(attemptFailure, null);
+                    yield break;
+                }
+
+                currentUploadUrl = retryUrl;
+                currentSessId = retrySessId;
+                continue;
+            }
+
+            if (finalUrl is not null)
+            {
+                yield return new TransferCompleted(finalUrl);
+            }
+
             yield break;
-        }
-
-        if (attemptCancelled)
-        {
-            yield return new AttemptCancelled();
-            yield break;
-        }
-
-        if (attemptException is not null)
-        {
-            yield return new AttemptFailed(attemptException.Message, attemptException);
-            yield break;
-        }
-
-        if (attemptFailure is not null)
-        {
-            yield return new AttemptFailed(attemptFailure, null);
-            yield break;
-        }
-
-        if (finalUrl is not null)
-        {
-            yield return new TransferCompleted(finalUrl);
         }
     }
 
@@ -1120,8 +1339,8 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
 
     /// <summary>
     /// Account verification for web-form (no-API) hosters: WebView sign-in to capture the <c>xfss</c>
-    /// cookie, then a <c>my_account</c> HTML scrape for logged-in confirmation, the username, and
-    /// storage usage. No API key is involved; the persisted credential is the session cookie (reused
+    /// cookie, then an HTML scrape of <see cref="WebFormAccountPageUrl"/> for logged-in confirmation,
+    /// the username, and storage usage. No API key is involved; the persisted credential is the session cookie (reused
     /// by <see cref="RunWebFormAsync"/> and by the non-interactive storage refresh). Quota is always
     /// null — these hosters don't advertise a cap, so the grid's Available cell shows "Unlimited".
     /// </summary>
@@ -1154,22 +1373,22 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         int hops;
         try
         {
-            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
+            (html, finalUrl, hops) = await FetchMyAccountAsync(handler, WebFormAccountPageUrl, cookieHeader, ct);
         }
         catch (Exception ex)
         {
-            return new AccountCheckResult(false, AccountType.Free, "my_files fetch failed: " + ex.Message);
+            return new AccountCheckResult(false, AccountType.Free, "Account page fetch failed: " + ex.Message);
         }
 
-        if (!LooksLoggedIn(html))
+        if (!LooksSignedIn(html))
         {
             string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-            string summary = $"Signed in, but the file manager didn't load as logged-in{trail}. The sign-in may not have completed.";
+            string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
             return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
         }
 
-        string? scrapedUsername = ExtractMyAccountUsername(html);
-        (long? used, long? quota) = TryParseStorageBar(html);
+        string? scrapedUsername = ParseAccountUsername(html);
+        (long? used, long? quota) = ParseStorageUsage(html);
 
         return new AccountCheckResult(
             IsValid: true,
@@ -1184,8 +1403,8 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     }
 
     /// <summary>
-    /// Non-interactive storage refresh for web-form hosters: GET <c>my_files</c> with the STORED
-    /// <c>xfss</c> cookie (never a WebView) and scrape the storage bar (used + quota). Returns null
+    /// Non-interactive storage refresh for web-form hosters: GET <see cref="WebFormAccountPageUrl"/>
+    /// with the STORED <c>xfss</c> cookie (never a WebView) and scrape it for used + quota. Returns null
     /// when there's no usable stored cookie, the fetch fails, the page isn't logged-in, or neither
     /// figure parsed — callers keep the last-known snapshot. Subclasses that implement
     /// <see cref="IStorageRefreshablePipeline"/> delegate here.
@@ -1204,7 +1423,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         string html;
         try
         {
-            (html, _, _) = await FetchMyAccountAsync(handler, MyFilesUrl, cookieHeader, ct);
+            (html, _, _) = await FetchMyAccountAsync(handler, WebFormAccountPageUrl, cookieHeader, ct);
         }
         catch (OperationCanceledException)
         {
@@ -1215,12 +1434,12 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return null;
         }
 
-        if (!LooksLoggedIn(html))
+        if (!LooksSignedIn(html))
         {
             return null;
         }
 
-        (long? used, long? quota) = TryParseStorageBar(html);
+        (long? used, long? quota) = ParseStorageUsage(html);
         return used is null && quota is null ? null : new StorageUsage(used, quota);
     }
 
@@ -1228,6 +1447,28 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// logout link. A logged-out fetch lands on the login page, which has none.</summary>
     private static bool LooksLoggedIn(string html)
         => html.Contains("op=logout", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether a fetched account page shows us as signed in. The default looks for the family's
+    /// <c>?op=logout</c> link; forks with rewritten routes override it (DDownload's dashboard links
+    /// plain <c>/logout</c>). Getting this wrong rejects a perfectly good sign-in with "the account
+    /// page didn't load as logged-in", so check it against the real page before trusting the default.
+    /// </summary>
+    protected virtual bool LooksSignedIn(string html) => LooksLoggedIn(html);
+
+    /// <summary>
+    /// Why this hoster will refuse <paramref name="ctx"/>'s file before a byte is sent, or null when
+    /// it will take it. Default: nothing to check.
+    /// <para>
+    /// Exists because this family can reject a file at the LAST step. Uploadrar publishes an
+    /// extension blocklist (<c>?op=api_get_limits</c> → <c>ExtNotAllowed</c>) but only enforces it in
+    /// <c>import_file</c>, so a blocked file uploads in full and is then thrown away — observed in a
+    /// capture where a 5 MB .avi transferred fine and the finalise answered
+    /// <c>{"error":"unallowed extension"}</c>. Checking locally costs nothing and reports the real
+    /// reason immediately.
+    /// </para>
+    /// </summary>
+    protected virtual string? PreflightRejection(AttemptContext ctx) => null;
 
     private static string? ExtractMyAccountUsername(string html)
     {

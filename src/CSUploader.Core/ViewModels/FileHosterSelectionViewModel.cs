@@ -29,16 +29,25 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     // the wizard has no pipeline registry (tests).
     private readonly Func<FileHosterLoginDto?, long?>? _maxFileSizeResolver;
 
+    // Resolves how many of this hoster's uploads may run at once for a given account (null = no
+    // limit). Most hosters declare none; a few cap it, either because they say so (ufile's tiers) or
+    // because their anti-abuse does (DropMeFiles). Like the size cap this can vary by tier, so the
+    // column re-resolves when the account dropdown changes. Null when the wizard has no pipeline
+    // registry (tests).
+    private readonly Func<FileHosterLoginDto?, int?>? _maxConcurrentResolver;
+
     public FileHosterSelectionViewModel(
         string fileHosterName,
         FileHosterLoginDto[] accounts,
         bool supportsAnonymous = false,
-        Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null)
+        Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null,
+        Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = null)
     {
         FileHosterName = fileHosterName;
         Accounts = accounts;
         SupportsAnonymous = supportsAnonymous;
         _maxFileSizeResolver = maxFileSizeResolver;
+        _maxConcurrentResolver = maxConcurrentResolver;
 
         _anonymousOption = supportsAnonymous
             ? new FileHosterLoginDto
@@ -127,6 +136,37 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     }
 
     /// <summary>
+    /// How many uploads this hoster will accept at once for the selected account, or null when it
+    /// declares no limit (the common case). Drives the "Max parallel" column's sort order; the cell
+    /// text comes from <see cref="MaxConcurrentUploadsDisplay"/>.
+    /// </summary>
+    public int? MaxConcurrentUploads => _maxConcurrentResolver?.Invoke(SelectedAccount);
+
+    /// <summary>
+    /// The "Max parallel" column's text: the number, or the same localized "No limit" the size
+    /// column uses when the hoster declares none. Empty when no resolver was supplied.
+    /// <para>
+    /// This is the hoster's OWN ceiling, not the effective one — the scheduler takes the smaller of
+    /// this and the user's per-host setting, so a row saying "No limit" is still bounded by
+    /// Settings.
+    /// </para>
+    /// </summary>
+    public string MaxConcurrentUploadsDisplay
+    {
+        get
+        {
+            if (_maxConcurrentResolver is null)
+            {
+                return string.Empty;
+            }
+
+            return MaxConcurrentUploads is int max
+                ? max.ToString(System.Globalization.CultureInfo.CurrentCulture)
+                : Localizer.Instance["Wizard_Step2_NoLimit"];
+        }
+    }
+
+    /// <summary>
     /// Replaces the available accounts (e.g. after the user adds one through the
     /// wizard's "Add account…" link). Preserves the current selection if it survives,
     /// otherwise selects the first account, and fires change notifications so the
@@ -183,9 +223,11 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AccountDisplayText));
 
-        // The size cap can differ per account tier — keep the "Max file size" column in sync
-        // with the dropdown.
+        // Both caps can differ per account tier — keep the "Max file size" and "Max parallel"
+        // columns in sync with the dropdown.
         OnPropertyChanged(nameof(MaxFileSizeBytes));
         OnPropertyChanged(nameof(MaxFileSizeDisplay));
+        OnPropertyChanged(nameof(MaxConcurrentUploads));
+        OnPropertyChanged(nameof(MaxConcurrentUploadsDisplay));
     }
 }

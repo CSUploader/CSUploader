@@ -29,6 +29,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
     /// </summary>
     public static FrozenDictionary<string, string> FileHosters { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        // 1fichier.com anonymous upload — GET / for a rotating node + per-upload session id
+        // (upNN.1fichier.com/upload.cgi?id=XID), one multipart POST of file[], then the result page the
+        // 302 names (end.pl?xid=XID) carries the link. Guest cap 5 GB. See OneFichierPipeline.cs.
+        { "1Fichier", "1fichier.com" },
         { "Alfafile", "www.alfafile.net" },
         { "BRupload", "www.brupload.net" },
         // buzzheavier.com — anonymous OR account via the developer API: a single raw PUT to
@@ -38,6 +42,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // catbox.moe anonymous upload — a single multipart POST to /user/api.php (reqtype=fileupload),
         // response is the plain files.catbox.moe URL. No account. See CatboxPipeline.cs.
         { "Catbox", "catbox.moe" },
+        // Clicknupload — stock XFileSharing, ACCOUNT-ONLY (guests are refused outright). Web-form path:
+        // WebView sign-in for xfss → GET ?op=my_account.html → scrape the form action + sess_id →
+        // classic multipart. Domain rotates (.click/.org/.co/.vip). See ClicknuploadPipeline.cs.
+        { "Clicknupload", "clicknupload.click" },
         // DropGalaxy DISABLED 2026-07-26 (the day it was added) — anonymous uploads are capped at
         // 0.00001 MB (~10 bytes; the host answers "File size limit is 0.00001 Mbytes"), and account
         // registration is closed, so the API-key path can't be reached either. The pipeline is a
@@ -45,6 +53,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // out alongside this. Do NOT re-add without a usable cap or open registration — see
         // DropGalaxyPipeline.cs class-level remarks for the full diagnosis + re-enable checklist.
         // { "DropGalaxy", "dropgalaxy.com" },
+        // ddownload.com (ex ddl.to) — XFileSharing Pro, API-key path. Its /api/* is served ONLY from
+        // api-v2.ddownload.com; links and my_account stay here. Free accounts can upload (verified
+        // 2026-08-01). See DDownloadPipeline.cs.
+        { "DDownload", "ddownload.com" },
         { "Ex-Load", "www.ex-load.com" },
         // ExtMatrix DISABLED 2026-06-07 — /api/upload.php gets 413 below ~27 MiB and
         // the web UI's chunked protocol can't be captured (UI also failing). Pipeline
@@ -52,6 +64,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // commented out alongside this. Do NOT uncomment without re-validating the
         // upload endpoint and walking the re-enable checklist in ExtMatrixPipeline.cs.
         // { "ExtMatrix", "www.extmatrix.com" },
+        // filestank.com — YetiShare, NOT XFileSharing. Account-only, on the session-cookie path:
+        // WebView sign-in (filehosting cookie) → per-upload uploader.js scrape for the node URL +
+        // _sessionid + cTracker → blueimp multipart files[] to strN.filestank.com. See
+        // FilestankPipeline.cs, including why its published /api/v2 isn't the shipped path.
+        { "Filestank", "www.filestank.com" },
         { "FileBoom", "www.fileboom.me" },
         // filegarden.com account upload — login (POST api.filegarden.com/token → auth cookie + userId) →
         // POST /users/<userId>/pipe (raw body + X-Data header) → {"id","path"}; link filegarden.com/<userId>/<path>.
@@ -159,10 +176,46 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ufile.io anonymous chunked upload — GET / (csrf+session) → select_storage → create_session →
         // 99 MB multipart chunks → finalise → ufile.io/<slug>. See UfileIoPipeline.cs.
         { "Ufile", "ufile.io" },
-        // Uploady — classic XFileSharing, anonymous web-form upload; its form lives on ?op=upload_form
-        // (not the homepage) and its upload nodes are on gamezizo.com. See UploadyPipeline.cs.
+        // Uploady — classic XFileSharing on the web-form (no-API) path: account-only, because its
+        // anonymous upload is broken server-side. Upload nodes are on gamezizo.com. See UploadyPipeline.cs.
         { "Uploady", "uploady.io" },
+        // usersdrive.com — classic XFS, ANONYMOUS upload live (homepage form → dNNN.userdrive.org
+        // upload.cgi?utype=anon, empty sess_id). 5250 MB guest cap. See UsersDrivePipeline.cs.
+        { "UsersDrive", "usersdrive.com" },
+        // turbobit.net — HitFile's sibling (same operator/platform): WebView sign-in yields a durable
+        // appId, then POST app.turbobit.net/api/upload/urls → multipart Filedata + apptype=fd1 +
+        // user_id=appId → {"id"}; link turbobit.net/<id>.html. Account-only. See TurbobitPipeline.cs.
+        { "Turbobit", "turbobit.net" },
         { "Upstore", "upstore.net" },
+        // vikingfile.com anonymous upload over its own documented API: POST /api/get-upload-url (size)
+        // → presigned Cloudflare-R2 part PUTs (keep each ETag) → POST /api/complete-upload with an
+        // EMPTY user → {hash,url}; link vikingfile.com/f/<hash>. See VikingFilePipeline.cs.
+        { "VikingFile", "vikingfile.com" },
+        // fileaxa.com — ANONYMOUS upload on the XFileSharing "xfspro" chunked plugin (filehoster.io's
+        // family): GET /server → node, PUT put_chunk.cgi + X-Upload-SID, then a MULTIPART api.cgi
+        // op=import_file whose sess_id is simply left empty. It also exposes the XFS REST API, but its
+        // own client never uses it. See FileaxaPipeline.cs.
+        { "FILEAXA", "fileaxa.com" },
+        // uploadrar.com — classic XFileSharing on the REST API path (/api/account/info, /api/upload/server).
+        // ACCOUNT-only: ?op=api_get_limits reports MaxUploadFilesize 0.00001 for a signed-out caller.
+        // ⚠ It BLOCKS mp4/mpg/wmv/mkv/m4v/avi/mp3 and only enforces that at the finalise step, so the
+        // pipeline pre-checks the extension locally. See UploadrarPipeline.cs.
+        { "Uploadrar", "uploadrar.com" },
+        // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
+        // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
+        // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.
+        // Serialised to one upload at a time — its anti-abuse answers bursts with "Spam". See
+        // DropMeFilesPipeline.cs.
+        { "DropMeFiles", "dropmefiles.com" },
+        // sendspace.com — anonymous, no login and no captcha: scrape the homepage's rotating upload
+        // ticket (fsNNu node + signature) → multipart POST `upload_file[]` → the reply IS the result
+        // page, carrying sendspace.com/file/<code>. 300 MB. See SendspacePipeline.cs.
+        { "Sendspace", "www.sendspace.com" },
+        // webshare.cz — anonymous, via the site's own plupload uploader: POST /api/upload_url/ (keyless,
+        // XML) → node, then multipart `file` + wst=""/folder/private/adult/total/offset/name → {"ident"}.
+        // Chunked at 1 GiB, threading the ident. Link is webshare.cz/file/<ident>/<slug> — the plain
+        // path, NOT the site's own "#/" variant, which only a browser can resolve. See WebsharePipeline.cs.
+        { "Webshare", "webshare.cz" },
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the
         // link carries the decryption key in its #fragment. See WormholePipeline.cs + the Wormhole/ helpers.
         { "Wormhole", "wormhole.app" },

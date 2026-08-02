@@ -12,15 +12,22 @@ namespace CSUploader.Tests;
 /// </summary>
 /// <remarks>
 /// xUnit runs test classes in parallel. Several classes here dispatch bursts of fire-and-forget
-/// <c>Task.Run</c> work — the scheduler's order/force-start tests plus PackageManager's
-/// fire-and-forget persistence callbacks (state, queue-order, and soft-remove writes). When that
-/// burst exceeds the thread pool's current worker count, the pool grows slowly (roughly one new
-/// thread every ~500 ms), so a queued persistence <c>Task.Run</c> can sit unscheduled for seconds.
-/// That starves the polling assertions in <c>PackageManagerSoftRemoveTests</c> (e.g.
-/// <c>WaitForAsync</c>'s 50×50 ms budget), producing intermittent ~1-in-10 full-suite flakes that
-/// vanish in isolation and on re-run. Pre-warming the floor lets those bursts run immediately.
-/// The numeric-upload-order feature added more scheduler tests, tipping a borderline-tight budget
-/// into frequent failures.
+/// <c>Task.Run</c> work — the scheduler's order/force-start tests plus PackageManager's persistence
+/// callbacks. When such a burst exceeds the pool's current worker count the pool grows slowly
+/// (roughly one new thread every ~500 ms), so queued work can sit unscheduled for a while.
+/// Pre-warming the floor lets those bursts run immediately. It is cheap and only ever raises the
+/// minimum, so it is kept.
+/// <para>
+/// ⚠ <b>This was originally added to fix the <c>PackageManagerSoftRemoveTests</c> flake, and that
+/// attribution was wrong.</b> That flake was not a slow write — it was a write that never happened:
+/// the fixture shared one <c>SqliteConnection</c> between a polling reader and the fire-and-forget
+/// writer, which is not thread-safe, so the write threw ("SQLite Error 5: unable to delete/modify
+/// user-function due to active statements" — measured at 41 failures in 200 on exactly that shape)
+/// and <c>RemovePackage</c> swallowed it. Fixed 2026-08-02 by giving each DbContext its own
+/// connection into a shared-cache in-memory database. Do not credit this pre-warm for that, and do
+/// not reach for thread-pool tuning the next time a polling assertion fails — check first whether
+/// the thing being waited for actually ran.
+/// </para>
 /// <para>
 /// A <see cref="ModuleInitializerAttribute"/> runs exactly once when the test assembly loads —
 /// before any test — and needs no xUnit fixture plumbing. We only ever RAISE the minimums

@@ -36,6 +36,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so Uploads is 0 and Uploaded is 1.</summary>
     private const int UploadsTabIndex = 0;
     private const int UploadedTabIndex = 1;
+    private const int SettingsTabIndex = 2;
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
@@ -47,6 +48,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         UploadsViewModel.SetActive(value == UploadsTabIndex);
         UploadedViewModel.SetActive(value == UploadedTabIndex);
+
+        // Re-read the accounts on the way in. SettingsViewModel is a singleton whose account list is
+        // filled once at startup and otherwise only when Settings itself edits one — so an account
+        // added from the upload wizard (which writes straight to the repository) was invisible here
+        // until the app restarted. Reloading on show fixes that for ANY writer, not just the wizard,
+        // and costs one small read of a table with a handful of rows. LoadAccountsAsync re-selects
+        // the previous row by id, so nothing the user had highlighted is lost.
+        if (value == SettingsTabIndex)
+        {
+            SettingsViewModel.ReloadAccountsAsync();
+        }
     }
 
     [ObservableProperty]

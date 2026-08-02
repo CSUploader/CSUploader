@@ -10,34 +10,54 @@ using CSUploader.Services;
 namespace CSUploader.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// Send.now — classic XFileSharing; the protocol lives in <see cref="XFileSharingApiPipeline"/>.
+/// Send.now — classic XFileSharing; the upload protocol lives in <see cref="XFileSharingApiPipeline"/>.
 /// <para>
 /// Formerly <b>send.cm</b> (and tusfiles / sendit before that): send.cm now 301s to send.now, so the
-/// live brand is the one wired here — a single entry covers traffic addressed to either.
+/// live brand is the one wired here — a single entry covers traffic addressed to either. The upload
+/// itself is the family's ordinary anonymous POST (empty <c>sess_id</c>, <c>utype=anon</c>,
+/// <c>file_0</c>, answered with <c>[{"file_status":"OK","file_code":…}]</c>), confirmed against a live
+/// browser capture 2026-07-26.
 /// </para>
 /// <para>
-/// It is genuinely stock XFS — <c>?op=api_get_limits</c> answers with the standard
-/// <c>&lt;Data&gt;…&lt;ServerURL&gt;…</c> XML — and the upload itself is the family's ordinary anonymous
-/// POST (empty <c>sess_id</c>, <c>utype=anon</c>, <c>file_0</c>, answered with
-/// <c>[{"file_status":"OK","file_code":…}]</c>), confirmed against a live browser capture 2026-07-26.
-/// </para>
-/// <para>
-/// <b>Cloudflare shapes how this hoster must be driven.</b> Its HTML pages sit behind a <i>managed</i>
-/// challenge: a real run got <c>403</c> + <c>Cf-Mitigated: challenge</c> + <c>cType:'managed'</c> merely
-/// for fetching the homepage, while the JSON API calls from the same client were served normally. So
-/// this pipeline resolves the upload node from <c>/api/upload/server</c> and never scrapes a page —
-/// see <see cref="DiscoverAnonymousServerAsync"/>.
+/// <b>Getting an upload node here is the whole difficulty</b>, and the constraints are contradictory:
+/// <list type="bullet">
+///   <item><b>Every page-style path is unusable.</b> <c>send.now</c> sits behind a Cloudflare
+///   <i>managed</i> challenge: both <c>GET /?_=…</c> (the homepage form) and <c>GET /?op=api_get_limits</c>
+///   answered a real client with <c>403</c> + <c>Cf-Mitigated: challenge</c> + <c>cType:'managed'</c>.
+///   A managed challenge validates the browser itself, so no amount of header shaping gets past it.</item>
+///   <item><b><c>/api/*</c> is the ONLY route Cloudflare lets through</b> — which is why it returns real
+///   answers (even refusals) rather than an interstitial. So the API is not a preference here, it is the
+///   only option.</item>
+///   <item><b>…but the API punishes volume.</b> <c>/api/upload/server</c> is an API-<i>key</i> endpoint;
+///   it serves keyless callers for a while, then counts the calls as failed authentications and returns
+///   HTTP 200 carrying <c>{"status":429,"msg":"Too many failed attempts. Please try again in 60
+///   minutes."}</c> — an hour-long IP lockout. A package that looked one node up PER FILE tripped it in
+///   a single run.</item>
+/// </list>
+/// The reconciliation is to call the one permitted endpoint as seldom as possible: the node is
+/// <b>cached for the batch</b> (see <see cref="DiscoverAnonymousServerAsync"/>) so a package costs one
+/// lookup instead of one per file, and <see cref="MaxConcurrentUploadsFor"/> caps parallelism.
 /// </para>
 /// <para>
 /// Known risk for the ACCOUNT path (untested — no account has been used yet): the base's
-/// <c>CheckAccountAsync</c> scrapes <c>?op=my_account</c> with the C# handler to extract the API key,
-/// and that is an HTML page on the challenged domain. The upload itself is safe (it uses the same
-/// <c>/api/upload/server</c> endpoint), so if sign-in fails with a challenge, the fix is to source the
-/// key without touching an HTML page — not to give up on the hoster.
+/// <c>CheckAccountAsync</c> scrapes <c>?op=my_account</c> with the C# handler to extract the API key, and
+/// that is an HTML page on the challenged domain. Signed-in uploads are fine (a real API key makes
+/// <c>/api/upload/server</c> the endpoint it was designed to be), so if sign-in fails with a challenge
+/// the fix is to source the key without touching HTML — not to abandon the hoster.
 /// </para>
 /// </summary>
 public sealed class SendNowPipeline : XFileSharingApiPipeline
 {
+    /// <summary>How long a resolved node is reused before being looked up again. Nodes rotate, so this
+    /// stays short; the point is only to collapse a package's worth of lookups into one, because each
+    /// lookup counts against the host's failed-attempt lockout.</summary>
+    private static readonly TimeSpan NodeCacheLifetime = TimeSpan.FromMinutes(10);
+
+    private readonly SemaphoreSlim _nodeGate = new(1, 1);
+    private readonly HashSet<Guid> _servedAttempts = [];
+    private string? _cachedNode;
+    private DateTime _cachedNodeExpiresUtc;
+
     public SendNowPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
         : base(authService, loginRepository)
     {
@@ -58,7 +78,7 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
 
     protected override string Host => "https://send.now";
 
-    /// <summary>Anonymous (not-logged-in) upload verified against the live homepage form.</summary>
+    /// <summary>Anonymous (not-logged-in) upload verified against the live site.</summary>
     public override bool SupportsAnonymousUpload => true;
 
     /// <summary>Guest (anonymous) per-file cap — 100 GB, the figure the site states. Decimal, not
@@ -80,62 +100,99 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
         => credentials.IsAnonymous ? GuestMaxFileSizeBytes : null;
 
     /// <summary>
-    /// Resolves the upload node from Send.now's <b>keyless JSON API</b>, and deliberately never falls
-    /// back to scraping the homepage.
+    /// Cap simultaneous uploads at four. Send.now polices request volume aggressively (its keyless API
+    /// hands out hour-long lockouts), and four parallel uploads is what was observed to work; the
+    /// scheduler takes the min of this and the user's own per-host setting, so this only ever narrows.
+    /// </summary>
+    public override int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => 4;
+
+    /// <summary>
+    /// Resolves the upload node from <c>/api/upload/server</c> — the only path Cloudflare lets through —
+    /// and <b>caches it for the batch</b>.
     /// <para>
-    /// Why the API: <c>GET /api/upload/server</c> answers
-    /// <c>{"result":"https://uNNNN.send.now/cgi-bin/upload.cgi?u=api","msg":"OK","status":200}</c> with
-    /// no credentials at all, and hands out the SAME rotating node pool the browser's form does
-    /// (verified against the 2026-07-26 capture, whose browser posted to <c>u0626</c>, and by sampling
-    /// both sources).
+    /// The caching is not an optimisation, it is what makes the endpoint usable at all: keyless calls
+    /// count against a failed-attempt lockout, and a package that looked one node up per file earned a
+    /// 60-minute ban in a single run. One lookup now serves the whole batch — the same reason
+    /// <c>GofilePipeline</c> caches its guest account against gofile's per-IP limit.
     /// </para>
     /// <para>
-    /// Why no homepage fallback: <b>fetching the homepage is what trips Cloudflare</b>. A real run got
-    /// <c>403</c> + <c>Cf-Mitigated: challenge</c> + <c>cType:'managed'</c> on <c>GET /?_=…</c> while the
-    /// API calls from the same client went through untouched. A managed challenge validates the browser
-    /// itself, so a fallback there could never succeed — it would only turn a clear API error into a
-    /// confusing one and put more challenge-flagged traffic on the user's address.
-    /// </para>
-    /// <para>
-    /// The API labels its URL <c>?u=api</c>; we keep only the node and rebuild the query the browser
-    /// actually posts (<c>?upload_type=file&amp;utype=anon</c>, per the capture) so the request stays
-    /// byte-shaped like the one that is known to work.
+    /// A retry after an unreachable node re-enters this method with the SAME attempt id; that is taken
+    /// as "the node I just gave you is dead", so the cache is dropped and a fresh node fetched — the
+    /// rotating-node retry keeps working.
     /// </para>
     /// </summary>
     protected override async Task<(string? UploadUrl, string? Error)> DiscoverAnonymousServerAsync(AttemptContext ctx, CancellationToken ct)
     {
-        string json;
+        await _nodeGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            json = await GetAsync(ctx, ApiUploadServerUrl, headers: null, ct);
-        }
-        catch (Exception ex)
-        {
-            return (null, $"{Name}: upload-server API request failed: {ex.Message}");
-        }
+            // Add returns false when this attempt has already been handed the cached node — i.e. it came
+            // back because that node failed.
+            bool attemptRepeating = !_servedAttempts.Add(ctx.AttemptId);
+            bool usable = _cachedNode is not null
+                          && DateTime.UtcNow < _cachedNodeExpiresUtc
+                          && !attemptRepeating;
 
-        if (TryReadApiUploadNode(json) is { } node)
-        {
-            return (node + "?upload_type=file&utype=anon", null);
-        }
+            if (usable)
+            {
+                return (BuildUploadUrl(_cachedNode!), null);
+            }
 
-        // The API is the one endpoint observed to stay clear of the challenge, but say so properly if
-        // that ever changes rather than reporting an unhelpful parse failure.
-        if (LooksLikeCloudflareChallenge(json))
-        {
-            return (null,
-                $"{Name}: Cloudflare is serving this client its \"Just a moment…\" challenge instead of the "
-                + "upload-server API. A managed challenge validates the browser itself (TLS fingerprint, JS "
-                + "execution), so no header or cookie sent from here can satisfy it.");
-        }
+            string json;
+            try
+            {
+                json = await GetAsync(ctx, ApiUploadServerUrl, headers: null, ct);
+            }
+            catch (Exception ex)
+            {
+                return (null, $"{Name}: upload-server lookup failed: {ex.Message}");
+            }
 
-        return (null, $"{Name}: upload-server API returned no usable node: {Snippet(json)}");
+            if (TryReadApiUploadNode(json) is not { } node)
+            {
+                return (null, DescribeUnusableLookup(json));
+            }
+
+            _cachedNode = node;
+            _cachedNodeExpiresUtc = DateTime.UtcNow.Add(NodeCacheLifetime);
+            _servedAttempts.Clear();
+            _servedAttempts.Add(ctx.AttemptId);
+            return (BuildUploadUrl(node), null);
+        }
+        finally
+        {
+            _nodeGate.Release();
+        }
     }
 
-    /// <summary>Pulls <c>result</c> out of the upload-server envelope and strips its query, yielding
-    /// the bare <c>https://NODE/cgi-bin/upload.cgi</c>. Null when the body isn't that shape (an error
-    /// envelope, an HTML challenge page, anything unparseable) so the caller can fall back.
-    /// Internal for direct unit testing.</summary>
+    /// <summary>Explains a lookup that produced no node, preferring the host's own words. The
+    /// interesting case is the lockout — <c>{"status":429,"msg":"Too many failed attempts. Please try
+    /// again in 60 minutes."}</c> arriving with HTTP 200 — which is worth quoting verbatim, since it
+    /// tells the user both what happened and how long to wait.</summary>
+    private string DescribeUnusableLookup(string body)
+    {
+        if (LooksLikeCloudflareChallenge(body))
+        {
+            return $"{Name}: Cloudflare is serving this client its \"Just a moment…\" challenge instead of the "
+                   + "upload-server lookup. A managed challenge validates the browser itself (TLS fingerprint, "
+                   + "JS execution), so no header or cookie sent from here can satisfy it.";
+        }
+
+        return TryReadApiMessage(body) is { } msg
+            ? $"{Name}: upload-server lookup refused: {msg}"
+            : $"{Name}: upload-server lookup returned no usable node: {Snippet(body)}";
+    }
+
+    /// <summary>Builds the POST target from the node URL the API hands back. That URL already ends in
+    /// the script (<c>…/cgi-bin/upload.cgi</c> — <see cref="TryReadApiUploadNode"/> requires it and only
+    /// strips the query), so all that is added is the query the browser itself sends (captured
+    /// 2026-07-26), keeping the request byte-shaped like the known-good one.</summary>
+    private static string BuildUploadUrl(string nodeScriptUrl)
+        => nodeScriptUrl + "?upload_type=file&utype=anon";
+
+    /// <summary>Pulls <c>result</c> out of the upload-server envelope and strips its query, yielding the
+    /// bare <c>https://NODE/cgi-bin/upload.cgi</c>. Null when the body isn't that shape (a refusal
+    /// envelope, a challenge page, anything unparseable). Internal for testing.</summary>
     internal static string? TryReadApiUploadNode(string json)
     {
         string? result;
@@ -160,5 +217,25 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
 
         int q = result.IndexOf('?', StringComparison.Ordinal);
         return q < 0 ? result : result[..q];
+    }
+
+    /// <summary>The <c>msg</c> the API answered with, when it answered in its own envelope rather than
+    /// handing out a node. Null for anything that isn't that shape. Internal for testing.</summary>
+    internal static string? TryReadApiMessage(string json)
+    {
+        try
+        {
+            using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                   && doc.RootElement.TryGetProperty("msg", out System.Text.Json.JsonElement m)
+                   && m.ValueKind == System.Text.Json.JsonValueKind.String
+                   && !string.IsNullOrWhiteSpace(m.GetString())
+                ? m.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 }

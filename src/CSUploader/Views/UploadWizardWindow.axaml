@@ -129,6 +129,17 @@
       <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <!-- Grid header chrome, matching Uploads / History / Logs / Settings. The wizard's grids were the
+         only ones that set none, so they fell through to Fluent's default header — a saturated blue bar
+         that matched neither the pre-Avalonia app nor any other grid here. Window-level (like
+         SettingsView's) so both the step-1 file list and the step-2 hoster list pick it up.
+         DynamicResource so a live theme flip re-colors them. -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Background" Value="{DynamicResource DataGridHeaderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Padding" Value="6,5" />
+    </Style>
   </Window.Styles>
 
   <Grid RowDefinitions="Auto,*,Auto">
@@ -439,6 +450,22 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <TextBlock Text="{Binding MaxFileSizeDisplay}" FontSize="12"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                             Classes.blocked="{Binding !CanUse}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <!-- How many uploads this hoster takes at once for the selected account — "No limit" for most.
+                 This is the HOSTER's ceiling, not the effective one: the scheduler uses the smaller of it
+                 and the per-host setting in Settings. Re-resolves with the account dropdown (tiers differ)
+                 and is read-only display (rule 32). -->
+            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxConcurrent}" Width="100" IsReadOnly="True"
+                                    SortMemberPath="MaxConcurrentUploads"
+                                    ClipboardContentBinding="{Binding MaxConcurrentUploadsDisplay}">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding MaxConcurrentUploadsDisplay}" FontSize="12"
                              VerticalAlignment="Center" HorizontalAlignment="Right"
                              Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
                              Classes.blocked="{Binding !CanUse}" />

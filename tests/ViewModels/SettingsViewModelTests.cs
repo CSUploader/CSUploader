@@ -723,6 +723,44 @@ public class SettingsViewModelTests : IDisposable
         Assert.Fail("Condition was not met within timeout");
     }
 
+    [Fact]
+    public async Task ReloadAccountsAsync_PicksUpAnAccountAddedOUTSIDEThisView()
+    {
+        // The upload wizard's "Add account…" writes straight to the repository, and this VM is a
+        // singleton whose list is otherwise filled once at startup — so the account was invisible in
+        // Settings until the app restarted. MainViewModel calls this when the Settings tab is shown.
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+        Assert.Empty(vm.Accounts);
+
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "DDownload", Username = "added_by_wizard" });
+
+        vm.ReloadAccountsAsync();
+        await WaitForAsync(() => vm.Accounts.Count == 1);
+        Assert.Equal("added_by_wizard", Assert.Single(vm.Accounts).Username);
+    }
+
+    [Fact]
+    public async Task ReloadAccountsAsync_KeepsTheHighlightedRow()
+    {
+        // A refresh on every visit to the tab must not yank the user's selection out from under them.
+        SettingsViewModel vm = CreateVm();
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "KatFile", Username = "first" });
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "Uploady", Username = "second" });
+        await vm.LoadAsync();
+
+        FileHosterLoginDto second = vm.Accounts.Single(a => a.Username == "second");
+        vm.SelectedAccount = second;
+
+        vm.ReloadAccountsAsync();
+        await WaitForAsync(() => vm.Accounts.Count == 2 && !ReferenceEquals(vm.SelectedAccount, second));
+
+        // Re-selected by id onto the FRESH instance, not left pointing at the discarded one.
+        Assert.NotNull(vm.SelectedAccount);
+        Assert.Equal("second", vm.SelectedAccount!.Username);
+        Assert.Contains(vm.SelectedAccount, vm.Accounts);
+    }
+
     private class TestDbContextFactory(DbContextOptions<CSUploaderDbContext> options)
         : IDbContextFactory<CSUploaderDbContext>
     {

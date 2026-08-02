@@ -272,6 +272,74 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
+    /// POSTs string fields as browser-shaped <c>multipart/form-data</c> with NO file part — the shape
+    /// some endpoints insist on even when nothing is being uploaded (FILEAXA's <c>api.cgi
+    /// op=import_file</c> finalise is sent as multipart by the site's own JS, while its sibling
+    /// filehoster.io sends the same operation form-urlencoded). Same browser-shaped writer as the
+    /// file-carrying methods, so part headers match what a browser emits. Doesn't throw on non-2xx.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostMultipartAsync(
+        string url,
+        IReadOnlyDictionary<string, string> fields,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        url = MaybeRewriteToMockServer(url);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = string.Join("&", fields.Select(f => $"{f.Key}={f.Value}")),
+        };
+
+        try
+        {
+            using MultipartFormDataContent multipart = BuildBrowserShapedMultipart(out string _);
+            foreach (KeyValuePair<string, string> field in fields)
+            {
+                AddBareStringPart(multipart, field.Key, field.Value);
+            }
+
+            using HttpRequestMessage request = new(HttpMethod.Post, url) { Content = multipart };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipart, request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// POSTs a JSON body and returns the response status, body, and any <c>Set-Cookie</c>
     /// headers. Like <see cref="PostFormAsync"/>, does not throw on non-2xx — REST-style
     /// APIs (FileBoom/Keep2Share) return error envelopes with HTTP 200 alongside non-200
@@ -719,6 +787,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// <see cref="UploadPutAsync"/>/storage.to model, so the same <c>BodyFullySent</c> reclassification
     /// applies here.
     /// </remarks>
+    /// <param name="method">Verb for the chunk. Defaults to PUT (the xfspro/R2 shape). DropMeFiles
+    /// runs the same raw-body-plus-headers protocol over POST, so the verb is a parameter rather than
+    /// a second near-identical method.</param>
     public async Task<HttpResponseSnapshot> PutChunkAsync(
         string endpoint,
         Stream chunkData,
@@ -728,17 +799,20 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         DateTime dateTimeStarted,
         IReadOnlyDictionary<string, string>? headers = null,
         Func<long?>? getBytesPerSecond = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        HttpMethod? method = null)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
 
+        HttpMethod verb = method ?? HttpMethod.Put;
+
         HttpTransaction transaction = new()
         {
-            Method = "PUT",
+            Method = verb.Method,
             Url = endpoint,
             Proxy = _proxyDescription,
             StartTime = dateTimeStarted,
-            RequestBody = $"[PUT chunk @ {basePosition}: {chunkLength} bytes]",
+            RequestBody = $"[{verb.Method} chunk @ {basePosition}: {chunkLength} bytes]",
         };
 
         ProgressStreamContent? progressContent = null;
@@ -757,12 +831,19 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 cancellationToken);
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
-            using HttpRequestMessage request = new(HttpMethod.Put, endpoint) { Content = progressContent };
+            using HttpRequestMessage request = new(verb, endpoint) { Content = progressContent };
             if (headers is not null)
             {
                 foreach (KeyValuePair<string, string> h in headers)
                 {
-                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    // Content-* headers belong on the CONTENT, and .NET refuses them on the request:
+                    // TryAddWithoutValidation returns false and the header is silently dropped. A
+                    // resumable-upload protocol keyed on Content-Range would then fail with nothing
+                    // in the log to say why (DropMeFiles answers 415), so route them explicitly.
+                    if (!request.Headers.TryAddWithoutValidation(h.Key, h.Value))
+                    {
+                        progressContent.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                    }
                 }
             }
 
@@ -997,10 +1078,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                     this,
                     new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
                 cancellationToken);
-            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             multipartContent.Add(chunkPart, fileFieldName);
             chunkPart.Headers.ContentDisposition = null;
+
+            // Content-Disposition first, then Content-Type — same browser-shaped ordering (and the
+            // same reason) as AddFilePart; see the note there.
             chunkPart.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fileFieldName, fileName));
+            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
             using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
             if (headers is not null)
@@ -1215,17 +1299,24 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// with a real MIME type guessed from the extension instead of the generic
     /// <c>application/octet-stream</c>.
     /// </summary>
-    private static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
+    internal static void AddFilePart(MultipartFormDataContent multipart, HttpContent fileContent, string fieldName, string filePath)
     {
         string fileName = Path.GetFileName(filePath);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeGuesser.Guess(filePath));
 
         // Add first with the (content, name) overload so .NET sets a baseline
         // Content-Disposition; then overwrite it with our cleaner version.
         multipart.Add(fileContent, fieldName);
         fileContent.Headers.ContentDisposition = null;
 
+        // ORDER IS LOAD-BEARING: Content-Disposition must be the part's FIRST header, because that
+        // is what every browser and curl emit and some servers parse positionally rather than by
+        // name. 1fichier.com's upload.cgi is one — with Content-Type first it accepts the whole body
+        // and answers "Pas de fichier trouvé dans l'envoi" ("no file found in the upload"), a silent
+        // 200 that costs the entire transfer (isolated live 2026-07-29: same bytes, same field name,
+        // only the two headers swapped — Content-Type first 200s, Content-Disposition first 302s).
+        // Headers serialise in insertion order, so add the disposition BEFORE the content type.
         fileContent.Headers.TryAddWithoutValidation("Content-Disposition", BuildFilePartContentDisposition(fieldName, fileName));
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeGuesser.Guess(filePath));
     }
 
     /// <summary>

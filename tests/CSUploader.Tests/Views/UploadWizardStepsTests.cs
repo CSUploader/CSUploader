@@ -189,6 +189,47 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the two cap columns render the row's text, including "No limit" for the common case ──
+
+    [AvaloniaFact]
+    public void HostersGrid_ShowsMaxFileSizeAndMaxParallelColumns()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel capped = new(
+            "DropMeFiles",
+            [],
+            supportsAnonymous: true,
+            maxFileSizeResolver: _ => 53_687_091_200,
+            maxConcurrentResolver: _ => 5);
+        FileHosterSelectionViewModel uncapped = new(
+            "Catbox",
+            [new FileHosterLoginDto { FileHosterName = "Catbox", Username = "me" }],
+            maxFileSizeResolver: _ => null,
+            maxConcurrentResolver: _ => null);
+        harness.Vm.FileHosters.Add(capped);
+        harness.Vm.FileHosters.Add(uncapped);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            string noLimit = CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_NoLimit"];
+
+            List<string?> cappedTexts = RowFor(wizard.fileHostersGrid, capped)
+                .GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            List<string?> uncappedTexts = RowFor(wizard.fileHostersGrid, uncapped)
+                .GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+
+            Assert.Contains("5", cappedTexts);                 // the hoster's own parallel ceiling
+            Assert.Contains("50 GiB", cappedTexts);            // …alongside its size cap
+            Assert.Equal(2, uncappedTexts.Count(t => t == noLimit)); // both columns read "No limit"
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the "Add account…" link runs AddAccountForHosterCommand for its row ──
 
     [AvaloniaFact]

@@ -576,6 +576,7 @@ Wizard_Step2_Col_Use               = 使用
 Wizard_Step2_Col_FileHoster        = 文件托管商
 Wizard_Step2_Col_Account           = 账户
 Wizard_Step2_Col_MaxFileSize       = 最大文件大小
+Wizard_Step2_Col_MaxConcurrent     = 最大并行数
 Wizard_Step2_NoLimit               = 无限制
 Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）

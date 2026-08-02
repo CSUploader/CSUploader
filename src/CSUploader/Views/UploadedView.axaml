@@ -109,11 +109,18 @@
 
     <!-- Rule-20 cell classes: DataGridTextColumn has no ElementStyle, so per-cell trim/tooltip/
          alignment/brush map to CellStyleClasses + these DataGridCell.<class> TextBlock descendant styles.
-         The ToolTip.Tip Binding setters resolve against the row item (the cell TextBlock's DataContext). -->
+
+         The ToolTip.Tip setters read $self.Text, NOT the row item's property. These are DESCENDANT
+         selectors, and showing a tooltip presents its string inside the element it belongs to — the
+         presenter builds a TextBlock whose DataContext is that string, which the selector matches
+         too, and a DataContext-relative binding then logs "Could not find a matching property
+         accessor for 'FileDirectory' on 'System.String'" on every hover. Each cell's Text is already
+         bound to exactly the value its tooltip shows, and trimming is visual only, so $self.Text is
+         the same string without the dependency. Same fix as LogsView's msg/url cells. -->
     <Style Selector="DataGridCell.path-cell TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-      <Setter Property="ToolTip.Tip" Value="{Binding FileDirectory}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}" />
     </Style>
     <Style Selector="DataGridCell.size-cell TextBlock">
       <Setter Property="HorizontalAlignment" Value="Right" />
@@ -132,7 +139,7 @@
       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
       <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, Segoe UI" />
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-      <Setter Property="ToolTip.Tip" Value="{Binding FileHash}" />
+      <Setter Property="ToolTip.Tip" Value="{Binding $self.Text}" />
     </Style>
 
     <!-- URL cell (port rule 25/28): accent link, hand cursor, underline on hover. -->

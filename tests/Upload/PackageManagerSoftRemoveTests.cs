@@ -41,6 +41,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     private readonly FileHosterLoginRepository _loginRepo;
     private readonly UploadScheduler _scheduler;
     private readonly PackageManager _packageManager;
+    private readonly RecordingLogger _logger = new();
 
     // Local manager+scheduler pairs created by individual tests (the "fresh restart" simulations).
     // Tracked so DisposeAsync can stop each scheduler and drain its fire-and-forget persistence —
@@ -50,11 +51,26 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
     public PackageManagerSoftRemoveTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
+        // A NAMED shared-cache in-memory database addressed by connection STRING — not a single
+        // shared SqliteConnection object.
+        //
+        // These tests observe a fire-and-forget write by polling for it, so a reader and a writer
+        // are deliberately in flight at once. Pointing every DbContext at one SqliteConnection put
+        // both on that one connection, which is not thread-safe: a measured probe of exactly this
+        // shape failed 41 of 200 writes with "SQLite Error 5: unable to delete/modify user-function
+        // due to active statements" — writes only, reads never. RemovePackage catches and logs that,
+        // so the row silently never flipped and the poll burned its whole budget: the ~1-in-10
+        // full-suite flake. Widening the timeout (50×50 ms → 100×100 ms) could never have fixed it.
+        //
+        // With a connection string each context opens its OWN connection into the shared cache and
+        // SQLite does the locking. The same probe then reports 0 errors. Production was never
+        // affected — it runs a file database where every context gets a pooled connection.
+        string connectionString = $"Data Source=csu-tests-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        _connection = new SqliteConnection(connectionString);
+        _connection.Open(); // keeper: a shared-cache in-memory db lives only while one connection is open
 
         DbContextOptions<CSUploaderDbContext> options = new DbContextOptionsBuilder<CSUploaderDbContext>()
-            .UseSqlite(_connection)
+            .UseSqlite(connectionString)
             .Options;
         _factory = new TestDbContextFactory(options);
         using (CSUploaderDbContext db = _factory.CreateDbContext())
@@ -69,7 +85,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         AppSettings settings = new();
         DefaultFileHosterRegistry registry = new([]);
         _scheduler = new UploadScheduler(settings, BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), registry);
-        _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, _loginRepo, Mock.Of<IAppLogger>(), registry);
+        _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, _loginRepo, _logger, registry);
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
@@ -129,7 +145,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             UploadPackageDto? p = await _packageRepo.FindAsync(packageId);
             return p?.IsRemovedFromUploads == true ? p : null;
         });
-        Assert.NotNull(reloaded);
+        Assert.True(reloaded is not null, PersistenceDiagnostics("The package's soft-remove"));
         Assert.True(reloaded!.IsRemovedFromUploads);
     }
 
@@ -148,7 +164,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             UploadPackageDto? p = await _packageRepo.FindAsync(packageId);
             return p?.IsRemovedFromUploads == true ? p : null;
         });
-        Assert.NotNull(reloaded);
+        Assert.True(reloaded is not null, PersistenceDiagnostics("The package's soft-remove"));
         Assert.Equal("pkg", reloaded!.Name);
     }
 
@@ -1275,15 +1291,67 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// Records what <see cref="PackageManager"/> logs. Its persistence callbacks CATCH every
+    /// exception and log it ("Failed to soft-remove package from Uploads: …"), so with a
+    /// <c>Mock.Of&lt;IAppLogger&gt;()</c> a write that dies takes its own diagnosis with it and the
+    /// test can only report a bare <c>Assert.NotNull() Failure</c> ten seconds later. Feeding the
+    /// captured lines into the assertion turns the next flake into evidence instead of a mystery.
+    /// </summary>
+    private sealed class RecordingLogger : IAppLogger
+    {
+        private readonly List<string> _messages = [];
+
+        public event LogEventHandler? OnLogOutput;
+
+        public IReadOnlyList<string> Messages
+        {
+            get
+            {
+                lock (_messages)
+                {
+                    return [.. _messages];
+                }
+            }
+        }
+
+        public void Log(
+            object? sender,
+            LogType logType,
+            string text,
+            HttpTransaction? httpTransaction = null,
+            string filePath = "",
+            string function = "",
+            int lineNumber = 0)
+        {
+            lock (_messages)
+            {
+                _messages.Add($"[{logType}] {text}");
+            }
+
+            _ = OnLogOutput; // nothing subscribes in these tests; recording is the whole job
+        }
+    }
+
+    /// <summary>Assertion message carrying whatever the manager logged — see <see cref="RecordingLogger"/>.</summary>
+    private string PersistenceDiagnostics(string what)
+        => _logger.Messages.Count == 0
+            ? $"{what} never landed, and the manager logged nothing at all."
+            : $"{what} never landed. The manager logged:{Environment.NewLine}  " + string.Join(Environment.NewLine + "  ", _logger.Messages);
+
     private static async Task<T?> WaitForAsync<T>(Func<Task<T?>> probe)
         where T : class
     {
-        // RemovePackage's persistence is fire-and-forget; poll until it commits. The loop returns
-        // the instant the probe succeeds, so the happy path is unaffected — the generous 10s budget
-        // (100×100 ms) only matters under parallel-run thread-pool congestion, where a correct-but-
-        // slow persistence Task.Run can sit queued for seconds before a worker picks it up.
-        // (TestThreadPoolInitializer raises the worker floor to make that rare; this wider budget is
-        // belt-and-suspenders so a slow write is never declared a failure prematurely.)
+        // RemovePackage's persistence is fire-and-forget; poll until it commits. The loop returns the
+        // instant the probe succeeds, so the happy path is unaffected and the budget only bounds how
+        // long a genuine failure takes to surface.
+        //
+        // The budget is NOT what made this reliable, and the note that used to live here — blaming
+        // thread-pool congestion delaying a correct-but-slow write — was wrong. The flake was a write
+        // that never happened at all: the fixture shared one SqliteConnection between this poll and
+        // the writer, which is not thread-safe, so the write threw and RemovePackage swallowed it.
+        // See the connection-string comment in the constructor. Widening this loop (it was already
+        // taken from 50×50 ms to 100×100 ms once) could never have helped.
         for (int i = 0; i < 100; i++)
         {
             T? result = await probe();

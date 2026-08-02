@@ -584,6 +584,7 @@ Wizard_Step2_Col_Use               = Dùng
 Wizard_Step2_Col_FileHoster        = Nhà lưu trữ tập tin
 Wizard_Step2_Col_Account           = Tài khoản
 Wizard_Step2_Col_MaxFileSize       = Kích thước tệp tối đa
+Wizard_Step2_Col_MaxConcurrent     = Tối đa song song
 Wizard_Step2_NoLimit               = Không giới hạn
 Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)

@@ -192,6 +192,42 @@ public class LogsViewTests
         }
     }
 
+    // ── Opening that tooltip must not spray binding errors. The cell TextBlock's DataContext is the row
+    //    item, so `{Binding Message}` resolves — but the tooltip PRESENTS a string, and the presenter
+    //    builds its own TextBlock whose DataContext is that string. A descendant selector matches it too,
+    //    and re-applies `{Binding Message}` against a System.String. Harmless to the UI, but it prints
+    //    "Could not find a matching property accessor for 'Message' on 'System.String'" on every hover. ──
+
+    [AvaloniaFact]
+    public void OpeningTheMessageTooltip_RaisesNoBindingErrors()
+    {
+        using VmHarness harness = new();
+        harness.Vm.AddLogEntry(Event(LogType.Status, "a long message that should be trimmed with an ellipsis"));
+        (Window window, LogsView view) = Show(harness.Vm);
+        using BindingErrorSink sink = BindingErrorSink.Install();
+        try
+        {
+            DataGridCell cell = view.StatusLogGrid.GetVisualDescendants()
+                .OfType<DataGridCell>()
+                .First(c => c.Classes.Contains("msg-cell"));
+            TextBlock text = cell.GetVisualDescendants().OfType<TextBlock>().First();
+
+            ToolTip.SetIsOpen(text, true);
+            Dispatcher.UIThread.RunJobs();
+            ToolTip.SetIsOpen(text, false);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(sink.Errors);
+
+            // …and the tooltip still shows the full, untrimmed message.
+            Assert.Equal(harness.Vm.StatusLogs[0].Message, ToolTip.GetTip(text));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Rule 32 (mode half): every converter column across the four grids binds OneWay, so Avalonia's default
     //    TwoWay never invokes the throwing ConvertBack. A direct binding-mode assertion — mutation-resistant
     //    regardless of the source's mutability (LogEntryViewModel is immutable, so a wrong TwoWay mode leaves

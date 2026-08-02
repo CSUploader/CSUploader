@@ -217,6 +217,59 @@ public class FileHosterSelectionViewModelTests
         Assert.Contains(nameof(FileHosterSelectionViewModel.MaxFileSizeDisplay), changed);
     }
 
+    // ── "Max parallel" column: the same shape as "Max file size", since both caps are per-tier ──
+
+    [Fact]
+    public void MaxConcurrent_WithoutResolver_IsEmpty()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", []);
+
+        Assert.Null(vm.MaxConcurrentUploads);
+        Assert.Equal(string.Empty, vm.MaxConcurrentUploadsDisplay);
+    }
+
+    [Fact]
+    public void MaxConcurrent_WithoutCap_ShowsLocalizedNoLimit()
+    {
+        // The common case by a wide margin — most hosters declare no concurrency limit at all.
+        FileHosterSelectionViewModel vm = new("Rapidgator", [Login(1, "alice")], maxConcurrentResolver: _ => null);
+
+        Assert.Null(vm.MaxConcurrentUploads);
+        Assert.Equal(Localizer.Instance["Wizard_Step2_NoLimit"], vm.MaxConcurrentUploadsDisplay);
+    }
+
+    [Fact]
+    public void MaxConcurrent_WithCap_ShowsTheNumber()
+    {
+        FileHosterSelectionViewModel vm = new("DropMeFiles", [], supportsAnonymous: true, maxConcurrentResolver: _ => 5);
+
+        Assert.Equal(5, vm.MaxConcurrentUploads);
+        Assert.Equal("5", vm.MaxConcurrentUploadsDisplay);
+    }
+
+    [Fact]
+    public void MaxConcurrent_ReResolvesAndNotifies_WhenAccountChanges()
+    {
+        // Tier-dependent, the ufile shape: free allows fewer parallel uploads than a paid account.
+        FileHosterLoginDto[] accounts = [Login(1, "alice")];
+        FileHosterSelectionViewModel vm = new(
+            "Ufile",
+            accounts,
+            supportsAnonymous: true,
+            maxConcurrentResolver: acct => acct?.IsAnonymous == true ? 10 : 30);
+
+        Assert.Equal(30, vm.MaxConcurrentUploads);
+
+        List<string?> changed = [];
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.SelectedAccount = vm.AccountOptions[^1]; // the synthetic anonymous entry
+
+        Assert.Equal(10, vm.MaxConcurrentUploads);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.MaxConcurrentUploads), changed);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.MaxConcurrentUploadsDisplay), changed);
+    }
+
     private static FileHosterLoginDto Login(int id, string username) => new()
     {
         Id = id,

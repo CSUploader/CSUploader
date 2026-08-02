@@ -609,6 +609,7 @@ Wizard_Step2_Col_Use               = Use
 Wizard_Step2_Col_FileHoster        = File Hoster
 Wizard_Step2_Col_Account           = Account
 Wizard_Step2_Col_MaxFileSize       = Max file size
+Wizard_Step2_Col_MaxConcurrent     = Max parallel
 Wizard_Step2_NoLimit               = No limit
 Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)

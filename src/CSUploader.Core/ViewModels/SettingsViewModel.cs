@@ -648,6 +648,34 @@ public partial class SettingsViewModel(
         }
     }
 
+    /// <summary>
+    /// Re-reads the accounts grid from the repository. Fire-and-forget by design — the caller is a
+    /// property-changed handler on the UI thread (the Settings tab becoming visible), which can't
+    /// await. Exceptions are logged rather than thrown, because a failed refresh must never take the
+    /// app down over what is only a staleness fix.
+    /// <para>
+    /// This exists because accounts can be created OUTSIDE this view — the upload wizard's
+    /// "Add account…" writes straight to the repository — and this VM is a singleton that would
+    /// otherwise keep the list it loaded at startup.
+    /// </para>
+    /// </summary>
+    public void ReloadAccountsAsync()
+    {
+        _ = ReloadAccountsCoreAsync();
+
+        async Task ReloadAccountsCoreAsync()
+        {
+            try
+            {
+                await LoadAccountsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(this, LogType.Error, $"Failed to refresh the accounts list: {ex.Message}");
+            }
+        }
+    }
+
     private async Task LoadAccountsAsync(CancellationToken cancellationToken = default)
     {
         // Preserve the selected row across the rebuild. SelectedItem binds to SelectedAccount, and

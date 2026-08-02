@@ -54,18 +54,27 @@ internal static class BitmapImageResources
         ("AccountImage", "account.png"),
 
         // File Hoster Images
+        // "1Fichier" keeps its leading digit and lowercases the rest, exactly as
+        // HosterIconConverter builds the key — hence "1fichier", not "1Fichier".
+        ("FileHoster1fichierImage", "FileHosters/filehoster_1fichier.png"),
         ("FileHosterAlfafileImage", "FileHosters/filehoster_alfafile.png"),
         ("FileHosterBruploadImage", "FileHosters/filehoster_brupload.png"),
         ("FileHosterBuzzheavierImage", "FileHosters/filehoster_buzzheavier.png"),
         ("FileHosterCatboxImage", "FileHosters/filehoster_catbox.png"),
+        ("FileHosterClicknuploadImage", "FileHosters/filehoster_clicknupload.png"),
         ("FileHosterDropgalaxyImage", "FileHosters/filehoster_dropgalaxy.png"),
+        ("FileHosterDropmefilesImage", "FileHosters/filehoster_dropmefiles.png"),
         // Keys mirror HosterIconConverter's normalisation (spaces/hyphens dropped, dots KEPT),
         // so "Send.now" resolves to FileHosterSend.nowImage — same shape as Storage.to/Transfer.it.
         ("FileHosterSend.nowImage", "FileHosters/filehoster_send.now.png"),
+        ("FileHosterSendspaceImage", "FileHosters/filehoster_sendspace.png"),
         ("FileHosterUploadyImage", "FileHosters/filehoster_uploady.png"),
+        ("FileHosterDdownloadImage", "FileHosters/filehoster_ddownload.png"),
         ("FileHosterExloadImage", "FileHosters/filehoster_exload.png"),
         ("FileHosterExtmatrixImage", "FileHosters/filehoster_extmatrix.png"),
+        ("FileHosterFileaxaImage", "FileHosters/filehoster_fileaxa.png"),
         ("FileHosterFileboomImage", "FileHosters/filehoster_fileboom.png"),
+        ("FileHosterFilestankImage", "FileHosters/filehoster_filestank.png"),
         ("FileHosterFlashbitImage", "FileHosters/filehoster_flashbit.png"),
         ("FileHosterGigapetaImage", "FileHosters/filehoster_gigapeta.png"),
         ("FileHosterFilegardenImage", "FileHosters/filehoster_filegarden.png"),
@@ -89,8 +98,13 @@ internal static class BitmapImageResources
         ("FileHosterTezfilesImage", "FileHosters/filehoster_tezfiles.png"),
         ("FileHosterTransfer.itImage", "FileHosters/filehoster_transfer.it.png"),
         ("FileHosterUploadgigImage", "FileHosters/filehoster_uploadgig.png"),
+        ("FileHosterUploadrarImage", "FileHosters/filehoster_uploadrar.png"),
+        ("FileHosterTurbobitImage", "FileHosters/filehoster_turbobit.png"),
         ("FileHosterUfileImage", "FileHosters/filehoster_ufile.png"),
         ("FileHosterUpstoreImage", "FileHosters/filehoster_upstore.png"),
+        ("FileHosterUsersdriveImage", "FileHosters/filehoster_usersdrive.png"),
+        ("FileHosterVikingfileImage", "FileHosters/filehoster_vikingfile.png"),
+        ("FileHosterWebshareImage", "FileHosters/filehoster_webshare.png"),
         ("FileHosterWormholeImage", "FileHosters/filehoster_wormhole.png"),
 
         // Logo Images
