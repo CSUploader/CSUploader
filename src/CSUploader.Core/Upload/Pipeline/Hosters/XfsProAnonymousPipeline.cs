@@ -47,6 +47,34 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
     /// <see cref="FilehosterIoPipeline"/> uses.</summary>
     private const long ChunkSizeBytes = 100L * 1024 * 1024;
 
+    /// <summary>
+    /// How many times a single lookup will re-draw when <c>/server</c> keeps offering a node that was
+    /// recently seen to fail. The rotation is small — DailyUploads served four distinct nodes across
+    /// twelve consecutive lookups — so a handful of draws is enough to step past one bad member, and
+    /// each draw is a tiny GET.
+    /// </summary>
+    private const int NodeDrawsPerLookup = 4;
+
+    /// <summary>
+    /// Total times the file may be sent, counting the first. Every retry re-sends from byte 0 (see
+    /// <see cref="UploadAndFinaliseAsync"/>), so this stays deliberately small.
+    /// </summary>
+    private const int MaxNodeAttempts = 3;
+
+    /// <summary>
+    /// How long a node that answered with a server fault is stepped over. A cooldown rather than a
+    /// verdict: the host does fix nodes, and this must not poison a long-running session.
+    /// </summary>
+    private static readonly TimeSpan DeadNodeCooldown = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Nodes seen answering a chunk with 5xx, and when. Keyed by the full cgi-base URL, so the two
+    /// hosts on this base cannot collide. An INSTANCE field, and these pipelines are registered as
+    /// singletons — which is the point: the first file to draw a dead node is what spares the rest of
+    /// the batch from drawing it.
+    /// </summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _nodeFailedUtc = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _finaliseOverride;
     private readonly Func<string, long, long, Task<HttpResponseSnapshot>>? _chunkOverride;
@@ -299,7 +327,37 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
         ["Referer"] = Host + "/",
     };
 
+    /// <summary>
+    /// Draws a node, stepping over any this pipeline has recently seen fail.
+    /// <para>
+    /// <c>/server</c> hands back a rotating member of a small pool and a dead one stays dead: measured
+    /// on DailyUploads, <c>dn12</c> answered three of three PUTs with 500 while <c>cdn89</c>,
+    /// <c>d900</c> and <c>cdn181</c> each took the same megabyte three of three. Twelve consecutive
+    /// lookups drew <c>dn12</c> twice. So without this, roughly one upload in six was handed a node
+    /// that could not possibly accept it — and, being a singleton, the pipeline was in a position to
+    /// know better.
+    /// </para>
+    /// </summary>
     private async Task<(string? CgiBase, string? Error)> GetNodeAsync(AttemptContext ctx)
+    {
+        (string? CgiBase, string? Error) drawn = (null, null);
+
+        for (int draw = 0; draw < NodeDrawsPerLookup; draw++)
+        {
+            drawn = await DrawNodeAsync(ctx);
+            if (drawn.CgiBase is null || !RecentlyFailed(drawn.CgiBase))
+            {
+                return drawn;
+            }
+        }
+
+        // Every draw came back a node we just saw fail. Send to the last one anyway rather than fail
+        // the file on our own bookkeeping — the mark is a cooldown, not a verdict.
+        ctx.Logger.Log(this, LogType.Status, $"{Name}: every upload node offered was one that recently failed; trying {drawn.CgiBase} regardless.");
+        return drawn;
+    }
+
+    private async Task<(string? CgiBase, string? Error)> DrawNodeAsync(AttemptContext ctx)
     {
         HttpResponseSnapshot snap;
         try
@@ -320,22 +378,42 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
         return ParseNodeResponse(snap.Body, snap.StatusCode, Name);
     }
 
+    private bool RecentlyFailed(string cgiBase)
+    {
+        if (!_nodeFailedUtc.TryGetValue(cgiBase, out DateTime failedUtc))
+        {
+            return false;
+        }
+
+        if (DateTime.UtcNow - failedUtc < DeadNodeCooldown)
+        {
+            return true;
+        }
+
+        _nodeFailedUtc.TryRemove(cgiBase, out _);
+        return false;
+    }
+
     /// <summary>
-    /// Runs the upload, retrying ONCE against a freshly looked-up node when the first one turns out
-    /// to be down. <c>/server</c> rotates and some nodes are dead (see <see cref="IsNodeUnavailable"/>),
-    /// so a single bad draw would otherwise fail the file outright.
+    /// Runs the upload, moving to a freshly drawn node when the one in hand turns out to be down
+    /// (see <see cref="IsNodeUnavailable"/>), up to <see cref="MaxNodeAttempts"/> sends in total.
     /// <para>
-    /// The retry restarts from chunk 0 under a NEW SID, because the server accumulates chunks by SID
-    /// on the node that received them — there is nothing on the fresh node to resume. That is only
-    /// affordable because nothing exists server-side until the finalise, and it is bounded to one
-    /// extra attempt.
+    /// Each failed node is recorded, which is what makes the retry converge: the next draw steps over
+    /// it, and so does every other file in the batch (<see cref="GetNodeAsync"/>).
+    /// </para>
+    /// <para>
+    /// A retry restarts from chunk 0 under a NEW SID, because the server accumulates chunks by SID on
+    /// the node that received them — there is nothing on a fresh node to resume, and re-sending under
+    /// the old SID could double-append whatever the failed PUT did store. That is affordable only
+    /// because nothing exists server-side until the finalise, and it is why the attempt count stays
+    /// small: the cost of each retry is the whole file.
     /// </para>
     /// </summary>
     private async Task<(string? Url, string? Error)> UploadAndFinaliseAsync(AttemptContext ctx, string cgiBase)
     {
         string current = cgiBase;
 
-        for (int attempt = 0; ; attempt++)
+        for (int attempt = 1; ; attempt++)
         {
             string sid = string.Create(CultureInfo.InvariantCulture, $"{Random.Shared.NextInt64(1_000_000_000_000_000, 9_999_999_999_999_999)}");
             (string? url, string? error, bool nodeDown) = await AttemptAsync(ctx, current, sid);
@@ -345,18 +423,26 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
                 return (url, null);
             }
 
-            if (!nodeDown || attempt >= 1)
+            if (!nodeDown)
+            {
+                // The file was refused, not the node — a different node would refuse it too.
+                return (null, error);
+            }
+
+            // Record it even when this file is out of attempts: the rest of the batch still benefits.
+            _nodeFailedUtc[current] = DateTime.UtcNow;
+
+            if (attempt >= MaxNodeAttempts)
             {
                 return (null, error);
             }
 
-            ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node is down ({current}); retrying once against a fresh one.");
+            ctx.Logger.Log(this, LogType.Status, $"{Name}: upload node {current} is down; re-sending to a different one (attempt {(attempt + 1).ToString(CultureInfo.InvariantCulture)} of {MaxNodeAttempts.ToString(CultureInfo.InvariantCulture)}).");
 
             (string? fresh, string? _) = await GetNodeAsync(ctx);
-            if (fresh is null || string.Equals(fresh, current, StringComparison.OrdinalIgnoreCase))
+            if (fresh is null)
             {
-                // No different node to move to — report the node's own failure, which is the
-                // diagnosis, rather than the lookup's.
+                // The lookup itself failed — report the node's fault, which is the diagnosis.
                 return (null, error);
             }
 

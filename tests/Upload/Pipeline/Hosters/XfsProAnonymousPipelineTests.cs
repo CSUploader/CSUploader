@@ -106,7 +106,7 @@ public class XfsProAnonymousPipelineTests
     }
 
     [Fact]
-    public async Task DeadNode_RetriesOnceAgainstAFreshOne()
+    public async Task DeadNode_ResendsAgainstAFreshOne()
     {
         // /server rotates and some nodes are simply down: measured on DailyUploads, where dn12
         // answered every PUT with a 500 while cdn89 and cdn183 took the same bytes. A single bad draw
@@ -137,9 +137,109 @@ public class XfsProAnonymousPipelineTests
     }
 
     [Fact]
-    public async Task DeadNodes_StopAfterExactlyOneRetry()
+    public async Task DeadNodeOfferedAgain_IsRedrawnPastInsteadOfSurrenderedTo()
     {
-        // The retry re-sends the whole file under a fresh SID, so it must never become a loop.
+        // The reported failure. /server draws from a small pool — twelve consecutive live lookups
+        // returned four distinct nodes — so the retry's lookup lands back on the SAME dead node
+        // roughly one time in six. This used to give up right there ("no different node to move to"),
+        // turning a recoverable draw into a failed file. The lookup must step past it instead.
+        Queue<string> nodes = new([
+            """{"url":"https://dn12.dailyuploads.net/cgi-bin"}""",
+            """{"url":"https://dn12.dailyuploads.net/cgi-bin"}""",   // the retry is offered it AGAIN…
+            """{"url":"https://cdn89.dailyuploads.net/cgi-bin"}""",  // …and must keep drawing to here
+        ]);
+        List<string> chunkUrls = [];
+
+        DailyUploadsPipeline pipeline = new(
+            getOverride: _ => Task.FromResult(new HttpResponseSnapshot(200, nodes.Dequeue(), Array.Empty<string>())),
+            chunkOverride: (url, _, _) =>
+            {
+                chunkUrls.Add(url);
+                return Task.FromResult(url.Contains("dn12", StringComparison.Ordinal)
+                    ? new HttpResponseSnapshot(500, "<html>Internal Server Error</html>", Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, ChunkOkJson, Array.Empty<string>()));
+            },
+            finaliseOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, FinaliseCodeOnlyJson, Array.Empty<string>())));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext("DailyUploads"), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("https://dailyuploads.net/1n9lpl4eakkc", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+
+        // And the second offer of dn12 cost NO bytes — it was skipped at the lookup, not sent to.
+        Assert.Equal(2, chunkUrls.Count);
+        Assert.Contains("cdn89", chunkUrls[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ANodeThatFailed_IsSkippedForTheRestOfTheBatch()
+    {
+        // A dead node stays dead — measured, not assumed: dn12 answered three of three PUTs with 500
+        // while three sibling nodes each took the same megabyte three of three. These pipelines are
+        // registered as singletons, so the file that discovers a bad node can spare every later file
+        // from ever sending it a byte. Without this, each file in a batch re-discovers it the
+        // expensive way, mid-transfer.
+        Queue<string> nodes = new([
+            """{"url":"https://dn12.dailyuploads.net/cgi-bin"}""",   // file 1 draws the dead node…
+            """{"url":"https://cdn89.dailyuploads.net/cgi-bin"}""",  // …and recovers onto a good one
+            """{"url":"https://dn12.dailyuploads.net/cgi-bin"}""",   // file 2 is offered it again…
+            """{"url":"https://cdn181.dailyuploads.net/cgi-bin"}""", // …and must never touch it
+        ]);
+        List<string> chunkUrls = [];
+
+        DailyUploadsPipeline pipeline = new(
+            getOverride: _ => Task.FromResult(new HttpResponseSnapshot(200, nodes.Dequeue(), Array.Empty<string>())),
+            chunkOverride: (url, _, _) =>
+            {
+                chunkUrls.Add(url);
+                return Task.FromResult(url.Contains("dn12", StringComparison.Ordinal)
+                    ? new HttpResponseSnapshot(500, "<html>Internal Server Error</html>", Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, ChunkOkJson, Array.Empty<string>()));
+            },
+            finaliseOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, FinaliseCodeOnlyJson, Array.Empty<string>())));
+
+        await DrainAsync(pipeline.RunAsync(MakeContext("DailyUploads"), CancellationToken.None));
+        List<UploadEvent> second = await DrainAsync(pipeline.RunAsync(MakeContext("DailyUploads"), CancellationToken.None));
+
+        Assert.Empty(second.OfType<AttemptFailed>());
+        Assert.Single(second.OfType<TransferCompleted>());
+
+        // Three sends in total, and only the FIRST file ever reached dn12.
+        Assert.Equal(3, chunkUrls.Count);
+        Assert.Single(chunkUrls, u => u.Contains("dn12", StringComparison.Ordinal));
+        Assert.Contains("cdn181", chunkUrls[2], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EveryNodeOfferedIsOneThatFailed_StillSendsRatherThanGivingUpOnOurOwnBookkeeping()
+    {
+        // The failure record is a cooldown, not a verdict: the host does fix nodes, and a pool this
+        // small could otherwise talk the client out of uploading at all.
+        List<string> chunkUrls = [];
+        int chunkCalls = 0;
+
+        DailyUploadsPipeline pipeline = new(
+            getOverride: _ => Task.FromResult(new HttpResponseSnapshot(200, """{"url":"https://dn12.dailyuploads.net/cgi-bin"}""", Array.Empty<string>())),
+            chunkOverride: (url, _, _) =>
+            {
+                chunkUrls.Add(url);
+                return Task.FromResult(++chunkCalls == 1
+                    ? new HttpResponseSnapshot(500, "boom", Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, ChunkOkJson, Array.Empty<string>()));
+            },
+            finaliseOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, FinaliseCodeOnlyJson, Array.Empty<string>())));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext("DailyUploads"), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, chunkUrls.Count);   // it sent to the only node on offer a second time
+    }
+
+    [Fact]
+    public async Task DeadNodes_StopAfterAFixedNumberOfSends()
+    {
+        // Each retry re-sends the WHOLE file under a fresh SID, so this must never become a loop —
+        // that cost is the reason the ceiling is low rather than generous.
         int chunkCalls = 0;
         Queue<string> nodes = new(["""{"url":"https://dn12.a/cgi-bin"}""", """{"url":"https://dn13.a/cgi-bin"}"""]);
 
@@ -151,7 +251,7 @@ public class XfsProAnonymousPipelineTests
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext("DailyUploads"), CancellationToken.None));
 
         Assert.Contains("500", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
-        Assert.Equal(2, chunkCalls); // the original send + exactly one retry
+        Assert.Equal(3, chunkCalls); // the original send + two retries, then it stops
     }
 
     [Fact]
