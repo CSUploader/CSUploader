@@ -152,8 +152,8 @@ public static class ServiceRegistration
         // VikingFile — anonymous only (no auth service needed): its own documented API, get-upload-url
         // → presigned R2 part PUTs → complete-upload. See VikingFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.VikingFilePipeline>();
-        // FILEAXA — classic XFileSharing on the API-key path; DI fills its auth service + repo like the
-        // rest of the family. Account-only, no route overrides needed. See FileaxaPipeline.cs.
+        // FILEAXA — ANONYMOUS xfspro chunked upload (no auth service needed): GET /server → put_chunk.cgi
+        // → multipart api.cgi with an empty sess_id. See FileaxaPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileaxaPipeline>();
         // Uploadrar — classic XFileSharing on the API-key path, so it needs the same auth service +
         // repo as its siblings. Account-only, and it blocks common media extensions (checked before

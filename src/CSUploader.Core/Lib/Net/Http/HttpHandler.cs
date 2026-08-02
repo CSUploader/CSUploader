@@ -272,6 +272,74 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     }
 
     /// <summary>
+    /// POSTs string fields as browser-shaped <c>multipart/form-data</c> with NO file part — the shape
+    /// some endpoints insist on even when nothing is being uploaded (FILEAXA's <c>api.cgi
+    /// op=import_file</c> finalise is sent as multipart by the site's own JS, while its sibling
+    /// filehoster.io sends the same operation form-urlencoded). Same browser-shaped writer as the
+    /// file-carrying methods, so part headers match what a browser emits. Doesn't throw on non-2xx.
+    /// </summary>
+    public async Task<HttpResponseSnapshot> PostMultipartAsync(
+        string url,
+        IReadOnlyDictionary<string, string> fields,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        url = MaybeRewriteToMockServer(url);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = url,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = string.Join("&", fields.Select(f => $"{f.Key}={f.Value}")),
+        };
+
+        try
+        {
+            using MultipartFormDataContent multipart = BuildBrowserShapedMultipart(out string _);
+            foreach (KeyValuePair<string, string> field in fields)
+            {
+                AddBareStringPart(multipart, field.Key, field.Value);
+            }
+
+            using HttpRequestMessage request = new(HttpMethod.Post, url) { Content = multipart };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipart, request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = 0;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// POSTs a JSON body and returns the response status, body, and any <c>Set-Cookie</c>
     /// headers. Like <see cref="PostFormAsync"/>, does not throw on non-2xx — REST-style
     /// APIs (FileBoom/Keep2Share) return error envelopes with HTTP 200 alongside non-200
