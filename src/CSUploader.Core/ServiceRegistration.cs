@@ -165,6 +165,10 @@ public static class ServiceRegistration
         // key anywhere a user can reach. Account-only, and it blocks image extensions (checked before
         // upload). Takes its node from GET /server, not the page's form action. See FiledotPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FiledotPipeline>();
+        // TeraBytez — XFileSharing on the web-form (sign-in) path; it has no REST API at all
+        // (/api/upload/server 404s). Account-only, 100 MB per file on a free account.
+        // See TeraBytezPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TeraBytezPipeline>();
         // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
         // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();

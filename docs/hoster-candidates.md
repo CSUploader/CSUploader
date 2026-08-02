@@ -82,7 +82,13 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 > `put_chunk.cgi`, so the node lookup is shared family plumbing rather than an anonymity signal. It is
 > now **SHIPPED as account-only** (`FiledotPipeline`, web-form/sign-in path). The correction above
 > stands — the lookup is still the right question to ask — but the answer to check is the upload's,
-> not the lookup's. **kenfiles.com, terabytez.org and fastfile.cc remain untried.**
+> not the lookup's. **All three of the rest were then probed the same way (2026-08-02) and all three
+> are account-only too**: kenfiles.com, terabytez.org and fastfile.cc each take an anonymous
+> `put_chunk.cgi` and answer `{"status":"OK"}`, then refuse at `import_file` with `uploads are not
+> enabled for your account type`. So does datavaults.co, found later on the same shape. **A node
+> accepting bytes proves nothing** — the same late-enforcement trap as Uploadrar's extension list.
+> That closes this seam: five hosts answered `/server`, exactly two upload anonymously (FILEAXA,
+> DailyUploads). **TeraBytez is now SHIPPED as account-only** (`TeraBytezPipeline`).
 >
 > ✅ **The four rows this section had never actually probed are now done too (2026-08-02):
 > UploadBank, TeraBytez, Fileq and Filecat.** None renders a `utype=anon` / `upload.cgi` form, and
@@ -112,7 +118,7 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 | **Fastfile** | fastfile.cc | not stated | CF-passive | med | Anon "no account needed"; dynamic `sandbNN.` upload nodes. |
 | **Apkadmin** | apkadmin.com | ~1–2 GB | CF-passive | med | APK-sharing XFS. |
 | **Drop.download** | drop.download | ~5 GB | CF-passive | med | Ex-DropAPK; pay-per-download, anon expected. |
-| **TeraBytez** | terabytez.org | ~5 GB | CF-passive | med | Pay-per-download XFS. |
+| ~~**TeraBytez**~~ | terabytez.org | — | DDoS-Guard (passive) | — | **SHIPPED 2026-08-02**, account-only on the web-form path. Three of this row's claims were wrong: not anonymous, not ~5 GB (**100 MB** registered / 5000 MB premium / 10 MB anonymous, per its own plan table), and it is behind DDoS-Guard rather than Cloudflare. It has **no REST API at all** (`/api/upload/server` 404s). ⚠ Files expire 30 days after last download on the registered tier. See `TeraBytezPipeline.cs`. |
 | **Uploadboy** | uploadboy.com | not stated | unknown | med | Live since 2012; datacenter IPs blocked (browser UA reaches it). |
 | **Elitefile** | elitefile.net | ~1–2 GB | CF-passive | med | Anon reportedly permitted. |
 | **Megaup** | megaup.net | 5 GB (200 GB prem) | unknown | med | Confirm anon vs account. |

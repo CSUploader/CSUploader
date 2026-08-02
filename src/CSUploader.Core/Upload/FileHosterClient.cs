@@ -210,6 +210,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // the page is the URL-uploader's). 5 GB/file, 10 TB storage, BLOCKS exe/jpg/jpeg/gif/png.
         // See FiledotPipeline.cs.
         { "Filedot", "filedot.to" },
+        // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
+        // enabled for this type of users"; its put_chunk.cgi takes the bytes and import_file then
+        // refuses). NO REST API at all — /api/upload/server 404s — so sign-in is the only route.
+        // Stock web form: the file form carries its own upload.cgi action. 100 MB/file free,
+        // storage advertised unlimited. See TeraBytezPipeline.cs.
+        { "TeraBytez", "terabytez.org" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.

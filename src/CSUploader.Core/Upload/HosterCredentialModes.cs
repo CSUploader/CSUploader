@@ -70,8 +70,10 @@ public static class HosterCredentialModes
     // the credential is the filehosting session cookie captured by the WebView.
     // "Filedot" likewise: its REST API answers the family's "Invalid key", but My Account, My Files,
     // Reports and Earn Money were all walked and none of them ever prints a key.
+    // "TeraBytez" is the simplest case of all — it has no REST API to have a key FOR
+    // (/api/upload/server 404s, ?op=api_get_limits serves the homepage).
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
