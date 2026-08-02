@@ -169,6 +169,10 @@ public static class ServiceRegistration
         // (/api/upload/server 404s). Account-only, 100 MB per file on a free account.
         // See TeraBytezPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TeraBytezPipeline>();
+        // Data Vaults — XFileSharing on the REST API path; it documents that API and issues keys from
+        // My Account, so the base derives one at sign-in. Account-only, 5 GB/file, storage unlimited.
+        // See DataVaultsPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataVaultsPipeline>();
         // DropMeFiles — anonymous only, and deliberately serialised (its anti-abuse answers bursts with
         // "Spam"). Resumable nginx chunk protocol; links expire in 14 days. See DropMeFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMeFilesPipeline>();

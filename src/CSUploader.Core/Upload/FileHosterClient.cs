@@ -216,6 +216,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Stock web form: the file form carries its own upload.cgi action. 100 MB/file free,
         // storage advertised unlimited. See TeraBytezPipeline.cs.
         { "TeraBytez", "terabytez.org" },
+        // datavaults.co — XFileSharing on the REST API path (/api/upload/server → upload.cgi), which
+        // this host DOCUMENTS at /pages/api and issues keys for from My Account ("Generate API Key" —
+        // the base's existing generate step drives it). ACCOUNT-only. 5 GB/file, storage unlimited
+        // (storage_left "inf"). ⚠ Its anonymous upload.cgi answers file_status OK with file_code
+        // "undef" — a success shape for a discarded upload; the base rejects "undef" because of it.
+        // See DataVaultsPipeline.cs.
+        { "DataVaults", "datavaults.co" },
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.

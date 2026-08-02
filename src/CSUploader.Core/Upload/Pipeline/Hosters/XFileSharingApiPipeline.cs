@@ -2258,9 +2258,14 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return (null, $"upload.cgi: file_status={first.Status ?? "(null)"}", false);
         }
 
-        if (string.IsNullOrEmpty(first.Code))
+        // "undef" is a code the family prints when it DISCARDED the upload — DataVaults answers an
+        // unauthenticated post with a cheerful [{"file_status":"OK","file_code":"undef"}], and its
+        // siblings pair the same placeholder with a refusal in file_status (caught above). Treated as
+        // empty, because the alternative is handing the user https://host/undef and calling it a
+        // success: a dead link reported as a finished upload is the worst failure this app can have.
+        if (string.IsNullOrEmpty(first.Code) || string.Equals(first.Code, "undef", StringComparison.OrdinalIgnoreCase))
         {
-            return (null, "upload.cgi: file_status=OK but file_code was empty", false);
+            return (null, $"upload.cgi: file_status=OK but file_code was {(string.IsNullOrEmpty(first.Code) ? "empty" : "\"undef\"")} — the server accepted the request but stored nothing (usually an unauthenticated or out-of-quota upload)", false);
         }
 
         return (PublicUrlPrefix + first.Code, null, false);
