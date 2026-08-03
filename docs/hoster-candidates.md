@@ -31,6 +31,30 @@ repeated here.
 
 ---
 
+## Final sweep — 2026-08-03
+
+Every candidate row not already shipped or closed was re-tested, **with the decisive test rather than
+a form scrape**: does an anonymous multipart post to the host's own node actually store a file? That
+distinction matters — ShareMods was found anonymous by reading a homepage form that two earlier
+sweeps had missed, and **easybytez.org renders a `utype=anon` form and still refuses**
+(`uploads are not enabled for your account type`), so neither the presence nor the absence of a guest
+form is evidence. Only the upload's answer is.
+
+| Outcome | Hosts |
+|---|---|
+| **Refuses anonymous uploads** (probed, verdict from the node) | easybytez.org, filedot.to, kenfiles.com, fastfile.cc, terabytez.org, datavaults.co, clicknupload |
+| **No anonymous route offered at all** (no guest form, no keyless node) | elitefile.net, filefox.cc, megaup.net, rapidrar.com, filecat.net, fileq.net, uploadbank.com, wipfiles.net |
+| **Down / unreachable** | drop.download (502), rosefile.net (521), fikper.com (522), cyberdrop.me + worldbytez.com (no DNS record) |
+| **Cloudflare-challenged to this client** | apkadmin.com, datanodes.to, modsbase.com, sharemods.com (built, disabled) |
+| **Account + captcha on every upload** | depositfiles.com (`upload.php` behind Turnstile; its API answers `LoginInvalid`), subyshare.com (premium-only upload) |
+| **Registration impossible** | kenfiles.com, koofr.eu, bunkr.cr |
+| **Parked on the host's own breakage** | krakenfiles.com — still "Sorry, service unavailable." (re-checked 2026-08-02) |
+
+**Conclusion: the file-host seam is exhausted.** Nothing on this list is both reachable and buildable.
+What remains is a choice about scope rather than a candidate to probe: **image hosts** (Imgur
+anonymous via a shipped Client-ID, ImgBB via a key) if that's ever in scope, or the **cloud drives**
+in Tier C — deferred, see the banner there for why the obvious design doesn't work.
+
 ## Recommended shortlist
 
 The best first adds, ranked by value ÷ effort. All are alive, anonymous (no login needed), and ungated:
