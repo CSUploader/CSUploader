@@ -64,7 +64,10 @@ form is evidence. Only the upload's answer is.
 > bytes. Also probed: **SwissTransfer** (50 GB, no account — but its container API validates a
 > reCAPTCHA v3 token server-side: *"Captcha not valid"*, and v3 tokens are single-use, so it would
 > mean a captcha per transfer → **blocked**) and **filemail** (needs a request token → not keyless).
-> Still unprobed in this category: filetransfer.io, tmpfiles.org, uguu.se, qu.ax, 0x0.st, fileditch.
+> **tmpfiles.org SHIPPED 2026-08-03** as well (100 MB; documented API at /api). ⚠ Its `expire` field
+> defaults to ONE HOUR — measured 47h59m with `expire=172800` versus 59 minutes without, so the
+> maximum is always sent. Still unprobed in this category: filetransfer.io, uguu.se, qu.ax, 0x0.st,
+> fileditch.
 >
 > The lesson is about the source, not the hosts: **when a list is exhausted, check what the list was
 > incapable of containing.**

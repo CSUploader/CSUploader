@@ -105,6 +105,7 @@ internal static class BitmapImageResources
         // "Temp.sh" keeps its dot, like Storage.to/Send.now; the rest lower-cases.
         ("FileHosterTemp.shImage", "FileHosters/filehoster_temp.sh.png"),
         ("FileHosterLitterboxImage", "FileHosters/filehoster_litterbox.png"),
+        ("FileHosterTmpfilesImage", "FileHosters/filehoster_tmpfiles.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTerabytezImage", "FileHosters/filehoster_terabytez.png"),
         ("FileHosterDatavaultsImage", "FileHosters/filehoster_datavaults.png"),

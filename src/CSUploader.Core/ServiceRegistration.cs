@@ -187,6 +187,9 @@ public static class ServiceRegistration
         // Litterbox — catbox.moe's temporary sibling, same API shape plus a `time` field. ANONYMOUS,
         // 1 GB, ⚠ 72-hour maximum retention. See LitterboxPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.LitterboxPipeline>();
+        // tmpfiles.org — ANONYMOUS, documented API. 100 MB, ⚠ 48-hour maximum retention (its default is
+        // ONE hour unless expire is sent). See TmpFilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TmpFilesPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

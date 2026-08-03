@@ -16,8 +16,8 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// temp.sh and Litterbox — two anonymous drop hosts whose entire protocol is one multipart POST
-/// answering with a bare URL. Both were verified with real bytes on 2026-08-03 before these were
+/// temp.sh, Litterbox and tmpfiles.org — three anonymous drop hosts whose entire protocol is one
+/// multipart POST. Both were verified with real bytes on 2026-08-03 before these were
 /// written; the fixtures are the responses those uploads returned.
 /// <para>
 /// Because the response has no envelope, the parser's job is entirely "is this a link or is it an
@@ -101,6 +101,46 @@ public class TempShAndLitterboxTests
     }
 
     [Fact]
+    public async Task TmpFiles_AlwaysSendsTheMaximumExpiry_BecauseTheDefaultIsOneHour()
+    {
+        // Measured against the live API: expire=172800 gives "File expires in 47 hours and 59 minutes",
+        // omitting the field gives "59 minutes". 48x the retention for one optional field — the same
+        // shape of trap Litterbox sets with fileNameLength.
+        List<(string Url, IReadOnlyDictionary<string, string> Fields)> calls = [];
+        TmpFilesPipeline pipeline = new((_, url, fields, headers, _) =>
+        {
+            calls.Add((url, new Dictionary<string, string>(fields)));
+            Assert.Equal("application/json", headers!["Accept"]);
+            return Task.FromResult(new HttpResponseSnapshot(
+                200, """{"status":"success","data":{"url":"https://tmpfiles.org/wzwYIClXc4TY/x.bin"}}""", Array.Empty<string>()));
+        });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext("TmpFiles"), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("https://tmpfiles.org/wzwYIClXc4TY/x.bin", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+
+        (string url, IReadOnlyDictionary<string, string> fields) = Assert.Single(calls);
+        Assert.Equal("https://tmpfiles.org/api/v1/upload", url);
+        Assert.Equal("172800", fields["expire"]); // the documented maximum, never the 3600 default
+    }
+
+    [Theory]
+    // The documented success envelope.
+    [InlineData(200, """{"status":"success","data":{"url":"https://tmpfiles.org/abc/x.bin"}}""", "https://tmpfiles.org/abc/x.bin")]
+    // A url present under a NON-success status must not be read as a link.
+    [InlineData(200, """{"status":"error","data":{"url":"https://tmpfiles.org/abc/x.bin"}}""", null)]
+    [InlineData(200, """{"status":"success","data":{}}""", null)]
+    [InlineData(200, "not json at all", null)]
+    [InlineData(413, """{"status":"error"}""", null)]
+    public void TmpFiles_ParseUploadResponse_ChecksTheStatus_NotJustTheUrl(int status, string body, string? expected)
+    {
+        (string? url, string? error) = TmpFilesPipeline.ParseUploadResponse(new HttpResponseSnapshot(status, body, Array.Empty<string>()));
+        Assert.Equal(expected, url);
+        Assert.Equal(expected is null, error is not null);
+    }
+
+    [Fact]
     public async Task OversizedFiles_AreRejectedBeforeAnyTransfer()
     {
         bool uploaded = false;
@@ -130,6 +170,11 @@ public class TempShAndLitterboxTests
 
         Assert.Equal("temp.sh", FileHosterClient.FileHosters["Temp.sh"]);
         Assert.Equal("litterbox.catbox.moe", FileHosterClient.FileHosters["Litterbox"]);
+
+        TmpFilesPipeline tmp = new();
+        Assert.True(tmp.SupportsAnonymousUpload);
+        Assert.Equal(100L * 1024 * 1024, tmp.MaxFileSize);
+        Assert.Equal("tmpfiles.org", FileHosterClient.FileHosters["TmpFiles"]);
     }
 
     [Fact]

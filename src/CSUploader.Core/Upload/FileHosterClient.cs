@@ -230,6 +230,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // catbox's cap, in exchange for deletion. ⚠ 72 h is the longest retention offered. Note the link
         // host is litter.catbox.moe, which the server names itself. See LitterboxPipeline.cs.
         { "Litterbox", "litterbox.catbox.moe" },
+        // tmpfiles.org — ANONYMOUS, no accounts, and it documents its own API (/api). One multipart POST
+        // to /api/v1/upload (field "file") → {"status":"success","data":{"url":…}}. 100 MB.
+        // ⚠ Retention defaults to ONE HOUR; we always send expire=172800 (48 h, its documented maximum)
+        // — measured: 47h59m with the field, 59 minutes without. See TmpFilesPipeline.cs.
+        { "TmpFiles", "tmpfiles.org" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
