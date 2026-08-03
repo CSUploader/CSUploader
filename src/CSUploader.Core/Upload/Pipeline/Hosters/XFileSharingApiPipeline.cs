@@ -2363,7 +2363,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return (null, $"upload.cgi: file_status=OK but file_code was {(string.IsNullOrEmpty(first.Code) ? "empty" : "\"undef\"")} — the server accepted the request but stored nothing (usually an unauthenticated or out-of-quota upload)", false);
         }
 
-        return (PublicUrlPrefix + first.Code, null, false);
+        // The server is the authority on its own URL form. When it names a domain, use it: EliteFile
+        // stores files on elfile.net while the site is elitefile.net, and building the link from Host
+        // would hand the user a different domain than the host's own result page shows.
+        string prefix = first.Domain is { Length: > 0 } domain
+            ? domain.TrimEnd('/') + "/"
+            : PublicUrlPrefix;
+        return (prefix + first.Code, null, false);
     }
 
     private static string? ExtractApiKey(string html)
@@ -2764,6 +2770,14 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     {
         [JsonPropertyName("file_code")] public string? Code { get; set; }
         [JsonPropertyName("file_status")] public string? Status { get; set; }
+
+        /// <summary>
+        /// Some forks answer with the domain the file actually lives on, which is NOT always the site
+        /// you uploaded to — EliteFile posts to elitefile.net and replies
+        /// <c>{"domain":"https://elfile.net",…}</c>, and its own result page links elfile.net. Honoured
+        /// when present (see <see cref="ParseUploadResponse"/>); absent on every other host so far.
+        /// </summary>
+        [JsonPropertyName("domain")] public string? Domain { get; set; }
     }
 
     [GeneratedRegex("""name=["']token["'][^>]*?value=["']([^"']*)["']|value=["']([^"']*)["'][^>]*?name=["']token["']""", RegexOptions.IgnoreCase | RegexOptions.Compiled, "ja-JP")]

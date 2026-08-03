@@ -43,7 +43,7 @@ form is evidence. Only the upload's answer is.
 | Outcome | Hosts |
 |---|---|
 | **Refuses anonymous uploads** (probed, verdict from the node) | ~~easybytez.org~~ (**SHIPPED 2026-08-03 as an ACCOUNT host** — see its row below), filedot.to, kenfiles.com, fastfile.cc, terabytez.org, datavaults.co, clicknupload |
-| **No anonymous route offered at all** (no guest form, no keyless node) | elitefile.net, filefox.cc, megaup.net, rapidrar.com, filecat.net, fileq.net, uploadbank.com, wipfiles.net |
+| **No anonymous route offered at all** (no guest form, no keyless node) | ~~elitefile.net~~ (**SHIPPED 2026-08-03 as an ACCOUNT host**), filefox.cc, megaup.net, rapidrar.com, filecat.net, fileq.net, uploadbank.com, wipfiles.net |
 | **Down / unreachable** | drop.download (502), rosefile.net (521), fikper.com (522), cyberdrop.me + worldbytez.com (no DNS record) |
 | **Cloudflare-challenged to this client** | apkadmin.com, datanodes.to, modsbase.com, sharemods.com (built, disabled) |
 | **Account + captcha on every upload** | depositfiles.com (`upload.php` behind Turnstile; its API answers `LoginInvalid`), subyshare.com (premium-only upload) |
@@ -158,7 +158,7 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 | **Drop.download** | drop.download | ~5 GB | CF-passive | med | Ex-DropAPK; pay-per-download, anon expected. |
 | ~~**TeraBytez**~~ | terabytez.org | — | DDoS-Guard (passive) | — | **SHIPPED 2026-08-02**, account-only on the web-form path. Three of this row's claims were wrong: not anonymous, not ~5 GB (**100 MB** registered / 5000 MB premium / 10 MB anonymous, per its own plan table), and it is behind DDoS-Guard rather than Cloudflare. It has **no REST API at all** (`/api/upload/server` 404s). ⚠ Files expire 30 days after last download on the registered tier. See `TeraBytezPipeline.cs`. |
 | **Uploadboy** | uploadboy.com | not stated | unknown | med | Live since 2012; datacenter IPs blocked (browser UA reaches it). |
-| **Elitefile** | elitefile.net | ~1–2 GB | CF-passive | med | Anon reportedly permitted. |
+| ~~**Elitefile**~~ | elitefile.net | ❌ account-only | CF-passive | — | **SHIPPED 2026-08-03** (`EliteFilePipeline`) — the most stock XFS host in the tree: every route is a family default and its form action already carries `upload_type=file&utype=reg`. No REST API at all (`/api/upload/server` 404s), so sign-in only. ⚠ **Uploads answer `{"domain":"https://elfile.net"}` and the link lives on THAT domain**, not elitefile.net — the base now honours the field. **No per-file cap** (`max_upload_filesize: 0`; the row's "~1–2 GB" was wrong) and **488 GB** storage. |
 | **Megaup** | megaup.net | 5 GB (200 GB prem) | unknown | med | Confirm anon vs account. |
 | **Fileq** | fileq.net | ≤110 GB adv. | unknown | med | **xfspro/chunked** — start with chunked path. Anon 3-day retention. |
 | **Filecat** | filecat.net | unknown | CF-passive | med | **xfspro/chunked** (multithreaded upload). |

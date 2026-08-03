@@ -177,6 +177,10 @@ public static class ServiceRegistration
         // Account-only (its guest form is decoration — the node refuses anonymous). 200 MB registered.
         // See EasybytezPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EasybytezPipeline>();
+        // EliteFile — the most stock XFileSharing host in the tree: family default routes, family
+        // scrape. Account-only (no API at all). Its upload response names a DIFFERENT link domain.
+        // See EliteFilePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EliteFilePipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

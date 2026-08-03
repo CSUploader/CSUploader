@@ -215,6 +215,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // "uploads are not enabled for your account type" — the form is decoration. Registered tier is
         // 200 MB/file + 10 GB storage (guests 10 MB, premium 7000 MB). Plain username/password login,
         // no captcha. See EasybytezPipeline.cs.
+        // elitefile.net — stock XFileSharing on the web-form (sign-in) path; every route is the family
+        // default and its form action already carries upload_type=file&utype=reg. ACCOUNT-only: no REST
+        // API at all (/api/upload/server 404s). ⚠ Uploads answer {"domain":"https://elfile.net",…} and
+        // the link lives THERE, not on elitefile.net — the base honours that field. No per-file cap
+        // (max_upload_filesize 0), 488 GB storage. See EliteFilePipeline.cs.
+        { "EliteFile", "elitefile.net" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

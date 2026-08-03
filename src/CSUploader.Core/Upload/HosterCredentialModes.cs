@@ -72,8 +72,9 @@ public static class HosterCredentialModes
     // Reports and Earn Money were all walked and none of them ever prints a key.
     // "TeraBytez" is the simplest case of all — it has no REST API to have a key FOR
     // (/api/upload/server 404s, ?op=api_get_limits serves the homepage).
+    // "EliteFile" is the same: /api/upload/server 404s, so there is no key to obtain or paste.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
