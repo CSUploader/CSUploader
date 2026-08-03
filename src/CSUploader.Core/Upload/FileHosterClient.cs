@@ -209,6 +209,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // hands out a key. Node comes from GET /server (the file form has no action — the only one on
         // the page is the URL-uploader's). 5 GB/file, 10 TB storage, BLOCKS exe/jpg/jpeg/gif/png.
         // See FiledotPipeline.cs.
+        // easybytez.org — XFileSharing "xfspro" chunked WITH a session (op=start_upload → put_chunk.cgi
+        // → form-urlencoded import_file), i.e. filehoster.io's twin; they share XfsProSessionPipeline.
+        // ACCOUNT-only: its upload page renders a utype=anon guest form, but the node answers
+        // "uploads are not enabled for your account type" — the form is decoration. Registered tier is
+        // 200 MB/file + 10 GB storage (guests 10 MB, premium 7000 MB). Plain username/password login,
+        // no captcha. See EasybytezPipeline.cs.
+        { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
         // enabled for this type of users"; its put_chunk.cgi takes the bytes and import_file then

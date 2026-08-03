@@ -173,6 +173,10 @@ public static class ServiceRegistration
         // My Account, so the base derives one at sign-in. Account-only, 5 GB/file, storage unlimited.
         // See DataVaultsPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataVaultsPipeline>();
+        // Easybytez — xfspro chunked with a session, sharing XfsProSessionPipeline with filehoster.io.
+        // Account-only (its guest form is decoration — the node refuses anonymous). 200 MB registered.
+        // See EasybytezPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EasybytezPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

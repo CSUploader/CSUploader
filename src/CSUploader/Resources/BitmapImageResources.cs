@@ -100,6 +100,7 @@ internal static class BitmapImageResources
         ("FileHosterTransfer.itImage", "FileHosters/filehoster_transfer.it.png"),
         ("FileHosterUploadgigImage", "FileHosters/filehoster_uploadgig.png"),
         ("FileHosterUploadrarImage", "FileHosters/filehoster_uploadrar.png"),
+        ("FileHosterEasybytezImage", "FileHosters/filehoster_easybytez.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTeraBytezImage", "FileHosters/filehoster_terabytez.png"),
         ("FileHosterDataVaultsImage", "FileHosters/filehoster_datavaults.png"),

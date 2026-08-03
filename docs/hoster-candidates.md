@@ -42,7 +42,7 @@ form is evidence. Only the upload's answer is.
 
 | Outcome | Hosts |
 |---|---|
-| **Refuses anonymous uploads** (probed, verdict from the node) | easybytez.org, filedot.to, kenfiles.com, fastfile.cc, terabytez.org, datavaults.co, clicknupload |
+| **Refuses anonymous uploads** (probed, verdict from the node) | ~~easybytez.org~~ (**SHIPPED 2026-08-03 as an ACCOUNT host** — see its row below), filedot.to, kenfiles.com, fastfile.cc, terabytez.org, datavaults.co, clicknupload |
 | **No anonymous route offered at all** (no guest form, no keyless node) | elitefile.net, filefox.cc, megaup.net, rapidrar.com, filecat.net, fileq.net, uploadbank.com, wipfiles.net |
 | **Down / unreachable** | drop.download (502), rosefile.net (521), fikper.com (522), cyberdrop.me + worldbytez.com (no DNS record) |
 | **Cloudflare-challenged to this client** | apkadmin.com, datanodes.to, modsbase.com, sharemods.com (built, disabled) |
@@ -50,7 +50,13 @@ form is evidence. Only the upload's answer is.
 | **Registration impossible** | kenfiles.com, koofr.eu, bunkr.cr |
 | **Parked on the host's own breakage** | krakenfiles.com — still "Sorry, service unavailable." (re-checked 2026-08-02) |
 
-**Conclusion: the file-host seam is exhausted.** Nothing on this list is both reachable and buildable.
+> ⚖ **Amended 2026-08-03.** "Refuses anonymous" is not the same as "unbuildable", and this table
+> conflated the two for one row: **easybytez.org shipped the same day as an account host**, once an
+> account existed. The conclusion below is about the ANONYMOUS seam only. Any row marked "refuses
+> anonymous" or "no anonymous route" remains buildable by anyone willing to register — a cost
+> question, not a closed door.
+
+**Conclusion: the ANONYMOUS file-host seam is exhausted.** Nothing on this list is reachable, anonymous and buildable.
 What remains is a choice about scope rather than a candidate to probe: **image hosts** (Imgur
 anonymous via a shipped Client-ID, ImgBB via a key) if that's ever in scope, or the **cloud drives**
 in Tier C — deferred, see the banner there for why the obvious design doesn't work.
@@ -144,7 +150,7 @@ All map onto `XFileSharingApiPipeline` (classic variant unless noted). A new hos
 | ~~**Clicknupload**~~ | clicknupload.click | ❌ **account-only** | CF-passive | high | **SHIPPED 2026-07-31 as an ACCOUNT hoster** (ClicknuploadPipeline, web-form path — uploader lives on `?op=my_account.html`, multipart is the family default verbatim). Anonymous is DISABLED (probed 2026-07-31) — an anonymous POST to its own advertised `ServerURL` answers `[{"file_code":"undef","file_status":"uploads are not enabled for your account type"}]`. Its `?op=api_get_limits` is genuine XFS (`MaxUploadFilesize 2048`, `ServerURL https://green01.clicknupload.net/cgi-bin`, empty `SessionID`) and serves no CF challenge, so the ACCOUNT path should be a clean shim. Domain rotates (.click/.org/.co/.vip) — keep the base domain configurable. |
 | **Dropgalaxy** | dropgalaxy.com | ~1–2 GB | CF-passive | high | Anon files auto-expire 1 day after last download. |
 | ~~**Dailyuploads**~~ | dailyuploads.net | **ANONYMOUS** | CF-passive | high | **SHIPPED 2026-08-02** (DailyUploadsPipeline, on the shared `XfsProAnonymousPipeline`) — anonymous xfspro, verified live with real bytes. `GET /server` → node → `put_chunk.cgi` + `X-Upload-SID` → multipart `api.cgi` with an empty `sess_id`. Its finalise returns **only a `file_code`** (no `links` object), so the link is `dailyuploads.net/<code>`. ⚠ **Its nodes rotate and some are DEAD** — `dn12` answered every PUT with a 500 while `cdn89`/`cdn183` took the same bytes, so the base retries once against a freshly looked-up node. |
-| **Easybytez** | easybytez**.org** | ~1–5 GB | CF-passive | high | Reference XFS host. Target `.org` (`.com` refused). |
+| ~~**Easybytez**~~ | easybytez.org | ❌ account-only | CF-passive | — | **SHIPPED 2026-08-03** (`EasybytezPipeline`) — filehoster.io's twin on the wire, so both now share the extracted `XfsProSessionPipeline` (op=start_upload → put_chunk.cgi → **form-urlencoded** import_file). ⚠ Its upload page renders a `utype=anon` guest form and the node still answers *uploads are not enabled for your account type* — the form is decoration. Registered: **200 MB/file, 10 GB storage** (guests 10 MB, premium 7000 MB). Plain username/password, no captcha. The row's "~1–5 GB" was wrong. |
 | **UploadBank** | uploadbank.com | 2 GB anon (≤20 files) | CF-passive | med | Clear anon cap; clean shim. |
 | ~~**Fileaxa**~~ | fileaxa.com | **ANONYMOUS** | CF-passive | high | **SHIPPED 2026-08-02** (FileaxaPipeline) — **anonymous**, on the XFileSharing **xfspro** chunked plugin (filehoster.io's family), verified live with real bytes through our own client. `GET /server` → `{"url":"https://sNN.fileaxa.com/cgi-bin"}` (keyless) → PUT ≤100 MiB slices to `put_chunk.cgi` with an `X-Upload-SID` header → **multipart** `api.cgi op=import_file` → `{"status":"OK","links":{"download_link":…}}`. **Anonymity is one empty field**: a capture of an anonymous AND a signed-in upload differ ONLY in `sess_id` (empty vs the `xfss` session) — both returned working links, and the anonymous one took a `.avi`. ⚠ **This row was wrong twice, both times from reading the homepage instead of watching it work**: it was first shipped as an account-only REST shim because `/api/*` exists (it does — but the site's own client never uses it, so that upload path was never verified), and "no `utype=anon` form on the homepage" only meant the anonymous uploader is JS-driven. Accounts unbuilt: the account path needs nothing but a real `sess_id`. `MaxFileSize` null — nothing publishes a figure this code can read, and the base's **1 GiB default would silently skip larger files**, the trap to check in every thin shim. |
 | **Fastfile** | fastfile.cc | not stated | CF-passive | med | Anon "no account needed"; dynamic `sandbNN.` upload nodes. |
