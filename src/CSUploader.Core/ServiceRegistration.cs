@@ -181,6 +181,12 @@ public static class ServiceRegistration
         // scrape. Account-only (no API at all). Its upload response names a DIFFERENT link domain.
         // See EliteFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EliteFilePipeline>();
+        // temp.sh — ANONYMOUS, no accounts: one multipart POST, the body is the link. 4 GB, ⚠ 3-day
+        // expiry. See TempShPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.TempShPipeline>();
+        // Litterbox — catbox.moe's temporary sibling, same API shape plus a `time` field. ANONYMOUS,
+        // 1 GB, ⚠ 72-hour maximum retention. See LitterboxPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.LitterboxPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

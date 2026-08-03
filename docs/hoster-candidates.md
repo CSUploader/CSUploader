@@ -56,6 +56,19 @@ form is evidence. Only the upload's answer is.
 > anonymous" or "no anonymous route" remains buildable by anyone willing to register — a cost
 > question, not a closed door.
 
+> 🔎 **The list itself had a blind spot (2026-08-03).** It derives from a **debrid** index, which by
+> construction catalogues DOWNLOAD hosts — so **transfer services and small anonymous drop hosts can
+> never appear in it**, however thoroughly its rows are worked. Asking that question directly found
+> **temp.sh** (4 GB, 3-day expiry) and **Litterbox** (1 GB, 72 h — catbox.moe's temporary sibling),
+> both anonymous, both one multipart POST, both **SHIPPED the same day** and verified with real
+> bytes. Also probed: **SwissTransfer** (50 GB, no account — but its container API validates a
+> reCAPTCHA v3 token server-side: *"Captcha not valid"*, and v3 tokens are single-use, so it would
+> mean a captcha per transfer → **blocked**) and **filemail** (needs a request token → not keyless).
+> Still unprobed in this category: filetransfer.io, tmpfiles.org, uguu.se, qu.ax, 0x0.st, fileditch.
+>
+> The lesson is about the source, not the hosts: **when a list is exhausted, check what the list was
+> incapable of containing.**
+
 **Conclusion: the ANONYMOUS file-host seam is exhausted.** Nothing on this list is reachable, anonymous and buildable.
 What remains is a choice about scope rather than a candidate to probe: **image hosts** (Imgur
 anonymous via a shipped Client-ID, ImgBB via a key) if that's ever in scope, or the **cloud drives**

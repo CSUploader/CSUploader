@@ -221,6 +221,15 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // the link lives THERE, not on elitefile.net — the base honours that field. No per-file cap
         // (max_upload_filesize 0), 488 GB storage. See EliteFilePipeline.cs.
         { "EliteFile", "elitefile.net" },
+        // temp.sh — ANONYMOUS, no accounts at all. One multipart POST to /upload (field "file"); the
+        // response BODY is the plain share URL, exactly as its homepage documents with curl. 4 GB.
+        // ⚠ Files expire after 3 days — a transfer service, not storage. See TempShPipeline.cs.
+        { "Temp.sh", "temp.sh" },
+        // litterbox.catbox.moe — catbox.moe's temporary sibling: same /resources/internals/api.php
+        // shape (reqtype=fileupload + fileToUpload) plus a `time` field. ANONYMOUS, 1 GB — five times
+        // catbox's cap, in exchange for deletion. ⚠ 72 h is the longest retention offered. Note the link
+        // host is litter.catbox.moe, which the server names itself. See LitterboxPipeline.cs.
+        { "Litterbox", "litterbox.catbox.moe" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
