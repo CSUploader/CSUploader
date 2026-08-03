@@ -41,6 +41,19 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
     /// </summary>
     private const string Retention = "72h";
 
+    /// <summary>
+    /// The longer of the two name lengths the host offers ("File Name Length: 6 Chars / 16 Chars").
+    /// <para>
+    /// <b>Omitting this field is not neutral — it silently takes the 6-character default</b>, which a
+    /// browser capture exposed: the site's own uploader sends <c>fileNameLength=16</c> and gets
+    /// <c>litter.catbox.moe/62yc2gn59rzqgeyk.avi</c>, while our first uploads came back as
+    /// <c>litter.catbox.moe/nrvct3.rar</c>. Six lowercase-alphanumeric characters is a ~2 billion
+    /// keyspace that anyone can walk; sixteen is not. For links that get posted publicly that is worth
+    /// the four extra bytes.
+    /// </para>
+    /// </summary>
+    private const string FileNameLength = "16";
+
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public LitterboxPipeline()
@@ -165,16 +178,21 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
 
     private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx)
     {
+        // The browser's exact set, from a capture 2026-08-03 (its `time` was the 1h it had selected).
         Dictionary<string, string> extraFields = new(StringComparer.Ordinal)
         {
-            ["reqtype"] = "fileupload",
             ["time"] = Retention,
+            ["fileNameLength"] = FileNameLength,
+            ["reqtype"] = "fileupload",
         };
 
         Dictionary<string, string> headers = new(StringComparer.Ordinal)
         {
             ["Origin"] = Host,
             ["Referer"] = Host + "/",
+            ["Accept"] = "application/json",
+            // The site's uploader marks it as an XHR — matching CatboxPipeline, which shares this API.
+            ["X-Requested-With"] = "XMLHttpRequest",
         };
 
         if (_uploadOverride is not null)

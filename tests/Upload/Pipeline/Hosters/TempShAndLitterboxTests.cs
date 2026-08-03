@@ -69,6 +69,11 @@ public class TempShAndLitterboxTests
         Assert.Equal("https://litterbox.catbox.moe/resources/internals/api.php", url);
         Assert.Equal("fileupload", fields["reqtype"]);
         Assert.Equal("72h", fields["time"]); // the longest the host offers — never a shorter default
+
+        // Omitting this takes the 6-character default: a browser capture sends 16 and gets
+        // litter.catbox.moe/62yc2gn59rzqgeyk.avi, while our first uploads returned .../nrvct3.rar.
+        // Six lowercase-alphanumerics is a walkable keyspace for a link that gets posted publicly.
+        Assert.Equal("16", fields["fileNameLength"]);
     }
 
     [Theory]
