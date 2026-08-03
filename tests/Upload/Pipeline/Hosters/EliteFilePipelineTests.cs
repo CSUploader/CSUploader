@@ -41,6 +41,13 @@ public class EliteFilePipelineTests
     private const string AccountHtml = """
         <!doctype html><html><body>
         <a href="/?op=logout">Logout</a>
+        <div class="form-group" style="background:#3080e8;"><center>
+          <i class="fad fa-user-tie fa-3x"></i> <br />
+          <label style="color:#fff;"><b>demo_account</b> </label>
+          <p style="color:#fff;">Free Account </p>
+        </center></div>
+        <!-- the decoy that produced "Signed in as Settings": same icon family, nav item -->
+        <a class="nav-link"><i class="fad fa-user-tie"></i> Settings</a>
         <div class="widget p-3 storage position-relative">
           <span>Used Space</span> <div class="price"><sup>GB</sup>1.50 / of 488 <sup>GB</sup></div>
           <a href="/?op=payments">Extend storage</a>
@@ -141,12 +148,27 @@ public class EliteFilePipelineTests
             username: string.Empty, password: string.Empty, apiKey: null, handler, ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
+
+        // The reported bug: the family's generic fa-user scrape returned the nav item's label, so every
+        // account showed as "Signed in as Settings".
+        Assert.Equal("demo_account", result.DerivedUsername);
+        Assert.NotEqual("Settings", result.DerivedUsername);
+
         Assert.Equal(1536L * 1024 * 1024, result.StorageUsedBytes);           // "1.50 GB"
         Assert.Equal(488L * 1024 * 1024 * 1024, result.StorageQuotaBytes);    // "of 488 GB"
 
         // The identical widget alongside is a 30 GB/day bandwidth allowance.
         Assert.NotEqual(30L * 1024 * 1024 * 1024, result.StorageQuotaBytes);
     }
+
+    [Theory]
+    // The header block carries the name; the nav item carries a label. Both use fa-user-tie, and only
+    // the header has fa-3x — which is the whole distinction.
+    [InlineData("""<i class="fad fa-user-tie fa-3x"></i><br /><label><b>demo_account</b></label>""", "demo_account")]
+    [InlineData("""<a class="nav-link"><i class="fad fa-user-tie"></i> Settings</a>""", null)]
+    [InlineData("<div>no header here</div>", null)]
+    public void ParseUsername_TakesTheHeaderName_NotTheNavLabel(string html, string? expected)
+        => Assert.Equal(expected, EliteFilePipeline.ParseUsername(html));
 
     [Fact]
     public void EliteFile_IsAccountOnly_OnTheSessionCookieCredential()

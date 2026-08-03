@@ -46,6 +46,17 @@ public sealed class EliteFilePipeline : XFileSharingApiPipeline, IStorageRefresh
         """Used\s*Space\s*</span>\s*<div[^>]*\bprice\b[^>]*>\s*<sup>\s*([KMGT]?B)\s*</sup>\s*([0-9]+(?:[.,][0-9]+)?)\s*/\s*of\s*([0-9]+(?:[.,][0-9]+)?)\s*<sup>\s*([KMGT]?B)\s*</sup>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // ?op=my_account renders the account header as
+    //   <i class="fad fa-user-tie fa-3x"></i><br /><label ...><b>the_account_name</b></label>
+    //   <p ...>Free Account</p>
+    // Anchored on the fa-3x header icon SPECIFICALLY, because the same theme uses a plain
+    // "fa-user-tie" on a nav item labelled "Settings" — and the family's generic fa-user scrape picks
+    // that one up, showing every account as "Signed in as Settings". Third host to set this trap after
+    // Uploady ("Profile") and Clicknupload (blank), so it is always worth checking against a real page.
+    private static readonly Regex _usernameRegex = new(
+        """fa-user-tie\s+fa-3x[^>]*>.*?<label[^>]*>\s*<b>\s*([^<]+?)\s*</b>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
     public EliteFilePipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
         : base(authService, loginRepository)
     {
@@ -104,6 +115,24 @@ public sealed class EliteFilePipeline : XFileSharingApiPipeline, IStorageRefresh
         return m.Success
             ? (ParseSizeToBytes(m.Groups[2].Value, m.Groups[1].Value), ParseSizeToBytes(m.Groups[3].Value, m.Groups[4].Value))
             : (null, null);
+    }
+
+    /// <summary>
+    /// Reads the account name out of the account-page header — see <see cref="_usernameRegex"/> for why
+    /// the family's generic <c>fa-user</c> scrape can't be used here (it returns the word "Settings").
+    /// Internal for testing.
+    /// </summary>
+    protected override string? ParseAccountUsername(string html)
+    {
+        Match m = _usernameRegex.Match(html);
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>Internal for testing — see <see cref="ParseAccountUsername"/>.</summary>
+    internal static string? ParseUsername(string html)
+    {
+        Match m = _usernameRegex.Match(html);
+        return m.Success ? m.Groups[1].Value : null;
     }
 
     /// <summary>
