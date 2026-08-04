@@ -1307,7 +1307,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
 {1}</value>
   </data>
   <data name="Wizard_Hoster_FileTypeRejected_Format" xml:space="preserve">
-    <value>{0}: 以下のファイルはこのホスターが受け付けないファイル形式のためアップロードされません:
+    <value>{0}: 以下のファイルはこのホスターが受け付けない拡張子のためアップロードされません:
 {1}</value>
   </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">

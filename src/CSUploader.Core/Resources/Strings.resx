@@ -1397,7 +1397,7 @@ Add anyway?</value>
 {1}</value>
   </data>
   <data name="Wizard_Hoster_FileTypeRejected_Format" xml:space="preserve">
-    <value>{0}: The following files are a file type this hoster won't accept and won't be uploaded:
+    <value>{0}: The following files have an extension this hoster won't accept and won't be uploaded:
 {1}</value>
   </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">

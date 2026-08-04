@@ -1307,7 +1307,7 @@ Idagdag pa rin?</value>
 {1}</value>
   </data>
   <data name="Wizard_Hoster_FileTypeRejected_Format" xml:space="preserve">
-    <value>{0}: Ang mga sumusunod na file ay may uri ng file na hindi tinatanggap ng hoster na ito at hindi mai-upload:
+    <value>{0}: Ang mga sumusunod na file ay may extension na hindi tinatanggap ng hoster na ito at hindi mai-upload:
 {1}</value>
   </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">

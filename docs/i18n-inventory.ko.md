@@ -585,7 +585,7 @@ Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다
 Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:\n{1}
-Wizard_Hoster_FileTypeRejected_Format = {0}: 다음 파일은 이 호스터가 허용하지 않는 파일 형식이어서 업로드되지 않습니다:\n{1}
+Wizard_Hoster_FileTypeRejected_Format = {0}: 다음 파일은 이 호스터가 허용하지 않는 확장자여서 업로드되지 않습니다:\n{1}
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.
 

@@ -1307,7 +1307,7 @@ Vẫn thêm?</value>
 {1}</value>
   </data>
   <data name="Wizard_Hoster_FileTypeRejected_Format" xml:space="preserve">
-    <value>{0}: Các tệp sau có định dạng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:
+    <value>{0}: Các tệp sau có phần mở rộng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:
 {1}</value>
   </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">

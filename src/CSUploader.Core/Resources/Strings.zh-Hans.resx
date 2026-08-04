@@ -1307,7 +1307,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
 {1}</value>
   </data>
   <data name="Wizard_Hoster_FileTypeRejected_Format" xml:space="preserve">
-    <value>{0}：以下文件的类型为此托管商不接受，将不会上传：
+    <value>{0}：以下文件的扩展名不被此托管商接受，将不会上传：
 {1}</value>
   </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
