@@ -116,11 +116,17 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
 
     /// <summary>
     /// Refuses a blocked extension before the upload starts — see the class remarks for why that
-    /// matters here specifically (the host takes the whole file first, then rejects it).
+    /// matters here specifically (the host takes the whole file first, then rejects it). The base's
+    /// PreflightRejection defaults to this, so the upload path needs no separate override.
+    /// <para>
+    /// It is also what the UPLOAD WIZARD calls, so these files are dropped from Uploadrar's
+    /// column and names them in the warning panel <b>before the user presses Next</b> — rather than
+    /// each one failing individually at upload time. One rule, two consumers.
+    /// </para>
     /// </summary>
-    protected override string? PreflightRejection(AttemptContext ctx)
-        => IsBlockedExtension(ctx.FileName)
-            ? $"Uploadrar doesn't accept {Path.GetExtension(ctx.FileName).TrimStart('.').ToUpperInvariant()} files "
+    public override string? RejectedFileNameReason(string fileName)
+        => IsBlockedExtension(fileName)
+            ? $"Uploadrar doesn't accept {Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant()} files "
                 + $"(it blocks {string.Join(", ", BlockedExtensions.Order(StringComparer.OrdinalIgnoreCase)).ToUpperInvariant()}). "
                 + "Archive the file first — .rar/.zip/.srr parts upload normally."
             : null;

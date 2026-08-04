@@ -162,6 +162,20 @@ public sealed class QuAxPipeline : IFileHosterPipeline
                    + $"(this file is {ByteUnit.FromBytes(fileSize, ByteBase.Decimal).ToFriendlyString()}).";
         }
 
+        return NameRejection(fileName);
+    }
+
+    /// <summary>
+    /// The allowlist rule, on the interface so the UPLOAD WIZARD applies exactly what the upload
+    /// would: files this host won't take are dropped from its column on the Summary step and listed
+    /// in the warning panel <b>before the user presses Next</b>, instead of failing one by one later.
+    /// Both callers share <see cref="NameRejection"/> — a second copy of the rule would drift.
+    /// </summary>
+    public string? RejectedFileNameReason(string fileName) => NameRejection(fileName);
+
+    /// <summary>The allowlist itself. Internal for testing.</summary>
+    internal static string? NameRejection(string fileName)
+    {
         string ext = Path.GetExtension(fileName).TrimStart('.');
         if (AllowedExtensions.Contains(ext))
         {

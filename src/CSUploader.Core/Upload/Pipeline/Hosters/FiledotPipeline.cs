@@ -128,11 +128,17 @@ public sealed class FiledotPipeline : XFileSharingApiPipeline, IStorageRefreshab
     /// <summary>
     /// Refuses a blocked extension before a byte moves. This host enforces its list at the upload
     /// itself, so without this the whole transfer is spent to earn <c>file_status</c>: "extension not
-    /// allowed" — see <see cref="XFileSharingApiPipeline.PreflightRejection"/>.
+    /// allowed". The base's PreflightRejection defaults to this, so the upload path needs no separate
+    /// override.
+    /// <para>
+    /// It is also what the UPLOAD WIZARD calls, so these files are dropped from filedot's
+    /// column and names them in the warning panel <b>before the user presses Next</b> — rather than
+    /// each one spending its whole transfer to earn a refusal. One rule, two consumers.
+    /// </para>
     /// </summary>
-    protected override string? PreflightRejection(AttemptContext ctx)
-        => IsBlockedExtension(ctx.FileName)
-            ? $"filedot.to doesn't accept {Path.GetExtension(ctx.FileName).TrimStart('.').ToUpperInvariant()} files "
+    public override string? RejectedFileNameReason(string fileName)
+        => IsBlockedExtension(fileName)
+            ? $"filedot.to doesn't accept {Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant()} files "
                 + $"(it blocks {string.Join(", ", BlockedExtensions.Order(StringComparer.OrdinalIgnoreCase)).ToUpperInvariant()}). "
                 + "Archive the file first — .rar/.zip parts upload normally."
             : null;

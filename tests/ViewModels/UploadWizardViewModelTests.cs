@@ -477,6 +477,82 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void HosterValidation_ExtensionRules_WarnOnStep1_BeforeNextIsPressed()
+    {
+        // The reported gap: three hosters enforce EXTENSION rules the wizard knew nothing about, so a
+        // .r00 or .avi sailed through selection and only failed once its upload had already started
+        // (or, on Uploadrar and filedot, after the whole file had transferred).
+        //
+        // qu.ax runs an ALLOWLIST — .rar passes, .r00/.sfv/.nfo do not — which is the harshest case
+        // because a classic multi-part set is half-accepted.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.QuAxPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel qu = new("Qu.ax", [new FileHosterLoginDto { Id = 1, FileHosterName = "Qu.ax", Username = "u" }]);
+        vm.FileHosters.Add(qu);
+
+        FileEntry part1 = new() { FullPath = "rls.part1.rar", FileName = "rls.part1.rar", Size = 100, IsSelected = true };
+        FileEntry r00 = new() { FullPath = "rls.r00", FileName = "rls.r00", Size = 100, IsSelected = true };
+        FileEntry sfv = new() { FullPath = "rls.sfv", FileName = "rls.sfv", Size = 10, IsSelected = true };
+        vm.Files.Add(part1);
+        vm.Files.Add(r00);
+        vm.Files.Add(sfv);
+
+        qu.Use = true;
+
+        // Named, on the hoster step, without the user doing anything else.
+        string warning = Assert.Single(vm.HosterValidationWarnings);
+        Assert.Contains("rls.r00", warning, StringComparison.Ordinal);
+        Assert.Contains("rls.sfv", warning, StringComparison.Ordinal);
+        Assert.DoesNotContain("rls.part1.rar", warning, StringComparison.Ordinal);
+
+        // The .partN.rar volume is still eligible, so the run isn't blocked.
+        vm.CurrentStep = 1;
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
+    public void HosterValidation_BlocklistHosters_AlsoWarnBeforeUploading()
+    {
+        // Uploadrar (video blocklist) and filedot (image blocklist) enforce their lists only at the
+        // END of an upload, so without this the user pays the whole transfer to find out.
+        DefaultFileHosterRegistry registry = new([
+            new CSUploader.Upload.Pipeline.Hosters.UploadrarPipeline(),
+            new CSUploader.Upload.Pipeline.Hosters.FiledotPipeline(),
+        ]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterSelectionViewModel rar = new("Uploadrar", [new FileHosterLoginDto { Id = 1, FileHosterName = "Uploadrar", Username = "u" }]);
+        FileHosterSelectionViewModel dot = new("Filedot", [new FileHosterLoginDto { Id = 2, FileHosterName = "Filedot", Username = "u" }]);
+        vm.FileHosters.Add(rar);
+        vm.FileHosters.Add(dot);
+
+        FileEntry video = new() { FullPath = "clip.avi", FileName = "clip.avi", Size = 100, IsSelected = true };
+        FileEntry image = new() { FullPath = "cover.jpg", FileName = "cover.jpg", Size = 100, IsSelected = true };
+        FileEntry archive = new() { FullPath = "rls.rar", FileName = "rls.rar", Size = 100, IsSelected = true };
+        vm.Files.Add(video);
+        vm.Files.Add(image);
+        vm.Files.Add(archive);
+
+        rar.Use = true;
+        dot.Use = true;
+
+        // Each hoster names only ITS OWN refusals — the .avi is fine for filedot and the .jpg for
+        // Uploadrar, which is why this is per-hoster rather than a global deselect.
+        string rarWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Uploadrar", StringComparison.Ordinal));
+        Assert.Contains("clip.avi", rarWarning, StringComparison.Ordinal);
+        Assert.DoesNotContain("cover.jpg", rarWarning, StringComparison.Ordinal);
+
+        string dotWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Filedot", StringComparison.Ordinal));
+        Assert.Contains("cover.jpg", dotWarning, StringComparison.Ordinal);
+        Assert.DoesNotContain("clip.avi", dotWarning, StringComparison.Ordinal);
+
+        // rls.rar is acceptable to both, so nothing is blocked.
+        vm.CurrentStep = 1;
+        Assert.True(vm.CanGoNext);
+    }
+
+    [Fact]
     public void HosterValidation_AllFilenamesRejected_BlocksNextEvenWithSingleHoster()
     {
         // Every file has a name Buzzheavier won't accept → nothing can upload, so Next must block
