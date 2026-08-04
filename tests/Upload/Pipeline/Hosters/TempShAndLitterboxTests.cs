@@ -16,7 +16,7 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// temp.sh, Litterbox and tmpfiles.org — three anonymous drop hosts whose entire protocol is one
+/// temp.sh, Litterbox, tmpfiles.org and qu.ax — anonymous drop hosts whose entire protocol is one
 /// multipart POST. Both were verified with real bytes on 2026-08-03 before these were
 /// written; the fixtures are the responses those uploads returned.
 /// <para>
@@ -141,6 +141,72 @@ public class TempShAndLitterboxTests
     }
 
     [Fact]
+    public async Task QuAx_AsksForPermanent_BecauseItsFormDefaultsToThirtyDays()
+    {
+        // Measured live: omitting `expiry` gives expires ~30 days out, expiry=365 gives a year, and
+        // expiry=-1 gives expires:null — no expiry at all. Its own form offers Permanent; taking the
+        // default would silently give away 30-day links.
+        List<(string Url, IReadOnlyDictionary<string, string> Fields)> calls = [];
+        QuAxPipeline pipeline = new((_, url, fields, _, _) =>
+        {
+            calls.Add((url, new Dictionary<string, string>(fields)));
+            return Task.FromResult(new HttpResponseSnapshot(
+                200, """{"success":true,"files":[{"expires":null,"file_name":"uJq2A","size":262144,"url":"https://qu.ax/uJq2A"}]}""", Array.Empty<string>()));
+        });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext("Qu.ax") with { FileName = "release.rar" }, CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("https://qu.ax/uJq2A", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+
+        (string url, IReadOnlyDictionary<string, string> fields) = Assert.Single(calls);
+        Assert.Equal("https://qu.ax/upload.php", url);
+        Assert.Equal("-1", fields["expiry"]); // Permanent — never the 30-day default
+    }
+
+    [Theory]
+    // What a release set is actually made of, against what this host allows.
+    [InlineData("release.rar", true)]
+    [InlineData("release.part1.rar", true)]
+    [InlineData("release.zip", true)]
+    [InlineData("release.7z", true)]
+    // …and the half of a classic set it refuses — probed live, each answering
+    // {"message":"file type is not allowed"}.
+    [InlineData("release.r00", false)]
+    [InlineData("release.001", false)]
+    [InlineData("release.sfv", false)]
+    [InlineData("release.nfo", false)]
+    [InlineData("noextension", false)]
+    public void QuAx_RejectionReason_MirrorsTheHostsAllowlist(string fileName, bool accepted)
+    {
+        string? reason = QuAxPipeline.RejectionReason(fileName, 1024);
+        Assert.Equal(accepted, reason is null);
+        if (!accepted)
+        {
+            // The message has to say what WOULD work, or the user is left guessing.
+            Assert.Contains(".rar", reason!, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task QuAx_RefusedFile_IsNotUploadedAtAll()
+    {
+        bool uploaded = false;
+        QuAxPipeline pipeline = new((_, _, _, _, _) =>
+        {
+            uploaded = true;
+            return Task.FromResult(new HttpResponseSnapshot(400, """{"message":"file type is not allowed","success":false}""", Array.Empty<string>()));
+        });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(
+            MakeContext("Qu.ax") with { FileName = "release.r00" }, CancellationToken.None));
+
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Empty(events.OfType<TransferStarted>());
+        Assert.False(uploaded); // the host refuses only AFTER the bytes arrive, so we must not send them
+    }
+
+    [Fact]
     public async Task OversizedFiles_AreRejectedBeforeAnyTransfer()
     {
         bool uploaded = false;
@@ -170,6 +236,11 @@ public class TempShAndLitterboxTests
 
         Assert.Equal("temp.sh", FileHosterClient.FileHosters["Temp.sh"]);
         Assert.Equal("litterbox.catbox.moe", FileHosterClient.FileHosters["Litterbox"]);
+
+        QuAxPipeline qu = new();
+        Assert.True(qu.SupportsAnonymousUpload);
+        Assert.Equal(256L * 1024 * 1024, qu.MaxFileSize);
+        Assert.Equal("qu.ax", FileHosterClient.FileHosters["Qu.ax"]);
 
         TmpFilesPipeline tmp = new();
         Assert.True(tmp.SupportsAnonymousUpload);

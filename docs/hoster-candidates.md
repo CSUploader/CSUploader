@@ -64,10 +64,20 @@ form is evidence. Only the upload's answer is.
 > bytes. Also probed: **SwissTransfer** (50 GB, no account — but its container API validates a
 > reCAPTCHA v3 token server-side: *"Captcha not valid"*, and v3 tokens are single-use, so it would
 > mean a captcha per transfer → **blocked**) and **filemail** (needs a request token → not keyless).
-> **tmpfiles.org SHIPPED 2026-08-03** as well (100 MB; documented API at /api). ⚠ Its `expire` field
-> defaults to ONE HOUR — measured 47h59m with `expire=172800` versus 59 minutes without, so the
-> maximum is always sent. Still unprobed in this category: filetransfer.io, uguu.se, qu.ax, 0x0.st,
-> fileditch.
+> **tmpfiles.org SHIPPED 2026-08-03** (100 MB; documented API at /api). ⚠ Its `expire` field defaults
+> to ONE HOUR — measured 47h59m with `expire=172800` versus 59 minutes without, so the maximum is
+> always sent.
+>
+> **qu.ax SHIPPED 2026-08-04** and is the pick of the category: 256 MB and **PERMANENT**
+> (`expiry=-1`; its form defaults to 30 days). ⚠ But it runs an **allowlist** — `.rar`/`.zip`/`.7z`
+> and `.partN.rar` pass while **`.r00`, `.001`, `.sfv` and `.nfo` are refused**, so a classic
+> multi-part set only half-uploads. It also de-duplicates by content hash.
+>
+> **The rest of the category is closed:** filetransfer.io doesn't work (user-tested); **0x0.st has
+> disabled uploads outright** — *"uploads disabled because it's been almost nothing but AI botnet
+> spam for the past few months"* (HTTP 503, 2026-08-04); **uguu.se refuses .rar AND .zip** (415
+> "Filetype not allowed" — it takes .bin/.txt, which is no use for release sets); **fileditch**
+> refuses connections on its upload host.
 >
 > The lesson is about the source, not the hosts: **when a list is exhausted, check what the list was
 > incapable of containing.**

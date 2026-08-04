@@ -235,6 +235,14 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ Retention defaults to ONE HOUR; we always send expire=172800 (48 h, its documented maximum)
         // — measured: 47h59m with the field, 59 minutes without. See TmpFilesPipeline.cs.
         { "TmpFiles", "tmpfiles.org" },
+        // qu.ax — ANONYMOUS, no accounts. One multipart POST to /upload.php (files[] + expiry) →
+        // {"success":true,"files":[{"url":…}]}. 256 MB. Files can be PERMANENT: expiry=-1 is the host's
+        // own option and is what we send — omitting the field takes its 30-day default.
+        // ⚠ ALLOWLIST (.rar/.zip/.7z/.tar/.gz/images/video/pdf/txt): .r00, .001, .sfv and .nfo are
+        // REFUSED, so a classic multi-part set only half-uploads here while .partN.rar is fine. The
+        // pipeline checks locally because the host refuses after the bytes arrive.
+        // Also de-duplicates by content hash — identical bytes return the same link.
+        { "Qu.ax", "qu.ax" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
