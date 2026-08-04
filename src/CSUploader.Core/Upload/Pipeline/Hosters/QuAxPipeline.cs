@@ -171,7 +171,7 @@ public sealed class QuAxPipeline : IFileHosterPipeline
     /// in the warning panel <b>before the user presses Next</b>, instead of failing one by one later.
     /// Both callers share <see cref="NameRejection"/> — a second copy of the rule would drift.
     /// </summary>
-    public string? RejectedFileNameReason(string fileName) => NameRejection(fileName);
+    public string? RejectedFileExtensionReason(string fileName) => NameRejection(fileName);
 
     /// <summary>The allowlist itself. Internal for testing.</summary>
     internal static string? NameRejection(string fileName)

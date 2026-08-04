@@ -584,6 +584,8 @@ Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必
 Wizard_Hoster_LimitsHeader         = このホスターの制限を超過します:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 以下のファイル名にはこのホスターが受け付けない文字が含まれているためアップロードされません:\n{1}
+Wizard_Hoster_FileTypeRejected_Format = {0}: 以下のファイルはこのホスターが受け付けないファイル形式のためアップロードされません:\n{1}
+{1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} 個のファイルが選択されていますが、パッケージあたりの上限は {2} 個です。
 
 Wizard_Step3_Title                 = 開始タイミング

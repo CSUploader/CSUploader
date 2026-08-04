@@ -585,6 +585,8 @@ Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito
 Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na ito:
 Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Naglalaman ng mga karakter na hindi tinatanggap ng hoster na ito ang mga sumusunod na pangalan ng file at hindi mai-upload:\n{1}
+Wizard_Hoster_FileTypeRejected_Format = {0}: Ang mga sumusunod na file ay may uri ng file na hindi tinatanggap ng hoster na ito at hindi mai-upload:\n{1}
+{1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.
 
 Wizard_Step3_Title                 = Kailan Magsisimula

@@ -136,7 +136,7 @@ public sealed class FiledotPipeline : XFileSharingApiPipeline, IStorageRefreshab
     /// each one spending its whole transfer to earn a refusal. One rule, two consumers.
     /// </para>
     /// </summary>
-    public override string? RejectedFileNameReason(string fileName)
+    public override string? RejectedFileExtensionReason(string fileName)
         => IsBlockedExtension(fileName)
             ? $"filedot.to doesn't accept {Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant()} files "
                 + $"(it blocks {string.Join(", ", BlockedExtensions.Order(StringComparer.OrdinalIgnoreCase)).ToUpperInvariant()}). "

@@ -618,6 +618,8 @@ Wizard_Step2_AccountRequiredTooltip = This hoster requires an account. Click "Ad
 Wizard_Hoster_LimitsHeader         = This hoster's limits would be exceeded:
 Wizard_Hoster_FileTooLarge_Format  = {0}: The following files exceed the per-file limit of {1} and won't be uploaded:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: The following file names use characters this hoster won't accept and won't be uploaded:\n{1}
+Wizard_Hoster_FileTypeRejected_Format = {0}: The following files are a file type this hoster won't accept and won't be uploaded:\n{1}
+{1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} files selected, but the per-package limit is {2}.
 
 Wizard_Step3_Title                 = When to Start

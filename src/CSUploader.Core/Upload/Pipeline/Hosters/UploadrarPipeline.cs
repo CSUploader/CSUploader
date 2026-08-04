@@ -124,7 +124,7 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
     /// each one failing individually at upload time. One rule, two consumers.
     /// </para>
     /// </summary>
-    public override string? RejectedFileNameReason(string fileName)
+    public override string? RejectedFileExtensionReason(string fileName)
         => IsBlockedExtension(fileName)
             ? $"Uploadrar doesn't accept {Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant()} files "
                 + $"(it blocks {string.Join(", ", BlockedExtensions.Order(StringComparer.OrdinalIgnoreCase)).ToUpperInvariant()}). "

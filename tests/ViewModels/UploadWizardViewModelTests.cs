@@ -506,6 +506,11 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.Contains("rls.sfv", warning, StringComparison.Ordinal);
         Assert.DoesNotContain("rls.part1.rar", warning, StringComparison.Ordinal);
 
+        // …and it must say FILE TYPE, not "characters". Buzzheavier's wording would send the user
+        // hunting through "rls.r00" for an illegal character that isn't there.
+        Assert.Contains("file type", warning, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("characters", warning, StringComparison.OrdinalIgnoreCase);
+
         // The .partN.rar volume is still eligible, so the run isn't blocked.
         vm.CurrentStep = 1;
         Assert.True(vm.CanGoNext);
@@ -542,6 +547,7 @@ public class UploadWizardViewModelTests : IDisposable
         string rarWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Uploadrar", StringComparison.Ordinal));
         Assert.Contains("clip.avi", rarWarning, StringComparison.Ordinal);
         Assert.DoesNotContain("cover.jpg", rarWarning, StringComparison.Ordinal);
+        Assert.Contains("file type", rarWarning, StringComparison.OrdinalIgnoreCase);
 
         string dotWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Filedot", StringComparison.Ordinal));
         Assert.Contains("cover.jpg", dotWarning, StringComparison.Ordinal);

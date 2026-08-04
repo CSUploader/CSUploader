@@ -318,6 +318,7 @@ public partial class UploadWizardViewModel : ObservableObject
             // is counted under just one — size takes precedence — so eligibility never double-subtracts.
             List<string> oversizedNames = [];
             List<string> rejectedNameNames = [];
+            List<string> rejectedTypeNames = [];
             foreach (FileEntry f in selected)
             {
                 if (hosterMaxFileSize is long maxBytes && f.Size > maxBytes)
@@ -327,6 +328,13 @@ public partial class UploadWizardViewModel : ObservableObject
                 else if (pipeline.RejectedFileNameReason(f.FileName) is not null)
                 {
                     rejectedNameNames.Add(f.FileName);
+                }
+                else if (pipeline.RejectedFileExtensionReason(f.FileName) is not null)
+                {
+                    // Kept apart from the name rule because the user-facing sentence differs: telling
+                    // someone "rls.r00" uses a character this hoster won't accept sends them hunting
+                    // for a character that isn't there. The type is the problem, so the message says so.
+                    rejectedTypeNames.Add(f.FileName);
                 }
             }
 
@@ -351,7 +359,16 @@ public partial class UploadWizardViewModel : ObservableObject
                     string.Join("\n", rejectedNameNames)));
             }
 
-            eligibleForThisHoster -= oversizedNames.Count + rejectedNameNames.Count;
+            if (rejectedTypeNames.Count > 0)
+            {
+                HosterValidationWarnings.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Hoster_FileTypeRejected_Format"],
+                    hoster.FileHosterName,
+                    string.Join("\n", rejectedTypeNames)));
+            }
+
+            eligibleForThisHoster -= oversizedNames.Count + rejectedNameNames.Count + rejectedTypeNames.Count;
 
             if (eligibleForThisHoster > 0)
             {
@@ -479,7 +496,10 @@ public partial class UploadWizardViewModel : ObservableObject
 
                 // A name the hoster's server would reject (e.g. Buzzheavier's '#'/';') is dropped here
                 // just like an oversized file — the file falls through to OrphanFiles and the banner.
-                if (pipeline?.RejectedFileNameReason(file.FileName) is not null)
+                // A file TYPE it refuses (qu.ax's allowlist, Uploadrar's and filedot's blocklists) is
+                // dropped the same way: a different sentence for the user, the same outcome here.
+                if (pipeline?.RejectedFileNameReason(file.FileName) is not null
+                    || pipeline?.RejectedFileExtensionReason(file.FileName) is not null)
                 {
                     continue;
                 }

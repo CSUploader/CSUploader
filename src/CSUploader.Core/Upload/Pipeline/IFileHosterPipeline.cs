@@ -104,6 +104,25 @@ public interface IFileHosterPipeline
     public string? RejectedFileNameReason(string fileName) => null;
 
     /// <summary>
+    /// Returns null when the hoster accepts this file's TYPE, or a short user-facing reason when its
+    /// extension is one the hoster refuses — whether by blocklist (Uploadrar bars video, filedot bars
+    /// images) or allowlist (qu.ax permits only a named set, so <c>.r00</c>, <c>.sfv</c> and
+    /// <c>.nfo</c> are out).
+    /// <para>
+    /// Separate from <see cref="RejectedFileNameReason"/> on purpose: that one is about CHARACTERS in
+    /// the name (Buzzheavier's <c>#</c> and <c>;</c>), and the wizard tells the user so. Reporting an
+    /// extension rule under that wording would say "these names use characters this hoster won't
+    /// accept" about a perfectly ordinary <c>rls.r00</c>, which sends the user hunting for a character
+    /// that isn't there. Two rules, two sentences.
+    /// </para>
+    /// <para>
+    /// Consumed in the same two places: the wizard drops such files from this hoster's Summary column
+    /// and names them on the hoster step, and the pipeline fails fast before sending bytes.
+    /// </para>
+    /// </summary>
+    public string? RejectedFileExtensionReason(string fileName) => null;
+
+    /// <summary>
     /// Runs the protocol-specific portion of an upload attempt. Yields events for progress
     /// and outcomes. Must terminate with no more than one of <see cref="TransferCompleted"/>,
     /// <see cref="AttemptFailed"/>, or <see cref="AttemptCancelled"/> — the runner adds the

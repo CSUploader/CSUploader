@@ -593,6 +593,8 @@ Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài kho�
 Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này sẽ bị vượt quá:
 Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Tên các tệp sau chứa ký tự mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
+Wizard_Hoster_FileTypeRejected_Format = {0}: Các tệp sau có định dạng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
+{1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.
 
 Wizard_Step3_Title                 = Khi nào bắt đầu

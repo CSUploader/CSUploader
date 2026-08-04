@@ -1551,20 +1551,24 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     /// reason immediately.
     /// </para>
     /// </summary>
-    protected virtual string? PreflightRejection(AttemptContext ctx) => RejectedFileNameReason(ctx.FileName);
+    protected virtual string? PreflightRejection(AttemptContext ctx)
+        // The character rule is a default interface method (no XFS host overrides it today), so it has
+        // to be called through the interface; the extension rule is a virtual on this base.
+        => ((IFileHosterPipeline)this).RejectedFileNameReason(ctx.FileName)
+           ?? RejectedFileExtensionReason(ctx.FileName);
 
     /// <summary>
-    /// Why this hoster's server would refuse a file with this NAME, or null. Overriding this is enough
-    /// for both consumers: <see cref="PreflightRejection"/> defaults to it (so the upload fails fast
-    /// before sending bytes), and the upload WIZARD calls it through
-    /// <see cref="IFileHosterPipeline.RejectedFileNameReason"/> to drop such files from this hoster's
-    /// Summary column and name them in the warning panel before the user presses Next.
+    /// Why this hoster's server would refuse a file's TYPE, or null. Overriding this is enough for both
+    /// consumers: <see cref="PreflightRejection"/> consults it (so the upload fails fast before sending
+    /// bytes), and the upload WIZARD calls it through
+    /// <see cref="IFileHosterPipeline.RejectedFileExtensionReason"/> to drop such files from this
+    /// hoster's Summary column and name them in the warning panel before the user presses Next.
     /// <para>
     /// One rule, two consumers, deliberately: an extension list duplicated across an upload-time check
     /// and a wizard-time check is a list that eventually disagrees with itself.
     /// </para>
     /// </summary>
-    public virtual string? RejectedFileNameReason(string fileName)
+    public virtual string? RejectedFileExtensionReason(string fileName)
     {
         _ = fileName;
         return null;
