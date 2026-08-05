@@ -73,6 +73,28 @@ form is evidence. Only the upload's answer is.
 > and `.partN.rar` pass while **`.r00`, `.001`, `.sfv` and `.nfo` are refused**, so a classic
 > multi-part set only half-uploads. It also de-duplicates by content hash.
 >
+> 🔚 **Second pass over this category, 2026-08-05 — nothing left.** The trick that found it in the
+> first place (ask what the source list was incapable of containing) was run again against the two
+> seams still open, and this time it produced nothing:
+>
+> | host | result |
+> |---|---|
+> | **x0.at** | **403 "Your upload was rejected"** for `.rar`, `.bin` AND `.txt` — a blanket refusal of this client, not an extension rule. Same wall as ShareMods. |
+> | **envs.sh**, **bashupload.com** | no DNS record at all |
+> | **oshi.at** | connection refused |
+> | **ttm.sh** | 307 redirect loop, even with the method preserved across the hop |
+> | **pomf.lain.la** | serves "Pomf has been shut down" |
+>
+> 0x0.st's clones were the promising idea — the original disabled uploads but its code is widely
+> self-hosted — and they are simply gone or hostile. **A negative result from a repeated method is
+> still worth recording:** the next person should not spend an afternoon rediscovering that these six
+> are dead.
+>
+> ⚖ **What genuinely remains is a scope decision, not a candidate:** image hosts (Imgur anonymous via
+> a shipped Client-ID, ImgBB via a key); the deferred cloud drives in Tier C; or the **E2E storage**
+> services with published SDKs — **Filen.io** (10 GB free) and **Internxt** (1 GB) — which are
+> account-based, crypto-heavy builds on the scale of the MEGA/transfer.it work, not shims.
+>
 > **The rest of the category is closed:** filetransfer.io doesn't work (user-tested); **0x0.st has
 > disabled uploads outright** — *"uploads disabled because it's been almost nothing but AI botnet
 > spam for the past few months"* (HTTP 503, 2026-08-04); **uguu.se refuses .rar AND .zip** (415
