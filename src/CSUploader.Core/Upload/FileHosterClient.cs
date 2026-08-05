@@ -243,6 +243,16 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // pipeline checks locally because the host refuses after the bytes arrive.
         // Also de-duplicates by content hash — identical bytes return the same link.
         { "Qu.ax", "qu.ax" },
+        // upload.ee — ANONYMOUS. Uber-Uploader (Perl CGI), a family nothing else here uses:
+        // GET /ubr_link_upload.php?rnd_id=<ms> hands back a SERVER-MINTED id inside a line of
+        // JavaScript, then a multipart POST to /cgi-bin/ubr_upload.pl?X-Progress-ID=&upload_id= with
+        // ONLY upfile_0, then /?page=finished&upload_id= renders the link plus a ?killcode= delete URL.
+        // ⚠ Inventing the id does not work — the server writes a .link file when it issues one, and an
+        // id it never issued dies inside their Perl. ⚠ It answers a browser with 302 and this client
+        // with 200 + parent.location.href; both are handled. 100 MB anonymous, kept 50 days after last
+        // download. ⚠ It also inspects INSIDE archives (200 MB per unpacked file, 400 MB total, and no
+        // more than 5x expansion above 50 MB). See UploadEePipeline.cs.
+        { "Upload.ee", "upload.ee" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

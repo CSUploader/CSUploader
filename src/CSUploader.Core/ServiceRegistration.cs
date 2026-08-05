@@ -193,6 +193,10 @@ public static class ServiceRegistration
         // qu.ax — ANONYMOUS and PERMANENT (expiry=-1; its form defaults to 30 days). 256 MB.
         // ⚠ Allowlist: .rar/.zip/.7z fine, .r00/.sfv/.nfo refused. See QuAxPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.QuAxPipeline>();
+        // upload.ee — ANONYMOUS, and the first Uber-Uploader (Perl CGI) host here: the server mints an
+        // upload id, the POST carries only upfile_0, and the result page holds the link. 100 MB,
+        // kept 50 days after last download. See UploadEePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadEePipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
