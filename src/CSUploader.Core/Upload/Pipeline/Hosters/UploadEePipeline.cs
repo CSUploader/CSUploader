@@ -104,9 +104,19 @@ public sealed class UploadEePipeline : IFileHosterPipeline
         """name=["']___nonce["'][^>]*?\bvalue=["']([^"']+)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // "Welcome, <name> !" in the header once signed in — the only positive confirmation the site gives.
+    // The header's greeting, which names the account.
+    // ⚠ On the wire it is "Welcome, <b>name</b>!" — the name is WRAPPED IN MARKUP. The first version of
+    // this pattern was written against a capture-analysis script's TAG-STRIPPED text ("Welcome, name !"),
+    // a shape that never crosses the wire, so it matched nothing and every real sign-in "failed".
     private static readonly Regex _welcomeRegex = new(
-        """Welcome,\s*([^<!\r\n]+?)\s*!""",
+        """Welcome,\s*(?:<[^>]*>|\s)*([^<>!\r\n]+?)\s*(?:</[^>]*>|\s)*!""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // The logout control the header renders once there is a session. A second, independent marker:
+    // across the whole capture it is on every signed-in page and on none of the anonymous ones, so a
+    // cosmetic change to the greeting can no longer read as a failed login.
+    private static readonly Regex _signedInRegex = new(
+        """logout\.html|name=["']logout["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // The session cookie pair. upload_sess_sec arrives on the login's 302; sess_sec only on the page
@@ -451,15 +461,16 @@ public sealed class UploadEePipeline : IFileHosterPipeline
 
         Collect(jar, landed);
 
+        // Either marker means signed in: the greeting names the account, the logout control proves the
+        // session. The site re-renders the same page for a bad password rather than saying so, so their
+        // absence is the only failure signal there is.
         Match welcome = _welcomeRegex.Match(landed.Body);
-        if (!welcome.Success)
+        if (!welcome.Success && !_signedInRegex.IsMatch(landed.Body))
         {
-            // The site re-renders the same page for a bad password, so absence of the greeting is the
-            // only signal there is.
             return (null, null, "upload.ee login failed — check the username and password.");
         }
 
-        return (CookieHeader(jar), welcome.Groups[1].Value, null);
+        return (CookieHeader(jar), welcome.Success ? welcome.Groups[1].Value.Trim() : null, null);
     }
 
     /// <summary>Adds a response's <c>Set-Cookie</c> values to the jar, keeping only the names

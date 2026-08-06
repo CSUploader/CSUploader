@@ -42,9 +42,15 @@ public class UploadEePipelineTests
         <input type="submit" name="login" value=" Enter " /></form></body></html>
         """;
 
-    // What the login's redirect lands on — the greeting is the only positive confirmation the site gives.
+    // What the login's redirect lands on, copied from the capture's markup rather than paraphrased.
+    // ⚠ The name is wrapped in <b>, and the first version of this fixture wasn't: it was written from a
+    // capture-analysis script's TAG-STRIPPED text ("Welcome, csuprobe !"). That shape never crosses the
+    // wire, so the greeting pattern derived from it matched nothing live while every test passed.
     private const string LandedHtml = """
-        <html><body><div id="header">Welcome, csuprobe ! &nbsp; <a href="/logout.html">Logout</a></div></body></html>
+        <html><body><table><tr>
+        <td>Welcome, <b>csuprobe</b>!</td>
+        <td><form action="https://www.upload.ee/logout.html" method="post"><input type="hidden" name="u[page]" value="" /><input type="submit" name="logout" value=" Logout " /></form></td>
+        </tr></table></body></html>
         """;
 
     [Fact]
@@ -294,13 +300,22 @@ public class UploadEePipelineTests
         Assert.False(uploaded);
     }
 
-    [Fact]
-    public async Task CheckAccountAsync_ReadsTheNameOffTheGreeting()
+    // The landing page is read for two independent markers, because keying on one already broke once.
+    [Theory]
+    // The wire shape: the name is wrapped in markup. This is the case the shipped pattern missed.
+    [InlineData(LandedHtml, true, "csuprobe")]
+    // The same greeting without the markup, in case the header is ever restyled.
+    [InlineData("<html><body><td>Welcome, csuprobe !</td></body></html>", true, "csuprobe")]
+    // Logout control but no greeting: still signed in, so fall back to the typed name rather than fail.
+    [InlineData("""<html><body><form action="https://www.upload.ee/logout.html"></form></body></html>""", true, "CSUPROBE")]
+    // Neither marker — a bad password re-renders the login form rather than saying anything.
+    [InlineData(LoginPageHtml, false, null)]
+    public async Task CheckAccountAsync_ReadsTheSignedInMarkersOffTheLandingPage(string landed, bool valid, string? expectedName)
     {
         UploadEePipeline pipeline = new(
             getOverride: (url, _) => Task.FromResult(url.EndsWith('/')
                 ? new HttpResponseSnapshot(200, LoginPageHtml, Array.Empty<string>())
-                : new HttpResponseSnapshot(200, LandedHtml, ["sess_sec=b2b2b2"])),
+                : new HttpResponseSnapshot(200, landed, ["sess_sec=b2b2b2"])),
             uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload for a check"),
             postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(
                 302, string.Empty, ["upload_sess_sec=a1a1a1"], "https://www.upload.ee/?")));
@@ -311,11 +326,11 @@ public class UploadEePipelineTests
             ProxyChoice.Direct,
             CancellationToken.None);
 
-        Assert.True(result.IsValid);
+        Assert.Equal(valid, result.IsValid);
 
-        // The name comes from the site, not the typed value — a login that succeeds against a different
-        // case or an e-mail alias still shows the real account name.
-        Assert.Equal("csuprobe", result.DerivedUsername);
+        // When the site names the account, that name wins over the typed one — a login that succeeds
+        // against different case or an e-mail alias still shows the real account name.
+        Assert.Equal(expectedName, result.DerivedUsername);
     }
 
     [Fact]
