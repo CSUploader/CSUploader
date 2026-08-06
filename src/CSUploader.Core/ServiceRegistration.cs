@@ -198,6 +198,9 @@ public static class ServiceRegistration
         // 100 MB / 50 days anonymous; an account is the same three steps with a session cookie on them,
         // for 200 MB / 120 days. See UploadEePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadEePipeline>();
+        // UpZur — ANONYMOUS stock XFileSharing, 200 MB. Its homepage renders no upload form, so the
+        // node comes from ?op=api_get_limits instead of a scrape. See UpZurPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UpZurPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

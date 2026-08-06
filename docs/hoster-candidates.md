@@ -329,6 +329,49 @@ subsequent ones get cheaper. None is Cloudflare-blocked — the gate is the auth
 
 ---
 
+## Second candidate list — swept 2026-08-06
+
+A 59-entry list (name + advertised cap/retention). Nine already shipped, nine were already assessed
+here. The remaining 41 were swept live: one GET per host for liveness, then family fingerprinting from
+the returned markup, then family endpoints for anything promising. Advertised tiers on such lists are
+a hypothesis — **UpZur was marked "Sign-Up Required" and uploads anonymously**, which is the same
+mistake the earlier UsersDrive entry made.
+
+**Shipped from this sweep**
+
+| Host | Family | Evidence |
+|---|---|---|
+| **UpZur** (upzur.com) | stock XFS | **SHIPPED 2026-08-06.** `?op=api_get_limits` answers `MaxUploadFilesize 200`, `ServerURL https://systeme.upzur.com/cgi-bin`, empty `ExtNotAllowed`. ⚠ **Its homepage renders NO upload form**, so the base's scrape finds nothing — the node comes from that limits call instead. Anonymous upload verified with real bytes, twice: by hand, then through the shipped pipeline and the real `HttpHandler` (link resolves and the page names the file). See `UpZurPipeline.cs`. |
+
+**Worth doing next, in order**
+
+| Host | Family | Note |
+|---|---|---|
+| **BowFile** (bowfile.com), **udrop** (udrop.com) | **YetiShare** | Both serve Filestank's template (`class="directionLTR"`, `/account/` routes) — so a **third and fourth** host on that platform. Per the Turbobit/HitFile precedent, doing both means extracting a shared YetiShare base rather than a second bespoke shim. ⚠ Filestank ships on sign-in with a per-upload `_sessionid` scrape; check whether these two allow anonymous before assuming they don't. Advertised: BowFile 20 GB/20 days, udrop 5 GB free (50 GB signed in, permanent). |
+| **Filebin** (filebin.net) | bespoke, documented | Advertised unlimited size / 6 days. Its API is a plain PUT per file into a named bin — likely the cheapest remaining win after UpZur. ⚠ Bins are public and guessable by name; check that before shipping. |
+| **GigaFile** (gigafile.nu) | bespoke chunked | Advertised **300 GB / 100 days**, the largest on the list. Japanese UI; homepage references `/upload` and chunking. Worth a real look purely for the cap. |
+| **Easyupload.io** | dropzone + CF | Advertised 100 GB / 30 days. Cloudflare **passive** here (plain 200 to this client), so not obviously blocked. |
+| **FEX.NET**, **DropMB**, **FileMirage**, **Bestfile**, **FilePort**, **FileGo**, **DooDrive**, **Rootz**, **eDisk**, **Imagenetz**, **GrosFichiers**, **Mega4Upload**, **UploadHive**, **UploadNow** | mixed | Alive, unclassified. UploadNow shows `xfspro` markers behind a Next.js front end and advertises 100 GB — the pick of this group. |
+
+**Blocked or poor fit from this sweep**
+
+| Host | Reason |
+|---|---|
+| **TransferSize** | Cloudflare **Turnstile** on the upload page — the pillows.su problem: a token per upload, which nothing here can mint. |
+| **Internxt Send** | reCAPTCHA **and** a Cloudflare challenge. |
+| **AkiraBox**, **Mega4Upload** | Answer this client the `Just a moment…` **managed** challenge — the TakeFile wall. (Mega4Upload's own pages load; only some paths challenge, so it is listed above too.) |
+| **pCloud Transfer**, **JUMBOmail**, **Smash** | Delivery is by **email link**, not a share URL the app can record. |
+| **Send** (send.vis.ee) | A Firefox Send fork: E2E, WebSocket upload, and **instance-dependent** — the public instances come and go, so a shipped host would rot. |
+| **DesiUpload** (522), **Drop Download** (502 ddos-guard), **Filecad** (525, redirects off-domain) | Not serving. Re-check before investing. |
+| **DoraDrop**, **FileFast**, **Gulfup**, **Hexupload**, **MixLoads**, **Ranoz**, **Tempcloud**, **TheUserCloud** | No DNS/TLS answer at the obvious domain from this environment. Either dead or the domain guessed here is wrong — **needs the exact URL before any conclusion**, since a wrong guess proves nothing. |
+| **MultiUp.io**, **PolyUploader** | Not hosts. Both are multi-host *uploader front-ends* — the category this app is in, not a target for it. |
+
+**Already shipped** (listed for completeness): 1Fichier, Clicknupload, DataVaults, DropMeFiles, Send.now,
+Temp.sh, Transfer.it, ufile.io. **Already assessed above**: Dfiles, FileDitch, FileQ, FileTransfer.io,
+KrakenFiles, MegaUp, MixDrop, SwissTransfer, UserDrive.
+
+---
+
 ## Blocked / not worth pursuing
 
 | Host | Reason |

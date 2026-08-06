@@ -770,8 +770,10 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     private const int AnonymousServerAttempts = 5;
 
     /// <summary>Sent on the homepage GET alongside the cache-buster query — belt-and-suspenders
-    /// against any intermediary that honours request no-cache.</summary>
-    private static readonly Dictionary<string, string> NoCacheHeaders = new(StringComparer.Ordinal)
+    /// against any intermediary that honours request no-cache. <c>protected</c> so a fork that
+    /// resolves its node from somewhere other than that page (UpZur reads <c>?op=api_get_limits</c>,
+    /// having no form to scrape) can keep the same anti-caching stance.</summary>
+    protected static readonly Dictionary<string, string> NoCacheHeaders = new(StringComparer.Ordinal)
     {
         ["Cache-Control"] = "no-cache",
         ["Pragma"] = "no-cache",

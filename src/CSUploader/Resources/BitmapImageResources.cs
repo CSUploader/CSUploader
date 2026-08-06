@@ -109,6 +109,7 @@ internal static class BitmapImageResources
         // "Qu.ax" keeps its dot, like Storage.to/Temp.sh; the rest lower-cases.
         ("FileHosterQu.axImage", "FileHosters/filehoster_qu.ax.png"),
         ("FileHosterUpload.eeImage", "FileHosters/filehoster_upload.ee.png"),
+        ("FileHosterUpzurImage", "FileHosters/filehoster_upzur.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTerabytezImage", "FileHosters/filehoster_terabytez.png"),
         ("FileHosterDatavaultsImage", "FileHosters/filehoster_datavaults.png"),

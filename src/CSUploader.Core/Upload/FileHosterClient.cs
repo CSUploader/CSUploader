@@ -255,6 +255,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // inspects INSIDE archives (200 MB per unpacked file, 400 MB total, and no more than 5x
         // expansion above 50 MB). See UploadEePipeline.cs.
         { "Upload.ee", "upload.ee" },
+        // UpZur — ANONYMOUS. Stock XFileSharing, 200 MB, no extension restrictions, verified with real
+        // bytes 2026-08-06 (the candidate list that suggested it said "Sign-Up Required" — it is not).
+        // ⚠ Its homepage renders NO upload form, so the base's scrape finds nothing; the node comes
+        // from ?op=api_get_limits, which also carries the cap. See UpZurPipeline.cs.
+        { "UpZur", "upzur.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
