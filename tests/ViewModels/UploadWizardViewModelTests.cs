@@ -519,6 +519,44 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadFileHosters_OffersOnlyAccountsLeftSwitchedOnInTheAccountManager()
+    {
+        // An account unticked in Settings → Accounts isn't a choice: everything downstream skips it, so
+        // offering it in the wizard's picker only invites choosing a hoster that then uploads nothing.
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "BRupload", Username = "kept", Password = "p" });
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "BRupload", Username = "switchedoff", Password = "p", Disabled = true });
+        await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "Buzzheavier", Username = "onlyone", Password = "p", Disabled = true });
+
+        string temp = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(temp, "x");
+        try
+        {
+            Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>())).ReturnsAsync([temp]);
+            UploadWizardViewModel vm = CreateVm(dialog.Object);
+            vm.Mode = UploadWizardMode.Files;
+            await vm.BrowseFilesCommand.ExecuteAsync(null);
+
+            await vm.GoNextCommand.ExecuteAsync(null); // step 1 loads the hoster rows
+            Assert.Equal(1, vm.CurrentStep);
+
+            FileHosterSelectionViewModel br = vm.FileHosters.First(h => h.FileHosterName == "BRupload");
+            Assert.Equal("kept", Assert.Single(br.Accounts).Username);
+            Assert.Equal("kept", br.SelectedAccount?.Username);
+
+            // A hoster whose ONLY account is switched off reads as having none — which is the truth:
+            // there is nothing there to upload with until it's switched back on.
+            FileHosterSelectionViewModel bz = vm.FileHosters.First(h => h.FileHosterName == "Buzzheavier");
+            Assert.Empty(bz.Accounts);
+            Assert.False(bz.HasAccounts);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
     public void HosterValidation_AccountWhoseLastCheckFailed_IsExplainedOnTheHosterStep()
     {
         // The reported confusion: a hoster ticked on step 2 (its account named, its cap shown) and then

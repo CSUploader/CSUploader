@@ -981,7 +981,7 @@ public partial class UploadWizardViewModel : ObservableObject
             return;
         }
 
-        FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(hoster.FileHosterName);
+        FileHosterLoginDto[] accounts = await FindSelectableAccountsAsync(hoster.FileHosterName);
         hoster.SetAccounts(accounts);
 
         // Auto-tick "Use" now that an account exists — saves the user a click and
@@ -1108,6 +1108,16 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The accounts this hoster's dropdown may offer: the saved ones the user has left switched ON in
+    /// Settings → Accounts. An account they unticked there is not a choice — putting it in the picker
+    /// only invites selecting a hoster that everything downstream then skips
+    /// (see <see cref="UnusableAccountReason"/>). A hoster whose only account is switched off falls
+    /// back to anonymous if it supports it, and otherwise reads as having none, which is what it is.
+    /// </summary>
+    private async Task<FileHosterLoginDto[]> FindSelectableAccountsAsync(string fileHosterName)
+        => [.. (await fileHosterLoginRepository.FindAsync(fileHosterName)).Where(a => !a.Disabled)];
+
     private async Task LoadFileHostersAsync()
     {
         if (FileHosters.Count > 0)
@@ -1117,7 +1127,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
         foreach (string fileHosterName in FileHosterClient.NamesAlphabetical)
         {
-            FileHosterLoginDto[] accounts = await fileHosterLoginRepository.FindAsync(fileHosterName);
+            FileHosterLoginDto[] accounts = await FindSelectableAccountsAsync(fileHosterName);
             IFileHosterPipeline? pipeline = _fileHosterRegistry?.Find(fileHosterName);
             bool supportsAnonymous = pipeline?.SupportsAnonymousUpload ?? false;
 
