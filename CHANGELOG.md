@@ -4,6 +4,42 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-06
+
+Seven new file hosters (53 in total, twenty-five of them no-login) and an upload wizard that stops
+sending files a host will refuse. See [docs/release-notes/v1.3.0.md](docs/release-notes/v1.3.0.md)
+for the full notes.
+
+### Added
+
+- **Seven file hosters.** No account needed: **qu.ax** (permanent storage, 256 MiB, but an extension
+  allowlist), **upload.ee** (100 MB, or 200 MB signed in), **temp.sh** (4 GB, 3-day expiry),
+  **Litterbox** (1 GB, 72-hour expiry) and **tmpfiles.org** (100 MiB, 48-hour expiry). With an
+  account: **EliteFile** (no per-file cap, 488 GB storage) and **Easybytez** (200 MB per file).
+- **Pre-upload deselection of file types a hoster refuses**, in the wizard, before Next is pressed —
+  covering qu.ax's allowlist and the Uploadrar and filedot.to blocklists, two of which are only
+  enforced after the whole file has transferred.
+
+### Changed
+
+- **The wizard says why a hoster will receive nothing** instead of dropping every file into an
+  unexplained "won't be uploaded to any hoster" list on the summary page, and blocks Next when
+  nothing can upload at all.
+- **Accounts switched off in Settings → Accounts are no longer offered** in the wizard's account
+  picker.
+
+### Fixed
+
+- **EliteFile** saved "Settings" as the account name on themes whose menu matches the usual marker.
+- **Litterbox** links are full length again; one optional field had been omitted, which took a
+  6-character link.
+- **TeraBytez** and **DataVaults** showed no icon in the hoster list.
+
+### Notes
+
+- Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
+- Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
+
 ## [1.2.0] - 2026-08-02
 
 Eighteen new file hosters (46 in total, twenty of them no-login), a per-hoster parallel-upload limit
@@ -206,6 +242,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.3.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.3.0
 [1.2.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.2.0
 [1.1.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.1.0
 [1.0.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.0.0
