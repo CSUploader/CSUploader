@@ -335,6 +335,7 @@ subsequent ones get cheaper. None is Cloudflare-blocked — the gate is the auth
 |---|---|
 | **Fuckingfast** | Cloudflare **managed** challenge observed on the upload API host (`Cf-Mitigated: challenge`, `cType:'managed'`) — same TLS-fingerprint wall as TakeFile/UbiqFile. A guest-route bypass is unverified. Otherwise a healthy S3-presigned host. |
 | **Qiwi.gg** | Entire origin (incl. `/api/*`) behind a Cloudflare managed challenge. Blocked. |
+| **Pillowcase** (pillows.su) | **Probed live 2026-08-06** — protocol fully mapped from its own SvelteKit bundle, then rejected on two independent grounds. **(1) Per-file Cloudflare Turnstile**, enforced server-side: `POST /api/upload/init` answers `403 {"error":"Invalid captcha response"}` to an empty *or* bogus token, and an `Authorization: Bearer` header changes nothing. The token is consumed per `init`, i.e. **per file** — unlike NitroFlare, where one solve yields a durable reusable hash — so a 16-part release would need 16 human solves. **(2) Audio-only below a paid tier**: anonymous `.mp3/.m4a/.wav/.ogg/.flac/.aif/.aiff` @ 200 MB, a free account adds `.zip` @ 500 MB, and only a **subscription** allows arbitrary files @ 15 GB — so `.rar`/`.r00`/`.sfv` are refused for every unpaid user. ⚠ **The account API key is a red herring**: `/account/apikey` mints one, but no upload route accepts it (`POST /api/upload` 404s, as does every other guessed route) and their own client never sends it — `/docs` reads "In progress". Files are permanent; API base `api.pillows.su` (Fastify). Protocol, for the record: `POST /api/upload/init {session,fileSize,fileName,token}` → `{message:{id}}`; `PUT /api/upload/<id>/part` multipart `part`+`file` (10 MiB chunks, 4 in parallel); `GET /api/upload/<id>/done` → the share id. Revisit only if they publish a key-authenticated upload route. |
 | **Swisstransfer** | Google reCAPTCHA enforced on **every** anonymous upload call (not a login) — harvesting a per-upload token headlessly is unproven. Protocol otherwise fine (50 GB). Deprioritize. |
 | **iCloud Drive** | No public API/OAuth; only a reverse-engineered private API behind SRP + mandatory HSA2 2FA. Not viable. |
 | **Emload** | Cloudflare 403 to all fetches — may be managed (Blocked) or passive; needs a WebView probe. Possibly non-stock XFS. |
@@ -377,7 +378,7 @@ Not in the file-host/cloud scope, but they do accept file uploads. Most are Sibs
 | Vidoza, Mp4upload, Uqload, Darkibox | XVideoSharing / XFS | Low | Thin XFS-base shims (field names differ from file-XFS). Darkibox needs an account api_key. |
 | Vup, Cloudvideo, Flix555 | XVideoSharing | Low | Liveness/domain unconfirmed — verify before investing. |
 | Mixdrop, Streamtape, Voe | bespoke REST | Medium | Account-only (email + api_key). Voe = 25 GB. |
-| Pillowcase | bespoke REST | Medium | **Audio-only** — poor fit for a general uploader. |
+| Pillowcase | bespoke REST | **Blocked** | Audio-only below a paid tier, **and a per-file Turnstile** — probed live 2026-08-06, see "Blocked / not worth pursuing". |
 
 ## Appendix — needs a live browser capture before rating
 
