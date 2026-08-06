@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
 
@@ -41,10 +42,21 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// handled, because relying on either alone would work in testing and fail in the field.
 /// </para>
 /// <para>
-/// Anonymous uploads are capped at <b>100 MB</b> and kept until <b>50 days after the last download</b>
-/// (an account raises those to 200 MB and 120 days; not implemented — the anonymous path needs no
-/// credential and this app has no account to offer it). No captcha, no cookie: the flow issues no
-/// session, and the only <c>Set-Cookie</c> anywhere in the capture is a language preference.
+/// Anonymous uploads are capped at <b>100 MB</b> and kept until <b>50 days after the last download</b>;
+/// an account doubles the first to <b>200 MB</b> and the second to <b>120 days</b>. Anonymous needs no
+/// cookie at all — the flow issues no session, and the only <c>Set-Cookie</c> in an anonymous capture
+/// is a language preference.
+/// </para>
+/// <para>
+/// <b>An account changes nothing about the three steps</b> — it only puts a session cookie on them.
+/// Signing in is a plain form with no captcha (from a capture 2026-08-06):
+/// <list type="number">
+///   <item><c>GET /</c> for the login form's <c>___nonce</c>;</item>
+///   <item><c>POST /login.html</c> with <c>u[username]</c>, <c>u[password]</c>, empty <c>u[page]</c>,
+///   that nonce and <c>login=" Enter "</c> → <b>302</b> setting <c>upload_sess_sec</c>;</item>
+///   <item>follow the redirect, which is where <c>sess_sec</c> is set — the upload steps send both,
+///   so stopping at the 302 yields a half-session.</item>
+/// </list>
 /// </para>
 /// <para>
 /// <b>⚠ It inspects inside archives</b>, which no other host here does: per its FAQ a single unpacked
@@ -62,6 +74,11 @@ public sealed class UploadEePipeline : IFileHosterPipeline
     /// <summary>Anonymous cap, from its FAQ ("Unregistered users can upload up to 100MB files").
     /// Binary, matching how the other 100 MB host in the tree (tmpfiles.org) reads its own figure.</summary>
     private const long MaxFileSizeBytes = 100L * 1024 * 1024;
+
+    /// <summary>"registered users can upload up to 200MB files", same FAQ.</summary>
+    private const long RegisteredMaxFileSizeBytes = 200L * 1024 * 1024;
+
+    private const string LoginUrl = Host + "/login.html";
 
     // if(typeof startUpload==='function'){startUpload("c93cc90ca1aeac83b3586aad022b9b62",0);}
     private static readonly Regex _uploadIdRegex = new(
@@ -82,21 +99,43 @@ public sealed class UploadEePipeline : IFileHosterPipeline
         """href=["']([^"']+killcode=[^"']+)["']""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private readonly Func<string, Task<HttpResponseSnapshot>>? _getOverride;
+    // <input type="hidden" name="___nonce" value="71070709_bc90ab…" /> on the login form.
+    private static readonly Regex _nonceRegex = new(
+        """name=["']___nonce["'][^>]*?\bvalue=["']([^"']+)["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // "Welcome, <name> !" in the header once signed in — the only positive confirmation the site gives.
+    private static readonly Regex _welcomeRegex = new(
+        """Welcome,\s*([^<!\r\n]+?)\s*!""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // The session cookie pair. upload_sess_sec arrives on the login's 302; sess_sec only on the page
+    // the redirect points at, and the upload steps send both.
+    private static readonly string[] SessionCookieNames = ["upload_sess_sec", "sess_sec", "lng"];
+
+    // One session per credentials id, and one login at a time for it — a batch of N files against the
+    // same account signs in ONCE. Same shape as filehoster.io's xfss cache and catbox's userhash.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, string> _cookiesByCredId = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
+
+    private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _postFormOverride;
 
     public UploadEePipeline()
     {
     }
 
-    /// <summary>Test ctor — stubs the two GETs and the multipart POST so the three-step orchestration
-    /// runs without the network.</summary>
+    /// <summary>Test ctor — stubs the GETs and the multipart POST so the three-step orchestration runs
+    /// without the network. The form POST is optional: only the account path uses it.</summary>
     internal UploadEePipeline(
-        Func<string, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? postFormOverride = null)
     {
         _getOverride = getOverride;
         _uploadOverride = uploadOverride;
+        _postFormOverride = postFormOverride;
     }
 
     public string Name => "Upload.ee";
@@ -105,24 +144,49 @@ public sealed class UploadEePipeline : IFileHosterPipeline
 
     public bool RequiresHashingAfterUpload => false;
 
+    /// <summary>The anonymous figure — the conservative one, and what the wizard shows before an
+    /// account is picked. See <see cref="MaxFileSizeFor"/>.</summary>
     public long? MaxFileSize => MaxFileSizeBytes;
+
+    /// <summary>
+    /// 200 MB signed in, 100 MB anonymous — its FAQ states both, and the account tier is the only
+    /// reason to sign in to this host at all (that, and 120 days of retention instead of 50).
+    /// </summary>
+    public long? MaxFileSizeFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? MaxFileSizeBytes : RegisteredMaxFileSizeBytes;
 
     public int? MaxFilesPerPackage => null;
 
-    /// <summary>Anonymous is what ships — see the class remarks on the account tier.</summary>
+    /// <summary>Anonymous needs no credential at all; an account merely raises the limits.</summary>
     public bool SupportsAnonymousUpload => true;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;
 
-        if (ctx.FileSize > MaxFileSizeBytes)
+        long cap = MaxFileSizeFor(ctx.Credentials) ?? MaxFileSizeBytes;
+        if (ctx.FileSize > cap)
         {
             yield return new AttemptFailed(
-                $"File exceeds upload.ee's {ByteUnit.FromBytes(MaxFileSizeBytes, ByteBase.Binary).ToFriendlyString()} anonymous per-file limit "
+                $"File exceeds upload.ee's {ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()} "
+                + $"{(ctx.Credentials.IsAnonymous ? "anonymous" : "per-account")} per-file limit "
                 + $"(this file is {ByteUnit.FromBytes(ctx.FileSize, ByteBase.Decimal).ToFriendlyString()}).",
                 null);
             yield break;
+        }
+
+        // === Step 0 (account only): the session cookies the later steps carry ===
+        string? cookies = null;
+        if (!ctx.Credentials.IsAnonymous)
+        {
+            (string? signedIn, string? loginError) = await EnsureSessionAsync(ctx);
+            if (signedIn is null)
+            {
+                yield return new AttemptFailed(loginError ?? "upload.ee login failed", null);
+                yield break;
+            }
+
+            cookies = signedIn;
         }
 
         // === Step 1: the server mints the upload id ===
@@ -131,7 +195,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
         string? idRequestError = null;
         try
         {
-            idResponse = await GetAsync(ctx, $"{LinkUploadUrl}?rnd_id={rndId}");
+            idResponse = await GetAsync(ctx, $"{LinkUploadUrl}?rnd_id={rndId}", cookies);
         }
         catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
         {
@@ -164,7 +228,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             progressChannel.Writer.TryWrite(new TransferProgress(e.BytesProcessed, e.Size, e.Speed));
         ctx.Handler.UploadProgress += OnProgress;
 
-        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadId);
+        Task<HttpResponseSnapshot> uploadTask = UploadAsync(ctx, uploadId, cookies);
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),
             CancellationToken.None,
@@ -204,7 +268,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             string? finishRequestError = null;
             try
             {
-                finished = await GetAsync(ctx, finishedUrl);
+                finished = await GetAsync(ctx, finishedUrl, cookies);
             }
             catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
             {
@@ -242,25 +306,191 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             ctx.Logger.Log(this, LogType.Status, $"{Name}: delete link for {ctx.FileName} — {deleteLink}");
         }
 
-        ctx.Logger.Log(this, LogType.Status, $"{Name}: {ctx.FileName} is kept until 50 days after its last download.");
+        int days = ctx.Credentials.IsAnonymous ? 50 : 120;
+        ctx.Logger.Log(this, LogType.Status, $"{Name}: {ctx.FileName} is kept until {days.ToString(CultureInfo.InvariantCulture)} days after its last download.");
         yield return new TransferCompleted(url);
     }
 
-    /// <summary>Anonymous only here — an account would raise the caps but needs a login this pipeline
-    /// doesn't implement.</summary>
-    public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    /// <summary>
+    /// Validates an account by actually signing in — there is no API to ask instead. The account's own
+    /// name comes back from the "Welcome, …" header rather than the typed value, so a login that
+    /// succeeds against a different case or an e-mail alias still shows the real name.
+    /// </summary>
+    public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
-        _ = username;
-        _ = password;
         _ = apiKey;
-        _ = handler;
         _ = proxy;
-        _ = ct;
-        return Task.FromResult(new AccountCheckResult(
-            false,
-            AccountType.Free,
-            "upload.ee accounts aren't supported yet — use the built-in Anonymous option in the upload wizard."));
+
+        (string? cookies, string? derivedName, string? error) = await LoginAsync(
+            (url, headers) => GetSnapshotAsync(handler, url, headers, ct),
+            (url, form, headers) => PostFormAsync(handler, url, form, headers, ct),
+            username,
+            password);
+
+        return cookies is null
+            ? new AccountCheckResult(false, AccountType.Free, error ?? "upload.ee login failed.")
+            : new AccountCheckResult(
+                true,
+                AccountType.Free,
+                "Signed in (Free) — 200 MB per file, kept 120 days after last download",
+                DerivedUsername: derivedName ?? (string.IsNullOrWhiteSpace(username) ? null : username));
     }
+
+    /// <summary>Returns the cached session for the account, signing in once (gated per credentials id)
+    /// on a miss — a batch of N files does ONE login, not N.</summary>
+    private async Task<(string? Cookies, string? Error)> EnsureSessionAsync(AttemptContext ctx)
+    {
+        int id = ctx.Credentials.Id;
+        if (_cookiesByCredId.TryGetValue(id, out string? cached))
+        {
+            return (cached, null);
+        }
+
+        SemaphoreSlim gate = _loginGates.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ctx.Cancellation).ConfigureAwait(false);
+        try
+        {
+            if (_cookiesByCredId.TryGetValue(id, out cached))
+            {
+                return (cached, null);
+            }
+
+            (string? cookies, string? _, string? error) = await LoginAsync(
+                (url, headers) => GetSnapshotAsync(ctx.Handler, url, headers, ctx.Cancellation),
+                (url, form, headers) => PostFormAsync(ctx.Handler, url, form, headers, ctx.Cancellation),
+                ctx.Credentials.Username,
+                ctx.Credentials.Password);
+
+            if (cookies is null)
+            {
+                return (null, error);
+            }
+
+            _cookiesByCredId[id] = cookies;
+            return (cookies, null);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// The three-request sign-in, written against the capture. Returns a ready-to-send
+    /// <c>Cookie</c> header and the account name the site greets you by.
+    /// <para>
+    /// <b>The third request is the one that is easy to skip.</b> The login's 302 sets only
+    /// <c>upload_sess_sec</c>; <c>sess_sec</c> is set by the page it redirects to, and the upload steps
+    /// send both — so stopping at the redirect leaves a half-session that looks signed in and isn't.
+    /// </para>
+    /// </summary>
+    private static async Task<(string? Cookies, string? DerivedName, string? Error)> LoginAsync(
+        Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> get,
+        Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> postForm,
+        string? username,
+        string? password)
+    {
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            return (null, null, "upload.ee needs a username and password.");
+        }
+
+        Dictionary<string, string> jar = new(StringComparer.OrdinalIgnoreCase);
+
+        // 1 — the login form's anti-CSRF nonce (and the language cookie that rides along).
+        HttpResponseSnapshot home;
+        try
+        {
+            home = await get(Host + "/", BrowserHeaders(null));
+        }
+        catch (Exception ex)
+        {
+            return (null, null, "upload.ee login page fetch failed: " + ex.Message);
+        }
+
+        Collect(jar, home);
+        Match nonce = _nonceRegex.Match(home.Body);
+        if (!nonce.Success)
+        {
+            return (null, null, $"upload.ee login form carried no ___nonce: {Snippet(home.Body)}");
+        }
+
+        // 2 — the sign-in itself.
+        Dictionary<string, string> form = new(StringComparer.Ordinal)
+        {
+            ["u[username]"] = username,
+            ["u[password]"] = password,
+            ["u[page]"] = string.Empty,
+            ["___nonce"] = nonce.Groups[1].Value,
+            ["login"] = " Enter ",   // the submit button's value, verbatim — spaces included
+        };
+
+        HttpResponseSnapshot login;
+        try
+        {
+            login = await postForm(LoginUrl, form, BrowserHeaders(CookieHeader(jar)));
+        }
+        catch (Exception ex)
+        {
+            return (null, null, "upload.ee login request failed: " + ex.Message);
+        }
+
+        Collect(jar, login);
+
+        // 3 — follow the redirect, which is where sess_sec is issued.
+        string next = login.LocationHeader is { Length: > 0 } loc ? Absolute(loc) : Host + "/?";
+        HttpResponseSnapshot landed;
+        try
+        {
+            landed = await get(next, BrowserHeaders(CookieHeader(jar)));
+        }
+        catch (Exception ex)
+        {
+            return (null, null, "upload.ee post-login page fetch failed: " + ex.Message);
+        }
+
+        Collect(jar, landed);
+
+        Match welcome = _welcomeRegex.Match(landed.Body);
+        if (!welcome.Success)
+        {
+            // The site re-renders the same page for a bad password, so absence of the greeting is the
+            // only signal there is.
+            return (null, null, "upload.ee login failed — check the username and password.");
+        }
+
+        return (CookieHeader(jar), welcome.Groups[1].Value, null);
+    }
+
+    /// <summary>Adds a response's <c>Set-Cookie</c> values to the jar, keeping only the names
+    /// upload.ee's own requests carry.</summary>
+    private static void Collect(Dictionary<string, string> jar, HttpResponseSnapshot response)
+    {
+        foreach (string raw in response.SetCookies)
+        {
+            int eq = raw.IndexOf('=', StringComparison.Ordinal);
+            if (eq <= 0)
+            {
+                continue;
+            }
+
+            string name = raw[..eq].Trim();
+            if (!SessionCookieNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            int semi = raw.IndexOf(';', eq);
+            string value = (semi < 0 ? raw[(eq + 1)..] : raw[(eq + 1)..semi]).Trim();
+            if (value.Length > 0)
+            {
+                jar[name] = value;
+            }
+        }
+    }
+
+    private static string? CookieHeader(Dictionary<string, string> jar)
+        => jar.Count == 0 ? null : string.Join("; ", jar.Select(kv => $"{kv.Key}={kv.Value}"));
 
     /// <summary>Reads the id out of the JavaScript step 1 answers with. Internal for testing.</summary>
     internal static (string? UploadId, string? Error) ParseUploadId(HttpResponseSnapshot response)
@@ -341,18 +571,38 @@ public sealed class UploadEePipeline : IFileHosterPipeline
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
 
-    private Task<HttpResponseSnapshot> GetAsync(AttemptContext ctx, string url)
+    private Task<HttpResponseSnapshot> GetAsync(AttemptContext ctx, string url, string? cookies)
+        => GetSnapshotAsync(ctx.Handler, url, BrowserHeaders(cookies), ctx.Cancellation);
+
+    private Task<HttpResponseSnapshot> GetSnapshotAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
         => _getOverride is not null
-            ? _getOverride(url)
-            : ctx.Handler.GetSnapshotAsync(url, BrowserHeaders(), ctx.Cancellation);
+            ? _getOverride(url, headers)
+            : handler.GetSnapshotAsync(url, headers, ct);
 
-    private static Dictionary<string, string> BrowserHeaders() => new(StringComparer.Ordinal)
+    private Task<HttpResponseSnapshot> PostFormAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> form, IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
+        => _postFormOverride is not null
+            ? _postFormOverride(url, form, headers)
+            : handler.PostFormAsync(url, form, headers, ct);
+
+    /// <summary>What every request carries, plus the session when there is one. Anonymous uploads send
+    /// no cookie at all — the flow issues none.</summary>
+    private static Dictionary<string, string> BrowserHeaders(string? cookies)
     {
-        ["Referer"] = Host + "/",
-        ["Origin"] = Host,
-    };
+        Dictionary<string, string> headers = new(StringComparer.Ordinal)
+        {
+            ["Referer"] = Host + "/",
+            ["Origin"] = Host,
+        };
 
-    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadId)
+        if (!string.IsNullOrEmpty(cookies))
+        {
+            headers["Cookie"] = cookies;
+        }
+
+        return headers;
+    }
+
+    private async Task<HttpResponseSnapshot> UploadAsync(AttemptContext ctx, string uploadId, string? cookies)
     {
         // Both query parameters carry the same id: X-Progress-ID is what the progress endpoint polls
         // on, upload_id is what the script itself keys on. The capture sends both; so do we.
@@ -363,7 +613,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, url, extraFields, BrowserHeaders(), ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, url, extraFields, BrowserHeaders(cookies), ctx.SpeedLimitProvider);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -371,7 +621,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             url,
             fileFieldName: "upfile_0",
             extraFields: extraFields,
-            headers: BrowserHeaders(),
+            headers: BrowserHeaders(cookies),
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }

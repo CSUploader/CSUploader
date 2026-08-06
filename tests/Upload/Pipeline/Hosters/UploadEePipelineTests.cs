@@ -33,6 +33,20 @@ public class UploadEePipelineTests
         </body></html>
         """;
 
+    // The homepage's login form, whose ___nonce the sign-in POST has to echo back.
+    private const string LoginPageHtml = """
+        <html><body><form action="/login.html" method="post">
+        <input type="text" name="u[username]" /><input type="password" name="u[password]" />
+        <input type="hidden" name="u[page]" value="" />
+        <input type="hidden" name="___nonce" value="71070709_bc90ab" />
+        <input type="submit" name="login" value=" Enter " /></form></body></html>
+        """;
+
+    // What the login's redirect lands on — the greeting is the only positive confirmation the site gives.
+    private const string LandedHtml = """
+        <html><body><div id="header">Welcome, csuprobe ! &nbsp; <a href="/logout.html">Logout</a></div></body></html>
+        """;
+
     [Fact]
     public async Task RunAsync_UsesTheServersUploadId_AndReturnsTheViewLink()
     {
@@ -40,7 +54,7 @@ public class UploadEePipelineTests
         string? uploadUrl = null;
 
         UploadEePipeline pipeline = new(
-            getOverride: url =>
+            getOverride: (url, _) =>
             {
                 gets.Add(url);
                 return Task.FromResult(url.Contains("ubr_link_upload", StringComparison.Ordinal)
@@ -81,7 +95,7 @@ public class UploadEePipelineTests
         // parent.location.href='…' instead — the iframe-era redirect. Relying on either alone would
         // pass in testing and fail in the field, so both are handled.
         UploadEePipeline pipeline = new(
-            getOverride: url => Task.FromResult(url.Contains("ubr_link_upload", StringComparison.Ordinal)
+            getOverride: (url, _) => Task.FromResult(url.Contains("ubr_link_upload", StringComparison.Ordinal)
                 ? new HttpResponseSnapshot(200, IdJs, Array.Empty<string>())
                 : new HttpResponseSnapshot(200, FinishedHtml, Array.Empty<string>())),
             uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
@@ -106,7 +120,7 @@ public class UploadEePipelineTests
         // unit test passed and the live run failed, because none of them modelled this client.
         List<string> gets = [];
         UploadEePipeline pipeline = new(
-            getOverride: url =>
+            getOverride: (url, _) =>
             {
                 gets.Add(url);
                 return Task.FromResult(new HttpResponseSnapshot(200, IdJs, Array.Empty<string>()));
@@ -131,7 +145,7 @@ public class UploadEePipelineTests
         // If the id step doesn't answer with one, uploading would only earn the Perl error — so don't.
         bool uploaded = false;
         UploadEePipeline pipeline = new(
-            getOverride: _ => Task.FromResult(new HttpResponseSnapshot(200, "/* nothing useful */", Array.Empty<string>())),
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, "/* nothing useful */", Array.Empty<string>())),
             uploadOverride: (_, _, _, _, _) =>
             {
                 uploaded = true;
@@ -175,7 +189,7 @@ public class UploadEePipelineTests
     {
         bool touched = false;
         UploadEePipeline pipeline = new(
-            getOverride: _ => { touched = true; return Task.FromResult(new HttpResponseSnapshot(200, IdJs, Array.Empty<string>())); },
+            getOverride: (_, _) => { touched = true; return Task.FromResult(new HttpResponseSnapshot(200, IdJs, Array.Empty<string>())); },
             uploadOverride: (_, _, _, _, _) => { touched = true; return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())); });
 
         AttemptContext ctx = MakeContext() with { FileSize = (100L * 1024 * 1024) + 1 };
@@ -187,6 +201,155 @@ public class UploadEePipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_WithAnAccount_SignsInOnce_AndCarriesBothSessionCookiesOnEveryStep()
+    {
+        // The account path is the SAME three upload steps with a session on them. Two things are pinned:
+        // that the login's redirect is followed (upload_sess_sec arrives on the 302, sess_sec only on the
+        // page it points at — stopping early leaves a half-session that looks signed in and isn't), and
+        // that a batch signs in ONCE rather than once per file.
+        List<string> gets = [];
+        List<IReadOnlyDictionary<string, string>> forms = [];
+        List<string?> uploadCookies = [];
+
+        UploadEePipeline pipeline = new(
+            getOverride: (url, _) =>
+            {
+                gets.Add(url);
+                if (url.Contains("ubr_link_upload", StringComparison.Ordinal))
+                {
+                    return Task.FromResult(new HttpResponseSnapshot(200, IdJs, Array.Empty<string>()));
+                }
+
+                if (url.EndsWith('/'))
+                {
+                    return Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, Array.Empty<string>()));
+                }
+
+                // The post-login landing page: the greeting, and the cookie the 302 did NOT set.
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200, LandedHtml, ["sess_sec=b2b2b2; path=/", "lng=eng; path=/"]));
+            },
+            uploadOverride: (_, _, _, headers, _) =>
+            {
+                uploadCookies.Add(headers?.GetValueOrDefault("Cookie"));
+                return Task.FromResult(new HttpResponseSnapshot(200, FinishedHtml, Array.Empty<string>()));
+            },
+            postFormOverride: (url, form, _) =>
+            {
+                Assert.Equal("https://www.upload.ee/login.html", url);
+                forms.Add(form);
+                return Task.FromResult(new HttpResponseSnapshot(
+                    302, string.Empty, ["upload_sess_sec=a1a1a1; path=/"], "https://www.upload.ee/?"));
+            });
+
+        AttemptContext ctx = AccountContext();
+        List<UploadEvent> first = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+        List<UploadEvent> second = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Empty(first.Concat(second).OfType<AttemptFailed>());
+        Assert.Equal(2, first.Concat(second).OfType<TransferCompleted>().Count());
+
+        // One login for both files — the second run reused the cached session.
+        IReadOnlyDictionary<string, string> form = Assert.Single(forms);
+        Assert.Equal("csuprobe", form["u[username]"]);
+        Assert.Equal("hunter2", form["u[password]"]);
+        Assert.Equal(string.Empty, form["u[page]"]);
+        Assert.Equal("71070709_bc90ab", form["___nonce"]);
+        Assert.Equal(" Enter ", form["login"]); // the submit button's value, spaces included
+
+        // The redirect was followed, and it was the Location the host gave.
+        Assert.Equal("https://www.upload.ee/", gets[0]);
+        Assert.Equal("https://www.upload.ee/?", gets[1]);
+
+        // Every upload carried BOTH cookies — the half-session is the failure this guards.
+        Assert.Equal(2, uploadCookies.Count);
+        foreach (string? cookie in uploadCookies)
+        {
+            Assert.NotNull(cookie);
+            Assert.Contains("upload_sess_sec=a1a1a1", cookie!, StringComparison.Ordinal);
+            Assert.Contains("sess_sec=b2b2b2", cookie!, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_WithAnAccount_WhenSignInFails_NothingIsUploaded()
+    {
+        // A bad password re-renders the same page rather than saying so, which makes the greeting's
+        // absence the only signal there is. Uploading anyway would silently produce an ANONYMOUS upload.
+        bool uploaded = false;
+        UploadEePipeline pipeline = new(
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploaded = true;
+                return Task.FromResult(new HttpResponseSnapshot(200, FinishedHtml, Array.Empty<string>()));
+            },
+            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                302, string.Empty, Array.Empty<string>(), "https://www.upload.ee/?")));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(AccountContext(), CancellationToken.None));
+
+        Assert.Contains("username and password", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(events.OfType<TransferStarted>());
+        Assert.False(uploaded);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_ReadsTheNameOffTheGreeting()
+    {
+        UploadEePipeline pipeline = new(
+            getOverride: (url, _) => Task.FromResult(url.EndsWith('/')
+                ? new HttpResponseSnapshot(200, LoginPageHtml, Array.Empty<string>())
+                : new HttpResponseSnapshot(200, LandedHtml, ["sess_sec=b2b2b2"])),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload for a check"),
+            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                302, string.Empty, ["upload_sess_sec=a1a1a1"], "https://www.upload.ee/?")));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "CSUPROBE", "hunter2", null,
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+
+        // The name comes from the site, not the typed value — a login that succeeds against a different
+        // case or an e-mail alias still shows the real account name.
+        Assert.Equal("csuprobe", result.DerivedUsername);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithAnAccount_AllowsAFileThatIsOversizedForAnonymous()
+    {
+        // 200 MB signed in against 100 MB anonymous — the tier is the whole reason to sign in here.
+        Assert.Equal(100L * 1024 * 1024, new UploadEePipeline().MaxFileSizeFor(
+            new FileHosterLoginDto { Id = 0, FileHosterName = "Upload.ee", IsAnonymous = true }));
+        Assert.Equal(200L * 1024 * 1024, new UploadEePipeline().MaxFileSizeFor(
+            new FileHosterLoginDto { Id = 7, FileHosterName = "Upload.ee", IsAnonymous = false }));
+
+        bool uploaded = false;
+        UploadEePipeline pipeline = new(
+            getOverride: (url, _) => Task.FromResult(url.Contains("ubr_link_upload", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, IdJs, Array.Empty<string>())
+                : url.EndsWith('/')
+                    ? new HttpResponseSnapshot(200, LoginPageHtml, Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, LandedHtml, ["sess_sec=b2b2b2"])),
+            uploadOverride: (_, _, _, _, _) =>
+            {
+                uploaded = true;
+                return Task.FromResult(new HttpResponseSnapshot(200, FinishedHtml, Array.Empty<string>()));
+            },
+            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                302, string.Empty, ["upload_sess_sec=a1a1a1"], "https://www.upload.ee/?")));
+
+        AttemptContext ctx = AccountContext() with { FileSize = 150L * 1024 * 1024 };
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.True(uploaded);
+    }
+
+    [Fact]
     public void UploadEe_IsAnonymous_AndRegistered()
     {
         UploadEePipeline pipeline = new();
@@ -195,6 +358,18 @@ public class UploadEePipelineTests
         Assert.Equal(100L * 1024 * 1024, pipeline.MaxFileSize);
         Assert.Equal("upload.ee", FileHosterClient.FileHosters["Upload.ee"]);
     }
+
+    private static AttemptContext AccountContext() => MakeContext() with
+    {
+        Credentials = new FileHosterLoginDto
+        {
+            Id = 7,
+            FileHosterName = "Upload.ee",
+            IsAnonymous = false,
+            Username = "csuprobe",
+            Password = "hunter2",
+        },
+    };
 
     private static AttemptContext MakeContext() => new()
     {
