@@ -586,6 +586,8 @@ Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: 다음 파일은 이 호스터가 허용하지 않는 확장자여서 업로드되지 않습니다:\n{1}
+Wizard_Hoster_AccountDisabled_Format = {0}: 계정 "{1}"이(가) 꺼져 있어 이 호스터에는 아무것도 업로드되지 않습니다.
+Wizard_Hoster_AccountCheckFailed_Format = {0}: 계정 "{1}"의 마지막 확인에 실패하여 이 호스터에는 아무것도 업로드되지 않습니다. 설정 → 계정에서 다시 확인하세요.
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.
 

@@ -269,6 +269,34 @@ public partial class UploadWizardViewModel : ObservableObject
     /// violations always block — the user has to decide which files to drop. Idempotent.
     /// No-op when no registry was injected (test fixtures).
     /// </summary>
+    /// <summary>
+    /// The one account-state rule both wizard pages obey: an account that is switched off, or whose
+    /// last verification failed, has no chance of accepting an upload — so its hoster is skipped
+    /// entirely, exactly as if it had never been ticked. The synthetic Anonymous selection carries no
+    /// such state and is never skipped.
+    /// <para>
+    /// Returns the resource key of the sentence to show, or null when the account is usable. Both
+    /// callers go through this so they can't drift apart again: they did, and the symptom was a
+    /// summary page that dropped every file with no explanation while the hoster page raised nothing.
+    /// </para>
+    /// </summary>
+    private static string? UnusableAccountReason(FileHosterLoginDto account)
+    {
+        if (account.IsAnonymous)
+        {
+            return null;
+        }
+
+        if (account.Disabled)
+        {
+            return "Wizard_Hoster_AccountDisabled_Format";
+        }
+
+        return account.CheckStatus == AccountCheckStatus.Failed
+            ? "Wizard_Hoster_AccountCheckFailed_Format"
+            : null;
+    }
+
     private void RecomputeHosterValidation()
     {
         HosterValidationWarnings.Clear();
@@ -311,6 +339,23 @@ public partial class UploadWizardViewModel : ObservableObject
             // The per-file size cap can vary by the selected account (e.g. Hexload's anonymous
             // tier allows a larger file than its API tier).
             FileHosterLoginDto? account = hoster.SelectedAccount;
+
+            // An account the summary would skip is called out HERE, on the page where the hoster was
+            // ticked. Until this ran, the two pages disagreed: this one counted every file as eligible
+            // and let Next through, then the summary silently dropped the hoster and reported "N files
+            // won't be uploaded to any hoster" — naming the files, but never the reason.
+            if (account is not null && UnusableAccountReason(account) is string reasonKey)
+            {
+                HosterValidationWarnings.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Localizer.Instance[reasonKey],
+                    hoster.FileHosterName,
+                    account.DisplayName));
+
+                // Contributes nothing to anyHosterCanUploadSomething: if it was the only hoster ticked,
+                // Next is blocked with the warning above rather than at the summary with none.
+                continue;
+            }
             long? hosterMaxFileSize = account is not null ? pipeline.MaxFileSizeFor(account) : pipeline.MaxFileSize;
 
             // Classify each selected file once against the hoster's per-file constraints. A file that
@@ -473,11 +518,10 @@ public partial class UploadWizardViewModel : ObservableObject
                 continue;
             }
 
-            // Account state filter: a disabled account or one whose last verification failed
-            // has no chance of accepting an upload, so the hoster gets dropped from the summary
-            // (same effect as unchecking it). The synthetic Anonymous selection has no such
-            // state, so it's never filtered here.
-            if (!account.IsAnonymous && (account.Disabled || account.CheckStatus == AccountCheckStatus.Failed))
+            // Account state filter — see UnusableAccountReason. The hoster page warns about this and
+            // blocks Next, so reaching the summary with one of these is only possible when ANOTHER
+            // hoster can still upload; dropping it here keeps the page showing only what will run.
+            if (UnusableAccountReason(account) is not null)
             {
                 continue;
             }

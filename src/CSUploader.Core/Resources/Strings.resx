@@ -1400,6 +1400,12 @@ Add anyway?</value>
     <value>{0}: The following files have an extension this hoster won't accept and won't be uploaded:
 {1}</value>
   </data>
+  <data name="Wizard_Hoster_AccountDisabled_Format" xml:space="preserve">
+    <value>{0}: The account "{1}" is switched off, so nothing will be uploaded there.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountCheckFailed_Format" xml:space="preserve">
+    <value>{0}: The last check of account "{1}" failed, so nothing will be uploaded there — check it again under Settings → Accounts.</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}: {1} files selected, but the per-package limit is {2}.</value>
   </data>

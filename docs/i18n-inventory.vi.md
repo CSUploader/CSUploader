@@ -594,6 +594,8 @@ Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này s�
 Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Tên các tệp sau chứa ký tự mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Các tệp sau có phần mở rộng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
+Wizard_Hoster_AccountDisabled_Format = {0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.
 

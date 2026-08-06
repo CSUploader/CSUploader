@@ -619,6 +619,8 @@ Wizard_Hoster_LimitsHeader         = This hoster's limits would be exceeded:
 Wizard_Hoster_FileTooLarge_Format  = {0}: The following files exceed the per-file limit of {1} and won't be uploaded:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: The following file names use characters this hoster won't accept and won't be uploaded:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: The following files have an extension this hoster won't accept and won't be uploaded:\n{1}
+Wizard_Hoster_AccountDisabled_Format = {0}: The account "{1}" is switched off, so nothing will be uploaded there.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: The last check of account "{1}" failed, so nothing will be uploaded there — check it again under Settings → Accounts.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} files selected, but the per-package limit is {2}.
 

@@ -586,6 +586,8 @@ Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na 
 Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Naglalaman ng mga karakter na hindi tinatanggap ng hoster na ito ang mga sumusunod na pangalan ng file at hindi mai-upload:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Ang mga sumusunod na file ay may extension na hindi tinatanggap ng hoster na ito at hindi mai-upload:\n{1}
+Wizard_Hoster_AccountDisabled_Format = {0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.
 

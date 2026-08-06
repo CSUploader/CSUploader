@@ -586,6 +586,8 @@ Wizard_Hoster_LimitsHeader         = 该托管商的限制将被超出：
 Wizard_Hoster_FileTooLarge_Format  = {0}：以下文件超过单文件 {1} 上限，将不会上传：\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}：以下文件名包含此托管商不接受的字符，将不会上传：\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}：以下文件的扩展名不被此托管商接受，将不会上传：\n{1}
+Wizard_Hoster_AccountDisabled_Format = {0}：账户“{1}”已关闭，因此不会向此托管商上传任何文件。
+Wizard_Hoster_AccountCheckFailed_Format = {0}：账户“{1}”上次检查失败，因此不会向此托管商上传任何文件。请在“设置 → 账户”中重新检查。
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}：已选 {1} 个文件，但每包上限为 {2} 个。
 

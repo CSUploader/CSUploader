@@ -1310,6 +1310,12 @@ Idagdag pa rin?</value>
     <value>{0}: Ang mga sumusunod na file ay may extension na hindi tinatanggap ng hoster na ito at hindi mai-upload:
 {1}</value>
   </data>
+  <data name="Wizard_Hoster_AccountDisabled_Format" xml:space="preserve">
+    <value>{0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountCheckFailed_Format" xml:space="preserve">
+    <value>{0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.</value>
   </data>

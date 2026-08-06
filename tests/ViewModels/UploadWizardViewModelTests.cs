@@ -519,6 +519,104 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
+    public void HosterValidation_AccountWhoseLastCheckFailed_IsExplainedOnTheHosterStep()
+    {
+        // The reported confusion: a hoster ticked on step 2 (its account named, its cap shown) and then
+        // a summary reading "16 files won't be uploaded to any hoster" — the files named, the reason
+        // never given. The two pages disagreed: the summary skipped the hoster for its account state,
+        // this page knew nothing about that rule and let Next through.
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterLoginDto account = new() { Id = 1, FileHosterName = "BRupload", Username = "someone" };
+        FileHosterSelectionViewModel brupload = new("BRupload", [account]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+
+        brupload.Use = true;
+        Assert.Empty(vm.HosterValidationWarnings);
+
+        account.MarkRefreshed(AccountCheckStatus.Failed, "nope", DateTime.Now);
+        brupload.Use = false;
+        brupload.Use = true; // re-tick to recompute, as toggling the checkbox does
+
+        string warning = Assert.Single(vm.HosterValidationWarnings);
+        Assert.Contains("BRupload", warning, StringComparison.Ordinal);
+        Assert.Contains("someone", warning, StringComparison.Ordinal);
+        Assert.Contains("check", warning, StringComparison.OrdinalIgnoreCase);
+
+        // It was the only hoster, so nothing can upload: Next is blocked HERE, with the sentence above,
+        // rather than at the summary with no sentence at all.
+        vm.CurrentStep = 1;
+        Assert.False(vm.CanGoNext);
+
+        // And the summary still agrees about the outcome — the file has nowhere to go.
+        vm.CurrentStep = 2;
+        Assert.Empty(vm.Summaries);
+        Assert.Single(vm.OrphanFiles);
+    }
+
+    [Fact]
+    public void HosterValidation_DisabledAccount_SaysSo_AndAnonymousIsNeverSkipped()
+    {
+        DefaultFileHosterRegistry registry = new([new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline()]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterLoginDto disabled = new() { Id = 1, FileHosterName = "BRupload", Username = "someone", Disabled = true };
+        FileHosterSelectionViewModel brupload = new("BRupload", [disabled]);
+        vm.FileHosters.Add(brupload);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+
+        brupload.Use = true;
+
+        // A different sentence from the failed-check one: switching an account off is the user's own
+        // doing, so it doesn't tell them to go and check it.
+        string warning = Assert.Single(vm.HosterValidationWarnings);
+        Assert.Contains("switched off", warning, StringComparison.OrdinalIgnoreCase);
+
+        // The synthetic Anonymous selection carries no such state and must never be skipped — it has
+        // no Disabled flag and is never checked, so treating it like an account would kill every
+        // anonymous upload in the app.
+        FileHosterLoginDto anonymous = new() { Id = 0, FileHosterName = "BRupload", IsAnonymous = true };
+        FileHosterSelectionViewModel anon = new("BRupload", [anonymous]);
+        vm.FileHosters.Clear();
+        vm.FileHosters.Add(anon);
+        anon.Use = true;
+
+        Assert.Empty(vm.HosterValidationWarnings);
+    }
+
+    [Fact]
+    public void HosterValidation_UnusableAccount_DoesNotBlockWhenAnotherHosterCanUpload()
+    {
+        DefaultFileHosterRegistry registry = new([
+            new CSUploader.Upload.Pipeline.Hosters.BRuploadPipeline(),
+            new CSUploader.Upload.Pipeline.Hosters.BuzzheavierPipeline(),
+        ]);
+        UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
+
+        FileHosterLoginDto failed = new() { Id = 1, FileHosterName = "BRupload", Username = "someone" };
+        failed.MarkRefreshed(AccountCheckStatus.Failed, "nope", DateTime.Now);
+        FileHosterSelectionViewModel brupload = new("BRupload", [failed]);
+        FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 2, FileHosterName = "Buzzheavier", Username = "u" }]);
+        vm.FileHosters.Add(brupload);
+        vm.FileHosters.Add(bz);
+        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+
+        brupload.Use = true;
+        bz.Use = true;
+
+        // Warned about, but not a hard block: the file still has a destination.
+        Assert.Single(vm.HosterValidationWarnings);
+        vm.CurrentStep = 1;
+        Assert.True(vm.CanGoNext);
+
+        vm.CurrentStep = 2;
+        Assert.Equal("Buzzheavier", Assert.Single(vm.Summaries).HosterName);
+        Assert.Empty(vm.OrphanFiles);
+    }
+
+    [Fact]
     public void HosterValidation_BlocklistHosters_AlsoWarnBeforeUploading()
     {
         // Uploadrar (video blocklist) and filedot (image blocklist) enforce their lists only at the

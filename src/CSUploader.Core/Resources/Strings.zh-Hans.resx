@@ -1310,6 +1310,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>{0}：以下文件的扩展名不被此托管商接受，将不会上传：
 {1}</value>
   </data>
+  <data name="Wizard_Hoster_AccountDisabled_Format" xml:space="preserve">
+    <value>{0}：账户“{1}”已关闭，因此不会向此托管商上传任何文件。</value>
+  </data>
+  <data name="Wizard_Hoster_AccountCheckFailed_Format" xml:space="preserve">
+    <value>{0}：账户“{1}”上次检查失败，因此不会向此托管商上传任何文件。请在“设置 → 账户”中重新检查。</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}：已选 {1} 个文件，但每包上限为 {2} 个。</value>
   </data>

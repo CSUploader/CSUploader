@@ -1310,6 +1310,12 @@ Vẫn thêm?</value>
     <value>{0}: Các tệp sau có phần mở rộng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:
 {1}</value>
   </data>
+  <data name="Wizard_Hoster_AccountDisabled_Format" xml:space="preserve">
+    <value>{0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountCheckFailed_Format" xml:space="preserve">
+    <value>{0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.</value>
+  </data>
   <data name="Wizard_Hoster_TooManyFiles_Format" xml:space="preserve">
     <value>{0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.</value>
   </data>
