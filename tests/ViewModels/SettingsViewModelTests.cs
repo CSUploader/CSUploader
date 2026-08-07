@@ -58,8 +58,44 @@ public class SettingsViewModelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private SettingsViewModel CreateVm(IDialogService? dialog = null, LogEntryRepository? logRepo = null, IAccountVerifier? verifier = null) =>
-        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), verifier ?? Mock.Of<IAccountVerifier>(), logEntryRepository: logRepo);
+    private SettingsViewModel CreateVm(
+        IDialogService? dialog = null,
+        LogEntryRepository? logRepo = null,
+        IAccountVerifier? verifier = null,
+        CSUploader.Upload.Pipeline.IFileHosterRegistry? registry = null) =>
+        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), verifier ?? Mock.Of<IAccountVerifier>(), logEntryRepository: logRepo, fileHosterRegistry: registry);
+
+    [Fact]
+    public void AvailableHosters_LeavesOutHostsThatHaveNoLoginAtAll()
+    {
+        // Reported: GigaFile was selectable under Add Account, and GigaFile has no login anywhere on
+        // the site. Picking it could only ever end in a check failing with "this host has no accounts".
+        CSUploader.Upload.Pipeline.DefaultFileHosterRegistry registry = new([
+            new CSUploader.Upload.Pipeline.Hosters.GigaFilePipeline(),
+            new CSUploader.Upload.Pipeline.Hosters.TempShPipeline(),
+            new CSUploader.Upload.Pipeline.Hosters.UpZurPipeline(),
+        ]);
+
+        string[] offered = CreateVm(registry: registry).AvailableHosters;
+
+        Assert.DoesNotContain("GigaFile", offered);
+        Assert.DoesNotContain("Temp.sh", offered);
+
+        // UpZur is anonymous-capable AND has accounts — being one must not exclude it, or every
+        // dual-mode host (catbox, gofile, ufile, upload.ee) would vanish from the dialog too.
+        Assert.Contains("UpZur", offered);
+
+        // Hosters with no registered pipeline are left in rather than silently dropped.
+        Assert.Contains("Rapidgator", offered);
+    }
+
+    [Fact]
+    public void AvailableHosters_WithoutARegistry_KeepsEveryHoster()
+    {
+        // The registry is optional; without it the property behaves exactly as it did before, so a
+        // test or head that doesn't wire one can't end up with an empty dialog.
+        Assert.Contains("GigaFile", CreateVm().AvailableHosters);
+    }
 
     // Polls the DB briefly because each property's auto-save is fire-and-forget.
     private async Task<string?> WaitForSettingValueAsync(string key)

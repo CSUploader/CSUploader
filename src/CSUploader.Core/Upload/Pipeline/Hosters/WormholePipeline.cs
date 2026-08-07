@@ -97,6 +97,10 @@ public sealed class WormholePipeline : IFileHosterPipeline
     /// <summary>wormhole.app needs no account — the wizard offers it as a built-in "Anonymous" option.</summary>
     public bool SupportsAnonymousUpload => true;
 
+    /// <summary>wormhole.app has no login anywhere on the site, so the Add Account dialog leaves it out
+    /// of its hoster list — there is nothing to add.</summary>
+    public bool SupportsAccounts => false;
+
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;

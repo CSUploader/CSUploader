@@ -84,6 +84,22 @@ public interface IFileHosterPipeline
     public bool SupportsAnonymousUpload => false;
 
     /// <summary>
+    /// Whether this hoster has accounts <b>at all</b>. Defaults to true — nearly every host does.
+    /// <para>
+    /// Set false for a drop host with no login anywhere on the site (GigaFile, temp.sh, Litterbox,
+    /// tmpfiles.org, qu.ax, DropMeFiles, transfer.it, wormhole.app). The Add Account dialog leaves
+    /// those out of its hoster list: offering one is offering to add something that cannot exist, and
+    /// the only outcome is a check that fails with "this host has no accounts".
+    /// </para>
+    /// <para>
+    /// This is NOT the inverse of <see cref="SupportsAnonymousUpload"/> — plenty of hosts do both
+    /// (catbox, gofile, ufile, upload.ee, UpZur), so an anonymous-capable host still belongs in the
+    /// dialog when an account would buy the user something.
+    /// </para>
+    /// </summary>
+    public bool SupportsAccounts => true;
+
+    /// <summary>
     /// Per-file size cap (bytes, null = none) for a specific selected account. Defaults to the
     /// account-independent <see cref="MaxFileSize"/>; pipelines whose cap varies by tier
     /// override this. The wizard's oversize guard and <see cref="RunAsync"/>'s fail-fast both

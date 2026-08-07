@@ -107,6 +107,10 @@ public sealed class GigaFilePipeline : IFileHosterPipeline
     /// <summary>No accounts at all — the service has no login.</summary>
     public bool SupportsAnonymousUpload => true;
 
+    /// <summary>GigaFile has no login anywhere on the site, so the Add Account dialog leaves it out
+    /// of its hoster list — there is nothing to add.</summary>
+    public bool SupportsAccounts => false;
+
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         _ = ct;

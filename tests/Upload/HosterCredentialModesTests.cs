@@ -105,6 +105,29 @@ public class HosterCredentialModesTests
             $"'{h}' is in the SessionCookie roster but is not a registered FileHosterClient.FileHosters key."));
 
     /// <summary>
+    /// A hoster with no accounts must be able to upload WITHOUT one, or it is unusable: the account
+    /// dialog won't offer it (that's the point of the flag) and the wizard would have nothing to pick.
+    /// Also asserts the flag is actually used — a set that silently emptied would pass every other
+    /// test here while quietly putting GigaFile back in the dialog.
+    /// </summary>
+    [Fact]
+    public void EveryAccountLessHoster_CanStillUploadAnonymously()
+    {
+        ServiceCollection services = new();
+        services.AddCoreServices(AppContext.BaseDirectory);
+        services.AddSingleton(Mock.Of<IInteractiveAuthService>());
+        services.AddSingleton(Mock.Of<IToastNotificationService>());
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IFileHosterPipeline[] accountLess = [.. provider.GetServices<IFileHosterPipeline>().Where(p => !p.SupportsAccounts)];
+
+        Assert.NotEmpty(accountLess);
+        Assert.All(accountLess, p => Assert.True(
+            p.SupportsAnonymousUpload,
+            $"'{p.Name}' declares no accounts AND no anonymous upload, which leaves no way to use it at all."));
+    }
+
+    /// <summary>
     /// Every hoster whose credential is a captured session MUST be able to re-check that session
     /// without opening the sign-in window. <see cref="AccountVerifier"/> routes on the interface alone,
     /// so a hoster that doesn't implement it re-runs the interactive check — which is what made adding

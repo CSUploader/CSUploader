@@ -30,7 +30,8 @@ public partial class SettingsViewModel(
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
     LogsViewModel? logsViewModel = null,
-    Upload.UploadScheduler? uploadScheduler = null) : ObservableObject
+    Upload.UploadScheduler? uploadScheduler = null,
+    Upload.Pipeline.IFileHosterRegistry? fileHosterRegistry = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly FileHosterLoginRepository _accountRepository = accountRepository;
@@ -40,6 +41,11 @@ public partial class SettingsViewModel(
     private readonly ITrayIconService? _trayIconManager = trayIconManager;
     private readonly IThemeApplier? _themeApplier = themeApplier;
     private readonly IAccountVerifier _accountVerifier = accountVerifier;
+
+    // Supplies each hoster's capabilities; the one consulted here is SupportsAccounts. Optional so a
+    // test that never opens the account dialog doesn't have to build a registry — when it's absent the
+    // list falls back to every hoster, which is what this property did before.
+    private readonly Upload.Pipeline.IFileHosterRegistry? _fileHosterRegistry = fileHosterRegistry;
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.
     private readonly UploadPackageRepository? _uploadPackageRepository = uploadPackageRepository;
@@ -225,7 +231,30 @@ public partial class SettingsViewModel(
 
     public ObservableCollection<SuppressedConfirmationItem> ConfirmationPrompts { get; } = [];
 
-    public static string[] AvailableHosters => [.. FileHosterClient.NamesAlphabetical];
+    /// <summary>
+    /// The hosters the account dialog may offer: everything except the drop hosts that have no login
+    /// at all (see <see cref="Upload.Pipeline.IFileHosterPipeline.SupportsAccounts"/>). Offering
+    /// GigaFile or temp.sh here offers to add an account that cannot exist — the only reachable
+    /// outcome was a check failing with "this host has no accounts".
+    /// </summary>
+    public string[] AvailableHosters => _fileHosterRegistry is null
+        ? [.. FileHosterClient.NamesAlphabetical]
+        : [.. FileHosterClient.NamesAlphabetical.Where(HasAccounts)];
+
+    /// <summary>True when the hoster has accounts, or when no pipeline is registered for it (an
+    /// unknown name is left in rather than silently dropped).</summary>
+    private bool HasAccounts(string hosterName)
+        => _fileHosterRegistry?.Find(hosterName) is not { } pipeline || pipeline.SupportsAccounts;
+
+    /// <summary>
+    /// The list for EDITING an existing account, which must always contain that account's own hoster —
+    /// otherwise an account saved before its host was reclassified (or before this filter existed)
+    /// opens a combo that can't display its own value.
+    /// </summary>
+    private string[] HostersForEditing(FileHosterLoginDto account)
+        => AvailableHosters.Contains(account.FileHosterName, StringComparer.Ordinal)
+            ? AvailableHosters
+            : [.. AvailableHosters.Append(account.FileHosterName).Order(StringComparer.OrdinalIgnoreCase)];
 
     // ── Load ──
 
@@ -1274,7 +1303,7 @@ public partial class SettingsViewModel(
 
         // Open edit dialog. No title override → the window keeps its XAML default title.
         FileHosterLoginDto? result = await _dialogService.ShowEditAccountDialogAsync(
-            SelectedAccount, AvailableHosters, InteractiveLoginAsync);
+            SelectedAccount, HostersForEditing(SelectedAccount), InteractiveLoginAsync);
 
         if (result is { } editResult)
         {
