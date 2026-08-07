@@ -50,7 +50,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// during the brief bootstrap window and cleared once the API key is in hand.
 /// </para>
 /// </remarks>
-public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
+public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
 {
     /// <summary>Hoster origin, e.g. <c>"https://ex-load.com"</c>. Must not end with a slash.</summary>
     protected abstract string Host { get; }
@@ -1457,7 +1457,28 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             return new AccountCheckResult(false, AccountType.Free, "Sign-in cancelled.");
         }
 
-        string storedSession = ComposeStoredSession(auth);
+        return await ReadWebFormAccountAsync(ComposeStoredSession(auth), username, handler, proxy, freshSignIn: true, ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads <see cref="WebFormAccountPageUrl"/> with a session cookie and turns it into a check
+    /// result: logged-in confirmation, the account name, and storage usage. Shared by the sign-in
+    /// path (with a freshly captured cookie) and by <see cref="RefreshAccountAsync"/> (with the
+    /// STORED one) — the same page says the same things either way, and having one reader means a
+    /// re-check can't disagree with the sign-in that preceded it.
+    /// </summary>
+    /// <param name="freshSignIn">True right after an interactive sign-in. Only changes the wording
+    /// when the page doesn't look logged-in: a brand-new cookie failing means the sign-in didn't
+    /// complete, while a stored one failing means the session has simply run out.</param>
+    private async Task<AccountCheckResult> ReadWebFormAccountAsync(
+        string storedSession,
+        string? typedUsername,
+        HttpHandler handler,
+        Lib.Net.ProxyChoice proxy,
+        bool freshSignIn,
+        CancellationToken ct)
+    {
         IReadOnlyDictionary<string, string> cookieHeader = BuildCookieHeader(storedSession);
         string html;
         string finalUrl;
@@ -1474,7 +1495,9 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
         if (!LooksSignedIn(html))
         {
             string trail = hops > 0 ? $" after following {hops} redirect(s) to {finalUrl}" : string.Empty;
-            string summary = $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed.";
+            string summary = freshSignIn
+                ? $"Signed in, but the account page didn't load as logged-in{trail}. The sign-in may not have completed."
+                : $"The saved session is no longer valid{trail} — sign in again.";
             return new AccountCheckResult(false, AccountType.Free, summary, Detail: BuildFailureDetail(summary, html));
         }
 
@@ -1488,9 +1511,40 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
             SessionCookie: storedSession,
             SessionCookieExpiresUtc: DateTime.UtcNow + SignInSessionLifetime,
             PinnedProxyId: proxy.Id,
-            DerivedUsername: scrapedUsername ?? (string.IsNullOrEmpty(username) ? null : username),
+            DerivedUsername: scrapedUsername ?? (string.IsNullOrEmpty(typedUsername) ? null : typedUsername),
             StorageUsedBytes: used,
             StorageQuotaBytes: quota);
+    }
+
+    /// <summary>
+    /// Re-checks an account WITHOUT opening the sign-in browser, using the credential already stored.
+    /// <para>
+    /// This is the difference between adding an account once and being asked to sign in twice: every
+    /// save runs a verification pass, and until this existed only HitFile implemented the contract, so
+    /// a session-cookie hoster re-opened its sign-in window seconds after the user had signed in.
+    /// </para>
+    /// <para>
+    /// An API key is the durable credential and validates over the API with no browser involved; a
+    /// web-form hoster re-reads its account page with the stored cookie. A cookie that has expired
+    /// reports invalid and says to sign in again — for these hosters the cookie IS the credential, so
+    /// silently reopening a browser (the old behaviour) hid the fact that the account had lapsed.
+    /// </para>
+    /// </summary>
+    public virtual async Task<AccountCheckResult> RefreshAccountAsync(string? apiKey, string sessionCookie, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            // The API path validates a key directly and never opens a browser.
+            return await CheckAccountAsync(string.Empty, string.Empty, apiKey, handler, proxy, ct).ConfigureAwait(false);
+        }
+
+        if (!UsesWebFormUpload || string.IsNullOrEmpty(sessionCookie))
+        {
+            return await CheckAccountAsync(string.Empty, string.Empty, apiKey, handler, proxy, ct).ConfigureAwait(false);
+        }
+
+        return await ReadWebFormAccountAsync(sessionCookie, typedUsername: null, handler, proxy, freshSignIn: false, ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

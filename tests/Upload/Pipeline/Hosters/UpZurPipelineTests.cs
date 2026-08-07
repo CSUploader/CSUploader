@@ -182,6 +182,7 @@ public class UpZurPipelineTests
     // read off it. Both differ from the family's, and both returned nothing before this: the theme has
     // NO fa-user icon anywhere, and its storage bar hangs off id="occupied", not class="storage".
     private const string MyFilesHtml = """
+        <a href="https://upzur.com/?op=logout">Logout</a>
         <div class="freespace">
           <span id="occupied"><b>0 MB</b> of <b>1953.1 GB</b></span>
           <span id="files_total">0 Files</span>
@@ -218,6 +219,59 @@ public class UpZurPipelineTests
 
         Assert.Null(pipeline.ParseAccountUsernameForTests(FamilyHtml));
         Assert.Equal((null, null), pipeline.ParseStorageUsageForTests(FamilyHtml));
+    }
+
+    [Fact]
+    public async Task RefreshAccount_WithAStoredSession_RereadsTheAccountPage_WithoutSigningInAgain()
+    {
+        // The reported bug: sign in, press Save, and the sign-in window opens a SECOND time. Saving runs
+        // a verification pass, and until the base implemented the refresh contract that pass had no way
+        // to say "I already have a session" — so it re-ran the interactive check. authService is null
+        // here, so anything that tried to open a sign-in window would fail the test rather than pass it.
+        List<string> getUrls = [];
+        UpZurPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(MyFilesHtml); },
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload during a refresh"));
+
+        AccountCheckResult result = await pipeline.RefreshAccountAsync(
+            apiKey: null,
+            sessionCookie: "xfss-stored",
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("csuprobe", result.DerivedUsername);
+        Assert.Equal(0L, result.StorageUsedBytes);
+        Assert.Equal("xfss-stored", result.SessionCookie); // the stored session survives the round trip
+
+        // It read the account page — the one page this needs — and nothing else.
+        Assert.Contains("op=my_files", Assert.Single(getUrls), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RefreshAccount_WhenTheStoredSessionHasLapsed_SaysSo_RatherThanReopeningTheBrowser()
+    {
+        // For a session-cookie hoster the cookie IS the credential, so an expired one means the account
+        // genuinely cannot upload. Saying that beats silently reopening a browser, which is what the old
+        // path did — indistinguishable, from the user's side, from the app just asking twice for no reason.
+        UpZurPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult("<html><body><a href=\"/?op=login\">Login</a></body></html>"),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload during a refresh"));
+
+        AccountCheckResult result = await pipeline.RefreshAccountAsync(
+            apiKey: null,
+            sessionCookie: "xfss-expired",
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("sign in again", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

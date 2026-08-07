@@ -74,7 +74,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// reachable, the API is the more durable path: it has no cookie to expire.
 /// </para>
 /// </summary>
-public sealed class FilestankPipeline : IFileHosterPipeline
+public sealed class FilestankPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
 {
     private const string SiteBase = "https://www.filestank.com";
     private const string LoginUrl = SiteBase + "/account/login";
@@ -351,6 +351,40 @@ public sealed class FilestankPipeline : IFileHosterPipeline
             AccountType.Free,
             "Signed in to Filestank.",
             SessionCookie: session,
+            SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
+            PinnedProxyId: proxy.Id,
+            DerivedUsername: screenName,
+            StorageUsedBytes: used,
+            StorageQuotaBytes: quota);
+    }
+
+    /// <summary>
+    /// Re-checks the account with the session already stored, so a save or a "Check / Refresh" doesn't
+    /// reopen the sign-in window seconds after the user signed in. The session cookie IS the credential
+    /// here, so a lapsed one reports invalid and says to sign in again rather than silently reopening
+    /// the browser — the user should know the account has run out, not just watch a window reappear.
+    /// </summary>
+    public async Task<AccountCheckResult> RefreshAccountAsync(string? apiKey, string sessionCookie, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
+    {
+        _ = apiKey;
+
+        (string? screenName, long? used, long? quota) = await ReadAccountDetailsAsync(handler, sessionCookie, ct).ConfigureAwait(false);
+
+        // ReadAccountDetailsAsync swallows its own failures (identity and storage are decoration on a
+        // fresh sign-in), so "nothing came back at all" is the only signal a stale session leaves.
+        if (screenName is null && used is null && quota is null)
+        {
+            return new AccountCheckResult(
+                false,
+                AccountType.Free,
+                "The saved Filestank session is no longer valid — sign in again.");
+        }
+
+        return new AccountCheckResult(
+            true,
+            AccountType.Free,
+            "Signed in to Filestank.",
+            SessionCookie: sessionCookie,
             SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
             PinnedProxyId: proxy.Id,
             DerivedUsername: screenName,

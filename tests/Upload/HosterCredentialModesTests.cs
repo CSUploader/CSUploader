@@ -3,7 +3,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Services;
 using CSUploader.Upload;
+using CSUploader.Upload.Pipeline;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace CSUploader.Tests.Upload;
 
@@ -99,4 +103,39 @@ public class HosterCredentialModesTests
         => Assert.All(KnownSessionCookieHosters, h => Assert.True(
             FileHosterClient.FileHosters.ContainsKey(h),
             $"'{h}' is in the SessionCookie roster but is not a registered FileHosterClient.FileHosters key."));
+
+    /// <summary>
+    /// Every hoster whose credential is a captured session MUST be able to re-check that session
+    /// without opening the sign-in window. <see cref="AccountVerifier"/> routes on the interface alone,
+    /// so a hoster that doesn't implement it re-runs the interactive check — which is what made adding
+    /// an UpZur account ask for sign-in TWICE: once when the user pressed Sign in, and again when the
+    /// save ran its verification pass. This asserts the contract for the whole family rather than the
+    /// one host that surfaced it.
+    /// </summary>
+    [Fact]
+    public void EverySessionCookieHoster_CanBeRecheckedWithoutTheSignInWindow()
+    {
+        ServiceCollection services = new();
+        services.AddCoreServices(AppContext.BaseDirectory);
+        services.AddSingleton(Mock.Of<IInteractiveAuthService>());
+        services.AddSingleton(Mock.Of<IToastNotificationService>());
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IFileHosterPipeline[] pipelines = [.. provider.GetServices<IFileHosterPipeline>()];
+        string[] sessionCookieHosters = [.. FileHosterClient.FileHosters.Keys.Where(HosterCredentialModes.IsSessionCookieHoster)];
+
+        // Guards the guard: if the roster is ever emptied this test must fail, not vacuously pass.
+        Assert.NotEmpty(sessionCookieHosters);
+
+        Assert.All(sessionCookieHosters, name =>
+        {
+            IFileHosterPipeline? pipeline = pipelines.FirstOrDefault(
+                p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            Assert.True(pipeline is not null, $"'{name}' is a session-cookie hoster with no registered pipeline.");
+            Assert.True(
+                pipeline is ISessionRefreshablePipeline,
+                $"'{name}' stores a session cookie as its only credential but cannot re-check it offline, "
+                + "so every save/refresh will reopen the sign-in window.");
+        });
+    }
 }
