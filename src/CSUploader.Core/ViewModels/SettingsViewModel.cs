@@ -251,10 +251,14 @@ public partial class SettingsViewModel(
     /// otherwise an account saved before its host was reclassified (or before this filter existed)
     /// opens a combo that can't display its own value.
     /// </summary>
+    /// <remarks><see cref="FileHosterLoginDto.FileHosterName"/> is nullable, and an account with no
+    /// hoster name has nothing to preserve — appending the null would put a blank row in the combo.
+    /// </remarks>
     private string[] HostersForEditing(FileHosterLoginDto account)
-        => AvailableHosters.Contains(account.FileHosterName, StringComparer.Ordinal)
+        => account.FileHosterName is not { Length: > 0 } own
+           || AvailableHosters.Contains(own, StringComparer.Ordinal)
             ? AvailableHosters
-            : [.. AvailableHosters.Append(account.FileHosterName).Order(StringComparer.OrdinalIgnoreCase)];
+            : [.. AvailableHosters.Append(own).Order(StringComparer.OrdinalIgnoreCase)];
 
     // ── Load ──
 
