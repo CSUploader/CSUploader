@@ -204,6 +204,12 @@ public static class ServiceRegistration
         // GigaFile — ANONYMOUS, no accounts at all. 300 GB per file kept 100 days: the largest
         // allowance here. Chunked multipart to a rotating node read off the homepage. See GigaFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GigaFilePipeline>();
+        // udrop — YetiShare with a GUEST upload (5 GiB, permanent). Same platform as Filestank, which
+        // refuses guests; the difference is read from the script's own per-session cap. See UdropPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UdropPipeline>();
+        // BowFile — udrop's sibling on YetiShare: guest upload, 20 GiB, but a SEPARATE fsNN. storage
+        // node (so no cookie on the upload). See BowFilePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BowFilePipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

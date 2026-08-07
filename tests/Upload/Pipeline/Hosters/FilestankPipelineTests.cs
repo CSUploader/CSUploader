@@ -288,7 +288,7 @@ public class FilestankPipelineTests
     [Fact]
     public void ParseUploaderScript_TakesTheFileHandlerUrl_NotTheUrlUploadHandler()
     {
-        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript(UploaderJs, 200);
+        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript("Filestank", UploaderJs, 200);
 
         Assert.Null(error);
         Assert.False(stale);
@@ -315,7 +315,7 @@ public class FilestankPipelineTests
     [InlineData(1073741824L, 2_000_000_000L, "limit for this account")]    // …and not the same as "too big"
     public void SessionLimitRefusal_SeparatesTooBigFromNotAllowed(long? sessionMax, long fileSize, string? fragment)
     {
-        string? refusal = FilestankPipeline.SessionLimitRefusal(sessionMax, fileSize, "x.avi");
+        string? refusal = FilestankPipeline.SessionLimitRefusal("Filestank", sessionMax, fileSize, "x.avi");
 
         if (fragment is null)
         {
@@ -375,7 +375,7 @@ public class FilestankPipelineTests
     [InlineData("", 500, false)]                             // a server fault is not "your session lapsed"
     public void ParseUploaderScript_WithoutATicket_ReportsWhetherTheSessionLooksStale(string js, int status, bool expectStale)
     {
-        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript(js, status);
+        (FilestankPipeline.UploadTicket? ticket, string? error, bool stale) = FilestankPipeline.ParseUploaderScript("Filestank", js, status);
 
         Assert.Null(ticket);
         Assert.NotNull(error);
@@ -391,7 +391,7 @@ public class FilestankPipelineTests
     [InlineData("<html>gateway timeout</html>", null, "unreadable")]
     public void ParseUploadResponse_ReadsEitherEnvelope_AndPrefersThePerFileError(string body, string? url, string? errorFragment)
     {
-        (string? gotUrl, string? gotError) = FilestankPipeline.ParseUploadResponse(new HttpResponseSnapshot(200, body, Array.Empty<string>()));
+        (string? gotUrl, string? gotError) = FilestankPipeline.ParseUploadResponse("Filestank", new HttpResponseSnapshot(200, body, Array.Empty<string>()));
 
         Assert.Equal(url, gotUrl);
         if (errorFragment is null)

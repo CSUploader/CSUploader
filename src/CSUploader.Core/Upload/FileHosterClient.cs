@@ -267,6 +267,17 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // reply carries the url + delkey. ⚠ lifetime defaults to 7 days in their page — we send 100,
         // the longest their slider offers. See GigaFilePipeline.cs.
         { "GigaFile", "gigafile.nu" },
+        // udrop — ANONYMOUS, on the YetiShare platform (the second hosting family here after
+        // XFileSharing). GET /assets/js/uploader.js issues a guest ticket (_sessionid + cTracker + the
+        // node URL) AND declares the session's cap; a multipart files[] POST to that node returns the
+        // link. 5 GiB guest, storage is PERMANENT. ⚠ Its node is the site itself, so the upload needs
+        // the cookie the script issued — without it the route 404s. ⚠ It blocks some extensions
+        // (.bin measured); .rar/.r00/.sfv/.nfo are all accepted. See UdropPipeline.cs.
+        { "Udrop", "udrop.com" },
+        // BowFile — ANONYMOUS, YetiShare, udrop's sibling. Guest cap 20 GiB. ⚠ Unlike udrop its node
+        // is a SEPARATE rotating storage host (fsNN.bowfile.com) which needs no cookie — it
+        // authenticates on the _sessionid field. The link comes back on the apex. See BowFilePipeline.cs.
+        { "BowFile", "bowfile.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
