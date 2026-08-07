@@ -178,6 +178,48 @@ public class UpZurPipelineTests
         Assert.DoesNotContain(getUrls, u => u.Contains("/api/", StringComparison.Ordinal));
     }
 
+    // The account page's real markup (?op=my_files, signed in, 2026-08-07), trimmed to the two things
+    // read off it. Both differ from the family's, and both returned nothing before this: the theme has
+    // NO fa-user icon anywhere, and its storage bar hangs off id="occupied", not class="storage".
+    private const string MyFilesHtml = """
+        <div class="freespace">
+          <span id="occupied"><b>0 MB</b> of <b>1953.1 GB</b></span>
+          <span id="files_total">0 Files</span>
+        </div>
+        <script>
+          $(input).attr('value', 'https://upzur.com/users/csuprobe/'); $(this).parent().html(input);
+        </script>
+        """;
+
+    [Fact]
+    public void AccountPage_YieldsTheNameAndTheStorageFigures()
+    {
+        UpZurPipeline pipeline = new();
+
+        // Was blank in the Add Account dialog: it said "Signed in" and named nobody, because the base
+        // anchors on an fa-user icon this theme doesn't have. The /users/<name>/ path is the only place
+        // the name appears — and a path segment can only BE a name, unlike a token next to an icon
+        // (Uploady saved every account as "Profile" that way; EliteFile as "Settings").
+        Assert.Equal("csuprobe", pipeline.ParseAccountUsernameForTests(MyFilesHtml));
+
+        (long? used, long? quota) = pipeline.ParseStorageUsageForTests(MyFilesHtml);
+        Assert.Equal(0L, used);
+        Assert.Equal((long)(1953.1 * (1L << 30)), quota);
+    }
+
+    [Fact]
+    public void AccountPage_WithTheFamilyMarkupInstead_YieldsNothing()
+    {
+        // Guards the direction of the fix: this host must read ITS markup, not inherit a match from the
+        // family's. If a future edit reverts to the base pattern, this fails rather than silently
+        // returning a blank name again.
+        UpZurPipeline pipeline = new();
+        const string FamilyHtml = """<i class="fa fa-user"></i>someone<span class="storage"><b>1 MB</b> of <b>2 GB</b></span>""";
+
+        Assert.Null(pipeline.ParseAccountUsernameForTests(FamilyHtml));
+        Assert.Equal((null, null), pipeline.ParseStorageUsageForTests(FamilyHtml));
+    }
+
     [Fact]
     public void SignInOpensTheOpRoute_NotTheFamilyDefaultLoginPage()
     {

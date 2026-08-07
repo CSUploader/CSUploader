@@ -49,6 +49,34 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
         """<ServerURL>\s*([^<\s]+)\s*</ServerURL>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>
+    /// The account name, which this fork renders in exactly ONE place on <c>?op=my_files</c> — the
+    /// script that builds the "your public folder" box:
+    /// <c>$(input).attr('value', 'https://upzur.com/users/&lt;name&gt;/')</c>.
+    /// <para>
+    /// The family default anchors on the <c>fa-user</c> account-menu icon, and this theme has no such
+    /// icon anywhere, so it returned null and the account saved with a blank name. Anchoring on the
+    /// <c>/users/</c> path rather than on nearby chrome is deliberate: that path segment can only be
+    /// an account name, whereas an icon-adjacent token is whatever the theme put next to the icon —
+    /// which is how Uploady's accounts all saved as "Profile" and EliteFile's as "Settings".
+    /// </para>
+    /// <para>Present on an account with no files at all (checked before and after an upload), so an
+    /// empty account still gets its name.</para>
+    /// </summary>
+    private static readonly Regex _usernameRegex = new(
+        """upzur\.com/users/([A-Za-z0-9._-]+)/""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// <c>&lt;span id="occupied"&gt;&lt;b&gt;0 MB&lt;/b&gt; of &lt;b&gt;1953.1 GB&lt;/b&gt;&lt;/span&gt;</c> —
+    /// the same "used of total" shape as the family bar, but hung off <c>id="occupied"</c> inside
+    /// <c>div.freespace</c> rather than <c>class="storage"</c>, so the base's pattern misses it and
+    /// both figures come back null (a blank Available column).
+    /// </summary>
+    private static readonly Regex _storageRegex = new(
+        """id=["']occupied["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public UpZurPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
         : base(authService, loginRepository)
     {
@@ -116,6 +144,30 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     /// so nothing stronger is claimed for it.</summary>
     public override long? MaxFileSizeFor(FileHosterLoginDto credentials)
         => credentials.IsAnonymous ? AnonymousMaxFileSizeBytes : base.MaxFileSizeFor(credentials);
+
+    /// <summary>Test seams for the two account-page scrapes — both are host-specific overrides of a
+    /// family default that silently returns nothing here, which is the failure mode worth pinning.</summary>
+    internal string? ParseAccountUsernameForTests(string html) => ParseAccountUsername(html);
+
+    /// <inheritdoc cref="ParseAccountUsernameForTests"/>
+    internal (long? Used, long? Quota) ParseStorageUsageForTests(string html) => ParseStorageUsage(html);
+
+    /// <inheritdoc/>
+    protected override string? ParseAccountUsername(string html)
+    {
+        Match m = _usernameRegex.Match(html);
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <inheritdoc/>
+    protected override (long? Used, long? Quota) ParseStorageUsage(string html)
+    {
+        Match m = _storageRegex.Match(html);
+        return m.Success
+            ? (ParseSizeToBytes(m.Groups[1].Value, m.Groups[2].Value),
+               ParseSizeToBytes(m.Groups[3].Value, m.Groups[4].Value))
+            : (null, null);
+    }
 
     /// <summary>
     /// Reads the node out of <c>?op=api_get_limits</c> rather than off a form, because this host
