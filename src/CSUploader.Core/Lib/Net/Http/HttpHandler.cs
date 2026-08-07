@@ -912,6 +912,116 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
     /// its own entry in the Logs tab — the per-chunk overhead is the network round-trip,
     /// not anything inside this method.
     /// </remarks>
+    /// <summary>
+    /// POSTs one chunk of a file as <c>multipart/form-data</c> with caller-chosen field names — the
+    /// generic sibling of <see cref="PostChunkAsync"/>, which is fixed to XFileSharing's
+    /// <c>sid</c>/<c>file</c> shape. GigaFile is the first host to need this: its chunk carries
+    /// <c>id</c>, <c>name</c>, <c>chunk</c>, <c>chunks</c> and <c>lifetime</c> beside the bytes.
+    /// <para>
+    /// Progress is reported file-cumulative (<paramref name="basePosition"/> + bytes sent in this
+    /// chunk) so the UI sees one rising line across the whole file rather than one cycle per chunk.
+    /// </para>
+    /// </summary>
+    /// <param name="fileFieldName">Form field the bytes go in.</param>
+    /// <param name="filePartName">The <c>filename=</c> the part declares. Hosts differ on whether
+    /// they read the real name from here or from a separate field; the caller decides.</param>
+    public async Task<HttpResponseSnapshot> PostChunkMultipartAsync(
+        string endpoint,
+        Stream chunkData,
+        long chunkLength,
+        long basePosition,
+        long totalFileSize,
+        DateTime dateTimeStarted,
+        string fileFieldName,
+        string filePartName,
+        IReadOnlyDictionary<string, string>? extraFields = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        Func<long?>? getBytesPerSecond = null,
+        CancellationToken cancellationToken = default)
+    {
+        endpoint = MaybeRewriteToMockServer(endpoint);
+
+        HttpTransaction transaction = new()
+        {
+            Method = "POST",
+            Url = endpoint,
+            Proxy = _proxyDescription,
+            StartTime = DateTime.Now,
+            RequestBody = $"[Chunk @ {basePosition}: {chunkLength} bytes]",
+        };
+
+        try
+        {
+            MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
+            if (extraFields is not null)
+            {
+                foreach (KeyValuePair<string, string> field in extraFields)
+                {
+                    AddBareStringPart(multipartContent, field.Key, field.Value);
+                }
+            }
+
+            Stream chunkStream = getBytesPerSecond is not null
+                ? new ThrottledStream(chunkData, getBytesPerSecond)
+                : chunkData;
+            ProgressStreamContent chunkPart = new(
+                chunkStream,
+                (_, bytesInThisChunk) => UploadProgress?.Invoke(
+                    this,
+                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                cancellationToken);
+
+            chunkPart.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            multipartContent.Add(chunkPart, fileFieldName);
+
+            // Content-Disposition BEFORE Content-Type on a file part, as browsers and curl send it —
+            // see the note on BuildFilePartContentDisposition; one host accepted whole uploads and
+            // then reported "no file found" without it.
+            chunkPart.Headers.ContentDisposition = null;
+            chunkPart.Headers.TryAddWithoutValidation(
+                "Content-Disposition",
+                $"form-data; name=\"{fileFieldName}\"; filename=\"{filePartName}\"");
+
+            using HttpRequestMessage request = new(HttpMethod.Post, endpoint) { Content = multipartContent };
+            if (headers is not null)
+            {
+                foreach (KeyValuePair<string, string> h in headers)
+                {
+                    request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+                }
+            }
+
+            CaptureRequestHeaders(transaction, multipartContent, requestHeaders: request.Headers);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusCode = (int)response.StatusCode;
+            transaction.StatusReason = response.ReasonPhrase ?? response.StatusCode.ToString();
+            transaction.ResponseBody = body;
+            CaptureResponseHeaders(transaction, response);
+            LogTransaction(transaction);
+
+            return new HttpResponseSnapshot((int)response.StatusCode, body, ReadSetCookies(response), response.Headers.Location?.OriginalString);
+        }
+        catch (OperationCanceledException)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Cancelled";
+            LogTransaction(transaction);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            transaction.EndTime = DateTime.Now;
+            transaction.StatusReason = "Error";
+            transaction.ResponseBody = ex.ToString();
+            LogTransaction(transaction);
+            throw;
+        }
+    }
+
     public async Task<HttpResponseSnapshot> PostChunkAsync(
         string endpoint,
         string sid,

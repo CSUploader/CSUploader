@@ -260,6 +260,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ Its homepage renders NO upload form, so the base's scrape finds nothing; the node comes
         // from ?op=api_get_limits, which also carries the cap. See UpZurPipeline.cs.
         { "UpZur", "upzur.com" },
+        // GigaFile (ギガファイル便) — ANONYMOUS, and the largest per-file allowance here: 300 GB kept
+        // 100 days. No accounts exist. Protocol came from the site's own js/upload.js: the homepage
+        // declares a ROTATING node (var server = "NNN.gigafile.nu"), then one multipart POST per
+        // 100 MB chunk to /upload_chunk.php with id/name/chunk/chunks/lifetime, and the LAST chunk's
+        // reply carries the url + delkey. ⚠ lifetime defaults to 7 days in their page — we send 100,
+        // the longest their slider offers. See GigaFilePipeline.cs.
+        { "GigaFile", "gigafile.nu" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
