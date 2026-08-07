@@ -158,6 +158,106 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
 
     protected string LoginUrl => Host + LoginPagePath;
 
+    /// <summary>
+    /// Opt-in: this hoster's login is a plain form this app can post itself, so signing in needs no
+    /// browser. Default false — the family exists because most of these hosts gate login behind a
+    /// captcha or a Cloudflare challenge, and a human has to answer those.
+    /// <para>
+    /// Turn it on only against evidence that a headless login actually works: the login page carrying
+    /// no captcha markers is necessary but not sufficient, since a challenge can be applied at the
+    /// edge to this client and not to a browser. Post the form and look for the session cookie.
+    /// </para>
+    /// </summary>
+    protected virtual bool SupportsDirectLogin => false;
+
+    /// <summary>Where the login form POSTs. The family posts to the site root with <c>op=login</c>;
+    /// override for a fork that posts elsewhere. Only consulted when <see cref="SupportsDirectLogin"/>.</summary>
+    protected virtual string DirectLoginPostUrl => Host + "/";
+
+    // <input type="hidden" name="token" value="1d0e3d56f8bb944bc7504b698f154d54"> on the login form —
+    // XFileSharing's anti-CSRF field. Absent on some forks, which is fine: an empty token posts too.
+    private static readonly Regex _loginTokenRegex = new(
+        """name=["']token["'][^>]*?value=["']([^"']*)["']""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Signs in by posting the login form, returning the <c>xfss</c> cookie. Two requests: GET the
+    /// login page for its anti-CSRF <c>token</c>, then POST <c>op=login</c>. Success sets
+    /// <c>Set-Cookie: xfss</c> on a 302 (the handler doesn't follow redirects, so it is captured);
+    /// a wrong password re-renders the page as 200 with no cookie, which is the only failure signal
+    /// the family gives.
+    /// </summary>
+    protected async Task<(string? Xfss, string? Error)> DirectLoginAsync(HttpHandler handler, string? username, string? password, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            return (null, $"{Name} needs a username and password.");
+        }
+
+        string token = string.Empty;
+        try
+        {
+            string page = _getOverride is not null
+                ? await _getOverride(LoginUrl, null).ConfigureAwait(false)
+                : (await handler.GetSnapshotAsync(LoginUrl, null, ct).ConfigureAwait(false)).Body;
+
+            Match m = _loginTokenRegex.Match(page);
+            if (m.Success)
+            {
+                token = m.Groups[1].Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            return (null, $"{Name} login page fetch failed: {ex.Message}");
+        }
+
+        Dictionary<string, string> form = new(StringComparer.Ordinal)
+        {
+            ["op"] = "login",
+            ["login"] = username,
+            ["password"] = password,
+            ["token"] = token,
+            ["rand"] = string.Empty,
+            ["redirect"] = string.Empty,
+        };
+
+        HttpResponseSnapshot snapshot;
+        try
+        {
+            snapshot = _postFormOverride is not null
+                ? await _postFormOverride(DirectLoginPostUrl, form).ConfigureAwait(false)
+                : await handler.PostFormAsync(DirectLoginPostUrl, form, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"{Name} login request failed: {ex.Message}");
+        }
+
+        string? xfss = ExtractCookieValue(snapshot.SetCookies, CookieName);
+        return xfss is not null
+            ? (xfss, null)
+            : (null, $"{Name} sign-in failed — check the username and password.");
+    }
+
+    /// <summary>Pulls a named cookie's value out of a response's <c>Set-Cookie</c> list.</summary>
+    private static string? ExtractCookieValue(IReadOnlyList<string> setCookies, string name)
+    {
+        string prefix = name + "=";
+        foreach (string raw in setCookies)
+        {
+            if (raw.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                string after = raw[prefix.Length..];
+                int semi = after.IndexOf(';', StringComparison.Ordinal);
+                string value = semi < 0 ? after : after[..semi];
+                return string.IsNullOrEmpty(value) ? null : value;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Test seam: the page the sign-in window opens. Worth pinning per host — a fork whose
     /// login lives somewhere other than the family default silently opens a window on whatever that
     /// URL redirects to (UpZur bounced 301 → /login → 302 → the homepage), which reads to the user as
@@ -378,13 +478,18 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? postFormOverride = null)
     {
         _authService = authService;
         _loginRepository = loginRepository;
         _getOverride = getOverride;
         _uploadOverride = uploadOverride;
+        _postFormOverride = postFormOverride;
     }
+
+    /// <summary>Stubs the login POST. Optional: only a <see cref="SupportsDirectLogin"/> hoster posts one.</summary>
+    private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
     {
@@ -1034,7 +1139,9 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
             return ctx.Credentials.SessionCookie;
         }
 
-        if (_authService is null)
+        // No browser needed for a hoster whose login we can post; without that, no auth service means
+        // no way to sign in at all.
+        if (_authService is null && !SupportsDirectLogin)
         {
             return null;
         }
@@ -1044,8 +1151,13 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
         try
         {
             // A sibling attempt may have signed in while this one waited.
-            return HasValidStoredSessionCookie(ctx)
-                ? ctx.Credentials.SessionCookie
+            if (HasValidStoredSessionCookie(ctx))
+            {
+                return ctx.Credentials.SessionCookie;
+            }
+
+            return SupportsDirectLogin
+                ? await DirectLoginForUploadAsync(ctx, ct).ConfigureAwait(false)
                 : await AcquireXfssCookieAsync(ctx, ct).ConfigureAwait(false);
         }
         finally
@@ -1061,6 +1173,32 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     /// must come here rather than through <see cref="GetOrAcquireXfssCookieAsync"/>, or it deadlocks
     /// against itself.
     /// </summary>
+    /// <summary>
+    /// Signs in for an upload without a browser, then persists the session exactly as the interactive
+    /// path does — so a batch signs in once rather than once per file, and the stored cookie survives
+    /// a restart.
+    /// </summary>
+    private async Task<string?> DirectLoginForUploadAsync(AttemptContext ctx, CancellationToken ct)
+    {
+        (string? xfss, string? _) = await DirectLoginAsync(
+            ctx.Handler, ctx.Credentials.Username, ctx.Credentials.Password, ct).ConfigureAwait(false);
+        if (xfss is null)
+        {
+            return null;
+        }
+
+        ctx.Credentials.SessionCookie = xfss;
+        ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + SignInSessionLifetime;
+        ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
+
+        if (_loginRepository is not null)
+        {
+            await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false);
+        }
+
+        return xfss;
+    }
+
     private async Task<string?> AcquireXfssCookieAsync(AttemptContext ctx, CancellationToken ct)
     {
         if (_authService is null)
@@ -1435,8 +1573,17 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     /// by <see cref="RunWebFormAsync"/> and by the non-interactive storage refresh). Quota is always
     /// null — these hosters don't advertise a cap, so the grid's Available cell shows "Unlimited".
     /// </summary>
-    private async Task<AccountCheckResult> CheckAccountViaWebFormAsync(string username, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
+    private async Task<AccountCheckResult> CheckAccountViaWebFormAsync(string username, string password, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
+        // A hoster whose login this app can post itself never needs the browser — see SupportsDirectLogin.
+        if (SupportsDirectLogin)
+        {
+            (string? xfss, string? loginError) = await DirectLoginAsync(handler, username, password, ct).ConfigureAwait(false);
+            return xfss is null
+                ? new AccountCheckResult(false, AccountType.Free, loginError ?? $"{Name} sign-in failed.")
+                : await ReadWebFormAccountAsync(xfss, username, handler, proxy, freshSignIn: true, ct).ConfigureAwait(false);
+        }
+
         if (_authService is null)
         {
             return new AccountCheckResult(false, AccountType.Free, "Sign-in service unavailable. Restart the app and try again.");
@@ -1543,8 +1690,16 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
             return await CheckAccountAsync(string.Empty, string.Empty, apiKey, handler, proxy, ct).ConfigureAwait(false);
         }
 
-        return await ReadWebFormAccountAsync(sessionCookie, typedUsername: null, handler, proxy, freshSignIn: false, ct)
-            .ConfigureAwait(false);
+        AccountCheckResult refreshed = await ReadWebFormAccountAsync(
+            sessionCookie, typedUsername: null, handler, proxy, freshSignIn: false, ct).ConfigureAwait(false);
+
+        // A lapsed cookie means different things depending on what the credential IS. Where the cookie
+        // is all there is, the account really can't upload until the user signs in again. Where a
+        // username and password are stored, the account is fine and the next upload just signs in
+        // again — so don't report a failure the user can neither see the cause of nor act on.
+        return !refreshed.IsValid && SupportsDirectLogin
+            ? new AccountCheckResult(true, AccountType.Free, "Signed in (Free)")
+            : refreshed;
     }
 
     /// <summary>
@@ -1685,13 +1840,15 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
 
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, Lib.Net.ProxyChoice proxy, CancellationToken ct)
     {
-        _ = password; // XFileSharing API-mode doesn't validate the password — sign-in goes through the WebView captcha.
+        // API-mode doesn't validate the password — sign-in goes through the WebView captcha. A
+        // SupportsDirectLogin hoster DOES use it, below.
+        _ = password;
 
         // Web-form (no-API) hosters: there's no API key to validate and no /api/account/info to call.
         // Sign in via WebView and read identity/storage from the my_files HTML instead.
         if (UsesWebFormUpload)
         {
-            return await CheckAccountViaWebFormAsync(username, handler, proxy, ct);
+            return await CheckAccountViaWebFormAsync(username, password, handler, proxy, ct);
         }
 
         // API-key-direct path: validate via /api/account/info and surface premium expiry.

@@ -73,14 +73,13 @@ public static class HosterCredentialModes
     // "TeraBytez" is the simplest case of all — it has no REST API to have a key FOR
     // (/api/upload/server 404s, ?op=api_get_limits serves the homepage).
     // "EliteFile" is the same: /api/upload/server 404s, so there is no key to obtain or paste.
-    // "UpZur" likewise, and measured rather than assumed: /api/upload/server answers 404 and
-    // /api/account/info answers a 500 HTML error page instead of JSON. Its ANONYMOUS upload needs
-    // no credential at all (that is the shipped path); an account exists only to raise the limits,
-    // and its credential is the xfss cookie. Leaving it out of this set was the bug: the dialog
-    // offered username/password, the pipeline then opened the sign-in browser anyway, and the two
-    // read as a malfunction.
+    // "UpZur" was briefly here and is deliberately NOT any more: it has no API (so no key), but its
+    // login is a plain form with no captcha behind only passive Cloudflare, and this app can post it
+    // itself (SupportsDirectLogin). So it stores a username and password like a classic hoster and
+    // never opens a sign-in window. Membership of THIS set is not "has no API key" — it is "the only
+    // credential we can obtain is a cookie a human had to fetch".
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile", "UpZur"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>

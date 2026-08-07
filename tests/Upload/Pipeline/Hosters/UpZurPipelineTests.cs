@@ -252,11 +252,13 @@ public class UpZurPipelineTests
     }
 
     [Fact]
-    public async Task RefreshAccount_WhenTheStoredSessionHasLapsed_SaysSo_RatherThanReopeningTheBrowser()
+    public async Task RefreshAccount_WhenTheStoredSessionHasLapsed_KeepsTheAccountValid()
     {
-        // For a session-cookie hoster the cookie IS the credential, so an expired one means the account
-        // genuinely cannot upload. Saying that beats silently reopening a browser, which is what the old
-        // path did — indistinguishable, from the user's side, from the app just asking twice for no reason.
+        // What a lapsed cookie MEANS depends on what the credential is. Here a username and password
+        // are stored and the app can sign in again by itself, so the account is fine and the next
+        // upload just re-logs-in — reporting a failure would auto-disable a working account over an
+        // expiry the user can neither see nor act on. (A cookie-ONLY hoster reports invalid instead;
+        // there the cookie is all there is.)
         UpZurPipeline pipeline = new(
             authService: null,
             loginRepository: null,
@@ -270,8 +272,69 @@ public class UpZurPipelineTests
             ProxyChoice.Direct,
             CancellationToken.None);
 
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task CheckAccount_SignsInByPostingTheForm_WithoutOpeningABrowser()
+    {
+        // authService is null, so ANY attempt to open the sign-in window fails the check outright —
+        // which is the assertion. The login is a plain form behind only passive Cloudflare, so the
+        // browser bought nothing here except a second thing for the user to do.
+        List<IReadOnlyDictionary<string, string>> posts = [];
+        UpZurPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) => Task.FromResult(url.Contains("op=login", StringComparison.Ordinal)
+                ? """<form method="POST" action="https://upzur.com/"><input type="hidden" name="token" value="tok123"><input name="login"><input name="password"></form>"""
+                : MyFilesHtml),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload during a check"),
+            postFormOverride: (url, form) =>
+            {
+                Assert.Equal("https://upzur.com/", url); // the form posts to the site root
+                posts.Add(new Dictionary<string, string>(form));
+                return Task.FromResult(new HttpResponseSnapshot(
+                    302, string.Empty, ["xfss=sess-from-login; path=/"], "https://upzur.com/?op=my_files"));
+            });
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "csuprobe", "hunter2", null,
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("csuprobe", result.DerivedUsername);
+        Assert.Equal(0L, result.StorageUsedBytes);
+
+        IReadOnlyDictionary<string, string> form = Assert.Single(posts);
+        Assert.Equal("login", form["op"]);
+        Assert.Equal("csuprobe", form["login"]);
+        Assert.Equal("hunter2", form["password"]);
+        Assert.Equal("tok123", form["token"]); // the anti-CSRF token echoed back off the login page
+    }
+
+    [Fact]
+    public async Task CheckAccount_WrongPassword_FailsWithoutClaimingSuccess()
+    {
+        // The family gives no error envelope: a bad password re-renders the page as 200 with no
+        // cookie, so "no xfss came back" is the whole signal.
+        UpZurPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult("""<input type="hidden" name="token" value="tok123">"""),
+            uploadOverride: (_, _, _, _, _) => throw new InvalidOperationException("no upload during a check"),
+            postFormOverride: (_, _) => Task.FromResult(
+                new HttpResponseSnapshot(200, "<html>Login</html>", Array.Empty<string>())));
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "csuprobe", "wrong", null,
+            new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct,
+            CancellationToken.None);
+
         Assert.False(result.IsValid);
-        Assert.Contains("sign in again", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("username and password", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -297,12 +360,12 @@ public class UpZurPipelineTests
         // advertised "5GB / 1.95TB"; those are the paid tiers.
         Assert.Equal(200L * 1024 * 1024, pipeline.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }));
 
-        // The credential is the xfss cookie, NOT a username/password: this host has no API, so there
-        // is no key to paste and nothing for a typed password to validate against. Leaving it out of
-        // this map was the reported bug — the dialog asked for a password and the pipeline then opened
-        // the sign-in browser, which reads as a malfunction.
-        Assert.Equal(HosterCredentialMode.SessionCookie, HosterCredentialModes.GetMode("UpZur"));
-        Assert.True(HosterCredentialModes.IsWebViewSignInHoster("UpZur"));
+        // Username and password, and NO sign-in window: this host has no API (so no key to paste) but
+        // its login is a plain form with no captcha behind only passive Cloudflare, which this app can
+        // post itself. Being keyless is not what puts a hoster in the session-cookie family — needing
+        // a human to fetch the cookie is.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("UpZur"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("UpZur"));
         Assert.False(HosterCredentialModes.IsApiKeyHoster("UpZur"));
 
         Assert.True(FileHosterClient.FileHosters.ContainsKey("UpZur"));

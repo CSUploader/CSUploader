@@ -88,8 +88,9 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
-        : base(authService, loginRepository, getOverride, uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? postFormOverride = null)
+        : base(authService, loginRepository, getOverride, uploadOverride, postFormOverride)
     {
     }
 
@@ -135,6 +136,19 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     /// </para>
     /// </summary>
     protected override string LoginPagePath => "/?op=login";
+
+    /// <summary>
+    /// <b>No browser needed to sign in here.</b> Checked rather than assumed: the login page carries no
+    /// captcha of any kind, Cloudflare fronts the site only passively (<c>cf-cache-status: DYNAMIC</c>,
+    /// no challenge), and posting the form from this app's own HTTP stack answers
+    /// <c>302 + Set-Cookie: xfss</c> — verified against a real account 2026-08-07.
+    /// <para>
+    /// So this host stores a username and password like a classic hoster, and the session is acquired
+    /// on demand. The family default stays browser-based because most of these hosts gate login behind
+    /// a captcha or a managed challenge, and a human has to answer those.
+    /// </para>
+    /// </summary>
+    protected override bool SupportsDirectLogin => true;
 
     /// <summary>The host's own <c>MaxUploadFilesize</c> (MB) from the keyless limits call. Binary,
     /// as XFileSharing's limits are 1024-based.</summary>
