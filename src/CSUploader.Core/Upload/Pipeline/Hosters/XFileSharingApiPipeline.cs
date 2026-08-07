@@ -157,6 +157,12 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline
     // ---- Derived URLs ----
 
     protected string LoginUrl => Host + LoginPagePath;
+
+    /// <summary>Test seam: the page the sign-in window opens. Worth pinning per host — a fork whose
+    /// login lives somewhere other than the family default silently opens a window on whatever that
+    /// URL redirects to (UpZur bounced 301 → /login → 302 → the homepage), which reads to the user as
+    /// a sign-in that does nothing.</summary>
+    internal string SignInPageUrlForTests => LoginUrl;
     protected string MyAccountUrl => Host + "/?op=my_account";
     protected string PublicUrlPrefix => Host + "/";
     protected string ApiAccountInfoUrl => Host + "/api/account/info";

@@ -179,6 +179,15 @@ public class UpZurPipelineTests
     }
 
     [Fact]
+    public void SignInOpensTheOpRoute_NotTheFamilyDefaultLoginPage()
+    {
+        // The reported bug: the sign-in window opened the front page with nothing to sign in with.
+        // /login.html does not exist here — it bounces 301 -> /login -> 302 -> the homepage. The login
+        // form lives on the op route, which is where the window must land.
+        Assert.Equal("https://upzur.com/?op=login", new UpZurPipeline().SignInPageUrlForTests);
+    }
+
+    [Fact]
     public void UpZur_IsAnonymous_WithTheCapItsOwnApiStates()
     {
         UpZurPipeline pipeline = new();

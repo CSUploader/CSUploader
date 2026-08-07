@@ -92,6 +92,22 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     /// </summary>
     protected override bool UsesWebFormUpload => true;
 
+    /// <summary>
+    /// <b>The family default <c>/login.html</c> does not exist here — it bounces to the homepage in two
+    /// hops</b> (<c>301 → /login</c>, then <c>302 → /</c>), so the sign-in window opened, landed on the
+    /// front page and offered nothing to sign in with. The login form lives on the <c>op</c> route:
+    /// <c>?op=login</c>, posting <c>op/login/password/token/rand/redirect</c> to the site root and
+    /// answering <c>302 + Set-Cookie: xfss</c> → <c>?op=my_files</c>.
+    /// <para>
+    /// Confirmed against the live host with a real account (2026-08-07): the sign-in has <b>no
+    /// captcha</b>, and <c>?op=my_files</c> — which the base already uses as the account page — renders
+    /// the account name and its storage bar ("0 MB of 1953.1 GB"). ⚠ <c>?op=my_account</c>, the
+    /// family's usual account page, <b>302s to the homepage even when signed in</b>; nothing here may
+    /// depend on it.
+    /// </para>
+    /// </summary>
+    protected override string LoginPagePath => "/?op=login";
+
     /// <summary>The host's own <c>MaxUploadFilesize</c> (MB) from the keyless limits call. Binary,
     /// as XFileSharing's limits are 1024-based.</summary>
     private const long AnonymousMaxFileSizeBytes = 200L * 1024 * 1024;
