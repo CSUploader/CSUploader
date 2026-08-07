@@ -49,7 +49,21 @@ public sealed class BowFilePipeline : YetiSharePipeline
     /// <summary>Verified by uploading a file as a signed-out visitor.</summary>
     public override bool SupportsAnonymousUpload => true;
 
-    /// <summary>The guest cap its uploader script declares (<c>uploaderMaxSize = 21474836480</c>) —
-    /// four times udrop's, and the same figure Filestank gives a signed-in account.</summary>
+    /// <summary>
+    /// Its sign-in is a plain <c>username</c>/<c>password</c>/<c>submitme</c> form with <b>no
+    /// captcha</b> — checked on the live page and against a capture of a real sign-in — so an account
+    /// is entered in the app's own dialog and no browser ever opens.
+    /// </summary>
+    protected override bool SupportsDirectLogin => true;
+
+    /// <summary>
+    /// The cap its uploader script declares — <c>uploaderMaxSize = 21474836480</c>, four times
+    /// udrop's and the same figure Filestank gives a signed-in account.
+    /// <para>
+    /// <b>An account does NOT raise it</b>: a capture of a real signed-in upload (2026-08-08) shows
+    /// the same 20 GiB a guest gets. An account files the uploads under it rather than buying a
+    /// bigger file.
+    /// </para>
+    /// </summary>
     protected override long UploaderMaxSize => 21_474_836_480;
 }

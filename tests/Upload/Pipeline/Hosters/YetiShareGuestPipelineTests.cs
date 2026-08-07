@@ -166,6 +166,38 @@ public class YetiShareGuestPipelineTests
     }
 
     [Fact]
+    public void AnAccountBuysStorage_NotABiggerFile()
+    {
+        // From a capture of real signed-in uploads (2026-08-08): the uploader script declares the SAME
+        // per-file cap to an account as to a guest on both hosts. So the wizard must not imply an
+        // account lifts the limit — what it buys is storage (100 GB on udrop) and the file manager.
+        IFileHosterPipeline udrop = new UdropPipeline();
+        Assert.Equal(
+            udrop.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }),
+            udrop.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = false }));
+
+        IFileHosterPipeline bow = new BowFilePipeline();
+        Assert.Equal(
+            bow.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }),
+            bow.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = false }));
+    }
+
+    [Fact]
+    public void BothGuestHosts_SignInWithoutABrowser()
+    {
+        // Both login pages are a plain username/password/submitme form with no captcha of any kind, so
+        // the account goes in the app's own dialog. Filestank deliberately does NOT do this: its
+        // sign-in has never been shown to work headlessly, and guessing would produce a sign-in that
+        // silently never succeeds.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("Udrop"));
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("BowFile"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("Udrop"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("BowFile"));
+
+        Assert.Equal(HosterCredentialMode.SessionCookie, HosterCredentialModes.GetMode("Filestank"));
+    }
+
+    [Fact]
     public void BothGuestHosts_AreAnonymousAndRegistered()
     {
         UdropPipeline udrop = new();

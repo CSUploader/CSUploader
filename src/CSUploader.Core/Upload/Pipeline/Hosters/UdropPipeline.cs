@@ -55,8 +55,22 @@ public sealed class UdropPipeline : YetiSharePipeline
     /// rendered — Filestank renders one too and refuses the bytes.</summary>
     public override bool SupportsAnonymousUpload => true;
 
-    /// <summary>The guest cap the uploader script declares (<c>uploaderMaxSize = 5368709120</c>). An
-    /// account raises it, but the live per-session figure is read at upload time either way.</summary>
+    /// <summary>
+    /// Its sign-in is a plain <c>username</c>/<c>password</c>/<c>submitme</c> form with <b>no
+    /// captcha</b> — checked on the live page and against a capture of a real sign-in — so an account
+    /// is entered in the app's own dialog and no browser ever opens.
+    /// </summary>
+    protected override bool SupportsDirectLogin => true;
+
+    /// <summary>
+    /// The cap the uploader script declares — <c>uploaderMaxSize = 5368709120</c>.
+    /// <para>
+    /// <b>An account does NOT raise it.</b> A capture of a real signed-in upload (2026-08-08) shows
+    /// the same 5 GiB figure a guest gets, so the file limit is the host's, not the tier's. What an
+    /// account buys here is <b>100 GB of storage</b> and the file manager — the uploads land in it and
+    /// can be managed and deleted, which an anonymous upload's one-shot delete URL can't match.
+    /// </para>
+    /// </summary>
     protected override long UploaderMaxSize => 5_368_709_120;
 
     /// <summary>

@@ -75,6 +75,71 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     /// <summary>Cookie domain for the sign-in capture; defaults to the site's own host.</summary>
     protected virtual string CookieDomain => new Uri(SiteBase).Host;
 
+    /// <summary>
+    /// Opt-in: this install's sign-in is a plain form this app can post itself, so no browser is
+    /// needed. Default false — Filestank ships on the WebView and its login has not been shown to
+    /// work headlessly, and a wrong guess here is a sign-in that silently never succeeds.
+    /// </summary>
+    protected virtual bool SupportsDirectLogin => false;
+
+    /// <summary>
+    /// Signs in by posting the account form, returning the session cookie to use afterwards.
+    /// <para>
+    /// <b>⚠ The reply sets no cookie.</b> The platform UPGRADES the session the request already
+    /// carried — so the cookie handed out by <c>GET /account/login</c> is the one that becomes
+    /// authenticated, and it is what this returns. Looking for a fresh <c>Set-Cookie</c> on the 302
+    /// finds nothing and reads as a failed login.
+    /// </para>
+    /// <para>
+    /// Success is a <b>302</b> to <c>/account</c>; a wrong password re-renders the form as a
+    /// <b>200</b>. There is no error envelope, so that is the whole signal.
+    /// </para>
+    /// </summary>
+    private async Task<(string? Session, string? Error)> DirectLoginAsync(HttpHandler handler, string? username, string? password, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+        {
+            return (null, $"{Name} needs a username and password.");
+        }
+
+        string? session;
+        try
+        {
+            HttpResponseSnapshot page = await handler.GetSnapshotAsync(LoginUrl, null, ct).ConfigureAwait(false);
+            session = ExtractCookie(page.SetCookies, CookieName);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"{Name} login page fetch failed: {ex.Message}");
+        }
+
+        if (session is null)
+        {
+            return (null, $"{Name} login page issued no session cookie.");
+        }
+
+        Dictionary<string, string> form = new(StringComparer.Ordinal)
+        {
+            ["username"] = username,
+            ["password"] = password,
+            ["submitme"] = "1",
+        };
+
+        HttpResponseSnapshot login;
+        try
+        {
+            login = await handler.PostFormAsync(LoginUrl, form, SiteHeaders(session), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"{Name} login request failed: {ex.Message}");
+        }
+
+        return login.StatusCode is >= 300 and < 400
+            ? (session, null)
+            : (null, $"{Name} sign-in failed — check the username and password.");
+    }
+
     /// <summary>blueimp's field name, as sent by the site.</summary>
     private const string FileFieldName = "files[]";
 
@@ -316,6 +381,28 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     {
         _ = password;
         _ = apiKey;
+
+        // A host whose login this app can post signs in with no browser at all.
+        if (SupportsDirectLogin)
+        {
+            (string? direct, string? loginError) = await DirectLoginAsync(handler, username, password, ct).ConfigureAwait(false);
+            if (direct is null)
+            {
+                return new AccountCheckResult(false, AccountType.Free, loginError ?? $"{Name} sign-in failed.");
+            }
+
+            (string? name, long? usedBytes, long? quotaBytes) = await ReadAccountDetailsAsync(handler, direct, ct).ConfigureAwait(false);
+            return new AccountCheckResult(
+                true,
+                AccountType.Free,
+                $"Signed in to {Name}.",
+                SessionCookie: direct,
+                SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
+                PinnedProxyId: proxy.Id,
+                DerivedUsername: name ?? username,
+                StorageUsedBytes: usedBytes,
+                StorageQuotaBytes: quotaBytes);
+        }
 
         if (_authService is null)
         {
@@ -690,7 +777,9 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
             return ctx.Credentials.SessionCookie;
         }
 
-        if (_authService is null)
+        // No browser needed where the form can be posted; without that, no auth service means no
+        // way to sign in at all.
+        if (_authService is null && !SupportsDirectLogin)
         {
             return null;
         }
@@ -705,22 +794,35 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 return ctx.Credentials.SessionCookie;
             }
 
-            InteractiveAuthResult? captured;
-            try
+            string? acquired;
+            if (SupportsDirectLogin)
             {
-                captured = await _authService.AcquireSessionCookieAsync(BuildSignInSpec(), ctx.Credentials.Username ?? string.Empty, ctx.Proxy, ct);
+                (acquired, string? _) = await DirectLoginAsync(
+                    ctx.Handler, ctx.Credentials.Username, ctx.Credentials.Password, ct).ConfigureAwait(false);
             }
-            catch
+            else
+            {
+                InteractiveAuthResult? captured;
+                try
+                {
+                    captured = await _authService!.AcquireSessionCookieAsync(BuildSignInSpec(), ctx.Credentials.Username ?? string.Empty, ctx.Proxy, ct);
+                }
+                catch
+                {
+                    return null;
+                }
+
+                acquired = captured is InteractiveAuthResult result && !string.IsNullOrEmpty(result.SessionCookieValue)
+                    ? result.SessionCookieValue
+                    : null;
+            }
+
+            if (acquired is null)
             {
                 return null;
             }
 
-            if (captured is not InteractiveAuthResult result || string.IsNullOrEmpty(result.SessionCookieValue))
-            {
-                return null;
-            }
-
-            ctx.Credentials.SessionCookie = result.SessionCookieValue;
+            ctx.Credentials.SessionCookie = acquired;
             ctx.Credentials.SessionCookieExpiresUtc = DateTime.UtcNow + SessionLifetime;
             ctx.Credentials.PinnedProxyId = ctx.Proxy.Id;
 
@@ -729,7 +831,7 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 await _loginRepository.UpdateAsync(ctx.Credentials, ct).ConfigureAwait(false);
             }
 
-            return result.SessionCookieValue;
+            return acquired;
         }
         finally
         {
