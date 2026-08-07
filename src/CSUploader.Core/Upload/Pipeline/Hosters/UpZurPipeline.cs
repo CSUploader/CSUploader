@@ -74,6 +74,24 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     /// bytes.</summary>
     public override bool SupportsAnonymousUpload => true;
 
+    /// <summary>
+    /// <b>This host has no API at all</b>, so an account signs in for the <c>xfss</c> cookie and
+    /// uploads through the logged-in <c>?op=upload_form</c> — it must never take the API-key path.
+    /// Measured, not assumed: <c>/api/upload/server</c> answers <b>404</b> and
+    /// <c>/api/account/info</c> answers a <b>500 HTML error page</b>, not JSON.
+    /// <para>
+    /// Without this the base's username/password path opens the sign-in browser and then scrapes
+    /// <c>my_account</c> for an API key that is never rendered — so the check fails <i>after</i> a
+    /// perfectly good sign-in, which reads like the password was wrong.
+    /// </para>
+    /// <para>
+    /// The sign-in browser still appears; that is how this app signs in to XFileSharing hosts (a human
+    /// solves whatever the login page asks for). UpZur's own login is a plain <c>op=login</c> form with
+    /// <b>no captcha</b>, so it is one of the quieter ones.
+    /// </para>
+    /// </summary>
+    protected override bool UsesWebFormUpload => true;
+
     /// <summary>The host's own <c>MaxUploadFilesize</c> (MB) from the keyless limits call. Binary,
     /// as XFileSharing's limits are 1024-based.</summary>
     private const long AnonymousMaxFileSizeBytes = 200L * 1024 * 1024;

@@ -134,6 +134,51 @@ public class UpZurPipelineTests
     }
 
     [Fact]
+    public async Task RunAsync_WithAnAccount_UsesTheWebFormPath_NotTheApiKeyPath()
+    {
+        // This host has NO API — /api/upload/server 404s and /api/account/info answers a 500 HTML
+        // error page. So a signed-in attempt must scrape ?op=upload_form for the node and sess_id.
+        // Before this, the base's username/password path opened the sign-in browser and then hunted
+        // my_account for an API key that is never rendered: the check failed after a good sign-in,
+        // which reads to the user like a wrong password.
+        List<string> getUrls = [];
+        UpZurPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (url, _) =>
+            {
+                getUrls.Add(url);
+                return Task.FromResult("""
+                    <form id="uploadfile" action="https://systeme.upzur.com/cgi-bin/upload.cgi?upload_type=file&utype=reg">
+                      <input type="hidden" name="sess_id" value="sess-abc">
+                    </form>
+                    """);
+            },
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(
+                200, """[{"file_code":"a60qwb7n8p6n","file_status":"OK"}]""", Array.Empty<string>())));
+
+        AttemptContext ctx = MakeAnonymousContext() with
+        {
+            Credentials = new FileHosterLoginDto
+            {
+                Id = 3,
+                FileHosterName = "UpZur",
+                IsAnonymous = false,
+                Username = "someone",
+                SessionCookie = "xfss-value",
+                SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1),
+                PinnedProxyId = null, // unpinned → valid against any proxy, so no sign-in window
+            },
+        };
+
+        await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        // The upload form page — never /api/upload/server, which this host doesn't have.
+        Assert.Contains(getUrls, u => u.Contains("op=upload_form", StringComparison.Ordinal));
+        Assert.DoesNotContain(getUrls, u => u.Contains("/api/", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void UpZur_IsAnonymous_WithTheCapItsOwnApiStates()
     {
         UpZurPipeline pipeline = new();
@@ -146,6 +191,14 @@ public class UpZurPipelineTests
         // 200 MB is MaxUploadFilesize from the keyless limits call, i.e. the guest figure. The list
         // advertised "5GB / 1.95TB"; those are the paid tiers.
         Assert.Equal(200L * 1024 * 1024, pipeline.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }));
+
+        // The credential is the xfss cookie, NOT a username/password: this host has no API, so there
+        // is no key to paste and nothing for a typed password to validate against. Leaving it out of
+        // this map was the reported bug — the dialog asked for a password and the pipeline then opened
+        // the sign-in browser, which reads as a malfunction.
+        Assert.Equal(HosterCredentialMode.SessionCookie, HosterCredentialModes.GetMode("UpZur"));
+        Assert.True(HosterCredentialModes.IsWebViewSignInHoster("UpZur"));
+        Assert.False(HosterCredentialModes.IsApiKeyHoster("UpZur"));
 
         Assert.True(FileHosterClient.FileHosters.ContainsKey("UpZur"));
         Assert.Equal("upzur.com", FileHosterClient.FileHosters["UpZur"]);
