@@ -29,7 +29,7 @@ public class UploadHivePipelineTests
     /// <summary>The signed-in /account/ page, copied from the capture's markup. None of the family's
     /// markers appear on it — that is the point of the three overrides it exercises.</summary>
     private const string AccountHtml = """
-        <div class="UserHead"><span>&#9776;</span> Welcome back <b>LynfordAudie</b>, this is your userpanel </div>
+        <div class="UserHead"><span>&#9776;</span> Welcome back <b>csuprobe</b>, this is your userpanel </div>
         <div class="AcctBox mrgn bg2"><div class="AcctBoxInner">
           <div class="txt1">Used space</div> <div class="txt2">0.00 of 98 GB</div>
         </div></div>
@@ -125,7 +125,7 @@ public class UploadHivePipelineTests
         UploadHivePipeline pipeline = new();
 
         Assert.True(pipeline.LooksSignedInForTests(AccountHtml));
-        Assert.Equal("LynfordAudie", pipeline.ParseAccountUsernameForTests(AccountHtml));
+        Assert.Equal("csuprobe", pipeline.ParseAccountUsernameForTests(AccountHtml));
 
         (long? used, long? quota) = pipeline.ParseStorageUsageForTests(AccountHtml);
         Assert.Equal(0L, used);
