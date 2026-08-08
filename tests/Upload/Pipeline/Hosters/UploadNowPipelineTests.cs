@@ -176,6 +176,74 @@ public class UploadNowPipelineTests : IDisposable
         Assert.Contains("ETag", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task RunAsync_StorageInternalError_IsRetried_WithAFreshSignature()
+    {
+        // The reported failure, verbatim from R2 on a real CreateMultipartUpload:
+        //   <Error><Code>InternalError</Code><Message>We encountered an internal error.
+        //   Please try again.</Message></Error>
+        // It means what it says, and nothing here re-tried it. Every storage call is safe to repeat:
+        // initiating twice abandons an empty upload id, a part is addressed by number, completing is
+        // idempotent for the same parts.
+        int initiateCalls = 0;
+        List<string> datetimes = [];
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) =>
+            {
+                if (url.EndsWith("?uploads", StringComparison.Ordinal))
+                {
+                    initiateCalls++;
+                    datetimes.Add(headers!["x-amz-date"]);
+                    if (initiateCalls == 1)
+                    {
+                        return Task.FromResult(new HttpResponseSnapshot(
+                            500,
+                            """<?xml version="1.0" encoding="UTF-8"?><Error><Code>InternalError</Code><Message>We encountered an internal error. Please try again.</Message></Error>""",
+                            Array.Empty<string>()));
+                    }
+                }
+
+                return Task.FromResult(Reply(url, body, headers));
+            },
+            partOverride: (_, _, _, _) => Task.FromResult(
+                new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag-1\"")));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal("https://uploadnow.io/f/Hzg2ZNZ", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        Assert.Equal(2, initiateCalls);
+
+        // The retry must be signed AFRESH. A signature covers x-amz-date, so replaying the first
+        // attempt's request would trade an InternalError for an authentication failure — a worse error
+        // about the wrong thing.
+        Assert.Equal(2, datetimes.Count);
+        Assert.NotEqual(datetimes[0], datetimes[1]);
+    }
+
+    [Fact]
+    public async Task RunAsync_StorageThatKeepsFailing_GivesUpAndSaysWhat()
+    {
+        int calls = 0;
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) =>
+            {
+                if (!url.EndsWith("?uploads", StringComparison.Ordinal))
+                {
+                    return Task.FromResult(Reply(url, body, headers));
+                }
+
+                calls++;
+                return Task.FromResult(new HttpResponseSnapshot(500, "<Error><Code>InternalError</Code></Error>", Array.Empty<string>()));
+            },
+            partOverride: (_, _, _, _) => throw new InvalidOperationException("must not upload a part"));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.Contains("500", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+        Assert.Equal(4, calls);   // bounded, so a host having a bad day can't spin forever
+    }
+
     [Theory]
     [InlineData(DeclareJson, true)]
     [InlineData("""{"ids":[],"bucketConfig":{}}""", false)]

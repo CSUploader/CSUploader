@@ -184,6 +184,44 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         yield return new TransferCompleted($"{Host}/f/{upload.Value.FolderId}");
     }
 
+    /// <summary>How many times a storage call is attempted before giving up.</summary>
+    private const int StorageAttempts = 4;
+
+    /// <summary>
+    /// Runs one storage call, retrying while R2 answers <c>5xx</c>.
+    /// <para>
+    /// Its <c>InternalError</c> says "We encountered an internal error. Please try again." and means
+    /// it: one was seen on a real <c>CreateMultipartUpload</c>. Every call here is safe to repeat —
+    /// initiating twice just abandons an empty upload id, a part is addressed by number so re-sending
+    /// overwrites, and completing is idempotent for the same parts.
+    /// </para>
+    /// <para>
+    /// <paramref name="attempt"/> is re-invoked rather than the response replayed, because each
+    /// attempt must be signed afresh: the signature covers <c>x-amz-date</c>, so a retry carrying the
+    /// first attempt's timestamp would fail authentication instead of the thing that actually failed.
+    /// </para>
+    /// </summary>
+    private static async Task<HttpResponseSnapshot> WithStorageRetryAsync(
+        AttemptContext ctx,
+        string what,
+        Func<Task<HttpResponseSnapshot>> attempt)
+    {
+        HttpResponseSnapshot response = await attempt().ConfigureAwait(false);
+        for (int i = 2; i <= StorageAttempts && response.StatusCode >= 500; i++)
+        {
+            ctx.Logger.Log(
+                null,
+                LogType.Status,
+                $"UploadNow: storage answered HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)} to {what}; "
+                + $"retrying ({i.ToString(CultureInfo.InvariantCulture)}/{StorageAttempts.ToString(CultureInfo.InvariantCulture)}).");
+
+            await Task.Delay(TimeSpan.FromSeconds(i), ctx.Cancellation).ConfigureAwait(false);
+            response = await attempt().ConfigureAwait(false);
+        }
+
+        return response;
+    }
+
     /// <summary>Mints (or reuses) the anonymous identity, creates this file's folder and declares the
     /// file, returning everything the transfer needs.</summary>
     private async Task<(Upload? Upload, string? Error)> PrepareAsync(AttemptContext ctx)
@@ -257,42 +295,61 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             string contentMd5 = await ComputeMd5Async(file, position, length, ctx.Cancellation);
 
             string query = $"partNumber={partNumber.ToString(CultureInfo.InvariantCulture)}&uploadId={Uri.EscapeDataString(uploadId)}";
-            string datetime = Timestamp();
-            Dictionary<string, string> signed = new(StringComparer.Ordinal)
-            {
-                ["content-md5"] = contentMd5,
-                ["host"] = new Uri(upload.ObjectUrl).Host,
-                ["x-amz-date"] = datetime,
-            };
+            long partOffset = position;
+            string? partSignError = null;
+            int number = partNumber;
 
-            (string? auth, string? signError) = await AuthorizeAsync(
-                ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime);
-            if (auth is null)
+            HttpResponseSnapshot part = await WithStorageRetryAsync(
+                ctx,
+                $"part {number.ToString(CultureInfo.InvariantCulture)}",
+                async () =>
+                {
+                    string datetime = Timestamp();
+                    Dictionary<string, string> signed = new(StringComparer.Ordinal)
+                    {
+                        ["content-md5"] = contentMd5,
+                        ["host"] = new Uri(upload.ObjectUrl).Host,
+                        ["x-amz-date"] = datetime,
+                    };
+
+                    (string? auth, partSignError) = await AuthorizeAsync(
+                        ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime).ConfigureAwait(false);
+                    if (auth is null)
+                    {
+                        return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
+                    }
+
+                    Dictionary<string, string> headers = new(StringComparer.Ordinal)
+                    {
+                        ["Authorization"] = auth,
+                        ["x-amz-date"] = datetime,
+                        ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
+                        ["Content-MD5"] = contentMd5,
+                    };
+
+                    if (_partOverride is not null)
+                    {
+                        return await _partOverride($"{upload.ObjectUrl}?{query}", partOffset, length, headers).ConfigureAwait(false);
+                    }
+
+                    // Rewound per attempt: a retry has to re-send the same slice from the start.
+                    file.Position = partOffset;
+                    return await ctx.Handler.PutChunkAsync(
+                        $"{upload.ObjectUrl}?{query}",
+                        new ChunkSliceStream(file, length),
+                        length,
+                        basePosition: partOffset,
+                        totalFileSize: ctx.FileSize,
+                        dateTimeStarted: started,
+                        headers: headers,
+                        getBytesPerSecond: ctx.SpeedLimitProvider,
+                        cancellationToken: ctx.Cancellation).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+
+            if (partSignError is not null)
             {
-                return signError;
+                return partSignError;
             }
-
-            Dictionary<string, string> headers = new(StringComparer.Ordinal)
-            {
-                ["Authorization"] = auth,
-                ["x-amz-date"] = datetime,
-                ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
-                ["Content-MD5"] = contentMd5,
-            };
-
-            file.Position = position;
-            HttpResponseSnapshot part = _partOverride is not null
-                ? await _partOverride($"{upload.ObjectUrl}?{query}", position, length, headers)
-                : await ctx.Handler.PutChunkAsync(
-                    $"{upload.ObjectUrl}?{query}",
-                    new ChunkSliceStream(file, length),
-                    length,
-                    basePosition: position,
-                    totalFileSize: ctx.FileSize,
-                    dateTimeStarted: started,
-                    headers: headers,
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
-                    cancellationToken: ctx.Cancellation);
 
             if (part.StatusCode is < 200 or >= 300)
             {
@@ -316,33 +373,43 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     private async Task<(string? UploadId, string? Error)> InitiateAsync(AttemptContext ctx, Upload upload)
     {
-        string datetime = Timestamp();
-        Dictionary<string, string> signed = new(StringComparer.Ordinal)
+        string? signError = null;
+        HttpResponseSnapshot response = await WithStorageRetryAsync(ctx, "the upload's start", async () =>
         {
-            ["host"] = new Uri(upload.ObjectUrl).Host,
-            ["x-amz-date"] = datetime,
-        };
+            string datetime = Timestamp();
+            Dictionary<string, string> signed = new(StringComparer.Ordinal)
+            {
+                ["host"] = new Uri(upload.ObjectUrl).Host,
+                ["x-amz-date"] = datetime,
+            };
 
-        (string? auth, string? signError) = await AuthorizeAsync(
-            ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime);
-        if (auth is null)
+            (string? auth, signError) = await AuthorizeAsync(
+                ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime).ConfigureAwait(false);
+            if (auth is null)
+            {
+                // Nothing to send; a 0 status stops the retry loop and signError carries the reason.
+                return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
+            }
+
+            Dictionary<string, string> headers = new(StringComparer.Ordinal)
+            {
+                ["Authorization"] = auth,
+                ["x-amz-date"] = datetime,
+                ["x-amz-content-sha256"] = EmptyBodySha256,
+            };
+
+            return _apiOverride is not null
+                ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?uploads", null, headers).ConfigureAwait(false)
+                // No Content-Type, exactly as the browser's CreateMultipartUpload sends it.
+                : await ctx.Handler.UploadBytesAsync(
+                    HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, headers, cancellationToken: ctx.Cancellation)
+                    .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (signError is not null)
         {
             return (null, signError);
         }
-
-        Dictionary<string, string> headers = new(StringComparer.Ordinal)
-        {
-            ["Authorization"] = auth,
-            ["x-amz-date"] = datetime,
-            ["x-amz-content-sha256"] = EmptyBodySha256,
-        };
-
-        HttpResponseSnapshot response = _apiOverride is not null
-            ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?uploads", null, headers)
-            // The browser sends no Content-Type here, but our sender requires one and it is NOT among
-            // the signed headers (host;x-amz-date), so an inert value can't disturb the signature.
-            : await ctx.Handler.UploadBytesAsync(
-                HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], "application/octet-stream", headers, cancellationToken: ctx.Cancellation);
 
         if (response.StatusCode is < 200 or >= 300)
         {
@@ -393,10 +460,12 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             ["x-amz-content-sha256"] = Sha256Hex(body),
         };
 
-        HttpResponseSnapshot response = _apiOverride is not null
-            ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?{query}", Encoding.UTF8.GetString(body), headers)
-            : await ctx.Handler.UploadBytesAsync(
-                HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, headers, cancellationToken: ctx.Cancellation);
+        HttpResponseSnapshot response = await WithStorageRetryAsync(ctx, "the file's assembly", async () =>
+            _apiOverride is not null
+                ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?{query}", Encoding.UTF8.GetString(body), headers).ConfigureAwait(false)
+                : await ctx.Handler.UploadBytesAsync(
+                    HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, headers, cancellationToken: ctx.Cancellation)
+                    .ConfigureAwait(false)).ConfigureAwait(false);
 
         // R2, like S3, can report a failure inside a 200 on this call — so the body is checked too.
         if (response.StatusCode is < 200 or >= 300 || response.Body.Contains("<Error>", StringComparison.OrdinalIgnoreCase))

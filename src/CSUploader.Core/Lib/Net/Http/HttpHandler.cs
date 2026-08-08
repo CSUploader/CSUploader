@@ -622,7 +622,12 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 fileStream,
                 (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
                 cancellationToken);
-            progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            // Empty means "send no Content-Type" — see UploadBytesAsync, which needs the same and is
+            // where it matters.
+            if (!string.IsNullOrEmpty(contentType))
+            {
+                progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            }
 
             // HttpRequestMessage.Dispose() disposes its Content for us — no separate using on the
             // content (that'd double-dispose). Mirrors UploadMultipartAsync.
@@ -719,7 +724,16 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 bodyStream,
                 (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)),
                 cancellationToken);
-            progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+
+            // An EMPTY contentType means "send none", which some signed APIs require: S3/R2 verify a
+            // signature over exactly the headers the caller listed, and a browser's
+            // CreateMultipartUpload sends no Content-Type at all. Forcing one on makes the request
+            // differ from the shape known to work, and the old behaviour — throwing on empty — left
+            // no way to express it.
+            if (!string.IsNullOrEmpty(contentType))
+            {
+                progressContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            }
 
             using HttpRequestMessage request = new(method, url) { Content = progressContent };
             if (headers is not null)
