@@ -16,63 +16,131 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// UploadHive — an anonymous shim on <see cref="XFileSharingApiPipeline"/> with two deviations, both
-/// of which would post files somewhere useless if missed. Fixture is the real <c>/upload</c> page
-/// (2026-08-08, verified by uploading).
+/// UploadHive — anonymous and account, both on <see cref="XFileSharingApiPipeline"/>. Fixtures are the
+/// real bodies from captures of an anonymous and a registered upload (2026-08-08), each verified by
+/// uploading. Nearly everything here is a deviation from the family default, and each one would send
+/// files or credentials somewhere useless if it were dropped.
 /// </summary>
 public class UploadHivePipelineTests
 {
-    /// <summary>
-    /// The live page, trimmed. Note what is NOT here: the file form carries no <c>action</c>, and the
-    /// only <c>upload.cgi</c> action on the page belongs to the remote-URL form.
-    /// </summary>
-    private const string UploadPageHtml = """
-        <!DOCTYPE html><html><body>
-        <form id="uploadfile" enctype="multipart/form-data" method="post">
-          <input type="hidden" name="sess_id" value="">
-          <input type="hidden" name="utype" value="anon">
-          <input type="file" name="file_0">
-        </form>
-        <form method="post" id="uploadurl" action="https://fs430.uploadhive.com/cgi-bin/upload.cgi?upload_type=url">
-          <textarea name="url_mass"></textarea>
-        </form>
-        <script>var uploader = { ext_allowed: '', ext_not_allowed: '7z|001', max_upload_files: '5', max_upload_filesize: '0' };</script>
-        </body></html>
+    private const string ServerJson = """{"url":"https://fs430.uploadhive.com/cgi-bin"}""";
+    private const string UploadedJson = """[{"file_code":"888rv70d6hum","file_status":"OK"}]""";
+
+    /// <summary>The signed-in /account/ page, copied from the capture's markup. None of the family's
+    /// markers appear on it — that is the point of the three overrides it exercises.</summary>
+    private const string AccountHtml = """
+        <div class="UserHead"><span>&#9776;</span> Welcome back <b>LynfordAudie</b>, this is your userpanel </div>
+        <div class="AcctBox mrgn bg2"><div class="AcctBoxInner">
+          <div class="txt1">Used space</div> <div class="txt2">0.00 of 98 GB</div>
+        </div></div>
+        <a href="https://uploadhive.com/logout/" class="btn_blue">Logout</a>
         """;
 
     [Fact]
-    public async Task RunAsync_PostsToTheFileEndpoint_DerivedFromTheUrlFormsNode()
+    public async Task RunAsync_Anonymous_AsksTheHostForItsNode_AndSendsItsOwnFieldSet()
     {
-        // The base scrapes the page's only upload.cgi action, which here is the REMOTE-URL form's.
-        // Posting a file there would hit the URL-import endpoint — a wrong destination that answers
-        // plausibly rather than erroring. The node is kept, the query is rewritten.
-        List<string> getUrls = [];
+        // The node comes from GET /server, which is what the site's own uploader calls. The earlier
+        // approach scraped the page — where the anonymous FILE form has no action at all, so the only
+        // upload.cgi action belongs to the REMOTE-URL form and files would have gone to URL import.
+        List<string> gets = [];
         string? endpoint = null;
+        Dictionary<string, string>? fields = null;
+
         UploadHivePipeline pipeline = new(
             authService: null,
             loginRepository: null,
-            getOverride: (url, _) => { getUrls.Add(url); return Task.FromResult(UploadPageHtml); },
+            getOverride: (url, _) => { gets.Add(url); return Task.FromResult(ServerJson); },
             uploadOverride: (_, url, extra, _, _) =>
             {
                 endpoint = url;
-                Assert.Equal(string.Empty, extra["sess_id"]);
-                Assert.Equal("anon", extra["utype"]);
-                return Task.FromResult(new HttpResponseSnapshot(
-                    200, """[{"file_code":"888rv70d6hum","file_status":"OK"}]""", Array.Empty<string>()));
+                fields = new Dictionary<string, string>(extra);
+                return Task.FromResult(new HttpResponseSnapshot(200, UploadedJson, Array.Empty<string>()));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(AnonymousContext(), CancellationToken.None));
 
         Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Contains("/server", Assert.Single(gets), StringComparison.Ordinal);
         Assert.Equal("https://fs430.uploadhive.com/cgi-bin/upload.cgi?upload_type=file&utype=anon", endpoint);
         Assert.DoesNotContain("upload_type=url", endpoint!, StringComparison.Ordinal);
 
-        // The link is built from the SITE host even though the bytes went to fs430.
-        Assert.Equal("https://uploadhive.com/888rv70d6hum", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+        // The field set its own uploader sends — file_descr rather than the family's file_0_descr,
+        // file_public=1, and none of mode/keepalive/submit_btn.
+        Assert.Equal(string.Empty, fields!["sess_id"]);
+        Assert.Equal("anon", fields["utype"]);
+        Assert.Equal("1", fields["file_public"]);
+        Assert.True(fields.ContainsKey("file_descr"));
+        Assert.False(fields.ContainsKey("mode"));
+        Assert.False(fields.ContainsKey("keepalive"));
 
-        // …and the form was looked for on /upload. The homepage carries none, which is also why an
-        // api_get_limits sweep concluded this host wasn't XFileSharing at all.
-        Assert.Contains("/upload", Assert.Single(getUrls), StringComparison.Ordinal);
+        Assert.Equal("https://uploadhive.com/888rv70d6hum", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+    }
+
+    [Fact]
+    public async Task RunAsync_SignedIn_SendsTheSessionCookieAsTheSessionId()
+    {
+        // Both captures are byte-identical apart from two fields, and the sess_id IS the xfss cookie —
+        // compared value-for-value in the capture. So unlike the rest of this family there is no
+        // ?op=upload_form page to scrape for one.
+        string? endpoint = null;
+        Dictionary<string, string>? fields = null;
+
+        UploadHivePipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(ServerJson),
+            uploadOverride: (_, url, extra, _, _) =>
+            {
+                endpoint = url;
+                fields = new Dictionary<string, string>(extra);
+                return Task.FromResult(new HttpResponseSnapshot(200, UploadedJson, Array.Empty<string>()));
+            });
+
+        AttemptContext ctx = AnonymousContext() with
+        {
+            Credentials = new FileHosterLoginDto
+            {
+                Id = 5,
+                FileHosterName = "UploadHive",
+                IsAnonymous = false,
+                Username = "someone",
+                SessionCookie = "xfss-16-chars-ab",
+                SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(1),
+                PinnedProxyId = null,
+            },
+        };
+
+        await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Equal("https://fs430.uploadhive.com/cgi-bin/upload.cgi?upload_type=file&utype=reg", endpoint);
+        Assert.Equal("xfss-16-chars-ab", fields!["sess_id"]);
+        Assert.Equal("reg", fields["utype"]);
+    }
+
+    [Fact]
+    public void AccountPage_YieldsSignedIn_TheName_AndTheStorage()
+    {
+        // Its /account/ page has NO ?op=logout, NO fa-user icon and NO class="storage", so all three
+        // family scrapes return nothing here — the sign-in reads as failed and the account saves blank.
+        UploadHivePipeline pipeline = new();
+
+        Assert.True(pipeline.LooksSignedInForTests(AccountHtml));
+        Assert.Equal("LynfordAudie", pipeline.ParseAccountUsernameForTests(AccountHtml));
+
+        (long? used, long? quota) = pipeline.ParseStorageUsageForTests(AccountHtml);
+        Assert.Equal(0L, used);
+        Assert.Equal(98L * 1024 * 1024 * 1024, quota);
+    }
+
+    [Fact]
+    public void AccountPage_WithTheFamilyMarkupInstead_YieldsNothing()
+    {
+        // Guards the direction: this host must read ITS page, not inherit a match from the family's.
+        UploadHivePipeline pipeline = new();
+        const string FamilyHtml = """<a href="?op=logout">out</a><i class="fa fa-user"></i>someone<span class="storage"><b>1 MB</b> of <b>2 GB</b></span>""";
+
+        Assert.Null(pipeline.ParseAccountUsernameForTests(FamilyHtml));
+        Assert.Equal((null, null), pipeline.ParseStorageUsageForTests(FamilyHtml));
     }
 
     [Theory]
@@ -99,21 +167,24 @@ public class UploadHivePipelineTests
     }
 
     [Fact]
-    public void UploadHive_IsAnonymous_WithNoDeclaredCap()
+    public void UploadHive_IsAnonymousAndAccount_WithNoDeclaredCap()
     {
         UploadHivePipeline pipeline = new();
         Assert.Equal("UploadHive", pipeline.Name);
         Assert.True(pipeline.SupportsAnonymousUpload);
 
-        // Its uploader config says max_upload_filesize: '0', meaning unlimited here — uploads succeed.
-        // Inheriting the base's 1 GiB default would silently skip every larger file at queue time,
-        // which is the bug Uploadrar shipped with.
+        // max_upload_filesize is '0', meaning unlimited here — uploads succeed. Inheriting the base's
+        // 1 GiB default would silently skip every larger file at queue time.
         Assert.Null(pipeline.MaxFileSize);
+
+        // Its login is a plain form with no captcha, so credentials go in the app's own dialog.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("UploadHive"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("UploadHive"));
 
         Assert.Equal("uploadhive.com", FileHosterClient.FileHosters["UploadHive"]);
     }
 
-    private static AttemptContext MakeContext() => new()
+    private static AttemptContext AnonymousContext() => new()
     {
         AttemptId = Guid.NewGuid(),
         FilePath = @"C:\nope\probe.rar",
