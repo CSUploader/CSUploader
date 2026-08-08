@@ -244,6 +244,7 @@ public class YetiShareGuestPipelineTests
             """;
     }
 
+    [Fact]
     public void ReadNodeUrl_TakesAPoolMember_WhenThereIsNoLiteralUrl()
     {
         // MegaUp declares `url: getUploadEndpoint()` — a CALL, not an address. A parser that only knows
