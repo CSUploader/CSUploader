@@ -224,6 +224,10 @@ public static class ServiceRegistration
         // FileMirage — ANONYMOUS, 50 GiB, chunked: GET /api/servers for a node, then 99 MB multipart
         // chunks to <node>/upload.php; the last one carries the link. See FileMiragePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileMiragePipeline>();
+
+        // Filego — ANONYMOUS, 2 GB, three calls: /api/upload/init for an id + write token, a raw PUT of
+        // the bytes, then /api/upload/save to commit. See FilegoPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilegoPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

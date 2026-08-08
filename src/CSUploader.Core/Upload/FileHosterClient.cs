@@ -304,6 +304,10 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // file/filename/upload_id/chunk_number/total_chunks, and the LAST chunk's reply has data.url.
         // The upload id is the client's to invent. See FileMiragePipeline.cs.
         { "FileMirage", "filemirage.com" },
+
+        // Filego — ANONYMOUS, 2 GB, 30-day links. Protocol from its own bundle: init → raw PUT → save.
+        // ⚠ Every reply is HTTP 200, verdict included. See FilegoPipeline.cs.
+        { "Filego", "filego.io" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
