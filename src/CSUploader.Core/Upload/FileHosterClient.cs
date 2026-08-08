@@ -318,6 +318,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // publishes its own limits at GET /api/configs. ⚠ The share id is CLIENT-minted and is the
         // whole security model (its own default length is 4). See DropMbPipeline.cs.
         { "DropMB", "dropmb.com" },
+
+        // Hostize — ANONYMOUS, keyless, 20 GB, presigned S3 multipart. ⚠ Its DOCUMENTED /api/v1/*
+        // route is Pro-only (401 "Missing API key"); the site's own keyless route is /api/upload/*.
+        // ⚠ Free links expire after 24 HOURS. See HostizePipeline.cs.
+        { "Hostize", "www.hostize.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

@@ -377,6 +377,14 @@ Everything still open on the lists above was probed to a decisive answer.
 | **krakenfiles.com** | ⏸ **Still parked, and now for a second reason.** The site serves HTML again (it was "Sorry, service unavailable" outright), but the homepage still renders that message beside a live `maxFileSize: 1073741274`, **and hs1–hs12 `krakencloud.net` refuse TCP altogether** — so the storage tier is down, not just the widget. The protocol remains solved; re-check the nodes, not the page. |
 | **The curl-host category** (0x0.st, uguu, x0.at, envs.sh, oshi.at, bashupload) | Already closed in the sweep above; unchanged. |
 
+**Fourth sweep — 2026-08-09, by WEB SEARCH.** The curated lists were exhausted, so this one went looking for names that were never on them.
+
+| Host | Verdict |
+|---|---|
+| ~~**Hostize**~~ (www.hostize.com) | **SHIPPED 2026-08-09** — anonymous, keyless, **20 GB**, presigned S3 multipart (third host on the storage.to / VikingFile shape, so the byte path was reused unchanged). ⚠ **Its DOCUMENTED API is not the one to use**: `/api/**v1**/upload/request` answers `401 "Missing API key"` and is Pro-only, while the site's own uploader calls `/api/upload/request` — **no `v1`** — with no key at all. Reading the docs alone would have written this host off. ⚠ `complete` takes only the `shareId`; unlike the other presigned hosts here it needs **no ETags**. ⚠ **Free links live 24 HOURS** and `expiresIn`/`expiry`/`ttl`/`retention` are all accepted and ignored — the trade was accepted explicitly for the 20 GB cap, and the expiry is logged with each link. Note the apex `hostize.com` does not resolve; the host is `www.`. See `HostizePipeline.cs`. |
+| **Comfyfile** (comfyfile.com) | Sign-up-first ("Create Your Free Account"); its upload page is an authenticated app shell. Not pursued. |
+| **Filemail** | Already assessed on an earlier list. |
+
 **Blocked or poor fit from this sweep**
 
 | Host | Reason |

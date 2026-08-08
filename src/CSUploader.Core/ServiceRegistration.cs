@@ -235,6 +235,10 @@ public static class ServiceRegistration
         // DropMB — a Pingvin Share instance: create share -> chunked octet-stream POSTs -> complete.
         // Anonymous or signed in (one access_token cookie). See DropMbPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMbPipeline>();
+
+        // Hostize — ANONYMOUS, 20 GB, presigned S3 multipart (the storage.to / VikingFile shape).
+        // ⚠ Free links live 24 HOURS. See HostizePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HostizePipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
