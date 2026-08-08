@@ -313,6 +313,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Filego — ANONYMOUS, 2 GB, 30-day links. Protocol from its own bundle: init → raw PUT → save.
         // ⚠ Every reply is HTTP 200, verdict included. See FilegoPipeline.cs.
         { "Filego", "filego.io" },
+
+        // DropMB — ANONYMOUS or account, 512 MB, 10 MB chunks. A Pingvin Share instance, so it
+        // publishes its own limits at GET /api/configs. ⚠ The share id is CLIENT-minted and is the
+        // whole security model (its own default length is 4). See DropMbPipeline.cs.
+        { "DropMB", "dropmb.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

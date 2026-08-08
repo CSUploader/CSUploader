@@ -231,6 +231,10 @@ public static class ServiceRegistration
         // Filego — ANONYMOUS, 2 GB, three calls: /api/upload/init for an id + write token, a raw PUT of
         // the bytes, then /api/upload/save to commit. See FilegoPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilegoPipeline>();
+
+        // DropMB — a Pingvin Share instance: create share -> chunked octet-stream POSTs -> complete.
+        // Anonymous or signed in (one access_token cookie). See DropMbPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMbPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
