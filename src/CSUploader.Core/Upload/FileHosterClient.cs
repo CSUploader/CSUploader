@@ -278,6 +278,14 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // is a SEPARATE rotating storage host (fsNN.bowfile.com) which needs no cookie — it
         // authenticates on the _sessionid field. The link comes back on the apex. See BowFilePipeline.cs.
         { "BowFile", "bowfile.com" },
+        // UploadNow — ANONYMOUS, 100 GB, and the most involved protocol here: a FIREBASE ANONYMOUS
+        // identity (identitytoolkit accounts:signUp) authorises /api/* calls and its localId prefixes
+        // the storage key; POST /api/file/folders + /api/file/files declare the upload and hand back
+        // the R2 endpoint plus a SIGNER path; the client builds each SigV4 string-to-sign and the host
+        // signs it (no secret key involved); then an R2 multipart, then PUT .../upload-done.
+        // ⚠ The share link is the FOLDER's — uploadnow.io/f/<folderId> — so one folder per file.
+        // ⚠ Accounts are PAID-ONLY, so none are offered. See UploadNowPipeline.cs.
+        { "UploadNow", "uploadnow.io" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

@@ -1,0 +1,154 @@
+- generic [active] [ref=e7]:
+  - generic:
+    - generic [ref=e1]:
+      - banner [ref=e8]:
+        - generic [ref=e9]:
+          - link [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img "UploadNow" [ref=e11]
+            - text: UploadNow
+          - button [ref=e12] [cursor=pointer]
+        - generic [ref=e15]:
+          - link [ref=e16] [cursor=pointer]:
+            - /url: /profile
+          - link "Create account" [ref=e20] [cursor=pointer]:
+            - /url: /register
+          - link "Sign in" [ref=e21] [cursor=pointer]:
+            - /url: /signin
+          - button "Switch to night mode" [ref=e22] [cursor=pointer]
+          - button "en" [ref=e27] [cursor=pointer]
+      - generic [ref=e29]:
+        - complementary [ref=e31]:
+          - link "Upload" [ref=e33] [cursor=pointer]:
+            - /url: /upload
+          - navigation [ref=e35]:
+            - button "anonymGosGIjwV86ZU" [ref=e37] [cursor=pointer]:
+              - term [ref=e39]
+            - list [ref=e43]:
+              - listitem [ref=e44]:
+                - link "My guest profile" [ref=e45] [cursor=pointer]:
+                  - /url: /profile
+              - listitem [ref=e51]:
+                - link "My files" [ref=e52] [cursor=pointer]:
+                  - /url: /files/%2F
+                - button [ref=e58] [cursor=pointer]
+              - listitem [ref=e61]:
+                - link "My favorites 0" [ref=e62] [cursor=pointer]:
+                  - /url: /favourites
+                  - generic [ref=e66]:
+                    - text: My favorites
+                    - generic [ref=e67]: "0"
+              - listitem [ref=e69]:
+                - link "Trash" [ref=e70] [cursor=pointer]:
+                  - /url: /register
+            - list [ref=e76]:
+              - listitem [ref=e77]:
+                - link "Home" [ref=e78] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e84]:
+                - link "Upload files" [ref=e85] [cursor=pointer]:
+                  - /url: /upload
+              - listitem [ref=e91]:
+                - link "Sign in" [ref=e92] [cursor=pointer]:
+                  - /url: /signin
+              - listitem [ref=e98]:
+                - link "Create account" [ref=e99] [cursor=pointer]:
+                  - /url: /register
+              - listitem [ref=e105]:
+                - generic [ref=e106]:
+                  - link "API":
+                    - /url: /use-api
+              - listitem [ref=e107]:
+                - link "FAQ" [ref=e108] [cursor=pointer]:
+                  - /url: /faq
+              - listitem [ref=e114]:
+                - link "Contact" [ref=e115] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - button [ref=e122] [cursor=pointer]
+              - generic [ref=e125]: 1.0.38
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - progressbar
+              - generic [ref=e128]:
+                - generic [ref=e129]: 0%
+                - generic [ref=e130]: 0 B / 100 GB
+        - generic [ref=e133]:
+          - generic [ref=e137]:
+            - insertion [ref=e139]:
+              - iframe [ref=e141]:
+                - generic [ref=f3e1]:
+                  - generic [ref=f3e6]:
+                    - generic [ref=f3e7]:
+                      - generic "さくらインターネット" [ref=f3e8]:
+                        - link "お役立ち資料ダウンロード" [ref=f3e10] [cursor=pointer]:
+                          - /url: https://www.googleadservices.com/pagead/aclk?sa=L&ai=Cjfv5s7F2avrvOa6-geAPh4DluQGa3a_kiAHVnofM6hXj6Onu1jIQASCZ84AfYImD1oSwFKABlP6R1gPIAQGpAgX7V9JMOTs-qAMByAPLBKoEhAJP0PYAGsgViwi3lGoyNfN0eqvxfQ8VAgT4WMq7JJqYpkPAxjf22iBbFi0bzuYob5Biqu-yadI4v1U4_Bua9KnDIL5OEjlwOoqfhWjMcc90tm52kykOx9hFrMM84yfGIzpONM81IWx0x5AQGMmnZ5SYB20khZsHThcf3sWKGAUbt36ThR8kGUbnqiuwa3k7xcsEiIL1g7zgsmHW8_xXnjcmWigPWoai2ltK-enVpLU0TYFRYRNaBFG1e8I7jFlffWzHCQ-vTPnvj5MvggXP0DFtmBZ-kXzsjAzrDQFIOFGgyiqh8RVvuQU5EYY8ko68GPuelDCzl7lb2NkgbtuZYvvPsWFNTsAE2IvHgf0EiAX-7aHpQoAH1IHuKagHp8yxAqgHpr4bqAfMzrECqAfz0RuoB5bYG6gHqpuxAqgH_uixAqgHjs4bqAeT2BuoB_DgG6gH7paxAqgH_p6xAqgHr76xAqgHn-GxAqgH1ckbqAfZtrECqAeaBqgH_56xAqgH35-xAqgH-MKxAqgH-8KxAtgHAdIIMgiAYRABGB8yCIqCgICAgIAIOg-AQIDAgICAgKiAAqiDgBBIvf3BOljG_5-ImpCWA2ABsQl38ySoGEZ4moAKAZgLAcgLAaoNAkpQyA0B6g0TCISZoIiakJYDFS5fAAYdB0A5F_ANAogOCbAOkczdnRjYEwvQFQHKFgIKAPgWAYAXAbIXEBgBKgo3OTM0Nzk4NjM2UAa6FwI4AaoYFwkAAAAAaG4KQRIKNzkzNDc5ODYzNhgBshgJEgKDVRgBIgEA0BgBwhkCCAE&ae=1&gclid=EAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE&num=1&cid=CAQSoAIAEQoqge5xOptoHv8bEAi2yiOZ_hL2md0ijENc2ETuz6JqKhMVPcvZEE5-t4lg1RCSDF3lBsOaYkOcEm9_sKoLg_bHBJJeRiNUWcFO6nOev-GynQJ-h8G_BrADHoj0VBAxYwoT1tmxfkkQtCFHtSZcREuF4WgDvoWy0_JSeN4Co1ezUEgjEEPzmurlilBAOr93V1nGmV00Bsfm6UuB8IurzLGJ9TrTCrQZnTNCpiQijKPtFs2JSlaVNKihqdftbsYprwUnKL6VUQCogj74RKzumR0N4gjdWaO8QYVVMAx6DLXVqottUaokG1DrZM0LO5tXBzGhnIPCezwLKOQB-GquGsRdZLZ-nt9ZPWlP9aAsnEAcr2FXhbSDRNH2MdINTrUYAQ&sig=AOD64_0_32fhej-vsAYRjD_HDNWsY3DsgA&rf=1&nb=0&adurl=https://cloud.sakura.ad.jp/example/%3Fgad_source%3D5%26gad_campaignid%3D17937495806%26gclid%3DEAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE
+                      - link "Webサービス、業務システム、公共・文教系のインフラ基盤など幅広い分野 用途でご 利用されてます さくらインターネット" [ref=f3e12] [cursor=pointer]:
+                        - /url: https://www.googleadservices.com/pagead/aclk?sa=L&ai=Cjfv5s7F2avrvOa6-geAPh4DluQGa3a_kiAHVnofM6hXj6Onu1jIQASCZ84AfYImD1oSwFKABlP6R1gPIAQGpAgX7V9JMOTs-qAMByAPLBKoEhAJP0PYAGsgViwi3lGoyNfN0eqvxfQ8VAgT4WMq7JJqYpkPAxjf22iBbFi0bzuYob5Biqu-yadI4v1U4_Bua9KnDIL5OEjlwOoqfhWjMcc90tm52kykOx9hFrMM84yfGIzpONM81IWx0x5AQGMmnZ5SYB20khZsHThcf3sWKGAUbt36ThR8kGUbnqiuwa3k7xcsEiIL1g7zgsmHW8_xXnjcmWigPWoai2ltK-enVpLU0TYFRYRNaBFG1e8I7jFlffWzHCQ-vTPnvj5MvggXP0DFtmBZ-kXzsjAzrDQFIOFGgyiqh8RVvuQU5EYY8ko68GPuelDCzl7lb2NkgbtuZYvvPsWFNTsAE2IvHgf0EiAX-7aHpQoAH1IHuKagHp8yxAqgHpr4bqAfMzrECqAfz0RuoB5bYG6gHqpuxAqgH_uixAqgHjs4bqAeT2BuoB_DgG6gH7paxAqgH_p6xAqgHr76xAqgHn-GxAqgH1ckbqAfZtrECqAeaBqgH_56xAqgH35-xAqgH-MKxAqgH-8KxAtgHAdIIMgiAYRABGB8yCIqCgICAgIAIOg-AQIDAgICAgKiAAqiDgBBIvf3BOljG_5-ImpCWA2ABsQl38ySoGEZ4moAKAZgLAcgLAaoNAkpQyA0B6g0TCISZoIiakJYDFS5fAAYdB0A5F_ANAogOCbAOkczdnRjYEwvQFQHKFgIKAPgWAYAXAbIXEBgBKgo3OTM0Nzk4NjM2UAa6FwI4AaoYFwkAAAAAaG4KQRIKNzkzNDc5ODYzNhgBshgJEgKDVRgBIgEA0BgBwhkCCAE&ae=1&gclid=EAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE&num=1&cid=CAQSoAIAEQoqge5xOptoHv8bEAi2yiOZ_hL2md0ijENc2ETuz6JqKhMVPcvZEE5-t4lg1RCSDF3lBsOaYkOcEm9_sKoLg_bHBJJeRiNUWcFO6nOev-GynQJ-h8G_BrADHoj0VBAxYwoT1tmxfkkQtCFHtSZcREuF4WgDvoWy0_JSeN4Co1ezUEgjEEPzmurlilBAOr93V1nGmV00Bsfm6UuB8IurzLGJ9TrTCrQZnTNCpiQijKPtFs2JSlaVNKihqdftbsYprwUnKL6VUQCogj74RKzumR0N4gjdWaO8QYVVMAx6DLXVqottUaokG1DrZM0LO5tXBzGhnIPCezwLKOQB-GquGsRdZLZ-nt9ZPWlP9aAsnEAcr2FXhbSDRNH2MdINTrUYAQ&sig=AOD64_0_32fhej-vsAYRjD_HDNWsY3DsgA&rf=1&nb=7&adurl=https://cloud.sakura.ad.jp/example/%3Fgad_source%3D5%26gad_campaignid%3D17937495806%26gclid%3DEAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE
+                        - text: Webサービス、業務システム、公共・文教系のインフラ基盤など幅広い分野 用途でご利用されてます さくらインターネット
+                    - link "開く" [ref=f3e15] [cursor=pointer]:
+                      - /url: https://www.googleadservices.com/pagead/aclk?sa=L&ai=Cjfv5s7F2avrvOa6-geAPh4DluQGa3a_kiAHVnofM6hXj6Onu1jIQASCZ84AfYImD1oSwFKABlP6R1gPIAQGpAgX7V9JMOTs-qAMByAPLBKoEhAJP0PYAGsgViwi3lGoyNfN0eqvxfQ8VAgT4WMq7JJqYpkPAxjf22iBbFi0bzuYob5Biqu-yadI4v1U4_Bua9KnDIL5OEjlwOoqfhWjMcc90tm52kykOx9hFrMM84yfGIzpONM81IWx0x5AQGMmnZ5SYB20khZsHThcf3sWKGAUbt36ThR8kGUbnqiuwa3k7xcsEiIL1g7zgsmHW8_xXnjcmWigPWoai2ltK-enVpLU0TYFRYRNaBFG1e8I7jFlffWzHCQ-vTPnvj5MvggXP0DFtmBZ-kXzsjAzrDQFIOFGgyiqh8RVvuQU5EYY8ko68GPuelDCzl7lb2NkgbtuZYvvPsWFNTsAE2IvHgf0EiAX-7aHpQoAH1IHuKagHp8yxAqgHpr4bqAfMzrECqAfz0RuoB5bYG6gHqpuxAqgH_uixAqgHjs4bqAeT2BuoB_DgG6gH7paxAqgH_p6xAqgHr76xAqgHn-GxAqgH1ckbqAfZtrECqAeaBqgH_56xAqgH35-xAqgH-MKxAqgH-8KxAtgHAdIIMgiAYRABGB8yCIqCgICAgIAIOg-AQIDAgICAgKiAAqiDgBBIvf3BOljG_5-ImpCWA2ABsQl38ySoGEZ4moAKAZgLAcgLAaoNAkpQyA0B6g0TCISZoIiakJYDFS5fAAYdB0A5F_ANAogOCbAOkczdnRjYEwvQFQHKFgIKAPgWAYAXAbIXEBgBKgo3OTM0Nzk4NjM2UAa6FwI4AaoYFwkAAAAAaG4KQRIKNzkzNDc5ODYzNhgBshgJEgKDVRgBIgEA0BgBwhkCCAE&ae=1&gclid=EAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE&num=1&cid=CAQSoAIAEQoqge5xOptoHv8bEAi2yiOZ_hL2md0ijENc2ETuz6JqKhMVPcvZEE5-t4lg1RCSDF3lBsOaYkOcEm9_sKoLg_bHBJJeRiNUWcFO6nOev-GynQJ-h8G_BrADHoj0VBAxYwoT1tmxfkkQtCFHtSZcREuF4WgDvoWy0_JSeN4Co1ezUEgjEEPzmurlilBAOr93V1nGmV00Bsfm6UuB8IurzLGJ9TrTCrQZnTNCpiQijKPtFs2JSlaVNKihqdftbsYprwUnKL6VUQCogj74RKzumR0N4gjdWaO8QYVVMAx6DLXVqottUaokG1DrZM0LO5tXBzGhnIPCezwLKOQB-GquGsRdZLZ-nt9ZPWlP9aAsnEAcr2FXhbSDRNH2MdINTrUYAQ&sig=AOD64_0_32fhej-vsAYRjD_HDNWsY3DsgA&rf=1&nb=8&adurl=https://cloud.sakura.ad.jp/example/%3Fgad_source%3D5%26gad_campaignid%3D17937495806%26gclid%3DEAIaIQobChMIupWgiJqQlgMVLl8ABh0HQDkXEAEYASAAEgLs9PD_BwE
+                  - button [ref=f3e27] [cursor=pointer]
+                  - iframe
+            - generic [ref=e142]:
+              - heading "Shared folder" [level=1] [ref=e143]
+              - generic [ref=e144]:
+                - generic [ref=e145]:
+                  - button [disabled]
+                  - button [disabled]
+                  - navigation [ref=e146]:
+                    - list [ref=e147]:
+                      - listitem [ref=e148]:
+                        - generic [ref=e149]: 79daabd1
+                - generic [ref=e153]:
+                  - generic [ref=e154]:
+                    - button "Download selection" [disabled]
+                    - button "Refresh" [ref=e155] [cursor=pointer]
+                  - generic [ref=e158]: 0 folders, 1 file (1.05 MB)
+                  - generic [ref=e163]:
+                    - textbox "Search for a folder or file" [ref=e166]
+                    - button [ref=e168] [cursor=pointer]
+              - generic [ref=e172]:
+                - generic [ref=e173]:
+                  - checkbox [ref=e176]
+                  - button "Name" [ref=e178] [cursor=pointer]
+                  - generic [ref=e179]: Size
+                  - button "Modified on" [ref=e181] [cursor=pointer]
+                - generic [ref=e188] [cursor=pointer]:
+                  - checkbox [ref=e191]
+                  - generic "csu-uploadnow-probe.rar" [ref=e195]
+                  - generic [ref=e197]: 1.05 MB
+                  - generic [ref=e199]: 1:33 PM
+                  - generic [ref=e200]:
+                    - button [ref=e201]
+                    - button [ref=e204]
+              - generic [ref=e209]:
+                - text: 0 folders, 1 file (1.05 MB)
+                - link "Operating Systems" [ref=e210] [cursor=pointer]
+          - contentinfo [ref=e214]:
+            - navigation [ref=e215]:
+              - list [ref=e216]:
+                - listitem [ref=e217]:
+                  - link "Terms" [ref=e218] [cursor=pointer]:
+                    - /url: /terms
+                - listitem [ref=e219]:
+                  - link "Privacy" [ref=e220] [cursor=pointer]:
+                    - /url: /privacy
+                - listitem [ref=e221]:
+                  - link "Cookies" [ref=e222] [cursor=pointer]:
+                    - /url: "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+                - listitem [ref=e223]:
+                  - link "Copyright/DMCA" [ref=e224] [cursor=pointer]:
+                    - /url: /contact?category=ABUSE
+                - listitem [ref=e225]:
+                  - link "Contact" [ref=e226] [cursor=pointer]:
+                    - /url: /contact
+              - generic [ref=e227]: UploadNow.io © 2026
+      - generic [ref=e230]:
+        - generic [ref=e231] [cursor=pointer]: Upload completed!
+        - generic [ref=e234]:
+          - button [ref=e235] [cursor=pointer]
+          - button [ref=e238] [cursor=pointer]
+    - region "Notifications Alt+T"
+  - alert [ref=e6]

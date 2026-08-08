@@ -351,7 +351,8 @@ mistake the earlier UsersDrive entry made.
 | **Filebin** (filebin.net) | bespoke, documented | Advertised unlimited size / 6 days. Its API is a plain PUT per file into a named bin — likely the cheapest remaining win after UpZur. ⚠ Bins are public and guessable by name; check that before shipping. |
 | **GigaFile** (gigafile.nu) | bespoke chunked | Advertised **300 GB / 100 days**, the largest on the list. Japanese UI; homepage references `/upload` and chunking. Worth a real look purely for the cap. |
 | **Easyupload.io** | dropzone + CF | Advertised 100 GB / 30 days. Cloudflare **passive** here (plain 200 to this client), so not obviously blocked. |
-| **FEX.NET**, **DropMB**, **FileMirage**, **Bestfile**, **FilePort**, **FileGo**, **DooDrive**, **Rootz**, **eDisk**, **Imagenetz**, **GrosFichiers**, **Mega4Upload**, **UploadHive**, **UploadNow** | mixed | Alive, unclassified. UploadNow shows `xfspro` markers behind a Next.js front end and advertises 100 GB — the pick of this group. |
+| ~~**UploadNow**~~ | bespoke (Firebase + R2) | **SHIPPED 2026-08-08.** Not xfspro after all — a **Firebase ANONYMOUS** identity authorises `/api/*`, the file is declared to get a bucket config, and the bytes go to **Cloudflare R2 as a signed S3 multipart** where the host runs the signer (the client builds the SigV4 string-to-sign; no secret key). ⚠ The share link is the **FOLDER's** (`/f/<folderId>`), so one folder per file. ⚠ Accounts are **paid-only**, so none are offered. See `UploadNowPipeline.cs`. |
+| **FEX.NET**, **DropMB**, **FileMirage**, **Bestfile**, **FilePort**, **FileGo**, **DooDrive**, **Rootz**, **eDisk**, **Imagenetz**, **GrosFichiers**, **Mega4Upload**, **UploadHive** | mixed | Alive, unclassified, all advertising ≤20 GB. **Swept 2026-08-08 and none is XFileSharing or YetiShare** — the two families with a base here — so each would be a bespoke build. |
 
 **Blocked or poor fit from this sweep**
 

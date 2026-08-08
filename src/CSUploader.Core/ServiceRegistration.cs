@@ -210,6 +210,10 @@ public static class ServiceRegistration
         // BowFile — udrop's sibling on YetiShare: guest upload, 20 GiB, but a SEPARATE fsNN. storage
         // node (so no cookie on the upload). See BowFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BowFilePipeline>();
+        // UploadNow — ANONYMOUS (its accounts are paid-only, so none are offered). Firebase anonymous
+        // identity -> folder + file declared -> R2 multipart signed by the host's own signer. 100 GB.
+        // See UploadNowPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadNowPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
