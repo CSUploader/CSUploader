@@ -210,6 +210,9 @@ public static class ServiceRegistration
         // BowFile — udrop's sibling on YetiShare: guest upload, 20 GiB, but a SEPARATE fsNN. storage
         // node (so no cookie on the upload). See BowFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BowFilePipeline>();
+        // MegaUp — third guest host on YetiShare: 5 GiB, and BowFile's shape (separate mupload.store
+        // node, so no cookie on the upload). See MegaUpPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.MegaUpPipeline>();
         // UploadNow — ANONYMOUS (its accounts are paid-only, so none are offered). Firebase anonymous
         // identity -> folder + file declared -> R2 multipart signed by the host's own signer. 100 GB.
         // See UploadNowPipeline.cs.

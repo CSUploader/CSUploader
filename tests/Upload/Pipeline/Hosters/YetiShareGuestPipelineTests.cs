@@ -215,6 +215,115 @@ public class YetiShareGuestPipelineTests
         Assert.False(new FilestankPipeline().SupportsAnonymousUpload);
     }
 
+
+    // -- MegaUp: the node-POOL variant of the same platform ---------------------------------------
+
+    /// <summary>
+    /// MegaUp's own shape: <b>no literal <c>url:</c> at all</b> — a JSON pool of nodes and a random
+    /// pick, so <c>url:</c> is a call rather than an address. Slashes arrive escaped because the pool
+    /// is JSON emitted into JavaScript.
+    /// </summary>
+    private static string PoolUploaderJs(params string[] nodes)
+    {
+        string pool = string.Join(
+            ",",
+            nodes.Select(n => "\"" + n.Replace("/", "\\/", StringComparison.Ordinal) + "\\/ajax\\/file_upload_handler?r=megaup.net&p=https&csaKey1=aaa\""));
+
+        return $$"""
+            var uploaderMaxSize = 0;
+            var maxChunkSize = 0;
+            if (browserXHR2Support() == true) { maxChunkSize = 100000000; var uploaderMaxSize = 5368709120; }
+            function getUploadEndpoint() {
+                const uploadEndpoints = [{{pool}}];
+                var endpoint = "https:\/\/megaup.net";
+                if (uploadEndpoints instanceof Array) { endpoint = uploadEndpoints[Math.floor(Math.random()*uploadEndpoints.length)]; }
+                return endpoint;
+            }
+            $('#fileUpload #uploader').fileupload({ url: getUploadEndpoint(), maxFileSize: uploaderMaxSize });
+            data.formData = {_sessionid: 'sess-mega', cTracker: 'track-mega', maxChunkSize: maxChunkSize};
+            """;
+    }
+
+    public void ReadNodeUrl_TakesAPoolMember_WhenThereIsNoLiteralUrl()
+    {
+        // MegaUp declares `url: getUploadEndpoint()` — a CALL, not an address. A parser that only knows
+        // the literal form reads the whole host as "no upload ticket", which is exactly how MegaUp
+        // failed before the pool was understood.
+        string? node = YetiSharePipeline.ReadNodeUrl(PoolUploaderJs("https://f116.mupload.store"));
+
+        Assert.Equal("https://f116.mupload.store/ajax/file_upload_handler?r=megaup.net&p=https&csaKey1=aaa", node);
+    }
+
+    [Fact]
+    public void ReadNodeUrl_SpreadsAcrossThePool_RatherThanAlwaysPickingTheFirst()
+    {
+        // The site picks at random for a reason: a dead pool member stays dead, so always taking the
+        // first would send every upload from every user at the same box.
+        string js = PoolUploaderJs("https://f1.mupload.store", "https://f2.mupload.store", "https://f3.mupload.store");
+
+        HashSet<string> seen = [];
+        for (int i = 0; i < 200; i++)
+        {
+            seen.Add(YetiSharePipeline.ReadNodeUrl(js)!);
+        }
+
+        Assert.Equal(3, seen.Count);
+    }
+
+    [Fact]
+    public void ReadNodeUrl_PrefersALiteralUrlWhenBothArePresent()
+    {
+        // udrop and BowFile still declare the literal form; it must keep winning so adding the pool
+        // fallback can't change where the hosts that already work send their bytes.
+        string js = UploaderJs("https://www.udrop.com", 5_368_709_120)
+                    + PoolUploaderJs("https://f116.mupload.store");
+
+        Assert.StartsWith("https://www.udrop.com/", YetiSharePipeline.ReadNodeUrl(js)!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MegaUp_UploadsAsAGuest_ThroughAPoolNode()
+    {
+        string? endpoint = null;
+        MegaUpPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(
+                200, PoolUploaderJs("https://f116.mupload.store"), ["filehosting=guest; path=/"])),
+            uploadOverride: (_, url, fields, _, _) =>
+            {
+                endpoint = url;
+                Assert.Equal("sess-mega", fields["_sessionid"]);
+                Assert.Equal("track-mega", fields["cTracker"]);
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200,
+                    """[{"name":"probe.rar","size":3072,"error":null,"url":"https://megaup.net/abc123/probe.rar","delete_url":"https://megaup.net/abc123~d?k"}]""",
+                    Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(GuestContext("MegaUp"), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.StartsWith("https://f116.mupload.store/", endpoint!, StringComparison.Ordinal);
+        Assert.Equal("https://megaup.net/abc123/probe.rar", Assert.Single(events.OfType<TransferCompleted>()).FileUrl);
+    }
+
+    [Fact]
+    public void MegaUp_IsAGuestHost_AtTheCapItsScriptDeclares()
+    {
+        MegaUpPipeline pipeline = new();
+        Assert.Equal("MegaUp", pipeline.Name);
+        Assert.True(pipeline.SupportsAnonymousUpload);
+
+        // 5 GiB - the same figure udrop declares. Its advertised "200 GB premium" is STORAGE.
+        Assert.Equal(5_368_709_120, pipeline.MaxFileSize);
+        Assert.Equal("megaup.net", FileHosterClient.FileHosters["MegaUp"]);
+
+        // Plain username/password form, no captcha, so no sign-in window ever opens.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("MegaUp"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("MegaUp"));
+    }
+
     private static AttemptContext GuestContext(string hoster) => new()
     {
         AttemptId = Guid.NewGuid(),

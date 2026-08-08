@@ -157,6 +157,25 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     private static readonly Regex UploadUrlRegex = new(
         @"url:\s*'(?<url>https://[^']*?/ajax/file_upload_handler[^']*)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// The other shape this platform ships: instead of a literal <c>url:</c>, the script declares a
+    /// <b>pool</b> of nodes and picks one at random —
+    /// <code>
+    /// const uploadEndpoints = ["https:\/\/f116.mupload.store\/ajax\/file_upload_handler?…"];
+    /// …
+    /// url: getUploadEndpoint(),
+    /// </code>
+    /// So <c>url:</c> is a call, not an address, and a host on this variant reads as "no upload
+    /// ticket" to a parser that only knows the literal form (MegaUp did, until this was added). The
+    /// members are JSON, so their slashes arrive escaped.
+    /// </summary>
+    private static readonly Regex UploadPoolRegex = new(
+        @"uploadEndpoints\s*=\s*\[(?<body>[^\]]*)\]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex UploadPoolMemberRegex = new(
+        @"""(?<url>https:(?:\\/|/){2}[^""]*?/ajax(?:\\/|/)file_upload_handler[^""]*)""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Regex SessionIdRegex = new(
         @"_sessionid:\s*'(?<v>[^']+)'", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -495,14 +514,14 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     /// </summary>
     internal static (UploadTicket? Ticket, string? Error, bool Stale) ParseUploaderScript(string host, string js, int statusCode)
     {
-        Match url = UploadUrlRegex.Match(js);
+        string? url = ReadNodeUrl(js);
         Match sid = SessionIdRegex.Match(js);
         Match tracker = TrackerRegex.Match(js);
 
-        if (url.Success && sid.Success && tracker.Success)
+        if (url is not null && sid.Success && tracker.Success)
         {
             return (new UploadTicket(
-                System.Net.WebUtility.HtmlDecode(url.Groups["url"].Value),
+                url,
                 sid.Groups["v"].Value,
                 tracker.Groups["v"].Value,
                 ReadSessionMaxSize(js)), null, false);
@@ -512,6 +531,35 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
         return (null,
                 $"{host} did not return an upload ticket (HTTP {statusCode}) — the sign-in may have expired.",
                 stale);
+    }
+
+    /// <summary>
+    /// The node this upload should go to: the literal <c>url:</c> when the script has one, otherwise
+    /// a member of the <c>uploadEndpoints</c> pool.
+    /// <para>
+    /// The pool member is chosen <b>at random</b>, exactly as the site's own
+    /// <c>getUploadEndpoint()</c> does. Taking the first instead would send every upload from every
+    /// user to the same box — and a dead pool member stays dead, which is the failure DailyUploads
+    /// demonstrated on the xfspro side.
+    /// </para>
+    /// Internal for testing.
+    /// </summary>
+    internal static string? ReadNodeUrl(string js)
+    {
+        if (UploadUrlRegex.Match(js) is { Success: true } literal)
+        {
+            return System.Net.WebUtility.HtmlDecode(literal.Groups["url"].Value);
+        }
+
+        if (UploadPoolRegex.Match(js) is not { Success: true } pool)
+        {
+            return null;
+        }
+
+        List<string> members = [.. UploadPoolMemberRegex.Matches(pool.Groups["body"].Value)
+            .Select(m => System.Net.WebUtility.HtmlDecode(m.Groups["url"].Value).Replace("\\/", "/", StringComparison.Ordinal))];
+
+        return members.Count == 0 ? null : members[Random.Shared.Next(members.Count)];
     }
 
     /// <summary>

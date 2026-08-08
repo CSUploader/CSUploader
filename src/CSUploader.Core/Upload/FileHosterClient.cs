@@ -278,6 +278,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // is a SEPARATE rotating storage host (fsNN.bowfile.com) which needs no cookie — it
         // authenticates on the _sessionid field. The link comes back on the apex. See BowFilePipeline.cs.
         { "BowFile", "bowfile.com" },
+        // MegaUp — ANONYMOUS, YetiShare, guest cap 5 GiB (the same figure udrop declares; its 200 GB
+        // premium number is STORAGE, not a per-file cap). Node is a separate rotating mupload.store
+        // host that needs no cookie. No extension blocklist — even .bin uploads, which udrop refuses.
+        // See MegaUpPipeline.cs.
+        { "MegaUp", "megaup.net" },
         // UploadNow — ANONYMOUS, 100 GB, and the most involved protocol here: a FIREBASE ANONYMOUS
         // identity (identitytoolkit accounts:signUp) authorises /api/* calls and its localId prefixes
         // the storage key; POST /api/file/folders + /api/file/files declare the upload and hand back
