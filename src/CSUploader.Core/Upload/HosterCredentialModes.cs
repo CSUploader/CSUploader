@@ -50,6 +50,12 @@ public static class HosterCredentialModes
     // "DropGalaxy" DISABLED 2026-07-26, the day it was added — anonymous uploads are capped at
     // 0.00001 MB (~10 bytes) and registration is closed, so the API-key path is unreachable too.
     // Removed here alongside its registry + DI entries; see DropGalaxyPipeline.cs for the diagnosis.
+    // "FileMirage" is deliberately NOT here even though it has a published API and prints a durable
+    // per-account token on /user/api. Nothing on that service can tell a good token from a bad one:
+    // the node lookup ignores the header entirely, and an upload with a wrong token returns 200 and a
+    // working link while the file goes in as a VISITOR. So a pasted key could never be verified and a
+    // single typo would quietly de-account every future upload. It signs in with the email and
+    // password instead and derives the token — where a wrong value fails immediately, at Save.
     private static readonly HashSet<string> ApiKeyHosters =
         [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Turbobit", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploadrar", "DataVaults"];
 

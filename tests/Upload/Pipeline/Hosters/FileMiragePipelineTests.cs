@@ -17,9 +17,10 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// FileMirage — anonymous, chunked. Fixtures are the real bodies its node and its upload endpoint
-/// returned (2026-08-08), verified by uploading a 4 MB file (one chunk) and a 101 MiB file (two), both
-/// of which the site then served back at their full size.
+/// FileMirage — chunked, anonymous or signed in. Fixtures are the real bodies its node, its upload
+/// endpoint and its login returned (2026-08-08). Verified by uploading: 4 MB (one chunk) and 101 MiB
+/// (two) anonymously, both served back at full size; and a signed-in file that appeared in the
+/// account's own file list while a deliberately-wrong-token upload of the same shape did not.
 /// </summary>
 public class FileMiragePipelineTests : IDisposable
 {
@@ -93,12 +94,34 @@ public class FileMiragePipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_GivesEveryFileItsOwnUploadId()
+    public async Task RunAsync_SendsTheUploadIdTheNodeLookupHandedBack()
     {
-        // Its own uploader keys the id on Date.now(), so two files started in the same millisecond
-        // share one — and a shared id means the host assembles two files into each other.
+        // What the published API documents. Its own web uploader ignores the returned id and keys one
+        // off Date.now() instead — which two files started in the same millisecond would share, and a
+        // shared id means the host assembles them into each other. A server-minted id cannot collide.
         List<Dictionary<string, string>> fields = [];
         FileMiragePipeline pipeline = MakePipeline([], [], fields, _ => DoneJson);
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
+
+        Assert.Equal("msk3g645d865", Assert.Single(fields)["upload_id"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheLookupNamesNoId_MintsAFreshUnguessableOnePerFile()
+    {
+        // The fallback must not reintroduce the collision: two files that both fall back still need
+        // different ids.
+        List<Dictionary<string, string>> fields = [];
+        const string NoId = """{"success":true,"data":{"server":"https://store1.filemirage.com"}}""";
+
+        FileMiragePipeline pipeline = new(
+            _ => Task.FromResult(new HttpResponseSnapshot(200, NoId, Array.Empty<string>())),
+            (_, sent, _, _) =>
+            {
+                fields.Add(new Dictionary<string, string>(sent, StringComparer.Ordinal));
+                return Task.FromResult(new HttpResponseSnapshot(200, DoneJson, Array.Empty<string>()));
+            });
 
         await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
         await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
@@ -118,7 +141,7 @@ public class FileMiragePipelineTests : IDisposable
 
         FileMiragePipeline pipeline = new(
             _ => Task.FromResult(new HttpResponseSnapshot(200, ServersJson, Array.Empty<string>())),
-            (_, sent, _) =>
+            (_, sent, _, _) =>
             {
                 fields.Add(new Dictionary<string, string>(sent, StringComparer.Ordinal));
                 return Task.FromResult(fields.Count == 2
@@ -142,7 +165,7 @@ public class FileMiragePipelineTests : IDisposable
     {
         // A missing server used to be the interesting case: without this the endpoint becomes
         // "/upload.php" and the file is POSTed at whatever that resolves to.
-        Assert.Equal(expected, FileMiragePipeline.ReadNode(body)?.TrimEnd('/'));
+        Assert.Equal(expected, FileMiragePipeline.ReadNode(body).Server?.TrimEnd('/'));
     }
 
     [Fact]
@@ -184,18 +207,261 @@ public class FileMiragePipelineTests : IDisposable
     }
 
     [Fact]
-    public void FileMirage_IsAnonymousOnly_AtTheCapItsOwnPageDeclares()
+    public void FileMirage_TakesAnonymousAndAccounts_AtTheCapItsOwnPageDeclares()
     {
         FileMiragePipeline pipeline = new();
         Assert.Equal("FileMirage", pipeline.Name);
         Assert.True(pipeline.SupportsAnonymousUpload);
 
-        // Accounts exist on the site but none of it is verified here, so the host must not appear in
-        // the Add Account dialog.
-        Assert.False(pipeline.SupportsAccounts);
+        Assert.True(((IFileHosterPipeline)pipeline).SupportsAccounts);
+
+        // Its API token is durable and printed on /user/api, which makes "let the user paste it"
+        // tempting — but nothing on the service can validate one, so the credential is the login.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("FileMirage"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("FileMirage"));
 
         Assert.Equal(53_687_091_200, pipeline.MaxFileSize);
         Assert.Equal("filemirage.com", FileHosterClient.FileHosters["FileMirage"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_SignedIn_PutsTheAccountsTokenOnEveryChunk()
+    {
+        // The bearer is the ENTIRE difference between a signed-in upload and an anonymous one, and
+        // the host attributes by it — a file sent without it lands under no account at all.
+        List<IReadOnlyDictionary<string, string>> headers = [];
+        FileMiragePipeline pipeline = new(
+            _ => Task.FromResult(new HttpResponseSnapshot(200, ServersJson, Array.Empty<string>())),
+            (_, sent, sentHeaders, _) =>
+            {
+                headers.Add(new Dictionary<string, string>(sentHeaders, StringComparer.Ordinal));
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200,
+                    sent["chunk_number"] == "1" ? DoneJson : PendingJson,
+                    Array.Empty<string>()));
+            });
+
+        AttemptContext ctx = MakeContext((99L * 1024 * 1024) + 4096) with
+        {
+            Credentials = new FileHosterLoginDto
+            {
+                Id = 3,
+                FileHosterName = "FileMirage",
+                IsAnonymous = false,
+                Username = "someone",
+                ApiKey = "FAKE-T0KE-N000-DEMO",
+            },
+        };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.Equal(2, headers.Count);
+        Assert.All(headers, h => Assert.Equal("Bearer FAKE-T0KE-N000-DEMO", h["authorization"]));
+    }
+
+    [Fact]
+    public async Task RunAsync_Anonymous_SendsTheEmptyAuthorizationItsOwnClientSends()
+    {
+        List<IReadOnlyDictionary<string, string>> headers = [];
+        FileMiragePipeline pipeline = new(
+            _ => Task.FromResult(new HttpResponseSnapshot(200, ServersJson, Array.Empty<string>())),
+            (_, _, sentHeaders, _) =>
+            {
+                headers.Add(new Dictionary<string, string>(sentHeaders, StringComparer.Ordinal));
+                return Task.FromResult(new HttpResponseSnapshot(200, DoneJson, Array.Empty<string>()));
+            });
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
+
+        Assert.Equal(string.Empty, Assert.Single(headers)["authorization"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_AnAccountWithNoToken_RefusesInsteadOfUploadingAsAVisitor()
+    {
+        // The one that matters most. Without the bearer the host still answers 200 with a working
+        // link and files it under nobody — so an upload here would look completely successful while
+        // silently dropping the account. Nothing downstream can detect it, so it must not happen.
+        List<string> gets = [];
+        List<Dictionary<string, string>> fields = [];
+        FileMiragePipeline pipeline = MakePipeline(gets, [], fields, _ => DoneJson);
+
+        AttemptContext ctx = MakeContext(4096) with
+        {
+            Credentials = new FileHosterLoginDto { FileHosterName = "FileMirage", IsAnonymous = false, ApiKey = null },
+        };
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(ctx, CancellationToken.None));
+
+        Assert.Empty(gets);
+        Assert.Empty(fields);
+        Assert.Empty(events.OfType<TransferCompleted>());
+        Assert.Contains("visitor", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_SignsIn_AndDerivesTheAccountsToken()
+    {
+        FakeSite site = new();
+        FileMiragePipeline pipeline = site.Build();
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "me@example.com", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+
+        // The token is what an upload actually needs; the password is never stored for the wire.
+        Assert.Equal("FAKE-T0KE-N000-DEMO", result.ApiKey);
+
+        // The display name off /user/settings, not the email that was typed.
+        Assert.Equal("csuprobe", result.DerivedUsername);
+        Assert.Equal("me@example.com", site.LastLoginForm!["email"]);
+        Assert.Equal("csrf-from-the-login-page", site.LastLoginForm["_token"]);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_WrongPassword_IsRejected_EvenThoughTheHostStillRedirects()
+    {
+        // The trap this covers: a REJECTED sign-in is also a 302, just back to /login. Reading only
+        // the status code marks a wrong password as a good account, and the upload that follows then
+        // has no token — or worse, an old one.
+        FakeSite site = new() { LoginSucceeds = false };
+        FileMiragePipeline pipeline = site.Build();
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "me@example.com", "wrong", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Null(result.ApiKey);
+        Assert.Contains("check the email and password", result.Message!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_SignedInButNoToken_IsNotAUsableAccount()
+    {
+        // An empty api_token is what an ANONYMOUS page carries. Accepting the account here would
+        // store a credential that uploads every file as a visitor.
+        FakeSite site = new() { HomepageToken = string.Empty };
+        FileMiragePipeline pipeline = site.Build();
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "me@example.com", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("visitor", result.Message!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckAccountAsync_SurvivesASettingsPageItCannotRead()
+    {
+        // The name is a nicety. Losing it must not cost the user a working account.
+        FakeSite site = new() { SettingsPageFails = true };
+        FileMiragePipeline pipeline = site.Build();
+
+        AccountCheckResult result = await pipeline.CheckAccountAsync(
+            "me@example.com", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("FAKE-T0KE-N000-DEMO", result.ApiKey);
+        Assert.Equal("me@example.com", result.DerivedUsername);
+    }
+
+    [Theory]
+    [InlineData("""<script> const api_token = "FAKE-T0KE-N000-DEMO"; const maxFileSize = 53687091200;</script>""", "FAKE-T0KE-N000-DEMO")]
+    // The anonymous page's value. Reading it as a token would send `Bearer ` and upload as a visitor.
+    [InlineData("""<script> const api_token = ""; const maxFileSize = 53687091200;</script>""", null)]
+    [InlineData("<html>signed out</html>", null)]
+    public void ReadApiToken_TreatsTheEmptyTokenAsNoToken(string body, string? expected)
+        => Assert.Equal(expected, FileMiragePipeline.ReadApiToken(body));
+
+    [Theory]
+    // Both outcomes of a login POST are a 302; only the Location tells them apart.
+    [InlineData("https://filemirage.com/login", true)]
+    [InlineData("https://filemirage.com/login?error=1", true)]
+    [InlineData("https://filemirage.com", false)]
+    [InlineData("https://filemirage.com/", false)]
+    [InlineData(null, false)]
+    public void LooksLikeLoginPage_SeparatesARejectedSignInFromAnAcceptedOne(string? location, bool expected)
+        => Assert.Equal(expected, FileMiragePipeline.LooksLikeLoginPage(location));
+
+    [Fact]
+    public void ParseChunkResponse_TheApisDocumentedFailureEnvelopeSaysResultNotSuccess()
+    {
+        // Its success envelope uses "success" but the documented failure envelope uses "result".
+        // Reading only the first spelling turns a stated refusal into a silent success.
+        (string? url, string? error) = FileMiragePipeline.ParseChunkResponse(
+            new HttpResponseSnapshot(200, """{"result":false,"message":"Storage full"}""", Array.Empty<string>()),
+            0,
+            1);
+
+        Assert.Null(url);
+        Assert.Contains("Storage full", error!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReadNode_AlsoTakesTheServerMintedUploadId()
+    {
+        (string? server, string? uploadId) = FileMiragePipeline.ReadNode(ServersJson);
+
+        Assert.Equal("https://store1.filemirage.com", server);
+        Assert.Equal("msk3g645d865", uploadId);
+    }
+
+    private static HttpHandler MakeHandler() => new(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+
+    /// <summary>The pages the sign-in walks, in the shapes the live site returns them.</summary>
+    private sealed class FakeSite
+    {
+        public bool LoginSucceeds { get; init; } = true;
+
+        public bool SettingsPageFails { get; init; }
+
+        public string HomepageToken { get; init; } = "FAKE-T0KE-N000-DEMO";
+
+        public IReadOnlyDictionary<string, string>? LastLoginForm { get; private set; }
+
+        public FileMiragePipeline Build() => new(Get, postFormOverride: PostForm);
+
+        private Task<HttpResponseSnapshot> Get(string url)
+        {
+            if (url.EndsWith("/login", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseSnapshot(
+                    200,
+                    """<form method="post"><input type="hidden" name="_token" value="csrf-from-the-login-page"><input name="email"></form>""",
+                    ["XSRF-TOKEN=abc; path=/", "filemirage_session=def; path=/; httponly"]));
+            }
+
+            if (url.EndsWith("/user/settings", StringComparison.Ordinal))
+            {
+                return Task.FromResult(SettingsPageFails
+                    ? new HttpResponseSnapshot(500, "boom", Array.Empty<string>())
+                    : new HttpResponseSnapshot(
+                        200,
+                        """<input type="text" name="name" value="csuprobe"><input name="email" value="me@example.com">""",
+                        Array.Empty<string>()));
+            }
+
+            // The homepage — every signed-in page carries the token in the same footer script.
+            return Task.FromResult(new HttpResponseSnapshot(
+                200,
+                $$"""<a href="https://filemirage.com/logout">out</a><script> const api_token = "{{HomepageToken}}"; const maxFileSize = 53687091200;</script>""",
+                Array.Empty<string>()));
+        }
+
+        private Task<HttpResponseSnapshot> PostForm(string url, IReadOnlyDictionary<string, string> form, IReadOnlyDictionary<string, string> headers)
+        {
+            _ = headers;
+            LastLoginForm = new Dictionary<string, string>(form, StringComparer.Ordinal);
+
+            // Both outcomes are a 302 — the Location is the only difference.
+            return Task.FromResult(new HttpResponseSnapshot(
+                302,
+                string.Empty,
+                Array.Empty<string>(),
+                LocationHeader: LoginSucceeds ? "https://filemirage.com" : "https://filemirage.com/login"));
+        }
     }
 
     private static FileMiragePipeline MakePipeline(
@@ -208,7 +474,7 @@ public class FileMiragePipelineTests : IDisposable
             gets.Add(url);
             return Task.FromResult(new HttpResponseSnapshot(200, ServersJson, Array.Empty<string>()));
         },
-        (endpoint, sent, _) =>
+        (endpoint, sent, _, _) =>
         {
             endpoints.Add(endpoint);
             int index = int.Parse(sent["chunk_number"], System.Globalization.CultureInfo.InvariantCulture);
