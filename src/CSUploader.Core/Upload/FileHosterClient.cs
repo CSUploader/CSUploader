@@ -293,6 +293,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // 7 days (measured, not the 6 its blurb claims). An MD5 is sent when the app already has one,
         // and the host verifies it. See FilebinPipeline.cs.
         { "Filebin", "filebin.net" },
+        // UploadHive — ANONYMOUS classic XFileSharing, no per-file cap declared. ⚠ Its anonymous form
+        // is on /upload, NOT the homepage, and that form has no action — the only upload.cgi action on
+        // the page is the remote-URL form's, whose rotating fsNNN. host is reused with the query
+        // rewritten to upload_type=file. ⚠ It refuses .7z and .001 (its own ext_not_allowed), and does
+        // so only AFTER the transfer, so both are rejected up front. See UploadHivePipeline.cs.
+        { "UploadHive", "uploadhive.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
