@@ -410,7 +410,7 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 return new AccountCheckResult(false, AccountType.Free, loginError ?? $"{Name} sign-in failed.");
             }
 
-            (string? name, long? usedBytes, long? quotaBytes) = await ReadAccountDetailsAsync(handler, direct, ct).ConfigureAwait(false);
+            (string? _, long? usedBytes, long? quotaBytes) = await ReadAccountDetailsAsync(handler, direct, ct).ConfigureAwait(false);
             return new AccountCheckResult(
                 true,
                 AccountType.Free,
@@ -418,7 +418,15 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 SessionCookie: direct,
                 SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
                 PinnedProxyId: proxy.Id,
-                DerivedUsername: name ?? username,
+
+                // The USERNAME THAT WAS TYPED, never the page's screen name. The verifier's
+                // DerivedUsername is written straight onto the account's Username, which for a
+                // direct-login host is the identifier the next sign-in posts — and the two are not
+                // interchangeable: MegaUp's screen name "Lynford" belongs to the account whose login
+                // is "LynfordAudie", and posting the former returns the login form (measured). The
+                // screen name is read here only for the WebView path below, where the user typed no
+                // username and it is the only identity available.
+                DerivedUsername: username,
                 StorageUsedBytes: usedBytes,
                 StorageQuotaBytes: quotaBytes);
         }
@@ -493,7 +501,12 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
             SessionCookie: sessionCookie,
             SessionCookieExpiresUtc: DateTime.UtcNow + SessionLifetime,
             PinnedProxyId: proxy.Id,
-            DerivedUsername: screenName,
+
+            // Null for a direct-login host, so the stored Username — the identifier its next sign-in
+            // posts — survives. This runs on EVERY refresh, so returning the page's screen name here
+            // would quietly replace the login with a name that can't authenticate. A WebView host has
+            // no typed username to protect, and there the screen name is the only identity there is.
+            DerivedUsername: SupportsDirectLogin ? null : screenName,
             StorageUsedBytes: used,
             StorageQuotaBytes: quota);
     }
@@ -1058,7 +1071,11 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
         string? screenName = null;
         try
         {
-            HttpResponseSnapshot page = await handler.GetSnapshotAsync(AccountUrl, SiteHeaders(session), ct);
+            // Through the same seam the ticket scrape uses, so the identity/storage read — and the
+            // rule about which name may leave this method — is testable without a network.
+            HttpResponseSnapshot page = _getOverride is not null
+                ? await _getOverride(AccountUrl, SiteHeaders(session))
+                : await handler.GetSnapshotAsync(AccountUrl, SiteHeaders(session), ct);
             screenName = ParseScreenName(page.Body);
         }
         catch (Exception)

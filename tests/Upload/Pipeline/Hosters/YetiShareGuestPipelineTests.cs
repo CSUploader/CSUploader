@@ -324,6 +324,54 @@ public class YetiShareGuestPipelineTests
         Assert.False(HosterCredentialModes.IsWebViewSignInHoster("MegaUp"));
     }
 
+
+    // -- The login identifier must survive a check -------------------------------------------------
+
+    /// <summary>The signed-in account page: its screen name is NOT the login username.</summary>
+    private const string AccountPageHtml =
+        """<div class="header"><span class="user-screen-name">Lynford</span></div>""";
+
+    [Fact]
+    public async Task RefreshAccountAsync_DirectLoginHost_KeepsTheTypedUsername()
+    {
+        // The verifier's DerivedUsername is written straight onto the account's Username, which for a
+        // direct-login host is the identifier its NEXT sign-in posts. MegaUp's screen name "Lynford"
+        // belongs to the account whose login is "LynfordAudie", and posting the former returns the
+        // login form — so a refresh that hands back the screen name silently breaks the account, and
+        // refresh runs every time the user saves or hits Check.
+        MegaUpPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, AccountPageHtml, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, "[]", Array.Empty<string>())));
+
+        AccountCheckResult result = await pipeline.RefreshAccountAsync(
+            null, "sess", new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.DerivedUsername);
+    }
+
+    [Fact]
+    public async Task RefreshAccountAsync_WebViewHost_StillSurfacesTheScreenName()
+    {
+        // The other direction: Filestank's credential is a captured cookie and the user never typed a
+        // username, so the screen name is the only identity there is and must keep coming through.
+        FilestankPipeline pipeline = new(
+            authService: null,
+            loginRepository: null,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, AccountPageHtml, Array.Empty<string>())),
+            uploadOverride: (_, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, "[]", Array.Empty<string>())));
+
+        AccountCheckResult result = await pipeline.RefreshAccountAsync(
+            null, "sess", new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
+            ProxyChoice.Direct, CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("Lynford", result.DerivedUsername);
+    }
+
     private static AttemptContext GuestContext(string hoster) => new()
     {
         AttemptId = Guid.NewGuid(),
