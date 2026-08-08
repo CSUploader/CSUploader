@@ -314,8 +314,10 @@ public class FileMiragePipelineTests : IDisposable
         // The token is what an upload actually needs; the password is never stored for the wire.
         Assert.Equal("FAKE-T0KE-N000-DEMO", result.ApiKey);
 
-        // The display name off /user/settings, not the email that was typed.
-        Assert.Equal("csuprobe", result.DerivedUsername);
+        // NO derived username. The verifier's value is copied straight onto the DTO's Username, which
+        // for a classic hoster IS the login identifier — handing back the site's display name would
+        // overwrite the email and every later re-check would sign in as a user that doesn't exist.
+        Assert.Null(result.DerivedUsername);
         Assert.Equal("me@example.com", site.LastLoginForm!["email"]);
         Assert.Equal("csrf-from-the-login-page", site.LastLoginForm["_token"]);
     }
@@ -353,18 +355,17 @@ public class FileMiragePipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckAccountAsync_SurvivesASettingsPageItCannotRead()
+    public async Task CheckAccountAsync_NeverTouchesTheAccountsDashboard()
     {
-        // The name is a nicety. Losing it must not cost the user a working account.
-        FakeSite site = new() { SettingsPageFails = true };
+        // It used to read /user/settings for a nicer display name. That name then landed on the DTO's
+        // Username — the very field the next sign-in posts — so the request is gone entirely rather
+        // than merely ignored.
+        FakeSite site = new();
         FileMiragePipeline pipeline = site.Build();
 
-        AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "me@example.com", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+        await pipeline.CheckAccountAsync("me@example.com", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
-        Assert.True(result.IsValid);
-        Assert.Equal("FAKE-T0KE-N000-DEMO", result.ApiKey);
-        Assert.Equal("me@example.com", result.DerivedUsername);
+        Assert.DoesNotContain(site.Requested, url => url.Contains("/user/", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -421,10 +422,14 @@ public class FileMiragePipelineTests : IDisposable
 
         public IReadOnlyDictionary<string, string>? LastLoginForm { get; private set; }
 
+        public List<string> Requested { get; } = [];
+
         public FileMiragePipeline Build() => new(Get, postFormOverride: PostForm);
 
         private Task<HttpResponseSnapshot> Get(string url)
         {
+            Requested.Add(url);
+
             if (url.EndsWith("/login", StringComparison.Ordinal))
             {
                 return Task.FromResult(new HttpResponseSnapshot(

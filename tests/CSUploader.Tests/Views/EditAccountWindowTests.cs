@@ -3,9 +3,13 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Upload;
@@ -484,6 +488,116 @@ public class EditAccountWindowTests
         finally
         {
             dlg.Close();
+        }
+    }
+
+    // ── Reported defects ──────────────────────────────────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public async Task Save_ClassicHoster_KeepsADerivedApiKey()
+    {
+        // FileMirage (and Pixeldrain) are classic username/password hosters whose actual upload
+        // credential is an API key DERIVED at sign-in. Blanking it on an edit leaves an account that
+        // looks fine in the grid and cannot upload — FileMirage refuses outright rather than sending
+        // the file in as a visitor, so the user just sees every upload fail.
+        var seed = new FileHosterLoginDto
+        {
+            Id = 77,
+            FileHosterName = "FileMirage",
+            Username = "me@example.com",
+            Password = "pw",
+            ApiKey = "FAKE-T0KE-N000-DEMO",
+            AccountType = AccountType.Free,
+        };
+
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(seed, Hosters);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.UsernameBox.Text = "corrected@example.com";
+            Click(dlg.SaveButton);
+            Dispatcher.UIThread.RunJobs();
+
+            FileHosterLoginDto? result = await dialog;
+            Assert.NotNull(result);
+            Assert.Equal("corrected@example.com", result!.Username);
+            Assert.Equal("FAKE-T0KE-N000-DEMO", result.ApiKey);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Save_LeavesAvaloniaWithNothingToWarnAbout()
+    {
+        // A dialog can be perfectly functional and still be shouting into the IDE output window, so
+        // this asserts it is QUIET as well as correct — the sibling of the BindingErrorSink checks.
+        // NOTE it cannot, on its own, catch the reported "[Control] PlatformImpl is null" warning:
+        // that comes from TopLevel.HandleInput when raw input reaches a window whose platform handle is
+        // gone, and the headless WindowImpl does not drop its handle on close the way Win32 does. It is
+        // here for every OTHER warning this view could start emitting.
+        using AvaloniaLogSink sink = AvaloniaLogSink.Install();
+
+        var seed = new FileHosterLoginDto { Id = 78, FileHosterName = "FileMirage", Username = "u@e.com", Password = "p" };
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(seed, Hosters);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            _ = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            // Real keyboard activation, not the synthetic Click: a button raises Click from KEY DOWN,
+            // which is what puts the close in the middle of an input sequence.
+            dlg.SaveButton.Focus();
+            Dispatcher.UIThread.RunJobs();
+            dlg.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, " ");
+            Dispatcher.UIThread.RunJobs();
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+
+        Assert.DoesNotContain(sink.Messages, m => m.Contains("PlatformImpl is null", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public void Save_DoesNotTearDownTheWindowInsideTheInputEvent()
+    {
+        // The mechanism behind the reported warning, pinned where the platform can't hide it: after the
+        // handler runs, the window must still be open, and only close once the dispatcher gets a turn.
+        // Closing inline leaves Avalonia routing the rest of that key press at a dead window.
+        var seed = new FileHosterLoginDto { Id = 79, FileHosterName = "FileMirage", Username = "u@e.com", Password = "p" };
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(seed, Hosters);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            Click(dlg.SaveButton);
+            Assert.False(dialog.IsCompleted);   // still open — the close was deferred
+
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(dialog.IsCompleted);    // and lands on the next dispatcher pass
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
         }
     }
 }

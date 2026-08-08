@@ -67,8 +67,6 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
     private const int ChunkSizeBytes = 99 * 1024 * 1024;
 
     private const string LoginPageUrl = Host + "/login";
-    private const string SettingsUrl = Host + "/user/settings";
-
     /// <summary>Every page carries the signed-in account's token; an anonymous one carries an empty
     /// string, which is exactly the "upload as visitor" case.</summary>
     private static readonly Regex ApiTokenRegex = new(
@@ -78,12 +76,6 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
     /// <summary>Laravel's CSRF field on the login form.</summary>
     private static readonly Regex CsrfRegex = new(
         """name="_token"[^>]*\svalue="([^"]+)""",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    /// <summary>The display name on <c>/user/settings</c>; the email is what the user signs in with,
-    /// but the name is what they recognise in the account list.</summary>
-    private static readonly Regex AccountNameRegex = new(
-        """<input[^>]*\sname="name"[^>]*\svalue="([^"]*)""",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getOverride;
@@ -494,31 +486,18 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
                 "FileMirage signed in but issued no upload token, so uploads would go in as a visitor.");
         }
 
-        // Nice-to-have: the display name, so the account list shows something friendlier than the
-        // email. Never worth failing a good sign-in over.
-        string? name = null;
-        try
-        {
-            HttpResponseSnapshot settings = await GetAsync(handler, SettingsUrl, PageHeaders(jar), ct);
-            name = NullIfWhiteSpace(AccountNameRegex.Match(settings.Body) is { Success: true } m ? m.Groups[1].Value : null);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception)
-        {
-            // Leave the name unset.
-        }
-
+        // NO DerivedUsername is returned, deliberately. The verifier's value is copied straight onto
+        // the DTO's Username, and for a classic username/password hoster that IS the login identifier —
+        // handing back the display name from /user/settings ("csuprobe") would overwrite the email and
+        // every later re-check would sign in as a user that doesn't exist. The email the user typed is
+        // already the right thing to show.
         // Storage is "unlimited" on every plan the service sells, so there is no quota to report —
         // what the free plan actually limits is inactivity (files go after 20 days untouched).
         return new AccountCheckResult(
             true,
             AccountType.Free,
             "Signed in. Free accounts keep a file for 20 days after its last activity.",
-            ApiKey: token,
-            DerivedUsername: name ?? username);
+            ApiKey: token);
     }
 
     private Task<HttpResponseSnapshot> GetAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> headers, CancellationToken ct)

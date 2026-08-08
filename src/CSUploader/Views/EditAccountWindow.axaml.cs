@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CSUploader.Converters;
 using CSUploader.Dal;
 using CSUploader.Lib.Localization;
@@ -354,7 +355,7 @@ public partial class EditAccountWindow : Window
             // _derivedUsername). No manual entry path — paste-only accounts persist a null Username until the
             // user signs in, at which point the captured identity is written here. CurrentHoster() is non-null
             // whenever IsWebViewSignInHoster() returned true (the set lookup can't succeed on null).
-            Close(new FileHosterLoginDto
+            CloseDeferred(new FileHosterLoginDto
             {
                 Id = _original.Id,
                 FileHosterName = hoster!,
@@ -393,13 +394,16 @@ public partial class EditAccountWindow : Window
             return;
         }
 
-        Close(new FileHosterLoginDto
+        CloseDeferred(new FileHosterLoginDto
         {
             Id = _original.Id,
             FileHosterName = hoster!,
             Username = username,
             Password = password,
-            ApiKey = null,
+            // NOT null: a classic username/password hoster can still have a DERIVED key as its actual
+            // upload credential (FileMirage's api_token, Pixeldrain's auth_key). Blanking it here leaves
+            // an account that looks correct in the grid and cannot upload.
+            ApiKey = string.IsNullOrEmpty(ApiKeyBox.Text) ? _original.ApiKey : ApiKeyBox.Text,
             AccountType = _original.AccountType,
             Disabled = EnabledCheck.IsChecked != true,
             // Preserve previously-captured usage + session across an edit — SaveEditedAccountAsync persists
@@ -416,5 +420,19 @@ public partial class EditAccountWindow : Window
 
     // Cancel/Esc → null. WPF's Cancel button had no handler (IsCancel auto-closed with DialogResult=false);
     // Avalonia's IsCancel only routes Esc to Click without closing (port rule 7), so close explicitly.
-    private void CancelButton_Click(object? sender, RoutedEventArgs e) => Close(null);
+    private void CancelButton_Click(object? sender, RoutedEventArgs e) => CloseDeferred(null);
+
+    /// <summary>
+    /// Closes on the next dispatcher pass rather than inline.
+    /// <para>
+    /// A button raises <c>Click</c> from <b>KeyDown</b> when it's activated from the keyboard, so closing
+    /// straight from the handler destroys the window halfway through an input sequence — and the matching
+    /// <b>KeyUp</b> is then delivered to a window whose <c>PlatformImpl</c> is already gone. Windows
+    /// tolerates that and logs <c>[Control] PlatformImpl is null, couldn't handle input</c>; the headless
+    /// platform takes the whole process down, which is how the regression test pins it. Letting the current
+    /// event finish routing first costs one dispatcher frame and makes both stop.
+    /// </para>
+    /// </summary>
+    private void CloseDeferred(FileHosterLoginDto? result)
+        => Dispatcher.UIThread.Post(() => Close(result));
 }

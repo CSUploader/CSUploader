@@ -802,4 +802,81 @@ public class SettingsViewModelTests : IDisposable
     {
         public CSUploaderDbContext CreateDbContext() => new(options);
     }
+
+    [Fact]
+    public async Task SaveEditedAccountAsync_ReChecksTheCorrectedCredentials()
+    {
+        // Reported: fix a wrong username, press OK, and the row keeps its old (red) verdict — an edit is
+        // nearly always a correction, so it has to re-check the way Add does.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "corrected", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Premium, "Signed in"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
+        {
+            FileHosterName = "Rapidgator",
+            Username = "wrong",
+            Password = "p",
+        });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        row.Username = "corrected";
+        await vm.SaveEditedAccountAsync(row);
+
+        verifier.Verify(
+            v => v.CheckAsync("Rapidgator", "corrected", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        FileHosterLoginDto after = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Valid, after.CheckStatus);
+        Assert.NotNull(after.LastRefreshedDateTime);
+        Assert.False(vm.IsCheckingAccount);
+    }
+
+    [Fact]
+    public async Task SaveEditedAccountAsync_PersistsTheKeyTheReCheckDerives()
+    {
+        // For FileMirage (and Pixeldrain) the real upload credential is an API key the verifier hands
+        // back at sign-in. Without the re-check a corrected account is saved with a stale key — or with
+        // none at all — and every upload afterwards fails.
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "ok", ApiKey: "FRESH-DERIVED-KEY"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "u", Password = "p" });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        row.ApiKey = null;
+        await vm.SaveEditedAccountAsync(row);
+
+        Assert.Equal("FRESH-DERIVED-KEY", Assert.Single(vm.Accounts).ApiKey);
+    }
+
+    [Fact]
+    public async Task SaveEditedAccountAsync_AFailedReCheckShowsOnTheRow()
+    {
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync("Rapidgator", "still-wrong", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
+        await vm.LoadAsync();
+        await vm.AddAccountFromDialogAsync(new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "u", Password = "p" });
+
+        FileHosterLoginDto row = Assert.Single(vm.Accounts);
+        row.Username = "still-wrong";
+        await vm.SaveEditedAccountAsync(row);
+
+        FileHosterLoginDto after = Assert.Single(vm.Accounts);
+        Assert.Equal(AccountCheckStatus.Failed, after.CheckStatus);
+        Assert.Equal("Wrong password", after.StatusMessage);
+        Assert.False(vm.IsCheckingAccount);
+    }
 }

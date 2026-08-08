@@ -839,7 +839,7 @@ public partial class SettingsViewModel(
 
         if (result is { } addResult)
         {
-            _ = AddAccountFromDialogAsync(addResult);
+            await AddAccountFromDialogAsync(addResult);
         }
     }
 
@@ -1311,15 +1311,51 @@ public partial class SettingsViewModel(
 
         if (result is { } editResult)
         {
-            // Save changes
-            _ = SaveEditedAccountAsync(editResult);
+            // Awaited, not fire-and-forget: the save now re-verifies, and a discarded task would both
+            // swallow any failure and let the caller carry on while the credentials are still in flight.
+            await SaveEditedAccountAsync(editResult);
         }
     }
 
-    private async Task SaveEditedAccountAsync(FileHosterLoginDto updated)
+    /// <summary>
+    /// Persists an edited account and then <b>re-checks it</b>, exactly as Add does.
+    /// <para>
+    /// Editing is nearly always a correction — a fixed username or password — so leaving the row on its
+    /// old verdict shows a stale (often red) status for credentials that are now right, and the user has
+    /// no way to tell the difference without hunting for Refresh. The re-check also re-derives whatever
+    /// the verifier owns: for hosters whose real upload credential is an API key obtained at sign-in
+    /// (FileMirage's token, Pixeldrain's auth_key) it is what makes the corrected account able to upload
+    /// at all.
+    /// </para>
+    /// </summary>
+    /// <remarks>Internal, like <see cref="AddAccountFromDialogAsync"/>, so the unit tests can drive the
+    /// post-dialog half without a real window.</remarks>
+    internal async Task SaveEditedAccountAsync(FileHosterLoginDto updated)
     {
         await _accountRepository.UpdateAsync(updated);
         await LoadAccountsAsync();
+
+        // Re-check against the reloaded row, so the status/stamp land on the instance the grid is
+        // actually showing. Falling back to the saved DTO keeps this working headlessly.
+        FileHosterLoginDto target = Accounts.FirstOrDefault(a => a.Id == updated.Id) ?? updated;
+
+        IsCheckingAccount = true;
+        try
+        {
+            RowStatus settled = await RefreshSingleAccountAsync(target, 1, 1, CancellationToken.None);
+            if (settled.RefreshedAt is { } stamp)
+            {
+                target.MarkRefreshed(settled.Status, settled.Message, stamp);
+            }
+            else
+            {
+                target.SetCheckStatus(settled.Status, settled.Message);
+            }
+        }
+        finally
+        {
+            IsCheckingAccount = false;
+        }
     }
 
     // AllowConcurrentExecutions on every async-but-context-menu command on this VM —
