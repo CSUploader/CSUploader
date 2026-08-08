@@ -299,6 +299,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // rewritten to upload_type=file. ⚠ It refuses .7z and .001 (its own ext_not_allowed), and does
         // so only AFTER the transfer, so both are rejected up front. See UploadHivePipeline.cs.
         { "UploadHive", "uploadhive.com" },
+        // FileMirage — ANONYMOUS, 50 GiB. Protocol from its own Vue bundle: GET /api/servers (keyless)
+        // names a storeN. node, then one multipart POST per 99 MB chunk to <node>/upload.php carrying
+        // file/filename/upload_id/chunk_number/total_chunks, and the LAST chunk's reply has data.url.
+        // The upload id is the client's to invent. See FileMiragePipeline.cs.
+        { "FileMirage", "filemirage.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

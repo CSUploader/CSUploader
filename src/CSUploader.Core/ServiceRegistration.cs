@@ -221,6 +221,9 @@ public static class ServiceRegistration
         // has none) and the file form has no action, so the node is derived from the URL form's.
         // ⚠ Blocks .7z and .001. See UploadHivePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadHivePipeline>();
+        // FileMirage — ANONYMOUS, 50 GiB, chunked: GET /api/servers for a node, then 99 MB multipart
+        // chunks to <node>/upload.php; the last one carries the link. See FileMiragePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileMiragePipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
