@@ -214,6 +214,9 @@ public static class ServiceRegistration
         // identity -> folder + file declared -> R2 multipart signed by the host's own signer. 100 GB.
         // See UploadNowPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadNowPipeline>();
+        // Filebin — ANONYMOUS, no accounts, one POST per file to a random bin. ⚠ A bin is a PUBLIC
+        // namespace, so each upload gets its own unguessable one. 7-day expiry. See FilebinPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilebinPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

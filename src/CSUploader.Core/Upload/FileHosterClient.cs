@@ -286,6 +286,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ The share link is the FOLDER's — uploadnow.io/f/<folderId> — so one folder per file.
         // ⚠ Accounts are PAID-ONLY, so none are offered. See UploadNowPipeline.cs.
         { "UploadNow", "uploadnow.io" },
+        // Filebin — ANONYMOUS, no accounts, and the only host here with a PUBLISHED OpenAPI spec
+        // (filebin.net/api.yaml). One request: POST /<bin>/<filename> with the raw file → 201 with the
+        // stored file's metadata. ⚠ A BIN IS A PUBLIC NAMESPACE — anyone with the bin name sees every
+        // file in it — so each upload gets its OWN 26-hex-character random bin. Files expire after
+        // 7 days (measured, not the 6 its blurb claims). An MD5 is sent when the app already has one,
+        // and the host verifies it. See FilebinPipeline.cs.
+        { "Filebin", "filebin.net" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
