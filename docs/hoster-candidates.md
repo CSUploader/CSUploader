@@ -361,6 +361,22 @@ mistake the earlier UsersDrive entry made.
 | ~~**rapidrar.com**~~ (+ `.cr`) | **XFS — unusable** | **Probed 2026-08-08.** `?op=api_get_limits` answers a real XFS envelope, but with **`MaxUploadFilesize 1`** (1 MB for an anonymous session — the DropGalaxy shape, where a nonsensical figure IS the real cap), a **plain-HTTP node IP** (`http://178.162.185.8/cgi-bin`, no TLS) and a homepage that 302s straight to `?op=login`. |
 | **kenfiles.com**, **fastfile.cc** | **xfspro — ACCOUNT-ONLY** | **Probed 2026-08-08, both rejected for anonymous.** These were the last two untried hosts from the `GET /server` list, and both answer it *and* accept the chunk (`PUT put_chunk.cgi` → `{"status":"OK"}`) — then refuse at the finalise: `{"error":"uploads are not enabled for your account type"}`. Same verdict as filedot and terabytez, and **the same lesson those two taught: the chunk taking bytes proves nothing, the finalise is the seam.** That closes the `GET /server` set — FILEAXA and DailyUploads are the only anonymous members. Either could still ship as an account host on `XfsProSessionPipeline` if credentials existed. |
 
+**Third sweep — 2026-08-09. Nothing shippable; the reachable anonymous supply is exhausted.**
+
+Everything still open on the lists above was probed to a decisive answer.
+
+| Host | Verdict |
+|---|---|
+| **YetiShare fingerprint sweep** | `GET /assets/js/uploader.js` against all ten remaining candidates — **no hits**. MegaUp was the last one on that platform. |
+| **uploadbank.com** | **A PARKED DOMAIN**, not a host — its "homepage" is an ad-block detector that posts to `router.parklogic.com`. The advertised "2 GB anon" was describing a site that no longer exists. |
+| **fastbit.cc** | XFS, but the homepage 302s to `?op=login` — account-only, same shape as rapidrar. |
+| **filecat.net**, **filefox.cc**, **doodrive.com**, **fileport.io**, **rootz.io** | None answer `/server`, `op=start_upload` or `?op=api_get_limits`. SPA shells or sign-up-first sites; filecat and filefox also load reCAPTCHA. |
+| **fex.net** | reCAPTCHA on the page. |
+| **dropmb.com** | The one genuine unknown left: a Next.js SPA with a real `/upload` page and no visible captcha, but its upload chunk is 297 bytes and the logic is buried in shared bundles. **Needs a browser capture of a real upload** before anything can be built. |
+| **Previously-down hosts, all re-probed** | fikper.com, drop.download, uploadboy.com, desiupload.co (all TCP timeout); cyberdrop.me, worldbytez.com, ranoz.gg, tempcloud.in (no DNS); rosefile.net (521); hexupload.net (expired certificate); mixloads.com (untrusted chain). None have come back. |
+| **krakenfiles.com** | ⏸ **Still parked, and now for a second reason.** The site serves HTML again (it was "Sorry, service unavailable" outright), but the homepage still renders that message beside a live `maxFileSize: 1073741274`, **and hs1–hs12 `krakencloud.net` refuse TCP altogether** — so the storage tier is down, not just the widget. The protocol remains solved; re-check the nodes, not the page. |
+| **The curl-host category** (0x0.st, uguu, x0.at, envs.sh, oshi.at, bashupload) | Already closed in the sweep above; unchanged. |
+
 **Blocked or poor fit from this sweep**
 
 | Host | Reason |
