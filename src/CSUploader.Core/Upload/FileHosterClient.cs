@@ -339,6 +339,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // No REST API; the upload form lives on ?op=upload, and both of its form actions carry the
         // URL-importer's ?upload_type=url, which takes a file anyway. See BtaFilePipeline.cs.
         { "BtaFile", "btafile.com" },
+
+        // DepositFiles — ACCOUNT-ONLY (its node refuses a caller with no session), 10 GiB per file,
+        // files expire 121 days after upload on the free tier. ⚠ The upload is filed under the
+        // account by the multipart member_passkey, NOT by the cookie: without it the upload still
+        // succeeds and the file belongs to nobody. See DepositFilesPipeline.cs.
+        { "DepositFiles", "depositfiles.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

@@ -252,6 +252,11 @@ public static class ServiceRegistration
         // upload form is on ?op=upload rather than ?op=upload_form. See BtaFilePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BtaFilePipeline>();
 
+        // DepositFiles — ACCOUNT-ONLY, 10 GiB, small JSON API. Its login is a plain password post
+        // until the host asks for a captcha, which is why it takes the auth service. See
+        // DepositFilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DepositFilesPipeline>();
+
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
