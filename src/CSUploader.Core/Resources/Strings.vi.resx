@@ -1362,7 +1362,7 @@ Vẫn thêm?</value>
     <value>Lỗi: {0}</value>
   </data>
   <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
-    <value>Không thể đăng nhập vào {0}, nên tài khoản đã được lưu nhưng vẫn bị tắt: {1}</value>
+    <value>Không thể đăng nhập vào {0}, nên tài khoản chưa được thêm: {1}</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>Chọn tệp</value>

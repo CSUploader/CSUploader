@@ -334,11 +334,11 @@ public class UploadWizardViewModelTests : IDisposable
     // ── Adding an account from the wizard checks it first ─────────────────────────────────────────
 
     [Fact]
-    public async Task AddAccountForHoster_AFailedCheck_SavesItDisabled_AndDoesNotTickUse()
+    public async Task AddAccountForHoster_AFailedCheck_SavesNothingAtAll()
     {
-        // Reported: the wizard's "Add account…" saved and immediately used whatever was typed. The
-        // Settings > Accounts add has always verified; this path did not, so a typo was only
-        // discovered when the upload failed.
+        // Reported: the wizard's "Add account…" saved and immediately used whatever was typed. It
+        // now signs in first, and credentials the host rejects are not written at all — the user is
+        // told why and nothing changes, rather than a dead account being left behind to clean up.
         FileHosterLoginDto typed = new() { FileHosterName = "Rapidgator", Username = "alice", Password = "wrong" };
         Mock<IDialogService> dialog = DialogReturning("Rapidgator", typed);
 
@@ -352,11 +352,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         await vm.AddAccountForHosterCommand.ExecuteAsync(row);
 
-        // Kept, so it's visible and fixable in Settings — but disabled, which is what keeps it out
-        // of this picker (it lists enabled accounts only).
-        FileHosterLoginDto persisted = Assert.Single(await _loginRepo.FindAsync("Rapidgator"));
-        Assert.True(persisted.Disabled);
-
+        Assert.Empty(await _loginRepo.FindAsync("Rapidgator"));
         Assert.False(row.Use);
         Assert.False(row.HasAccounts);
         dialog.Verify(d => d.ShowErrorAsync(It.Is<string>(m => m.Contains("Wrong password", StringComparison.Ordinal))), Times.Once);
@@ -378,7 +374,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         await vm.AddAccountForHosterCommand.ExecuteAsync(row);
 
-        Assert.True(Assert.Single(await _loginRepo.FindAsync("Rapidgator")).Disabled);
+        Assert.Empty(await _loginRepo.FindAsync("Rapidgator"));
         Assert.False(row.Use);
     }
 
@@ -438,7 +434,7 @@ public class UploadWizardViewModelTests : IDisposable
         await vm.AddAccountForHosterCommand.ExecuteAsync(row);
 
         Assert.False(row.Use);
-        Assert.True(Assert.Single(await _loginRepo.FindAsync("Catbox")).Disabled);
+        Assert.Empty(await _loginRepo.FindAsync("Catbox"));
     }
 
     private UploadWizardViewModel CreateVm(IDialogService dialog) =>

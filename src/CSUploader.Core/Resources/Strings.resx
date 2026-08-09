@@ -1452,7 +1452,7 @@ Add anyway?</value>
     <value>Error: {0}</value>
   </data>
   <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
-    <value>Couldn't sign in to {0}, so the account was saved but left disabled: {1}</value>
+    <value>Couldn't sign in to {0}, so the account wasn't added: {1}</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>Select files</value>

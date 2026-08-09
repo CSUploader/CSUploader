@@ -1362,7 +1362,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>错误：{0}</value>
   </data>
   <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
-    <value>无法登录 {0}，账户已保存但保持禁用状态：{1}</value>
+    <value>无法登录 {0}，因此未添加该账户：{1}</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>选择文件</value>

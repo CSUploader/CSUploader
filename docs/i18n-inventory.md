@@ -641,7 +641,7 @@ Wizard_Validation_PickValidDir     = Please select a valid directory.
 Wizard_Validation_PickFile         = Please select at least one file.
 Wizard_Validation_PickHoster       = Please select at least one file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
-Wizard_AccountCheckFailed_Format   = Couldn't sign in to {0}, so the account was saved but left disabled: {1}    # {0} = hoster name, {1} = verifier message
+Wizard_AccountCheckFailed_Format   = Couldn't sign in to {0}, so the account wasn't added: {1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = Select files
 Wizard_Step0_Files_Desc            = Pick the files you want to upload. You can add more later.

@@ -607,7 +607,7 @@ Wizard_Validation_PickValidDir     = 有効なディレクトリを選択して�
 Wizard_Validation_PickFile         = ファイルを 1 つ以上選択してください。
 Wizard_Validation_PickHoster       = ファイルホスターを 1 つ以上選択してください。
 Wizard_Error_Format                = エラー: {0}                                              # {0} = exception.Message
-Wizard_AccountCheckFailed_Format   = {0} にサインインできなかったため、アカウントは保存されましたが無効のままです: {1}    # {0} = hoster name, {1} = verifier message
+Wizard_AccountCheckFailed_Format   = {0} にサインインできなかったため、アカウントは追加されませんでした: {1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = ファイルを選択
 Wizard_Step0_Files_Desc            = アップロードしたいファイルを選んでください。後で追加することもできます。

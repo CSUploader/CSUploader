@@ -1362,7 +1362,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>エラー: {0}</value>
   </data>
   <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
-    <value>{0} にサインインできなかったため、アカウントは保存されましたが無効のままです: {1}</value>
+    <value>{0} にサインインできなかったため、アカウントは追加されませんでした: {1}</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>ファイルを選択</value>

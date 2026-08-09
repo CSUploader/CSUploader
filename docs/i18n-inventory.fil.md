@@ -608,7 +608,7 @@ Wizard_Validation_PickValidDir     = Mangyaring pumili ng valid na directory.
 Wizard_Validation_PickFile         = Mangyaring pumili ng kahit isang file.
 Wizard_Validation_PickHoster       = Mangyaring pumili ng kahit isang file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
-Wizard_AccountCheckFailed_Format   = Hindi makapag-sign in sa {0}, kaya na-save ang account pero naka-disable pa rin: {1}    # {0} = hoster name, {1} = verifier message
+Wizard_AccountCheckFailed_Format   = Hindi makapag-sign in sa {0}, kaya hindi naidagdag ang account: {1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = Pumili ng mga File
 Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.

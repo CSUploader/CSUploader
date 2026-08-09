@@ -1362,7 +1362,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>오류: {0}</value>
   </data>
   <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
-    <value>{0}에 로그인할 수 없어 계정을 저장했지만 사용 중지 상태로 두었습니다: {1}</value>
+    <value>{0}에 로그인할 수 없어 계정을 추가하지 않았습니다: {1}</value>
   </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>파일 선택</value>
