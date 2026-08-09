@@ -45,7 +45,7 @@ form is evidence. Only the upload's answer is.
 | **Refuses anonymous uploads** (probed, verdict from the node) | ~~easybytez.org~~ (**SHIPPED 2026-08-03 as an ACCOUNT host** — see its row below), filedot.to, kenfiles.com, fastfile.cc, terabytez.org, datavaults.co, clicknupload |
 | **No anonymous route offered at all** (no guest form, no keyless node) | ~~elitefile.net~~ (**SHIPPED 2026-08-03 as an ACCOUNT host**), filefox.cc, megaup.net, rapidrar.com, filecat.net, fileq.net, uploadbank.com, wipfiles.net |
 | **Down / unreachable** | drop.download (502), rosefile.net (521), fikper.com (522), cyberdrop.me + worldbytez.com (no DNS record) |
-| **Cloudflare-challenged to this client** | apkadmin.com, datanodes.to, modsbase.com, sharemods.com (built, disabled) |
+| **Cloudflare-challenged to this client** | apkadmin.com, ~~datanodes.to~~ (**wrong — SHIPPED 2026-08-09**, see its row in A2), modsbase.com, sharemods.com (built, disabled) |
 | **Account + captcha on every upload** | depositfiles.com (`upload.php` behind Turnstile; its API answers `LoginInvalid`), subyshare.com (premium-only upload) |
 | **Registration impossible** | kenfiles.com, koofr.eu, bunkr.cr |
 | **Parked on the host's own breakage** | krakenfiles.com — still "Sorry, service unavailable." (re-checked 2026-08-02) |
@@ -55,6 +55,13 @@ form is evidence. Only the upload's answer is.
 > account existed. The conclusion below is about the ANONYMOUS seam only. Any row marked "refuses
 > anonymous" or "no anonymous route" remains buildable by anyone willing to register — a cost
 > question, not a closed door.
+
+> ⚠ **"Cloudflare-challenged to this client" was wrong for one row (2026-08-09).** datanodes.to was
+> filed there, and separately noted as webmaster-only; it turned out to upload **anonymously** from a
+> cold client with no cookies, and shipped the same day. The mirror of the Send.now lesson holds:
+> a challenge met during a sweep proves the sweep got challenged — usually after enough probing to
+> earn it — not that the host challenges a normal client. Re-test a "challenged" row with **one**
+> request from a clean client before believing it.
 
 > 🔎 **The list itself had a blind spot (2026-08-03).** It derives from a **debrid** index, which by
 > construction catalogues DOWNLOAD hosts — so **transfer services and small anonymous drop hosts can
@@ -228,7 +235,7 @@ Wire like the existing session-cookie XFS hosts (Isracloud / Hxfile / Filehoster
 | **Rapidrar** | rapidrar.com | ~5 GB | med | Also runs rapidrar.cr mirror. |
 | **Worldbytez** | worldbytez.com | multi-GB | med | Connectivity timeout from sandbox; validate from real client. |
 | **FastBit** | fastbit.cc | unknown | med | **FlashBit sibling but distinct nginx backend** — may avoid the IIS chunk cap that got FlashBit disabled. Account-only. Verify TLS/cert + chunk behavior. |
-| **Datanodes** | datanodes.to | unknown | med | ⚠ Upload restricted to approved webmasters — low real-world value. |
+| ~~**Datanodes**~~ | datanodes.to | **3 GiB — anonymous** | high | **SHIPPED 2026-08-09** (DataNodesPipeline) — **and both things this table said about it were wrong**: uploads are not webmaster-only, and it is not Cloudflare-challenged to this client. A cold .NET client with no cookies and no page visit uploads anonymously, first try. It runs **xfspro**, but a **third combination of that plugin's axes**, which is why it is neither shim: `op=start_upload` (like Filehoster.io) + an **urlencoded** `import_file` (like the session base) + **`put_chunk_mt.cgi` carrying an explicit `X-Seek-To` offset per chunk**, which neither shipped base has. One code path serves guest and account uploads — the only field that differs is `sess_id`, empty or the account's `xfss`. Cap is the upload page's own `:max-size="3221225472"`; sign-in is a plain form POST with the page's `token`, no captcha, and the session is good for 30 days. Account uploads are attributed (the account page's used-space figure moved). ⚠ Its signed-in template links a plain **`/logout`**, not the family's `?op=logout` — matching the stock form made a live session read as expired, the same fork quirk DDownload has. ⚠ Seen once: a **500 at the finalise with every byte already uploaded**, not reproducible across two cold repeats — transient, but this host can fail after the transfer succeeded. |
 | **Sim File Share** | simfileshare.net | Sims-only | med | ⚠ Invite-only registration, The Sims content only — low value. |
 
 ### A3 · Presumed XFS — swept 2026-08-01, **none render an anonymous form**

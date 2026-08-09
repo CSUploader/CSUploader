@@ -328,6 +328,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ Its whole API lives on api.filecat.net — nothing on the apex reveals it. ⚠ A refusal
         // arrives inside a 200 with state:"rejected". See FileCatPipeline.cs.
         { "FileCat", "filecat.net" },
+
+        // DataNodes — ANONYMOUS or account, 3 GiB, xfspro chunked. A THIRD combination of that
+        // plugin's axes: start_upload + urlencoded finalise (like the session variant), an empty
+        // sess_id allowed (like the anonymous one), and put_chunk_mt.cgi with X-Seek-To, which
+        // neither has. No cookies anywhere. See DataNodesPipeline.cs.
+        { "DataNodes", "datanodes.to" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

@@ -243,6 +243,11 @@ public static class ServiceRegistration
         // FileCat — ACCOUNT-ONLY, a small JSON API on api.filecat.net: signin -> upldreq -> one
         // multipart POST to the node it names. 2000 MiB per file. See FileCatPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileCatPipeline>();
+
+        // DataNodes — xfspro chunked, anonymous OR account on one path (only sess_id differs).
+        // put_chunk_mt.cgi with X-Seek-To; 3 GiB. See DataNodesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataNodesPipeline>();
+
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

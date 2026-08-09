@@ -122,6 +122,7 @@ internal static class BitmapImageResources
         ("FileHosterDropmbImage", "FileHosters/filehoster_dropmb.png"),
         ("FileHosterHostizeImage", "FileHosters/filehoster_hostize.png"),
         ("FileHosterFilecatImage", "FileHosters/filehoster_filecat.png"),
+        ("FileHosterDatanodesImage", "FileHosters/filehoster_datanodes.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTerabytezImage", "FileHosters/filehoster_terabytez.png"),
         ("FileHosterDatavaultsImage", "FileHosters/filehoster_datavaults.png"),
