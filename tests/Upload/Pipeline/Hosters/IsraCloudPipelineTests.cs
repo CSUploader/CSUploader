@@ -268,6 +268,33 @@ public class IsraCloudPipelineTests
     }
 
     [Fact]
+    public void TryParseStorageBar_TheFreeSpaceThemesBar_AlsoParses()
+    {
+        // A second fork template hangs the same figures off id="occupied" inside div.freespace rather
+        // than class="storage". Two shipped hosts render it (UpZur, BtaFile), so the base reads it
+        // instead of each of them carrying a copy of one regex.
+        const string Bar = """<div class="freespace"><span id="occupied"><b>5.0 MB</b> of <b>200.0 GB</b></span></div>""";
+
+        (long? used, long? quota) = XFileSharingApiPipeline.TryParseStorageBar(Bar);
+
+        Assert.Equal(5L << 20, used);
+        Assert.Equal(200L << 30, quota);
+    }
+
+    [Fact]
+    public void TryParseStorageBar_WhenBothBarsArePresent_TheStockOneWins()
+    {
+        // The freespace pattern is a FALLBACK: it may add figures where there were none, never change
+        // one the family anchor already found.
+        const string Both = """
+            <span class="storage"><b>1 MB</b> of <b>2 GB</b></span>
+            <span id="occupied"><b>9 MB</b> of <b>9 GB</b></span>
+            """;
+
+        Assert.Equal((1L << 20, 2L << 30), XFileSharingApiPipeline.TryParseStorageBar(Both));
+    }
+
+    [Fact]
     public void TryParseStorageBar_SpanWithExtraAttribute_StillMatches()
     {
         // The regex tolerates further attributes on the storage span (future-proofing).

@@ -334,6 +334,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // sess_id allowed (like the anonymous one), and put_chunk_mt.cgi with X-Seek-To, which
         // neither has. No cookies anywhere. See DataNodesPipeline.cs.
         { "DataNodes", "datanodes.to" },
+
+        // BtaFile — stock XFileSharing, ANONYMOUS at 100 MB (verified with bytes) or 10 GB signed in.
+        // No REST API; the upload form lives on ?op=upload, and both of its form actions carry the
+        // URL-importer's ?upload_type=url, which takes a file anyway. See BtaFilePipeline.cs.
+        { "BtaFile", "btafile.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

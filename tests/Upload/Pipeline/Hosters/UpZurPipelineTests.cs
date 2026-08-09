@@ -209,16 +209,22 @@ public class UpZurPipelineTests
     }
 
     [Fact]
-    public void AccountPage_WithTheFamilyMarkupInstead_YieldsNothing()
+    public void AccountPage_WithTheFamilyMarkupInstead_NamesNobody()
     {
-        // Guards the direction of the fix: this host must read ITS markup, not inherit a match from the
-        // family's. If a future edit reverts to the base pattern, this fails rather than silently
-        // returning a blank name again.
+        // Guards the direction of the fix: the NAME must come from this host's markup, not from a
+        // family anchor that would hand back whatever sits beside an icon. If a future edit reverts to
+        // the base pattern, this fails rather than silently saving a wrong name — and a wrong name here
+        // is the login identifier, so it would break the next sign-in.
         UpZurPipeline pipeline = new();
         const string FamilyHtml = """<i class="fa fa-user"></i>someone<span class="storage"><b>1 MB</b> of <b>2 GB</b></span>""";
 
         Assert.Null(pipeline.ParseAccountUsernameForTests(FamilyHtml));
-        Assert.Equal((null, null), pipeline.ParseStorageUsageForTests(FamilyHtml));
+
+        // The STORAGE bar is a different case, and deliberately so: since BtaFile turned up on this
+        // same theme, the base understands both anchors, so the family bar parses here too. A figure
+        // read from the wrong bar costs a display number; a name read from the wrong place costs the
+        // account.
+        Assert.Equal((1L << 20, 2L << 30), pipeline.ParseStorageUsageForTests(FamilyHtml));
     }
 
     [Fact]

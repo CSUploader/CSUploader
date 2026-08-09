@@ -62,19 +62,14 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     /// </para>
     /// <para>Present on an account with no files at all (checked before and after an upload), so an
     /// empty account still gets its name.</para>
+    /// <para>
+    /// The storage bar that used to be overridden here moved to the base once BtaFile turned up on the
+    /// identical <c>div.freespace</c> / <c>id="occupied"</c> theme — see
+    /// <see cref="XFileSharingApiPipeline.TryParseStorageBar"/>.
+    /// </para>
     /// </summary>
     private static readonly Regex _usernameRegex = new(
         """upzur\.com/users/([A-Za-z0-9._-]+)/""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    /// <summary>
-    /// <c>&lt;span id="occupied"&gt;&lt;b&gt;0 MB&lt;/b&gt; of &lt;b&gt;1953.1 GB&lt;/b&gt;&lt;/span&gt;</c> —
-    /// the same "used of total" shape as the family bar, but hung off <c>id="occupied"</c> inside
-    /// <c>div.freespace</c> rather than <c>class="storage"</c>, so the base's pattern misses it and
-    /// both figures come back null (a blank Available column).
-    /// </summary>
-    private static readonly Regex _storageRegex = new(
-        """id=["']occupied["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public UpZurPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
@@ -159,8 +154,9 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     public override long? MaxFileSizeFor(FileHosterLoginDto credentials)
         => credentials.IsAnonymous ? AnonymousMaxFileSizeBytes : base.MaxFileSizeFor(credentials);
 
-    /// <summary>Test seams for the two account-page scrapes — both are host-specific overrides of a
-    /// family default that silently returns nothing here, which is the failure mode worth pinning.</summary>
+    /// <summary>Test seams for the two account-page scrapes. The username one is a host-specific
+    /// override of a family default that silently returns nothing here; the storage one now goes
+    /// through the base, and pins that the <c>id="occupied"</c> bar this theme uses still reaches it.</summary>
     internal string? ParseAccountUsernameForTests(string html) => ParseAccountUsername(html);
 
     /// <inheritdoc cref="ParseAccountUsernameForTests"/>
@@ -171,16 +167,6 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
     {
         Match m = _usernameRegex.Match(html);
         return m.Success ? m.Groups[1].Value : null;
-    }
-
-    /// <inheritdoc/>
-    protected override (long? Used, long? Quota) ParseStorageUsage(string html)
-    {
-        Match m = _storageRegex.Match(html);
-        return m.Success
-            ? (ParseSizeToBytes(m.Groups[1].Value, m.Groups[2].Value),
-               ParseSizeToBytes(m.Groups[3].Value, m.Groups[4].Value))
-            : (null, null);
     }
 
     /// <summary>

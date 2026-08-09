@@ -457,6 +457,15 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
         """class=["']storage["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // The same bar in the "freespace" theme, which hangs it off id="occupied" instead of
+    // class="storage": <span id="occupied"><b>5.0 MB</b> of <b>200.0 GB</b></span>. Tried only when
+    // the stock anchor misses, so it can add figures but never change one. It lives here rather than
+    // on a hoster because TWO now ship this theme (UpZur, BtaFile) with byte-identical markup, and a
+    // third copy of one regex is how the copies start to disagree.
+    private static readonly Regex _freeSpaceBarRegex = new(
+        """id=["']occupied["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Username scrape (web-form mode): the account menu (on both my_account and my_files) renders the
     // username immediately after the user icon — <i class="fa fa-user"></i>pkjmq41030<i …>. Anchor on
     // that icon and capture the token in front of the next tag.
@@ -1806,6 +1815,11 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     internal static (long? Used, long? Quota) TryParseStorageBar(string html)
     {
         Match m = _storageBarRegex.Match(html);
+        if (!m.Success)
+        {
+            m = _freeSpaceBarRegex.Match(html);
+        }
+
         if (!m.Success)
         {
             return (null, null);

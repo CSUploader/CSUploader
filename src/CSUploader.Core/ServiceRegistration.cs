@@ -248,6 +248,10 @@ public static class ServiceRegistration
         // put_chunk_mt.cgi with X-Seek-To; 3 GiB. See DataNodesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DataNodesPipeline>();
 
+        // BtaFile — stock XFS web form, anonymous 100 MB or 10 GB signed in; no REST API, and its
+        // upload form is on ?op=upload rather than ?op=upload_form. See BtaFilePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.BtaFilePipeline>();
+
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while
