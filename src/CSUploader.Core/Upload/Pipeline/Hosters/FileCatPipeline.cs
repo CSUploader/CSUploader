@@ -193,7 +193,9 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
             (url, json) => PostJsonAsync(ctx, url, json, null));
     }
 
-    private async Task<(string? Session, string? Error)> SignInAsync(
+    /// <summary>Static on purpose: the caller supplies <paramref name="post"/>, so this needs nothing
+    /// from the instance — which is what lets both the upload path and the account check share it.</summary>
+    private static async Task<(string? Session, string? Error)> SignInAsync(
         string? email, string? password, Func<string, string, Task<HttpResponseSnapshot>> post)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
