@@ -36,6 +36,12 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// success status, because a silently dropped part would otherwise surface as a truncated file.
 /// </para>
 /// <para>
+/// A capture of the site's own anonymous upload (2026-08-09) matches this exactly, with one field
+/// not sent here: its request body carries <c>"concurrency":4</c>, which tells the server how many
+/// parts the browser intends to PUT at once. These go up one at a time, so claiming four would be a
+/// lie; omitting it is accepted and was verified by uploading.
+/// </para>
+/// <para>
 /// <b>⚠ FREE LINKS LIVE 24 HOURS.</b> Straight from the service's own copy: "Files stay online for 24
 /// hours on the Free plan, 30 days on the Standard plan, and forever on the Pro plan." The
 /// <c>expiresAt</c> the complete call returns confirms it to the second, and the share page prints
@@ -81,8 +87,23 @@ public sealed class HostizePipeline : IFileHosterPipeline
 
     public bool SupportsAnonymousUpload => true;
 
-    /// <summary>Accounts exist, but uploading with one needs a Pro subscription's API key, so there is
-    /// nothing a free account could do here that anonymous doesn't already.</summary>
+    /// <summary>
+    /// No account is offered, and captures of a real signed-in session (2026-08-09) give two
+    /// independent reasons.
+    /// <para>
+    /// <b>There is no form to post.</b> Signing in is a <b>Keycloak OIDC authorization-code flow with
+    /// PKCE</b> (<c>id.containerize.app/realms/hostize-com</c> → <c>/api/auth/callback/keycloak</c> →
+    /// an <c>authjs</c> session cookie). That is the same class of blocker as the deferred cloud
+    /// drives, not a username and password this app can send.
+    /// </para>
+    /// <para>
+    /// <b>And it would buy nothing.</b> A signed-in FREE upload uses these very same three endpoints
+    /// and comes back with <b>the same 24-hour expiry</b> — measured, <c>createdAt 01:56:33</c> →
+    /// <c>expiresAt 01:56:39 the next day</c> — and the same cap. It only sets a <c>userId</c>, so the
+    /// upload appears in the account's file list. Longer retention is a <i>paid</i> plan, not an
+    /// account.
+    /// </para>
+    /// </summary>
     public bool SupportsAccounts => false;
 
     public async IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, [EnumeratorCancellation] CancellationToken ct)
