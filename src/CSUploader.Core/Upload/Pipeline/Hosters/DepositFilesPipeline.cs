@@ -41,15 +41,16 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// upload page says so in words ("All you need is to create an account and upload files").
 /// </para>
 /// <para>
-/// <b>⚠ Signing in is captcha-gated, but only sometimes.</b> <c>POST /api/user/login</c> takes a plain
-/// username and password (its four captcha fields are posted empty by the site itself) and works —
-/// until the host decides otherwise, at which point the SAME request answers
-/// <c>{"error":"CaptchaRequired","error_code":104}</c>. It is risk-triggered, not per-login: several
-/// sign-ins succeeded before the wall appeared. Cloudflare Turnstile is what it wants
-/// (<c>FEATURE_CLOUDFLARE_TURNSTILE_ENABLED</c> on the login page). So this tries the direct login
-/// first — no window, no friction — and falls back to the embedded browser only when the host asks
-/// for the captcha. <b>The upload itself is never captcha-gated</b>, and the session cookie is issued
-/// with <c>Max-Age=31536000</c>, so that fallback is a once-a-year event at worst.
+/// <b>⚠ Signing in is captcha-gated, but only sometimes — which is why it ships on the browser.</b>
+/// <c>POST /api/user/login</c> takes a plain username and password (its four captcha fields are posted
+/// empty by the site itself) and works — until the host decides otherwise, at which point the SAME
+/// request answers <c>{"error":"CaptchaRequired","error_code":104}</c>. It is risk-triggered, not
+/// per-login: several sign-ins succeeded before the wall appeared, and Cloudflare Turnstile is what it
+/// then wants (<c>FEATURE_CLOUDFLARE_TURNSTILE_ENABLED</c> on the login page). A sign-in that usually
+/// needs no window and sometimes does is worse than one that always opens it, so this host is in
+/// <see cref="HosterCredentialModes"/>' session-cookie family: the embedded browser is the only
+/// sign-in path, and no password is stored. <b>The upload itself is never captcha-gated</b>, and the
+/// session is issued with <c>Max-Age=31536000</c>, so the window is a once-a-year interruption.
 /// </para>
 /// <para>
 /// <b>Files expire.</b> The account's listing stamps every file with <c>dt_expires</c> 121 days after
@@ -60,7 +61,6 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
 {
     private const string Host = "https://depositfiles.com";
-    private const string LoginApiUrl = Host + "/api/user/login";
     private const string LoginPageUrl = Host + "/login.php";
     private const string UploadPageUrl = Host + "/?upload=1";
     private const string NodeApiUrl = Host + "/api/upload/regular";
@@ -76,10 +76,6 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
     /// <summary>What the login sets it for: <c>Max-Age=31536000</c>.</summary>
     private const int SessionLifetimeDays = 365;
 
-    /// <summary>Its own error code for "solve a captcha", as opposed to 101 = not signed in / wrong
-    /// password.</summary>
-    private const int CaptchaRequiredCode = 104;
-
     /// <summary>The account's durable upload key, rendered on the upload page as
     /// <c>&lt;div id="container_upload" sharedkey="…"&gt;</c>. Also returned by the login API as
     /// <c>member_passkey</c> — this is how the WebView path, which never sees that JSON, still gets it.</summary>
@@ -89,7 +85,6 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
 
     private readonly IInteractiveAuthService? _authService;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public DepositFilesPipeline(IInteractiveAuthService? authService = null)
@@ -97,16 +92,14 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
         _authService = authService;
     }
 
-    /// <summary>Test ctor — stubs the page GETs, the API form POSTs and the file upload.</summary>
+    /// <summary>Test ctor — stubs the page GETs and the file upload.</summary>
     internal DepositFilesPipeline(
         IInteractiveAuthService? authService,
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? uploadOverride = null)
     {
         _authService = authService;
         _getOverride = getOverride;
-        _postFormOverride = postFormOverride;
         _uploadOverride = uploadOverride;
     }
 
@@ -149,8 +142,8 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
         if (session is null)
         {
             yield return new AttemptFailed(
-                "The DepositFiles account has no saved sign-in. Re-check it in Account Manager — signing in "
-                + "may need the embedded browser if the host asks for a captcha.",
+                "The DepositFiles account has no saved sign-in. Sign in again from Account Manager — this "
+                + "host signs in through the app's browser window.",
                 null);
             yield break;
         }
@@ -392,132 +385,32 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
         return (ToHttps(link), ToHttps(delete), null);
     }
 
+    /// <summary>
+    /// Signs in through the embedded browser, then scrapes the account's passkey off its upload page.
+    /// <para>
+    /// <b>Why there is no username/password path here</b>, when the host does expose a plain
+    /// <c>POST /api/user/login</c> this app could make: that post is captcha-gated on the host's own
+    /// risk assessment. It works, repeatedly, and then the SAME request begins answering
+    /// <c>{"error":"CaptchaRequired","error_code":104}</c> — measured, not inferred. A sign-in that
+    /// usually needs no window and occasionally does is worse for the user than one that always opens
+    /// it: they can't predict which they'll get, and the surprise lands halfway through saving an
+    /// account. The browser handles both cases identically, and the session it captures is issued for
+    /// a year, so it is a rare interruption either way.
+    /// </para>
+    /// <para>
+    /// The consequence to keep in mind: the browser never sees the login JSON, which is where
+    /// <c>member_passkey</c> normally arrives. It comes off the upload page instead — the same place
+    /// <see cref="ResolvePasskeyAsync"/> reads it when an upload finds none stored.
+    /// </para>
+    /// </summary>
     public async Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
     {
         _ = apiKey;
+        _ = password;
 
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        {
-            return new AccountCheckResult(false, AccountType.Free, "DepositFiles needs the account's username and password.");
-        }
-
-        Dictionary<string, string> form = new(StringComparer.Ordinal)
-        {
-            ["login"] = username,
-            ["password"] = password,
-
-            // Posted empty, exactly as the site's own login page posts them when it isn't asking for
-            // a captcha. Sending the fields matters; the values are genuinely blank.
-            ["recaptcha_challenge_field"] = string.Empty,
-            ["recaptcha_response_field"] = string.Empty,
-            ["g-recaptcha-response"] = string.Empty,
-            ["cf-turnstile-response"] = string.Empty,
-        };
-
-        HttpResponseSnapshot login;
-        try
-        {
-            login = await PostFormAsync(handler, LoginApiUrl, form, ApiHeaders(null), ct);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return new AccountCheckResult(false, AccountType.Free, "DepositFiles sign-in failed: " + ex.Message);
-        }
-
-        (string? session, string? passkey, string? name, AccountType type, int? errorCode, string? errorMessage) = ParseLogin(login);
-
-        if (session is not null && passkey is not null)
-        {
-            return new AccountCheckResult(
-                true,
-                type,
-                "Signed in to DepositFiles.",
-                SessionCookie: session,
-                SessionCookieExpiresUtc: DateTime.UtcNow.AddDays(SessionLifetimeDays),
-                ApiKey: passkey,
-                DerivedUsername: name ?? username);
-        }
-
-        // Risk-triggered, not per-login: the same request worked minutes earlier. A human solving it
-        // once in the embedded browser buys a session good for a year.
-        if (errorCode == CaptchaRequiredCode)
-        {
-            return await SignInInteractivelyAsync(username, handler, proxy, ct);
-        }
-
-        return new AccountCheckResult(false, AccountType.Free, errorMessage ?? "DepositFiles rejected the sign-in — check the username and password.");
+        return await SignInInteractivelyAsync(username, handler, proxy, ct);
     }
 
-    /// <summary>
-    /// Reads the login reply: the session cookie, the account's passkey, its name and tier, or the
-    /// error the host answered with. Internal for testing.
-    /// </summary>
-    internal static (string? Session, string? Passkey, string? Name, AccountType Type, int? ErrorCode, string? ErrorMessage) ParseLogin(HttpResponseSnapshot response)
-    {
-        JsonElement root;
-        try
-        {
-            root = JsonDocument.Parse(response.Body).RootElement;
-        }
-        catch (JsonException)
-        {
-            return (null, null, null, AccountType.Free, null, $"DepositFiles' sign-in reply wasn't JSON: {Snippet(response.Body)}");
-        }
-
-        if (ReadApiError(root) is { } apiError)
-        {
-            string message = apiError.Code == CaptchaRequiredCode
-                ? "DepositFiles is asking for a captcha."
-                : "DepositFiles rejected the sign-in — check the username and password.";
-            return (null, null, null, AccountType.Free, apiError.Code, message);
-        }
-
-        if (!root.TryGetProperty("data", out JsonElement data))
-        {
-            return (null, null, null, AccountType.Free, null, $"DepositFiles' sign-in reply carried no account: {Snippet(response.Body)}");
-        }
-
-        string? passkey = data.TryGetProperty("member_passkey", out JsonElement pk) ? NullIfWhiteSpace(pk.GetString()) : null;
-        string? name = data.TryGetProperty("username", out JsonElement un) ? NullIfWhiteSpace(un.GetString()) : null;
-
-        // "free" is the only tier seen; anything else is reported as paid rather than guessed at in
-        // detail, and nothing in this pipeline changes behaviour on it.
-        AccountType type = data.TryGetProperty("mode", out JsonElement mode)
-            && !string.Equals(mode.GetString(), "free", StringComparison.OrdinalIgnoreCase)
-            ? AccountType.Premium
-            : AccountType.Free;
-
-        string? session = ReadSessionCookie(response);
-
-        return session is null || passkey is null
-            ? (null, null, null, AccountType.Free, null, "DepositFiles signed in but issued no usable session.")
-            : (session, passkey, name, type, null, null);
-    }
-
-    /// <summary>Pulls <c>autologin</c> out of the login reply. Internal for testing.</summary>
-    internal static string? ReadSessionCookie(HttpResponseSnapshot response)
-    {
-        foreach (string cookie in response.SetCookies)
-        {
-            if (cookie.StartsWith(SessionCookieName + "=", StringComparison.OrdinalIgnoreCase))
-            {
-                string value = cookie.Split(';', 2)[0][(SessionCookieName.Length + 1)..];
-                if (!string.IsNullOrWhiteSpace(value) && value != "deleted")
-                {
-                    return value;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>The captcha fallback: a human signs in in the embedded browser, then the passkey is
-    /// scraped off the upload page — the login JSON that normally carries it never happens here.</summary>
     private async Task<AccountCheckResult> SignInInteractivelyAsync(string username, HttpHandler handler, ProxyChoice proxy, CancellationToken ct)
     {
         if (_authService is null)
@@ -525,7 +418,7 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
             return new AccountCheckResult(
                 false,
                 AccountType.Free,
-                "DepositFiles is asking for a captcha, which needs the desktop app's embedded browser. Try again from the app.");
+                "Signing in to DepositFiles needs the desktop app's embedded browser. Try again from the app.");
         }
 
         InteractiveAuthResult? captured;
@@ -627,9 +520,6 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
 
     private Task<HttpResponseSnapshot> GetAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
         => _getOverride is not null ? _getOverride(url, headers) : handler.GetSnapshotAsync(url, headers, ct);
-
-    private Task<HttpResponseSnapshot> PostFormAsync(HttpHandler handler, string url, IReadOnlyDictionary<string, string> form, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
-        => _postFormOverride is not null ? _postFormOverride(url, form, headers) : handler.PostFormAsync(url, form, headers, ct);
 
     /// <summary>Headers for the JSON API. <c>X-Requested-With</c> is what the site's own calls send.</summary>
     private static Dictionary<string, string> ApiHeaders(string? session)

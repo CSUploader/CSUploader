@@ -18,9 +18,9 @@ using Moq;
 namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 
 /// <summary>
-/// DepositFiles — an account-only JSON API. Every fixture is a real response: the node call, the
-/// upload reply and the login envelopes came from live probes, the upload-page markup from a browser
-/// capture. Session values, the passkey and the account name are faked.
+/// DepositFiles — an account-only JSON API signed into through the app's browser. Every fixture is a
+/// real response: the node call and the upload reply from live probes, the upload-page markup from a
+/// browser capture. Session values and the passkey are faked.
 /// <para>
 /// The behaviour most of these exist to protect is the passkey rule: the upload succeeds and returns
 /// a working link WITHOUT it, and the file simply isn't the account's.
@@ -46,14 +46,7 @@ public class DepositFilesPipelineTests : IDisposable
         </div>
         """;
 
-    private const string LoginOkJson = """
-        {"status":"OK","status_code":1,"data":{"user_id":"csuprobe","username":"csuprobe","email":"csuprobe@example.test","mode":"free","gold_expired":null,"token":"FAKE-T0KEN","member_passkey":"76oecg2ydcf4gl6s","is_reseller":"N","active_package":"basic"}}
-        """;
-
-    private const string CaptchaRequiredJson = """{"status":"Error","status_code":0,"error":"CaptchaRequired","error_code":104}""";
     private const string LoginInvalidJson = """{"status":"Error","status_code":0,"error":"LoginInvalid","error_code":101}""";
-
-    private const string SessionCookie = "autologin=s3ss10n-va1ue; expires=Mon, 09-Aug-2027 11:54:26 GMT; Max-Age=31536000; domain=.depositfiles.com; path=/";
 
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "csu-df-tests-" + Guid.NewGuid().ToString("N")[..8]);
 
@@ -90,9 +83,13 @@ public class DepositFilesPipelineTests : IDisposable
         Assert.False(pipeline.RequiresHashingBeforeUpload);
         Assert.True(((IFileHosterPipeline)pipeline).SupportsAccounts);
 
-        // Username and password, NOT the WebView families: the plain login post is the normal path,
-        // and the browser only opens if the host asks for a captcha.
-        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("DepositFiles"));
+        // Session-cookie family: the app's browser is the ONLY sign-in path here, and no password is
+        // stored. Not because there's no login API to post — there is, and it works — but because it
+        // is captcha-gated on the host's own risk assessment, so a password path would work until one
+        // day it didn't, mid-Save. There is also no key to paste: the passkey the upload needs is
+        // derived behind the sign-in, never typed.
+        Assert.Equal(HosterCredentialMode.SessionCookie, HosterCredentialModes.GetMode("DepositFiles"));
+        Assert.True(HosterCredentialModes.IsSessionCookieHoster("DepositFiles"));
         Assert.False(HosterCredentialModes.IsApiKeyHoster("DepositFiles"));
 
         Assert.True(FileHosterClient.FileHosters.ContainsKey("DepositFiles"));
@@ -165,7 +162,7 @@ public class DepositFilesPipelineTests : IDisposable
         Assert.Contains(fragment, error!, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ── The passkey and the session cookie ────────────────────────────────────────────────────────
+    // ── The passkey ───────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void ParseSharedKey_ReadsTheAccountsUploadKeyOffThePage()
@@ -173,87 +170,6 @@ public class DepositFilesPipelineTests : IDisposable
         Assert.Equal("76oecg2ydcf4gl6s", DepositFilesPipeline.ParseSharedKey(new HttpResponseSnapshot(200, UploadPageHtml, [])));
         Assert.Null(DepositFilesPipeline.ParseSharedKey(new HttpResponseSnapshot(200, "<div id=\"container_upload\">", [])));
         Assert.Null(DepositFilesPipeline.ParseSharedKey(new HttpResponseSnapshot(302, UploadPageHtml, [], "https://depositfiles.com/login.php")));
-    }
-
-    [Fact]
-    public void ReadSessionCookie_TakesAutologin_AndIgnoresTheOtherOne()
-    {
-        // The login sets two long cookies; only autologin authenticates (asked with just the al_<hash>
-        // one, the node call answers LoginInvalid).
-        HttpResponseSnapshot login = new(
-            200,
-            LoginOkJson,
-            [
-                "al_cfc0382ef75989d311f86a8815c2d880=un-us4b1e; Max-Age=31536000; path=/",
-                SessionCookie,
-            ]);
-
-        Assert.Equal("s3ss10n-va1ue", DepositFilesPipeline.ReadSessionCookie(login));
-    }
-
-    [Theory]
-    [InlineData("al_cfc0382ef75989d311f86a8815c2d880=whatever; path=/")]
-    [InlineData("autologin=; path=/")]
-    [InlineData("autologin=deleted; path=/")]
-    public void ReadSessionCookie_IsNullWhenNoUsableSessionWasIssued(string setCookie)
-        => Assert.Null(DepositFilesPipeline.ReadSessionCookie(new HttpResponseSnapshot(200, LoginOkJson, [setCookie])));
-
-    // ── The login envelope ────────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public void ParseLogin_ASuccess_YieldsTheSessionThePasskeyAndTheName()
-    {
-        (string? session, string? passkey, string? name, AccountType type, int? code, string? message) =
-            DepositFilesPipeline.ParseLogin(new HttpResponseSnapshot(200, LoginOkJson, [SessionCookie]));
-
-        Assert.Equal("s3ss10n-va1ue", session);
-        Assert.Equal("76oecg2ydcf4gl6s", passkey);
-        Assert.Equal("csuprobe", name);
-        Assert.Equal(AccountType.Free, type);
-        Assert.Null(code);
-        Assert.Null(message);
-    }
-
-    [Fact]
-    public void ParseLogin_TheCaptchaWall_IsToldApartFromAWrongPassword()
-    {
-        // The whole reason this distinction exists: 104 means "a human must solve something", which is
-        // recoverable in the browser, while 101 means the credentials are wrong and no window helps.
-        (_, _, _, _, int? captchaCode, string? captchaMessage) =
-            DepositFilesPipeline.ParseLogin(new HttpResponseSnapshot(200, CaptchaRequiredJson, []));
-
-        Assert.Equal(104, captchaCode);
-        Assert.Contains("captcha", captchaMessage!, StringComparison.OrdinalIgnoreCase);
-
-        (_, _, _, _, int? badCode, string? badMessage) =
-            DepositFilesPipeline.ParseLogin(new HttpResponseSnapshot(200, LoginInvalidJson, []));
-
-        Assert.Equal(101, badCode);
-        Assert.Contains("username and password", badMessage!, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void ParseLogin_ASignInWithoutAPasskey_IsNotUsable()
-    {
-        // The passkey is what files uploads under the account. A session without one would upload
-        // successfully into nobody's account, so it must not count as signed in.
-        const string NoKey = """{"status":"OK","status_code":1,"data":{"username":"csuprobe","mode":"free"}}""";
-
-        (string? session, string? passkey, _, _, _, string? message) =
-            DepositFilesPipeline.ParseLogin(new HttpResponseSnapshot(200, NoKey, [SessionCookie]));
-
-        Assert.Null(session);
-        Assert.Null(passkey);
-        Assert.Contains("no usable session", message!, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public void ParseLogin_APaidTier_IsReportedAsPremium()
-    {
-        (_, _, _, AccountType type, _, _) = DepositFilesPipeline.ParseLogin(
-            new HttpResponseSnapshot(200, LoginOkJson.Replace("\"mode\":\"free\"", "\"mode\":\"gold\"", StringComparison.Ordinal), [SessionCookie]));
-
-        Assert.Equal(AccountType.Premium, type);
     }
 
     // ── Uploading ─────────────────────────────────────────────────────────────────────────────────
@@ -384,64 +300,13 @@ public class DepositFilesPipelineTests : IDisposable
 
     // ── Signing in ────────────────────────────────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task CheckAccount_PostsThePlainLogin_WithTheCaptchaFieldsEmpty_AndNoBrowser()
-    {
-        // authService is null, so any attempt to open a window fails the check outright — which is the
-        // assertion. The site posts these four fields empty itself when it isn't asking for a captcha.
-        List<(string Url, IReadOnlyDictionary<string, string> Form)> posts = [];
-        DepositFilesPipeline pipeline = new(
-            authService: null,
-            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])),
-            postFormOverride: (url, form, _) =>
-            {
-                posts.Add((url, form));
-                return Task.FromResult(new HttpResponseSnapshot(200, LoginOkJson, [SessionCookie]));
-            });
-
-        AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "csuprobe", "hunter2", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
-
-        Assert.True(result.IsValid);
-        Assert.Equal("s3ss10n-va1ue", result.SessionCookie);
-        Assert.Equal("76oecg2ydcf4gl6s", result.ApiKey);
-        Assert.Equal("csuprobe", result.DerivedUsername);
-        Assert.Equal(AccountType.Free, result.AccountType);
-
-        // A year, which is what the host sets Max-Age to — and why the captcha fallback is rare.
-        Assert.True(result.SessionCookieExpiresUtc > DateTime.UtcNow.AddDays(300));
-
-        (string url, IReadOnlyDictionary<string, string> form) = Assert.Single(posts);
-        Assert.Equal("https://depositfiles.com/api/user/login", url);
-        Assert.Equal("csuprobe", form["login"]);
-        Assert.Equal("hunter2", form["password"]);
-        Assert.Equal(string.Empty, form["cf-turnstile-response"]);
-        Assert.Equal(string.Empty, form["g-recaptcha-response"]);
-    }
+    // ── Signing in ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task CheckAccount_WrongPassword_FailsWithoutOpeningTheBrowser()
+    public async Task CheckAccount_SignsInThroughTheBrowser_ThenScrapesThePasskey()
     {
-        Mock<IInteractiveAuthService> auth = new(MockBehavior.Strict);
-        DepositFilesPipeline pipeline = new(
-            auth.Object,
-            getOverride: (_, _) => throw new InvalidOperationException("no page fetch on a failed login"),
-            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, LoginInvalidJson, [])));
-
-        AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "csuprobe", "wrong", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Contains("username and password", result.Message!, StringComparison.OrdinalIgnoreCase);
-        auth.VerifyNoOtherCalls();   // a wrong password is not something a window can fix
-    }
-
-    [Fact]
-    public async Task CheckAccount_WhenTheHostAsksForACaptcha_FallsBackToTheBrowser_AndScrapesThePasskey()
-    {
-        // The fallback exists because the captcha is risk-triggered, not per-login: the same request
-        // succeeded minutes before it appeared. The browser path never sees the login JSON, so the
-        // passkey has to come off the upload page.
+        // The browser never sees the login JSON that member_passkey normally arrives in, so it comes
+        // off the upload page — which is the whole reason that scrape exists.
         Mock<IInteractiveAuthService> auth = new();
         auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), "csuprobe", It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new InteractiveAuthResult("s3ss10n-from-browser", null));
@@ -449,15 +314,17 @@ public class DepositFilesPipelineTests : IDisposable
         List<(string Url, IReadOnlyDictionary<string, string> Headers)> gets = [];
         DepositFilesPipeline pipeline = new(
             auth.Object,
-            getOverride: (url, headers) => { gets.Add((url, headers)); return Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])); },
-            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, CaptchaRequiredJson, [])));
+            getOverride: (url, headers) => { gets.Add((url, headers)); return Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])); });
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "csuprobe", "hunter2", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+            "csuprobe", "ignored", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Equal("s3ss10n-from-browser", result.SessionCookie);
         Assert.Equal("76oecg2ydcf4gl6s", result.ApiKey);
+
+        // A year, which is what the host sets Max-Age to — and why one browser window is a rare cost.
+        Assert.True(result.SessionCookieExpiresUtc > DateTime.UtcNow.AddDays(300));
 
         auth.Verify(
             a => a.AcquireSessionCookieAsync(
@@ -467,26 +334,49 @@ public class DepositFilesPipelineTests : IDisposable
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
+        // The scrape has to carry the captured session or it reads the visitor's page.
         Assert.Equal("autologin=s3ss10n-from-browser", Assert.Single(gets).Headers["Cookie"]);
     }
 
     [Fact]
-    public async Task CheckAccount_ACaptchaWithNoBrowserAvailable_SaysWhatToDo()
+    public async Task CheckAccount_NeverAsksForAPassword_EvenWhenGivenOne()
+    {
+        // This host HAS a login API this app could post, and it works — until it answers
+        // CaptchaRequired on the host's own risk assessment. A password path would therefore work
+        // until one day it didn't, halfway through saving an account, so there isn't one.
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InteractiveAuthResult("s3ss10n-from-browser", null));
+
+        DepositFilesPipeline pipeline = new(
+            auth.Object,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])));
+
+        // Empty credentials must reach the browser just the same — the dialog collects neither.
+        Assert.True((await pipeline.CheckAccountAsync(
+            string.Empty, string.Empty, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None)).IsValid);
+
+        auth.Verify(
+            a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckAccount_WithNoBrowserAvailable_SaysWhatToDo()
     {
         DepositFilesPipeline pipeline = new(
             authService: null,
-            getOverride: (_, _) => throw new InvalidOperationException("nothing to fetch"),
-            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, CaptchaRequiredJson, [])));
+            getOverride: (_, _) => throw new InvalidOperationException("nothing to fetch"));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "csuprobe", "hunter2", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+            "csuprobe", string.Empty, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Contains("embedded browser", result.Message!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task CheckAccount_ACancelledBrowserSignIn_IsNotAnAccount()
+    public async Task CheckAccount_ACancelledSignIn_IsNotAnAccount()
     {
         Mock<IInteractiveAuthService> auth = new();
         auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
@@ -494,31 +384,33 @@ public class DepositFilesPipelineTests : IDisposable
 
         DepositFilesPipeline pipeline = new(
             auth.Object,
-            getOverride: (_, _) => throw new InvalidOperationException("nothing to fetch"),
-            postFormOverride: (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, CaptchaRequiredJson, [])));
+            getOverride: (_, _) => throw new InvalidOperationException("nothing to fetch"));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            "csuprobe", "hunter2", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+            "csuprobe", string.Empty, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Contains("cancelled", result.Message!, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
-    [InlineData("", "pw")]
-    [InlineData("csuprobe", "")]
-    public async Task CheckAccount_WithoutBothHalves_AsksForThem_WithoutCallingTheHost(string user, string password)
+    [Fact]
+    public async Task CheckAccount_ASignInThatYieldsNoPasskey_IsNotAnAccount()
     {
+        // A session with no passkey can upload — and every file would belong to nobody. Saving it
+        // would be saving an account that quietly doesn't work.
+        Mock<IInteractiveAuthService> auth = new();
+        auth.Setup(a => a.AcquireSessionCookieAsync(It.IsAny<InteractiveAuthSpec>(), It.IsAny<string>(), It.IsAny<ProxyChoice?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InteractiveAuthResult("s3ss10n-from-browser", null));
+
         DepositFilesPipeline pipeline = new(
-            authService: null,
-            getOverride: (_, _) => throw new InvalidOperationException("must not fetch"),
-            postFormOverride: (_, _, _) => throw new InvalidOperationException("must not post"));
+            auth.Object,
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(200, "<div id=\"container_upload\">", [])));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(
-            user, password, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
+            "csuprobe", string.Empty, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
 
         Assert.False(result.IsValid);
-        Assert.Contains("username and password", result.Message!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("upload key", result.Message!, StringComparison.OrdinalIgnoreCase);
     }
 
     // ── Re-checking a stored session ──────────────────────────────────────────────────────────────
@@ -531,8 +423,7 @@ public class DepositFilesPipelineTests : IDisposable
         List<(string Url, IReadOnlyDictionary<string, string> Headers)> gets = [];
         DepositFilesPipeline pipeline = new(
             authService: null,
-            getOverride: (url, headers) => { gets.Add((url, headers)); return Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])); },
-            postFormOverride: (_, _, _) => throw new InvalidOperationException("a refresh must not need the password"));
+            getOverride: (url, headers) => { gets.Add((url, headers)); return Task.FromResult(new HttpResponseSnapshot(200, UploadPageHtml, [])); });
 
         AccountCheckResult result = await pipeline.RefreshAccountAsync(
             null, "s3ss10n-va1ue", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -548,8 +439,7 @@ public class DepositFilesPipelineTests : IDisposable
     {
         DepositFilesPipeline pipeline = new(
             authService: null,
-            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(302, string.Empty, [], "https://depositfiles.com/login.php")),
-            postFormOverride: (_, _, _) => throw new InvalidOperationException("no posts"));
+            getOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(302, string.Empty, [], "https://depositfiles.com/login.php")));
 
         AccountCheckResult result = await pipeline.RefreshAccountAsync(
             null, "expired", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -563,8 +453,7 @@ public class DepositFilesPipelineTests : IDisposable
     {
         DepositFilesPipeline pipeline = new(
             authService: null,
-            getOverride: (_, _) => throw new HttpRequestException("no such host"),
-            postFormOverride: (_, _, _) => throw new InvalidOperationException("no posts"));
+            getOverride: (_, _) => throw new HttpRequestException("no such host"));
 
         AccountCheckResult result = await pipeline.RefreshAccountAsync(
             null, "s3ss10n-va1ue", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -622,7 +511,7 @@ public class DepositFilesPipelineTests : IDisposable
     /// <summary>Stands in for the host and records what it was sent.</summary>
     private sealed class Recorder
     {
-        public Recorder() => Pipeline = new DepositFilesPipeline(null, GetAsync, PostFormAsync, UploadAsync);
+        public Recorder() => Pipeline = new DepositFilesPipeline(null, GetAsync, UploadAsync);
 
         public DepositFilesPipeline Pipeline { get; }
 
@@ -639,9 +528,6 @@ public class DepositFilesPipelineTests : IDisposable
             Gets.Add((url, headers));
             return Task.FromResult(url.Contains("api/upload/regular", StringComparison.Ordinal) ? Node : UploadPage);
         }
-
-        private Task<HttpResponseSnapshot> PostFormAsync(string url, IReadOnlyDictionary<string, string> form, IReadOnlyDictionary<string, string> headers)
-            => throw new InvalidOperationException("an upload must not post the login form");
 
         private Task<HttpResponseSnapshot> UploadAsync(string filePath, string endpoint, IReadOnlyDictionary<string, string> fields)
         {

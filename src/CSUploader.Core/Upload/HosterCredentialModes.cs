@@ -60,12 +60,18 @@ public static class HosterCredentialModes
         [with(StringComparer.OrdinalIgnoreCase), "Buzzheavier", "Ex-Load", "KatFile", "Hexload", "Hxfile", "FileBoom", "HitFile", "Turbobit", "Keep2Share", "TezFiles", "NitroFlare", "Ufile", "Send.now", "Uploadrar", "DataVaults"];
 
     /// <summary>
-    /// WebView-sign-in hosters whose ONLY credential is the captured session cookie — there is no
-    /// API key to paste. The dialog shows them the same Sign-in button as <see cref="ApiKeyHosters"/>
-    /// but HIDES the "OR paste an API key" box, and keys sign-in success / Save on the captured cookie
-    /// instead of an API key. Both members are classic XFileSharing hosts running the pipeline's
-    /// web-form path: isra.cloud exposes no REST API at all, and uploady.io mints an API key only on
-    /// request (its my_account reports "No API Key Found"), so neither has a key to paste.
+    /// WebView-sign-in hosters with <b>no API key for the user to paste</b>. The dialog shows them the
+    /// same Sign-in button as <see cref="ApiKeyHosters"/> but HIDES the "OR paste an API key" box, and
+    /// keys sign-in success / Save on the captured cookie instead of a typed key. Most are classic
+    /// XFileSharing hosts on the pipeline's web-form path: isra.cloud exposes no REST API at all, and
+    /// uploady.io mints an API key only on request (its my_account reports "No API Key Found"), so
+    /// neither has a key to paste.
+    /// <para>
+    /// "No key to paste" is not the same as "no key": a pipeline may still DERIVE one behind the
+    /// sign-in and persist it (DepositFiles scrapes its upload passkey off the account's upload page,
+    /// and the sign-in handler carries it through to Save). What every member has in common is that
+    /// the only way to obtain the credential in the first place is a human in a browser.
+    /// </para>
     /// </summary>
     // "DDownload" is here rather than in ApiKeyHosters on purpose: it HAS a working REST API, but the
     // key is only obtainable from its Affiliate Dashboard (Affiliate → Settings) and can't be
@@ -84,8 +90,18 @@ public static class HosterCredentialModes
     // itself (SupportsDirectLogin). So it stores a username and password like a classic hoster and
     // never opens a sign-in window. Membership of THIS set is not "has no API key" — it is "the only
     // credential we can obtain is a cookie a human had to fetch".
+    // "DepositFiles" is here for a DIFFERENT reason from every other member, and it is the reason the
+    // set's rule is about how a credential is OBTAINED rather than what it is. This host does have a
+    // durable per-account key (its member_passkey, which the upload needs) and its login is a plain
+    // password post this app can make — but the post is captcha-gated on the host's own risk
+    // assessment: it works, repeatedly, and then the same request starts answering CaptchaRequired.
+    // A sign-in that usually needs no window and sometimes does is worse than one that always opens
+    // it: the user can't predict it, and the failure lands mid-Save. So the browser is the only
+    // sign-in path, the passkey is derived behind it (scraped off the upload page, never pasted), and
+    // the session it captures is good for a year. It is also the first member that isn't
+    // XFileSharing — membership is about the sign-in, not the pipeline family.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile", "DepositFiles"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
