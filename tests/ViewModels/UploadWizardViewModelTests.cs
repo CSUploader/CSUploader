@@ -330,8 +330,131 @@ public class UploadWizardViewModelTests : IDisposable
         }
     }
 
+
+    // ── Adding an account from the wizard checks it first ─────────────────────────────────────────
+
+    [Fact]
+    public async Task AddAccountForHoster_AFailedCheck_SavesItDisabled_AndDoesNotTickUse()
+    {
+        // Reported: the wizard's "Add account…" saved and immediately used whatever was typed. The
+        // Settings > Accounts add has always verified; this path did not, so a typo was only
+        // discovered when the upload failed.
+        FileHosterLoginDto typed = new() { FileHosterName = "Rapidgator", Username = "alice", Password = "wrong" };
+        Mock<IDialogService> dialog = DialogReturning("Rapidgator", typed);
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.CheckAsync("Rapidgator", "alice", "wrong", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        UploadWizardViewModel vm = CreateVm(dialog.Object, verifier.Object);
+        FileHosterSelectionViewModel row = new("Rapidgator", []);
+        vm.FileHosters.Add(row);
+
+        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+
+        // Kept, so it's visible and fixable in Settings — but disabled, which is what keeps it out
+        // of this picker (it lists enabled accounts only).
+        FileHosterLoginDto persisted = Assert.Single(await _loginRepo.FindAsync("Rapidgator"));
+        Assert.True(persisted.Disabled);
+
+        Assert.False(row.Use);
+        Assert.False(row.HasAccounts);
+        dialog.Verify(d => d.ShowErrorAsync(It.Is<string>(m => m.Contains("Wrong password", StringComparison.Ordinal))), Times.Once);
+    }
+
+    [Fact]
+    public async Task AddAccountForHoster_AVerifierThatThrows_IsTreatedAsAFailedCheck()
+    {
+        FileHosterLoginDto typed = new() { FileHosterName = "Rapidgator", Username = "alice", Password = "pw" };
+        Mock<IDialogService> dialog = DialogReturning("Rapidgator", typed);
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DNS failure"));
+
+        UploadWizardViewModel vm = CreateVm(dialog.Object, verifier.Object);
+        FileHosterSelectionViewModel row = new("Rapidgator", []);
+        vm.FileHosters.Add(row);
+
+        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+
+        Assert.True(Assert.Single(await _loginRepo.FindAsync("Rapidgator")).Disabled);
+        Assert.False(row.Use);
+    }
+
+    [Fact]
+    public async Task AddAccountForHoster_AGoodCheck_KeepsTheCredentialItDerived()
+    {
+        // The reason this path can't just skip verification: for FileMirage, DropMB, FileCat and
+        // Pixeldrain the check is what PRODUCES the upload credential. Saving without it stores an
+        // account that looks complete and cannot upload.
+        FileHosterLoginDto typed = new() { FileHosterName = "Rapidgator", Username = "alice", Password = "pw" };
+        Mock<IDialogService> dialog = DialogReturning("Rapidgator", typed);
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.CheckAsync("Rapidgator", "alice", "pw", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(
+                true, AccountType.Premium, "Signed in",
+                ApiKey: "DERIVED-KEY", SessionCookie: "sess-abc", StorageUsedBytes: 5, StorageQuotaBytes: 100));
+
+        UploadWizardViewModel vm = CreateVm(dialog.Object, verifier.Object);
+        FileHosterSelectionViewModel row = new("Rapidgator", []);
+        vm.FileHosters.Add(row);
+
+        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+
+        FileHosterLoginDto persisted = Assert.Single(await _loginRepo.FindAsync("Rapidgator"));
+        Assert.Equal("DERIVED-KEY", persisted.ApiKey);
+        Assert.Equal("sess-abc", persisted.SessionCookie);
+        Assert.Equal(AccountType.Premium, persisted.AccountType);
+        Assert.False(persisted.Disabled);
+
+        Assert.True(row.Use);
+        Assert.True(row.HasAccounts);
+    }
+
+
+    [Fact]
+    public async Task AddAccountForHoster_AFailedCheck_OnAnAnonymousCapableHoster_StillDoesNotTickUse()
+    {
+        // The case the row VM's own guard can't cover. For a hoster with no anonymous option,
+        // OnUseChanged already forces Use back off once the failed account is disabled (CanUse is
+        // false). Where the hoster DOES support anonymous, CanUse stays true — so ticking Use would
+        // stick, quietly switching the user to an anonymous upload they never chose after their
+        // account was rejected.
+        FileHosterLoginDto typed = new() { FileHosterName = "Catbox", Username = "alice", Password = "wrong" };
+        Mock<IDialogService> dialog = DialogReturning("Catbox", typed);
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier.Setup(v => v.CheckAsync("Catbox", "alice", "wrong", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
+
+        UploadWizardViewModel vm = CreateVm(dialog.Object, verifier.Object);
+        FileHosterSelectionViewModel row = new("Catbox", [], supportsAnonymous: true);
+        vm.FileHosters.Add(row);
+
+        Assert.True(row.CanUse);   // the guard that saves the other case does not apply here
+
+        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+
+        Assert.False(row.Use);
+        Assert.True(Assert.Single(await _loginRepo.FindAsync("Catbox")).Disabled);
+    }
+
     private UploadWizardViewModel CreateVm(IDialogService dialog) =>
         new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings());
+
+    private UploadWizardViewModel CreateVm(IDialogService dialog, IAccountVerifier verifier) =>
+        new(_packageManager, _loginRepo, dialog, Mock.Of<IAppLogger>(), new AppSettings(), null, verifier);
+
+    /// <summary>An "Add account…" that returns these credentials for the given hoster.</summary>
+    private static Mock<IDialogService> DialogReturning(string hoster, FileHosterLoginDto dto)
+    {
+        Mock<IDialogService> dialog = new();
+        dialog.Setup(d => d.ShowAddAccountDialogAsync(hoster, It.IsAny<string[]>(), It.IsAny<Func<string, Task<AccountCheckResult>>>(), It.IsAny<string?>()))
+            .ReturnsAsync(dto);
+        return dialog;
+    }
 
     [Fact]
     public void RemoveSelectedFiles_DropsSelectedRows_LeavesUnselected()

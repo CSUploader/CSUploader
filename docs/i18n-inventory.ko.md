@@ -608,6 +608,7 @@ Wizard_Validation_PickValidDir     = 유효한 디렉터리를 선택해 주십�
 Wizard_Validation_PickFile         = 파일을 하나 이상 선택해 주십시오.
 Wizard_Validation_PickHoster       = 파일 호스터를 하나 이상 선택해 주십시오.
 Wizard_Error_Format                = 오류: {0}                                              # {0} = exception.Message
+Wizard_AccountCheckFailed_Format   = {0}에 로그인할 수 없어 계정을 저장했지만 사용 중지 상태로 두었습니다: {1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = 파일 선택
 Wizard_Step0_Files_Desc            = 업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.

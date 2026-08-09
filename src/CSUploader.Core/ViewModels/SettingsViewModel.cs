@@ -870,45 +870,11 @@ public partial class SettingsViewModel(
     /// the first real upload doesn't have to re-pop the WebView. No-op for hosters whose
     /// verifier doesn't supply a cookie.
     /// </summary>
+    /// <summary>Delegates to <see cref="Upload.AccountCheckOutcome.Apply"/> — shared with the upload
+    /// wizard's add-account path, which needs the identical treatment (for several hosters the check
+    /// is what produces the upload credential).</summary>
     private static void ApplySessionCookieIfPresent(FileHosterLoginDto target, AccountCheckResult result)
-    {
-        if (result.SessionCookie is not null)
-        {
-            target.SessionCookie = result.SessionCookie;
-            target.SessionCookieExpiresUtc = result.SessionCookieExpiresUtc;
-            target.PinnedProxyId = result.PinnedProxyId;
-        }
-
-        // ApiKey is propagated separately from cookies — Ex-Load's verify path returns
-        // the API key on the result without setting cookie/pin (it clears them once the
-        // key is in hand). Apply unconditionally when present so the U/P → ApiKey
-        // upgrade lands on the DTO right after the verifier returns it.
-        if (result.ApiKey is not null)
-        {
-            target.ApiKey = result.ApiKey;
-        }
-
-        // API-key verifiers (XFileSharingApi, ExtMatrix) return the account email so we
-        // can surface it in the grid. The verifier is the canonical source — API-key
-        // hosters never expose a UsernameBox in EditAccountWindow, so any prior value is
-        // either null or a stale auto-discovery, both of which the new value supersedes.
-        if (!string.IsNullOrEmpty(result.DerivedUsername))
-        {
-            target.Username = result.DerivedUsername;
-        }
-
-        // Storage quota: only overwrite when the verifier surfaced fresh values. A null
-        // here means "this hoster doesn't report storage" — DON'T clobber the previously
-        // persisted numbers in that case.
-        if (result.StorageQuotaBytes is { } quota)
-        {
-            target.StorageQuotaBytes = quota;
-        }
-        if (result.StorageUsedBytes is { } used)
-        {
-            target.StorageUsedBytes = used;
-        }
-    }
+        => Upload.AccountCheckOutcome.Apply(target, result);
 
     /// <summary>
     /// Called by <see cref="AddAccountDialogAsync"/> after the dialog returns Save. Exposed as
@@ -1533,12 +1499,7 @@ public partial class SettingsViewModel(
     /// (and dims) the row live even on the no-reload Refresh-selected path.
     /// </summary>
     private static void AutoDisableIfFailed(FileHosterLoginDto account, AccountCheckStatus status)
-    {
-        if (status == AccountCheckStatus.Failed)
-        {
-            account.Disabled = true;
-        }
-    }
+        => Upload.AccountCheckOutcome.AutoDisableIfFailed(account, status);
 
     // ── Helpers for preserving check status across reloads ──
 

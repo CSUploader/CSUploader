@@ -616,6 +616,7 @@ Wizard_Validation_PickValidDir     = Vui lòng chọn một thư mục hợp l�
 Wizard_Validation_PickFile         = Vui lòng chọn ít nhất một tệp.
 Wizard_Validation_PickHoster       = Vui lòng chọn ít nhất một nhà lưu trữ tập tin.
 Wizard_Error_Format                = Lỗi: {0}                                              # {0} = exception.Message
+Wizard_AccountCheckFailed_Format   = Không thể đăng nhập vào {0}, nên tài khoản đã được lưu nhưng vẫn bị tắt: {1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = Chọn tệp
 Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.

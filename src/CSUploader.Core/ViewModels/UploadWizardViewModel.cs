@@ -970,6 +970,13 @@ public partial class UploadWizardViewModel : ObservableObject
             return;
         }
 
+        // Checked before it can be used, exactly as the Settings > Accounts add does. This is not a
+        // formality: for several hosters the check is the step that PRODUCES the upload credential
+        // (FileMirage's api_token, DropMB's access_token, FileCat's SESS), so an unchecked account
+        // is saved looking complete and then fails every upload — and for the rest, a typo would
+        // otherwise only surface once the transfer had already run.
+        bool verified = await VerifyNewAccountAsync(result, hoster.FileHosterName);
+
         try
         {
             await fileHosterLoginRepository.InsertAsync(result);
@@ -984,10 +991,79 @@ public partial class UploadWizardViewModel : ObservableObject
         FileHosterLoginDto[] accounts = await FindSelectableAccountsAsync(hoster.FileHosterName);
         hoster.SetAccounts(accounts);
 
-        // Auto-tick "Use" now that an account exists — saves the user a click and
+        if (!verified)
+        {
+            // Saved but disabled, so it's visible and fixable in Settings > Accounts while staying
+            // out of this picker (which lists enabled accounts only). Leaving "Use" alone matters:
+            // ticking it here would select a hoster that has nothing usable to upload with.
+            return;
+        }
+
+        // Auto-tick "Use" now that a WORKING account exists — saves the user a click and
         // matches the flow they were already in (they clicked "Add account…" because
         // they wanted to upload to this hoster).
         hoster.Use = true;
+    }
+
+    /// <summary>
+    /// Runs the verifier over a just-added account and stamps the outcome onto it, returning whether
+    /// it may be used. A hoster with no pipeline can't be checked, so it is left enabled and usable
+    /// rather than being punished for the app's own gap.
+    /// </summary>
+    private async Task<bool> VerifyNewAccountAsync(FileHosterLoginDto dto, string hosterName)
+    {
+        dto.CreatedDateTime ??= DateTime.Now;
+
+        if (_accountVerifier is null || FileHosterClient.FindByHost(hosterName, Protocol.Http, logger) is null)
+        {
+            dto.SetCheckStatus(AccountCheckStatus.Unsupported, Localizer.Instance["Settings_Accounts_Status_NoImpl"]);
+            return true;
+        }
+
+        AccountCheckStatus status;
+        string message;
+        try
+        {
+            AccountCheckResult check = await _accountVerifier.CheckAsync(
+                hosterName, dto.Username ?? string.Empty, dto.Password ?? string.Empty, dto.ApiKey, dto.SessionCookie);
+
+            if (check.IsValid)
+            {
+                dto.AccountType = check.AccountType;
+
+                // Where a derived credential lands. Without this the account has no token at all.
+                AccountCheckOutcome.Apply(dto, check);
+                status = AccountCheckStatus.Valid;
+                message = check.Message ?? Localizer.Instance["Settings_Accounts_DefaultStatus_OK"];
+            }
+            else
+            {
+                status = AccountCheckStatus.Failed;
+                message = check.Message ?? Localizer.Instance["Settings_Accounts_DefaultStatus_Failed"];
+            }
+        }
+        catch (Exception ex)
+        {
+            // A transport failure and a rejected password are the same thing to the user here: the
+            // account can't be used yet. The message says which.
+            status = AccountCheckStatus.Failed;
+            message = ex.Message;
+        }
+
+        AccountCheckOutcome.AutoDisableIfFailed(dto, status);
+        dto.MarkRefreshed(status, message, DateTime.Now);
+
+        if (status == AccountCheckStatus.Failed)
+        {
+            await dialogService.ShowErrorAsync(string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_AccountCheckFailed_Format"],
+                hosterName,
+                message));
+            return false;
+        }
+
+        return true;
     }
 
     [RelayCommand]

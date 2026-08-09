@@ -608,6 +608,7 @@ Wizard_Validation_PickValidDir     = 请选择一个有效的目录。
 Wizard_Validation_PickFile         = 请至少选择一个文件。
 Wizard_Validation_PickHoster       = 请至少选择一个文件托管商。
 Wizard_Error_Format                = 错误：{0}                                              # {0} = exception.Message
+Wizard_AccountCheckFailed_Format   = 无法登录 {0}，账户已保存但保持禁用状态：{1}    # {0} = hoster name, {1} = verifier message
 
 Wizard_Step0_Files_Title           = 选择文件
 Wizard_Step0_Files_Desc            = 选择您要上传的文件。您可以稍后添加更多文件。

@@ -1361,6 +1361,9 @@ Idagdag pa rin?</value>
   <data name="Wizard_Error_Format" xml:space="preserve">
     <value>Error: {0}</value>
   </data>
+  <data name="Wizard_AccountCheckFailed_Format" xml:space="preserve">
+    <value>Hindi makapag-sign in sa {0}, kaya na-save ang account pero naka-disable pa rin: {1}</value>
+  </data>
   <data name="Wizard_Step0_Files_Title" xml:space="preserve">
     <value>Pumili ng mga File</value>
   </data>
