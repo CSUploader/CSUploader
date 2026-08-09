@@ -257,6 +257,10 @@ public static class ServiceRegistration
         // DepositFilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DepositFilesPipeline>();
 
+        // Emload — ACCOUNT-ONLY SPA API; four cookies authenticate it and the node call pre-flights
+        // the size against the account's remaining disk. See EmloadPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EmloadPipeline>();
+
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

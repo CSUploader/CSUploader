@@ -345,6 +345,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // account by the multipart member_passkey, NOT by the cookie: without it the upload still
         // succeeds and the file belongs to nobody. See DepositFilesPipeline.cs.
         { "DepositFiles", "depositfiles.com" },
+
+        // Emload — ACCOUNT-ONLY (its node call refuses a caller with no session), no per-file cap:
+        // what limits an upload is the account's remaining storage, which the node call checks
+        // BEFORE any bytes move. ⚠ Four cookies authenticate the API (__uid/__ut/__ud/__si) and the
+        // site's own JavaScript sets them, so nothing on the wire hands them over. See
+        // EmloadPipeline.cs.
+        { "Emload", "emload.com" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
