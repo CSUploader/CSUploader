@@ -959,28 +959,28 @@ public partial class UploadWizardViewModel : ObservableObject
         // so startup loops instead of throwing. The cycle only bites during singleton ctor-graph
         // construction; this VM is `new`-constructed after the graph is built and already holds the
         // verifier, so supplying the delegate at command time is safe.
+        // The dialog does the checking, so a rejected password is corrected in place rather than
+        // costing the user everything they typed: Save shows a status and disables itself, Cancel
+        // stops the check, a failure is reported over the dialog and leaves it open, and only a
+        // successful check closes it. Null here means the account was never proved — cancelled, or
+        // abandoned after a failure — so nothing is written.
+        //
+        // Checking matters beyond catching typos: for several hosters it is the step that PRODUCES
+        // the upload credential (FileMirage's api_token, DropMB's access_token, FileCat's SESS), and
+        // the dialog stamps that onto the account it returns.
         FileHosterLoginDto? result = await dialogService.ShowAddAccountDialogAsync(
             hoster.FileHosterName,
             availableHosters,
             h => _accountVerifier!.CheckAsync(h, string.Empty, string.Empty, null),
-            Localizer.Instance["EditAccount_AddTitle"]);
+            Localizer.Instance["EditAccount_AddTitle"],
+            BuildAccountValidator(hoster.FileHosterName));
 
         if (result is null)
         {
             return;
         }
 
-        // Checked BEFORE anything is written. Credentials the host rejects are not saved at all:
-        // the user is told why and nothing changes, rather than a dead account being left behind for
-        // them to find and clean up later.
-        //
-        // The check is not a formality either — for several hosters it is the step that PRODUCES the
-        // upload credential (FileMirage's api_token, DropMB's access_token, FileCat's SESS), so an
-        // unchecked account would be stored looking complete and fail every upload.
-        if (!await VerifyNewAccountAsync(result, hoster.FileHosterName))
-        {
-            return;
-        }
+        result.CreatedDateTime ??= DateTime.Now;
 
         try
         {
@@ -1003,62 +1003,19 @@ public partial class UploadWizardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Signs in with the credentials just entered and reports whether they may be saved.
-    /// <para>
-    /// Returning false means <b>nothing is written</b> — the caller abandons the add. On success the
-    /// verifier's result is stamped onto <paramref name="dto"/> first, which for several hosters is
-    /// the only place the upload credential ever exists.
-    /// </para>
-    /// <para>
-    /// A hoster this app has no pipeline for cannot be checked at all, so it is accepted rather than
-    /// rejected for the app's own gap.
-    /// </para>
+    /// The check the Add Account dialog runs when Save is pressed, or null when this app has nothing
+    /// to check with — no verifier, or a hoster with no pipeline — in which case Save closes at once
+    /// rather than punishing the user for the app's own gap.
     /// </summary>
-    private async Task<bool> VerifyNewAccountAsync(FileHosterLoginDto dto, string hosterName)
+    private Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? BuildAccountValidator(string hosterName)
     {
         if (_accountVerifier is null || FileHosterClient.FindByHost(hosterName, Protocol.Http, logger) is null)
         {
-            dto.CreatedDateTime ??= DateTime.Now;
-            dto.SetCheckStatus(AccountCheckStatus.Unsupported, Localizer.Instance["Settings_Accounts_Status_NoImpl"]);
-            return true;
+            return null;
         }
 
-        string message;
-        try
-        {
-            AccountCheckResult check = await _accountVerifier.CheckAsync(
-                hosterName, dto.Username ?? string.Empty, dto.Password ?? string.Empty, dto.ApiKey, dto.SessionCookie);
-
-            if (check.IsValid)
-            {
-                dto.CreatedDateTime ??= DateTime.Now;
-                dto.AccountType = check.AccountType;
-
-                // Where a derived credential lands. Without this the account has no token at all.
-                AccountCheckOutcome.Apply(dto, check);
-                dto.MarkRefreshed(
-                    AccountCheckStatus.Valid,
-                    check.Message ?? Localizer.Instance["Settings_Accounts_DefaultStatus_OK"],
-                    DateTime.Now);
-                return true;
-            }
-
-            message = check.Message ?? Localizer.Instance["Settings_Accounts_DefaultStatus_Failed"];
-        }
-        catch (Exception ex)
-        {
-            // A rejected password and a transport failure both mean the same thing here — these
-            // credentials can't be used — and the message says which it was.
-            message = ex.Message;
-        }
-
-        await dialogService.ShowErrorAsync(string.Format(
-            CultureInfo.CurrentCulture,
-            Localizer.Instance["Wizard_AccountCheckFailed_Format"],
-            hosterName,
-            message));
-
-        return false;
+        return (dto, ct) => _accountVerifier.CheckAsync(
+            hosterName, dto.Username ?? string.Empty, dto.Password ?? string.Empty, dto.ApiKey, dto.SessionCookie, ct);
     }
 
     [RelayCommand]

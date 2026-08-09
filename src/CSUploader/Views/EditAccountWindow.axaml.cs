@@ -86,12 +86,28 @@ public partial class EditAccountWindow : Window
     {
     }
 
-    public EditAccountWindow(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>>? interactiveLogin = null)
+    /// <summary>
+    /// Signs in with the credentials as entered, so Save can prove them before the dialog closes.
+    /// Null when the caller can't check (no verifier, or a hoster with no pipeline), in which case
+    /// Save behaves as it always did and closes immediately.
+    /// </summary>
+    private readonly Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? _validateAccount;
+
+    /// <summary>Live only while a check is running. Its existence is what makes Cancel mean "stop
+    /// checking" rather than "close the dialog".</summary>
+    private CancellationTokenSource? _checkCts;
+
+    public EditAccountWindow(
+        FileHosterLoginDto account,
+        string[] hosters,
+        Func<string, Task<AccountCheckResult>>? interactiveLogin = null,
+        Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? validateAccount = null)
     {
         InitializeComponent();
 
         _original = account;
         _interactiveLogin = interactiveLogin;
+        _validateAccount = validateAccount;
 
         if (account.Id == 0)
         {
@@ -394,7 +410,7 @@ public partial class EditAccountWindow : Window
             return;
         }
 
-        CloseDeferred(new FileHosterLoginDto
+        FileHosterLoginDto edited = new()
         {
             Id = _original.Id,
             FileHosterName = hoster!,
@@ -415,12 +431,91 @@ public partial class EditAccountWindow : Window
             SessionCookieExpiresUtc = _sessionCookieExpiresUtc,
             PinnedProxyId = _pinnedProxyId,
             CreatedDateTime = _createdDateTime,
-        });
+        };
+
+        if (_validateAccount is null)
+        {
+            CloseDeferred(edited);
+            return;
+        }
+
+        await CheckThenCloseAsync(edited);
     }
 
-    // Cancel/Esc → null. WPF's Cancel button had no handler (IsCancel auto-closed with DialogResult=false);
-    // Avalonia's IsCancel only routes Esc to Click without closing (port rule 7), so close explicitly.
-    private void CancelButton_Click(object? sender, RoutedEventArgs e) => CloseDeferred(null);
+    /// <summary>
+    /// Proves the credentials with the host before the dialog closes, so a rejected password is
+    /// corrected here rather than costing the user everything they typed.
+    /// <para>
+    /// Save is disabled and a status line appears for the duration; Cancel means "stop checking"
+    /// while one is running. On success the verifier's result is stamped onto the account — for
+    /// several hosters that check is the only place the upload credential ever exists — and the
+    /// dialog closes with it. On failure the message is shown over this window and the dialog stays
+    /// open with the fields as they were.
+    /// </para>
+    /// </summary>
+    private async Task CheckThenCloseAsync(FileHosterLoginDto edited)
+    {
+        using CancellationTokenSource cts = new();
+        _checkCts = cts;
+        SaveButton.IsEnabled = false;
+        CheckingStatus.IsVisible = true;
+
+        AccountCheckResult? result = null;
+        string? failure = null;
+        try
+        {
+            result = await _validateAccount!(edited, cts.Token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // The user pressed Cancel mid-check: no message, just hand the dialog back.
+        }
+        catch (Exception ex)
+        {
+            failure = ex.Message;
+        }
+        finally
+        {
+            _checkCts = null;
+            CheckingStatus.IsVisible = false;
+            SaveButton.IsEnabled = true;
+        }
+
+        if (cts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (result is { IsValid: true })
+        {
+            edited.AccountType = result.AccountType;
+            AccountCheckOutcome.Apply(edited, result);
+            edited.MarkRefreshed(AccountCheckStatus.Valid, result.Message ?? string.Empty, DateTime.Now);
+            CloseDeferred(edited);
+            return;
+        }
+
+        await MessageBoxWindow.ShowErrorAsync(
+            this,
+            failure ?? result?.Message ?? Localizer.Instance["EditAccount_SignIn_FailedGeneric"],
+            Localizer.Instance["Common_Error"]);
+
+        // Deliberately still open. The user dismisses the error and edits the password in place.
+        PasswordBox.Focus();
+    }
+
+    // Cancel/Esc → null, EXCEPT while a check is running, where it means "stop checking" and leaves
+    // the dialog open — the user asked to cancel the wait, not to throw away what they typed.
+    private void CancelButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_checkCts is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+
+        CloseDeferred(null);
+    }
 
     /// <summary>
     /// Closes on the next dispatcher pass rather than inline.

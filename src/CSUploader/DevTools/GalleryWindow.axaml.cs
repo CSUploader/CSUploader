@@ -553,7 +553,7 @@ public partial class GalleryWindow : Window
 
         public Task<string?> BrowseSaveFileAsync(string? suggestedFileName = null, string? filter = null, string? defaultExt = null) => Task.FromResult<string?>(null);
 
-        public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) => Task.FromResult<FileHosterLoginDto?>(null);
+        public Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null, Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? validateAccount = null) => Task.FromResult<FileHosterLoginDto?>(null);
 
         public Task<FileHosterLoginDto?> ShowEditAccountDialogAsync(FileHosterLoginDto account, string[] hosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null) => Task.FromResult<FileHosterLoginDto?>(null);
 

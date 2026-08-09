@@ -535,6 +535,223 @@ public class EditAccountWindowTests
         }
     }
 
+    // ── Save checks the credentials before closing ────────────────────────────────────────────────
+
+    /// <summary>A classic username/password account as the Add flow seeds one.</summary>
+    private static FileHosterLoginDto AddSeed() => new() { FileHosterName = "Rapidgator", AccountType = AccountType.Free };
+
+    [AvaloniaFact]
+    public async Task Save_AGoodCheck_ClosesWithTheCredentialTheCheckDerived()
+    {
+        // For FileMirage, DropMB and FileCat the check is the only place the upload credential ever
+        // exists, so the dialog has to carry the result out with the account.
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(
+            AddSeed(),
+            Hosters,
+            interactiveLogin: null,
+            validateAccount: (_, _) => Task.FromResult(new AccountCheckResult(
+                true, AccountType.Premium, "Signed in", ApiKey: "DERIVED-KEY", SessionCookie: "sess-abc")));
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.UsernameBox.Text = "alice";
+            dlg.PasswordBox.Text = "pw";
+            Click(dlg.SaveButton);
+
+            // The check is awaited, so the close lands a turn or two later.
+            for (int i = 0; i < 20 && !dialog.IsCompleted; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+
+            FileHosterLoginDto? result = await dialog;
+            Assert.NotNull(result);
+            Assert.Equal("DERIVED-KEY", result!.ApiKey);
+            Assert.Equal("sess-abc", result.SessionCookie);
+            Assert.Equal(AccountType.Premium, result.AccountType);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Save_AFailedCheck_KeepsTheDialogOpenWithTheFieldsIntact()
+    {
+        // The point of checking here rather than after the dialog closes: a wrong password costs a
+        // correction, not everything the user typed.
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(
+            AddSeed(),
+            Hosters,
+            interactiveLogin: null,
+            validateAccount: (_, _) => Task.FromResult(new AccountCheckResult(false, AccountType.Free, "Wrong password")));
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.UsernameBox.Text = "alice";
+            dlg.PasswordBox.Text = "wrong";
+            Click(dlg.SaveButton);
+
+            for (int i = 0; i < 20; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+
+            // Still open, still holding what was typed, and Save usable again for the retry.
+            Assert.False(dialog.IsCompleted);
+            Assert.Equal("alice", dlg.UsernameBox.Text);
+            Assert.Equal("wrong", dlg.PasswordBox.Text);
+            Assert.True(dlg.SaveButton.IsEnabled);
+            Assert.False(dlg.CheckingStatus.IsVisible);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Save_WhileChecking_ShowsStatusAndDisablesSave()
+    {
+        TaskCompletionSource<AccountCheckResult> gate = new();
+
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(
+            AddSeed(), Hosters, interactiveLogin: null, validateAccount: (_, _) => gate.Task);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            _ = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(dlg.CheckingStatus.IsVisible);
+
+            dlg.UsernameBox.Text = "alice";
+            dlg.PasswordBox.Text = "pw";
+            Click(dlg.SaveButton);
+            Dispatcher.UIThread.RunJobs();
+
+            // While the check is in flight the user can see it is happening and can't start another.
+            Assert.True(dlg.CheckingStatus.IsVisible);
+            Assert.False(dlg.SaveButton.IsEnabled);
+
+            gate.SetResult(new AccountCheckResult(false, AccountType.Free, "nope"));
+            for (int i = 0; i < 20; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+
+            Assert.False(dlg.CheckingStatus.IsVisible);
+            Assert.True(dlg.SaveButton.IsEnabled);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Cancel_WhileChecking_StopsTheCheckAndLeavesTheDialogOpen()
+    {
+        // Cancel means "stop waiting", not "throw away what I typed" — the dialog stays up so the
+        // user can edit and try again, and the check is actually cancelled rather than abandoned.
+        TaskCompletionSource<AccountCheckResult> never = new();
+        CancellationToken observed = default;
+
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(
+            AddSeed(),
+            Hosters,
+            interactiveLogin: null,
+            validateAccount: (_, ct) =>
+            {
+                observed = ct;
+                return never.Task.WaitAsync(ct);
+            });
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.UsernameBox.Text = "alice";
+            dlg.PasswordBox.Text = "pw";
+            Click(dlg.SaveButton);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(dlg.CheckingStatus.IsVisible);
+
+            Click(dlg.CancelButton);
+            for (int i = 0; i < 20; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+
+            Assert.True(observed.IsCancellationRequested);
+            Assert.False(dialog.IsCompleted);          // cancelling the CHECK must not close the dialog
+            Assert.True(dlg.SaveButton.IsEnabled);
+            Assert.False(dlg.CheckingStatus.IsVisible);
+
+            // And with no check running, Cancel goes back to meaning "close".
+            Click(dlg.CancelButton);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(dialog.IsCompleted);
+            Assert.Null(await dialog);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Save_WithNoValidator_ClosesImmediately()
+    {
+        // A hoster this app can't check must stay addable.
+        var owner = new Window { Width = 200, Height = 200 };
+        var dlg = new EditAccountWindow(AddSeed(), Hosters);
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+            Task<FileHosterLoginDto?> dialog = dlg.ShowDialog<FileHosterLoginDto?>(owner);
+            Dispatcher.UIThread.RunJobs();
+
+            dlg.UsernameBox.Text = "alice";
+            dlg.PasswordBox.Text = "pw";
+            Click(dlg.SaveButton);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(dialog.IsCompleted);
+            Assert.Equal("alice", (await dialog)!.Username);
+        }
+        finally
+        {
+            dlg.Close();
+            owner.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void Save_LeavesAvaloniaWithNothingToWarnAbout()
     {

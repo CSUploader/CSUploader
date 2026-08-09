@@ -206,10 +206,15 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
     // window's XAML default — which IS the edit-mode title. ShowAddAccountDialogAsync may be invoked from
     // inside the modal wizard (UploadWizardViewModel, Phase 6) — the owner resolver's active-window rule
     // parents it correctly, so nothing here hardcodes MainWindow.
-    public async Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null)
+    public async Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(
+        string hosterName,
+        string[] availableHosters,
+        Func<string, Task<AccountCheckResult>> interactiveLogin,
+        string? title = null,
+        Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? validateAccount = null)
     {
         FileHosterLoginDto seed = new() { FileHosterName = hosterName, AccountType = AccountType.Free };
-        EditAccountWindow dialog = new(seed, availableHosters, interactiveLogin)
+        EditAccountWindow dialog = new(seed, availableHosters, interactiveLogin, validateAccount)
         {
             Title = title ?? Localizer.Instance["EditAccount_AddTitle"],
         };

@@ -63,7 +63,16 @@ public interface IDialogService
     /// <paramref name="interactiveLogin"/>. Returns the new account when the user clicks
     /// Save, or null if the dialog was cancelled.
     /// </summary>
-    Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(string hosterName, string[] availableHosters, Func<string, Task<AccountCheckResult>> interactiveLogin, string? title = null);
+    /// <param name="validateAccount">Signs in with the credentials as entered, so Save can prove them
+    /// BEFORE the dialog closes: a rejected password is corrected in place instead of costing the user
+    /// everything they typed, and the result it returns carries the derived credential for the hosters
+    /// whose check produces one. Null when the caller can't check, and Save then closes immediately.</param>
+    Task<FileHosterLoginDto?> ShowAddAccountDialogAsync(
+        string hosterName,
+        string[] availableHosters,
+        Func<string, Task<AccountCheckResult>> interactiveLogin,
+        string? title = null,
+        Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>? validateAccount = null);
 
     /// <summary>
     /// Opens the proxy editor dialog seeded with <paramref name="seed"/>. Pass a fresh

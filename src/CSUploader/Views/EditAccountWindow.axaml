@@ -151,6 +151,14 @@
       <CheckBox Grid.Row="6" Grid.Column="1" x:Name="EnabledCheck" Content="{loc:Loc EditAccount_AccountEnabled}"
                 FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
 
+      <!-- Shown only while Save is verifying the credentials with the host. It sits on its own row so
+           appearing can't shift the fields or the buttons — the window is a fixed size. -->
+      <TextBlock Grid.Row="7" Grid.Column="1" x:Name="CheckingStatus"
+                 Text="{loc:Loc Settings_Accounts_Status_Verifying}"
+                 FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 IsVisible="False" />
+
       <StackPanel Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
         <Button x:Name="SaveButton" Content="{loc:Loc EditAccount_BtnSave}" Classes="save" Click="SaveButton_Click" Margin="0,0,8,0" />
