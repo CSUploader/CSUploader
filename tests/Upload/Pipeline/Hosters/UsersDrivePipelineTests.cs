@@ -109,6 +109,39 @@ public class UsersDrivePipelineTests
         Assert.Equal("usersdrive.com", FileHosterClient.FileHosters["UsersDrive"]);
     }
 
+
+    [Fact]
+    public void UsersDrive_AnAccountDoublesTheCap_AndTheTrafficFigureIsNotIt()
+    {
+        // Both numbers are the host's own words on the upload form it serves that session: 5250 Mb to
+        // a guest, 10500 Mb signed in.
+        UsersDrivePipeline pipeline = new();
+
+        Assert.Equal(5250L * 1024 * 1024, pipeline.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = true }));
+        Assert.Equal(10500L * 1024 * 1024, pipeline.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = false }));
+
+        // The account page's prominent figure is "Traffic available today: 75000 Mb" — a daily
+        // bandwidth allowance. Clicknupload set the identical trap, so pin that it never becomes a
+        // per-file cap.
+        Assert.NotEqual(75000L * 1024 * 1024, pipeline.MaxFileSizeFor(new FileHosterLoginDto { IsAnonymous = false }));
+    }
+
+    [Fact]
+    public void UsersDrive_SignsInWithoutABrowser_OnTheWebFormPath()
+    {
+        // It HAS a working REST API, but no page anywhere prints a key, so the account can only ship
+        // on the web-form path — the same call DDownload needed.
+        UsersDrivePipeline pipeline = new();
+
+        Assert.True(pipeline.UsesWebFormUploadForTests);
+        Assert.True(pipeline.SupportsDirectLoginForTests);
+
+        // Its LOGIN form has no captcha (its registration form does, but this app never registers),
+        // so credentials go in the app's own dialog and no sign-in window opens.
+        Assert.Equal(HosterCredentialMode.UsernamePassword, HosterCredentialModes.GetMode("UsersDrive"));
+        Assert.False(HosterCredentialModes.IsWebViewSignInHoster("UsersDrive"));
+    }
+
     private static async Task<List<UploadEvent>> DrainAsync(IAsyncEnumerable<UploadEvent> stream)
     {
         List<UploadEvent> events = [];

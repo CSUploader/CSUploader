@@ -56,14 +56,52 @@ public sealed class UsersDrivePipeline : XFileSharingApiPipeline
     public override bool SupportsAnonymousUpload => true;
 
     /// <summary>
+    /// It has a working REST API — <c>/api/upload/server</c> and <c>/api/account/info</c> both answer
+    /// the family's <c>{"msg":"Invalid key"}</c> — but <b>no page ever prints a key</b>: the account
+    /// area's nav is check_files / my_files / my_reports / payments / make_money / my_referrals /
+    /// news / upload_form, and none of them mentions one. So the API is unusable as a first-run
+    /// credential and the account ships on the web-form path, exactly as DDownload did.
+    /// </summary>
+    protected override bool UsesWebFormUpload => true;
+
+    /// <summary>
+    /// Its <b>login</b> page is a plain <c>login</c>/<c>password</c> form with no captcha (checked
+    /// live), so an account is typed into the app's own dialog and no browser window opens.
+    /// <para>
+    /// ⚠ Not to be confused with its <b>registration</b> page, which a capture shows posting a
+    /// <c>g-recaptcha-response</c>. This app never registers, so that captcha is irrelevant — but a
+    /// glance at the wrong form would wrongly condemn the host to the WebView path.
+    /// </para>
+    /// </summary>
+    protected override bool SupportsDirectLogin => true;
+
+    /// <summary>
     /// 5250 MB, the figure the upload page states itself ("Max file size is 5250 Mb"). Read as binary
     /// — XFileSharing's limits are 1024-based, and 5250 MB is the kind of odd figure that comes from a
     /// per-host config rather than a marketing round number.
     /// </summary>
     private const long AnonymousMaxFileSizeBytes = 5250L * 1024 * 1024;
 
-    /// <summary>Guest cap; the account path keeps the family default (no account has been tested here,
-    /// so nothing stronger is claimed for it).</summary>
+    /// <summary>
+    /// <b>10500 MB — an account doubles the guest cap</b>, and this is the host's own wording on the
+    /// signed-in <c>?op=upload_form</c> page ("Max file size is 10500 Mb"), from a capture of a real
+    /// registered session.
+    /// <para>
+    /// ⚠ <b>The account page's prominent "75000 Mb" is NOT this.</b> It sits under "Traffic available
+    /// today" — a daily bandwidth allowance, not a per-file limit. Clicknupload set the identical trap
+    /// (its storage figure's neighbour is bandwidth), so read the label, not the nearest number.
+    /// </para>
+    /// </summary>
+    private const long RegisteredMaxFileSizeBytes = 10500L * 1024 * 1024;
+
+    /// <summary>Guest 5250 MB, registered 10500 MB — both quoted by the host on the upload form it
+    /// serves to that session.</summary>
     public override long? MaxFileSizeFor(FileHosterLoginDto credentials)
-        => credentials.IsAnonymous ? AnonymousMaxFileSizeBytes : base.MaxFileSizeFor(credentials);
+        => credentials.IsAnonymous ? AnonymousMaxFileSizeBytes : RegisteredMaxFileSizeBytes;
+
+    /// <summary>Test seams — both flags decide which auth path this host takes, and neither is
+    /// observable from outside the family otherwise.</summary>
+    internal bool UsesWebFormUploadForTests => UsesWebFormUpload;
+
+    internal bool SupportsDirectLoginForTests => SupportsDirectLogin;
 }
