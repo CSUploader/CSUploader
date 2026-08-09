@@ -422,6 +422,7 @@ KrakenFiles, MegaUp, MixDrop, SwissTransfer, UserDrive.
 | **Swisstransfer** | Google reCAPTCHA enforced on **every** anonymous upload call (not a login) — harvesting a per-upload token headlessly is unproven. Protocol otherwise fine (50 GB). Deprioritize. |
 | **iCloud Drive** | No public API/OAuth; only a reverse-engineered private API behind SRP + mandatory HSA2 2FA. Not viable. |
 | **Emload** | Cloudflare 403 to all fetches — may be managed (Blocked) or passive; needs a WebView probe. Possibly non-stock XFS. |
+| **CloudGhost** (www.cloudghost.net) | ❌ **Uploads nothing, account or not — do not re-attempt.** User-tested 2026-08-09 with a **registered free account**: it still would not take a file, which is the only test that settles this (a rendered form never has — cf. DropGalaxy, Uploady, Clicknupload). That verdict stands on its own; the page checks below are only corroboration, and say nothing about whether bytes would be accepted. It is another **XFileSharing** fork (`?op=upload_form`, `login.html`, `register.html`, `?op=payments`) on `www.` — the apex 302s — and its **`?op=api_get_limits` does not answer the family's XML at all**: no `<ServerURL>`, just the homepage HTML at 200. So the keyless-limits route that unlocked UpZur and BtaFile — the two hosts here that render no upload form and take anonymous uploads anyway — is **not** available on this one, and there is no second seam left to try. |
 
 ---
 
