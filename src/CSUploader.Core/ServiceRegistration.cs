@@ -239,6 +239,10 @@ public static class ServiceRegistration
         // Hostize — ANONYMOUS, 20 GB, presigned S3 multipart (the storage.to / VikingFile shape).
         // ⚠ Free links live 24 HOURS. See HostizePipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.HostizePipeline>();
+
+        // FileCat — ACCOUNT-ONLY, a small JSON API on api.filecat.net: signin -> upldreq -> one
+        // multipart POST to the node it names. 2000 MiB per file. See FileCatPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FileCatPipeline>();
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

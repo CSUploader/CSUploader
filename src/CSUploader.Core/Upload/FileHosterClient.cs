@@ -323,6 +323,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // route is Pro-only (401 "Missing API key"); the site's own keyless route is /api/upload/*.
         // ⚠ Free links expire after 24 HOURS. See HostizePipeline.cs.
         { "Hostize", "www.hostize.com" },
+
+        // FileCat — ACCOUNT-ONLY (anonymous upldreq answers 403), 2000 MiB per file, 2 GiB storage.
+        // ⚠ Its whole API lives on api.filecat.net — nothing on the apex reveals it. ⚠ A refusal
+        // arrives inside a 200 with state:"rejected". See FileCatPipeline.cs.
+        { "FileCat", "filecat.net" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not
