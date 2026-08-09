@@ -328,8 +328,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
             });
         };
 
-        // Restore the persisted theme before the user sees the UI to avoid a light->dark
-        // flash. Suppress the change handler's auto-save while we apply the loaded value.
+        // Restore the persisted theme onto the VM property the menu binds to. This does NOT prevent a
+        // startup flash and never could: it runs from MainWindow.Opened, i.e. once the window is
+        // already on screen, and behind the database init and log hydration above. The head applies
+        // the same setting before the first window is built (StartupTheme.ReadPersistedDarkMode), so
+        // by the time this assigns, it is re-applying a value that is already on screen.
+        // Suppress the change handler's auto-save while we apply the loaded value.
         SettingRepository settingRepo = _services.GetRequiredService<SettingRepository>();
         SettingDto? darkSetting = await settingRepo.FindByKeyAsync(SettingKey.IsDarkMode);
         if (darkSetting is not null)

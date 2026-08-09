@@ -3,8 +3,10 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              x:Class="CSUploader.App"
              RequestedThemeVariant="Light">
-  <!-- RequestedThemeVariant=Light is only the pre-hydration default; after startup the ONLY writer
-       is AvaloniaThemeApplier (design prep item 5). The startup light-flash is intentional WPF parity. -->
+  <!-- RequestedThemeVariant=Light is the app's default theme and the value a first run starts on.
+       AvaloniaThemeApplier is the ONLY writer after this (design prep item 5), and App.axaml.cs calls
+       it with the SAVED preference before the first window is built — so a dark-theme user's shell is
+       already dark when it first paints, rather than flashing light. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>

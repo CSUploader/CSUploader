@@ -7,6 +7,7 @@ using CSUploader.Lib;
 using CSUploader.Services;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 #if AVA_BRIDGE
 using AvaDevBridge;
@@ -107,9 +108,24 @@ public partial class App : Application
 #endif
 
             // Register the global Window.Loaded class handler so every window picks up the dark title bar
-            // automatically (Win10 fallback; Win11 auto-recolors). MainViewModel.InitializeAsync sets the
-            // initial IsDark via IThemeApplier.ApplyTheme once the persisted setting is read.
+            // automatically (Win10 fallback; Win11 auto-recolors).
             Lib.UI.AvaloniaImmersiveDarkMode.RegisterGlobalHandler();
+
+            // Restore the saved theme BEFORE the first window exists, so a dark-theme user never sees the
+            // shell paint light and flip. MainViewModel.InitializeAsync restores the same setting, but it
+            // runs from MainWindow.Opened — after the window is on screen, and behind a database init and
+            // a log hydration — so it could never prevent the flash its own comment describes. That call
+            // stays: it owns the IsDarkMode property the menu binds to, and re-applying the value it
+            // already has is a no-op.
+            //
+            // Order matters twice over: this must also precede the window's construction, because
+            // ApplyTheme sets the cached dark-chrome preference the global Loaded handler reads, and the
+            // title bar is the one part that can't be re-styled without a repaint anyone would notice.
+            if (StartupTheme.ReadPersistedDarkMode(
+                    _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) is { } savedDark)
+            {
+                _serviceProvider.GetRequiredService<IThemeApplier>().ApplyTheme(savedDark);
+            }
 
             Views.MainWindow mainWindow = new(
                 _serviceProvider.GetRequiredService<AppSettings>(),
