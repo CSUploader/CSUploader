@@ -261,6 +261,12 @@ public static class ServiceRegistration
         // the size against the account's remaining disk. See EmloadPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.EmloadPipeline>();
 
+        // FileStore — ACCOUNT-ONLY XFS whose APEX is Cloudflare-challenged to this client while its
+        // upload nodes are not; the sign-in browser fetches the form and hands back both the node and
+        // the session. Takes the auth service for that. See FileStorePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline>(sp =>
+            new Upload.Pipeline.Hosters.FileStorePipeline(sp.GetRequiredService<IInteractiveAuthService>()));
+
         // ShareMods DISABLED 2026-08-02, the day it was written — not because the upload failed (two
         // anonymous uploads were verified with real bytes) but because Cloudflare began answering
         // every .NET request with a managed challenge and had not relented after a cooldown, while

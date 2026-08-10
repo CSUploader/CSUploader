@@ -352,6 +352,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // site's own JavaScript sets them, so nothing on the wire hands them over. See
         // EmloadPipeline.cs.
         { "Emload", "emload.com" },
+
+        // FileStore — ACCOUNT-ONLY, 250 MB. ⚠ Its apex (and www.) answers this client a Cloudflare
+        // INTERACTIVE challenge on every route, while srvN.filestore.me is plain Apache — so the
+        // sign-in browser captures the node AND the session (sess_id IS the xfss cookie here) and the
+        // app then talks only to the node. See FileStorePipeline.cs.
+        { "FileStore", "filestore.me" },
         { "Easybytez", "easybytez.org" },
         { "Filedot", "filedot.to" },
         // terabytez.org — XFileSharing, ACCOUNT-only (anonymous classic post → 500 "Uploads not

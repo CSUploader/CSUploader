@@ -101,7 +101,7 @@ public static class HosterCredentialModes
     // the session it captures is good for a year. It is also the first member that isn't
     // XFileSharing — membership is about the sign-in, not the pipeline family.
     private static readonly HashSet<string> SessionCookieHosters =
-        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile", "DepositFiles"];
+        [with(StringComparer.OrdinalIgnoreCase), "Isracloud", "Uploady", "Clicknupload", "DDownload", "Filestank", "Filedot", "TeraBytez", "EliteFile", "DepositFiles", "FileStore"];
 
     /// <summary>Classifies a hoster into its <see cref="HosterCredentialMode"/>. Null / unknown
     /// hosters fall back to classic <see cref="HosterCredentialMode.UsernamePassword"/>.</summary>
