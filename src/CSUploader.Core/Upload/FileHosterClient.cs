@@ -353,6 +353,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // EmloadPipeline.cs.
         { "Emload", "emload.com" },
 
+        // kshared — ACCOUNT-ONLY, no published per-file cap (its node pre-flight took 100 GB without
+        // complaint). ⚠ Its sign-in returns THREE tokens and each goes somewhere different, and two of
+        // its error reasons name the wrong problem — "sessionExpired" for a wrong Bearer and "disk"
+        // for a wrong ut. See KsharedPipeline.cs.
+        { "kshared", "kshared.com" },
+
         // FileStore — ACCOUNT-ONLY, 250 MB. ⚠ Its apex (and www.) answers this client a Cloudflare
         // INTERACTIVE challenge on every route, while srvN.filestore.me is plain Apache — so the
         // sign-in browser captures the node AND the session (sess_id IS the xfss cookie here) and the
