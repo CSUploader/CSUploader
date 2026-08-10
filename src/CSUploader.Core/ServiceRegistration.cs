@@ -265,6 +265,10 @@ public static class ServiceRegistration
         // each used somewhere different. See KsharedPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.KsharedPipeline>();
 
+        // PreFiles — stock XFS web form, ACCOUNT-ONLY, 512 MB. Rewritten login routes; everything
+        // else is the family default. See PrefilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PrefilesPipeline>();
+
         // FileStore — ACCOUNT-ONLY XFS whose APEX is Cloudflare-challenged to this client while its
         // upload nodes are not; the sign-in browser fetches the form and hands back both the node and
         // the session. Takes the auth service for that. See FileStorePipeline.cs.

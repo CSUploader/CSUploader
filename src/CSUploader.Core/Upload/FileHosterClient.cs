@@ -359,6 +359,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // for a wrong ut. See KsharedPipeline.cs.
         { "kshared", "kshared.com" },
 
+        // PreFiles — stock XFileSharing, ACCOUNT-ONLY, 512 MB. ⚠ Its ?op=api_get_limits answers a
+        // SIGNED-OUT caller with a node and the cap, which on UpZur and BtaFile meant anonymous was
+        // open — here the node refuses the guest field set outright. See PrefilesPipeline.cs.
+        { "PreFiles", "prefiles.com" },
+
         // FileStore — ACCOUNT-ONLY, 250 MB. ⚠ Its apex (and www.) answers this client a Cloudflare
         // INTERACTIVE challenge on every route, while srvN.filestore.me is plain Apache — so the
         // sign-in browser captures the node AND the session (sess_id IS the xfss cookie here) and the
