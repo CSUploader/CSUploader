@@ -645,7 +645,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
 
             if (uploadResponse is not null)
             {
-                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(NormalizeUploadResponse(uploadResponse));
                 if (AuthExpired)
                 {
                     await ClearApiKeyAsync(ctx.Credentials, ct).ConfigureAwait(false);
@@ -829,7 +829,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
                 yield break;
             }
 
-            (string? url, string? error, bool _) = ParseUploadResponse(response!);
+            (string? url, string? error, bool _) = ParseUploadResponse(NormalizeUploadResponse(response!));
             if (url is not null)
             {
                 yield return new TransferCompleted(url);
@@ -1356,7 +1356,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
 
             if (uploadResponse is not null)
             {
-                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(uploadResponse);
+                (string? Url, string? Error, bool AuthExpired) = ParseUploadResponse(NormalizeUploadResponse(uploadResponse));
                 if (AuthExpired)
                 {
                     await ClearSessionCookieAsync(ctx.Credentials, ct).ConfigureAwait(false);
@@ -2235,7 +2235,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
             return await _uploadOverride(
                 ctx.FilePath,
                 uploadUrl,
-                BuildClassicExtraFields(sessId),
+                BuildClassicExtraFields(ctx, sessId),
                 BrowserClassicHeaders(),
                 ctx.SpeedLimitProvider);
         }
@@ -2265,10 +2265,31 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "file_0",
-            extraFields: BuildClassicExtraFields(sessId),
+            extraFields: BuildClassicExtraFields(ctx, sessId),
             headers: BrowserClassicHeaders(),
             getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
+
+    /// <summary>
+    /// Attempt-aware form of <see cref="BuildClassicExtraFields(string)"/>, and the one the upload
+    /// actually calls. Default: defers to the <c>sessId</c>-only overload, so every existing fork is
+    /// unaffected.
+    /// <para>
+    /// Exists because a pipeline is a SINGLETON. A fork whose field set carries values scraped from
+    /// the upload page — subyshare.com posts the account's <c>usr_id</c> and the node's
+    /// <c>srv_tmp_url</c> — has nowhere to put them between
+    /// <see cref="ResolveWebFormUploadServerAsync"/> and here except instance state, and two
+    /// concurrent uploads would then overwrite each other's: the wrong <c>usr_id</c> files someone
+    /// else's upload under this account, and XFileSharing does not complain about a field it merely
+    /// disagrees with. Keying that state by <see cref="AttemptContext.AttemptId"/> is what makes it
+    /// safe, and this overload is what supplies the id.
+    /// </para>
+    /// </summary>
+    protected virtual Dictionary<string, string> BuildClassicExtraFields(AttemptContext ctx, string sessId)
+    {
+        _ = ctx;
+        return BuildClassicExtraFields(sessId);
+    }
 
     /// <summary>
     /// Field set the browser posts alongside the file part for a classic logged-in upload.
@@ -2573,6 +2594,20 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
                 ? session
                 : CookieName + "=" + session,
         };
+
+    /// <summary>
+    /// Last chance to turn a fork's upload reply into the family's <c>[{file_code, file_status}]</c>
+    /// envelope before <c>ParseUploadResponse</c> reads it. Default: unchanged.
+    /// <para>
+    /// Exists because the envelope varies while the MEANING does not. Older XFileSharing builds answer
+    /// upload.cgi with a self-submitting HTML form carrying <c>fn</c>/<c>st</c> textareas rather than
+    /// JSON (subyshare.com is one), and the chunked path already synthesises the same shape after its
+    /// finalise call. Translating here rather than exposing the parser keeps ONE place that knows what
+    /// "success" means — including that <c>file_code:"undef"</c> is a discarded upload, which is
+    /// exactly the trap a fork-specific parser would be written without.
+    /// </para>
+    /// </summary>
+    protected virtual HttpResponseSnapshot NormalizeUploadResponse(HttpResponseSnapshot response) => response;
 
     private (string? Url, string? Error, bool AuthExpired) ParseUploadResponse(HttpResponseSnapshot response)
     {

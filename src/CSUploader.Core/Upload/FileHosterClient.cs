@@ -364,6 +364,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // open — here the node refuses the guest field set outright. See PrefilesPipeline.cs.
         { "PreFiles", "prefiles.com" },
 
+        // SubyShare — ACCOUNT-ONLY, 5 GB, and a FREE account uploads (the candidate list had it down
+        // as premium-only, which its own upload page disproves). ⚠ An older XFileSharing: the form
+        // action arrives half-built and the upload answers in HTML, not JSON. See SubysharePipeline.cs.
+        { "SubyShare", "subyshare.com" },
+
         // FileStore — ACCOUNT-ONLY, 250 MB. ⚠ Its apex (and www.) answers this client a Cloudflare
         // INTERACTIVE challenge on every route, while srvN.filestore.me is plain Apache — so the
         // sign-in browser captures the node AND the session (sess_id IS the xfss cookie here) and the

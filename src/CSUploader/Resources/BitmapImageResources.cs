@@ -128,6 +128,7 @@ internal static class BitmapImageResources
         ("FileHosterEmloadImage", "FileHosters/filehoster_emload.png"),
         ("FileHosterKsharedImage", "FileHosters/filehoster_kshared.png"),
         ("FileHosterPrefilesImage", "FileHosters/filehoster_prefiles.png"),
+        ("FileHosterSubyshareImage", "FileHosters/filehoster_subyshare.png"),
         ("FileHosterFilestoreImage", "FileHosters/filehoster_filestore.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTerabytezImage", "FileHosters/filehoster_terabytez.png"),

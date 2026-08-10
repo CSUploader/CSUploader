@@ -269,6 +269,11 @@ public static class ServiceRegistration
         // else is the family default. See PrefilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PrefilesPipeline>();
 
+        // SubyShare — ACCOUNT-ONLY XFS of an older vintage, 5 GB, free accounts included. Its form
+        // action is half-built (the page's script appends the upload id), its field set carries the
+        // account's usr_id, and its reply is HTML rather than JSON. See SubysharePipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.SubysharePipeline>();
+
         // FileStore — ACCOUNT-ONLY XFS whose APEX is Cloudflare-challenged to this client while its
         // upload nodes are not; the sign-in browser fetches the form and hands back both the node and
         // the session. Takes the auth service for that. See FileStorePipeline.cs.
