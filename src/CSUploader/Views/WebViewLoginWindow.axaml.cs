@@ -481,16 +481,50 @@ public partial class WebViewLoginWindow : Window
                 }
             }
 
+            // The identity cookie is read here too, NOT only on the cookie path. This used to pass null
+            // unconditionally, which made UsernameCookieName silently dead config for every probe hoster:
+            // FileStore asked for XFS's `login` cookie, got nothing, and its accounts saved nameless — then
+            // displayed as "https:**", DisplayName's masked-key fallback chewing on a node URL.
+            string? username = await TryReadUsernameCookieAsync();
+
             if (_torndown)
             {
                 return; // window torn down during the (awaited) cookie-jar read — don't Close a dead window
             }
 
-            Close(new InteractiveAuthResult(cookieHeader ?? string.Empty, null, null, value));
+            Close(new InteractiveAuthResult(cookieHeader ?? string.Empty, username, null, value));
         }
         catch (Exception ex)
         {
             _vm.Status = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"], ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// The value of the spec's <c>UsernameCookieName</c>, or null when the spec asked for none, the
+    /// cookie isn't in the jar, or the read failed. Best-effort by design: a missing name costs a
+    /// label, and must never cost the sign-in the user just completed.
+    /// </summary>
+    private async Task<string?> TryReadUsernameCookieAsync()
+    {
+        if (_usernameCookieName is null || _core is null || _torndown)
+        {
+            return null;
+        }
+
+        try
+        {
+            IReadOnlyList<CoreWebView2Cookie> cookies = await _core.CookieManager.GetCookiesAsync(_loginUrl);
+            return WebViewLoginCapture.SelectCookies(
+                cookies.Select(c => (c.Name, c.Value)),
+                _cookieName,
+                _usernameCookieName,
+                additionalCookieNames: null,
+                cookieValueValidator: null).UsernameValue;
+        }
+        catch
+        {
+            return null;
         }
     }
 }

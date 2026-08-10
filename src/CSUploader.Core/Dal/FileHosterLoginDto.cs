@@ -124,7 +124,13 @@ public class FileHosterLoginDto : INotifyPropertyChanged
                 return Username;
             }
 
-            if (!string.IsNullOrEmpty(ApiKey))
+            // A URL in this slot is not a key and must not be masked into a label: FileStore stores its
+            // captured upload NODE here, and six characters of one is "https:" for every account it
+            // owns — a name that distinguishes nothing and reads like a bug. Falling through to empty
+            // shows a blank name beside the hoster, which is at least honest about knowing none.
+            if (!string.IsNullOrEmpty(ApiKey)
+                && !ApiKey.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                && !ApiKey.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 return string.Concat(ApiKey.AsSpan(0, Math.Min(6, ApiKey.Length)), "**");
             }

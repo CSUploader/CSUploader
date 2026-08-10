@@ -478,16 +478,49 @@ public partial class CefGlueLoginWindow : Window
                 }
             }
 
+            // The identity cookie is read here too, NOT only on the cookie path. This used to pass null
+            // unconditionally, which made UsernameCookieName silently dead config for every probe hoster —
+            // see the same fix in WebViewLoginWindow, and FileStore's accounts saving nameless because of it.
+            string? username = await TryReadUsernameCookieAsync();
+
             if (_torndown)
             {
                 return;
             }
 
-            Close(new InteractiveAuthResult(cookieHeader ?? string.Empty, null, null, value));
+            Close(new InteractiveAuthResult(cookieHeader ?? string.Empty, username, null, value));
         }
         catch (Exception ex)
         {
             _vm.Status = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["WebViewLogin_Status_CookieReadFailed_Format"], ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// The value of the spec's <c>UsernameCookieName</c>, or null when the spec asked for none, the
+    /// cookie isn't in the jar, or the read failed. Best-effort by design: a missing name costs a
+    /// label, and must never cost the sign-in the user just completed.
+    /// </summary>
+    private async Task<string?> TryReadUsernameCookieAsync()
+    {
+        if (_usernameCookieName is null || _torndown)
+        {
+            return null;
+        }
+
+        try
+        {
+            IReadOnlyList<CefCookie> cookies = await VisitUrlCookiesAsync(_loginUrl);
+            return WebViewLoginCapture.SelectCookies(
+                cookies.Select(c => (c.Name, c.Value)),
+                _cookieName,
+                _usernameCookieName,
+                additionalCookieNames: null,
+                cookieValueValidator: null).UsernameValue;
+        }
+        catch
+        {
+            return null;
         }
     }
 

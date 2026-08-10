@@ -139,6 +139,36 @@ public class FileHosterLoginDtoTests
     }
 
     [Fact]
+    public void DisplayName_AnApiKeyThatIsAUrl_IsNotMaskedIntoALabel()
+    {
+        // Reported from the app: a FileStore account showed as "https:**". That slot holds its
+        // captured upload NODE, and six characters of a URL is "https:" for every account on the
+        // host — a name that distinguishes nothing and reads like a bug. Empty is at least honest
+        // about knowing no name.
+        FileHosterLoginDto dto = new()
+        {
+            Username = null,
+            ApiKey = "https://srv9.filestore.me/cgi-bin/upload.cgi?upload_type=file&utype=reg",
+        };
+
+        Assert.Equal(string.Empty, dto.DisplayName);
+    }
+
+    [Theory]
+    [InlineData("htt9sk20xyz")]
+    [InlineData("http7a9x2b")]     // a real key may begin with those four letters
+    [InlineData("httpsecret1")]
+    public void DisplayName_AKeyThatMerelyStartsLikeAScheme_IsStillMasked(string key)
+    {
+        // The guard keys on an actual URL SCHEME ("http://" / "https://"), not on the letters — a key
+        // beginning "http" is still a key, and still the only thing telling two key-only accounts
+        // apart. Keying on the letters alone would silently blank those accounts' names.
+        FileHosterLoginDto dto = new() { Username = null, ApiKey = key };
+
+        Assert.Equal(string.Concat(key.AsSpan(0, Math.Min(6, key.Length)), "**"), dto.DisplayName);
+    }
+
+    [Fact]
     public void Username_Setter_AlsoNotifiesDisplayName()
     {
         // The account pickers bind DisplayName; a live refresh that fills Username in place must
