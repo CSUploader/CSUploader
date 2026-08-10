@@ -256,7 +256,7 @@ Filenext (filenext.com), Filerio (filerio.in), Indishare (indishare.org), Prefil
 
 ### A4 · XFS but with an upload-time reCAPTCHA (bumped to Medium)
 
-- **Jumploads** (jumploads.com) — reCAPTCHA on `upload_form`; use the account/session (`xfss`) path to bypass the form captcha. 10 GB max file.
+- ~~**Jumploads**~~ (jumploads.com) — ❌ **REJECTED 2026-08-10: the free tier's disk allowance is FORTY-NINE BYTES**, measured to the byte on a brand-new empty account (49 accepted, 50 refused). Every row of this entry was also wrong: it is **not XFileSharing** and has no `xfss` session or `upload_form` reCAPTCHA, and the "10 GB max file" is marketing. ⚠ **It runs Emload's engine** — the one this project ships — identical down to the details: `POST /app/user/signin` with `{em, passw, robo:"__", ___uctmp}` → `{kind:"userSigned", uid, ut, ud, si}`, the same four-cookie auth (`__uid`/`__ut`/`__ud`/`__si`), and the same `POST /app/drive/get_available_server` size pre-flight answering `{"error":true,"reason":"disk"}`. Only the base path differs (`/app/` where Emload has `/v2/app/`) and the node is `j3b.jumploads.com/upload`. So the refusal is that pre-flight doing its job, and it is a **DropGalaxy-shaped verdict — a nonsensical-looking cap that IS the real cap**, not a quota that happens to be full: `load_cloud` reports the account empty. ✅ **The silver lining is that this would be a config shim, not a build**: if they ever grant a real allowance, point `EmloadPipeline` at this host and base path. Re-check by asking `get_available_server` for a few MB — one metadata call, no bytes.
 
 ---
 
