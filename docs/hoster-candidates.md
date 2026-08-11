@@ -478,7 +478,9 @@ Not in the file-host/cloud scope, but they do accept file uploads. Most are Sibs
 
 Reachable evidence was inconclusive from this environment (datacenter-IP blocking); a real-browser capture is needed to confirm protocol + anonymous upload:
 
-**Wushare**, **UniBytes**, **Kshared** (marketed as download-only; UI is a modern cloud-drive, not classic XFS), **Fileland** (fileland.io — ECONNREFUSED), **Filezip** (no confirmable live domain — needs the exact intended domain).
+~~**Wushare**~~ (**settled 2026-08-11 — no capture would help, see below**), **UniBytes**, ~~**Kshared**~~ (**SHIPPED 2026-08-10** — the "marketed as download-only, modern cloud-drive UI" note was right about the UI and wrong about the conclusion; it is Emload's engine in a `/v1/` dialect, see its row in A5), **Fileland** (fileland.io — ECONNREFUSED), **Filezip** (no confirmable live domain — needs the exact intended domain).
+
+**Wushare (wushare.com) — ⛔ settled 2026-08-11, and neither earlier note was right.** It was removed from the app 2026-06-28 as "dead (refuses connections)", and listed here as inconclusive/datacenter-IP-blocked. In fact the site is up and serving — but **only over `http://`; port 443 refuses outright** (apex and `www.`). Its homepage still advertises an anonymous uploader, *"Up to 4GB, 5 files max"*. It cannot work, for a reason no browser capture could fix: the uploader is **Uploadify — Flash** (`'swf': '/img/uploadify.swf'`), dead in every browser since 2021, and the node it posts to is built as `'http://fs' + fsid + '.wushare.com/upload'` with `fsid = '100'` — and **`fs100.wushare.com` does not resolve (NXDOMAIN)**, so there is nowhere to send bytes. Its page also emits `var key = ''`, i.e. no upload key is issued at all. Footer reads © 2016. **A standing shell, not a service — do not re-add or re-investigate.**
 
 ---
 

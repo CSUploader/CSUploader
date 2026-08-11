@@ -422,8 +422,14 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // wormhole.app is a WebTorrent + RFC 8188 E2E + Backblaze B2 uploader (anonymous, no login); the
         // link carries the decryption key in its #fragment. See WormholePipeline.cs + the Wormhole/ helpers.
         { "Wormhole", "wormhole.app" },
-        // WuShare REMOVED 2026-06-28 — wushare.com is dead (refuses connections; no working upload).
-        // Never had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back.
+        // WuShare REMOVED 2026-06-28, and the removal stands — but re-checked 2026-08-11, "dead
+        // (refuses connections)" was only half right. The site IS up and serving, just over http://
+        // ONLY: port 443 refuses on the apex and www. It still advertises an anonymous uploader ("Up
+        // to 4GB, 5 files max"), and that uploader cannot work: it is Uploadify — FLASH
+        // ('swf': '/img/uploadify.swf') — and it posts to 'http://fs' + fsid + '.wushare.com/upload'
+        // where fsid='100', and fs100.wushare.com does NOT RESOLVE (NXDOMAIN). Its page also emits
+        // var key = '' — no upload key is issued. A standing shell, not a service; the footer says
+        // © 2016. Never had a pipeline; was metadata-only. Do NOT re-add.
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>
