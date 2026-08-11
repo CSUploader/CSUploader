@@ -1283,6 +1283,9 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
   </data>
+  <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
+    <value>Chọn hoặc bỏ chọn mọi nhà lưu trữ trong danh sách. Tuân theo bộ lọc và bỏ qua những nhà lưu trữ cần tài khoản.</value>
+  </data>
   <data name="Wizard_Step0_TreeAllFiles" xml:space="preserve">
     <value>Tất cả tệp</value>
   </data>

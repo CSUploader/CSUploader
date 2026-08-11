@@ -578,6 +578,7 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Step2_CheckAllTip = 勾选或取消勾选列表中的所有网盘。遵循筛选条件，并跳过需要账户的网盘。
 Wizard_Step0_TreeAllFiles   = 所有文件
 Wizard_Step0_TreeLooseFiles = 单个文件
 Wizard_Step0_AddFolders   = 添加文件夹…

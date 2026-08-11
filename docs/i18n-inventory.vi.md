@@ -586,6 +586,7 @@ Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…
 Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.
+Wizard_Step2_CheckAllTip = Chọn hoặc bỏ chọn mọi nhà lưu trữ trong danh sách. Tuân theo bộ lọc và bỏ qua những nhà lưu trữ cần tài khoản.
 Wizard_Step0_TreeAllFiles   = Tất cả tệp
 Wizard_Step0_TreeLooseFiles = Tệp riêng lẻ
 Wizard_Step0_AddFolders   = Thêm thư mục…

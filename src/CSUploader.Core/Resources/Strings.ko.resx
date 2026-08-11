@@ -1283,6 +1283,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.</value>
   </data>
+  <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
+    <value>목록의 모든 호스터를 선택하거나 해제합니다. 필터를 따르며, 계정이 필요한 호스터는 제외합니다.</value>
+  </data>
   <data name="Wizard_Step0_TreeAllFiles" xml:space="preserve">
     <value>모든 파일</value>
   </data>

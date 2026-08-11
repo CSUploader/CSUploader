@@ -130,6 +130,7 @@ public partial class UploadWizardViewModel : ObservableObject
         // hosters are added one by one during LoadFileHosters.
         OnPropertyChanged(nameof(VisibleHosterCount));
         OnPropertyChanged(nameof(HosterFilterSummary));
+        OnPropertyChanged(nameof(AllListedHostersChecked));
 
         RecomputeHosterValidation();
     }
@@ -373,6 +374,65 @@ public partial class UploadWizardViewModel : ObservableObject
         VisibleHosterCount,
         FileHosters.Count);
 
+    /// <summary>
+    /// The "tick everything listed" box in the hoster grid's Use column header. Tri-state: checked
+    /// when every listed hoster is ticked, unchecked when none is, indeterminate when some are.
+    /// <para>
+    /// "Listed" means what the FILTER leaves visible, not the whole catalogue — with "Anonymous only"
+    /// on, this ticks the anonymous hosters and nothing else, which is the entire point of having it
+    /// next to a filter. It also skips hosters that cannot be used at all (no account, no anonymous):
+    /// their row shows a padlock instead of a checkbox, and ticking them would be a state the grid
+    /// has no way to show.
+    /// </para>
+    /// <para>
+    /// Writing null is ignored, as on the tree's folder ticks: a three-state box cycles into
+    /// indeterminate, and "make this selection partial" is not an instruction anyone can mean.
+    /// </para>
+    /// </summary>
+    public bool? AllListedHostersChecked
+    {
+        get
+        {
+            bool anyTicked = false;
+            bool anyUnticked = false;
+            foreach (FileHosterSelectionViewModel hoster in ListedUsableHosters())
+            {
+                if (hoster.Use)
+                {
+                    anyTicked = true;
+                }
+                else
+                {
+                    anyUnticked = true;
+                }
+
+                if (anyTicked && anyUnticked)
+                {
+                    return null;
+                }
+            }
+
+            return anyTicked;
+        }
+
+        set
+        {
+            if (value is not bool ticked)
+            {
+                return;
+            }
+
+            foreach (FileHosterSelectionViewModel hoster in ListedUsableHosters())
+            {
+                hoster.Use = ticked;
+            }
+        }
+    }
+
+    /// <summary>The rows the header box acts on: visible under the current filter, and usable.</summary>
+    private IEnumerable<FileHosterSelectionViewModel> ListedUsableHosters()
+        => FileHosters.Where(h => h.CanUse && MatchesHosterFilter(h));
+
     /// <summary>Resets both filters — the one-click way back to the whole list.</summary>
     [RelayCommand]
     private void ClearHosterFilter()
@@ -390,6 +450,10 @@ public partial class UploadWizardViewModel : ObservableObject
         OnPropertyChanged(nameof(IsHosterFilterActive));
         OnPropertyChanged(nameof(VisibleHosterCount));
         OnPropertyChanged(nameof(HosterFilterSummary));
+
+        // Filtering changes WHICH rows the header box speaks for, so its own state moves with it.
+        OnPropertyChanged(nameof(AllListedHostersChecked));
+
         HosterFilterInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -746,6 +810,9 @@ public partial class UploadWizardViewModel : ObservableObject
         {
             _summaryDirty = true;
             RecomputeHosterValidation();
+
+            // One row's tick can flip the header box between all, none and partial.
+            OnPropertyChanged(nameof(AllListedHostersChecked));
         }
     }
 

@@ -578,6 +578,7 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Step2_CheckAllTip = 목록의 모든 호스터를 선택하거나 해제합니다. 필터를 따르며, 계정이 필요한 호스터는 제외합니다.
 Wizard_Step0_TreeAllFiles   = 모든 파일
 Wizard_Step0_TreeLooseFiles = 개별 파일
 Wizard_Step0_AddFolders   = 폴더 추가…

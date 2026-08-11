@@ -194,6 +194,95 @@ public class UploadWizardHosterFilterTests : IDisposable
         Assert.False(_vm.MatchesHosterFilter(new object()));
     }
 
+    // ── The Use column's header box ticks everything CURRENTLY LISTED ──
+
+    [Fact]
+    public void CheckAll_TicksEveryListedHoster_AndUntickingClearsThem()
+    {
+        Assert.False(_vm.AllListedHostersChecked);   // nothing ticked to begin with
+
+        _vm.AllListedHostersChecked = true;
+
+        Assert.All(_vm.FileHosters, h => Assert.True(h.Use));
+        Assert.True(_vm.AllListedHostersChecked);
+
+        _vm.AllListedHostersChecked = false;
+        Assert.All(_vm.FileHosters, h => Assert.False(h.Use));
+    }
+
+    [Fact]
+    public void CheckAll_ActsOnWhatTheFilterLEAVES_NotTheWholeCatalogue()
+    {
+        // The entire point of putting it next to a filter: with "Anonymous only" on, check-all
+        // should tick the anonymous ones and leave the rest alone.
+        _vm.AnonymousHostersOnly = true;
+
+        _vm.AllListedHostersChecked = true;
+
+        Assert.All(_vm.FileHosters.Where(h => h.SupportsAnonymous), h => Assert.True(h.Use));
+        Assert.All(_vm.FileHosters.Where(h => !h.SupportsAnonymous), h => Assert.False(h.Use));
+    }
+
+    [Fact]
+    public void CheckAll_ReadsAsCheckedWhenTheHiddenRowsAreUnticked()
+    {
+        // It speaks for the listed rows only, so hosters hidden by the filter must not drag it to
+        // partial — otherwise it would never read as fully checked while a filter is on.
+        _vm.HosterFilterText = "cat";
+        _vm.AllListedHostersChecked = true;
+
+        Assert.True(_vm.AllListedHostersChecked);
+        Assert.False(_vm.FileHosters.First(h => h.FileHosterName == "Rapidgator").Use);
+    }
+
+    [Fact]
+    public void CheckAll_IsIndeterminateWhenOnlySomeListedRowsAreTicked()
+    {
+        _vm.FileHosters[0].Use = true;
+
+        Assert.Null(_vm.AllListedHostersChecked);
+    }
+
+    [Fact]
+    public void CheckAll_IgnoresAWriteOfIndeterminate()
+    {
+        // A three-state box cycles into indeterminate; "make this selection partial" is not an
+        // instruction, and acting on it would look like something happened.
+        _vm.AllListedHostersChecked = true;
+
+        _vm.AllListedHostersChecked = null;
+
+        Assert.All(_vm.FileHosters, h => Assert.True(h.Use));
+    }
+
+    [Fact]
+    public void CheckAll_SkipsHostersThatCannotBeUsedAtAll()
+    {
+        // A hoster with no account and no anonymous route shows a padlock instead of a checkbox;
+        // ticking it would be a state the grid cannot show and the upload would drop anyway.
+        FileHosterSelectionViewModel blocked = new("Nowhere", []);
+        _vm.FileHosters.Add(blocked);
+
+        _vm.AllListedHostersChecked = true;
+
+        Assert.False(blocked.Use);
+        Assert.True(_vm.AllListedHostersChecked);   // …and it doesn't hold the header box at partial
+    }
+
+    [Fact]
+    public void CheckAll_NotifiesWhenARowOrTheFilterChanges()
+    {
+        List<string> changed = [];
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? string.Empty);
+
+        _vm.FileHosters[0].Use = true;
+        Assert.Contains(nameof(UploadWizardViewModel.AllListedHostersChecked), changed);
+
+        changed.Clear();
+        _vm.AnonymousHostersOnly = true;
+        Assert.Contains(nameof(UploadWizardViewModel.AllListedHostersChecked), changed);
+    }
+
     // ── Next is gated on having picked something, not just on the hosters' declared limits ──
 
     [Fact]

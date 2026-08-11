@@ -1373,6 +1373,9 @@ Add anyway?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>This hoster requires an account. Click "Add account…" to add one.</value>
   </data>
+  <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
+    <value>Tick or untick every hoster in the list. Respects the filter, and skips hosters that need an account you haven't added.</value>
+  </data>
   <data name="Wizard_Step0_TreeAllFiles" xml:space="preserve">
     <value>All files</value>
   </data>

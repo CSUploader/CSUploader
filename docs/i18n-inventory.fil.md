@@ -578,6 +578,7 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…
 Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.
+Wizard_Step2_CheckAllTip = Piliin o alisin ang lahat ng hoster sa listahan. Sumusunod sa salain at nilalaktawan ang mga nangangailangan ng account.
 Wizard_Step0_TreeAllFiles   = Lahat ng file
 Wizard_Step0_TreeLooseFiles = Mga indibidwal na file
 Wizard_Step0_AddFolders   = Magdagdag ng folder…

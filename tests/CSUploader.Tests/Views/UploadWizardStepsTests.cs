@@ -194,6 +194,52 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the Use column's header box ticks everything the filter leaves listed ──
+
+    [AvaloniaFact]
+    public void HostersGrid_HeaderCheckBox_TicksEveryListedHoster()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
+        FileHosterSelectionViewModel rapidgator = new("Rapidgator", [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }]);
+        harness.Vm.FileHosters.Add(catbox);
+        harness.Vm.FileHosters.Add(rapidgator);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            // The header content is the box itself; its binding reaches the WINDOW's DataContext,
+            // because a column header has no row behind it — the part most likely to be silently
+            // wrong, and a silent failure here looks like a dead control.
+            CheckBox header = wizard.fileHostersGrid.Columns[0].Header as CheckBox
+                ?? throw new InvalidOperationException("the Use column header is not a CheckBox");
+            Assert.True(header.IsThreeState);
+            Assert.False(header.IsChecked);
+
+            header.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(catbox.Use);
+            Assert.True(rapidgator.Use);
+
+            // Untick one row and the header reads partial rather than stale.
+            catbox.Use = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(header.IsChecked);
+
+            // Filtering changes what "all" means: only the listed row is ticked.
+            harness.Vm.AnonymousHostersOnly = true;
+            Dispatcher.UIThread.RunJobs();
+            header.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(catbox.Use);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: Next is disabled, and says why, until a hoster is ticked ──
 
     [AvaloniaFact]

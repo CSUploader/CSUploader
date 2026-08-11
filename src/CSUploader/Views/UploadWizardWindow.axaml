@@ -15,6 +15,7 @@
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:beh="clr-namespace:CSUploader.Behaviors"
+        xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
         x:Class="CSUploader.Views.UploadWizardWindow"
         Title="{loc:Loc Wizard_Title}"
         Width="850" Height="620"
@@ -438,7 +439,18 @@
                  rendered as a missing-glyph box (tofu). The checkbox zeroes Padding/MinWidth so the box itself
                  centres exactly (Fluent reserves 8px content padding right of the 20px box even with no
                  content — the step-0 check-center fix), aligning it with the centred padlock. -->
-            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Use}" Width="42" SortMemberPath="Use">
+            <DataGridTemplateColumn Width="42" SortMemberPath="Use">
+              <!-- The header IS the tick-everything box: with ~80 hosters and a filter above the grid,
+                   the useful bulk action is "everything I can currently see", and a header box is
+                   where that lives in every list that has one. It binds to the WINDOW's DataContext,
+                   not the column's — a DataGrid column header has no row behind it. -->
+              <DataGridTemplateColumn.Header>
+                <CheckBox IsThreeState="True"
+                          IsChecked="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).AllListedHostersChecked, Mode=TwoWay}"
+                          Padding="0" MinWidth="0"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          ToolTip.Tip="{loc:Loc Wizard_Step2_CheckAllTip}" />
+              </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
