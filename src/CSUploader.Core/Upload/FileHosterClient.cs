@@ -164,12 +164,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // Do NOT re-add without confirming the managed challenge is gone. See takefile-disabled rationale.
         // Uploaded REMOVED 2026-06-28 — uploaded.net (uploaded.to) shut down in 2019; the domain is
         // dead with no live upload endpoint. Never had a pipeline; was metadata-only. Do NOT re-add.
-        // UploadGIG DISABLED 2026-06-28 — couldn't get a working upload capture to reverse-engineer
-        // the protocol (uploads to uploadgig.com aren't going through), so there's nothing to wire up
-        // yet. Metadata-only (never had a pipeline). Commented out (not removed) so it's not a
-        // selectable-but-broken hoster; the icon + PNG are retained for an easy re-enable once a
-        // capture is available. Un-comment this line and build the pipeline when uploads work again.
-        // { "UploadGIG", "www.uploadgig.com" },
+        // UploadGIG RE-ENABLED 2026-08-11 — the 2026-06-28 disable said "no working upload capture to
+        // reverse-engineer", and it turns out none is needed: the host PUBLISHES its upload API
+        // (uploadgig.com/page/content/api), two calls, no captcha on either. ⚠ Its website sign-in does
+        // have a captcha; the API takes the plain username and password, so this ships as an ordinary
+        // account. ⚠ The apex is the live host — www.uploadgig.com now 404s. ⚠ cmbs is the account's
+        // REMAINING storage (10 GB free), not a per-file cap. See UploadGigPipeline.cs.
+        { "UploadGIG", "uploadgig.com" },
         // UniBytes REMOVED 2026-06-28 — unibytes.com is down (no live site/upload endpoint). Never
         // had a pipeline; was metadata-only. Do NOT re-add without confirming the host is back and
         // which protocol family it belongs to.

@@ -269,6 +269,11 @@ public static class ServiceRegistration
         // else is the family default. See PrefilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PrefilesPipeline>();
 
+        // UploadGIG — ACCOUNT-ONLY, on the host's own published two-call API. Serialised to one upload
+        // at a time: each needs a 60-second address, and asking for one is a rate-limited login.
+        // See UploadGigPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.UploadGigPipeline>();
+
         // SubyShare — ACCOUNT-ONLY XFS of an older vintage, 5 GB, free accounts included. Its form
         // action is half-built (the page's script appends the upload id), its field set carries the
         // account's usr_id, and its reply is HTML rather than JSON. See SubysharePipeline.cs.
