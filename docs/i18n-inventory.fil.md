@@ -539,7 +539,6 @@ Logs_Status_ExportedPackages_Format = Na-export ang {0} package(s) sa {1}       
 ```
 Wizard_Title                       = Upload Wizard
 
-Wizard_Step_DirectorySource        = 1. Directory
 Wizard_Step_FileHosters            = 2. File Hosters
 Wizard_Step_Summary               = 3. Buod
 Wizard_Step_Start                  = 4. Simulan
@@ -579,6 +578,8 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…
 Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.
+Wizard_Step0_TreeAllFiles   = Lahat ng file
+Wizard_Step0_TreeLooseFiles = Mga indibidwal na file
 Wizard_Step0_AddFolders   = Magdagdag ng folder…
 Wizard_Step0_AddFiles     = Magdagdag ng mga file…
 Wizard_Step0_DropHint     = …o i-drop ang mga file at folder sa pahinang ito

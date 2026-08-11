@@ -539,7 +539,6 @@ Logs_Status_ExportedPackages_Format = 已将 {0} 个包导出到 {1}            
 ```
 Wizard_Title                       = 上传向导
 
-Wizard_Step_DirectorySource        = 1. 目录
 Wizard_Step_FileHosters            = 2. 文件托管商
 Wizard_Step_Summary               = 3. 摘要
 Wizard_Step_Start                  = 4. 开始
@@ -579,6 +578,8 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Step0_TreeAllFiles   = 所有文件
+Wizard_Step0_TreeLooseFiles = 单个文件
 Wizard_Step0_AddFolders   = 添加文件夹…
 Wizard_Step0_AddFiles     = 添加文件…
 Wizard_Step0_DropHint     = …或将文件和文件夹拖放到此页面

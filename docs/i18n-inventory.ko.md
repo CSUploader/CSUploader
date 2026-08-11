@@ -539,7 +539,6 @@ Logs_Status_ExportedPackages_Format = 패키지 {0}개를 {1}(으)로 내보냈�
 ```
 Wizard_Title                       = 업로드 마법사
 
-Wizard_Step_DirectorySource        = 1. 디렉터리
 Wizard_Step_FileHosters            = 2. 파일 호스터
 Wizard_Step_Summary               = 3. 요약
 Wizard_Step_Start                  = 4. 시작
@@ -579,6 +578,8 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Step0_TreeAllFiles   = 모든 파일
+Wizard_Step0_TreeLooseFiles = 개별 파일
 Wizard_Step0_AddFolders   = 폴더 추가…
 Wizard_Step0_AddFiles     = 파일 추가…
 Wizard_Step0_DropHint     = …또는 이 페이지에 파일과 폴더를 끌어다 놓으세요

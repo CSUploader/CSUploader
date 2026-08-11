@@ -538,7 +538,6 @@ Logs_Status_ExportedPackages_Format = パッケージ {0} 個を {1} にエク�
 ```
 Wizard_Title                       = アップロードウィザード
 
-Wizard_Step_DirectorySource        = 1. ディレクトリ
 Wizard_Step_FileHosters            = 2. ファイルホスター
 Wizard_Step_Summary               = 3. サマリー
 Wizard_Step_Start                  = 4. 開始
@@ -578,6 +577,8 @@ Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…
 Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。
+Wizard_Step0_TreeAllFiles   = すべてのファイル
+Wizard_Step0_TreeLooseFiles = 個別のファイル
 Wizard_Step0_AddFolders   = フォルダーを追加…
 Wizard_Step0_AddFiles     = ファイルを追加…
 Wizard_Step0_DropHint     = …またはこのページにファイルやフォルダーをドロップ

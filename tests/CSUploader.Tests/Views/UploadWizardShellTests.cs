@@ -90,46 +90,60 @@ public class UploadWizardShellTests
         }
     }
 
-    // ── The Sources strip: appears once something is added, and each row can take itself back ──
+    // ── The source tree: structure, scoping, and removing a source from it ──
 
     [AvaloniaFact]
-    public void SourcesStrip_AppearsWithTheFirstSource_AndRemovingOneDropsItsFiles()
+    public void SourceTree_ShowsWhatWasAdded_ScopesTheGrid_AndRemovesASource()
     {
-        // This replaces a test of the Directory/Files mode radios, which no longer exist: both Add
-        // buttons now append to one list, and the strip is what shows where the files came from.
+        // This replaces first a mode-radio test, then a Sources-strip one: the strip sat ABOVE the grid
+        // and cost it height per folder added, so it became a column.
         string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "a.bin"), "a");
-        File.WriteAllText(Path.Combine(dir, "b.bin"), "b");
-        string loose = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
-        File.WriteAllText(loose, "c");
+        Directory.CreateDirectory(Path.Combine(dir, "subs"));
+        File.WriteAllText(Path.Combine(dir, "a.mkv"), "a");
+        File.WriteAllText(Path.Combine(dir, "subs", "a.srt"), "s");
+        string loose = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".nfo");
+        File.WriteAllText(loose, "n");
 
         using VmHarness harness = new();
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            // Nothing added yet: the strip stays out of the way entirely.
-            Assert.False(wizard.SourcesStrip.IsVisible);
-
             harness.Vm.AddDroppedPaths([dir, loose]);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.True(wizard.SourcesStrip.IsVisible);
-            Assert.Equal(2, harness.Vm.Sources.Count);
-            Assert.Equal(3, harness.Vm.Files.Count);
+            // One All root, holding the folder (with its subfolder) and the loose-files bucket.
+            UploadTreeNode all = Assert.Single(harness.Vm.TreeRoots);
+            Assert.Equal(UploadTreeNodeKind.All, all.Kind);
+            Assert.Equal(3, all.FileCount);
+            Assert.Equal(2, all.Children.Count);
 
-            // Removing the folder takes ITS files and leaves the loose one alone.
-            harness.Vm.RemoveSourceCommand.Execute(harness.Vm.Sources.First(s => s.IsFolder));
+            UploadTreeNode folder = all.Children.First(c => c.Kind == UploadTreeNodeKind.Folder);
+            Assert.Equal(2, folder.FileCount);                     // its own file plus the one in subs
+            Assert.Single(folder.Children);                        // subs
+            Assert.Equal("subs", folder.Children[0].Name);
+
+            // Selecting the folder scopes the grid to it AND everything beneath.
+            harness.Vm.SelectedNode = folder;
             Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, harness.Vm.Files.Count(f => f.IsVisible));
+            Assert.DoesNotContain(harness.Vm.Files.Where(f => f.IsVisible), f => f.FullPath == loose);
 
-            Assert.Single(harness.Vm.Sources);
+            // Back to All: everything shows again.
+            harness.Vm.SelectedNode = all;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, harness.Vm.Files.Count(f => f.IsVisible));
+
+            // Unticking one leaf leaves the branch partial, which is what the tri-state box shows.
+            harness.Vm.Files.First(f => f.FileName == "a.srt").IsSelected = false;
+            Assert.Null(folder.IsChecked);
+            Assert.Null(all.IsChecked);
+
+            // Removing the source takes its whole branch with it, leaving the loose file.
+            harness.Vm.RemoveSourceCommand.Execute(folder.Source);
+            Dispatcher.UIThread.RunJobs();
             Assert.Single(harness.Vm.Files);
-            Assert.Equal(loose, harness.Vm.Files[0].FullPath);
-
-            // …and removing the last one hides the strip again.
-            harness.Vm.RemoveSourceCommand.Execute(harness.Vm.Sources[0]);
-            Dispatcher.UIThread.RunJobs();
-            Assert.False(wizard.SourcesStrip.IsVisible);
+            Assert.Single(Assert.Single(harness.Vm.TreeRoots).Children);
         }
         finally
         {

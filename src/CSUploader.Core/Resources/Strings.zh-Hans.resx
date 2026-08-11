@@ -1178,9 +1178,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Title" xml:space="preserve">
     <value>上传向导</value>
   </data>
-  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
-    <value>1. 目录</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. 文件托管商</value>
   </data>
@@ -1285,6 +1282,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>此托管商需要账户。点击"添加账户…"以添加。</value>
+  </data>
+  <data name="Wizard_Step0_TreeAllFiles" xml:space="preserve">
+    <value>所有文件</value>
+  </data>
+  <data name="Wizard_Step0_TreeLooseFiles" xml:space="preserve">
+    <value>单个文件</value>
   </data>
   <data name="Wizard_Step0_AddFolders" xml:space="preserve">
     <value>添加文件夹…</value>

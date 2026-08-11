@@ -547,7 +547,6 @@ Logs_Status_ExportedPackages_Format = Đã xuất {0} gói ra {1}               
 ```
 Wizard_Title                       = Trình hướng dẫn tải lên
 
-Wizard_Step_DirectorySource        = 1. Thư mục
 Wizard_Step_FileHosters            = 2. Nhà lưu trữ tập tin
 Wizard_Step_Summary               = 3. Tóm tắt
 Wizard_Step_Start                  = 4. Bắt đầu
@@ -587,6 +586,8 @@ Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…
 Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.
+Wizard_Step0_TreeAllFiles   = Tất cả tệp
+Wizard_Step0_TreeLooseFiles = Tệp riêng lẻ
 Wizard_Step0_AddFolders   = Thêm thư mục…
 Wizard_Step0_AddFiles     = Thêm tệp…
 Wizard_Step0_DropHint     = …hoặc kéo thả tệp và thư mục vào trang này

@@ -154,6 +154,148 @@ public partial class UploadWizardViewModel : ObservableObject
     /// <summary>True once anything has been added — the first step's empty-state hint hangs off it.</summary>
     public bool HasSources => Sources.Count > 0;
 
+    /// <summary>
+    /// The source tree the wizard's first step shows on the left: one "All files" root, a node per
+    /// added folder (with its real subdirectory structure beneath), and a bucket for individually
+    /// picked files. Selecting a node narrows the grid to that node and everything under it.
+    /// </summary>
+    public ObservableCollection<UploadTreeNode> TreeRoots { get; } = [];
+
+    /// <summary>
+    /// The node whose files the grid shows. Null (nothing selected) reads as the whole package, so an
+    /// empty selection never hides everything.
+    /// </summary>
+    [ObservableProperty]
+    public partial UploadTreeNode? SelectedNode { get; set; }
+
+    partial void OnSelectedNodeChanged(UploadTreeNode? value) => ApplyFilter();
+
+    /// <summary>
+    /// Rebuilds the tree from <see cref="Files"/> and <see cref="Sources"/>.
+    /// <para>
+    /// Rebuilt wholesale rather than patched: the nodes hold nothing that isn't derivable from those
+    /// two collections, so there is no state to drift, and the alternative — incrementally inserting
+    /// folder chains as files arrive — is where a tree like this usually goes wrong.
+    /// </para>
+    /// </summary>
+    private void RebuildTree()
+    {
+        Guid? previouslySelected = SelectedNode?.Source?.Id;
+
+        UploadTreeNode all = new(Localizer.Instance["Wizard_Step0_TreeAllFiles"], UploadTreeNodeKind.All);
+
+        foreach (UploadSource source in Sources)
+        {
+            FileEntry[] files = [.. Files.Where(f => f.SourceId == source.Id)];
+            if (files.Length == 0)
+            {
+                continue;
+            }
+
+            if (!source.IsFolder)
+            {
+                // Individually picked files share one bucket: a node per file would be a tree of
+                // leaves, which is just the flat list again with more indentation.
+                UploadTreeNode loose = all.Children.FirstOrDefault(c => c.Kind == UploadTreeNodeKind.LooseFiles)
+                    ?? AddLooseNode(all);
+                loose.OwnFiles.AddRange(files);
+                continue;
+            }
+
+            UploadTreeNode root = new(source.DisplayName, UploadTreeNodeKind.Folder, source);
+            all.AddChild(root);
+
+            foreach (FileEntry file in files)
+            {
+                // The file's own folder chain BELOW the source root, from the path on disk rather than
+                // the display path (which may carry a disambiguating prefix — see AppendFiles).
+                string relative = Path.GetRelativePath(source.Path, file.FullPath);
+                string[] segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                UploadTreeNode target = root;
+                for (int i = 0; i < segments.Length - 1; i++)
+                {
+                    UploadTreeNode? next = target.Children.FirstOrDefault(
+                        c => c.Kind == UploadTreeNodeKind.Folder && string.Equals(c.Name, segments[i], StringComparison.OrdinalIgnoreCase));
+                    if (next is null)
+                    {
+                        next = new UploadTreeNode(segments[i], UploadTreeNodeKind.Folder);
+                        target.AddChild(next);
+                    }
+
+                    target = next;
+                }
+
+                target.OwnFiles.Add(file);
+            }
+        }
+
+        TreeRoots.Clear();
+        TreeRoots.Add(all);
+
+        // Keep the user where they were when a rebuild is caused by something else (another folder
+        // added, a file unticked). Falls back to All, which shows everything.
+        SelectedNode = previouslySelected is Guid id
+            ? FindBySource(all, id) ?? all
+            : all;
+
+        OnPropertyChanged(nameof(HasSources));
+    }
+
+    private static UploadTreeNode AddLooseNode(UploadTreeNode all)
+    {
+        UploadTreeNode loose = new(Localizer.Instance["Wizard_Step0_TreeLooseFiles"], UploadTreeNodeKind.LooseFiles);
+        all.AddChild(loose);
+        return loose;
+    }
+
+    private static UploadTreeNode? FindBySource(UploadTreeNode node, Guid sourceId)
+    {
+        if (node.Source?.Id == sourceId)
+        {
+            return node;
+        }
+
+        foreach (UploadTreeNode child in node.Children)
+        {
+            if (FindBySource(child, sourceId) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Re-reads the tick state of every node holding this file, up to the root — a leaf toggle can
+    /// flip a whole chain from partial to full and back.
+    /// </summary>
+    private void RefreshTreeChecks(FileEntry file)
+    {
+        foreach (UploadTreeNode root in TreeRoots)
+        {
+            RefreshNodeFor(root, file);
+        }
+
+        static bool RefreshNodeFor(UploadTreeNode node, FileEntry file)
+        {
+            bool holdsIt = node.OwnFiles.Contains(file);
+            foreach (UploadTreeNode child in node.Children)
+            {
+                holdsIt |= RefreshNodeFor(child, file);
+            }
+
+            if (holdsIt)
+            {
+                node.RefreshCheckState();
+            }
+
+            return holdsIt;
+        }
+    }
+
+
     [ObservableProperty]
     public partial string PackageTitle { get; set; } = string.Empty;
 
@@ -569,6 +711,12 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 RecomputeHosterValidation();
                 NotifySelectionStats();
+
+                // A leaf toggle can flip a whole chain of folders between ticked, partial and clear.
+                if (sender is FileEntry entry)
+                {
+                    RefreshTreeChecks(entry);
+                }
             }
         }
     }
@@ -920,6 +1068,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
 
         SeedPackageTitleFromFirstSource();
+        SourcesChanged();
     }
 
     /// <summary>"Add files…" — appends the picked files, each as its own source row.</summary>
@@ -936,6 +1085,7 @@ public partial class UploadWizardViewModel : ObservableObject
 
         AddFileSources(picked);
         SeedPackageTitleFromFirstSource();
+        SourcesChanged();
     }
 
     /// <summary>
@@ -965,6 +1115,7 @@ public partial class UploadWizardViewModel : ObservableObject
         }
 
         SeedPackageTitleFromFirstSource();
+        SourcesChanged();
     }
 
     /// <summary>
@@ -993,7 +1144,7 @@ public partial class UploadWizardViewModel : ObservableObject
         });
 
         Sources.Remove(source);
-        OnPropertyChanged(nameof(HasSources));
+        SourcesChanged();
     }
 
     /// <summary>Walks one folder and appends what it finds, recording it as a source.</summary>
@@ -1068,6 +1219,14 @@ public partial class UploadWizardViewModel : ObservableObject
         PackageTitle = first.IsFolder
             ? first.DisplayName
             : Path.GetFileNameWithoutExtension(first.Path);
+    }
+
+    /// <summary>Every path that changes what is in the list ends here: the tree is derived from the
+    /// list, so it is rebuilt from it rather than nudged alongside it.</summary>
+    private void SourcesChanged()
+    {
+        RebuildTree();
+        ApplyFilter();
     }
 
     /// <summary>
@@ -1279,20 +1438,38 @@ public partial class UploadWizardViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SelectAll()
-    {
-        foreach (FileEntry file in Files)
-        {
-            file.IsSelected = true;
-        }
-    }
+    private void SelectAll() => SetAllSelected(true);
 
     [RelayCommand]
-    private void SelectNone()
+    private void SelectNone() => SetAllSelected(false);
+
+    /// <summary>
+    /// Ticks or unticks everything through the bulk guard, so the tree's tri-state is recomputed ONCE
+    /// at the end rather than per file — a leaf toggle walks its ancestors, which across a few
+    /// thousand files is the difference between instant and a visible stall.
+    /// </summary>
+    private void SetAllSelected(bool selected)
     {
-        foreach (FileEntry file in Files)
+        BulkMutateFiles(() =>
         {
-            file.IsSelected = false;
+            foreach (FileEntry file in Files)
+            {
+                file.IsSelected = selected;
+            }
+        });
+
+        foreach (UploadTreeNode root in TreeRoots)
+        {
+            RefreshSubtree(root);
+        }
+
+        static void RefreshSubtree(UploadTreeNode node)
+        {
+            node.RefreshCheckStateLocal();
+            foreach (UploadTreeNode child in node.Children)
+            {
+                RefreshSubtree(child);
+            }
         }
     }
 
@@ -1354,19 +1531,29 @@ public partial class UploadWizardViewModel : ObservableObject
         Files.Clear();
     }
 
+    /// <summary>
+    /// Decides which file rows the grid shows: those under the SELECTED tree node that also match the
+    /// text filter. One pass over one flag, because the grid hides a row through
+    /// <see cref="FileEntry.IsVisible"/> and two independent narrowings would otherwise fight over it.
+    /// </summary>
     private void ApplyFilter()
     {
         string filter = FileFilter.Trim();
+
+        // A null selection (nothing picked yet) means the whole package, same as the All node.
+        HashSet<FileEntry>? inScope = SelectedNode is null or { Kind: UploadTreeNodeKind.All }
+            ? null
+            : [.. SelectedNode.AllFiles()];
+
         foreach (FileEntry file in Files)
         {
-            if (string.IsNullOrEmpty(filter))
+            bool visible = inScope is null || inScope.Contains(file);
+            if (visible && filter.Length > 0)
             {
-                file.IsVisible = true;
+                visible = file.RelativePath.Contains(filter, StringComparison.OrdinalIgnoreCase);
             }
-            else
-            {
-                file.IsVisible = file.RelativePath.Contains(filter, StringComparison.OrdinalIgnoreCase);
-            }
+
+            file.IsVisible = visible;
         }
     }
 

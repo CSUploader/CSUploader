@@ -1178,9 +1178,6 @@ Idagdag pa rin?</value>
   <data name="Wizard_Title" xml:space="preserve">
     <value>Upload Wizard</value>
   </data>
-  <data name="Wizard_Step_DirectorySource" xml:space="preserve">
-    <value>1. Directory</value>
-  </data>
   <data name="Wizard_Step_FileHosters" xml:space="preserve">
     <value>2. File Hosters</value>
   </data>
@@ -1285,6 +1282,12 @@ Idagdag pa rin?</value>
   </data>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
+  </data>
+  <data name="Wizard_Step0_TreeAllFiles" xml:space="preserve">
+    <value>Lahat ng file</value>
+  </data>
+  <data name="Wizard_Step0_TreeLooseFiles" xml:space="preserve">
+    <value>Mga indibidwal na file</value>
   </data>
   <data name="Wizard_Step0_AddFolders" xml:space="preserve">
     <value>Magdagdag ng folder…</value>
