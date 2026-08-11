@@ -582,6 +582,12 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Step2_FilterLabel        = 筛选
+Wizard_Step2_FilterWatermark    = 网盘名称…
+Wizard_Step2_FilterAnonymous    = 仅匿名
+Wizard_Step2_FilterAnonymousTip = 仅显示无需账户即可上传的网盘。
+Wizard_Step2_FilterClear        = 清除筛选
+Wizard_Step2_FilterCount_Format = 显示 {0} / {1}   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = 该托管商的限制将被超出：
 Wizard_Hoster_FileTooLarge_Format  = {0}：以下文件超过单文件 {1} 上限，将不会上传：\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}：以下文件名包含此托管商不接受的字符，将不会上传：\n{1}

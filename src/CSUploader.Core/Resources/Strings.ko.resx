@@ -1295,6 +1295,24 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.</value>
   </data>
+  <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
+    <value>필터</value>
+  </data>
+  <data name="Wizard_Step2_FilterWatermark" xml:space="preserve">
+    <value>호스터 이름…</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
+    <value>익명만</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
+    <value>계정 없이 업로드할 수 있는 호스터만 표시합니다.</value>
+  </data>
+  <data name="Wizard_Step2_FilterClear" xml:space="preserve">
+    <value>필터 지우기</value>
+  </data>
+  <data name="Wizard_Step2_FilterCount_Format" xml:space="preserve">
+    <value>{1}개 중 {0}개 표시</value>
+  </data>
   <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
     <value>이 호스터의 제한이 초과됩니다:</value>
   </data>

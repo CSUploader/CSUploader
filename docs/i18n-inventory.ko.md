@@ -582,6 +582,12 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Step2_FilterLabel        = 필터
+Wizard_Step2_FilterWatermark    = 호스터 이름…
+Wizard_Step2_FilterAnonymous    = 익명만
+Wizard_Step2_FilterAnonymousTip = 계정 없이 업로드할 수 있는 호스터만 표시합니다.
+Wizard_Step2_FilterClear        = 필터 지우기
+Wizard_Step2_FilterCount_Format = {1}개 중 {0}개 표시   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:\n{1}

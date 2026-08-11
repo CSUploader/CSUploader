@@ -125,6 +125,12 @@ public partial class UploadWizardViewModel : ObservableObject
             }
         }
         _summaryDirty = true;
+
+        // The list the filter counts against just changed, so "N of M" has to move with it — the
+        // hosters are added one by one during LoadFileHosters.
+        OnPropertyChanged(nameof(VisibleHosterCount));
+        OnPropertyChanged(nameof(HosterFilterSummary));
+
         RecomputeHosterValidation();
     }
     [ObservableProperty]
@@ -154,6 +160,94 @@ public partial class UploadWizardViewModel : ObservableObject
     public ObservableCollection<FileEntry> Files { get; } = [];
 
     public ObservableCollection<FileHosterSelectionViewModel> FileHosters { get; } = [];
+
+    /// <summary>
+    /// Name filter for the File Hosters step, matched case-insensitively anywhere in the hoster's
+    /// name. Empty shows everything.
+    /// </summary>
+    [ObservableProperty]
+    public partial string HosterFilterText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Narrows the File Hosters step to hosters that accept uploads with no account
+    /// (<see cref="FileHosterSelectionViewModel.SupportsAnonymous"/>). Combines with
+    /// <see cref="HosterFilterText"/> — both must match.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool AnonymousHostersOnly { get; set; }
+
+    /// <summary>
+    /// Raised when either hoster filter changes. The head re-evaluates its DataGrid collection view
+    /// in response — the same split the Uploads tab uses (<c>UploadsViewModel.FilterInvalidated</c>),
+    /// which keeps this ViewModel framework-free and, more importantly, keeps the filter a VIEW
+    /// concern: <see cref="FileHosters"/> itself is never touched, so a hoster ticked and then
+    /// filtered out of sight still uploads.
+    /// </summary>
+    public event EventHandler? HosterFilterInvalidated;
+
+    /// <summary>
+    /// The File Hosters step's filter predicate, applied by the head to its collection view. A row
+    /// passes when its name contains <see cref="HosterFilterText"/> (case-insensitive, trimmed) AND,
+    /// when <see cref="AnonymousHostersOnly"/> is set, the hoster supports anonymous upload.
+    /// </summary>
+    public bool MatchesHosterFilter(object item)
+    {
+        if (item is not FileHosterSelectionViewModel hoster)
+        {
+            return false;
+        }
+
+        if (AnonymousHostersOnly && !hoster.SupportsAnonymous)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(HosterFilterText))
+        {
+            return true;
+        }
+
+        return hoster.FileHosterName.Contains(HosterFilterText.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True when either filter is narrowing the list — drives the "showing N of M" hint and
+    /// the Clear button, both of which are noise when everything is visible.</summary>
+    public bool IsHosterFilterActive => AnonymousHostersOnly || !string.IsNullOrWhiteSpace(HosterFilterText);
+
+    /// <summary>How many hosters the current filter leaves visible.</summary>
+    public int VisibleHosterCount => FileHosters.Count(MatchesHosterFilter);
+
+    /// <summary>
+    /// "12 of 83 shown", for the hint beside the filter box. It exists because a filter that hides
+    /// TICKED hosters would otherwise be invisible: the count is what tells the user the list they
+    /// are looking at is not the list that will upload. (The Summary step shows the real destinations
+    /// either way.)
+    /// </summary>
+    public string HosterFilterSummary => string.Format(
+        CultureInfo.CurrentCulture,
+        Localizer.Instance["Wizard_Step2_FilterCount_Format"],
+        VisibleHosterCount,
+        FileHosters.Count);
+
+    /// <summary>Resets both filters — the one-click way back to the whole list.</summary>
+    [RelayCommand]
+    private void ClearHosterFilter()
+    {
+        HosterFilterText = string.Empty;
+        AnonymousHostersOnly = false;
+    }
+
+    partial void OnHosterFilterTextChanged(string value) => RaiseHosterFilterChanged();
+
+    partial void OnAnonymousHostersOnlyChanged(bool value) => RaiseHosterFilterChanged();
+
+    private void RaiseHosterFilterChanged()
+    {
+        OnPropertyChanged(nameof(IsHosterFilterActive));
+        OnPropertyChanged(nameof(VisibleHosterCount));
+        OnPropertyChanged(nameof(HosterFilterSummary));
+        HosterFilterInvalidated?.Invoke(this, EventArgs.Empty);
+    }
 
     /// <summary>
     /// Populated when the user advances to the Summary step (CurrentStep==2) from the

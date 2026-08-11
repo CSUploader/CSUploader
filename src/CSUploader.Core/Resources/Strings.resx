@@ -1385,6 +1385,24 @@ Add anyway?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>This hoster requires an account. Click "Add account…" to add one.</value>
   </data>
+  <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Wizard_Step2_FilterWatermark" xml:space="preserve">
+    <value>Hoster name…</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
+    <value>Anonymous only</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
+    <value>Show only hosters that accept uploads without an account.</value>
+  </data>
+  <data name="Wizard_Step2_FilterClear" xml:space="preserve">
+    <value>Clear filter</value>
+  </data>
+  <data name="Wizard_Step2_FilterCount_Format" xml:space="preserve">
+    <value>{0} of {1} shown</value>
+  </data>
   <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
     <value>This hoster's limits would be exceeded:</value>
   </data>

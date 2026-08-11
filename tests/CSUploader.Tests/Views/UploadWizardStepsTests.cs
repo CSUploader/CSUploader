@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Net.Http;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -164,7 +165,11 @@ public class UploadWizardStepsTests
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            Assert.Same(harness.Vm.FileHosters, wizard.fileHostersGrid.ItemsSource);
+            // The grid reads a filtered VIEW over the collection, not the collection itself — that is
+            // what lets a ticked hoster stay in the upload after the filter hides it. The view's source
+            // is still the VM's list.
+            DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.fileHostersGrid.ItemsSource);
+            Assert.Same(harness.Vm.FileHosters, view.SourceCollection);
 
             DataGridRow usableRow = RowFor(wizard.fileHostersGrid, usable);
             DataGridRow blockedRow = RowFor(wizard.fileHostersGrid, blocked);
@@ -182,6 +187,54 @@ public class UploadWizardStepsTests
             // Blocked row (no accounts, no anonymous): the checkbox is hidden, the glyph shows.
             Assert.False(CheckboxIn(blockedRow).IsVisible);
             Assert.True(GlyphIn(blockedRow).IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── Step 1: the filter bar narrows the GRID without touching the list the upload is built from ──
+
+    [AvaloniaFact]
+    public void HostersGrid_FilterBar_NarrowsTheGrid_AndKeepsTickedHostersInTheUpload()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
+        FileHosterSelectionViewModel rapidgator = new("Rapidgator", [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }]);
+        harness.Vm.FileHosters.Add(catbox);
+        harness.Vm.FileHosters.Add(rapidgator);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.fileHostersGrid.ItemsSource);
+            Assert.Equal(2, view.Count);
+
+            // Tick a hoster, THEN filter it away: the grid stops showing it and the row keeps its tick,
+            // because the filter is a view over the collection rather than a rewrite of it.
+            catbox.Use = true;
+            harness.Vm.HosterFilterText = "rapid";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(view);
+            Assert.DoesNotContain(catbox, view.Cast<object>());
+            Assert.Contains(catbox, harness.Vm.FileHosters);
+            Assert.True(catbox.Use);
+
+            // Anonymous-only swaps which one is left — Rapidgator needs an account.
+            harness.Vm.HosterFilterText = string.Empty;
+            harness.Vm.AnonymousHostersOnly = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(view);
+            Assert.Contains(catbox, view.Cast<object>());
+
+            // Clearing restores the whole list.
+            harness.Vm.ClearHosterFilterCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, view.Count);
         }
         finally
         {

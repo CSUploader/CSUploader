@@ -582,6 +582,12 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…
 Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.
+Wizard_Step2_FilterLabel        = Salain
+Wizard_Step2_FilterWatermark    = Pangalan ng hoster…
+Wizard_Step2_FilterAnonymous    = Anonymous lamang
+Wizard_Step2_FilterAnonymousTip = Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.
+Wizard_Step2_FilterClear        = I-clear ang salain
+Wizard_Step2_FilterCount_Format = {0} sa {1} ang ipinapakita   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na ito:
 Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Naglalaman ng mga karakter na hindi tinatanggap ng hoster na ito ang mga sumusunod na pangalan ng file at hindi mai-upload:\n{1}

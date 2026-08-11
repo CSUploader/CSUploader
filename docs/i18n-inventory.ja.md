@@ -581,6 +581,12 @@ Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…
 Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。
+Wizard_Step2_FilterLabel        = フィルター
+Wizard_Step2_FilterWatermark    = ホスター名…
+Wizard_Step2_FilterAnonymous    = 匿名のみ
+Wizard_Step2_FilterAnonymousTip = アカウントなしでアップロードできるホスターのみを表示します。
+Wizard_Step2_FilterClear        = フィルターをクリア
+Wizard_Step2_FilterCount_Format = {1} 件中 {0} 件を表示   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = このホスターの制限を超過します:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 以下のファイル名にはこのホスターが受け付けない文字が含まれているためアップロードされません:\n{1}

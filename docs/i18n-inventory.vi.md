@@ -590,6 +590,12 @@ Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…
 Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.
+Wizard_Step2_FilterLabel        = Bộ lọc
+Wizard_Step2_FilterWatermark    = Tên nhà lưu trữ…
+Wizard_Step2_FilterAnonymous    = Chỉ ẩn danh
+Wizard_Step2_FilterAnonymousTip = Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.
+Wizard_Step2_FilterClear        = Xóa bộ lọc
+Wizard_Step2_FilterCount_Format = Hiển thị {0} trong {1}   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này sẽ bị vượt quá:
 Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Tên các tệp sau chứa ký tự mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}

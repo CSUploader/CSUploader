@@ -1295,6 +1295,24 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
   </data>
+  <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
+    <value>Bộ lọc</value>
+  </data>
+  <data name="Wizard_Step2_FilterWatermark" xml:space="preserve">
+    <value>Tên nhà lưu trữ…</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
+    <value>Chỉ ẩn danh</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
+    <value>Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.</value>
+  </data>
+  <data name="Wizard_Step2_FilterClear" xml:space="preserve">
+    <value>Xóa bộ lọc</value>
+  </data>
+  <data name="Wizard_Step2_FilterCount_Format" xml:space="preserve">
+    <value>Hiển thị {0} trong {1}</value>
+  </data>
   <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
     <value>Giới hạn của nhà lưu trữ này sẽ bị vượt quá:</value>
   </data>

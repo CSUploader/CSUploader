@@ -1295,6 +1295,24 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>此托管商需要账户。点击"添加账户…"以添加。</value>
   </data>
+  <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
+    <value>筛选</value>
+  </data>
+  <data name="Wizard_Step2_FilterWatermark" xml:space="preserve">
+    <value>网盘名称…</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
+    <value>仅匿名</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
+    <value>仅显示无需账户即可上传的网盘。</value>
+  </data>
+  <data name="Wizard_Step2_FilterClear" xml:space="preserve">
+    <value>清除筛选</value>
+  </data>
+  <data name="Wizard_Step2_FilterCount_Format" xml:space="preserve">
+    <value>显示 {0} / {1}</value>
+  </data>
   <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
     <value>该托管商的限制将被超出：</value>
   </data>

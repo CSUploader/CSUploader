@@ -334,7 +334,7 @@
            sites → IsVisible; the WPF DataTrigger-driven per-row !CanUse dim (+ tooltip) and the
            italic-when-no-saved-accounts hoster name become conditional-class bindings (rule 40). The grid
            is SelectionMode=Single with the ClearSelectionOnEmptyClick + SelectRowOnRightClick behaviors. -->
-      <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,*,Auto"
+      <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,Auto,*,Auto"
             IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
 
         <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
@@ -342,7 +342,34 @@
         <TextBlock Grid.Row="1" Text="{loc:Loc Wizard_Step2_Desc}"
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
 
-        <DataGrid Grid.Row="2" x:Name="fileHostersGrid" ItemsSource="{Binding FileHosters}"
+        <!-- Filter bar. The list is ~80 hosters long, so it needs a way in: a name box and an
+             anonymous-only toggle. The grid's ItemsSource is a DataGridCollectionView built in
+             code-behind (the Uploads tab's pattern) — the filter is a VIEW concern, so a hoster that
+             is ticked and then filtered out of sight still uploads, and the count on the right is
+             what says so. -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,220,Auto,*,Auto,Auto" Margin="0,0,0,8">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Wizard_Step2_FilterLabel}"
+                     FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                     Foreground="{DynamicResource TextSecondaryBrush}" />
+          <TextBox Grid.Column="1" x:Name="HosterFilterBox"
+                   Text="{Binding HosterFilterText}"
+                   Watermark="{loc:Loc Wizard_Step2_FilterWatermark}"
+                   FontSize="11" Padding="6,3" VerticalContentAlignment="Center" />
+          <CheckBox Grid.Column="2" IsChecked="{Binding AnonymousHostersOnly}"
+                    Content="{loc:Loc Wizard_Step2_FilterAnonymous}"
+                    FontSize="11" Margin="12,0,0,0" VerticalAlignment="Center"
+                    ToolTip.Tip="{loc:Loc Wizard_Step2_FilterAnonymousTip}" />
+          <TextBlock Grid.Column="4" Text="{Binding HosterFilterSummary}"
+                     FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     IsVisible="{Binding IsHosterFilterActive}" />
+          <Button Grid.Column="5" Command="{Binding ClearHosterFilterCommand}"
+                  Content="{loc:Loc Wizard_Step2_FilterClear}"
+                  FontSize="11" Padding="8,3" VerticalAlignment="Center"
+                  IsVisible="{Binding IsHosterFilterActive}" />
+        </Grid>
+
+        <DataGrid Grid.Row="3" x:Name="fileHostersGrid"
                   AutoGenerateColumns="False" SelectionMode="Single"
                   HeadersVisibility="Column"
                   GridLinesVisibility="All"
@@ -477,7 +504,7 @@
 
         <!-- Hoster-limit violations surface in-place (not a dialog) so the user sees which constraints fail
              while toggling hosters/files; Next stays disabled (via CanGoNext) until the list empties. -->
-        <Border Grid.Row="3" x:Name="HosterWarningsBorder" Margin="0,8,0,0" Padding="8,6"
+        <Border Grid.Row="4" x:Name="HosterWarningsBorder" Margin="0,8,0,0" Padding="8,6"
                 Background="{DynamicResource SurfaceAltBrush}"
                 BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="1"
                 CornerRadius="3"

@@ -5,6 +5,7 @@
 
 using System.ComponentModel;
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -36,6 +37,19 @@ public partial class UploadWizardWindow : Window
     /// LostFocus-bound directory box, so the gallery pre-loads a fake directory to exercise steps 0-1).
     /// </summary>
     internal UploadWizardViewModel ViewModel { get; }
+
+    /// <summary>
+    /// The File Hosters grid's filtered view over <see cref="UploadWizardViewModel.FileHosters"/>.
+    /// Built ONCE (a <see cref="DataGridCollectionView"/> subscribes to its source's CollectionChanged
+    /// in the ctor and never unsubscribes, so re-minting one per filter keystroke would orphan the
+    /// old handler) and refreshed in place — the same arrangement UploadsView uses for its filter bar.
+    /// <para>
+    /// Filtering here rather than in the collection is what keeps a ticked-then-hidden hoster in the
+    /// upload: the VM's <see cref="UploadWizardViewModel.FileHosters"/> is untouched, and it is what
+    /// the Next step reads.
+    /// </para>
+    /// </summary>
+    internal DataGridCollectionView? HostersView { get; private set; }
 
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses the
     // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services
@@ -80,9 +94,19 @@ public partial class UploadWizardWindow : Window
             CommandParameter = filesGrid.SelectedItems,
         });
 
+        // The hoster grid reads a filtered view, not the raw collection (see HostersView).
+        HostersView = new DataGridCollectionView(ViewModel.FileHosters)
+        {
+            Filter = ViewModel.MatchesHosterFilter,
+        };
+        fileHostersGrid.ItemsSource = HostersView;
+        ViewModel.HosterFilterInvalidated += Vm_HosterFilterInvalidated;
+
         ViewModel.PropertyChanged += Vm_PropertyChanged;
         DataContext = ViewModel;
     }
+
+    private void Vm_HosterFilterInvalidated(object? sender, EventArgs e) => HostersView?.Refresh();
 
     private static UploadWizardViewModel BuildViewModel()
         => ((App)Application.Current!).Services.GetRequiredService<UploadWizardViewModel>();

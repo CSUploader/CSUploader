@@ -1295,6 +1295,24 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
   </data>
+  <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
+    <value>Salain</value>
+  </data>
+  <data name="Wizard_Step2_FilterWatermark" xml:space="preserve">
+    <value>Pangalan ng hoster…</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
+    <value>Anonymous lamang</value>
+  </data>
+  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
+    <value>Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.</value>
+  </data>
+  <data name="Wizard_Step2_FilterClear" xml:space="preserve">
+    <value>I-clear ang salain</value>
+  </data>
+  <data name="Wizard_Step2_FilterCount_Format" xml:space="preserve">
+    <value>{0} sa {1} ang ipinapakita</value>
+  </data>
   <data name="Wizard_Hoster_LimitsHeader" xml:space="preserve">
     <value>Lalampasan ang mga limitasyon ng hoster na ito:</value>
   </data>

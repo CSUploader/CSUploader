@@ -615,6 +615,12 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)
 Wizard_Step2_AddAccountLink        = Add account…
 Wizard_Step2_AccountRequiredTooltip = This hoster requires an account. Click "Add account…" to add one.
+Wizard_Step2_FilterLabel        = Filter
+Wizard_Step2_FilterWatermark    = Hoster name…
+Wizard_Step2_FilterAnonymous    = Anonymous only
+Wizard_Step2_FilterAnonymousTip = Show only hosters that accept uploads without an account.
+Wizard_Step2_FilterClear        = Clear filter
+Wizard_Step2_FilterCount_Format = {0} of {1} shown   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = This hoster's limits would be exceeded:
 Wizard_Hoster_FileTooLarge_Format  = {0}: The following files exceed the per-file limit of {1} and won't be uploaded:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: The following file names use characters this hoster won't accept and won't be uploaded:\n{1}
