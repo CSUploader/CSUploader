@@ -269,6 +269,11 @@ public static class ServiceRegistration
         // else is the family default. See PrefilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PrefilesPipeline>();
 
+        // Xubster — classic XFS, ANONYMOUS at 10 MB / 500 MB signed in, on nodes that rotate across
+        // hosts AND ports on a different domain (xubster.ink). Upload page is ?op=upload, and it
+        // publishes an extension blocklist. See XubsterPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.XubsterPipeline>();
+
         // World Files — classic XFS with a LIVE anonymous upload (5 GB guest / 10 GB account), even
         // though the site renders no guest form: the node comes from ?op=api_get_limits, as on UpZur
         // and BtaFile. See WorldFilesPipeline.cs.

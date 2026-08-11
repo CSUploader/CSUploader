@@ -25,8 +25,9 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// Everything else is the family default and stays that way: <c>/login.html</c> exists (no captcha,
 /// and posting the form from this app's own stack answers <c>302 + Set-Cookie: xfss</c>), the
 /// signed-in <c>?op=upload_form</c> carries a real <c>&lt;form action="…/upload.cgi"&gt;</c>, the
-/// reply is the family's JSON, and the link is <c>world-files.com/&lt;code&gt;</c>. Only two things
-/// are overridden below, both on the account page.
+/// reply is the family's JSON, and the link is <c>world-files.com/&lt;code&gt;</c>. The only overrides
+/// left are the anonymous node lookup and the caps — this theme's name and storage markup moved to
+/// the base once Xubster turned up on identical markup.
 /// </para>
 /// </summary>
 public sealed class WorldFilesPipeline : XFileSharingApiPipeline
@@ -47,21 +48,6 @@ public sealed class WorldFilesPipeline : XFileSharingApiPipeline
     /// capture, wfs04 an hour later), which is exactly why it is asked for per upload.</summary>
     private static readonly Regex ServerUrlRegex = new(
         """<ServerURL>\s*([^<\s]+)\s*</ServerURL>""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    /// <summary>The account name, from the <c>?op=my_account</c> table:
-    /// <c>&lt;TD…&gt;Username&lt;/TD&gt;&lt;TD&gt;&lt;b&gt;NAME&lt;/b&gt;&lt;/TD&gt;</c>.</summary>
-    private static readonly Regex UsernameRowRegex = new(
-        """<td[^>]*>\s*Username\s*</td>\s*<td[^>]*>\s*<b>\s*([A-Za-z0-9._@\-]+)\s*</b>""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    /// <summary>
-    /// The storage row, in this fork's own shape: <c>Used space</c> → <c>0.00 of 500 GB</c>.
-    /// ⚠ The used figure carries NO unit of its own — it is stated in the quota's — which is why
-    /// neither of the base's two bar patterns matches, and why the unit group here is optional.
-    /// </summary>
-    private static readonly Regex UsedSpaceRowRegex = new(
-        """<td[^>]*>\s*Used\s+space\s*</td>\s*<td[^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)?\s*of\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public WorldFilesPipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
@@ -139,43 +125,11 @@ public sealed class WorldFilesPipeline : XFileSharingApiPipeline
     }
 
     /// <summary>
-    /// Reads the name out of this fork's account table. The family default anchors on a
-    /// <c>fa-user</c> icon, and this theme has none anywhere, so it returned nothing and the account
-    /// saved under whatever was typed. That is not harmless: what this app stores is what the next
-    /// sign-in POSTs, and this host signs in with the USERNAME, so taking the host's own spelling of
-    /// it is better than trusting the box.
+    /// Test seams for the two account-page scrapes. ⚠ Both now go through the BASE: this theme has no
+    /// <c>fa-user</c> icon and states its storage as <c>Used space: 0.00 of 500 GB</c> (no unit on the
+    /// used figure), and both patterns moved down once Xubster turned up on identical markup. These
+    /// stay as tests so that hoisting can't silently stop reaching this host.
     /// </summary>
-    protected override string? ParseAccountUsername(string html)
-    {
-        Match m = UsernameRowRegex.Match(html);
-        return m.Success ? m.Groups[1].Value : null;
-    }
-
-    /// <summary>
-    /// Reads "Used space: 0.00 of 500 GB". Neither of the base's bar patterns fits: both want
-    /// <c>class="storage"</c> or <c>id="occupied"</c> with a unit on BOTH numbers, and this fork puts
-    /// the pair in a plain table row with the unit stated once. Kept here rather than hoisted because
-    /// one host is one host — the <c>id="occupied"</c> bar only moved to the base when a second turned
-    /// up on it.
-    /// </summary>
-    protected override (long? Used, long? Quota) ParseStorageUsage(string html)
-    {
-        Match m = UsedSpaceRowRegex.Match(html);
-        if (!m.Success)
-        {
-            return base.ParseStorageUsage(html);
-        }
-
-        // "0.00 of 500 GB" — the used figure is in the quota's unit. An explicit unit is honoured if
-        // this fork ever starts printing one for small accounts ("512.00 MB of 500 GB").
-        string quotaUnit = m.Groups[4].Value;
-        string usedUnit = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : quotaUnit;
-
-        return (ParseSizeToBytes(m.Groups[1].Value, usedUnit), ParseSizeToBytes(m.Groups[3].Value, quotaUnit));
-    }
-
-    /// <summary>Test seams for the two account-page scrapes and the guest/account caps — the only
-    /// places this host departs from the family.</summary>
     internal string? ParseAccountUsernameForTests(string html) => ParseAccountUsername(html);
 
     /// <inheritdoc cref="ParseAccountUsernameForTests"/>

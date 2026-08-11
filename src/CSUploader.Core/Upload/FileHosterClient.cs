@@ -365,6 +365,13 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // open — here the node refuses the guest field set outright. See PrefilesPipeline.cs.
         { "PreFiles", "prefiles.com" },
 
+        // Xubster — classic XFileSharing, ANONYMOUS at 10 MB or 500 MB signed in (1 GB storage). ⚠ Its
+        // nodes are on xubster.ink, rotate, and are not consistently on 443 (x21 plain, x100:8443), so
+        // the <ServerURL> from ?op=api_get_limits is used verbatim per upload. ⚠ Upload page is
+        // ?op=upload — the family's ?op=upload_form renders the homepage. Blocks exe/php/sh/apk.
+        // See XubsterPipeline.cs.
+        { "Xubster", "xubster.com" },
+
         // World Files — classic XFileSharing, ANONYMOUS at 5 GB or 10 GB signed in (500 GB free
         // quota). ⚠ Signed out the site offers NO upload form at all (?op=upload_form 302s to the
         // login) and the node still takes a guest upload — the node and both caps come from the

@@ -466,11 +466,31 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
         """id=["']occupied["'][^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>\s*of\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // The same pair again, in the plain my_account TABLE some forks use instead of either bar:
+    // <TR><TD>Used space</TD><TD><b>0.00 of 500 GB</b></TD></TR>.
+    // ⚠ The used figure carries NO unit of its own — it is stated in the quota's — which is why the
+    // unit group here is optional and why neither bar pattern above can match this shape. Tried last,
+    // so it can add figures but never change one. Here rather than on a hoster because TWO ship it
+    // with identical markup (World Files, Xubster) and a second copy of one regex is how copies start
+    // to disagree — the same reason the freespace bar moved down.
+    private static readonly Regex _usedSpaceRowRegex = new(
+        """<td[^>]*>\s*Used\s+space\s*</td>\s*<td[^>]*>\s*<b>\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)?\s*of\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT]?B)\s*</b>""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Username scrape (web-form mode): the account menu (on both my_account and my_files) renders the
     // username immediately after the user icon — <i class="fa fa-user"></i>pkjmq41030<i …>. Anchor on
     // that icon and capture the token in front of the next tag.
     private static readonly Regex _myAccountUsernameRegex = new(
         """fa-user\b[^>]*></i>\s*([A-Za-z0-9._@\-]+)""",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // ...and the same name in the my_account table, for the forks whose theme has no fa-user icon at
+    // all: <TR><TD>Username</TD><TD><b>NAME</b></TD></TR>. Tried only when the icon anchor misses.
+    // Worth having in the base for the reason the icon anchor is fragile in the first place: with
+    // neither, the account saves under whatever was typed, and what this app stores is what the next
+    // sign-in POSTs. Two hosts ship this table (World Files, Xubster).
+    private static readonly Regex _usernameRowRegex = new(
+        """<td[^>]*>\s*Username\s*</td>\s*<td[^>]*>\s*<b>\s*([A-Za-z0-9._@\-]+)\s*</b>""",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>Production ctor — supplied by DI with optional auth + repo.</summary>
@@ -1803,6 +1823,12 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     private static string? ExtractMyAccountUsername(string html)
     {
         Match m = _myAccountUsernameRegex.Match(html);
+        if (m.Success && m.Groups[1].Length > 0)
+        {
+            return m.Groups[1].Value;
+        }
+
+        m = _usernameRowRegex.Match(html);
         return m.Success && m.Groups[1].Length > 0 ? m.Groups[1].Value : null;
     }
 
@@ -1822,11 +1848,21 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
 
         if (!m.Success)
         {
+            m = _usedSpaceRowRegex.Match(html);
+        }
+
+        if (!m.Success)
+        {
             return (null, null);
         }
 
-        return (ParseSizeToBytes(m.Groups[1].Value, m.Groups[2].Value),
-                ParseSizeToBytes(m.Groups[3].Value, m.Groups[4].Value));
+        // The table row states the used figure in the QUOTA's unit ("0.00 of 500 GB"); the two bar
+        // shapes always carry both. An explicit unit therefore wins wherever one is present.
+        string quotaUnit = m.Groups[4].Value;
+        string usedUnit = m.Groups[2].Success && m.Groups[2].Length > 0 ? m.Groups[2].Value : quotaUnit;
+
+        return (ParseSizeToBytes(m.Groups[1].Value, usedUnit),
+                ParseSizeToBytes(m.Groups[3].Value, quotaUnit));
     }
 
     /// <summary>Converts a scraped size figure (e.g. number "10.0", unit "MB") to bytes using binary

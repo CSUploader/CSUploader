@@ -130,6 +130,7 @@ internal static class BitmapImageResources
         ("FileHosterPrefilesImage", "FileHosters/filehoster_prefiles.png"),
         ("FileHosterSubyshareImage", "FileHosters/filehoster_subyshare.png"),
         ("FileHosterWorldfilesImage", "FileHosters/filehoster_worldfiles.png"),
+        ("FileHosterXubsterImage", "FileHosters/filehoster_xubster.png"),
         ("FileHosterFilestoreImage", "FileHosters/filehoster_filestore.png"),
         ("FileHosterFiledotImage", "FileHosters/filehoster_filedot.png"),
         ("FileHosterTerabytezImage", "FileHosters/filehoster_terabytez.png"),
