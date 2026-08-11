@@ -23,10 +23,19 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <c>{"0":{"ok":true,"url":"https://uploadgig.com/file/download/&lt;id&gt;/&lt;name&gt;",…}}</c>.</item>
 /// </list>
 /// <para>
-/// ⚠ <b>The site's sign-in has a captcha; this path does not.</b> The API authenticates with the plain
-/// username and password on every upload — no cookie, no token, no browser — so the host ships as an
-/// ordinary username/password account rather than a WebView sign-in. Nothing is persisted beyond the
-/// credentials the user typed.
+/// ⚠ <b>The site's sign-in has a captcha; this path does not.</b> A browser capture shows
+/// <c>POST /login/do_login</c> carrying <c>csrf_tester</c> and <c>g-recaptcha-response</c>, so the
+/// website cannot be signed into from here at all. The API authenticates with the plain username and
+/// password on every upload — no cookie, no token, no browser — so the host ships as an ordinary
+/// username/password account. Nothing is persisted beyond the credentials the user typed.
+/// </para>
+/// <para>
+/// ⚠⚠ <b>The website's uploader refuses the very account the API accepts, and that is why this host
+/// spent six weeks disabled as "uploads aren't going through".</b> Signed in on the free account used
+/// to verify all of this, the site's own <c>GET /file/get_upload_action</c> answers
+/// <c>{"result":"error","msg":"You can not upload files here."}</c> — while <c>/api/get_upload_action</c>,
+/// with the same credentials, hands over an address that took 122 MB. A refusal on one route is not a
+/// refusal by the host.
 /// </para>
 /// <para>
 /// ⚠ <b><c>cmbs</c> is the account's REMAINING storage, not a per-file limit</b> — the docs call it "the
@@ -34,7 +43,8 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// answered 10240, and after a 2 MB file it answered 10238. So free storage is <b>10 GB total</b>, the
 /// figure shrinks as files are stored, and it doubles as this attempt's real ceiling. It is read before
 /// every upload and enforced there — which is also why the homepage's own <c>max_upload_limit = 102</c>
-/// is ignored: a 120 MB file uploaded without complaint.
+/// is ignored: a 120 MB file uploaded without complaint. The site's own upload page settles it outright:
+/// "You can upload files up to 100GB through our API", so 10240 was never a per-file rule.
 /// </para>
 /// <para>
 /// ⚠ <b>The action URL expires after 60 seconds</b> and points at <b>plain HTTP on a bare IP</b>
@@ -79,9 +89,11 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
 
     public bool RequiresHashingAfterUpload => false;
 
-    /// <summary>10 GB — but see the type summary: this is the free tier's TOTAL storage, and the real
-    /// ceiling for any one upload is whatever is left of it, which only the host can say. The wizard
-    /// warns on this; the upload itself checks the live figure.</summary>
+    /// <summary>10 GB — the free tier's TOTAL storage, which is the most a free account can hold and so
+    /// the most restrictive figure this property is meant to carry. It is NOT the protocol's ceiling:
+    /// the host advertises 100 GB through the API, and the real limit for any one upload is whatever
+    /// storage is left, which only the host can say. The wizard warns on this; the upload checks the
+    /// live figure.</summary>
     public long? MaxFileSize => FreeStorageBytes;
 
     public int? MaxFilesPerPackage => null;
