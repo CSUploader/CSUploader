@@ -729,7 +729,10 @@ public partial class SettingsViewModel(
             if (account.HasExpiredSession)
             {
                 account.SetCheckStatus(AccountCheckStatus.Failed, Localizer.Instance["Accounts_SessionExpired"]);
-                expired.Add(account.FileHosterName);
+
+                // FileHosterName is nullable on the DTO (a half-built row can exist), and the log
+                // line is for a human — DisplayName is what they would recognise anyway.
+                expired.Add(account.FileHosterName ?? account.DisplayName);
             }
 
             Accounts.Add(account);
