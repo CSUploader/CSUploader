@@ -269,6 +269,11 @@ public static class ServiceRegistration
         // else is the family default. See PrefilesPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.PrefilesPipeline>();
 
+        // World Files — classic XFS with a LIVE anonymous upload (5 GB guest / 10 GB account), even
+        // though the site renders no guest form: the node comes from ?op=api_get_limits, as on UpZur
+        // and BtaFile. See WorldFilesPipeline.cs.
+        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.WorldFilesPipeline>();
+
         // UploadGIG — ACCOUNT-ONLY, on the host's own published two-call API. Serialised to one upload
         // at a time: each needs a 60-second address, and asking for one is a rate-limited login.
         // See UploadGigPipeline.cs.

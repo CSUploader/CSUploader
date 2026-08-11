@@ -365,6 +365,12 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // open — here the node refuses the guest field set outright. See PrefilesPipeline.cs.
         { "PreFiles", "prefiles.com" },
 
+        // World Files — classic XFileSharing, ANONYMOUS at 5 GB or 10 GB signed in (500 GB free
+        // quota). ⚠ Signed out the site offers NO upload form at all (?op=upload_form 302s to the
+        // login) and the node still takes a guest upload — the node and both caps come from the
+        // keyless ?op=api_get_limits, as on UpZur and BtaFile. See WorldFilesPipeline.cs.
+        { "World Files", "world-files.com" },
+
         // SubyShare — ACCOUNT-ONLY, 5 GB, and a FREE account uploads (the candidate list had it down
         // as premium-only, which its own upload page disproves). ⚠ An older XFileSharing: the form
         // action arrives half-built and the upload answers in HTML, not JSON. See SubysharePipeline.cs.
