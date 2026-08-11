@@ -223,6 +223,148 @@ public class SettingsRefreshAllTests : IDisposable
             Times.Once);
     }
 
+    [Fact]
+    public async Task RefreshAll_ChecksAccountsConcurrently_NotOneAtATime()
+    {
+        // The point of the change: twelve accounts one at a time is twelve round-trips end to end.
+        // Each check here blocks until released, so if any two are ever in flight together the gate
+        // opens; a sequential implementation would deadlock on the first and time out.
+        // Real registry names, and all plain username/password ones: an unknown hoster is skipped as
+        // "no implementation" and a browser-sign-in one is skipped by design, so either would have
+        // measured nothing. (My first draft used Host0..Host11 and measured exactly that.)
+        string[] hosters =
+        [
+            "1Fichier", "Alfafile", "BRupload", "Catbox", "FileGarden", "Filehoster.io",
+            "GigaPeta", "Gofile", "IcerBox", "MediaFire", "Pixeldrain", "Rapidgator",
+        ];
+        foreach (string hoster in hosters)
+        {
+            await _loginRepo.InsertAsync(UsernamePassword(hoster, "u"));
+        }
+
+        int inFlight = 0;
+        int peak = 0;
+        using SemaphoreSlim release = new(0);
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                int now = Interlocked.Increment(ref inFlight);
+                InterlockedMax(ref peak, now);
+                await release.WaitAsync(TimeSpan.FromSeconds(10));
+                Interlocked.Decrement(ref inFlight);
+                return new AccountCheckResult(true, AccountType.Free, "OK");
+            });
+
+        SettingsViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAsync();
+
+        Task refresh = vm.RefreshAllAccountsCommand.ExecuteAsync(null);
+
+        // Let them pile up, then let every waiter through.
+        await WaitUntilAsync(() => Volatile.Read(ref peak) > 1, TimeSpan.FromSeconds(10));
+        release.Release(64);
+        await refresh;
+
+        Assert.True(peak > 1, $"expected overlapping checks, peak was {peak}");
+
+        // …and bounded: the fan-out must not become "all of them at once".
+        Assert.True(peak <= 10, $"expected at most 10 in flight, peak was {peak}");
+    }
+
+    [Fact]
+    public async Task RefreshAll_NeverChecksTwoAccountsOnTheSameHostAtOnce()
+    {
+        // Several of these sign-ins are rate-limited per account or per IP — UploadGIG answers a
+        // second login within the minute with "you can't login a few minutes". Overlapping DIFFERENT
+        // hosts is the win; overlapping the same one is how a refresh earns a lockout.
+        await _loginRepo.InsertAsync(UsernamePassword("Rapidgator", "one"));
+        await _loginRepo.InsertAsync(UsernamePassword("Rapidgator", "two"));
+        await _loginRepo.InsertAsync(UsernamePassword("Alfafile", "three"));
+
+        int rapidgatorInFlight = 0;
+        int rapidgatorPeak = 0;
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string hoster, string _, string _, string? _, string? _, CancellationToken _) =>
+            {
+                if (hoster == "Rapidgator")
+                {
+                    InterlockedMax(ref rapidgatorPeak, Interlocked.Increment(ref rapidgatorInFlight));
+                    await Task.Delay(60);
+                    Interlocked.Decrement(ref rapidgatorInFlight);
+                }
+                else
+                {
+                    await Task.Delay(60);
+                }
+
+                return new AccountCheckResult(true, AccountType.Free, "OK");
+            });
+
+        SettingsViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, rapidgatorPeak);
+    }
+
+    [Fact]
+    public async Task RefreshAll_AppliesEveryResult_EvenWhenTheyLandOutOfOrder()
+    {
+        // Results are applied as they complete, not in list order, so a slow first account must not
+        // cost the others their status.
+        await _loginRepo.InsertAsync(UsernamePassword("Rapidgator", "slow"));
+        await _loginRepo.InsertAsync(UsernamePassword("Alfafile", "fast"));
+        await _loginRepo.InsertAsync(UsernamePassword("Easybytez", "fast2"));
+
+        Mock<IAccountVerifier> verifier = new();
+        verifier
+            .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(async (string hoster, string _, string _, string? _, string? _, CancellationToken _) =>
+            {
+                await Task.Delay(hoster == "Rapidgator" ? 150 : 10);
+                return new AccountCheckResult(true, AccountType.Free, $"{hoster} ok");
+            });
+
+        SettingsViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAsync();
+
+        await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
+
+        Assert.All(vm.Accounts, a => Assert.Equal(AccountCheckStatus.Valid, a.CheckStatus));
+        Assert.All(vm.Accounts, a => Assert.NotNull(a.LastRefreshedDateTime));
+    }
+
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int seen = Volatile.Read(ref target);
+        while (value > seen)
+        {
+            int was = Interlocked.CompareExchange(ref target, value, seen);
+            if (was == seen)
+            {
+                return;
+            }
+
+            seen = was;
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(15);
+        }
+    }
+
     private static Mock<IAccountVerifier> Verifier(bool valid)
     {
         Mock<IAccountVerifier> verifier = new();

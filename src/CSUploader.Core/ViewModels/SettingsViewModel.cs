@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -1024,6 +1025,18 @@ public partial class SettingsViewModel(
         CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", dto.FileHosterName);
     }
 
+    /// <summary>
+    /// How many account checks may be in flight at once. Each is one HTTP round-trip to a different
+    /// host, so the wall-clock saving is close to linear — twenty-five accounts one at a time is a
+    /// long wait for something the user pressed once.
+    /// <para>
+    /// Ten rather than "all of them": every check builds an HttpHandler and some hosters answer
+    /// slowly, and a burst of twenty-five simultaneous sign-in requests from one IP is exactly the
+    /// shape of traffic that earns a rate-limit.
+    /// </para>
+    /// </summary>
+    private const int MaxParallelAccountChecks = 10;
+
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task RefreshAllAccountsAsync(CancellationToken cancellationToken = default)
     {
@@ -1039,6 +1052,7 @@ public partial class SettingsViewModel(
         int needSignIn = 0;
 
         Dictionary<int, RowStatus> statuses = BuildStatusMap();
+        List<FileHosterLoginDto> toCheck = [];
 
         foreach (FileHosterLoginDto account in Accounts.ToArray())
         {
@@ -1057,77 +1071,80 @@ public partial class SettingsViewModel(
                 continue;
             }
 
-            CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", account.Username, account.FileHosterName, ++checked_, Accounts.Count);
+            toCheck.Add(account);
             UpdateAccountStatus(account.Id, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
-            await Task.Yield();
+        }
 
-            var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
-            if (client is null)
+        // Fan out, then apply each result as it lands. The verifier calls overlap; everything that
+        // touches a DTO, the status map or the database happens HERE, in the awaiting context, one
+        // result at a time — so none of it needs a lock, and the grid is never mutated from a worker
+        // thread (this ViewModel has no dispatcher to marshal with).
+        using SemaphoreSlim gate = new(MaxParallelAccountChecks);
+        ConcurrentDictionary<string, SemaphoreSlim> perHosterGates = new(StringComparer.OrdinalIgnoreCase);
+        List<Task<AccountCheckOutcomeForRow>> running =
+            [.. toCheck.Select(a => CheckOneForRefreshAllAsync(a, gate, perHosterGates, cancellationToken))];
+
+        await foreach (Task<AccountCheckOutcomeForRow> finished in Task.WhenEach(running).WithCancellation(cancellationToken))
+        {
+            AccountCheckOutcomeForRow outcome = await finished;
+            FileHosterLoginDto account = outcome.Account;
+
+            CheckAccountStatus = LocF(
+                "Settings_Accounts_Status_CheckingProgress_Format",
+                account.Username,
+                account.FileHosterName,
+                ++checked_,
+                toCheck.Count);
+
+            if (outcome.Result is null)
             {
-                // No FileHosterClient implementation → no verifier round-trip happened →
-                // RefreshedAt stays null (we didn't actually try anything).
-                statuses[account.Id] = new RowStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"), RefreshedAt: null);
-                UpdateAccountStatus(account.Id, AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"));
+                // No verifier ran (no implementation for this hoster, or the call threw). Either way
+                // the row keeps whatever the outcome carried.
+                statuses[account.Id] = outcome.Status;
+                if (outcome.Status.RefreshedAt is { } failedAt)
+                {
+                    account.LastRefreshedDateTime = failedAt;
+                    AutoDisableIfFailed(account, outcome.Status.Status);
+                    try
+                    { await _accountRepository.UpdateAsync(account, cancellationToken); }
+                    catch { /* keep the primary failure visible */ }
+                }
+
+                UpdateAccountStatus(account.Id, outcome.Status.Status, outcome.Status.Message);
                 continue;
             }
 
-            try
+            AccountCheckResult result = outcome.Result;
+            DateTime refreshedAt = outcome.Status.RefreshedAt ?? NowLocal();
+
+            if (result.IsValid)
             {
-                AccountCheckResult result = await VerifyCredentialsAsync(
-                    account.FileHosterName ?? string.Empty,
-                    account.Username ?? string.Empty,
-                    account.Password ?? string.Empty,
-                    account.ApiKey,
-                    account.SessionCookie,
-                    cancellationToken);
-
-                // Single stamp covers both Valid and !Valid branches — we tried, so the
-                // timestamp reflects the attempt regardless of outcome.
-                DateTime refreshedAt = NowLocal();
-
-                if (result.IsValid)
+                statuses[account.Id] = new RowStatus(
+                    AccountCheckStatus.Valid,
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"),
+                    refreshedAt);
+                if (account.AccountType != result.AccountType)
                 {
-                    statuses[account.Id] = new RowStatus(
-                        AccountCheckStatus.Valid,
-                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_OK"),
-                        refreshedAt);
-                    if (account.AccountType != result.AccountType)
-                    {
-                        account.AccountType = result.AccountType;
-                        updated++;
-                    }
-                    ApplySessionCookieIfPresent(account, result);
-                }
-                else
-                {
-                    // CheckStatus drives the cell colour now — row text is just the
-                    // verifier's message, no "Failed: " prefix needed.
-                    statuses[account.Id] = new RowStatus(
-                        AccountCheckStatus.Failed,
-                        result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"),
-                        refreshedAt);
+                    account.AccountType = result.AccountType;
+                    updated++;
                 }
 
-                // Auto-disable on a failed check (no-op for Valid); persisted by the UpdateAsync below.
-                AutoDisableIfFailed(account, statuses[account.Id].Status);
-                account.LastRefreshedDateTime = refreshedAt;
-                await _accountRepository.UpdateAsync(account, cancellationToken);
+                ApplySessionCookieIfPresent(account, result);
             }
-            catch (Exception ex)
+            else
             {
-                // Transport exceptions and verifier IsValid=false both bucket as Failed
-                // (red cell). The user sees the message text to distinguish; we don't
-                // need a separate "Error" colour.
-                DateTime refreshedAt = NowLocal();
-                statuses[account.Id] = new RowStatus(AccountCheckStatus.Failed, ex.Message, refreshedAt);
-                account.LastRefreshedDateTime = refreshedAt;
-                AutoDisableIfFailed(account, AccountCheckStatus.Failed);
-                // Persist the timestamp even on transport failure. Swallow secondary DB
-                // errors so they don't mask the original verifier exception in the UI.
-                try
-                { await _accountRepository.UpdateAsync(account, cancellationToken); }
-                catch { /* keep the primary failure visible */ }
+                // CheckStatus drives the cell colour now — row text is just the verifier's message,
+                // no "Failed: " prefix needed.
+                statuses[account.Id] = new RowStatus(
+                    AccountCheckStatus.Failed,
+                    result.Message ?? Loc("Settings_Accounts_DefaultStatus_Failed"),
+                    refreshedAt);
             }
+
+            // Auto-disable on a failed check (no-op for Valid); persisted by the UpdateAsync below.
+            AutoDisableIfFailed(account, statuses[account.Id].Status);
+            account.LastRefreshedDateTime = refreshedAt;
+            await _accountRepository.UpdateAsync(account, cancellationToken);
 
             RowStatus settled = statuses[account.Id];
             UpdateAccountStatus(account.Id, settled.Status, settled.Message);
@@ -1141,6 +1158,77 @@ public partial class SettingsViewModel(
             ? LocF("Settings_Accounts_Status_RefreshSummaryWithSignIn_Format", checked_, updated, needSignIn)
             : LocF("Settings_Accounts_Status_RefreshSummary_Format", checked_, updated);
     }
+
+    /// <summary>
+    /// One account's verifier round-trip for <see cref="RefreshAllAccountsAsync"/>, run under two
+    /// gates and touching nothing shared.
+    /// <para>
+    /// The second gate is per HOSTER, width one. Two accounts on the same host must not be checked at
+    /// the same moment: several of these sign-ins are rate-limited per account or per IP — UploadGIG
+    /// answers a second login within the minute with "you can't login a few minutes" — and the point
+    /// of the fan-out is to overlap DIFFERENT hosts, which it still does.
+    /// </para>
+    /// </summary>
+    private async Task<AccountCheckOutcomeForRow> CheckOneForRefreshAllAsync(
+        FileHosterLoginDto account,
+        SemaphoreSlim gate,
+        ConcurrentDictionary<string, SemaphoreSlim> perHosterGates,
+        CancellationToken cancellationToken)
+    {
+        SemaphoreSlim hosterGate = perHosterGates.GetOrAdd(account.FileHosterName ?? string.Empty, _ => new SemaphoreSlim(1, 1));
+
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await hosterGate.WaitAsync(cancellationToken);
+            try
+            {
+                var client = FileHosterClient.FindByHost(account.FileHosterName ?? string.Empty, Protocol.Http, _logger);
+                if (client is null)
+                {
+                    // No FileHosterClient implementation → no verifier round-trip happened →
+                    // RefreshedAt stays null (we didn't actually try anything).
+                    return new AccountCheckOutcomeForRow(
+                        account,
+                        null,
+                        new RowStatus(AccountCheckStatus.Unsupported, Loc("Settings_Accounts_Status_NoImpl"), RefreshedAt: null));
+                }
+
+                AccountCheckResult result = await VerifyCredentialsAsync(
+                    account.FileHosterName ?? string.Empty,
+                    account.Username ?? string.Empty,
+                    account.Password ?? string.Empty,
+                    account.ApiKey,
+                    account.SessionCookie,
+                    cancellationToken);
+
+                // Single stamp covers both Valid and !Valid branches — we tried, so the timestamp
+                // reflects the attempt regardless of outcome.
+                return new AccountCheckOutcomeForRow(account, result, new RowStatus(AccountCheckStatus.Checking, string.Empty, NowLocal()));
+            }
+            catch (Exception ex)
+            {
+                // Transport exceptions and verifier IsValid=false both bucket as Failed (red cell).
+                // The user sees the message text to distinguish; no separate "Error" colour.
+                return new AccountCheckOutcomeForRow(
+                    account,
+                    null,
+                    new RowStatus(AccountCheckStatus.Failed, ex.Message, NowLocal()));
+            }
+            finally
+            {
+                hosterGate.Release();
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>What one parallel check produced: the row it belongs to, the verifier's answer when
+    /// there was one, and the status to fall back on when there wasn't.</summary>
+    private sealed record AccountCheckOutcomeForRow(FileHosterLoginDto Account, AccountCheckResult? Result, RowStatus Status);
 
     /// <summary>
     /// True when checking this account could only proceed by opening a sign-in browser — because its
