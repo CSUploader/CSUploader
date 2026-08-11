@@ -418,7 +418,7 @@
                  !HasAccounts FontStyle=Italic. -->
             <Style Selector="StackPanel.blocked">
               <Setter Property="Opacity" Value="0.45" />
-              <Setter Property="ToolTip.Tip" Value="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+              <Setter Property="ToolTip.Tip" Value="{Binding UseBlockedTooltip}" />
             </Style>
             <Style Selector="TextBlock.blocked">
               <Setter Property="Opacity" Value="0.45" />
@@ -464,7 +464,7 @@
                           Fill="{DynamicResource TextSecondaryBrush}"
                           HorizontalAlignment="Center" VerticalAlignment="Center"
                           IsVisible="{Binding !CanUse}"
-                          ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}" />
+                          ToolTip.Tip="{Binding UseBlockedTooltip}" />
                   </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -506,7 +506,7 @@
                     <TextBlock Classes="link" VerticalAlignment="Center" FontSize="12" Padding="6,2"
                                Text="{loc:Loc Wizard_Step2_AddAccountLink}"
                                IsVisible="{Binding !CanUse}"
-                               ToolTip.Tip="{loc:Loc Wizard_Step2_AccountRequiredTooltip}"
+                               ToolTip.Tip="{Binding UseBlockedTooltip}"
                                PointerReleased="AddAccountLink_PointerReleased" />
                   </Grid>
                 </DataTemplate>

@@ -85,6 +85,33 @@ public class FileHosterLoginDto : INotifyPropertyChanged
     /// <see cref="FileHosterLoginDbm.PinnedProxyId"/> for semantics.
     /// </summary>
     public int? PinnedProxyId { get; set; }
+    /// <summary>
+    /// True when this account signs in with a stored SESSION and that session's own expiry has
+    /// passed — i.e. the app already knows, without asking anything, that an upload with it would
+    /// have to sign in again.
+    /// <para>
+    /// This exists because the app used to find out at the worst possible moment. A BowFile session
+    /// lives 18 hours; three days later a 716-link run reached it, the pipeline correctly tried to
+    /// sign in again, and signing in to that host means a browser window nobody was there to answer
+    /// — so every file queued for it failed with the same message. The expiry was in the DTO the
+    /// whole time; nothing outside the pipeline looked at it.
+    /// </para>
+    /// <para>
+    /// Deliberately DERIVED rather than a stored flag set by a startup sweep: it is then correct at
+    /// every moment something asks, including when a session lapses while the app is open, and
+    /// there is no second copy of the truth to fall out of step.
+    /// </para>
+    /// <para>
+    /// Says nothing about accounts that don't use a session (username/password hosters sign in on
+    /// demand), and nothing about a session that dies EARLY — only a request can discover that.
+    /// </para>
+    /// </summary>
+    public bool HasExpiredSession
+        => !IsAnonymous
+           && !string.IsNullOrEmpty(SessionCookie)
+           && SessionCookieExpiresUtc is DateTime expiresUtc
+           && expiresUtc <= DateTime.UtcNow;
+
 
     /// <summary>
     /// API key for key-based REST APIs (currently Ex-Load). See

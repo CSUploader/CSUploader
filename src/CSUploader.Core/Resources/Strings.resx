@@ -1373,6 +1373,18 @@ Add anyway?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>This hoster requires an account. Click "Add account…" to add one.</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>Skipped — not signed in to {0}. Sign in under Settings → Accounts, then start the upload again.</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>Session expired — sign in again.</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>This account's sign-in has expired. Open Settings → Accounts and sign in again.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}: the sign-in for "{1}" has expired, so nothing will be uploaded there — sign in again under Settings → Accounts.</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>Tick or untick every hoster in the list. Respects the filter, and skips hosters that need an account you haven't added.</value>
   </data>

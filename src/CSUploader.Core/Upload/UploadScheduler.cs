@@ -3,8 +3,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Globalization;
 using System.Threading.Channels;
 using CSUploader.Lib;
+using CSUploader.Lib.Localization;
 
 namespace CSUploader.Upload;
 
@@ -68,6 +70,26 @@ public class UploadScheduler : IDisposable
     /// <summary>
     /// Starts the scheduler's consumer loop. Idempotent - subsequent calls are no-ops.
     /// </summary>
+    /// <summary>
+    /// Accounts that have already reported "not signed in" during this run, by credentials id.
+    /// <para>
+    /// Once a hoster's sign-in has failed, every other file queued for that same account will fail
+    /// the same way — the fix is a browser sign-in, which nothing in the run can supply. A 716-link
+    /// package hitting an expired BowFile session produced forty identical red rows and buried the
+    /// errors that were worth reading. The first one is the message; the rest are skipped with a
+    /// reason that names the account.
+    /// </para>
+    /// <para>
+    /// Cleared by <see cref="StartAll"/> and <see cref="ForceStart"/> — both are the user saying
+    /// "go", which is exactly when they may just have signed in again. Anonymous "accounts" (id 0)
+    /// are never marked: there is no sign-in to lose.
+    /// </para>
+    /// </summary>
+    /// <remarks>Touched only on the scheduler's pump thread — every write is inside a
+    /// <see cref="Post"/>ed action and the read is in <see cref="LaunchUpload"/>, which
+    /// <see cref="FillSlots"/> already runs there — so it needs no locking.</remarks>
+    private readonly HashSet<int> _signedOutCredentialIds = [];
+
     public void Start()
     {
         if (_loopTask is not null)
@@ -138,6 +160,11 @@ public class UploadScheduler : IDisposable
         Post(() =>
         {
             IsPaused = false;
+
+            // The user pressing go is the moment they may have just signed in again, so stop
+            // skipping the accounts a previous run gave up on.
+            _signedOutCredentialIds.Clear();
+
             RequeueStartableFiles();
             FillSlots();
         });
@@ -180,6 +207,9 @@ public class UploadScheduler : IDisposable
         PackageFile[] snapshot = [.. files];
         Post(() =>
         {
+            // Same reasoning as StartAll: an explicit start means try it for real again.
+            _signedOutCredentialIds.Clear();
+
             foreach (PackageFile file in snapshot)
             {
                 ForceStartFile(file);
@@ -578,6 +608,23 @@ public class UploadScheduler : IDisposable
 
     private void LaunchUpload(PackageFile file)
     {
+        // An account that already failed to sign in during this run cannot succeed for this file
+        // either, and running the pipeline would ask for a browser sign-in nobody answered the
+        // first time. Report it once, plainly, instead of repeating the same red row per file.
+        if (file.FileHosterLogin is { Id: > 0 } login && _signedOutCredentialIds.Contains(login.Id))
+        {
+            file.Error = string.Format(
+                CultureInfo.CurrentCulture,
+                Localizer.Instance["Upload_SkippedNotSignedIn_Format"],
+                file.HosterDisplay);
+
+            // POSTED, not called straight through: LaunchUpload runs inside FillSlots, and
+            // OnUploadCompleted ends by calling FillSlots again — completing inline would re-enter it
+            // once per skipped file. The async path posts for the same reason.
+            Post(() => OnUploadCompleted(file, success: false));
+            return;
+        }
+
         SetFileState(file, FileState.Uploading);
         CancellationTokenSource cts = new();
         file.Cts = cts;
@@ -605,6 +652,13 @@ public class UploadScheduler : IDisposable
                     else if (ev is Pipeline.AuthFailed authFailed)
                     {
                         _logger.Log(this, LogType.Error, $"Authentication failed for {file.Name}: {authFailed.Reason}");
+
+                        // Every other file queued for this account would ask for the same sign-in
+                        // and fail the same way — see _signedOutCredentialIds.
+                        if (file.FileHosterLogin is { Id: > 0, IsAnonymous: false } login)
+                        {
+                            Post(() => _signedOutCredentialIds.Add(login.Id));
+                        }
                     }
                     else if (ev is Pipeline.AttemptCompleted ac)
                     {

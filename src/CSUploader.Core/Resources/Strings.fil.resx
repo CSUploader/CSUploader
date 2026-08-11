@@ -1283,6 +1283,18 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>Nilaktawan — hindi naka-sign in sa {0}. Mag-sign in sa Settings → Accounts, pagkatapos ay simulan muli ang upload.</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>Nag-expire ang session — mag-sign in muli.</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>Nag-expire ang sign-in ng account na ito. Buksan ang Settings → Accounts at mag-sign in muli.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}: nag-expire ang sign-in para sa "{1}", kaya walang ma-a-upload doon — mag-sign in muli sa Settings → Accounts.</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>Piliin o alisin ang lahat ng hoster sa listahan. Sumusunod sa salain at nilalaktawan ang mga nangangailangan ng account.</value>
   </data>

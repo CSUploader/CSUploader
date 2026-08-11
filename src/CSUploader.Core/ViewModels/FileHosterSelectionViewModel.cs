@@ -89,7 +89,25 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     /// enabled/blocked visuals — replacing the old <see cref="HasAccounts"/>-only gate that
     /// treated every account-less hoster as unusable.
     /// </summary>
-    public bool CanUse => HasAccounts || SupportsAnonymous;
+    public bool CanUse => (HasAccounts || SupportsAnonymous) && !SelectedAccountSessionExpired;
+
+    /// <summary>
+    /// True when the account currently chosen for this hoster signs in with a stored session and
+    /// that session has run out. The row then locks: ticking it would queue files that can only fail
+    /// at upload time, asking for a browser sign-in nobody may be there to answer.
+    /// <para>
+    /// Per-ACCOUNT rather than per-hoster on purpose — picking a different account from the dropdown
+    /// unlocks the row, which is the fix when a second account exists.
+    /// </para>
+    /// </summary>
+    public bool SelectedAccountSessionExpired => SelectedAccount is { HasExpiredSession: true };
+
+    /// <summary>What the padlock says, since the row can be locked for two different reasons and
+    /// "add an account" is unhelpful advice when one is already there.</summary>
+    public string UseBlockedTooltip => Localizer.Instance[
+        SelectedAccountSessionExpired
+            ? "Wizard_Step2_SessionExpiredTooltip"
+            : "Wizard_Step2_AccountRequiredTooltip"];
 
     public string AccountDisplayText
     {
@@ -229,5 +247,17 @@ public partial class FileHosterSelectionViewModel : ObservableObject
         OnPropertyChanged(nameof(MaxFileSizeDisplay));
         OnPropertyChanged(nameof(MaxConcurrentUploads));
         OnPropertyChanged(nameof(MaxConcurrentUploadsDisplay));
+
+        // Switching to an account whose session is still good unlocks the row, and away from one
+        // locks it again — the whole reason the gate is per-account.
+        OnPropertyChanged(nameof(SelectedAccountSessionExpired));
+        OnPropertyChanged(nameof(CanUse));
+        OnPropertyChanged(nameof(UseBlockedTooltip));
+
+        if (!CanUse)
+        {
+            // A locked row must not stay ticked from before: Use is what the upload reads.
+            Use = false;
+        }
     }
 }

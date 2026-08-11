@@ -718,9 +718,30 @@ public partial class SettingsViewModel(
 
         Accounts.Clear();
         FileHosterLoginDto[] accounts = await _accountRepository.GetAllAsync(cancellationToken);
+        List<string> expired = [];
         foreach (FileHosterLoginDto account in accounts)
         {
+            // Say so the moment the list is read — this runs from MainViewModel.InitializeAsync, so
+            // it IS the check at startup, and it costs nothing: the expiry is already on the row.
+            // Left un-disabled on purpose. Disabling would drop the account out of the wizard's
+            // pickers silently, and the user's move here is to sign in again, not to hunt for a
+            // switch they never touched.
+            if (account.HasExpiredSession)
+            {
+                account.SetCheckStatus(AccountCheckStatus.Failed, Localizer.Instance["Accounts_SessionExpired"]);
+                expired.Add(account.FileHosterName);
+            }
+
             Accounts.Add(account);
+        }
+
+        if (expired.Count > 0)
+        {
+            _logger.Log(
+                this,
+                LogType.Status,
+                $"Stored sign-in has expired for: {string.Join(", ", expired)}. "
+                + "Those accounts need signing in again before they can upload.");
         }
 
         if (selectedId is int id)

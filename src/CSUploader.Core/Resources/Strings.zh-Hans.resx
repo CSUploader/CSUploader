@@ -1283,6 +1283,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>此托管商需要账户。点击"添加账户…"以添加。</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>已跳过 — 未登录 {0}。请在设置 → 账户中登录后重新开始上传。</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>会话已过期，请重新登录。</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>此账户的登录已过期。请在设置 → 账户中重新登录。</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}：“{1}”的登录已过期，因此不会上传到此处 — 请在设置 → 账户中重新登录。</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>勾选或取消勾选列表中的所有网盘。遵循筛选条件，并跳过需要账户的网盘。</value>
   </data>

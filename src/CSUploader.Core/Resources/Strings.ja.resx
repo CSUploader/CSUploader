@@ -1283,6 +1283,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>スキップしました — {0} にサインインしていません。設定 → アカウントでサインインしてから、再度アップロードを開始してください。</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>セッションの有効期限が切れました。再度サインインしてください。</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>このアカウントのサインインは期限切れです。設定 → アカウントで再度サインインしてください。</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}: 「{1}」のサインインが期限切れのため、アップロードされません。設定 → アカウントで再度サインインしてください。</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>リスト内のすべてのホスターをオン/オフします。フィルターに従い、アカウントが必要なホスターは除きます。</value>
   </data>

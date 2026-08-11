@@ -1283,6 +1283,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>건너뜀 — {0}에 로그인되어 있지 않습니다. 설정 → 계정에서 로그인한 후 업로드를 다시 시작하세요.</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>세션이 만료되었습니다. 다시 로그인하세요.</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>이 계정의 로그인이 만료되었습니다. 설정 → 계정에서 다시 로그인하세요.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}: "{1}"의 로그인이 만료되어 업로드되지 않습니다. 설정 → 계정에서 다시 로그인하세요.</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>목록의 모든 호스터를 선택하거나 해제합니다. 필터를 따르며, 계정이 필요한 호스터는 제외합니다.</value>
   </data>

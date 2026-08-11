@@ -609,6 +609,15 @@ public partial class UploadWizardViewModel : ObservableObject
             return "Wizard_Hoster_AccountDisabled_Format";
         }
 
+        // Checked BEFORE the status: an account whose stored session has run out is unusable no
+        // matter how well its last check went, and the last check is often days old. The app knows
+        // this without asking anything — see FileHosterLoginDto.HasExpiredSession for what it cost
+        // to learn that at upload time instead.
+        if (account.HasExpiredSession)
+        {
+            return "Wizard_Hoster_AccountSessionExpired_Format";
+        }
+
         return account.CheckStatus == AccountCheckStatus.Failed
             ? "Wizard_Hoster_AccountCheckFailed_Format"
             : null;

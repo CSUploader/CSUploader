@@ -1283,6 +1283,18 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
   </data>
+  <data name="Upload_SkippedNotSignedIn_Format" xml:space="preserve">
+    <value>Đã bỏ qua — chưa đăng nhập {0}. Hãy đăng nhập trong Cài đặt → Tài khoản rồi bắt đầu tải lên lại.</value>
+  </data>
+  <data name="Accounts_SessionExpired" xml:space="preserve">
+    <value>Phiên đăng nhập đã hết hạn — hãy đăng nhập lại.</value>
+  </data>
+  <data name="Wizard_Step2_SessionExpiredTooltip" xml:space="preserve">
+    <value>Đăng nhập của tài khoản này đã hết hạn. Mở Cài đặt → Tài khoản và đăng nhập lại.</value>
+  </data>
+  <data name="Wizard_Hoster_AccountSessionExpired_Format" xml:space="preserve">
+    <value>{0}: đăng nhập cho "{1}" đã hết hạn nên sẽ không tải lên đó — hãy đăng nhập lại trong Cài đặt → Tài khoản.</value>
+  </data>
   <data name="Wizard_Step2_CheckAllTip" xml:space="preserve">
     <value>Chọn hoặc bỏ chọn mọi nhà lưu trữ trong danh sách. Tuân theo bộ lọc và bỏ qua những nhà lưu trữ cần tài khoản.</value>
   </data>
