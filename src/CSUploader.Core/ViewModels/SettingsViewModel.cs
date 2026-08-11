@@ -723,12 +723,17 @@ public partial class SettingsViewModel(
         {
             // Say so the moment the list is read — this runs from MainViewModel.InitializeAsync, so
             // it IS the check at startup, and it costs nothing: the expiry is already on the row.
-            // Left un-disabled on purpose. Disabling would drop the account out of the wizard's
-            // pickers silently, and the user's move here is to sign in again, not to hunt for a
-            // switch they never touched.
-            if (account.HasExpiredSession)
+            //
+            // It also switches the account OFF, keeping it out of the upload wizard's pickers
+            // entirely rather than merely locking its row. Re-enabling is then the deliberate act
+            // that re-verifies it (see ApplyEnabledStateAsync) — which is what stops this becoming a
+            // merry-go-round: enabling used to be a plain flag flip, so an expired account would
+            // sail straight back into the picker carrying the same dead session.
+            if (account.HasExpiredSession && !account.Disabled)
             {
                 account.SetCheckStatus(AccountCheckStatus.Failed, Localizer.Instance["Accounts_SessionExpired"]);
+                account.Disabled = true;
+                await _accountRepository.UpdateAsync(account, cancellationToken);
 
                 // FileHosterName is nullable on the DTO (a half-built row can exist), and the log
                 // line is for a human — DisplayName is what they would recognise anyway.
@@ -744,7 +749,7 @@ public partial class SettingsViewModel(
                 this,
                 LogType.Status,
                 $"Stored sign-in has expired for: {string.Join(", ", expired)}. "
-                + "Those accounts need signing in again before they can upload.");
+                + "Those accounts were switched off; enabling one in Settings → Accounts signs it in again.");
         }
 
         if (selectedId is int id)
@@ -1486,15 +1491,63 @@ public partial class SettingsViewModel(
             return;
         }
 
+        // Enabling an account whose stored session has run out RE-VERIFIES it rather than just
+        // flipping the flag. Without this the switch would be a lie: the account returns to the
+        // wizard's picker carrying the same dead session, fails every file at upload time, and gets
+        // switched off again at the next start. For a hoster that signs in through the browser this
+        // is where that window opens — which is the point, because the user is here.
+        List<FileHosterLoginDto> reverify = disable
+            ? []
+            : [.. targets.Where(a => a.HasExpiredSession)];
+
         foreach (FileHosterLoginDto account in targets)
         {
             account.Disabled = disable;
             await _accountRepository.UpdateAsync(account, cancellationToken);
         }
 
+        if (reverify.Count > 0)
+        {
+            IsCheckingAccount = true;
+            try
+            {
+                for (int i = 0; i < reverify.Count; i++)
+                {
+                    FileHosterLoginDto account = reverify[i];
+                    RowStatus settled = await RefreshSingleAccountAsync(account, i + 1, reverify.Count, cancellationToken);
+
+                    if (settled.RefreshedAt is { } stamp)
+                    {
+                        account.MarkRefreshed(settled.Status, settled.Message, stamp);
+                    }
+                    else
+                    {
+                        account.SetCheckStatus(settled.Status, settled.Message);
+                    }
+
+                    // Nothing switches it back off here on purpose. A failed check never applies a
+                    // returned session (that copy is guarded by IsValid), so the account is still
+                    // expired when the reload below runs — and the reload's own rule is what puts it
+                    // off, persisted. A second disable here would be a rule no test could tell apart
+                    // from that one.
+                }
+            }
+            finally
+            {
+                IsCheckingAccount = false;
+            }
+        }
+
         Dictionary<int, RowStatus> statuses = BuildStatusMap();
         await LoadAccountsAsync(cancellationToken);
         ApplyStatusMap(statuses);
+
+        // A re-verify that failed switched the account back off, so "enabled" would be a false
+        // report — the row's own status already says what went wrong; leave it on screen.
+        if (reverify.Any(a => a.Disabled))
+        {
+            return;
+        }
 
         if (targets.Length == 1)
         {
