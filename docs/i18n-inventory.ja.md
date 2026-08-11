@@ -581,6 +581,7 @@ Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…
 Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。
+Wizard_Step2_PickAtLeastOne = 続行するには、ファイルホスターを 1 つ以上選択してください。
 Wizard_Step2_FilterLabel        = フィルター
 Wizard_Step2_FilterWatermark    = ホスター名…
 Wizard_Step2_FilterAnonymous    = 匿名のみ

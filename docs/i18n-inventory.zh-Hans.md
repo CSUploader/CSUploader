@@ -582,6 +582,7 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Step2_PickAtLeastOne = 请至少选择一个网盘以继续。
 Wizard_Step2_FilterLabel        = 筛选
 Wizard_Step2_FilterWatermark    = 网盘名称…
 Wizard_Step2_FilterAnonymous    = 仅匿名

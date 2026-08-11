@@ -194,6 +194,68 @@ public class UploadWizardHosterFilterTests : IDisposable
         Assert.False(_vm.MatchesHosterFilter(new object()));
     }
 
+    // ── Next is gated on having picked something, not just on the hosters' declared limits ──
+
+    [Fact]
+    public void NextIsBlockedOnTheHostersStep_UntilAtLeastOneIsTicked()
+    {
+        _vm.CurrentStep = 1;
+
+        // Nothing ticked: the step's whole purpose is unfulfilled, so Next stays off. Before this
+        // gate the wizard walked on to a Summary that could only be empty.
+        Assert.False(_vm.HasSelectedHoster);
+        Assert.False(_vm.CanGoNext);
+
+        _vm.FileHosters[0].Use = true;
+
+        Assert.True(_vm.HasSelectedHoster);
+        Assert.True(_vm.CanGoNext);
+
+        // …and back off again when the last tick is removed.
+        _vm.FileHosters[0].Use = false;
+        Assert.False(_vm.CanGoNext);
+    }
+
+    [Fact]
+    public void TickingAHoster_NotifiesTheTwoPropertiesTheButtonAndHintBindTo()
+    {
+        _vm.CurrentStep = 1;
+        List<string> changed = [];
+        _vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? string.Empty);
+
+        _vm.FileHosters[0].Use = true;
+
+        Assert.Contains(nameof(UploadWizardViewModel.HasSelectedHoster), changed);
+        Assert.Contains(nameof(UploadWizardViewModel.CanGoNext), changed);
+    }
+
+    [Fact]
+    public void AHosterTickedThenFilteredOutOfSight_StillSatisfiesTheGate()
+    {
+        // The gate counts ticks across the whole list, not the filtered view — the same reason the
+        // upload itself reads the collection rather than the grid.
+        _vm.CurrentStep = 1;
+        _vm.FileHosters.First(h => h.FileHosterName == "Catbox").Use = true;
+
+        _vm.HosterFilterText = "rapid";
+
+        Assert.Equal(["Rapidgator"], Visible());
+        Assert.True(_vm.HasSelectedHoster);
+        Assert.True(_vm.CanGoNext);
+    }
+
+    [Fact]
+    public void TheGateOnlyAppliesToTheHostersStep()
+    {
+        // Step 0 (files) and step 3 (start mode) have their own preconditions; a hoster tick is not
+        // one of them, and blocking them here would strand the user on the first page.
+        foreach (int step in (int[])[0, 3])
+        {
+            _vm.CurrentStep = step;
+            Assert.True(_vm.CanGoNext);
+        }
+    }
+
     private string[] Visible() => [.. _vm.FileHosters.Where(_vm.MatchesHosterFilter).Select(h => h.FileHosterName)];
 
     private static FileHosterLoginDto Account(string hoster) => new()

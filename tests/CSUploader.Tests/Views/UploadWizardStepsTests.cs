@@ -194,6 +194,42 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: Next is disabled, and says why, until a hoster is ticked ──
+
+    [AvaloniaFact]
+    public void HostersGrid_NextStaysDisabledWithAHint_UntilAHosterIsTicked()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
+        harness.Vm.FileHosters.Add(catbox);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            // Nothing ticked: the button is off and the hint explains it — a disabled control with no
+            // explanation is the part users report as broken.
+            Assert.False(wizard.NextButton.IsEnabled);
+            Assert.True(wizard.PickAHosterHint.IsVisible);
+
+            catbox.Use = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(wizard.NextButton.IsEnabled);
+            Assert.False(wizard.PickAHosterHint.IsVisible);
+
+            catbox.Use = false;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(wizard.NextButton.IsEnabled);
+            Assert.True(wizard.PickAHosterHint.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the filter bar narrows the GRID without touching the list the upload is built from ──
 
     [AvaloniaFact]

@@ -318,10 +318,25 @@ public partial class UploadWizardViewModel : ObservableObject
     /// </summary>
     public bool CanGoNext => CurrentStep switch
     {
-        1 => !_hasHardBlock,
+        1 => HasSelectedHoster && !_hasHardBlock,
         2 => !_summaryHasOverCapacity,
         _ => true,
     };
+
+    /// <summary>
+    /// Whether any hoster is ticked — the File Hosters step's own precondition for Next.
+    /// <para>
+    /// Deliberately independent of <see cref="HosterValidationWarnings"/>: those are computed from the
+    /// pipeline registry and short-circuit when there isn't one, and "you picked nothing" is true
+    /// regardless of what any pipeline declares. Without this the wizard walked on to a Summary that
+    /// could only be empty, and Finish queued a package with no destination.
+    /// </para>
+    /// <para>
+    /// Counts ticks across the WHOLE list, not the filtered view — a hoster ticked and then filtered
+    /// out of sight still uploads, so it still satisfies this.
+    /// </para>
+    /// </summary>
+    public bool HasSelectedHoster => FileHosters.Any(h => h.Use);
 
     public bool IsLastStep => CurrentStep == 3;
 
@@ -395,6 +410,10 @@ public partial class UploadWizardViewModel : ObservableObject
     {
         HosterValidationWarnings.Clear();
         _hasHardBlock = false;
+
+        // Raised on both exits: the "no hoster ticked" gate is registry-independent, so it has to be
+        // re-read even on the early return below.
+        OnPropertyChanged(nameof(HasSelectedHoster));
 
         if (_fileHosterRegistry is null)
         {

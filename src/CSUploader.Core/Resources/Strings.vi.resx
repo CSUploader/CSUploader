@@ -1295,6 +1295,9 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
   </data>
+  <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
+    <value>Chọn ít nhất một nhà lưu trữ tệp để tiếp tục.</value>
+  </data>
   <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
     <value>Bộ lọc</value>
   </data>

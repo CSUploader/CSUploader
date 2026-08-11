@@ -1385,6 +1385,9 @@ Add anyway?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>This hoster requires an account. Click "Add account…" to add one.</value>
   </data>
+  <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
+    <value>Pick at least one file hoster to continue.</value>
+  </data>
   <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
     <value>Filter</value>
   </data>

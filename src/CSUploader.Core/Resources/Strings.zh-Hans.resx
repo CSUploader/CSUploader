@@ -1295,6 +1295,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>此托管商需要账户。点击"添加账户…"以添加。</value>
   </data>
+  <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
+    <value>请至少选择一个网盘以继续。</value>
+  </data>
   <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
     <value>筛选</value>
   </data>

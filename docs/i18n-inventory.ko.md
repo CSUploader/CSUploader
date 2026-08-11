@@ -582,6 +582,7 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Step2_PickAtLeastOne = 계속하려면 파일 호스터를 하나 이상 선택하세요.
 Wizard_Step2_FilterLabel        = 필터
 Wizard_Step2_FilterWatermark    = 호스터 이름…
 Wizard_Step2_FilterAnonymous    = 익명만

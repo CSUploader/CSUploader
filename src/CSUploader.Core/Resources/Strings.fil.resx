@@ -1295,6 +1295,9 @@ Idagdag pa rin?</value>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.</value>
   </data>
+  <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
+    <value>Pumili ng hindi bababa sa isang file hoster upang magpatuloy.</value>
+  </data>
   <data name="Wizard_Step2_FilterLabel" xml:space="preserve">
     <value>Salain</value>
   </data>

@@ -334,7 +334,7 @@
            sites → IsVisible; the WPF DataTrigger-driven per-row !CanUse dim (+ tooltip) and the
            italic-when-no-saved-accounts hoster name become conditional-class bindings (rule 40). The grid
            is SelectionMode=Single with the ClearSelectionOnEmptyClick + SelectRowOnRightClick behaviors. -->
-      <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,Auto,*,Auto"
+      <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto"
             IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
 
         <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
@@ -504,7 +504,16 @@
 
         <!-- Hoster-limit violations surface in-place (not a dialog) so the user sees which constraints fail
              while toggling hosters/files; Next stays disabled (via CanGoNext) until the list empties. -->
-        <Border Grid.Row="4" x:Name="HosterWarningsBorder" Margin="0,8,0,0" Padding="8,6"
+        <!-- Nothing ticked yet: Next is disabled, and a disabled button with no explanation is the
+             thing people file bugs about. Kept out of the limits panel below, whose heading is about a
+             hoster's constraints and would misfile this. -->
+        <TextBlock Grid.Row="4" x:Name="PickAHosterHint"
+                   Text="{loc:Loc Wizard_Step2_PickAtLeastOne}"
+                   FontSize="12" Margin="0,8,0,0"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   IsVisible="{Binding !HasSelectedHoster}" />
+
+        <Border Grid.Row="5" x:Name="HosterWarningsBorder" Margin="0,8,0,0" Padding="8,6"
                 Background="{DynamicResource SurfaceAltBrush}"
                 BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="1"
                 CornerRadius="3"

@@ -615,6 +615,7 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)
 Wizard_Step2_AddAccountLink        = Add account…
 Wizard_Step2_AccountRequiredTooltip = This hoster requires an account. Click "Add account…" to add one.
+Wizard_Step2_PickAtLeastOne = Pick at least one file hoster to continue.
 Wizard_Step2_FilterLabel        = Filter
 Wizard_Step2_FilterWatermark    = Hoster name…
 Wizard_Step2_FilterAnonymous    = Anonymous only
