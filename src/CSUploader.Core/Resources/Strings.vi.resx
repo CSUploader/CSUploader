@@ -1208,20 +1208,11 @@ Vẫn thêm?</value>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. Tệp</value>
   </data>
-  <data name="Wizard_Step0_Mode_Directory" xml:space="preserve">
-    <value>Tải lên thư mục</value>
-  </data>
-  <data name="Wizard_Step0_Mode_Files" xml:space="preserve">
-    <value>Tải lên tệp</value>
-  </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>Chọn thư mục tải lên</value>
   </data>
   <data name="Wizard_Step0_Desc" xml:space="preserve">
     <value>Chọn thư mục chứa các tệp bạn muốn tải lên.</value>
-  </data>
-  <data name="Wizard_Step0_Browse" xml:space="preserve">
-    <value>Duyệt</value>
   </data>
   <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
     <value>Chọn thư mục tải lên</value>
@@ -1294,6 +1285,18 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.</value>
+  </data>
+  <data name="Wizard_Step0_AddFolders" xml:space="preserve">
+    <value>Thêm thư mục…</value>
+  </data>
+  <data name="Wizard_Step0_AddFiles" xml:space="preserve">
+    <value>Thêm tệp…</value>
+  </data>
+  <data name="Wizard_Step0_DropHint" xml:space="preserve">
+    <value>…hoặc kéo thả tệp và thư mục vào trang này</value>
+  </data>
+  <data name="Wizard_Step0_RemoveSource" xml:space="preserve">
+    <value>Xóa nguồn này và các tệp đã thêm</value>
   </data>
   <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
     <value>Chọn ít nhất một nhà lưu trữ tệp để tiếp tục.</value>
@@ -1370,9 +1373,6 @@ Vẫn thêm?</value>
   <data name="Wizard_Btn_Add" xml:space="preserve">
     <value>Thêm</value>
   </data>
-  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
-    <value>Vui lòng chọn một thư mục hợp lệ.</value>
-  </data>
   <data name="Wizard_Validation_PickFile" xml:space="preserve">
     <value>Vui lòng chọn ít nhất một tệp.</value>
   </data>
@@ -1390,9 +1390,6 @@ Vẫn thêm?</value>
   </data>
   <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
     <value>Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.</value>
-  </data>
-  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>Thêm tệp…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>Chọn tệp để tải lên</value>

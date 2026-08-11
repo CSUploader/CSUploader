@@ -495,10 +495,9 @@ public partial class GalleryWindow : Window
         UploadWizardWindow wizard = new(sp.GetRequiredService<UploadsViewModel>());
 
         // Seed a throwaway directory of placeholder files so the gallery surface exercises steps 0-1 with
-        // real data. The agent bridge can't commit the LostFocus-bound DirectoryPath box (a local SetValue
-        // overrides the binding), and an empty Files list can't reach the hosters step — so pre-load the
-        // directory here (which auto-runs the file scan). Dev-tool only: the gallery is DEBUG-only.
-        wizard.ViewModel.DirectoryPath = EnsureWizardSampleDirectory();
+        // real data: an empty Files list can't reach the hosters step, and the gallery has no way to drive
+        // a native folder picker. Adds it as a source exactly as "Add folder…" would. DEBUG-only.
+        wizard.ViewModel.AddDroppedPaths([EnsureWizardSampleDirectory()]);
         wizard.Show(this);
     }
 
@@ -546,6 +545,8 @@ public partial class GalleryWindow : Window
         public Task<bool> ShowOptOutConfirmationAsync(string confirmationKey, string message, string? title = null) => Task.FromResult(false);
 
         public Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null) => Task.FromResult<string?>(null);
+
+        public Task<string[]?> BrowseFoldersAsync(string? initialDirectory = null, string? title = null) => Task.FromResult<string[]?>(null);
 
         public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null) => Task.FromResult<string[]?>(null);
 

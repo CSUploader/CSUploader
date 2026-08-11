@@ -583,12 +583,9 @@ Wizard_Summary_ToUpload_Format     = {0} to upload                              
 Wizard_Summary_TotalFooter_Format  = Total: {0} file(s) • {1} to upload         # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. Files
 
-Wizard_Step0_Mode_Directory        = Upload directory
-Wizard_Step0_Mode_Files            = Upload files
 
 Wizard_Step0_Title                 = Select Upload Directory
 Wizard_Step0_Desc                  = Choose the directory containing the files you want to upload.
-Wizard_Step0_Browse                = Browse
 Wizard_Step0_BrowseDialogTitle     = Select Upload Directory                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = Select Files
@@ -615,6 +612,10 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)
 Wizard_Step2_AddAccountLink        = Add account…
 Wizard_Step2_AccountRequiredTooltip = This hoster requires an account. Click "Add account…" to add one.
+Wizard_Step0_AddFolders   = Add folder…
+Wizard_Step0_AddFiles     = Add files…
+Wizard_Step0_DropHint     = …or drop files and folders anywhere on this page
+Wizard_Step0_RemoveSource = Remove this source and the files it added
 Wizard_Step2_PickAtLeastOne = Pick at least one file hoster to continue.
 Wizard_Step2_FilterLabel        = Filter
 Wizard_Step2_FilterWatermark    = Hoster name…
@@ -644,7 +645,6 @@ Wizard_Btn_Next                    = Next
 Wizard_Btn_Add                     = Add
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = Please select a valid directory.
 Wizard_Validation_PickFile         = Please select at least one file.
 Wizard_Validation_PickHoster       = Please select at least one file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
@@ -652,7 +652,6 @@ Wizard_AccountCheckFailed_Format   = Couldn't sign in to {0}, so the account was
 
 Wizard_Step0_Files_Title           = Select files
 Wizard_Step0_Files_Desc            = Pick the files you want to upload. You can add more later.
-Wizard_Step0_Files_Pick            = Add files…
 Wizard_Step0_Files_BrowseDialogTitle = Pick files to upload                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (in {1})                                    # {0} = filename, {1} = parent folder name

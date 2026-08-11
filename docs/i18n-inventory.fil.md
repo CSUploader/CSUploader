@@ -550,12 +550,9 @@ Wizard_Summary_OrphanWarning_Suffix= na file ay hindi mai-upload sa anumang host
 Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file
 Wizard_Step_FilesSource            = 1. Mga File
 
-Wizard_Step0_Mode_Directory        = Mag-upload ng directory
-Wizard_Step0_Mode_Files            = Mag-upload ng mga file
 
 Wizard_Step0_Title                 = Pumili ng Upload Directory
 Wizard_Step0_Desc                  = Pumili ng directory na naglalaman ng mga files na gusto mong i-upload.
-Wizard_Step0_Browse                = Mag-browse
 Wizard_Step0_BrowseDialogTitle     = Pumili ng Upload Directory                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = Pumili ng Files
@@ -582,6 +579,10 @@ Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…
 Wizard_Step2_AccountRequiredTooltip = Kailangan ng account para sa hoster na ito. I-click ang "Magdagdag ng account…" para magdagdag.
+Wizard_Step0_AddFolders   = Magdagdag ng folder…
+Wizard_Step0_AddFiles     = Magdagdag ng mga file…
+Wizard_Step0_DropHint     = …o i-drop ang mga file at folder sa pahinang ito
+Wizard_Step0_RemoveSource = Alisin ang pinagmulang ito at ang mga file nito
 Wizard_Step2_PickAtLeastOne = Pumili ng hindi bababa sa isang file hoster upang magpatuloy.
 Wizard_Step2_FilterLabel        = Salain
 Wizard_Step2_FilterWatermark    = Pangalan ng hoster…
@@ -611,7 +612,6 @@ Wizard_Btn_Next                    = Susunod
 Wizard_Btn_Add                     = Idagdag
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = Mangyaring pumili ng valid na directory.
 Wizard_Validation_PickFile         = Mangyaring pumili ng kahit isang file.
 Wizard_Validation_PickHoster       = Mangyaring pumili ng kahit isang file hoster.
 Wizard_Error_Format                = Error: {0}                                              # {0} = exception.Message
@@ -619,7 +619,6 @@ Wizard_AccountCheckFailed_Format   = Hindi makapag-sign in sa {0}, kaya hindi na
 
 Wizard_Step0_Files_Title           = Pumili ng mga File
 Wizard_Step0_Files_Desc            = Pumili ng mga file na gusto mong i-upload. Maaari kang magdagdag ng higit pa mamaya.
-Wizard_Step0_Files_Pick            = Magdagdag ng mga file…
 Wizard_Step0_Files_BrowseDialogTitle = Pumili ng mga file para i-upload                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (nasa {1})                                    # {0} = filename, {1} = parent folder name

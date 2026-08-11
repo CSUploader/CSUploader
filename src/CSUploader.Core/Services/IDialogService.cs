@@ -36,6 +36,13 @@ public interface IDialogService
     Task<string?> BrowseFolderAsync(string? initialDirectory = null, string? title = null);
 
     /// <summary>
+    /// Opens a MULTI-select folder dialog. The upload wizard builds one file list out of however many
+    /// folders the user points at, so it asks for all of them in one pass rather than making the user
+    /// re-open the dialog per folder. Returns the full paths chosen, or <c>null</c> on cancel.
+    /// </summary>
+    Task<string[]?> BrowseFoldersAsync(string? initialDirectory = null, string? title = null);
+
+    /// <summary>
     /// Opens a multi-select file dialog. <paramref name="filter"/> follows Win32 filter syntax
     /// (e.g. <c>"All files|*.*"</c>); implementations on non-Win32 dialog stacks must parse it.
     /// <c>null</c> means no filter. Returns the array of full paths chosen, or <c>null</c> on cancel.

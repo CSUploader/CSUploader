@@ -91,6 +91,23 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
         return picked.Count > 0 ? picked[0].TryGetLocalPath() : null;
     }
 
+    public async Task<string[]?> BrowseFoldersAsync(string? initialDirectory = null, string? title = null)
+    {
+        IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
+
+        IStorageFolder? start = string.IsNullOrEmpty(initialDirectory)
+            ? null
+            : await storage.TryGetFolderFromPathAsync(initialDirectory);
+
+        IReadOnlyList<IStorageFolder> picked = await storage.OpenFolderPickerAsync(
+            BuildFolderOptions(title ?? Localizer.Instance["Common_SelectFolder"], start, multiple: true));
+
+        // A folder inside an archive or on a provider with no local path yields null from
+        // TryGetLocalPath; drop those rather than handing the wizard a path it can't enumerate.
+        string[] paths = [.. picked.Select(f => f.TryGetLocalPath()).Where(p => !string.IsNullOrEmpty(p))!];
+        return paths.Length > 0 ? paths : null;
+    }
+
     public async Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null)
     {
         IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
@@ -138,11 +155,12 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
     // yields null (Avalonia's "no filter"). Titles are passed in already-resolved (the members apply the
     // Localizer default) so these stay Localizer-free.
 
-    internal static FolderPickerOpenOptions BuildFolderOptions(string title, IStorageFolder? suggestedStartLocation) =>
+    internal static FolderPickerOpenOptions BuildFolderOptions(
+        string title, IStorageFolder? suggestedStartLocation, bool multiple = false) =>
         new()
         {
             Title = title,
-            AllowMultiple = false,
+            AllowMultiple = multiple,
             SuggestedStartLocation = suggestedStartLocation,
         };
 

@@ -1208,20 +1208,11 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. ファイル</value>
   </data>
-  <data name="Wizard_Step0_Mode_Directory" xml:space="preserve">
-    <value>ディレクトリをアップロード</value>
-  </data>
-  <data name="Wizard_Step0_Mode_Files" xml:space="preserve">
-    <value>ファイルをアップロード</value>
-  </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>アップロードディレクトリを選択</value>
   </data>
   <data name="Wizard_Step0_Desc" xml:space="preserve">
     <value>アップロードしたいファイルを含むディレクトリを選択してください。</value>
-  </data>
-  <data name="Wizard_Step0_Browse" xml:space="preserve">
-    <value>参照</value>
   </data>
   <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
     <value>アップロードディレクトリを選択</value>
@@ -1294,6 +1285,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。</value>
+  </data>
+  <data name="Wizard_Step0_AddFolders" xml:space="preserve">
+    <value>フォルダーを追加…</value>
+  </data>
+  <data name="Wizard_Step0_AddFiles" xml:space="preserve">
+    <value>ファイルを追加…</value>
+  </data>
+  <data name="Wizard_Step0_DropHint" xml:space="preserve">
+    <value>…またはこのページにファイルやフォルダーをドロップ</value>
+  </data>
+  <data name="Wizard_Step0_RemoveSource" xml:space="preserve">
+    <value>このソースと追加されたファイルを削除</value>
   </data>
   <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
     <value>続行するには、ファイルホスターを 1 つ以上選択してください。</value>
@@ -1370,9 +1373,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Btn_Add" xml:space="preserve">
     <value>追加</value>
   </data>
-  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
-    <value>有効なディレクトリを選択してください。</value>
-  </data>
   <data name="Wizard_Validation_PickFile" xml:space="preserve">
     <value>ファイルを 1 つ以上選択してください。</value>
   </data>
@@ -1390,9 +1390,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
     <value>アップロードしたいファイルを選んでください。後で追加することもできます。</value>
-  </data>
-  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>ファイルを追加…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>アップロードするファイルを選択</value>

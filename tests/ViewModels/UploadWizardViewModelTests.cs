@@ -128,11 +128,10 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task GoNext_FilesMode_NoFiles_ShowsValidationError()
+    public async Task GoNext_WithNoFiles_ShowsValidationError()
     {
         Mock<IDialogService> dialog = new();
         UploadWizardViewModel vm = CreateVm(dialog.Object);
-        vm.Mode = UploadWizardMode.Files;
 
         await vm.GoNextCommand.ExecuteAsync(null);
 
@@ -152,9 +151,8 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([tempA]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
 
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
             Assert.Single(vm.Files);
             Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
@@ -176,8 +174,7 @@ public class UploadWizardViewModelTests : IDisposable
             dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
             // PackageTitle was defaulted from filename by BrowseFiles; leave it intact
 
             await vm.GoNextCommand.ExecuteAsync(null);
@@ -203,9 +200,8 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([tempA.ToUpperInvariant()]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
             Assert.Single(vm.Files);
         }
@@ -234,9 +230,8 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([fileB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
             Assert.Equal(2, vm.Files.Count);
             Assert.Contains(vm.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
@@ -263,11 +258,10 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([tempB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
             Assert.Single(vm.Files);
 
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
             Assert.Equal(2, vm.Files.Count);
         }
@@ -279,7 +273,7 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public void DirectoryPath_WhenSetToValidDirectory_PopulatesFiles()
+    public async Task AddFolders_PopulatesFilesAndRecordsTheSource()
     {
         string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(dir);
@@ -290,11 +284,19 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFoldersAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([dir]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
 
-            vm.DirectoryPath = dir;
+            await vm.AddFoldersCommand.ExecuteAsync(null);
 
             Assert.Equal(2, vm.Files.Count);
+
+            // The folder is remembered as a source, with what it contributed, so it can be taken back.
+            UploadSource source = Assert.Single(vm.Sources);
+            Assert.Equal(dir, source.Path);
+            Assert.True(source.IsFolder);
+            Assert.Equal(2, source.FileCount);
         }
         finally
         {
@@ -303,30 +305,40 @@ public class UploadWizardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ModeChange_ClearsFilesAndDirectoryPath()
+    public async Task AddingASecondSource_AppendsInsteadOfReplacing()
     {
-        string tempA = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
-        File.WriteAllText(tempA, "x");
+        // This replaces a test that asserted the opposite: switching mode used to CLEAR the list, and
+        // picking a second folder replaced the first. That was the bug this change fixes — a package
+        // routinely draws from more than one place.
+        string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "in-folder.bin"), "x");
+        string loose = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(loose, "y");
         try
         {
             Mock<IDialogService> dialog = new();
+            dialog.Setup(d => d.BrowseFoldersAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync([dir]);
             dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync([tempA]);
+                .ReturnsAsync([loose]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
-            vm.DirectoryPath = "C:\\should-be-cleared";
+
+            await vm.AddFoldersCommand.ExecuteAsync(null);
             Assert.Single(vm.Files);
 
-            vm.Mode = UploadWizardMode.Directory;
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Empty(vm.Files);
-            Assert.Equal(string.Empty, vm.DirectoryPath);
+            Assert.Equal(2, vm.Files.Count);
+            Assert.Equal(2, vm.Sources.Count);
+            Assert.Contains(vm.Files, f => f.FullPath == loose);
+            Assert.Contains(vm.Files, f => f.FileName == "in-folder.bin");
         }
         finally
         {
-            File.Delete(tempA);
+            Directory.Delete(dir, recursive: true);
+            File.Delete(loose);
         }
     }
 
@@ -672,8 +684,7 @@ public class UploadWizardViewModelTests : IDisposable
             Mock<IDialogService> dialog = new();
             dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>())).ReturnsAsync([temp]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            vm.Mode = UploadWizardMode.Files;
-            await vm.BrowseFilesCommand.ExecuteAsync(null);
+            await vm.AddFilesCommand.ExecuteAsync(null);
 
             await vm.GoNextCommand.ExecuteAsync(null); // step 1 loads the hoster rows
             Assert.Equal(1, vm.CurrentStep);
@@ -1124,7 +1135,7 @@ public class UploadWizardViewModelTests : IDisposable
                 }
             };
 
-            vm.DirectoryPath = dir; // triggers the bulk directory scan (LoadFiles)
+            vm.AddDroppedPaths([dir]); // triggers the bulk directory walk
 
             // Correctness: the footer reflects the whole scan.
             Assert.Equal(6, vm.SelectedFileCount);

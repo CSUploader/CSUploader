@@ -550,12 +550,9 @@ Wizard_Summary_OrphanWarning_Suffix= 个文件无法上传到任何托管商：
 Wizard_Summary_MaxFileSize_Format = 每个文件最多 {0}
 Wizard_Step_FilesSource            = 1. 文件
 
-Wizard_Step0_Mode_Directory        = 上传目录
-Wizard_Step0_Mode_Files            = 上传文件
 
 Wizard_Step0_Title                 = 选择上传目录
 Wizard_Step0_Desc                  = 选择包含您要上传文件的目录。
-Wizard_Step0_Browse                = 浏览
 Wizard_Step0_BrowseDialogTitle     = 选择上传目录                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = 选择文件
@@ -582,6 +579,10 @@ Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…
 Wizard_Step2_AccountRequiredTooltip = 此托管商需要账户。点击"添加账户…"以添加。
+Wizard_Step0_AddFolders   = 添加文件夹…
+Wizard_Step0_AddFiles     = 添加文件…
+Wizard_Step0_DropHint     = …或将文件和文件夹拖放到此页面
+Wizard_Step0_RemoveSource = 移除此来源及其添加的文件
 Wizard_Step2_PickAtLeastOne = 请至少选择一个网盘以继续。
 Wizard_Step2_FilterLabel        = 筛选
 Wizard_Step2_FilterWatermark    = 网盘名称…
@@ -611,7 +612,6 @@ Wizard_Btn_Next                    = 下一步
 Wizard_Btn_Add                     = 添加
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = 请选择一个有效的目录。
 Wizard_Validation_PickFile         = 请至少选择一个文件。
 Wizard_Validation_PickHoster       = 请至少选择一个文件托管商。
 Wizard_Error_Format                = 错误：{0}                                              # {0} = exception.Message
@@ -619,7 +619,6 @@ Wizard_AccountCheckFailed_Format   = 无法登录 {0}，因此未添加该账户
 
 Wizard_Step0_Files_Title           = 选择文件
 Wizard_Step0_Files_Desc            = 选择您要上传的文件。您可以稍后添加更多文件。
-Wizard_Step0_Files_Pick            = 添加文件…
 Wizard_Step0_Files_BrowseDialogTitle = 选择要上传的文件                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（位于 {1}）                                    # {0} = filename, {1} = parent folder name

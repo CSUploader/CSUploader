@@ -90,38 +90,52 @@ public class UploadWizardShellTests
         }
     }
 
-    // ── Mode RadioButtons two-way Mode + the source pickers follow ──
+    // ── The Sources strip: appears once something is added, and each row can take itself back ──
 
     [AvaloniaFact]
-    public void ModeRadios_TwoWayBindMode_AndSourcePickersFollow_BothDirections()
+    public void SourcesStrip_AppearsWithTheFirstSource_AndRemovingOneDropsItsFiles()
     {
+        // This replaces a test of the Directory/Files mode radios, which no longer exist: both Add
+        // buttons now append to one list, and the strip is what shows where the files came from.
+        string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "a.bin"), "a");
+        File.WriteAllText(Path.Combine(dir, "b.bin"), "b");
+        string loose = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".bin");
+        File.WriteAllText(loose, "c");
+
         using VmHarness harness = new();
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            // Default is Directory: the directory picker shows, the files picker is hidden.
-            Assert.Equal(UploadWizardMode.Directory, harness.Vm.Mode);
-            Assert.True(wizard.DirectoryModeRadio.IsChecked);
-            Assert.True(wizard.DirectorySourcePicker.IsVisible);
-            Assert.False(wizard.FilesSourcePicker.IsVisible);
+            // Nothing added yet: the strip stays out of the way entirely.
+            Assert.False(wizard.SourcesStrip.IsVisible);
 
-            // Click the Files radio → the two-way EnumBool binding writes Files into the VM and the pickers swap.
-            wizard.FilesModeRadio.IsChecked = true;
+            harness.Vm.AddDroppedPaths([dir, loose]);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(UploadWizardMode.Files, harness.Vm.Mode);
-            Assert.False(wizard.DirectorySourcePicker.IsVisible);
-            Assert.True(wizard.FilesSourcePicker.IsVisible);
 
-            // An external VM change re-checks the matching radio and swaps the pickers back.
-            harness.Vm.Mode = UploadWizardMode.Directory;
+            Assert.True(wizard.SourcesStrip.IsVisible);
+            Assert.Equal(2, harness.Vm.Sources.Count);
+            Assert.Equal(3, harness.Vm.Files.Count);
+
+            // Removing the folder takes ITS files and leaves the loose one alone.
+            harness.Vm.RemoveSourceCommand.Execute(harness.Vm.Sources.First(s => s.IsFolder));
             Dispatcher.UIThread.RunJobs();
-            Assert.True(wizard.DirectoryModeRadio.IsChecked);
-            Assert.False(wizard.FilesModeRadio.IsChecked);
-            Assert.True(wizard.DirectorySourcePicker.IsVisible);
+
+            Assert.Single(harness.Vm.Sources);
+            Assert.Single(harness.Vm.Files);
+            Assert.Equal(loose, harness.Vm.Files[0].FullPath);
+
+            // …and removing the last one hides the strip again.
+            harness.Vm.RemoveSourceCommand.Execute(harness.Vm.Sources[0]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(wizard.SourcesStrip.IsVisible);
         }
         finally
         {
             window.Close();
+            Directory.Delete(dir, recursive: true);
+            File.Delete(loose);
         }
     }
 

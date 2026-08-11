@@ -9,6 +9,7 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using CSUploader.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -102,11 +103,64 @@ public partial class UploadWizardWindow : Window
         fileHostersGrid.ItemsSource = HostersView;
         ViewModel.HosterFilterInvalidated += Vm_HosterFilterInvalidated;
 
+        WireDragAndDrop();
+
         ViewModel.PropertyChanged += Vm_PropertyChanged;
         DataContext = ViewModel;
     }
 
     private void Vm_HosterFilterInvalidated(object? sender, EventArgs e) => HostersView?.Refresh();
+
+    /// <summary>
+    /// Files and folders dropped anywhere on the wizard are added exactly as the two Add buttons add
+    /// them — same append, same dedupe, same source rows.
+    /// <para>
+    /// Wired in code-behind rather than XAML because <c>DragDrop.DropEvent</c> is a routed event with
+    /// no bindable property, and the VM must stay framework-free: the head converts the platform's
+    /// <see cref="IStorageItem"/> list into plain paths and hands those over.
+    /// </para>
+    /// <para>
+    /// The drop is only offered while step 0 is showing. Dropping onto a later step would add files
+    /// the user cannot see (the grid is on step 0), which reads as nothing happening.
+    /// </para>
+    /// </summary>
+    private void WireDragAndDrop()
+    {
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = ViewModel.CurrentStep == 0 && e.DataTransfer.Contains(DataFormat.File)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        if (ViewModel.CurrentStep != 0)
+        {
+            return;
+        }
+
+        // DataTransfer/DataFormat, not the obsolete Data/DataFormats pair (11.3 deprecated both).
+        // TryGetFiles yields IStorageItem — FOLDERS included, which is the half that matters here.
+        // TryGetLocalPath() returns null for an item with no filesystem path (a virtual/provider
+        // item); the VM ignores paths that are neither a file nor a folder, so those fall away.
+        string[] paths = [.. (e.DataTransfer.TryGetFiles() ?? [])
+            .Select(item => item.TryGetLocalPath())
+            .Where(p => !string.IsNullOrEmpty(p))!];
+
+        if (paths.Length > 0)
+        {
+            ViewModel.AddDroppedPaths(paths);
+        }
+    }
+
 
     private static UploadWizardViewModel BuildViewModel()
         => ((App)Application.Current!).Services.GetRequiredService<UploadWizardViewModel>();

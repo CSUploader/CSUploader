@@ -549,12 +549,9 @@ Wizard_Summary_OrphanWarning_Suffix= 件のファイルはどのホスターに�
 Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}
 Wizard_Step_FilesSource            = 1. ファイル
 
-Wizard_Step0_Mode_Directory        = ディレクトリをアップロード
-Wizard_Step0_Mode_Files            = ファイルをアップロード
 
 Wizard_Step0_Title                 = アップロードディレクトリを選択
 Wizard_Step0_Desc                  = アップロードしたいファイルを含むディレクトリを選択してください。
-Wizard_Step0_Browse                = 参照
 Wizard_Step0_BrowseDialogTitle     = アップロードディレクトリを選択                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = ファイルを選択
@@ -581,6 +578,10 @@ Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…
 Wizard_Step2_AccountRequiredTooltip = このホスターはアカウントが必要です。「アカウントを追加…」をクリックして追加してください。
+Wizard_Step0_AddFolders   = フォルダーを追加…
+Wizard_Step0_AddFiles     = ファイルを追加…
+Wizard_Step0_DropHint     = …またはこのページにファイルやフォルダーをドロップ
+Wizard_Step0_RemoveSource = このソースと追加されたファイルを削除
 Wizard_Step2_PickAtLeastOne = 続行するには、ファイルホスターを 1 つ以上選択してください。
 Wizard_Step2_FilterLabel        = フィルター
 Wizard_Step2_FilterWatermark    = ホスター名…
@@ -610,7 +611,6 @@ Wizard_Btn_Next                    = 次へ
 Wizard_Btn_Add                     = 追加
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = 有効なディレクトリを選択してください。
 Wizard_Validation_PickFile         = ファイルを 1 つ以上選択してください。
 Wizard_Validation_PickHoster       = ファイルホスターを 1 つ以上選択してください。
 Wizard_Error_Format                = エラー: {0}                                              # {0} = exception.Message
@@ -618,7 +618,6 @@ Wizard_AccountCheckFailed_Format   = {0} にサインインできなかったた
 
 Wizard_Step0_Files_Title           = ファイルを選択
 Wizard_Step0_Files_Desc            = アップロードしたいファイルを選んでください。後で追加することもできます。
-Wizard_Step0_Files_Pick            = ファイルを追加…
 Wizard_Step0_Files_BrowseDialogTitle = アップロードするファイルを選択                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0}（{1} 内）                                    # {0} = filename, {1} = parent folder name

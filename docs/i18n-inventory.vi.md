@@ -558,12 +558,9 @@ Wizard_Summary_OrphanWarning_Suffix= tập tin sẽ không được tải lên b
 Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin
 Wizard_Step_FilesSource            = 1. Tệp
 
-Wizard_Step0_Mode_Directory        = Tải lên thư mục
-Wizard_Step0_Mode_Files            = Tải lên tệp
 
 Wizard_Step0_Title                 = Chọn thư mục tải lên
 Wizard_Step0_Desc                  = Chọn thư mục chứa các tệp bạn muốn tải lên.
-Wizard_Step0_Browse                = Duyệt
 Wizard_Step0_BrowseDialogTitle     = Chọn thư mục tải lên                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = Chọn tệp
@@ -590,6 +587,10 @@ Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…
 Wizard_Step2_AccountRequiredTooltip = Nhà lưu trữ này yêu cầu tài khoản. Nhấn "Thêm tài khoản…" để thêm.
+Wizard_Step0_AddFolders   = Thêm thư mục…
+Wizard_Step0_AddFiles     = Thêm tệp…
+Wizard_Step0_DropHint     = …hoặc kéo thả tệp và thư mục vào trang này
+Wizard_Step0_RemoveSource = Xóa nguồn này và các tệp đã thêm
 Wizard_Step2_PickAtLeastOne = Chọn ít nhất một nhà lưu trữ tệp để tiếp tục.
 Wizard_Step2_FilterLabel        = Bộ lọc
 Wizard_Step2_FilterWatermark    = Tên nhà lưu trữ…
@@ -619,7 +620,6 @@ Wizard_Btn_Next                    = Tiếp theo
 Wizard_Btn_Add                     = Thêm
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = Vui lòng chọn một thư mục hợp lệ.
 Wizard_Validation_PickFile         = Vui lòng chọn ít nhất một tệp.
 Wizard_Validation_PickHoster       = Vui lòng chọn ít nhất một nhà lưu trữ tập tin.
 Wizard_Error_Format                = Lỗi: {0}                                              # {0} = exception.Message
@@ -627,7 +627,6 @@ Wizard_AccountCheckFailed_Format   = Không thể đăng nhập vào {0}, nên t
 
 Wizard_Step0_Files_Title           = Chọn tệp
 Wizard_Step0_Files_Desc            = Chọn các tệp bạn muốn tải lên. Bạn có thể thêm nhiều hơn sau.
-Wizard_Step0_Files_Pick            = Thêm tệp…
 Wizard_Step0_Files_BrowseDialogTitle = Chọn tệp để tải lên                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} (trong {1})                                    # {0} = filename, {1} = parent folder name

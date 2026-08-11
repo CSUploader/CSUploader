@@ -1208,20 +1208,11 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 文件</value>
   </data>
-  <data name="Wizard_Step0_Mode_Directory" xml:space="preserve">
-    <value>上传目录</value>
-  </data>
-  <data name="Wizard_Step0_Mode_Files" xml:space="preserve">
-    <value>上传文件</value>
-  </data>
   <data name="Wizard_Step0_Title" xml:space="preserve">
     <value>选择上传目录</value>
   </data>
   <data name="Wizard_Step0_Desc" xml:space="preserve">
     <value>选择包含您要上传文件的目录。</value>
-  </data>
-  <data name="Wizard_Step0_Browse" xml:space="preserve">
-    <value>浏览</value>
   </data>
   <data name="Wizard_Step0_BrowseDialogTitle" xml:space="preserve">
     <value>选择上传目录</value>
@@ -1294,6 +1285,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step2_AccountRequiredTooltip" xml:space="preserve">
     <value>此托管商需要账户。点击"添加账户…"以添加。</value>
+  </data>
+  <data name="Wizard_Step0_AddFolders" xml:space="preserve">
+    <value>添加文件夹…</value>
+  </data>
+  <data name="Wizard_Step0_AddFiles" xml:space="preserve">
+    <value>添加文件…</value>
+  </data>
+  <data name="Wizard_Step0_DropHint" xml:space="preserve">
+    <value>…或将文件和文件夹拖放到此页面</value>
+  </data>
+  <data name="Wizard_Step0_RemoveSource" xml:space="preserve">
+    <value>移除此来源及其添加的文件</value>
   </data>
   <data name="Wizard_Step2_PickAtLeastOne" xml:space="preserve">
     <value>请至少选择一个网盘以继续。</value>
@@ -1370,9 +1373,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Btn_Add" xml:space="preserve">
     <value>添加</value>
   </data>
-  <data name="Wizard_Validation_PickValidDir" xml:space="preserve">
-    <value>请选择一个有效的目录。</value>
-  </data>
   <data name="Wizard_Validation_PickFile" xml:space="preserve">
     <value>请至少选择一个文件。</value>
   </data>
@@ -1390,9 +1390,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Step0_Files_Desc" xml:space="preserve">
     <value>选择您要上传的文件。您可以稍后添加更多文件。</value>
-  </data>
-  <data name="Wizard_Step0_Files_Pick" xml:space="preserve">
-    <value>添加文件…</value>
   </data>
   <data name="Wizard_Step0_Files_BrowseDialogTitle" xml:space="preserve">
     <value>选择要上传的文件</value>

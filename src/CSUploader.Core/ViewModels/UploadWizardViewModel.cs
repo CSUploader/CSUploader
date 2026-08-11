@@ -134,23 +134,25 @@ public partial class UploadWizardViewModel : ObservableObject
         RecomputeHosterValidation();
     }
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDirectoryMode))]
-    [NotifyPropertyChangedFor(nameof(IsFilesMode))]
-    public partial UploadWizardMode Mode { get; set; }
-
-    public bool IsDirectoryMode => Mode == UploadWizardMode.Directory;
-
-    public bool IsFilesMode => Mode == UploadWizardMode.Files;
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
     [NotifyPropertyChangedFor(nameof(IsLastStep))]
     [NotifyPropertyChangedFor(nameof(NextButtonText))]
     public partial int CurrentStep { get; set; }
 
-    [ObservableProperty]
-    public partial string DirectoryPath { get; set; } = string.Empty;
+    /// <summary>
+    /// Everything the user has added on the first step — folders that were walked and files that were
+    /// picked, in the order they were added.
+    /// <para>
+    /// This replaced a Directory/Files MODE, where choosing a folder cleared whatever was already
+    /// there. A package routinely draws from more than one place (the rips here, the artwork there),
+    /// and under the old model the second choice silently discarded the first.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<UploadSource> Sources { get; } = [];
+
+    /// <summary>True once anything has been added — the first step's empty-state hint hangs off it.</summary>
+    public bool HasSources => Sources.Count > 0;
 
     [ObservableProperty]
     public partial string PackageTitle { get; set; } = string.Empty;
@@ -880,12 +882,6 @@ public partial class UploadWizardViewModel : ObservableObject
         ApplyFilter();
     }
 
-    partial void OnModeChanged(UploadWizardMode value)
-    {
-        ClearFiles(); // detaches per-entry handlers first (Clear()'s Reset can't); footer/validation recompute once
-        DirectoryPath = string.Empty;
-        FileFilter = string.Empty;
-    }
 
     // Prefill the scheduled date + time to NOW the moment the user picks Scheduled, so they adjust from the
     // current time rather than the tomorrow-at-midnight placeholder. Fires only on a real transition INTO
@@ -901,21 +897,34 @@ public partial class UploadWizardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// "Add folder…" — appends each chosen folder's files (recursively) to the list. Several folders
+    /// can be chosen in one dialog; each becomes its own <see cref="UploadSource"/>.
+    /// </summary>
     [RelayCommand]
-    private async Task BrowseDirectoryAsync()
+    private async Task AddFoldersAsync()
     {
-        string? folder = await dialogService.BrowseFolderAsync(
-            string.IsNullOrEmpty(DirectoryPath) ? null : DirectoryPath,
+        string? startAt = Sources.LastOrDefault(s => s.IsFolder)?.Path;
+        string[]? folders = await dialogService.BrowseFoldersAsync(
+            startAt,
             Localizer.Instance["Wizard_Step0_BrowseDialogTitle"]);
 
-        if (folder is not null)
+        if (folders is null || folders.Length == 0)
         {
-            DirectoryPath = folder;
+            return;
         }
+
+        foreach (string folder in folders)
+        {
+            AddFolderSource(folder);
+        }
+
+        SeedPackageTitleFromFirstSource();
     }
 
+    /// <summary>"Add files…" — appends the picked files, each as its own source row.</summary>
     [RelayCommand]
-    private async Task BrowseFilesAsync()
+    private async Task AddFilesAsync()
     {
         string[]? picked = await dialogService.BrowseFilesAsync(
             Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
@@ -925,81 +934,227 @@ public partial class UploadWizardViewModel : ObservableObject
             return;
         }
 
-        AppendFiles(picked);
-
-        if (string.IsNullOrWhiteSpace(PackageTitle) && Files.Count > 0)
-        {
-            PackageTitle = Path.GetFileNameWithoutExtension(Files[0].FullPath) ?? string.Empty;
-        }
+        AddFileSources(picked);
+        SeedPackageTitleFromFirstSource();
     }
 
-    private void AppendFiles(IEnumerable<string> filePaths) => BulkMutateFiles(() =>
+    /// <summary>
+    /// Files and folders dropped onto the wizard — the same append path the buttons take, so a drop
+    /// dedupes against what is already listed exactly as a pick does. Paths that are neither an
+    /// existing file nor an existing folder are ignored rather than reported: a drop can carry all
+    /// sorts of things, and refusing the whole gesture over one of them helps nobody.
+    /// </summary>
+    public void AddDroppedPaths(IEnumerable<string> paths)
     {
-        HashSet<string> existing = new(
-            Files.Select(f => f.FullPath),
-            StringComparer.OrdinalIgnoreCase);
+        List<string> files = [];
+        foreach (string path in paths)
+        {
+            if (Directory.Exists(path))
+            {
+                AddFolderSource(path);
+            }
+            else if (File.Exists(path))
+            {
+                files.Add(path);
+            }
+        }
 
+        if (files.Count > 0)
+        {
+            AddFileSources(files);
+        }
+
+        SeedPackageTitleFromFirstSource();
+    }
+
+    /// <summary>
+    /// Removes a source and the files it contributed, leaving every other source's files — and their
+    /// tick state — untouched. Removing the last source does NOT reset the package title: the user may
+    /// have typed it, and re-deriving it from whatever is left would overwrite that.
+    /// </summary>
+    [RelayCommand]
+    private void RemoveSource(UploadSource? source)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        BulkMutateFiles(() =>
+        {
+            for (int i = Files.Count - 1; i >= 0; i--)
+            {
+                if (Files[i].SourceId == source.Id)
+                {
+                    Files[i].PropertyChanged -= FileEntry_PropertyChanged;
+                    Files.RemoveAt(i);
+                }
+            }
+        });
+
+        Sources.Remove(source);
+        OnPropertyChanged(nameof(HasSources));
+    }
+
+    /// <summary>Walks one folder and appends what it finds, recording it as a source.</summary>
+    private void AddFolderSource(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            return;
+        }
+
+        UploadSource source = new(folder, isFolder: true);
+        string[] found;
+        try
+        {
+            found = [.. Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A folder that turns unreadable mid-pick shouldn't take the wizard down with it.
+            logger.Log(this, LogType.Error, $"Couldn't read {folder}: {ex.Message}");
+            return;
+        }
+
+        int added = AppendFiles(found, source, relativeTo: folder);
+        if (added == 0 && Sources.Any(s => string.Equals(s.Path, folder, StringComparison.OrdinalIgnoreCase)))
+        {
+            // Same folder added twice: everything was already listed, so there is nothing to show for
+            // it and a second identical row would just be confusing.
+            return;
+        }
+
+        source.FileCount = added;
+        Sources.Add(source);
+        OnPropertyChanged(nameof(HasSources));
+    }
+
+    /// <summary>Adds individually-picked files, one source row each (as the Sources strip shows them).</summary>
+    private void AddFileSources(IEnumerable<string> filePaths)
+    {
         foreach (string filePath in filePaths)
         {
-            if (existing.Contains(filePath))
+            if (!File.Exists(filePath))
             {
                 continue;
             }
 
-            FileInfo fi = new(filePath);
-            string display = fi.Name;
-            if (Files.Any(f => string.Equals(f.FileName, fi.Name, StringComparison.OrdinalIgnoreCase)))
+            UploadSource source = new(filePath, isFolder: false);
+            if (AppendFiles([filePath], source, relativeTo: null) == 0)
             {
-                string folderName = Path.GetFileName(Path.GetDirectoryName(filePath) ?? string.Empty);
-                display = string.Format(
-                    CultureInfo.CurrentCulture,
-                    Localizer.Instance["Wizard_Step1_DuplicateFilenameSuffixFormat"],
-                    fi.Name,
-                    folderName);
+                continue;   // already in the list from an earlier source
             }
 
-            FileEntry entry = new()
-            {
-                FullPath = filePath,
-                RelativePath = display,
-                FileName = fi.Name,
-                Size = fi.Length,
-                IsSelected = true,
-                IsVisible = true,
-            };
-            Files.Add(entry);
-            existing.Add(filePath);
+            source.FileCount = 1;
+            Sources.Add(source);
         }
-    });
+
+        OnPropertyChanged(nameof(HasSources));
+    }
+
+    /// <summary>
+    /// Fills the package title from the first source when the user hasn't typed one — a folder's name,
+    /// or a lone file's name without its extension. Only ever fills a BLANK title.
+    /// </summary>
+    private void SeedPackageTitleFromFirstSource()
+    {
+        if (!string.IsNullOrWhiteSpace(PackageTitle) || Sources.Count == 0)
+        {
+            return;
+        }
+
+        UploadSource first = Sources[0];
+        PackageTitle = first.IsFolder
+            ? first.DisplayName
+            : Path.GetFileNameWithoutExtension(first.Path);
+    }
+
+    /// <summary>
+    /// Appends files that aren't listed yet and returns how many were actually added.
+    /// <para>
+    /// <paramref name="relativeTo"/> is the folder a walked source is rooted at, so the Path column
+    /// reads as the layout inside that folder. Two folders can produce the SAME relative path
+    /// ("Season 1\e01.mkv" from two different rips), so a collision is prefixed with the source
+    /// folder's own name — the list still says which is which. Individually picked files (no root)
+    /// keep the existing same-name disambiguation.
+    /// </para>
+    /// </summary>
+    private int AppendFiles(IEnumerable<string> filePaths, UploadSource source, string? relativeTo)
+    {
+        int added = 0;
+
+        BulkMutateFiles(() =>
+        {
+            HashSet<string> existingPaths = new(
+                Files.Select(f => f.FullPath),
+                StringComparer.OrdinalIgnoreCase);
+            HashSet<string> existingDisplays = new(
+                Files.Select(f => f.RelativePath),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (string filePath in filePaths)
+            {
+                if (existingPaths.Contains(filePath))
+                {
+                    continue;
+                }
+
+                FileInfo fi = new(filePath);
+                string display;
+                if (relativeTo is not null)
+                {
+                    display = Path.GetRelativePath(relativeTo, filePath);
+                    if (existingDisplays.Contains(display))
+                    {
+                        display = Path.Combine(source.DisplayName, display);
+                    }
+                }
+                else
+                {
+                    display = fi.Name;
+                    if (existingDisplays.Contains(display))
+                    {
+                        string folderName = Path.GetFileName(Path.GetDirectoryName(filePath) ?? string.Empty);
+                        display = string.Format(
+                            CultureInfo.CurrentCulture,
+                            Localizer.Instance["Wizard_Step1_DuplicateFilenameSuffixFormat"],
+                            fi.Name,
+                            folderName);
+                    }
+                }
+
+                FileEntry entry = new()
+                {
+                    FullPath = filePath,
+                    RelativePath = display,
+                    FileName = fi.Name,
+                    Size = fi.Length,
+                    IsSelected = true,
+                    IsVisible = true,
+                    SourceId = source.Id,
+                };
+                Files.Add(entry);
+                existingPaths.Add(filePath);
+                existingDisplays.Add(display);
+                added++;
+            }
+        });
+
+        return added;
+    }
 
     [RelayCommand]
     private async Task GoNextAsync()
     {
         if (CurrentStep == 0)
         {
-            // Source picked + files validated + title set.
-            if (IsDirectoryMode)
+            // One list, however it was filled — the folder walk and the file picker both append to it,
+            // so there is a single thing to validate rather than a per-mode branch.
+            if (Files.Count == 0)
             {
-                if (string.IsNullOrWhiteSpace(DirectoryPath) || !Directory.Exists(DirectoryPath))
-                {
-                    await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickValidDir"]);
-                    return;
-                }
-
-                // Files may not have loaded yet if the user typed a path; LoadFiles is
-                // idempotent (clears + re-enumerates).
-                if (Files.Count == 0)
-                {
-                    LoadFiles();
-                }
-            }
-            else // Files mode
-            {
-                if (Files.Count == 0)
-                {
-                    await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
-                    return;
-                }
+                await dialogService.ShowErrorAsync(Localizer.Instance["Wizard_Validation_PickAtLeastOneFile"]);
+                return;
             }
 
             if (string.IsNullOrWhiteSpace(PackageTitle))
@@ -1033,14 +1188,6 @@ public partial class UploadWizardViewModel : ObservableObject
             {
                 Completed = true;
             }
-        }
-    }
-
-    partial void OnDirectoryPathChanged(string value)
-    {
-        if (IsDirectoryMode && !string.IsNullOrWhiteSpace(value) && Directory.Exists(value))
-        {
-            LoadFiles();
         }
     }
 
@@ -1206,32 +1353,6 @@ public partial class UploadWizardViewModel : ObservableObject
 
         Files.Clear();
     }
-
-    private void LoadFiles() => BulkMutateFiles(() =>
-    {
-        ClearFiles();
-        FileFilter = string.Empty;
-        if (string.IsNullOrEmpty(PackageTitle))
-        {
-            PackageTitle = Path.GetFileName(DirectoryPath) ?? DirectoryPath;
-        }
-
-        foreach (string filePath in Directory.EnumerateFiles(DirectoryPath, "*", SearchOption.AllDirectories))
-        {
-            string relativePath = Path.GetRelativePath(DirectoryPath, filePath);
-            FileInfo fi = new(filePath);
-            FileEntry entry = new()
-            {
-                FullPath = filePath,
-                RelativePath = relativePath,
-                FileName = fi.Name,
-                Size = fi.Length,
-                IsSelected = true,
-                IsVisible = true,
-            };
-            Files.Add(entry);
-        }
-    });
 
     private void ApplyFilter()
     {
@@ -1402,6 +1523,47 @@ public partial class FileEntry : ObservableObject
     public string FileName { get; set; } = string.Empty;
 
     public long Size { get; set; }
+
+    /// <summary>
+    /// Which <see cref="UploadSource"/> put this file in the list, so removing that source removes
+    /// exactly its files and leaves everything else alone. <see cref="Guid.Empty"/> for entries added
+    /// before sources existed (nothing produces those today).
+    /// </summary>
+    public Guid SourceId { get; set; }
+}
+
+/// <summary>
+/// One thing the user added on the wizard's first step — a folder that was walked, or a single file
+/// they picked. Shown in the Sources strip so the list of files has a visible provenance and each
+/// addition can be taken back without clearing everything.
+/// </summary>
+public sealed partial class UploadSource : ObservableObject
+{
+    public UploadSource(string path, bool isFolder)
+    {
+        Path = path;
+        IsFolder = isFolder;
+    }
+
+    public Guid Id { get; } = Guid.NewGuid();
+
+    /// <summary>The folder that was walked, or the file that was picked.</summary>
+    public string Path { get; }
+
+    public bool IsFolder { get; }
+
+    /// <summary>What to show: the folder's own name (not the whole path, which is in the tooltip) or
+    /// the file's name.</summary>
+    public string DisplayName => System.IO.Path.GetFileName(Path.TrimEnd(
+        System.IO.Path.DirectorySeparatorChar,
+        System.IO.Path.AltDirectorySeparatorChar)) is { Length: > 0 } name
+        ? name
+        : Path;
+
+    /// <summary>How many files this source contributed — the ones NOT already in the list from an
+    /// earlier source are what it can claim, so re-adding an overlapping folder reports honestly.</summary>
+    [ObservableProperty]
+    public partial int FileCount { get; set; }
 }
 
 /// <summary>

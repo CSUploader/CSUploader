@@ -550,12 +550,9 @@ Wizard_Summary_OrphanWarning_Suffix= 개 파일은 어떤 호스터에도 업로
 Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}
 Wizard_Step_FilesSource            = 1. 파일
 
-Wizard_Step0_Mode_Directory        = 디렉터리 업로드
-Wizard_Step0_Mode_Files            = 파일 업로드
 
 Wizard_Step0_Title                 = 업로드 디렉터리 선택
 Wizard_Step0_Desc                  = 업로드할 파일이 들어 있는 디렉터리를 선택하세요.
-Wizard_Step0_Browse                = 찾아보기
 Wizard_Step0_BrowseDialogTitle     = 업로드 디렉터리 선택                                 # used when calling BrowseFolder
 
 Wizard_Step1_Title                 = 파일 선택
@@ -582,6 +579,10 @@ Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…
 Wizard_Step2_AccountRequiredTooltip = 이 호스터는 계정이 필요합니다. "계정 추가…"를 클릭하여 추가하세요.
+Wizard_Step0_AddFolders   = 폴더 추가…
+Wizard_Step0_AddFiles     = 파일 추가…
+Wizard_Step0_DropHint     = …또는 이 페이지에 파일과 폴더를 끌어다 놓으세요
+Wizard_Step0_RemoveSource = 이 소스와 추가된 파일 제거
 Wizard_Step2_PickAtLeastOne = 계속하려면 파일 호스터를 하나 이상 선택하세요.
 Wizard_Step2_FilterLabel        = 필터
 Wizard_Step2_FilterWatermark    = 호스터 이름…
@@ -611,7 +612,6 @@ Wizard_Btn_Next                    = 다음
 Wizard_Btn_Add                     = 추가
 
 # Validation errors (UploadWizardViewModel.ShowError)
-Wizard_Validation_PickValidDir     = 유효한 디렉터리를 선택해 주십시오.
 Wizard_Validation_PickFile         = 파일을 하나 이상 선택해 주십시오.
 Wizard_Validation_PickHoster       = 파일 호스터를 하나 이상 선택해 주십시오.
 Wizard_Error_Format                = 오류: {0}                                              # {0} = exception.Message
@@ -619,7 +619,6 @@ Wizard_AccountCheckFailed_Format   = {0}에 로그인할 수 없어 계정을 �
 
 Wizard_Step0_Files_Title           = 파일 선택
 Wizard_Step0_Files_Desc            = 업로드할 파일을 선택하세요. 나중에 더 추가할 수 있습니다.
-Wizard_Step0_Files_Pick            = 파일 추가…
 Wizard_Step0_Files_BrowseDialogTitle = 업로드할 파일 선택                                  # used when calling BrowseFiles
 
 Wizard_Step1_DuplicateFilenameSuffixFormat = {0} ({1} 내)                                    # {0} = filename, {1} = parent folder name
