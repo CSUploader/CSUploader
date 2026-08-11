@@ -461,7 +461,7 @@ Settings_Accounts_Context_Delete   = 삭제
 
 Settings_Accounts_Btn_Add          = 추가
 Settings_Accounts_Btn_Remove       = 제거
-Settings_Accounts_Btn_Refresh      = 새로 고침
+Settings_Accounts_Btn_Refresh      = 모두 새로 고침
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 계정 제거
@@ -491,6 +491,7 @@ Settings_Accounts_Status_CheckingProgress_Format = {0}@{1} 확인 중… ({2}/{3
 Settings_Accounts_Status_CheckingShort      = 확인 중…
 Settings_Accounts_Status_NoImpl             = 구현 없음
 Settings_Accounts_Status_RefreshSummary_Format = 계정 {0}개를 새로 고쳤습니다. {1}개가 갱신되었습니다.        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0}개 계정을 새로 고쳤습니다. {1}개 변경됨. {2}개는 로그인이 필요합니다 — 활성화하면 다시 로그인합니다.
 Settings_Accounts_Status_AccountDisabled_Format = 계정 '{0}'이(가) 비활성화되었습니다.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 계정 '{0}'이(가) 활성화되었습니다.                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.

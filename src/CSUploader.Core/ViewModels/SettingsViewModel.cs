@@ -1036,11 +1036,27 @@ public partial class SettingsViewModel(
         IsCheckingAccount = true;
         int checked_ = 0;
         int updated = 0;
+        int needSignIn = 0;
 
         Dictionary<int, RowStatus> statuses = BuildStatusMap();
 
         foreach (FileHosterLoginDto account in Accounts.ToArray())
         {
+            // Refresh-all runs unattended by nature: one press, every account. An account whose only
+            // way back is a browser sign-in would open one — and over 25 accounts that is a queue of
+            // popups, which is a worse bulk action than none. Report it instead; enabling that row
+            // signs it in one at a time, with the user right there (ApplyEnabledStateAsync).
+            if (NeedsInteractiveSignIn(account))
+            {
+                needSignIn++;
+                statuses[account.Id] = new RowStatus(
+                    AccountCheckStatus.Failed,
+                    Loc("Accounts_SessionExpired"),
+                    RefreshedAt: null);   // nothing was tried, so no timestamp is earned
+                UpdateAccountStatus(account.Id, AccountCheckStatus.Failed, Loc("Accounts_SessionExpired"));
+                continue;
+            }
+
             CheckAccountStatus = LocF("Settings_Accounts_Status_CheckingProgress_Format", account.Username, account.FileHosterName, ++checked_, Accounts.Count);
             UpdateAccountStatus(account.Id, AccountCheckStatus.Checking, Loc("Settings_Accounts_Status_CheckingShort"));
             await Task.Yield();
@@ -1121,8 +1137,31 @@ public partial class SettingsViewModel(
         await LoadAccountsAsync(cancellationToken);
         ApplyStatusMap(statuses);
 
-        CheckAccountStatus = LocF("Settings_Accounts_Status_RefreshSummary_Format", checked_, updated);
+        CheckAccountStatus = needSignIn > 0
+            ? LocF("Settings_Accounts_Status_RefreshSummaryWithSignIn_Format", checked_, updated, needSignIn)
+            : LocF("Settings_Accounts_Status_RefreshSummary_Format", checked_, updated);
     }
+
+    /// <summary>
+    /// True when checking this account could only proceed by opening a sign-in browser — because its
+    /// stored session has run out, or because it is a browser-sign-in hoster holding no credential at
+    /// all yet.
+    /// <para>
+    /// Keyed on the CREDENTIAL rather than a list of hoster names: BowFile signs in through the
+    /// browser and is not in <c>HosterCredentialModes</c>'s session-cookie list, which describes what
+    /// the Add Account dialog shows, not what a check would do.
+    /// </para>
+    /// <para>
+    /// It cannot catch a session that the host dropped EARLY — the stored expiry still looks fine, so
+    /// the check runs and the pipeline may open the window anyway. Knowing that needs a request, and
+    /// this is the path that must not make them.
+    /// </para>
+    /// </summary>
+    private static bool NeedsInteractiveSignIn(FileHosterLoginDto account)
+        => account.HasExpiredSession
+           || (HosterCredentialModes.IsWebViewSignInHoster(account.FileHosterName)
+               && string.IsNullOrEmpty(account.SessionCookie)
+               && string.IsNullOrEmpty(account.ApiKey));
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task CheckAccountAsync(CancellationToken cancellationToken = default)

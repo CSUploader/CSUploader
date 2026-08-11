@@ -1025,7 +1025,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>제거</value>
   </data>
   <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
-    <value>새로 고침</value>
+    <value>모두 새로 고침</value>
   </data>
   <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
     <value>계정 제거</value>
@@ -1102,6 +1102,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
     <value>계정 {0}개를 새로 고쳤습니다. {1}개가 갱신되었습니다.</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummaryWithSignIn_Format" xml:space="preserve">
+    <value>{0}개 계정을 새로 고쳤습니다. {1}개 변경됨. {2}개는 로그인이 필요합니다 — 활성화하면 다시 로그인합니다.</value>
   </data>
   <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
     <value>계정 '{0}'이(가) 비활성화되었습니다.</value>

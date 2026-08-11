@@ -1025,7 +1025,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>移除</value>
   </data>
   <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
-    <value>刷新</value>
+    <value>全部刷新</value>
   </data>
   <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
     <value>移除账户</value>
@@ -1102,6 +1102,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
     <value>已刷新 {0} 个账户，{1} 个有更新。</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummaryWithSignIn_Format" xml:space="preserve">
+    <value>已刷新 {0} 个账户，更新 {1} 个。{2} 个需要登录 — 启用它们即可重新登录。</value>
   </data>
   <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
     <value>账户"{0}"已禁用。</value>

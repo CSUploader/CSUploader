@@ -461,7 +461,7 @@ Settings_Accounts_Context_Delete   = 删除
 
 Settings_Accounts_Btn_Add          = 添加
 Settings_Accounts_Btn_Remove       = 移除
-Settings_Accounts_Btn_Refresh      = 刷新
+Settings_Accounts_Btn_Refresh      = 全部刷新
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 移除账户
@@ -491,6 +491,7 @@ Settings_Accounts_Status_CheckingProgress_Format = 正在检查 {0}@{1}…（{2}
 Settings_Accounts_Status_CheckingShort      = 检查中…
 Settings_Accounts_Status_NoImpl             = 尚未实现
 Settings_Accounts_Status_RefreshSummary_Format = 已刷新 {0} 个账户，{1} 个有更新。        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = 已刷新 {0} 个账户，更新 {1} 个。{2} 个需要登录 — 启用它们即可重新登录。
 Settings_Accounts_Status_AccountDisabled_Format = 账户"{0}"已禁用。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 账户"{0}"已启用。                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format= 已禁用 {0} 个账户。

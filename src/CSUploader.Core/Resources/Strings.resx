@@ -1076,7 +1076,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Remove</value>
   </data>
   <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
-    <value>Refresh</value>
+    <value>Refresh all</value>
   </data>
   <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
     <value>Remove Account</value>
@@ -1153,6 +1153,9 @@ Add anyway?</value>
   </data>
   <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
     <value>Refreshed {0} accounts. {1} updated.</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummaryWithSignIn_Format" xml:space="preserve">
+    <value>Refreshed {0} accounts. {1} updated. {2} need signing in — enable them to sign in again.</value>
   </data>
   <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
     <value>Account '{0}' disabled.</value>

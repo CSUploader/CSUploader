@@ -469,7 +469,7 @@ Settings_Accounts_Context_Delete   = Xóa
 
 Settings_Accounts_Btn_Add          = Thêm
 Settings_Accounts_Btn_Remove       = Xóa
-Settings_Accounts_Btn_Refresh      = Làm mới
+Settings_Accounts_Btn_Refresh      = Làm mới tất cả
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Xóa tài khoản
@@ -499,6 +499,7 @@ Settings_Accounts_Status_CheckingProgress_Format = Đang kiểm tra {0}@{1}... (
 Settings_Accounts_Status_CheckingShort      = Đang kiểm tra...
 Settings_Accounts_Status_NoImpl             = Chưa hỗ trợ
 Settings_Accounts_Status_RefreshSummary_Format = Đã làm mới {0} tài khoản. {1} đã cập nhật.        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Đã làm mới {0} tài khoản. {1} được cập nhật. {2} cần đăng nhập — bật chúng lên để đăng nhập lại.
 Settings_Accounts_Status_AccountDisabled_Format = Đã tắt tài khoản '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Đã bật tài khoản '{0}'.                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.

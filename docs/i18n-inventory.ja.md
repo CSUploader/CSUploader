@@ -460,7 +460,7 @@ Settings_Accounts_Context_Delete   = 削除
 
 Settings_Accounts_Btn_Add          = 追加
 Settings_Accounts_Btn_Remove       = 削除
-Settings_Accounts_Btn_Refresh      = 更新
+Settings_Accounts_Btn_Refresh      = すべて更新
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = アカウントを削除
@@ -490,6 +490,7 @@ Settings_Accounts_Status_CheckingProgress_Format = {0}@{1} をチェック中…
 Settings_Accounts_Status_CheckingShort      = チェック中…
 Settings_Accounts_Status_NoImpl             = 実装なし
 Settings_Accounts_Status_RefreshSummary_Format = {0} 個のアカウントを更新しました。{1} 個が更新されました。        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0} 件のアカウントを更新しました。{1} 件を変更。{2} 件はサインインが必要です — 有効にすると再サインインします。
 Settings_Accounts_Status_AccountDisabled_Format = アカウント「{0}」を無効化しました。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = アカウント「{0}」を有効化しました。                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。

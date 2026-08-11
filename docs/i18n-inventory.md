@@ -479,7 +479,7 @@ Settings_Accounts_Context_Delete   = Delete
 
 Settings_Accounts_Btn_Add          = Add
 Settings_Accounts_Btn_Remove       = Remove
-Settings_Accounts_Btn_Refresh      = Refresh
+Settings_Accounts_Btn_Refresh      = Refresh all
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Remove Account
@@ -509,6 +509,7 @@ Settings_Accounts_Status_CheckingProgress_Format = Checking {0}@{1}... ({2}/{3})
 Settings_Accounts_Status_CheckingShort      = Checking...
 Settings_Accounts_Status_NoImpl             = No implementation
 Settings_Accounts_Status_RefreshSummary_Format = Refreshed {0} accounts. {1} updated.        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Refreshed {0} accounts. {1} updated. {2} need signing in — enable them to sign in again.
 Settings_Accounts_Status_AccountDisabled_Format = Account '{0}' disabled.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Account '{0}' enabled.                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format = {0} accounts disabled.                 # {0} = count

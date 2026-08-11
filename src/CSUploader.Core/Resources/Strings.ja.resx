@@ -1025,7 +1025,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>削除</value>
   </data>
   <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
-    <value>更新</value>
+    <value>すべて更新</value>
   </data>
   <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
     <value>アカウントを削除</value>
@@ -1102,6 +1102,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
     <value>{0} 個のアカウントを更新しました。{1} 個が更新されました。</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummaryWithSignIn_Format" xml:space="preserve">
+    <value>{0} 件のアカウントを更新しました。{1} 件を変更。{2} 件はサインインが必要です — 有効にすると再サインインします。</value>
   </data>
   <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
     <value>アカウント「{0}」を無効化しました。</value>

@@ -1025,7 +1025,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Xóa</value>
   </data>
   <data name="Settings_Accounts_Btn_Refresh" xml:space="preserve">
-    <value>Làm mới</value>
+    <value>Làm mới tất cả</value>
   </data>
   <data name="Settings_Accounts_Remove_Title" xml:space="preserve">
     <value>Xóa tài khoản</value>
@@ -1102,6 +1102,9 @@ Vẫn thêm?</value>
   </data>
   <data name="Settings_Accounts_Status_RefreshSummary_Format" xml:space="preserve">
     <value>Đã làm mới {0} tài khoản. {1} đã cập nhật.</value>
+  </data>
+  <data name="Settings_Accounts_Status_RefreshSummaryWithSignIn_Format" xml:space="preserve">
+    <value>Đã làm mới {0} tài khoản. {1} được cập nhật. {2} cần đăng nhập — bật chúng lên để đăng nhập lại.</value>
   </data>
   <data name="Settings_Accounts_Status_AccountDisabled_Format" xml:space="preserve">
     <value>Đã tắt tài khoản '{0}'.</value>

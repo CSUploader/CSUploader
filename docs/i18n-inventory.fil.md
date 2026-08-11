@@ -461,7 +461,7 @@ Settings_Accounts_Context_Delete   = Burahin
 
 Settings_Accounts_Btn_Add          = Idagdag
 Settings_Accounts_Btn_Remove       = Tanggalin
-Settings_Accounts_Btn_Refresh      = I-refresh
+Settings_Accounts_Btn_Refresh      = I-refresh lahat
 
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Tanggalin ang Account
@@ -491,6 +491,7 @@ Settings_Accounts_Status_CheckingProgress_Format = Chinecheck ang {0}@{1}... ({2
 Settings_Accounts_Status_CheckingShort      = Chinecheck...
 Settings_Accounts_Status_NoImpl             = Walang implementation
 Settings_Accounts_Status_RefreshSummary_Format = Na-refresh ang {0} accounts. {1} ang na-update.        # {0} = checked count, {1} = updated count
+Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Na-refresh ang {0} account. {1} ang na-update. {2} ang kailangang mag-sign in — i-enable ang mga ito upang mag-sign in muli.
 Settings_Accounts_Status_AccountDisabled_Format = Naka-disable ang account na '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Naka-enable ang account na '{0}'.                     # {0} = username
 Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.
