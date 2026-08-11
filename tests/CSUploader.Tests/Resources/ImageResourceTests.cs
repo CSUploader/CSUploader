@@ -71,6 +71,59 @@ public class ImageResourceTests
         }
     }
 
+    [Fact]
+    public void EveryHosterIcon_HasEnoughVisibleInk()
+    {
+        // A resolvable, decodable icon can still be invisible. Xubster shipped as a 160x28 wordmark
+        // scaled to fit 64px wide, which left a SEVEN-pixel-tall strip of near-black text on
+        // transparency — present, decodable, resolving through the converter, and unnoticeable in the
+        // grid (worst in the dark theme). Every other check here passed on it.
+        //
+        // 6% is calibrated, not guessed: across the 83 icons shipping today the thinnest legible one
+        // covers 9.7%, and the sliver above covered 4.2%. Coverage is the metric that actually failed,
+        // so it is the only one asserted — a second rule on shape or contrast would be a guess.
+        const double MinimumOpaqueFraction = 0.06;
+
+        string imagesRoot = Path.Combine(RepoXaml.FindRepoRoot(), "src", "Properties", "Images");
+        List<string> faint = [];
+
+        foreach ((string key, string path) in BitmapImageResources.Entries)
+        {
+            if (!path.StartsWith("FileHosters/", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string file = Path.Combine(imagesRoot, path.Replace('/', Path.DirectorySeparatorChar));
+            using SKBitmap? bitmap = SKBitmap.Decode(file);
+            Assert.True(bitmap is not null, $"could not decode {key}: {file}");
+
+            int opaque = 0;
+            for (int y = 0; y < bitmap!.Height; y++)
+            {
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    if (bitmap.GetPixel(x, y).Alpha > 32)
+                    {
+                        opaque++;
+                    }
+                }
+            }
+
+            double fraction = (double)opaque / (bitmap.Width * bitmap.Height);
+            if (fraction < MinimumOpaqueFraction)
+            {
+                faint.Add($"{key} covers {fraction:P1} of its canvas ({file})");
+            }
+        }
+
+        Assert.True(
+            faint.Count == 0,
+            "These hoster icons are too faint to see in the grid — a wordmark squeezed to fit the width "
+                + "leaves a sliver. Prefer the site's square favicon (a 4x nearest-neighbour upscale of a "
+                + "16x16 stays crisp):" + Environment.NewLine + "  " + string.Join(Environment.NewLine + "  ", faint));
+    }
+
     [AvaloniaFact]
     public void EveryGeometryKey_Resolves()
     {
