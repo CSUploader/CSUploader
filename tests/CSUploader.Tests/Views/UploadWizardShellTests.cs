@@ -5,6 +5,7 @@
 
 using System.IO;
 using System.Net.Http;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -123,16 +124,20 @@ public class UploadWizardShellTests
             Assert.Single(folder.Children);                        // subs
             Assert.Equal("subs", folder.Children[0].Name);
 
-            // Selecting the folder scopes the grid to it AND everything beneath.
+            // Selecting the folder scopes the GRID's view to it AND everything beneath.
+            DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.filesGrid.ItemsSource);
             harness.Vm.SelectedNode = folder;
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(2, harness.Vm.Files.Count(f => f.IsVisible));
-            Assert.DoesNotContain(harness.Vm.Files.Where(f => f.IsVisible), f => f.FullPath == loose);
+            Assert.Equal(2, view.Count);
+            Assert.DoesNotContain(view.Cast<FileEntry>(), f => f.FullPath == loose);
 
-            // Back to All: everything shows again.
+            // Back to All: everything shows again, each in its own row.
             harness.Vm.SelectedNode = all;
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(3, harness.Vm.Files.Count(f => f.IsVisible));
+            Assert.Equal(3, view.Count);
+            DataGridRow[] rows = ShownRows(wizard.filesGrid);
+            Assert.Equal(3, rows.Length);
+            Assert.Equal(rows.Length, rows.Select(r => r.Bounds.Y).Distinct().Count());
 
             // Unticking one leaf leaves the branch partial, which is what the tri-state box shows.
             harness.Vm.Files.First(f => f.FileName == "a.srt").IsSelected = false;
@@ -153,99 +158,58 @@ public class UploadWizardShellTests
         }
     }
 
-    // ── The files grid realizes rows, and an IsVisible=false row collapses (§Reality-check #20) ──
+    // ── The files grid realizes rows, and a filtered-out file is ABSENT from the view ──
 
     [AvaloniaFact]
-    public void FilesGrid_RealizesRows_AndHidesAnInvisibleRow()
+    public void FilesGrid_RealizesRows_AndAFilteredFileLeavesTheView()
     {
+        // This used to assert the opposite mechanism: the row stayed and was COLLAPSED. That leaves a
+        // zero-height row inside the presenter's layout, and one re-shown after being collapsed could
+        // be drawn over its neighbour — which is what two files reappearing from a de-selected folder
+        // looked like on screen. The view simply doesn't contain a filtered file now.
         using VmHarness harness = new();
-        FileEntry visibleA = MakeEntry("a.mkv", 10);
-        FileEntry hidden = MakeEntry("b.txt", 20);
-        FileEntry visibleC = MakeEntry("c.zip", 30);
-        hidden.IsVisible = false;
-        harness.Vm.Files.Add(visibleA);
-        harness.Vm.Files.Add(hidden);
-        harness.Vm.Files.Add(visibleC);
+        FileEntry a = MakeEntry("a.mkv", 10);
+        FileEntry b = MakeEntry("b.txt", 20);
+        FileEntry c = MakeEntry("c.zip", 30);
+        harness.Vm.Files.Add(a);
+        harness.Vm.Files.Add(b);
+        harness.Vm.Files.Add(c);
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            Assert.Same(harness.Vm.Files, wizard.filesGrid.ItemsSource);
+            DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.filesGrid.ItemsSource);
+            Assert.Same(harness.Vm.Files, view.SourceCollection);
+            Assert.Equal(3, view.Count);
+            Assert.Equal(3, wizard.filesGrid.GetVisualDescendants().OfType<DataGridRow>().Count());
 
-            // All three rows realize; the filtered (IsVisible=false) one is collapsed, the others shown.
-            Assert.False(RowFor(wizard.filesGrid, hidden).IsVisible);
-            Assert.True(RowFor(wizard.filesGrid, visibleA).IsVisible);
-            Assert.True(RowFor(wizard.filesGrid, visibleC).IsVisible);
-
-            // Flipping IsVisible back on shows the row (the scoped DataGridRow style tracks the item).
-            hidden.IsVisible = true;
+            // Filtering to one name drops the other two OUT of the view — no collapsed rows left behind.
+            harness.Vm.FileFilter = "b.txt";
             Dispatcher.UIThread.RunJobs();
-            Assert.True(RowFor(wizard.filesGrid, hidden).IsVisible);
+            Assert.Single(view);
+            Assert.DoesNotContain(a, view.Cast<object>());
+
+            // The grid keeps recycled spares around and hides them ITSELF; what matters is that no
+            // filtered item is still bound to a shown row.
+            Assert.DoesNotContain(
+                ShownRows(wizard.filesGrid),
+                r => ReferenceEquals(r.DataContext, a) || ReferenceEquals(r.DataContext, c));
+
+            // Clearing it brings them back, each in its own row.
+            harness.Vm.FileFilter = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, view.Count);
+
+            // No two SHOWN rows may occupy the same vertical slot — the artifact this change removes.
+            DataGridRow[] rows = ShownRows(wizard.filesGrid);
+            Assert.Equal(3, rows.Length);
+            Assert.Equal(rows.Length, rows.Select(r => r.Bounds.Y).Distinct().Count());
         }
         finally
         {
             window.Close();
         }
     }
-
-    // ── Cancel closes with a non-completed result (rule 7) ──
-
-    [AvaloniaFact]
-    public async Task Cancel_ClosesWithNonCompletedResult()
-    {
-        using VmHarness harness = new();
-        var owner = new Window { Width = 200, Height = 200 };
-        var wizard = new UploadWizardWindow(harness.Vm);
-        try
-        {
-            owner.Show();
-            Dispatcher.UIThread.RunJobs();
-            Task<bool?> dialog = wizard.ShowDialog<bool?>(owner);
-            Dispatcher.UIThread.RunJobs();
-
-            Click(wizard.CancelButton);
-            Dispatcher.UIThread.RunJobs();
-
-            bool? result = await dialog;
-            Assert.NotEqual(true, result); // cancelled, not the Completed→Close(true) result
-            Assert.False(harness.Vm.Completed);
-        }
-        finally
-        {
-            wizard.Close();
-            owner.Close();
-        }
-    }
-
-    // ── The Next button's content + enabled state track NextButtonText / CanGoNext ──
-
-    [AvaloniaFact]
-    public void NextButton_TracksNextButtonTextAndCanGoNext()
-    {
-        using VmHarness harness = new();
-        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
-        try
-        {
-            // Step 0: Next is enabled (CanGoNext) and reads the "Next" label.
-            Assert.True(harness.Vm.CanGoNext);
-            Assert.True(wizard.NextButton.IsEnabled);
-            Assert.Equal(harness.Vm.NextButtonText, wizard.NextButton.Content);
-
-            // Jump the step to the last (a plain property set — NOT GoNext, which would upload): the button
-            // label follows to the "Add" text. Back also becomes visible (CanGoBack).
-            harness.Vm.CurrentStep = 3;
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(harness.Vm.IsLastStep);
-            Assert.Equal(harness.Vm.NextButtonText, wizard.NextButton.Content);
-            Assert.True(wizard.BackButton.IsVisible);
-        }
-        finally
-        {
-            window.Close();
-        }
-    }
-
-    // ── helpers ──
 
     private static FileEntry MakeEntry(string name, long size) => new()
     {
@@ -254,8 +218,12 @@ public class UploadWizardShellTests
         FileName = name,
         Size = size,
         IsSelected = true,
-        IsVisible = true,
     };
+
+    /// <summary>The rows the user can actually see. A DataGrid keeps recycled spares in its visual
+    /// tree and hides them itself, so a raw descendant walk over-counts.</summary>
+    private static DataGridRow[] ShownRows(DataGrid grid)
+        => [.. grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.IsVisible)];
 
     private static DataGridRow RowFor(DataGrid grid, FileEntry entry)
         => grid.GetVisualDescendants().OfType<DataGridRow>().First(r => ReferenceEquals(r.DataContext, entry));

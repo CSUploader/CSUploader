@@ -289,7 +289,7 @@
              File + Size columns are IsReadOnly. Row visibility follows FileEntry.IsVisible via the scoped
              DataGridRow style (§Reality-check #20 — same recycling-safe pattern the accounts grid uses for
              its Disabled dim). -->
-        <DataGrid Grid.Column="2" x:Name="filesGrid" ItemsSource="{Binding Files}"
+        <DataGrid Grid.Column="2" x:Name="filesGrid"
                   AutoGenerateColumns="False" SelectionMode="Extended"
                   HeadersVisibility="Column"
                   GridLinesVisibility="Horizontal"
@@ -299,11 +299,6 @@
                   beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
                   beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
           <DataGrid.Styles>
-            <!-- Filter hides a row by collapsing it (WPF DataGridRow DataTrigger IsVisible=False -> Collapsed).
-                 Scoped to this grid, resolved against each row's FileEntry, and follows recycling. -->
-            <Style Selector="DataGridRow">
-              <Setter Property="IsVisible" Value="{Binding IsVisible}" />
-            </Style>
             <!-- Selection checkbox: truly centered in its column. HorizontalAlignment=Center alone left the
                  box a few px left because the FluentTheme CheckBox (RootGrid ColumnDefinitions "20,*")
                  reserves its 8px content Padding to the right of the box even with no content; zero the

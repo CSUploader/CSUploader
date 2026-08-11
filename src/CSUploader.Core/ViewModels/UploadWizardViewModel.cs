@@ -1290,7 +1290,6 @@ public partial class UploadWizardViewModel : ObservableObject
                     FileName = fi.Name,
                     Size = fi.Length,
                     IsSelected = true,
-                    IsVisible = true,
                     SourceId = source.Id,
                 };
                 Files.Add(entry);
@@ -1532,29 +1531,50 @@ public partial class UploadWizardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Decides which file rows the grid shows: those under the SELECTED tree node that also match the
-    /// text filter. One pass over one flag, because the grid hides a row through
-    /// <see cref="FileEntry.IsVisible"/> and two independent narrowings would otherwise fight over it.
+    /// Which file rows the grid shows: those under the SELECTED tree node that also match the text
+    /// filter. Applied by the head to its collection view, so a row that doesn't match is ABSENT from
+    /// the view rather than present-and-collapsed.
+    /// <para>
+    /// That distinction is the whole point. The grid used to hide rows by setting
+    /// <c>DataGridRow.IsVisible</c> false on them, which leaves zero-height rows inside the row
+    /// presenter's layout — and a row re-shown after being collapsed could end up drawn over its
+    /// neighbour, which is exactly what two files re-appearing from a de-selected folder looked like
+    /// on screen. Filtering the view removes the possibility rather than papering over it, and it is
+    /// the idiom the hoster grid and the Uploads tab already use.
+    /// </para>
     /// </summary>
-    private void ApplyFilter()
+    public bool MatchesFileFilter(object item)
     {
-        string filter = FileFilter.Trim();
+        if (item is not FileEntry file)
+        {
+            return false;
+        }
 
         // A null selection (nothing picked yet) means the whole package, same as the All node.
-        HashSet<FileEntry>? inScope = SelectedNode is null or { Kind: UploadTreeNodeKind.All }
+        if (_filterScope is not null && !_filterScope.Contains(file))
+        {
+            return false;
+        }
+
+        string filter = FileFilter.Trim();
+        return filter.Length == 0 || file.RelativePath.Contains(filter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Raised when the tree selection or the text filter changes; the head refreshes its view
+    /// on it (the same split as the hoster grid's <see cref="HosterFilterInvalidated"/>).</summary>
+    public event EventHandler? FileFilterInvalidated;
+
+    /// <summary>The selected node's files, or null for "everything". Recomputed when the selection
+    /// changes rather than per row, since the predicate runs once per file on every refresh.</summary>
+    private HashSet<FileEntry>? _filterScope;
+
+    private void ApplyFilter()
+    {
+        _filterScope = SelectedNode is null or { Kind: UploadTreeNodeKind.All }
             ? null
             : [.. SelectedNode.AllFiles()];
 
-        foreach (FileEntry file in Files)
-        {
-            bool visible = inScope is null || inScope.Contains(file);
-            if (visible && filter.Length > 0)
-            {
-                visible = file.RelativePath.Contains(filter, StringComparison.OrdinalIgnoreCase);
-            }
-
-            file.IsVisible = visible;
-        }
+        FileFilterInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -1701,8 +1721,6 @@ public partial class FileEntry : ObservableObject
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    [ObservableProperty]
-    public partial bool IsVisible { get; set; } = true;
     public string FullPath { get; set; } = string.Empty;
 
     public string RelativePath { get; set; } = string.Empty;

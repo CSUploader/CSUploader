@@ -52,6 +52,11 @@ public partial class UploadWizardWindow : Window
     /// </summary>
     internal DataGridCollectionView? HostersView { get; private set; }
 
+    /// <summary>The files grid's filtered view over <see cref="UploadWizardViewModel.Files"/> —
+    /// the tree selection and the text filter both narrow it. Built once, like
+    /// <see cref="HostersView"/>.</summary>
+    internal DataGridCollectionView? FilesView { get; private set; }
+
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses the
     // injecting (UploadsViewModel) overload via compiled XAML. It routes through the same App.Services
     // resolution, so it only functions with a live desktop provider — never invoked in production or the headless
@@ -95,6 +100,17 @@ public partial class UploadWizardWindow : Window
             CommandParameter = filesGrid.SelectedItems,
         });
 
+        // The files grid reads a filtered VIEW rather than hiding rows in place. Collapsing a
+        // DataGridRow leaves a zero-height row inside the presenter's layout, and one re-shown after
+        // being collapsed could be drawn over its neighbour — two files reappearing from a
+        // de-selected folder looked exactly like that on screen. A view simply doesn't contain them.
+        FilesView = new DataGridCollectionView(ViewModel.Files)
+        {
+            Filter = ViewModel.MatchesFileFilter,
+        };
+        filesGrid.ItemsSource = FilesView;
+        ViewModel.FileFilterInvalidated += Vm_FileFilterInvalidated;
+
         // The hoster grid reads a filtered view, not the raw collection (see HostersView).
         HostersView = new DataGridCollectionView(ViewModel.FileHosters)
         {
@@ -110,6 +126,8 @@ public partial class UploadWizardWindow : Window
     }
 
     private void Vm_HosterFilterInvalidated(object? sender, EventArgs e) => HostersView?.Refresh();
+
+    private void Vm_FileFilterInvalidated(object? sender, EventArgs e) => FilesView?.Refresh();
 
     /// <summary>
     /// Files and folders dropped anywhere on the wizard are added exactly as the two Add buttons add

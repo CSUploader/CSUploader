@@ -142,7 +142,7 @@ public class UploadWizardTreeTests : IDisposable
     [Fact]
     public void TheTextFilterAndTheTreeSelectionNarrowTogether()
     {
-        // Both hide rows through the same flag, so the one that runs last must not undo the other.
+        // Both narrow the same view, so one must not undo the other.
         string season = MakeFolder("Season 1", "e01.mkv", "e01.nfo");
         MakeFolder("artwork", "cover.jpg");
         _vm.AddDroppedPaths([season, Path.Combine(_root, "artwork")]);
@@ -277,7 +277,9 @@ public class UploadWizardTreeTests : IDisposable
         Assert.False(root.Children[0].IsRemovable);   // an inner folder has no separate existence
     }
 
-    private string[] Visible() => [.. _vm.Files.Where(f => f.IsVisible).Select(f => f.FileName)];
+    /// <summary>What the grid would show: the rows its collection view keeps, which is the VM's own
+    /// predicate rather than a per-row flag (a collapsed row could be drawn over its neighbour).</summary>
+    private string[] Visible() => [.. _vm.Files.Where(_vm.MatchesFileFilter).Select(f => f.FileName)];
 
     private string MakeFolder(string name, params string[] files)
     {
