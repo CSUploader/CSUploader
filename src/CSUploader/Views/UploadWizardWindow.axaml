@@ -567,6 +567,18 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- Scrollbar gutter. Avalonia's DataGrid draws its vertical scrollbar OVER the rows
+                 presenter (the template spans the presenter under the scrollbar's grid column), so
+                 whatever column is last loses its right edge to the expanded track — right-aligned
+                 "Kept for" values read "Permanen"/"121 day". This empty strip is what the scrollbar
+                 rides on instead. Keep it LAST: a real column added after it inherits the clipping. -->
+            <DataGridTemplateColumn Width="16" IsReadOnly="True">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Panel />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
 
