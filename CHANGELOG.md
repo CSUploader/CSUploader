@@ -4,6 +4,31 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-08-13
+
+A "Kept for" column on the wizard's hoster step: how long each host keeps an uploaded file, from
+each host's own published policy — 42 of the 77 hosters carry a figure. See
+[docs/release-notes/v1.4.1.md](docs/release-notes/v1.4.1.md) for the full notes.
+
+### Added
+
+- **"Kept for" column** on the wizard's File Hosters step. A plain duration counts from upload; a
+  starred one ("30 days *") counts from the **last download**, so traffic keeps the file alive;
+  **Permanent** appears only where the host states it; an em dash means the host publishes nothing —
+  an unknown, not a promise, and its tooltip says so. The figure follows the account dropdown
+  (upload.ee: 50 days anonymous, 120 signed in) and sorts sensibly (unknowns grouped, Permanent on
+  top). Every value cites the host's own plan table, FAQ, or a measured expiry — from DailyUploads
+  deleting a guest file **one day** after its last download to Filedot keeping a registered one
+  **1000 days** after its.
+
+### Fixed
+
+- The grid's vertical scrollbar rode over the last column's values (Avalonia draws it over the rows
+  area); a gutter column now carries it. "Max parallel" had been losing its right edge to it before
+  the new column made the clipping visible.
+- The em dash's explaining tooltip was only reachable by hovering the glyph itself, a few pixels
+  wide; the whole cell is now the hover target.
+
 ## [1.4.0] - 2026-08-12
 
 Twenty-four new file hosters (77 in total, forty-one of them no-login), an upload wizard that builds
