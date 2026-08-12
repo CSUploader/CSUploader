@@ -559,11 +559,16 @@
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <TextBlock Text="{Binding RetentionDisplay}" FontSize="12"
-                             VerticalAlignment="Center" HorizontalAlignment="Right"
-                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
-                             ToolTip.Tip="{Binding RetentionTooltip}"
-                             Classes.blocked="{Binding !CanUse}" />
+                  <!-- The tooltip rides the whole CELL (a stretched transparent Border), not the
+                       TextBlock: an em dash is a few pixels of glyph, and its tooltip is the only
+                       place the dash is explained — a hover target that small might as well not
+                       exist. Transparent so it hit-tests; a null background doesn't. -->
+                  <Border Background="Transparent" ToolTip.Tip="{Binding RetentionTooltip}">
+                    <TextBlock Text="{Binding RetentionDisplay}" FontSize="12"
+                               VerticalAlignment="Center" HorizontalAlignment="Right"
+                               Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Classes.blocked="{Binding !CanUse}" />
+                  </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

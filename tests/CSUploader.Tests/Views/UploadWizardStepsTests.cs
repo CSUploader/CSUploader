@@ -365,6 +365,40 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the "Kept for" dash explains itself, and from the whole cell, not the glyph ──
+
+    [AvaloniaFact]
+    public void HostersGrid_KeptForDash_CarriesItsTooltipOnTheWholeCell()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel unknown = new(
+            "Rapidgator",
+            [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }],
+            retentionResolver: _ => CSUploader.Upload.Pipeline.FileRetention.Unspecified);
+        harness.Vm.FileHosters.Add(unknown);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            string dash = CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Retention_Unknown"];
+            string explain = CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Retention_UnknownTooltip"];
+
+            TextBlock dashText = RowFor(wizard.fileHostersGrid, unknown)
+                .GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == dash);
+
+            // The tooltip must sit on the cell-filling Border ABOVE the TextBlock: an em dash is a
+            // few pixels of glyph, so the glyph itself is not a hover target anyone can hit.
+            Border cell = Assert.IsType<Border>(dashText.GetVisualParent());
+            Assert.Equal(explain, ToolTip.GetTip(cell));
+            Assert.True(cell.Bounds.Width > dashText.Bounds.Width * 2);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the "Add account…" link runs AddAccountForHosterCommand for its row ──
 
     [AvaloniaFact]
