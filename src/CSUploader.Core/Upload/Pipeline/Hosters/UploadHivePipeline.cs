@@ -81,6 +81,13 @@ public sealed class UploadHivePipeline : XFileSharingApiPipeline
 
     public override string Name => "UploadHive";
 
+    /// <summary>From its own premium.html (read 2026-08-12): free 50, registered 140, "days after
+    /// last download"; premium "Never".</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(50)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(140);
+
     protected override string Host => "https://uploadhive.com";
 
     /// <summary>Verified by uploading real bytes and fetching the resulting page — not by the form

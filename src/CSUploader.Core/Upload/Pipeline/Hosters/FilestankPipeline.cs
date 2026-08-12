@@ -47,6 +47,15 @@ public sealed class FilestankPipeline : YetiSharePipeline
 
     public override string Name => "Filestank";
 
+    /// <summary>From its own FAQ (read 2026-08-12): "Free/non accounts files are kept for 30 days."
+    /// Basis unstated, so this is the from-upload floor. The same FAQ prints "Premium accounts files
+    /// are kept for 22 days" - a premium shorter than free is self-contradictory (fetched twice to
+    /// rule out a mis-read), so premium reports unknown rather than repeating it.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType == AccountType.Premium
+            ? FileRetention.Unspecified
+            : FileRetention.DaysAfterUpload(30);
+
     protected override string SiteBase => "https://www.filestank.com";
 
     /// <summary>The uploader's own <c>maxFileSize</c> for a signed-in session: 20 GiB.</summary>

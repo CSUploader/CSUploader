@@ -44,6 +44,14 @@ public sealed class BowFilePipeline : YetiSharePipeline
 
     public override string Name => "BowFile";
 
+    /// <summary>From its own FAQ (read 2026-08-12): "Free/non accounts files are kept for 20 days.
+    /// Premium accounts files are kept for 100 days." - "non accounts" covers guest uploads. The FAQ
+    /// does not say what the days count from, so this reports the from-upload floor.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType == AccountType.Premium
+            ? FileRetention.DaysAfterUpload(100)
+            : FileRetention.DaysAfterUpload(20);
+
     protected override string SiteBase => "https://bowfile.com";
 
     /// <summary>Verified by uploading a file as a signed-out visitor.</summary>

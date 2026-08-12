@@ -51,6 +51,12 @@ public sealed class MegaUpPipeline : YetiSharePipeline
 
     public override string Name => "MegaUp";
 
+    /// <summary>From its own FAQ (read 2026-08-12): "All files will be deleted after 30 days
+    /// inactivity." - every tier, and inactivity means the countdown restarts on a
+    /// download.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => FileRetention.DaysAfterLastDownload(30);
+
     protected override string SiteBase => "https://megaup.net";
 
     /// <summary>Verified by uploading a file as a signed-out visitor — not by the ticket merely being

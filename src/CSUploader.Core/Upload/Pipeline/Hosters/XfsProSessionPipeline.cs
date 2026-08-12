@@ -140,6 +140,13 @@ public abstract class XfsProSessionPipeline : IFileHosterPipeline, IStorageRefre
 
     public int? MaxFilesPerPackage => null;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.RetentionFor" path="/summary/text()[1]"/>
+    /// Declared virtual here because this class binds the interface slot - a same-named method on a
+    /// subclass would never be reached through <see cref="IFileHosterPipeline"/>.
+    /// </summary>
+    public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
+
     /// <summary>Both hosts require an account: their guest tiers exist but refuse the upload
     /// ("uploads are not enabled for your account type"). The wizard won't offer "Anonymous".</summary>
     public bool SupportsAnonymousUpload => false;

@@ -87,6 +87,13 @@ public sealed class UploadyPipeline : XFileSharingApiPipeline, IStorageRefreshab
 
     public override string Name => "Uploady";
 
+    /// <summary>From its own premium.html (read 2026-08-12), under "When are your files deleted?
+    /// (after last download)": anonymous 3, registered 30, premium 60.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(3)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.DaysAfterLastDownload(60)
+            : FileRetention.DaysAfterLastDownload(30);
+
     protected override string Host => "https://uploady.io";
 
     /// <summary>

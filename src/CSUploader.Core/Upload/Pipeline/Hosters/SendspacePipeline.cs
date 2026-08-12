@@ -97,6 +97,15 @@ public sealed class SendspacePipeline : IFileHosterPipeline
 
     public string Name => "Sendspace";
 
+    /// <summary>From its own FAQ (read 2026-08-12): "A file becomes inactive if it has not been
+    /// downloaded at least once during a 30 day period", and "We do not delete active files" -
+    /// guest and free alike. Premium files "will not be deleted even if inactive", but that holds
+    /// only while the membership does - not a fixed span, so premium reports unknown.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType == AccountType.Premium
+            ? FileRetention.Unspecified
+            : FileRetention.DaysAfterLastDownload(30);
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

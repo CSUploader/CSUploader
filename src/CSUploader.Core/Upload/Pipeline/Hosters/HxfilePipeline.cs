@@ -34,6 +34,14 @@ public sealed class HxfilePipeline : XFileSharingApiPipeline
 
     public override string Name => "Hxfile";
 
+    /// <summary>Its premium plans each say "Your files stored 365 days" (read 2026-08-12) - premium
+    /// only, basis unstated, so this is the from-upload floor. No figure is published for free
+    /// accounts.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType == AccountType.Premium
+            ? FileRetention.DaysAfterUpload(365)
+            : FileRetention.Unspecified;
+
     protected override string Host => "https://hxfile.co";
 
     /// <summary>

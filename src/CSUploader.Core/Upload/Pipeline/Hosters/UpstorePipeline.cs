@@ -108,6 +108,14 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
 
     public string Name => "Upstore";
 
+    /// <summary>Its premium page (read 2026-08-12) gives premium "Files kept on server forever";
+    /// the free column says only "Limited lifetime storage" with no number, so guest and free
+    /// report unknown.</summary>
+    public FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType is AccountType.Premium or AccountType.Pro
+            ? FileRetention.Permanent
+            : FileRetention.Unspecified;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

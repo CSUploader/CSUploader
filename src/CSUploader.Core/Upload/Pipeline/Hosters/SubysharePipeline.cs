@@ -98,6 +98,13 @@ public sealed class SubysharePipeline : XFileSharingApiPipeline
 
     public override string Name => "SubyShare";
 
+    /// <summary>From its own premium.html (read 2026-08-12): guest 1, registered 30, premium 180 -
+    /// all "days after last download".</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(1)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.DaysAfterLastDownload(180)
+            : FileRetention.DaysAfterLastDownload(30);
+
     protected override string Host => "https://subyshare.com";
 
     /// <summary>Its uploader sits behind the sign-in; no guest form is offered anywhere on the

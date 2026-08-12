@@ -96,6 +96,14 @@ public sealed class FiledotPipeline : XFileSharingApiPipeline, IStorageRefreshab
 
     public override string Name => "Filedot";
 
+    /// <summary>From its own premium.html (read 2026-08-12): registered "1000 days after last
+    /// download", premium "Never". The guest column is a dash there, matching a host with no guest
+    /// upload at all.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.Unspecified
+            : credentials.AccountType == AccountType.Premium ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(1000);
+
     protected override string Host => "https://filedot.to";
 
     /// <summary>Web-form (no-API) hoster — see <see cref="XFileSharingApiPipeline.UsesWebFormUpload"/>.</summary>

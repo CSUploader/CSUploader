@@ -86,6 +86,13 @@ public sealed class ClicknuploadPipeline : XFileSharingApiPipeline, IStorageRefr
 
     public override string Name => "Clicknupload";
 
+    /// <summary>From its own premium.html (read 2026-08-12): guest 10, registered 35, premium 60 -
+    /// all "days after last download".</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(10)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.DaysAfterLastDownload(60)
+            : FileRetention.DaysAfterLastDownload(35);
+
     protected override string Host => "https://clicknupload.click";
 
     /// <summary>Web-form (no-API) hoster — see <see cref="XFileSharingApiPipeline.UsesWebFormUpload"/>.</summary>

@@ -49,6 +49,14 @@ public sealed class UsersDrivePipeline : XFileSharingApiPipeline
 
     public override string Name => "UsersDrive";
 
+    /// <summary>From its own premium.html (read 2026-08-12): the free plan "9 days after last
+    /// download", premium "19 days after last download". Guest uploads have no stated figure, so the
+    /// anonymous route reports unknown rather than borrowing the account one.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.Unspecified
+            : credentials.AccountType == AccountType.Premium ? FileRetention.DaysAfterLastDownload(19)
+            : FileRetention.DaysAfterLastDownload(9);
+
     protected override string Host => "https://usersdrive.com";
 
     /// <summary>Anonymous upload verified by actually uploading a file — not merely by the form being

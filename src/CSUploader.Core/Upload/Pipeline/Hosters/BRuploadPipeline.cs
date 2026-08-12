@@ -100,6 +100,14 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
 
     public string Name => "BRupload";
 
+    /// <summary>From its own plans table (read 2026-08-12, in Portuguese), "Arquivo expira em":
+    /// guest "3 dias sem downloads", registered "30 dias sem downloads" (days without downloads),
+    /// premium "NUNCA" (never).</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(3)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(30);
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

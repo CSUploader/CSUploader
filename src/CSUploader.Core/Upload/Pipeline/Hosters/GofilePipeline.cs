@@ -65,6 +65,13 @@ public sealed class GofilePipeline : IFileHosterPipeline
 
     public string Name => "Gofile";
 
+    /// <summary>From its own FAQ (read 2026-08-12): content is kept for 10 days and stays longer
+    /// only while it keeps being downloaded - matching the host's own public statement that files
+    /// "remain on the servers for at least 10 days" and go when not downloaded. Uploads here ride a
+    /// guest account, which is exactly the tier that policy describes.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.DaysAfterLastDownload(10);
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

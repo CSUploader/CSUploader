@@ -41,5 +41,13 @@ public sealed class DailyUploadsPipeline : XfsProAnonymousPipeline
 
     public override string Name => "DailyUploads";
 
+    /// <summary>From its own premium.html (read 2026-08-12), "When are your files deleted?": guest
+    /// "1 days after last download", registered 15, premium 40. One download a day is all that keeps
+    /// a guest file alive.</summary>
+    public override FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(1)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.DaysAfterLastDownload(40)
+            : FileRetention.DaysAfterLastDownload(15);
+
     protected override string Host => "https://dailyuploads.net";
 }

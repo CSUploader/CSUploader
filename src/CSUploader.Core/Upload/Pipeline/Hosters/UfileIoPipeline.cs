@@ -150,6 +150,12 @@ public sealed class UfileIoPipeline : IFileHosterPipeline
 
     public string Name => "Ufile";
 
+    /// <summary>From its own homepage copy (read 2026-08-12): "As a guest user, your file upload(s)
+    /// will be hosted for a maximum of 30 days" - a from-upload maximum. Signing up is pitched as
+    /// unlocking "10GB of permanent storage", and "Pro users can store files forever".</summary>
+    public FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterUpload(30) : FileRetention.Permanent;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

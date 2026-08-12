@@ -108,6 +108,13 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
     /// </summary>
     public virtual long? MaxFileSize => null;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.RetentionFor" path="/summary/text()[1]"/>
+    /// Declared virtual here because this class binds the interface slot - a same-named method on a
+    /// subclass would never be reached through <see cref="IFileHosterPipeline"/>.
+    /// </summary>
+    public virtual FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Unspecified;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous IS the path — <c>sess_id</c> simply goes out empty.</summary>

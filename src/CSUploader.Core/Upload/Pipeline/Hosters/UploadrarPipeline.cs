@@ -75,6 +75,18 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
 
     public override string Name => "Uploadrar";
 
+    /// <summary>From its own premium.html (read 2026-08-12), "When are your files deleted?":
+    /// anonymous 1, registered 90, premium 120, premium pro 360 - all "days after last
+    /// download".</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(1)
+            : credentials.AccountType switch
+            {
+                AccountType.Premium => FileRetention.DaysAfterLastDownload(120),
+                AccountType.Pro => FileRetention.DaysAfterLastDownload(360),
+                _ => FileRetention.DaysAfterLastDownload(90),
+            };
+
     protected override string Host => "https://uploadrar.com";
 
     /// <summary>

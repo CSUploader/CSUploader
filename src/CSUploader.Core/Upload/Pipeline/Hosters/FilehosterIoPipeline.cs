@@ -52,6 +52,13 @@ public sealed class FilehosterIoPipeline : XfsProSessionPipeline
 
     public override string Name => "Filehoster.io";
 
+    /// <summary>From its own premium page (read 2026-08-12): free "5 days after last download",
+    /// registered "60 days after last download", premium "Never".</summary>
+    public override FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(5)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(60);
+
     protected override string Host => "https://filehoster.io";
 
     /// <summary>The brand lower-cases itself; keeps error text reading as the site does.</summary>

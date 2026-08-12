@@ -42,5 +42,13 @@ public sealed class FileaxaPipeline : XfsProAnonymousPipeline
 
     public override string Name => "FILEAXA";
 
+    /// <summary>From its own premium.html plan table (read 2026-08-12), "File retention": guest
+    /// "5 days after last download", registered "30 days after last download", premium and pro
+    /// "Never".</summary>
+    public override FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterLastDownload(5)
+            : credentials.AccountType is AccountType.Premium or AccountType.Pro ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(30);
+
     protected override string Host => "https://fileaxa.com";
 }

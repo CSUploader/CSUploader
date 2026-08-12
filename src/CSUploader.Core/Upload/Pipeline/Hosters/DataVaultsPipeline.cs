@@ -68,6 +68,15 @@ public sealed class DataVaultsPipeline : XFileSharingApiPipeline
 
     public override string Name => "DataVaults";
 
+    /// <summary>From its own premium.html (read 2026-08-12): anonymous "3 Days", registered
+    /// "7 Days", premium "Never". Unlike its siblings the page does NOT say what the days count
+    /// from, so this reports the floor - from upload - rather than promising the last-download
+    /// reset its siblings give.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterUpload(3)
+            : credentials.AccountType == AccountType.Premium ? FileRetention.Permanent
+            : FileRetention.DaysAfterUpload(7);
+
     protected override string Host => "https://datavaults.co";
 
     /// <summary>

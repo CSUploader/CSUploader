@@ -82,6 +82,11 @@ public sealed class WormholePipeline : IFileHosterPipeline
 
     public string Name => "Wormhole";
 
+    /// <summary>From its own FAQ (read 2026-08-12): "Files are permanently deleted from the server
+    /// after 24 hours." This is a transfer service, not storage.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.AfterUpload(TimeSpan.FromHours(24));
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

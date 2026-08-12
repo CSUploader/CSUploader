@@ -70,6 +70,14 @@ public sealed class WorldFilesPipeline : XFileSharingApiPipeline
     /// <summary>The host's own <c>&lt;SiteName&gt;</c>, spelled as it spells it.</summary>
     public override string Name => "World Files";
 
+    /// <summary>From its own premium.html (read 2026-08-12): registered "45 days after last
+    /// download". Premium says only "On the individual condition" and the guest column is empty, so
+    /// both report unknown.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => credentials.IsAnonymous || credentials.AccountType == AccountType.Premium
+            ? FileRetention.Unspecified
+            : FileRetention.DaysAfterLastDownload(45);
+
     protected override string Host => "https://world-files.com";
 
     /// <summary>Verified by uploading real bytes as a guest and fetching the page that came back —

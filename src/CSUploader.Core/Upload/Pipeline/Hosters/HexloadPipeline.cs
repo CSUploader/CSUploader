@@ -39,6 +39,14 @@ public sealed class HexloadPipeline : XFileSharingApiPipeline
 
     public override string Name => "Hexload";
 
+    /// <summary>From its own homepage (read 2026-08-12): premium "Files are stored indefinitely";
+    /// for free users "active files will be stored for 30 days, meaning there must be at least one
+    /// download every 30 days" - an inactivity window, which guest uploads fall under too.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType == AccountType.Premium
+            ? FileRetention.Permanent
+            : FileRetention.DaysAfterLastDownload(30);
+
     protected override string Host => "https://hexload.com";
 
     /// <summary>
