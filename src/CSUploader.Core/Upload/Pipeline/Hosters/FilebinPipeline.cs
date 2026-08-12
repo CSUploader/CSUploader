@@ -71,6 +71,10 @@ public sealed class FilebinPipeline : IFileHosterPipeline
     /// limitation was reached, please retry later", which is a condition rather than a limit.</summary>
     public long? MaxFileSize => null;
 
+    /// <summary>7 days, measured from the <c>expired_at</c> the host returns on every upload (which is
+    /// also logged per file, so a changed policy shows up there before it shows up here).</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.DaysAfterUpload(7);
+
     public int? MaxFilesPerPackage => null;
 
     public bool SupportsAnonymousUpload => true;

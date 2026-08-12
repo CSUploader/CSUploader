@@ -1274,6 +1274,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>制限なし</value>
   </data>
+  <data name="Wizard_Step2_Col_KeptFor" xml:space="preserve">
+    <value>保存期間</value>
+  </data>
+  <data name="Wizard_Step2_Col_KeptFor_Tooltip" xml:space="preserve">
+    <value>ホストがファイルを保持する期間。* = アップロードではなく、最後のダウンロードから起算。</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Retention_UnknownTooltip" xml:space="preserve">
+    <value>このホストは保存期間を公表していません。</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Permanent" xml:space="preserve">
+    <value>無期限</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Days_Format" xml:space="preserve">
+    <value>{0}日</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Hours_Format" xml:space="preserve">
+    <value>{0}時間</value>
+  </data>
+  <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
+    <value>最後のダウンロードから{0}後に削除されます。</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(匿名)</value>
   </data>

@@ -116,6 +116,11 @@ public sealed class DropMeFilesPipeline : IFileHosterPipeline
     /// <summary>50 GB — the site's own figure, both as the page's text and as <c>SPEEDDOWNSIZE</c>.</summary>
     public long? MaxFileSize => MaxUploadSize;
 
+    /// <summary>14 days - the longest retention it offers (its options are until-first-download, 3, 7
+    /// and 14 days) and what this app sends. This is a transfer service, not storage: the files are
+    /// gone afterwards.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.DaysAfterUpload(14);
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>

@@ -6,6 +6,7 @@
 using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
+using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 
 namespace CSUploader.Tests.ViewModels;
@@ -268,6 +269,117 @@ public class FileHosterSelectionViewModelTests
         Assert.Equal(10, vm.MaxConcurrentUploads);
         Assert.Contains(nameof(FileHosterSelectionViewModel.MaxConcurrentUploads), changed);
         Assert.Contains(nameof(FileHosterSelectionViewModel.MaxConcurrentUploadsDisplay), changed);
+    }
+
+    // ── "Kept for" column: retention, the third per-tier resolver ──
+
+    [Fact]
+    public void Retention_WithoutResolver_IsEmptyAndTooltipless()
+    {
+        FileHosterSelectionViewModel vm = new("Rapidgator", []);
+
+        Assert.Equal(FileRetention.Unspecified, vm.Retention);
+        Assert.Null(vm.RetentionSortKey);
+        Assert.Equal(string.Empty, vm.RetentionDisplay);
+        Assert.Null(vm.RetentionTooltip);
+    }
+
+    [Fact]
+    public void Retention_Unspecified_ShowsDashWithExplainingTooltip()
+    {
+        // The majority case: the host publishes nothing, and the cell must not pretend otherwise.
+        FileHosterSelectionViewModel vm = new(
+            "Rapidgator", [Login(1, "alice")], retentionResolver: _ => FileRetention.Unspecified);
+
+        Assert.Equal(Localizer.Instance["Wizard_Step2_Retention_Unknown"], vm.RetentionDisplay);
+        Assert.Equal(Localizer.Instance["Wizard_Step2_Retention_UnknownTooltip"], vm.RetentionTooltip);
+        Assert.Null(vm.RetentionSortKey);
+    }
+
+    [Fact]
+    public void Retention_Permanent_ShowsThatWordAndNoTooltip()
+    {
+        FileHosterSelectionViewModel vm = new(
+            "Catbox", [], supportsAnonymous: true, retentionResolver: _ => FileRetention.Permanent);
+
+        Assert.Equal(Localizer.Instance["Wizard_Step2_Retention_Permanent"], vm.RetentionDisplay);
+        Assert.Null(vm.RetentionTooltip);
+        Assert.Equal(double.PositiveInfinity, vm.RetentionSortKey);
+    }
+
+    [Fact]
+    public void Retention_WholeDaysOfThreeOrMore_FormatAsDays()
+    {
+        FileHosterSelectionViewModel vm = new(
+            "Temp.sh", [], supportsAnonymous: true, retentionResolver: _ => FileRetention.DaysAfterUpload(3));
+
+        string expected = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Step2_Retention_Days_Format"],
+            3);
+        Assert.Equal(expected, vm.RetentionDisplay);
+        Assert.Null(vm.RetentionTooltip); // an after-upload cell says it all itself
+    }
+
+    [Fact]
+    public void Retention_UnderThreeDays_FormatsAsHours()
+    {
+        // Hostize's 24 hours must not read "1 days" — below three whole days the unit is hours,
+        // which also keeps every string plural.
+        FileHosterSelectionViewModel vm = new(
+            "Hostize",
+            [],
+            supportsAnonymous: true,
+            retentionResolver: _ => FileRetention.AfterUpload(TimeSpan.FromHours(24)));
+
+        string expected = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Step2_Retention_Hours_Format"],
+            24);
+        Assert.Equal(expected, vm.RetentionDisplay);
+    }
+
+    [Fact]
+    public void Retention_AfterLastDownload_GetsStarAndSpelledOutTooltip()
+    {
+        FileHosterSelectionViewModel vm = new(
+            "VikingFile", [], supportsAnonymous: true, retentionResolver: _ => FileRetention.DaysAfterLastDownload(15));
+
+        string days = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Localizer.Instance["Wizard_Step2_Retention_Days_Format"],
+            15);
+        Assert.Equal(days + " *", vm.RetentionDisplay);
+        Assert.Equal(
+            string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Step2_Retention_LastDownloadTooltip_Format"],
+                days),
+            vm.RetentionTooltip);
+    }
+
+    [Fact]
+    public void Retention_ReResolvesAndNotifies_WhenAccountChanges()
+    {
+        // Tier-dependent, the upload.ee shape: anonymous 50 days, signed in 120.
+        FileHosterLoginDto[] accounts = [Login(1, "alice")];
+        FileHosterSelectionViewModel vm = new(
+            "Upload.ee",
+            accounts,
+            supportsAnonymous: true,
+            retentionResolver: acct => FileRetention.DaysAfterLastDownload(acct?.IsAnonymous == true ? 50 : 120));
+
+        Assert.Equal(TimeSpan.FromDays(120), vm.Retention.Duration);
+
+        List<string?> changed = [];
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.SelectedAccount = vm.AccountOptions[^1]; // the synthetic anonymous entry
+
+        Assert.Equal(TimeSpan.FromDays(50), vm.Retention.Duration);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.RetentionDisplay), changed);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.RetentionSortKey), changed);
+        Assert.Contains(nameof(FileHosterSelectionViewModel.RetentionTooltip), changed);
     }
 
     private static FileHosterLoginDto Login(int id, string username) => new()

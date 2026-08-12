@@ -103,6 +103,11 @@ public sealed class DropMbPipeline : IFileHosterPipeline, ISessionRefreshablePip
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>Permanent: the upload asks for no expiry (where the site's own uploader sends
+    /// <c>1-years</c>) and the share came back stamped with Pingvin's 1970-epoch "never" sentinel,
+    /// verified by uploading, completing and re-reading the share.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Permanent;
+
     public int? MaxFilesPerPackage => null;
 
     public bool SupportsAnonymousUpload => true;

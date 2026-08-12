@@ -1274,6 +1274,30 @@ Vẫn thêm?</value>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>Không giới hạn</value>
   </data>
+  <data name="Wizard_Step2_Col_KeptFor" xml:space="preserve">
+    <value>Thời gian lưu</value>
+  </data>
+  <data name="Wizard_Step2_Col_KeptFor_Tooltip" xml:space="preserve">
+    <value>Thời gian máy chủ giữ tệp. * = tính từ lần tải xuống cuối cùng, không phải từ lúc tải lên.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Retention_UnknownTooltip" xml:space="preserve">
+    <value>Máy chủ này không công bố thời gian lưu trữ.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Permanent" xml:space="preserve">
+    <value>Vĩnh viễn</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Days_Format" xml:space="preserve">
+    <value>{0} ngày</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Hours_Format" xml:space="preserve">
+    <value>{0} giờ</value>
+  </data>
+  <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
+    <value>Bị xóa {0} sau lần tải xuống cuối cùng.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(ẩn danh)</value>
   </data>

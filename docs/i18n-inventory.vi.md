@@ -583,6 +583,14 @@ Wizard_Step2_Col_Account           = Tài khoản
 Wizard_Step2_Col_MaxFileSize       = Kích thước tệp tối đa
 Wizard_Step2_Col_MaxConcurrent     = Tối đa song song
 Wizard_Step2_NoLimit               = Không giới hạn
+Wizard_Step2_Col_KeptFor           = Thời gian lưu
+Wizard_Step2_Col_KeptFor_Tooltip   = Thời gian máy chủ giữ tệp. * = tính từ lần tải xuống cuối cùng, không phải từ lúc tải lên.
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = Máy chủ này không công bố thời gian lưu trữ.
+Wizard_Step2_Retention_Permanent   = Vĩnh viễn
+Wizard_Step2_Retention_Days_Format = {0} ngày
+Wizard_Step2_Retention_Hours_Format = {0} giờ
+Wizard_Step2_Retention_LastDownloadTooltip_Format = Bị xóa {0} sau lần tải xuống cuối cùng.
 Wizard_Step2_AccountAnonymous      = (ẩn danh)
 Wizard_Step2_AccountSelect         = (chọn tài khoản)
 Wizard_Step2_AddAccountLink        = Thêm tài khoản…

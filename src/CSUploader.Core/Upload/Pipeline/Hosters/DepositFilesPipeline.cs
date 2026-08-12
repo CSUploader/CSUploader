@@ -111,6 +111,14 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>121 days on the free tier, read off the account's own listing (<c>dt_expires</c> minus
+    /// <c>dt_added</c>). Long, but not permanent. A premium tier's figure was never measured, so it is
+    /// reported as unknown rather than assumed to match.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.AccountType == AccountType.Premium
+            ? FileRetention.Unspecified
+            : FileRetention.DaysAfterUpload(121);
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Measured, not read off the page: the node call refuses a caller with no session.</summary>

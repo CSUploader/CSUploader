@@ -1364,6 +1364,30 @@ Add anyway?</value>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>No limit</value>
   </data>
+  <data name="Wizard_Step2_Col_KeptFor" xml:space="preserve">
+    <value>Kept for</value>
+  </data>
+  <data name="Wizard_Step2_Col_KeptFor_Tooltip" xml:space="preserve">
+    <value>How long the host keeps a file. * = counted from the file's last download, not its upload.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Retention_UnknownTooltip" xml:space="preserve">
+    <value>This host doesn't publish a retention period.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Permanent" xml:space="preserve">
+    <value>Permanent</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Days_Format" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Hours_Format" xml:space="preserve">
+    <value>{0} hours</value>
+  </data>
+  <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
+    <value>Deleted {0} after the last download.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(anonymous)</value>
   </data>

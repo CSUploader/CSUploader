@@ -55,6 +55,10 @@ public sealed class UdropPipeline : YetiSharePipeline
     /// rendered — Filestank renders one too and refuses the bytes.</summary>
     public override bool SupportsAnonymousUpload => true;
 
+    /// <summary>Permanent — "no file expiry" is this host's own selling line, unusual among the
+    /// anonymous hosts here. udrop's policy, not YetiShare's: the base stays unspecified.</summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Permanent;
+
     /// <summary>
     /// Its sign-in is a plain <c>username</c>/<c>password</c>/<c>submitme</c> form with <b>no
     /// captcha</b> — checked on the live page and against a capture of a real sign-in — so an account

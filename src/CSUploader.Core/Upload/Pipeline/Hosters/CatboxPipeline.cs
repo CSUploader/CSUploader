@@ -71,6 +71,11 @@ public sealed partial class CatboxPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxAnonymousFileSizeBytes;
 
+    /// <summary>Permanent, and it is the reason to pick catbox over its own sibling: the host states
+    /// files "are unlimited and never expire", which is exactly the trade Litterbox makes in reverse
+    /// (five times the size, 72 hours to live).</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Permanent;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>catbox.moe accepts uploads with no account — the wizard offers it as a built-in

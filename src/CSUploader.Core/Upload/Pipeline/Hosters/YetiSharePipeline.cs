@@ -261,6 +261,17 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     /// <summary>20 GiB — the uploader's own <c>maxFileSize</c>.</summary>
     public long? MaxFileSize => UploaderMaxSize;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.RetentionFor" path="/summary/text()[1]"/>
+    /// <para>
+    /// Declared <c>virtual</c> here because the interface slot binds at this class — a subclass method
+    /// sharing the name alone would never be called through <see cref="IFileHosterPipeline"/>.
+    /// Left unspecified for the family: udrop states its storage is permanent, but that is udrop's
+    /// policy, not YetiShare's, and the other installs here say nothing either way.
+    /// </para>
+    /// </summary>
+    public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Account-only: the node authenticates on a signed-in <c>_sessionid</c>.</summary>

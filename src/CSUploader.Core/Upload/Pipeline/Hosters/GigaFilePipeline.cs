@@ -102,6 +102,11 @@ public sealed class GigaFilePipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>100 days - the longest of its 3/5/7/14/30/60/100-day options, which this app sends and
+    /// the host confirms (the JWT in the reply decodes to a <c>d_expiry</c> 100 days out). Its page
+    /// ships 7, so copying the default would throw away 93 days.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.DaysAfterUpload(100);
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>No accounts at all — the service has no login.</summary>

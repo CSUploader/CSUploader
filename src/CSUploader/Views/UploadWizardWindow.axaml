@@ -542,6 +542,31 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- How long the host keeps a file for the selected account: a duration, "N days *" when the
+                 countdown restarts on every download, "Permanent" only where the host states it, and an
+                 em dash for the many that publish nothing (its tooltip says so — an unknown, not a zero).
+                 The header carries the * legend in its tooltip. Values come from each pipeline's
+                 RetentionFor, which cites its source; re-resolves with the account dropdown (tiers
+                 differ — upload.ee keeps 50 days anonymous, 120 signed in) and is read-only display
+                 (rule 32). -->
+            <DataGridTemplateColumn Width="100" IsReadOnly="True"
+                                    SortMemberPath="RetentionSortKey"
+                                    ClipboardContentBinding="{Binding RetentionDisplay}">
+              <DataGridTemplateColumn.Header>
+                <TextBlock Text="{loc:Loc Wizard_Step2_Col_KeptFor}"
+                           VerticalAlignment="Center"
+                           ToolTip.Tip="{loc:Loc Wizard_Step2_Col_KeptFor_Tooltip}" />
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding RetentionDisplay}" FontSize="12"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                             ToolTip.Tip="{Binding RetentionTooltip}"
+                             Classes.blocked="{Binding !CanUse}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
 

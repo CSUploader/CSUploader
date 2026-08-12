@@ -106,6 +106,14 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>20 days of INACTIVITY on a free account - what the free plan actually limits, rather
+    /// than file size. Only that tier is documented: anonymous uploads and premium accounts report
+    /// unknown instead of borrowing the figure.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => !credentials.IsAnonymous && credentials.AccountType != AccountType.Premium
+            ? FileRetention.DaysAfterLastDownload(20)
+            : FileRetention.Unspecified;
+
     public int? MaxFilesPerPackage => null;
 
     public bool SupportsAnonymousUpload => true;

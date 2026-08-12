@@ -1274,6 +1274,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>제한 없음</value>
   </data>
+  <data name="Wizard_Step2_Col_KeptFor" xml:space="preserve">
+    <value>보관 기간</value>
+  </data>
+  <data name="Wizard_Step2_Col_KeptFor_Tooltip" xml:space="preserve">
+    <value>호스트가 파일을 보관하는 기간입니다. * = 업로드가 아니라 마지막 다운로드부터 계산합니다.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Retention_UnknownTooltip" xml:space="preserve">
+    <value>이 호스트는 보관 기간을 공개하지 않습니다.</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Permanent" xml:space="preserve">
+    <value>영구</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Days_Format" xml:space="preserve">
+    <value>{0}일</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Hours_Format" xml:space="preserve">
+    <value>{0}시간</value>
+  </data>
+  <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
+    <value>마지막 다운로드 후 {0} 뒤에 삭제됩니다.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(익명)</value>
   </data>

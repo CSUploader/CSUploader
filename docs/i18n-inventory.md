@@ -608,6 +608,14 @@ Wizard_Step2_Col_Account           = Account
 Wizard_Step2_Col_MaxFileSize       = Max file size
 Wizard_Step2_Col_MaxConcurrent     = Max parallel
 Wizard_Step2_NoLimit               = No limit
+Wizard_Step2_Col_KeptFor           = Kept for
+Wizard_Step2_Col_KeptFor_Tooltip   = How long the host keeps a file. * = counted from the file's last download, not its upload.
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = This host doesn't publish a retention period.
+Wizard_Step2_Retention_Permanent   = Permanent
+Wizard_Step2_Retention_Days_Format = {0} days
+Wizard_Step2_Retention_Hours_Format = {0} hours
+Wizard_Step2_Retention_LastDownloadTooltip_Format = Deleted {0} after the last download.
 Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (select account)
 Wizard_Step2_AddAccountLink        = Add account…

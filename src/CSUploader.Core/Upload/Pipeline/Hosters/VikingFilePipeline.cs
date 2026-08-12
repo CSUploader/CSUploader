@@ -79,6 +79,11 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
     /// count, so any size is expressible.</summary>
     public long? MaxFileSize => null;
 
+    /// <summary>15 days after the LAST DOWNLOAD - the host's published policy, so a link that keeps
+    /// getting fetched keeps living.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.DaysAfterLastDownload(15);
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>VikingFile accepts uploads with no login — the API's <c>user</c> parameter is

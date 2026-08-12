@@ -575,6 +575,14 @@ Wizard_Step2_Col_Account           = 账户
 Wizard_Step2_Col_MaxFileSize       = 最大文件大小
 Wizard_Step2_Col_MaxConcurrent     = 最大并行数
 Wizard_Step2_NoLimit               = 无限制
+Wizard_Step2_Col_KeptFor           = 保存期限
+Wizard_Step2_Col_KeptFor_Tooltip   = 主机保留文件的时长。* = 从最后一次下载算起，而非上传时间。
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = 该主机未公布保存期限。
+Wizard_Step2_Retention_Permanent   = 永久
+Wizard_Step2_Retention_Days_Format = {0} 天
+Wizard_Step2_Retention_Hours_Format = {0} 小时
+Wizard_Step2_Retention_LastDownloadTooltip_Format = 最后一次下载 {0} 后删除。
 Wizard_Step2_AccountAnonymous      = （匿名）
 Wizard_Step2_AccountSelect         = （选择账户）
 Wizard_Step2_AddAccountLink        = 添加账户…

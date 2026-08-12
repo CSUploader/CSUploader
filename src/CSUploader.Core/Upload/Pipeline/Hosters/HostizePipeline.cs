@@ -83,6 +83,13 @@ public sealed class HostizePipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>24 hours, from the service's own copy - "Files stay online for 24 hours on the Free
+    /// plan" - and confirmed to the second by the <c>expiresAt</c> its complete call returns. An
+    /// ACCOUNT does not change it (measured: same 24 hours), which is why this ignores the credentials;
+    /// longer retention is a paid plan this app doesn't model.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.AfterUpload(TimeSpan.FromHours(24));
+
     public int? MaxFilesPerPackage => null;
 
     public bool SupportsAnonymousUpload => true;

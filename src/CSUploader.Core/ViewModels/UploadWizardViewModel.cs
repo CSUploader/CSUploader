@@ -1689,10 +1689,17 @@ public partial class UploadWizardViewModel : ObservableObject
                 ? null
                 : account => pipeline.MaxConcurrentUploadsFor(account ?? new FileHosterLoginDto { FileHosterName = fileHosterName });
 
+            // How long the host keeps a file, for the "Kept for" column. The blank-DTO fallback reads
+            // as a signed-in free tier, which is the tier a user adding an account would land on.
+            Func<FileHosterLoginDto?, FileRetention>? retentionResolver = pipeline is null
+                ? null
+                : account => pipeline.RetentionFor(account ?? new FileHosterLoginDto { FileHosterName = fileHosterName });
+
             FileHosterSelectionViewModel? sticky = _stickyHosters.Find(
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
 
-            FileHosterSelectionViewModel vm = new(fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver, maxConcurrentResolver);
+            FileHosterSelectionViewModel vm = new(
+                fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver, maxConcurrentResolver, retentionResolver);
             if (sticky is not null)
             {
                 vm.Use = sticky.Use;

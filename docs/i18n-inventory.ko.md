@@ -575,6 +575,14 @@ Wizard_Step2_Col_Account           = 계정
 Wizard_Step2_Col_MaxFileSize       = 최대 파일 크기
 Wizard_Step2_Col_MaxConcurrent     = 최대 동시 전송
 Wizard_Step2_NoLimit               = 제한 없음
+Wizard_Step2_Col_KeptFor           = 보관 기간
+Wizard_Step2_Col_KeptFor_Tooltip   = 호스트가 파일을 보관하는 기간입니다. * = 업로드가 아니라 마지막 다운로드부터 계산합니다.
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = 이 호스트는 보관 기간을 공개하지 않습니다.
+Wizard_Step2_Retention_Permanent   = 영구
+Wizard_Step2_Retention_Days_Format = {0}일
+Wizard_Step2_Retention_Hours_Format = {0}시간
+Wizard_Step2_Retention_LastDownloadTooltip_Format = 마지막 다운로드 후 {0} 뒤에 삭제됩니다.
 Wizard_Step2_AccountAnonymous      = (익명)
 Wizard_Step2_AccountSelect         = (계정 선택)
 Wizard_Step2_AddAccountLink        = 계정 추가…

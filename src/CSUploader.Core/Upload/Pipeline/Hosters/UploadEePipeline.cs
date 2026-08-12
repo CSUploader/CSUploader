@@ -158,6 +158,11 @@ public sealed class UploadEePipeline : IFileHosterPipeline
     /// account is picked. See <see cref="MaxFileSizeFor"/>.</summary>
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>50 days after the last download anonymously, 120 signed in - the second half of what an
+    /// account buys here, the first being 200 MB instead of 100.</summary>
+    public FileRetention RetentionFor(FileHosterLoginDto credentials)
+        => FileRetention.DaysAfterLastDownload(credentials.IsAnonymous ? 50 : 120);
+
     /// <summary>
     /// 200 MB signed in, 100 MB anonymous — its FAQ states both, and the account tier is the only
     /// reason to sign in to this host at all (that, and 120 days of retention instead of 50).

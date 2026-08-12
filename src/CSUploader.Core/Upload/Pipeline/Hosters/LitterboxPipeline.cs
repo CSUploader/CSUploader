@@ -75,6 +75,11 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>72 hours, the longest its selector offers (1h/12h/24h/72h) and what this app sends. A
+    /// link posted on Friday is gone by Monday; catbox is the permanent sibling.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.AfterUpload(TimeSpan.FromHours(72));
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous is the only mode — Litterbox has no accounts (catbox's userhash is not

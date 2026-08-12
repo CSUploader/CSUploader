@@ -574,6 +574,14 @@ Wizard_Step2_Col_Account           = アカウント
 Wizard_Step2_Col_MaxFileSize       = 最大ファイルサイズ
 Wizard_Step2_Col_MaxConcurrent     = 最大並列数
 Wizard_Step2_NoLimit               = 制限なし
+Wizard_Step2_Col_KeptFor           = 保存期間
+Wizard_Step2_Col_KeptFor_Tooltip   = ホストがファイルを保持する期間。* = アップロードではなく、最後のダウンロードから起算。
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = このホストは保存期間を公表していません。
+Wizard_Step2_Retention_Permanent   = 無期限
+Wizard_Step2_Retention_Days_Format = {0}日
+Wizard_Step2_Retention_Hours_Format = {0}時間
+Wizard_Step2_Retention_LastDownloadTooltip_Format = 最後のダウンロードから{0}後に削除されます。
 Wizard_Step2_AccountAnonymous      = (匿名)
 Wizard_Step2_AccountSelect         = (アカウントを選択)
 Wizard_Step2_AddAccountLink        = アカウントを追加…

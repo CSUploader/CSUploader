@@ -109,6 +109,21 @@ public interface IFileHosterPipeline
     public long? MaxFileSizeFor(Dal.FileHosterLoginDto credentials) => MaxFileSize;
 
     /// <summary>
+    /// How long the hoster keeps an uploaded file for the given account, for the wizard's "Kept for"
+    /// column. Defaults to <see cref="FileRetention.Unspecified"/> — "this host publishes no retention
+    /// period we have verified", which is the honest answer for most of them and is NOT a claim of
+    /// permanence. Override only with what the host itself states: its own copy, its plan table, or an
+    /// expiry stamp measured off a real upload — and cite which, in the pipeline's remarks.
+    /// <para>
+    /// Takes the account because retention is tiered more often than not: TeraBytez keeps an anonymous
+    /// file 5 days and a registered one 30, upload.ee 50 days against 120. Where only one tier is
+    /// documented, return <see cref="FileRetention.Unspecified"/> for the others rather than assuming
+    /// the figure carries over.
+    /// </para>
+    /// </summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Unspecified;
+
+    /// <summary>
     /// Returns null when the hoster accepts a file named <paramref name="fileName"/>, or a short
     /// user-facing reason when the hoster's server would REJECT the name outright — independent of
     /// size or count (e.g. a disallowed character). The name-analog of <see cref="MaxFileSize"/>: the

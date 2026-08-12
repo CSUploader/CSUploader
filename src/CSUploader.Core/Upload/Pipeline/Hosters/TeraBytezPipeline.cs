@@ -125,6 +125,18 @@ public sealed class TeraBytezPipeline : XFileSharingApiPipeline, IStorageRefresh
         _ => RegisteredMaxFileSizeBytes,
     };
 
+    /// <summary>
+    /// Retention by tier, from the same plan table as <see cref="MaxFileSizeFor"/> (read 2026-08-02),
+    /// given as days after LAST download: <b>registered 30</b>, <b>premium 365</b> (and anonymous 5,
+    /// which this app never uses — the host has no anonymous upload). So an unshared link rots in a
+    /// month; only traffic keeps it alive.
+    /// </summary>
+    public override FileRetention RetentionFor(FileHosterLoginDto credentials) => credentials.AccountType switch
+    {
+        AccountType.Premium => FileRetention.DaysAfterLastDownload(365),
+        _ => FileRetention.DaysAfterLastDownload(30),
+    };
+
     /// <summary>This fork links a plain <c>/logout/</c>, so the family's <c>?op=logout</c> probe would
     /// call a perfectly good sign-in logged-out.</summary>
     protected override bool LooksSignedIn(string html)

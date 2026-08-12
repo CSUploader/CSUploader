@@ -575,6 +575,14 @@ Wizard_Step2_Col_Account           = Account
 Wizard_Step2_Col_MaxFileSize       = Max na laki ng file
 Wizard_Step2_Col_MaxConcurrent     = Max na sabay
 Wizard_Step2_NoLimit               = Walang limitasyon
+Wizard_Step2_Col_KeptFor           = Tagal ng pagtatago
+Wizard_Step2_Col_KeptFor_Tooltip   = Kung gaano katagal itinatago ng host ang file. * = binibilang mula sa huling download, hindi sa upload.
+Wizard_Step2_Retention_Unknown     = —
+Wizard_Step2_Retention_UnknownTooltip = Hindi inilalathala ng host na ito ang tagal ng pagtatago.
+Wizard_Step2_Retention_Permanent   = Permanente
+Wizard_Step2_Retention_Days_Format = {0} araw
+Wizard_Step2_Retention_Hours_Format = {0} oras
+Wizard_Step2_Retention_LastDownloadTooltip_Format = Buburahin {0} pagkatapos ng huling download.
 Wizard_Step2_AccountAnonymous      = (anonymous)
 Wizard_Step2_AccountSelect         = (pumili ng account)
 Wizard_Step2_AddAccountLink        = Magdagdag ng account…

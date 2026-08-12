@@ -148,6 +148,20 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     /// </summary>
     public virtual int? MaxConcurrentUploadsFor(FileHosterLoginDto credentials) => null;
 
+    /// <summary>
+    /// <inheritdoc cref="IFileHosterPipeline.RetentionFor" path="/summary/text()[1]"/>
+    /// <para>
+    /// Declared <c>virtual</c> here for the same reason as
+    /// <see cref="MaxConcurrentUploadsFor"/>: the interface slot binds at this class, so a subclass
+    /// method that merely shares the name would never be reached through
+    /// <see cref="IFileHosterPipeline"/>.
+    /// </para>
+    /// <para>
+    /// Nothing family-wide to declare — XFS forks set their own policy, and most publish none.
+    /// </para>
+    /// </summary>
+    public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
+
     /// <inheritdoc/>
     public bool RequiresHashingBeforeUpload => false;
 

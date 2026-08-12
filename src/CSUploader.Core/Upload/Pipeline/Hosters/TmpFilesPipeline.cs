@@ -67,6 +67,11 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>48 hours - the documented maximum this app sends (<c>expire=172800</c>). Its own
+    /// default is ONE hour, so this figure is a property of what we ask for.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => FileRetention.AfterUpload(TimeSpan.FromHours(48));
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous is the only mode — there are no accounts.</summary>

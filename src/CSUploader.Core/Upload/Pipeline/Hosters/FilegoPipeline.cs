@@ -80,6 +80,10 @@ public sealed class FilegoPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>30 days, the longest its slider allows and what this app sends; the returned
+    /// <c>expire</c> stamp came back exactly 30 days out. Its page starts at 7.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.DaysAfterUpload(30);
+
     public int? MaxFilesPerPackage => null;
 
     public bool SupportsAnonymousUpload => true;

@@ -1274,6 +1274,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_NoLimit" xml:space="preserve">
     <value>无限制</value>
   </data>
+  <data name="Wizard_Step2_Col_KeptFor" xml:space="preserve">
+    <value>保存期限</value>
+  </data>
+  <data name="Wizard_Step2_Col_KeptFor_Tooltip" xml:space="preserve">
+    <value>主机保留文件的时长。* = 从最后一次下载算起，而非上传时间。</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Retention_UnknownTooltip" xml:space="preserve">
+    <value>该主机未公布保存期限。</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Permanent" xml:space="preserve">
+    <value>永久</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Days_Format" xml:space="preserve">
+    <value>{0} 天</value>
+  </data>
+  <data name="Wizard_Step2_Retention_Hours_Format" xml:space="preserve">
+    <value>{0} 小时</value>
+  </data>
+  <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
+    <value>最后一次下载 {0} 后删除。</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>（匿名）</value>
   </data>

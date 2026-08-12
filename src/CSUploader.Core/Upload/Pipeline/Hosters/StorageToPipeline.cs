@@ -89,6 +89,11 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => AnonymousMaxFileSizeBytes;
 
+    /// <summary>3 days for the anonymous route, which is the only one wired up here. The account path
+    /// is deliberately unimplemented, so its retention is unknown rather than assumed to match.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)
+        => credentials.IsAnonymous ? FileRetention.DaysAfterUpload(3) : FileRetention.Unspecified;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>storage.to accepts uploads with no login — the wizard offers it as a built-in

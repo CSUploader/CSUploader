@@ -57,6 +57,10 @@ public sealed class TempShPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>3 days, in the host's own words ("~everything is temporary~"). Nothing in the request
+    /// changes it.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.DaysAfterUpload(3);
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous is the only mode — there are no accounts at all.</summary>

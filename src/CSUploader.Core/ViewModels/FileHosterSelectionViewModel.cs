@@ -36,18 +36,26 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     // registry (tests).
     private readonly Func<FileHosterLoginDto?, int?>? _maxConcurrentResolver;
 
+    // Resolves how long the hoster keeps a file for a given account — Unspecified for the many hosts
+    // that publish nothing. Tiered like the other two (upload.ee keeps an anonymous file 50 days and a
+    // signed-in one 120), so the "Kept for" column re-resolves when the account dropdown changes. Null
+    // when the wizard has no pipeline registry (tests).
+    private readonly Func<FileHosterLoginDto?, Upload.Pipeline.FileRetention>? _retentionResolver;
+
     public FileHosterSelectionViewModel(
         string fileHosterName,
         FileHosterLoginDto[] accounts,
         bool supportsAnonymous = false,
         Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null,
-        Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = null)
+        Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = null,
+        Func<FileHosterLoginDto?, Upload.Pipeline.FileRetention>? retentionResolver = null)
     {
         FileHosterName = fileHosterName;
         Accounts = accounts;
         SupportsAnonymous = supportsAnonymous;
         _maxFileSizeResolver = maxFileSizeResolver;
         _maxConcurrentResolver = maxConcurrentResolver;
+        _retentionResolver = retentionResolver;
 
         _anonymousOption = supportsAnonymous
             ? new FileHosterLoginDto
@@ -185,6 +193,93 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     }
 
     /// <summary>
+    /// How long the hoster keeps a file for the currently selected account —
+    /// <see cref="Upload.Pipeline.FileRetention.Unspecified"/> both when the host publishes nothing
+    /// and when no resolver was supplied.
+    /// </summary>
+    public Upload.Pipeline.FileRetention Retention
+        => _retentionResolver?.Invoke(SelectedAccount) ?? Upload.Pipeline.FileRetention.Unspecified;
+
+    /// <summary>
+    /// Sort key for the "Kept for" column, in hours: longer keeps sort higher, Permanent above every
+    /// finite period, and null for the (many) hosts with nothing published, so unknown rows group
+    /// together instead of pretending to be the shortest.
+    /// </summary>
+    public double? RetentionSortKey => Retention.SortKey;
+
+    /// <summary>
+    /// The "Kept for" column's text: a duration ("3 days", "48 hours"), with a trailing <c>*</c> when
+    /// the countdown restarts on every download; the localized "Permanent" only where the host states
+    /// it; and an em dash for the majority that publish nothing — a blank claim, not a small one.
+    /// Empty when no resolver was supplied.
+    /// </summary>
+    public string RetentionDisplay
+    {
+        get
+        {
+            if (_retentionResolver is null)
+            {
+                return string.Empty;
+            }
+
+            Upload.Pipeline.FileRetention retention = Retention;
+            return retention.Basis switch
+            {
+                Upload.Pipeline.FileRetentionBasis.Permanent => Localizer.Instance["Wizard_Step2_Retention_Permanent"],
+                Upload.Pipeline.FileRetentionBasis.AfterUpload => FormatSpan(retention.Duration!.Value),
+                Upload.Pipeline.FileRetentionBasis.AfterLastDownload => FormatSpan(retention.Duration!.Value) + " *",
+                _ => Localizer.Instance["Wizard_Step2_Retention_Unknown"],
+            };
+        }
+    }
+
+    /// <summary>
+    /// The cell's tooltip, where the cell text alone doesn't carry the whole fact: what the em dash
+    /// means, and what the <c>*</c> means with the actual figure spelled into it. Null for Permanent
+    /// and plain after-upload cells, which say it all themselves.
+    /// </summary>
+    public string? RetentionTooltip
+    {
+        get
+        {
+            if (_retentionResolver is null)
+            {
+                return null;
+            }
+
+            Upload.Pipeline.FileRetention retention = Retention;
+            return retention.Basis switch
+            {
+                Upload.Pipeline.FileRetentionBasis.Unspecified => Localizer.Instance["Wizard_Step2_Retention_UnknownTooltip"],
+                Upload.Pipeline.FileRetentionBasis.AfterLastDownload => string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    Localizer.Instance["Wizard_Step2_Retention_LastDownloadTooltip_Format"],
+                    FormatSpan(retention.Duration!.Value)),
+                _ => null,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Days when the span is a whole number of them and at least three ("3 days", "100 days"), hours
+    /// below that ("24 hours", "48 hours") — so no host's figure ever needs a singular form. Both unit
+    /// words come from the localizer.
+    /// </summary>
+    private static string FormatSpan(TimeSpan span)
+    {
+        bool wholeDays = span.TotalDays >= 3 && Math.Abs(span.TotalDays - Math.Round(span.TotalDays)) < 0.001;
+        return wholeDays
+            ? string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Step2_Retention_Days_Format"],
+                (int)Math.Round(span.TotalDays))
+            : string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                Localizer.Instance["Wizard_Step2_Retention_Hours_Format"],
+                (int)Math.Round(span.TotalHours));
+    }
+
+    /// <summary>
     /// Replaces the available accounts (e.g. after the user adds one through the
     /// wizard's "Add account…" link). Preserves the current selection if it survives,
     /// otherwise selects the first account, and fires change notifications so the
@@ -241,12 +336,16 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AccountDisplayText));
 
-        // Both caps can differ per account tier — keep the "Max file size" and "Max parallel"
-        // columns in sync with the dropdown.
+        // All three limits can differ per account tier — keep the "Max file size", "Max parallel"
+        // and "Kept for" columns in sync with the dropdown.
         OnPropertyChanged(nameof(MaxFileSizeBytes));
         OnPropertyChanged(nameof(MaxFileSizeDisplay));
         OnPropertyChanged(nameof(MaxConcurrentUploads));
         OnPropertyChanged(nameof(MaxConcurrentUploadsDisplay));
+        OnPropertyChanged(nameof(Retention));
+        OnPropertyChanged(nameof(RetentionSortKey));
+        OnPropertyChanged(nameof(RetentionDisplay));
+        OnPropertyChanged(nameof(RetentionTooltip));
 
         // Switching to an account whose session is still good unlocks the row, and away from one
         // locks it again — the whole reason the gate is per-account.

@@ -86,6 +86,11 @@ public sealed class QuAxPipeline : IFileHosterPipeline
 
     public long? MaxFileSize => MaxFileSizeBytes;
 
+    /// <summary>Permanent - this app sends the host's own "Permanent" option (<c>expiry=-1</c>) and the
+    /// reply carries <c>expires: null</c>. Omitting the field would take its 30-day default instead, so
+    /// this is a property of what we ask for, not just of the host.</summary>
+    public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Permanent;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous is the only mode — there are no accounts.</summary>
