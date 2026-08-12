@@ -4,6 +4,57 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-12
+
+Twenty-four new file hosters (77 in total, forty-one of them no-login), an upload wizard that builds
+its file list from any number of folders, and expired sign-ins caught before a run rather than
+during it. See [docs/release-notes/v1.4.0.md](docs/release-notes/v1.4.0.md) for the full notes.
+
+### Added
+
+- **Twenty-four file hosters.** No account needed: **GigaFile** (300 GB, kept 100 days),
+  **UploadNow** (100 GiB), **FileMirage** (50 GiB), **Hostize** (20 GB, but free links live 24
+  hours), **udrop**, **BowFile** and **MegaUp** (20 GiB each, on the YetiShare platform),
+  **UploadHive** (no cap), **World Files** (5 GB, 10 GB signed in), **DataNodes** (3 GiB), **Filego**
+  (2 GiB), **Filebin** (no cap, 7-day expiry), **DropMB** (512 MB), **UpZur** (200 MiB), **BtaFile**
+  (100 MiB, 10 GiB signed in) and **Xubster** (10 MiB, 500 MiB signed in). With an account:
+  **UploadGIG** (re-enabled on the API the host publishes), **DepositFiles** (10 GiB), **Emload**
+  (no cap), **SubyShare** (5 GiB), **kshared** (no cap), **FileStore** (250 MiB), **FileCat**
+  (2000 MiB) and **PreFiles** (512 MiB).
+- **Accounts for UsersDrive**, which double its cap without opening a browser; its anonymous route is
+  unchanged.
+- **Files from any number of folders** in the upload wizard, as an explorer split — sources as a tree
+  on the left, their files on the right — including files and folders dropped onto the window.
+- **Filters on the wizard's hoster step**, by name and by whether the host takes anonymous uploads,
+  and a **Use-column header checkbox** that ticks every hoster the filter is currently showing.
+
+### Changed
+
+- **"Refresh all" checks up to ten accounts at once** rather than one after another, serialised per
+  host so a rate-limited sign-in isn't hit twice at once, and reports accounts that would need a
+  browser instead of opening a queue of sign-in windows.
+- **An expired sign-in switches its account off** when the list loads, and switching it back on
+  re-verifies it — opening the sign-in window where one is needed — instead of trusting the flag.
+- **The Add Account dialog verifies credentials before saving them**, so a mistyped password can be
+  retried in place; editing an account re-checks it too.
+- **Hosts with no sign-in are no longer listed** in the Add Account dialog.
+- **Next is disabled on the hoster step until a hoster is ticked.**
+
+### Fixed
+
+- The saved theme is applied before the first window is built, so a dark-theme start no longer
+  flashes light.
+- **Xubster**'s icon was a seven-pixel sliver; the icon tests now fail an almost-entirely-transparent
+  icon.
+- Editing an account no longer wipes its stored API key, and a still-valid saved session is re-checked
+  without reopening the sign-in window.
+
+### Notes
+
+- Assessed and rejected this cycle, with reasons recorded: pillows.su, UploadHaven, WuShare,
+  fastbit.cc, Jumploads, File.AL, Filextras, Filestore.to and CloudGhost. **TakeFile** stays disabled.
+- **DropGalaxy** and **ShareMods** remain present in the code but disabled, unchanged from 1.3.0.
+
 ## [1.3.0] - 2026-08-06
 
 Seven new file hosters (53 in total, twenty-five of them no-login) and an upload wizard that stops
