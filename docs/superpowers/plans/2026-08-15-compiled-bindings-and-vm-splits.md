@@ -294,6 +294,32 @@
 
 ### Task 8: Final verification + wrap-up
 
-- [ ] **Step 1:** Full build + full suite from clean: `dotnet build CSUploader.sln` fresh, `dotnet test CSUploader.sln` → 0 failures, counts ≥ baseline.
-- [ ] **Step 2:** `git log --oneline master..HEAD` — confirm one commit per task, plan checkboxes all ticked (update this file's boxes as tasks complete, committing the tick with each task).
+- [x] **Step 1:** `dotnet clean` → `dotnet build --no-incremental` → **0 warnings, 0 errors** on both
+  TFMs → `dotnet test` → **524 + 2,239 = 2,763 passed, 0 failed** (baseline was 2,762; the one addition
+  is the uploads island's binding-quietness guard).
+- [x] **Step 2:** One commit per task, eight in all; every checkbox above ticked.
 - [ ] **Step 3:** Use superpowers:finishing-a-development-branch to decide merge/PR with the user.
+
+## Outcome
+
+The three god files, before → after:
+
+| File | Before | After |
+|---|---:|---:|
+| `UploadWizardViewModel.cs` | 1,889 | 268 (+3 step view-models, +4 companion classes) |
+| `SettingsViewModel.cs` | 1,546 | 610 (+`AccountManagerViewModel`) |
+| `XFileSharingApiPipeline.cs` | 2,772 | 677 (+4 partial files) |
+
+None of the three is in the codebase's ten largest files any more.
+
+Bindings: **11 views typed**, and what remains on reflection is 3 bindings (one hop, host-varying) and
+2 elements (the mixed-row uploads columns; the DEBUG dev gallery). A binding to a member that doesn't
+exist is now a build error nearly everywhere it could be written.
+
+### Follow-ups noticed but deliberately not taken (out of a behavior-preserving refactor's scope)
+
+- `WizardSourcesViewModel.ClearFiles` is dead code — and was already dead on `master` (defined, never
+  called). It moved verbatim; deleting it is a separate change.
+- The uploads grid's columns could be compiled if `Package` and `PackageFile` grew a shared interface
+  or the grid split its row types. That is a design change to the upload model, not a binding change.
+- `UploadsViewModel` (1,028 lines) is now the largest view-model. It was never in this plan's scope.
