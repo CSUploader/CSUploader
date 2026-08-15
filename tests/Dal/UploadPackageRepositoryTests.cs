@@ -1,4 +1,4 @@
-// <copyright file="UploadPackageRepositoryTests.cs" company="CSUploader">
+﻿// <copyright file="UploadPackageRepositoryTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -65,6 +65,146 @@ public class UploadPackageRepositoryTests : IDisposable
         UploadPackageFileDto? f2 = await _fileRepo.FindAsync(fileId2);
         Assert.True(f1!.IsRemovedFromUploads);
         Assert.True(f2!.IsRemovedFromUploads);
+    }
+
+    [Fact]
+    public async Task SoftRemoveFromUploadsAsync_WhenTheFileSweepFails_RollsBackThePackageFlag()
+    {
+        // The package flag is written first, the file sweep second. If the sweep fails, the flag
+        // must not survive alone — a package the Uploads tab has dropped whose files the loader
+        // still restores as live rows. The transaction is what makes this hold; as two
+        // autocommitted statements (the old shape) the flag lands and this test fails.
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackageFile\""))
+            .Options;
+        UploadPackageRepository faulting = new(new TestDbContextFactory(faultingOptions));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => faulting.SoftRemoveFromUploadsAsync(packageId));
+
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.False(package!.IsRemovedFromUploads);
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.False(file!.IsRemovedFromUploads);
+    }
+
+    [Fact]
+    public async Task InsertWithFilesAsync_InsertsTheWholeGraph_AndBackfillsTheIds()
+    {
+        UploadPackageDto pkg = new() { Name = "pkg", CreatedDateTime = DateTime.Now };
+        UploadPackageFileDto[] files =
+        [
+            new() { FileName = "a.iso", FileDirectory = "C:\\t", FileHoster = "Rapidgator", FileHosterName = "Rapidgator" },
+            new() { FileName = "b.iso", FileDirectory = "C:\\t", FileHoster = "Rapidgator", FileHosterName = "Rapidgator" },
+        ];
+
+        await _packageRepo.InsertWithFilesAsync(pkg, files);
+
+        Assert.True(pkg.Id > 0);
+        Assert.All(files, f => Assert.True(f.Id > 0));
+        Assert.All(files, f => Assert.Equal(pkg.Id, f.PackageId));
+        Assert.NotEqual(files[0].Id, files[1].Id);
+
+        UploadPackageFileDto? a = await _fileRepo.FindAsync(files[0].Id);
+        Assert.Equal("a.iso", a!.FileName);
+        Assert.Equal(pkg.Id, a.PackageId);
+    }
+
+    [Fact]
+    public async Task InsertWithFilesAsync_WhenAFileInsertFails_ThePackageRowDoesNotSurviveAlone()
+    {
+        // The old shape — package insert, then one autocommitted insert per file — could die
+        // partway and leave a package with only some of its rows; the files that missed out had no
+        // DbId, uploaded unpersistably, and vanished on restart. All-or-nothing now: a failing
+        // file insert takes the package row with it.
+        UploadPackageDto pkg = new() { Name = "doomed", CreatedDateTime = DateTime.Now };
+        UploadPackageFileDto[] files =
+        [
+            new() { FileName = "a.iso", FileDirectory = "C:\\t", FileHoster = "Rapidgator", FileHosterName = "Rapidgator" },
+        ];
+
+        DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackageFile\""))
+            .Options;
+        UploadPackageRepository faulting = new(new TestDbContextFactory(faultingOptions));
+
+        // SaveChanges wraps the interceptor's exception in a DbUpdateException; the precise type
+        // is EF's business — what matters is that nothing survived.
+        await Assert.ThrowsAnyAsync<Exception>(() => faulting.InsertWithFilesAsync(pkg, files));
+
+        UploadPackageDto[] all = await _packageRepo.GetAllAsync();
+        Assert.DoesNotContain(all, p => p.Name == "doomed");
+    }
+
+    [Fact]
+    public async Task SoftRemoveFromUploadsAsync_WhenThePackageFlagFails_TheFileSweepNeverLands()
+    {
+        // Complement of the test above, faulting the FIRST-executed statement instead of the
+        // second. Trivially green in today's order; under a statement reorder it becomes the
+        // effective transaction proof, so the pair covers both orders.
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackage\""))
+            .Options;
+        UploadPackageRepository faulting = new(new TestDbContextFactory(faultingOptions));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => faulting.SoftRemoveFromUploadsAsync(packageId));
+
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.False(file!.IsRemovedFromUploads);
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.False(package!.IsRemovedFromUploads);
+    }
+
+    /// <summary>
+    /// Fails any command whose SQL touches the given quoted table name — fault injection for
+    /// proving a multi-statement write is genuinely transactional. Matching includes the
+    /// identifier quotes because "UploadPackage" is a prefix of "UploadPackageFile".
+    /// </summary>
+    private sealed class FaultingCommandInterceptor(string failCommandsTouching)
+        : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(
+            System.Data.Common.DbCommand command,
+            Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            ThrowIfMatch(command);
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        // Inserts don't go through the non-query path: SaveChanges reads the generated ids back,
+        // so its commands execute as readers. Without this override the insert tests fault nothing.
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command,
+            Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            // Only fault WRITES that reach the table — the assert phase SELECTs from it too.
+            if (!command.CommandText.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            {
+                ThrowIfMatch(command);
+            }
+
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        private void ThrowIfMatch(System.Data.Common.DbCommand command)
+        {
+            if (command.CommandText.Contains(failCommandsTouching, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"injected fault: statement touches {failCommandsTouching}");
+            }
+        }
     }
 
     [Fact]

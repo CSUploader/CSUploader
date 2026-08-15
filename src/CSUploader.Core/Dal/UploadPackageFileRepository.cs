@@ -101,22 +101,106 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
     }
 
     /// <summary>
-    /// Forgets a stored hash, so the file hashes again from scratch. The counterpart to
-    /// <see cref="UpdateHashAsync"/>, for Reset.
+    /// Commits everything one file-state transition implies — the state row, a hash stored or
+    /// discarded with it, a package-completed flag flipped by it — as ONE transaction, and reports
+    /// what actually landed.
     /// </summary>
     /// <remarks>
-    /// Without this, a reset only cleared the hash in memory. The row still carried the old hash
-    /// and its IsHashingComplete flag, so a reset followed by a restart reloaded the stale hash and
-    /// went straight to uploading — the one thing Reset exists to avoid.
+    /// One transaction because the pieces only make sense together. The state update landing
+    /// without its hash clear is a reset that comes back hashed after a restart; a reopened file
+    /// whose package flag write failed leaves queued rows inside a package the export still calls
+    /// finished. A mid-write failure now rolls the whole transition back, leaving the previous
+    /// consistent shape for the next write in the chain to replace. The date handling mirrors
+    /// <see cref="UpdateStateAsync"/>: the finish stamp only exists for terminal transitions, and
+    /// the start time never overwrites the insert-time default with null.
     /// </remarks>
-    public async Task ClearHashAsync(int fileId, CancellationToken ct = default)
+    public async Task<FileTransitionResult> PersistTransitionAsync(FileTransitionWrite write, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
-        await db.Set<UploadPackageFileDbm>()
-            .Where(f => f.Id == fileId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(f => f.FileHash, (string?)null)
-                .SetProperty(f => f.IsHashingComplete, false), ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        int fileRows;
+        if (write.FinishedDateTime is { } finished)
+        {
+            fileRows = await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == write.FileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.State, write.State)
+                    .SetProperty(f => f.Error, write.Error ?? string.Empty)
+                    .SetProperty(f => f.FileUrl, write.FileUrl ?? string.Empty)
+                    .SetProperty(f => f.FinishedDateTime, finished)
+                    .SetProperty(f => f.StartDateTime, f => write.StartedDateTime ?? f.StartDateTime), ct);
+        }
+        else
+        {
+            fileRows = await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == write.FileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.State, write.State)
+                    // Written on non-terminal transitions too — a retry's requeue is exactly where
+                    // the previous attempt's error must come OFF the row, or a restart restores it.
+                    .SetProperty(f => f.Error, write.Error ?? string.Empty)
+                    .SetProperty(f => f.FileUrl, write.FileUrl ?? string.Empty), ct);
+        }
+
+        if (fileRows == 0)
+        {
+            // The row is gone — history cleanup deleted it between the transition and this write.
+            // This transition has nothing to say about the database any more: write nothing (the
+            // dispose rolls the empty transaction back) and let the caller announce nothing.
+            return new FileTransitionResult(FileRowExisted: false, PackageCompleted: false);
+        }
+
+        if (write.HashToStore is not null)
+        {
+            await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == write.FileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.FileHash, write.HashToStore)
+                    .SetProperty(f => f.IsHashingComplete, true), ct);
+        }
+        else if (write.DiscardHash)
+        {
+            await db.Set<UploadPackageFileDbm>()
+                .Where(f => f.Id == write.FileId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(f => f.FileHash, (string?)null)
+                    .SetProperty(f => f.IsHashingComplete, false), ct);
+        }
+
+        if (write.PackageIdNoLongerCompleted is int reopenedId)
+        {
+            await db.Set<UploadPackageDbm>()
+                .Where(p => p.Id == reopenedId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCompleted, false), ct);
+        }
+
+        bool packageCompleted = false;
+        if (write.PackageIdNowCompleted is int completedId)
+        {
+            // The caller believes this was the package's last running file, but it only knows its
+            // own memory — an earlier transition in the chain may have failed and rolled back,
+            // leaving that file's ROW non-terminal. The rows are the record, so the rows decide:
+            // the flag is only set when no still-listed file of the package is non-terminal.
+            // Runs inside this transaction, after this file's own state update, so it sees it.
+            // Rows soft-removed from Uploads don't count — the user took them out of the queue,
+            // and their in-memory counterparts left the package, so they must not hold the
+            // package open forever (a file removed mid-upload keeps its old running state).
+            int completed = (int)FileState.Completed;
+            int failed = (int)FileState.Failed;
+            int cancelled = (int)FileState.Cancelled;
+            packageCompleted = await db.Set<UploadPackageDbm>()
+                .Where(p => p.Id == completedId && !db.Set<UploadPackageFileDbm>().Any(f =>
+                    f.PackageId == completedId
+                    && !f.IsRemovedFromUploads
+                    && f.State != completed
+                    && f.State != failed
+                    && f.State != cancelled))
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCompleted, true), ct) > 0;
+        }
+
+        await tx.CommitAsync(ct);
+        return new FileTransitionResult(FileRowExisted: true, PackageCompleted: packageCompleted);
     }
 
     public async Task UpdateFinishedAsync(int fileId, DateTime finishedDateTime, string? fileUrl, CancellationToken ct = default)
@@ -201,7 +285,13 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
         dto.IsRemovedFromUploads = entity.IsRemovedFromUploads;
     }
 
-    protected override UploadPackageFileDbm MapToDbm(UploadPackageFileDto dto) => new()
+    protected override UploadPackageFileDbm MapToDbm(UploadPackageFileDto dto) => ToDbm(dto);
+
+    /// <summary>
+    /// The dto→row mapping as a static, so <see cref="UploadPackageRepository.InsertWithFilesAsync"/>
+    /// can build file rows for its single-save package graph without duplicating the field list.
+    /// </summary>
+    internal static UploadPackageFileDbm ToDbm(UploadPackageFileDto dto) => new()
     {
         Id = dto.Id,
         FileName = dto.FileName ?? string.Empty,
