@@ -1036,48 +1036,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
     <value>選択した {0} 件のアカウントを削除しますか?</value>
   </data>
-  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
-    <value>ファイルホスター、ユーザー名、パスワードを入力してください。</value>
-  </data>
-  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
-    <value>アカウントチェック</value>
-  </data>
-  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
-    <value>アカウントチェックに失敗しました: {0}
-
-それでも追加しますか?</value>
-  </data>
-  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
-    <value>アカウントを検証できませんでした: {0}
-
-それでも追加しますか?</value>
-  </data>
   <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
     <value>認証情報を検証中…</value>
-  </data>
-  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
-    <value>アカウントをチェック中…</value>
   </data>
   <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
     <value>更新するアカウントがありません。</value>
   </data>
-  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
-    <value>検証済み: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
-    <value>警告: {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
     <value>有効: {0}</value>
   </data>
-  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
-    <value>有効です! {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
     <value>失敗: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
-    <value>チェックエラー: {0}</value>
   </data>
   <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
     <value>エラー: {0}</value>
@@ -1087,9 +1056,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
     <value>{0} の実装がありません。チェックできません。</value>
-  </data>
-  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
-    <value>{0} の実装がありません。アカウントは検証なしで保存されます。</value>
   </data>
   <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
     <value>{0}@{1} をチェック中… ({2}/{3})</value>
@@ -1165,12 +1131,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>スレッド</value>
-  </data>
-  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
-    <value>選択範囲に URL がありません。クリップボードをクリアしました</value>
-  </data>
-  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
-    <value>URL を {0} 件クリップボードにコピーしました</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>履歴タブから {0} 個のファイルを非表示にしました</value>

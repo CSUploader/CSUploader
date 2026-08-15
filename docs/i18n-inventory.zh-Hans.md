@@ -468,25 +468,15 @@ Settings_Accounts_Remove_Title             = 移除账户
 Settings_Accounts_Remove_Message_Format    = 是否移除 {1} 的账户"{0}"？                  # {0} = username, {1} = file hoster name
 Settings_Accounts_Remove_MessageBulk_Format= 是否移除 {0} 个所选账户？
 
-Settings_Accounts_Validation_FillHosterUser = 请填写文件托管商、用户名和密码。
-Settings_Accounts_Check_DialogTitle         = 账户检查
-Settings_Accounts_Check_FailedAddAnyway_Format = 账户检查失败：{0}\n\n是否仍然添加？    # {0} = error message
-Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format = 无法验证账户：{0}\n\n是否仍然添加？   # {0} = error message
 
 # CheckAccountStatus inline status messages
 Settings_Accounts_Status_Verifying          = 正在验证凭据…
-Settings_Accounts_Status_Checking           = 正在检查账户…
 Settings_Accounts_Status_NoAccountsToRefresh = 没有可刷新的账户。
-Settings_Accounts_Status_Verified_Format    = 已验证：{0}                                  # {0} = result.Message
-Settings_Accounts_Status_Warning_Format     = 警告：{0}                                   # {0} = result.Message
 Settings_Accounts_Status_Valid_Format       = 有效：{0}                                     # {0} = result.Message
-Settings_Accounts_Status_ValidExclaim_Format = 有效！{0}                                    # {0} = result.Message  (separate from above — different exclamation)
 Settings_Accounts_Status_Failed_Format      = 失败：{0}                                    # {0} = result.Message
-Settings_Accounts_Status_CheckError_Format  = 检查错误：{0}                               # {0} = exception.Message
 Settings_Accounts_Status_Error_Format       = 错误：{0}                                     # {0} = exception.Message
 Settings_Accounts_Status_AccountAdded_Format = 已为 {0} 添加账户！                        # {0} = file hoster name
 Settings_Accounts_Status_NoImpl_Format      = 尚未实现 {0}，无法检查。       # {0} = file hoster name
-Settings_Accounts_Status_NoImplWillSave_Format = 尚未实现 {0}，账户将不经验证直接保存。   # {0} = file hoster name
 Settings_Accounts_Status_CheckingProgress_Format = 正在检查 {0}@{1}…（{2}/{3}）             # {0} = username, {1} = hoster, {2} = current, {3} = total
 Settings_Accounts_Status_CheckingShort      = 检查中…
 Settings_Accounts_Status_NoImpl             = 尚未实现
@@ -527,8 +517,6 @@ Logs_Col_Thread                    = 线程
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
-Logs_Status_NoUrlsClipboardCleared = 所选项中未包含 URL；剪贴板已清空
-Logs_Status_CopiedUrls_Format      = 已复制 {0} 个 URL 到剪贴板                          # {0} = url count
 Logs_Status_HiddenFiles_Format     = 已从"历史"标签页隐藏 {0} 个文件                   # {0} = file count
 Logs_Status_ExportedPackages_Format = 已将 {0} 个包导出到 {1}                         # {0} = pkg count, {1} = file path
 ```

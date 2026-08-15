@@ -149,38 +149,6 @@ public partial class UploadedViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task CopyUrlsAsync(IList? selectedItems)
-    {
-        if (selectedItems is null)
-        {
-            return;
-        }
-
-        string[] urls = [.. selectedItems
-            .OfType<UploadedFileRow>()
-            .Select(r => r.FileUrl)
-            .Where(u => !string.IsNullOrEmpty(u))
-            .Cast<string>()];
-
-        try
-        {
-            if (urls.Length == 0)
-            {
-                await _clipboardService.ClearAsync();
-                _logger.Log(this, LogType.Status, Localizer.Instance["Logs_Status_NoUrlsClipboardCleared"]);
-                return;
-            }
-
-            await _clipboardService.SetTextAsync(string.Join(Environment.NewLine, urls));
-            _logger.Log(this, LogType.Status, string.Format(CultureInfo.CurrentCulture, Localizer.Instance["Logs_Status_CopiedUrls_Format"], urls.Length));
-        }
-        catch (Exception ex)
-        {
-            _logger.Log(this, LogType.Error, $"Copy URL failed: {ex.Message}");
-        }
-    }
-
     /// <summary>
     /// Currently focused row, driven from the DataGrid's SelectedItem so the per-column
     /// "Copy" submenu can locate the value to copy with just the column key as parameter.

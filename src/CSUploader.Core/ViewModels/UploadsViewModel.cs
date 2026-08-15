@@ -340,15 +340,6 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private void RenamePackage((Package Package, string Name) arg)
         => _packageManager.RenamePackage(arg.Package, arg.Name);
 
-    [RelayCommand]
-    private void Retry(object? item)
-    {
-        if (item is not null)
-        {
-            _packageManager.StartPackage(item);
-        }
-    }
-
     /// <summary>
     /// Starts every selected row. The Uploads context menu's "Start" item binds here
     /// (passing the grid's SelectedItems) so a multi-row selection all starts — previously

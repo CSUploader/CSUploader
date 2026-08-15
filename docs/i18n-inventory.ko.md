@@ -468,25 +468,15 @@ Settings_Accounts_Remove_Title             = 계정 제거
 Settings_Accounts_Remove_Message_Format    = {1}의 계정 '{0}'을(를) 제거하시겠습니까?                  # {0} = username, {1} = file hoster name
 Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?
 
-Settings_Accounts_Validation_FillHosterUser = 파일 호스터, 사용자 이름, 비밀번호를 입력해 주십시오.
-Settings_Accounts_Check_DialogTitle         = 계정 확인
-Settings_Accounts_Check_FailedAddAnyway_Format = 계정 확인에 실패했습니다: {0}\n\n그래도 추가하시겠습니까?    # {0} = error message
-Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format = 계정을 확인할 수 없습니다: {0}\n\n그래도 추가하시겠습니까?   # {0} = error message
 
 # CheckAccountStatus inline status messages
 Settings_Accounts_Status_Verifying          = 자격 증명을 확인하는 중…
-Settings_Accounts_Status_Checking           = 계정을 확인하는 중…
 Settings_Accounts_Status_NoAccountsToRefresh = 새로 고칠 계정이 없습니다.
-Settings_Accounts_Status_Verified_Format    = 확인됨: {0}                                  # {0} = result.Message
-Settings_Accounts_Status_Warning_Format     = 경고: {0}                                   # {0} = result.Message
 Settings_Accounts_Status_Valid_Format       = 유효함: {0}                                     # {0} = result.Message
-Settings_Accounts_Status_ValidExclaim_Format = 유효함! {0}                                    # {0} = result.Message  (separate from above — different exclamation)
 Settings_Accounts_Status_Failed_Format      = 실패: {0}                                    # {0} = result.Message
-Settings_Accounts_Status_CheckError_Format  = 확인 오류: {0}                               # {0} = exception.Message
 Settings_Accounts_Status_Error_Format       = 오류: {0}                                     # {0} = exception.Message
 Settings_Accounts_Status_AccountAdded_Format = {0} 계정이 추가되었습니다!                        # {0} = file hoster name
 Settings_Accounts_Status_NoImpl_Format      = {0}에 대한 구현이 없습니다. 확인할 수 없습니다.       # {0} = file hoster name
-Settings_Accounts_Status_NoImplWillSave_Format = {0}에 대한 구현이 없습니다. 확인 없이 계정이 저장됩니다.   # {0} = file hoster name
 Settings_Accounts_Status_CheckingProgress_Format = {0}@{1} 확인 중… ({2}/{3})             # {0} = username, {1} = hoster, {2} = current, {3} = total
 Settings_Accounts_Status_CheckingShort      = 확인 중…
 Settings_Accounts_Status_NoImpl             = 구현 없음
@@ -527,8 +517,6 @@ Logs_Col_Thread                    = 스레드
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
-Logs_Status_NoUrlsClipboardCleared = 선택 항목에 URL이 없습니다. 클립보드를 비웠습니다
-Logs_Status_CopiedUrls_Format      = URL {0}개를 클립보드에 복사했습니다                          # {0} = url count
 Logs_Status_HiddenFiles_Format     = 기록 탭에서 파일 {0}개를 숨겼습니다                   # {0} = file count
 Logs_Status_ExportedPackages_Format = 패키지 {0}개를 {1}(으)로 내보냈습니다                         # {0} = pkg count, {1} = file path
 ```

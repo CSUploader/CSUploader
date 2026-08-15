@@ -467,25 +467,15 @@ Settings_Accounts_Remove_Title             = アカウントを削除
 Settings_Accounts_Remove_Message_Format    = {1} のアカウント「{0}」を削除しますか?                  # {0} = username, {1} = file hoster name
 Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?
 
-Settings_Accounts_Validation_FillHosterUser = ファイルホスター、ユーザー名、パスワードを入力してください。
-Settings_Accounts_Check_DialogTitle         = アカウントチェック
-Settings_Accounts_Check_FailedAddAnyway_Format = アカウントチェックに失敗しました: {0}\n\nそれでも追加しますか?    # {0} = error message
-Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format = アカウントを検証できませんでした: {0}\n\nそれでも追加しますか?   # {0} = error message
 
 # CheckAccountStatus inline status messages
 Settings_Accounts_Status_Verifying          = 認証情報を検証中…
-Settings_Accounts_Status_Checking           = アカウントをチェック中…
 Settings_Accounts_Status_NoAccountsToRefresh = 更新するアカウントがありません。
-Settings_Accounts_Status_Verified_Format    = 検証済み: {0}                                  # {0} = result.Message
-Settings_Accounts_Status_Warning_Format     = 警告: {0}                                   # {0} = result.Message
 Settings_Accounts_Status_Valid_Format       = 有効: {0}                                     # {0} = result.Message
-Settings_Accounts_Status_ValidExclaim_Format = 有効です! {0}                                    # {0} = result.Message  (separate from above — different exclamation)
 Settings_Accounts_Status_Failed_Format      = 失敗: {0}                                    # {0} = result.Message
-Settings_Accounts_Status_CheckError_Format  = チェックエラー: {0}                               # {0} = exception.Message
 Settings_Accounts_Status_Error_Format       = エラー: {0}                                     # {0} = exception.Message
 Settings_Accounts_Status_AccountAdded_Format = {0} のアカウントを追加しました!                        # {0} = file hoster name
 Settings_Accounts_Status_NoImpl_Format      = {0} の実装がありません。チェックできません。       # {0} = file hoster name
-Settings_Accounts_Status_NoImplWillSave_Format = {0} の実装がありません。アカウントは検証なしで保存されます。   # {0} = file hoster name
 Settings_Accounts_Status_CheckingProgress_Format = {0}@{1} をチェック中… ({2}/{3})             # {0} = username, {1} = hoster, {2} = current, {3} = total
 Settings_Accounts_Status_CheckingShort      = チェック中…
 Settings_Accounts_Status_NoImpl             = 実装なし
@@ -526,8 +516,6 @@ Logs_Col_Thread                    = スレッド
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
-Logs_Status_NoUrlsClipboardCleared = 選択範囲に URL がありません。クリップボードをクリアしました
-Logs_Status_CopiedUrls_Format      = URL を {0} 件クリップボードにコピーしました                          # {0} = url count
 Logs_Status_HiddenFiles_Format     = 履歴タブから {0} 個のファイルを非表示にしました                   # {0} = file count
 Logs_Status_ExportedPackages_Format = パッケージ {0} 個を {1} にエクスポートしました                         # {0} = pkg count, {1} = file path
 ```

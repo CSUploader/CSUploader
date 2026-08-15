@@ -476,25 +476,15 @@ Settings_Accounts_Remove_Title             = Xóa tài khoản
 Settings_Accounts_Remove_Message_Format    = Xóa tài khoản '{0}' của {1}?                  # {0} = username, {1} = file hoster name
 Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?
 
-Settings_Accounts_Validation_FillHosterUser = Vui lòng điền nhà lưu trữ tập tin, tên đăng nhập và mật khẩu.
-Settings_Accounts_Check_DialogTitle         = Kiểm tra tài khoản
-Settings_Accounts_Check_FailedAddAnyway_Format = Kiểm tra tài khoản thất bại: {0}\n\nVẫn thêm?    # {0} = error message
-Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format = Không thể xác minh tài khoản: {0}\n\nVẫn thêm?   # {0} = error message
 
 # CheckAccountStatus inline status messages
 Settings_Accounts_Status_Verifying          = Đang xác minh thông tin đăng nhập...
-Settings_Accounts_Status_Checking           = Đang kiểm tra tài khoản...
 Settings_Accounts_Status_NoAccountsToRefresh = Không có tài khoản nào để làm mới.
-Settings_Accounts_Status_Verified_Format    = Đã xác minh: {0}                                  # {0} = result.Message
-Settings_Accounts_Status_Warning_Format     = Cảnh báo: {0}                                   # {0} = result.Message
 Settings_Accounts_Status_Valid_Format       = Hợp lệ: {0}                                     # {0} = result.Message
-Settings_Accounts_Status_ValidExclaim_Format = Hợp lệ! {0}                                    # {0} = result.Message  (separate from above — different exclamation)
 Settings_Accounts_Status_Failed_Format      = Thất bại: {0}                                    # {0} = result.Message
-Settings_Accounts_Status_CheckError_Format  = Lỗi kiểm tra: {0}                               # {0} = exception.Message
 Settings_Accounts_Status_Error_Format       = Lỗi: {0}                                     # {0} = exception.Message
 Settings_Accounts_Status_AccountAdded_Format = Đã thêm tài khoản cho {0}!                        # {0} = file hoster name
 Settings_Accounts_Status_NoImpl_Format      = Chưa hỗ trợ {0}. Không thể kiểm tra.       # {0} = file hoster name
-Settings_Accounts_Status_NoImplWillSave_Format = Chưa hỗ trợ {0}. Tài khoản sẽ được lưu mà không xác minh.   # {0} = file hoster name
 Settings_Accounts_Status_CheckingProgress_Format = Đang kiểm tra {0}@{1}... ({2}/{3})             # {0} = username, {1} = hoster, {2} = current, {3} = total
 Settings_Accounts_Status_CheckingShort      = Đang kiểm tra...
 Settings_Accounts_Status_NoImpl             = Chưa hỗ trợ
@@ -535,8 +525,6 @@ Logs_Col_Thread                    = Luồng
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
-Logs_Status_NoUrlsClipboardCleared = Không có URL nào trong vùng chọn; bộ nhớ tạm đã được xóa
-Logs_Status_CopiedUrls_Format      = Đã sao chép {0} URL vào bộ nhớ tạm                          # {0} = url count
 Logs_Status_HiddenFiles_Format     = Đã ẩn {0} tệp khỏi thẻ Lịch sử                   # {0} = file count
 Logs_Status_ExportedPackages_Format = Đã xuất {0} gói ra {1}                         # {0} = pkg count, {1} = file path
 ```

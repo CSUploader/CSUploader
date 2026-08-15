@@ -1036,48 +1036,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
     <value>Tanggalin ang {0} napiling account?</value>
   </data>
-  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
-    <value>Mangyaring punan ang file hoster, username, at password.</value>
-  </data>
-  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
-    <value>Account Check</value>
-  </data>
-  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
-    <value>Nag-fail ang account check: {0}
-
-Idagdag pa rin?</value>
-  </data>
-  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
-    <value>Hindi ma-verify ang account: {0}
-
-Idagdag pa rin?</value>
-  </data>
   <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
     <value>Vinerify ang credentials...</value>
-  </data>
-  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
-    <value>Chinecheck ang account...</value>
   </data>
   <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
     <value>Walang accounts na ire-refresh.</value>
   </data>
-  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
-    <value>Na-verify: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
-    <value>Babala: {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
     <value>Valid: {0}</value>
   </data>
-  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
-    <value>Valid! {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
     <value>Failed: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
-    <value>Check error: {0}</value>
   </data>
   <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
     <value>Error: {0}</value>
@@ -1087,9 +1056,6 @@ Idagdag pa rin?</value>
   </data>
   <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
     <value>Walang implementation para sa {0}. Hindi ma-check.</value>
-  </data>
-  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
-    <value>Walang implementation para sa {0}. Ang account ay isa-save nang walang verification.</value>
   </data>
   <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
     <value>Chinecheck ang {0}@{1}... ({2}/{3})</value>
@@ -1165,12 +1131,6 @@ Idagdag pa rin?</value>
   </data>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>Thread</value>
-  </data>
-  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
-    <value>Walang URLs sa selection; nilinis ang clipboard</value>
-  </data>
-  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
-    <value>Nakopya ang {0} URL(s) sa clipboard</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>Itinago ang {0} file(s) sa History tab</value>

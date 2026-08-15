@@ -55,6 +55,11 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     // and the footer stats (O(files)), making a directory scan O(files²) on the UI thread.
     private bool _bulkLoadingFiles;
 
+    // Subscribes/unsubscribes each entry as it enters and leaves the list. ⚠ It cannot do that for a
+    // Reset: ObservableCollection.Clear() raises one with no OldItems, so anything still holding an
+    // entry (a Summary's File, say) would keep firing stale IsSelected changes into this VM. Nothing
+    // clears Files today — every removal path goes through Remove/RemoveAt — and a future one has to
+    // detach the handlers itself first.
     private void Files_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems is not null)
@@ -624,19 +629,6 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
             _revalidateHosters();
             NotifySelectionStats();
         }
-    }
-
-    // Clears Files, detaching each entry's PropertyChanged first: ObservableCollection.Clear() raises a Reset
-    // with no OldItems, so Files_CollectionChanged can't unsubscribe them, and a lingering reference (e.g. a
-    // Summary's File) would keep firing stale IsSelected changes into this VM.
-    private void ClearFiles()
-    {
-        foreach (FileEntry entry in Files)
-        {
-            entry.PropertyChanged -= FileEntry_PropertyChanged;
-        }
-
-        Files.Clear();
     }
 
     /// <summary>
