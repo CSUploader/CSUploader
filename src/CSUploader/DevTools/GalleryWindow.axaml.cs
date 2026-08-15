@@ -497,7 +497,7 @@ public partial class GalleryWindow : Window
         // Seed a throwaway directory of placeholder files so the gallery surface exercises steps 0-1 with
         // real data: an empty Files list can't reach the hosters step, and the gallery has no way to drive
         // a native folder picker. Adds it as a source exactly as "Add folder…" would. DEBUG-only.
-        wizard.ViewModel.AddDroppedPaths([EnsureWizardSampleDirectory()]);
+        wizard.ViewModel.Sources.AddDroppedPaths([EnsureWizardSampleDirectory()]);
         wizard.Show(this);
     }
 

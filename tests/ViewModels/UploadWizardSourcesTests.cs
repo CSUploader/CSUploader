@@ -82,11 +82,11 @@ public class UploadWizardSourcesTests : IDisposable
         string a = MakeFolder("rips", "e01.mkv", "e02.mkv");
         string b = MakeFolder("artwork", "cover.jpg");
 
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
-        Assert.Equal(3, _vm.Files.Count);
-        Assert.Equal(2, _vm.Sources.Count);
-        Assert.Equal([2, 1], _vm.Sources.Select(s => s.FileCount));
+        Assert.Equal(3, _vm.Sources.Files.Count);
+        Assert.Equal(2, _vm.Sources.Sources.Count);
+        Assert.Equal([2, 1], _vm.Sources.Sources.Select(s => s.FileCount));
     }
 
     [Fact]
@@ -96,11 +96,11 @@ public class UploadWizardSourcesTests : IDisposable
         Directory.CreateDirectory(Path.Combine(a, "subs"));
         File.WriteAllText(Path.Combine(a, "subs", "e01.srt"), "x");
 
-        _vm.AddDroppedPaths([a]);
+        _vm.Sources.AddDroppedPaths([a]);
 
-        Assert.Equal(2, _vm.Files.Count);
-        Assert.Contains(_vm.Files, f => f.RelativePath == "e01.mkv");
-        Assert.Contains(_vm.Files, f => f.RelativePath == Path.Combine("subs", "e01.srt"));
+        Assert.Equal(2, _vm.Sources.Files.Count);
+        Assert.Contains(_vm.Sources.Files, f => f.RelativePath == "e01.mkv");
+        Assert.Contains(_vm.Sources.Files, f => f.RelativePath == Path.Combine("subs", "e01.srt"));
     }
 
     [Fact]
@@ -109,13 +109,13 @@ public class UploadWizardSourcesTests : IDisposable
         string a = MakeFolder("rips", "e01.mkv");
         string file = Path.Combine(a, "e01.mkv");
 
-        _vm.AddDroppedPaths([a]);
-        _vm.AddDroppedPaths([file]);   // the same file, this time picked individually
+        _vm.Sources.AddDroppedPaths([a]);
+        _vm.Sources.AddDroppedPaths([file]);   // the same file, this time picked individually
 
-        Assert.Single(_vm.Files);
+        Assert.Single(_vm.Sources.Files);
 
         // ...and it earns no source row of its own, because it contributed nothing.
-        Assert.Single(_vm.Sources);
+        Assert.Single(_vm.Sources.Sources);
     }
 
     [Fact]
@@ -123,11 +123,11 @@ public class UploadWizardSourcesTests : IDisposable
     {
         string a = MakeFolder("rips", "e01.mkv");
 
-        _vm.AddDroppedPaths([a]);
-        _vm.AddDroppedPaths([a]);
+        _vm.Sources.AddDroppedPaths([a]);
+        _vm.Sources.AddDroppedPaths([a]);
 
-        Assert.Single(_vm.Files);
-        Assert.Single(_vm.Sources);
+        Assert.Single(_vm.Sources.Files);
+        Assert.Single(_vm.Sources.Sources);
     }
 
     [Fact]
@@ -138,11 +138,11 @@ public class UploadWizardSourcesTests : IDisposable
         string a = MakeFolder("show-s01", "e01.mkv");
         string b = MakeFolder("show-s02", "e01.mkv");
 
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
-        Assert.Equal(2, _vm.Files.Count);
-        Assert.Equal(2, _vm.Files.Select(f => f.RelativePath).Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Contains(_vm.Files, f => f.RelativePath == Path.Combine("show-s02", "e01.mkv"));
+        Assert.Equal(2, _vm.Sources.Files.Count);
+        Assert.Equal(2, _vm.Sources.Files.Select(f => f.RelativePath).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Contains(_vm.Sources.Files, f => f.RelativePath == Path.Combine("show-s02", "e01.mkv"));
     }
 
     [Fact]
@@ -150,33 +150,33 @@ public class UploadWizardSourcesTests : IDisposable
     {
         string a = MakeFolder("rips", "e01.mkv", "e02.mkv");
         string b = MakeFolder("artwork", "cover.jpg");
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
         // Untick a survivor first: removing a DIFFERENT source must not disturb it.
-        _vm.Files.First(f => f.FileName == "cover.jpg").IsSelected = false;
+        _vm.Sources.Files.First(f => f.FileName == "cover.jpg").IsSelected = false;
 
-        _vm.RemoveSourceCommand.Execute(_vm.Sources.First(s => s.Path == a));
+        _vm.Sources.RemoveSourceCommand.Execute(_vm.Sources.Sources.First(s => s.Path == a));
 
-        Assert.Single(_vm.Files);
-        Assert.Equal("cover.jpg", _vm.Files[0].FileName);
-        Assert.False(_vm.Files[0].IsSelected);
-        Assert.Single(_vm.Sources);
-        Assert.True(_vm.HasSources);
+        Assert.Single(_vm.Sources.Files);
+        Assert.Equal("cover.jpg", _vm.Sources.Files[0].FileName);
+        Assert.False(_vm.Sources.Files[0].IsSelected);
+        Assert.Single(_vm.Sources.Sources);
+        Assert.True(_vm.Sources.HasSources);
     }
 
     [Fact]
     public void RemovingTheLastSource_EmptiesTheListButKeepsTheTypedTitle()
     {
         string a = MakeFolder("rips", "e01.mkv");
-        _vm.AddDroppedPaths([a]);
-        _vm.PackageTitle = "My own title";
+        _vm.Sources.AddDroppedPaths([a]);
+        _vm.Sources.PackageTitle = "My own title";
 
-        _vm.RemoveSourceCommand.Execute(_vm.Sources[0]);
+        _vm.Sources.RemoveSourceCommand.Execute(_vm.Sources.Sources[0]);
 
-        Assert.Empty(_vm.Files);
-        Assert.Empty(_vm.Sources);
-        Assert.False(_vm.HasSources);
-        Assert.Equal("My own title", _vm.PackageTitle);
+        Assert.Empty(_vm.Sources.Files);
+        Assert.Empty(_vm.Sources.Sources);
+        Assert.False(_vm.Sources.HasSources);
+        Assert.Equal("My own title", _vm.Sources.PackageTitle);
     }
 
     [Fact]
@@ -185,11 +185,11 @@ public class UploadWizardSourcesTests : IDisposable
         string a = MakeFolder("Season 1", "e01.mkv");
         string b = MakeFolder("Extras", "bonus.mkv");
 
-        _vm.AddDroppedPaths([a]);
-        Assert.Equal("Season 1", _vm.PackageTitle);
+        _vm.Sources.AddDroppedPaths([a]);
+        Assert.Equal("Season 1", _vm.Sources.PackageTitle);
 
-        _vm.AddDroppedPaths([b]);
-        Assert.Equal("Season 1", _vm.PackageTitle);
+        _vm.Sources.AddDroppedPaths([b]);
+        Assert.Equal("Season 1", _vm.Sources.PackageTitle);
     }
 
     [Fact]
@@ -198,9 +198,9 @@ public class UploadWizardSourcesTests : IDisposable
         string file = Path.Combine(_root, "one-off.mkv");
         File.WriteAllText(file, "x");
 
-        _vm.AddDroppedPaths([file]);
+        _vm.Sources.AddDroppedPaths([file]);
 
-        Assert.Equal("one-off", _vm.PackageTitle);
+        Assert.Equal("one-off", _vm.Sources.PackageTitle);
     }
 
     [Fact]
@@ -210,10 +210,10 @@ public class UploadWizardSourcesTests : IDisposable
         // nobody, so the good paths still land.
         string a = MakeFolder("rips", "e01.mkv");
 
-        _vm.AddDroppedPaths([a, Path.Combine(_root, "does-not-exist.bin"), "http://example.test/x"]);
+        _vm.Sources.AddDroppedPaths([a, Path.Combine(_root, "does-not-exist.bin"), "http://example.test/x"]);
 
-        Assert.Single(_vm.Files);
-        Assert.Single(_vm.Sources);
+        Assert.Single(_vm.Sources.Files);
+        Assert.Single(_vm.Sources.Sources);
     }
 
     [Fact]
@@ -221,13 +221,13 @@ public class UploadWizardSourcesTests : IDisposable
     {
         string a = MakeFolder("rips", "e01.mkv");
         string b = MakeFolder("artwork", "cover.jpg");
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
-        UploadSource folderA = _vm.Sources.First(s => s.Path == a);
+        UploadSource folderA = _vm.Sources.Sources.First(s => s.Path == a);
         Assert.All(
-            _vm.Files.Where(f => f.FileName == "e01.mkv"),
+            _vm.Sources.Files.Where(f => f.FileName == "e01.mkv"),
             f => Assert.Equal(folderA.Id, f.SourceId));
-        Assert.DoesNotContain(_vm.Files, f => f.SourceId == Guid.Empty);
+        Assert.DoesNotContain(_vm.Sources.Files, f => f.SourceId == Guid.Empty);
     }
 
     private string MakeFolder(string name, params string[] files)

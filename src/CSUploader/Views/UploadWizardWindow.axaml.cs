@@ -33,26 +33,26 @@ namespace CSUploader.Views;
 public partial class UploadWizardWindow : Window
 {
     /// <summary>
-    /// The wizard VM (resolved from DI, or injected in the headless suite). Internal so the gallery dev surface can seed a sample
-    /// <see cref="UploadWizardViewModel.DirectoryPath"/> before showing (the agent bridge can't commit the
-    /// LostFocus-bound directory box, so the gallery pre-loads a fake directory to exercise steps 0-1).
+    /// The wizard VM (resolved from DI, or injected in the headless suite). Internal so the gallery
+    /// dev surface can seed sample sources before showing (the agent bridge can't commit a
+    /// LostFocus-bound box, so the gallery pre-loads fake data to exercise steps 0-1).
     /// </summary>
     internal UploadWizardViewModel ViewModel { get; }
 
     /// <summary>
-    /// The File Hosters grid's filtered view over <see cref="UploadWizardViewModel.FileHosters"/>.
+    /// The File Hosters grid's filtered view over <see cref="WizardHostersViewModel.FileHosters"/>.
     /// Built ONCE (a <see cref="DataGridCollectionView"/> subscribes to its source's CollectionChanged
     /// in the ctor and never unsubscribes, so re-minting one per filter keystroke would orphan the
     /// old handler) and refreshed in place — the same arrangement UploadsView uses for its filter bar.
     /// <para>
     /// Filtering here rather than in the collection is what keeps a ticked-then-hidden hoster in the
-    /// upload: the VM's <see cref="UploadWizardViewModel.FileHosters"/> is untouched, and it is what
+    /// upload: the VM's <see cref="WizardHostersViewModel.FileHosters"/> is untouched, and it is what
     /// the Next step reads.
     /// </para>
     /// </summary>
     internal DataGridCollectionView? HostersView { get; private set; }
 
-    /// <summary>The files grid's filtered view over <see cref="UploadWizardViewModel.Files"/> —
+    /// <summary>The files grid's filtered view over <see cref="WizardSourcesViewModel.Files"/> —
     /// the tree selection and the text filter both narrow it. Built once, like
     /// <see cref="HostersView"/>.</summary>
     internal DataGridCollectionView? FilesView { get; private set; }
@@ -96,7 +96,7 @@ public partial class UploadWizardWindow : Window
         filesGrid.KeyBindings.Add(new KeyBinding
         {
             Gesture = new KeyGesture(Key.Delete),
-            Command = ViewModel.RemoveSelectedFilesCommand,
+            Command = ViewModel.Sources.RemoveSelectedFilesCommand,
             CommandParameter = filesGrid.SelectedItems,
         });
 
@@ -104,20 +104,20 @@ public partial class UploadWizardWindow : Window
         // DataGridRow leaves a zero-height row inside the presenter's layout, and one re-shown after
         // being collapsed could be drawn over its neighbour — two files reappearing from a
         // de-selected folder looked exactly like that on screen. A view simply doesn't contain them.
-        FilesView = new DataGridCollectionView(ViewModel.Files)
+        FilesView = new DataGridCollectionView(ViewModel.Sources.Files)
         {
-            Filter = ViewModel.MatchesFileFilter,
+            Filter = ViewModel.Sources.MatchesFileFilter,
         };
         filesGrid.ItemsSource = FilesView;
-        ViewModel.FileFilterInvalidated += Vm_FileFilterInvalidated;
+        ViewModel.Sources.FileFilterInvalidated += Vm_FileFilterInvalidated;
 
         // The hoster grid reads a filtered view, not the raw collection (see HostersView).
-        HostersView = new DataGridCollectionView(ViewModel.FileHosters)
+        HostersView = new DataGridCollectionView(ViewModel.Hosters.FileHosters)
         {
-            Filter = ViewModel.MatchesHosterFilter,
+            Filter = ViewModel.Hosters.MatchesHosterFilter,
         };
         fileHostersGrid.ItemsSource = HostersView;
-        ViewModel.HosterFilterInvalidated += Vm_HosterFilterInvalidated;
+        ViewModel.Hosters.HosterFilterInvalidated += Vm_HosterFilterInvalidated;
 
         WireDragAndDrop();
 
@@ -175,7 +175,7 @@ public partial class UploadWizardWindow : Window
 
         if (paths.Length > 0)
         {
-            ViewModel.AddDroppedPaths(paths);
+            ViewModel.Sources.AddDroppedPaths(paths);
         }
     }
 
@@ -212,16 +212,16 @@ public partial class UploadWizardWindow : Window
     }
 
     /// <summary>
-    /// Runs <see cref="UploadWizardViewModel.AddAccountForHosterCommand"/> for a hoster row. Internal so the
+    /// Runs <see cref="WizardHostersViewModel.AddAccountForHosterCommand"/> for a hoster row. Internal so the
     /// headless suite can verify the step-1 link's command wiring without synthesizing a real left-button
     /// pointer release on a cell-template TextBlock (the sanctioned fallback the EditAccountWindow Details
     /// link uses). The async command gates re-entrancy via its own CanExecute while the dialog is open.
     /// </summary>
     internal void InvokeAddAccountForHoster(FileHosterSelectionViewModel hoster)
     {
-        if (ViewModel.AddAccountForHosterCommand.CanExecute(hoster))
+        if (ViewModel.Hosters.AddAccountForHosterCommand.CanExecute(hoster))
         {
-            ViewModel.AddAccountForHosterCommand.Execute(hoster);
+            ViewModel.Hosters.AddAccountForHosterCommand.Execute(hoster);
         }
     }
 }

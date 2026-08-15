@@ -158,8 +158,8 @@ public class UploadWizardStepsTests
         using VmHarness harness = new();
         FileHosterSelectionViewModel usable = new("Catbox", [new FileHosterLoginDto { FileHosterName = "Catbox", Username = "me" }]);
         FileHosterSelectionViewModel blocked = new("Nowhere", []);
-        harness.Vm.FileHosters.Add(usable);
-        harness.Vm.FileHosters.Add(blocked);
+        harness.Vm.Hosters.FileHosters.Add(usable);
+        harness.Vm.Hosters.FileHosters.Add(blocked);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -169,7 +169,7 @@ public class UploadWizardStepsTests
             // what lets a ticked hoster stay in the upload after the filter hides it. The view's source
             // is still the VM's list.
             DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.fileHostersGrid.ItemsSource);
-            Assert.Same(harness.Vm.FileHosters, view.SourceCollection);
+            Assert.Same(harness.Vm.Hosters.FileHosters, view.SourceCollection);
 
             DataGridRow usableRow = RowFor(wizard.fileHostersGrid, usable);
             DataGridRow blockedRow = RowFor(wizard.fileHostersGrid, blocked);
@@ -202,8 +202,8 @@ public class UploadWizardStepsTests
         using VmHarness harness = new();
         FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
         FileHosterSelectionViewModel rapidgator = new("Rapidgator", [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }]);
-        harness.Vm.FileHosters.Add(catbox);
-        harness.Vm.FileHosters.Add(rapidgator);
+        harness.Vm.Hosters.FileHosters.Add(catbox);
+        harness.Vm.Hosters.FileHosters.Add(rapidgator);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -228,7 +228,7 @@ public class UploadWizardStepsTests
             Assert.Null(header.IsChecked);
 
             // Filtering changes what "all" means: only the listed row is ticked.
-            harness.Vm.AnonymousHostersOnly = true;
+            harness.Vm.Hosters.AnonymousHostersOnly = true;
             Dispatcher.UIThread.RunJobs();
             header.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
@@ -247,7 +247,7 @@ public class UploadWizardStepsTests
     {
         using VmHarness harness = new();
         FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
-        harness.Vm.FileHosters.Add(catbox);
+        harness.Vm.Hosters.FileHosters.Add(catbox);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -284,8 +284,8 @@ public class UploadWizardStepsTests
         using VmHarness harness = new();
         FileHosterSelectionViewModel catbox = new("Catbox", [], supportsAnonymous: true);
         FileHosterSelectionViewModel rapidgator = new("Rapidgator", [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }]);
-        harness.Vm.FileHosters.Add(catbox);
-        harness.Vm.FileHosters.Add(rapidgator);
+        harness.Vm.Hosters.FileHosters.Add(catbox);
+        harness.Vm.Hosters.FileHosters.Add(rapidgator);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -297,24 +297,24 @@ public class UploadWizardStepsTests
             // Tick a hoster, THEN filter it away: the grid stops showing it and the row keeps its tick,
             // because the filter is a view over the collection rather than a rewrite of it.
             catbox.Use = true;
-            harness.Vm.HosterFilterText = "rapid";
+            harness.Vm.Hosters.HosterFilterText = "rapid";
             Dispatcher.UIThread.RunJobs();
 
             Assert.Single(view);
             Assert.DoesNotContain(catbox, view.Cast<object>());
-            Assert.Contains(catbox, harness.Vm.FileHosters);
+            Assert.Contains(catbox, harness.Vm.Hosters.FileHosters);
             Assert.True(catbox.Use);
 
             // Anonymous-only swaps which one is left — Rapidgator needs an account.
-            harness.Vm.HosterFilterText = string.Empty;
-            harness.Vm.AnonymousHostersOnly = true;
+            harness.Vm.Hosters.HosterFilterText = string.Empty;
+            harness.Vm.Hosters.AnonymousHostersOnly = true;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Single(view);
             Assert.Contains(catbox, view.Cast<object>());
 
             // Clearing restores the whole list.
-            harness.Vm.ClearHosterFilterCommand.Execute(null);
+            harness.Vm.Hosters.ClearHosterFilterCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(2, view.Count);
         }
@@ -341,8 +341,8 @@ public class UploadWizardStepsTests
             [new FileHosterLoginDto { FileHosterName = "Catbox", Username = "me" }],
             maxFileSizeResolver: _ => null,
             maxConcurrentResolver: _ => null);
-        harness.Vm.FileHosters.Add(capped);
-        harness.Vm.FileHosters.Add(uncapped);
+        harness.Vm.Hosters.FileHosters.Add(capped);
+        harness.Vm.Hosters.FileHosters.Add(uncapped);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -375,7 +375,7 @@ public class UploadWizardStepsTests
             "Rapidgator",
             [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }],
             retentionResolver: _ => CSUploader.Upload.Pipeline.FileRetention.Unspecified);
-        harness.Vm.FileHosters.Add(unknown);
+        harness.Vm.Hosters.FileHosters.Add(unknown);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -415,7 +415,7 @@ public class UploadWizardStepsTests
 
         using VmHarness harness = new(dialog.Object);
         FileHosterSelectionViewModel blocked = new("Nowhere", []);
-        harness.Vm.FileHosters.Add(blocked);
+        harness.Vm.Hosters.FileHosters.Add(blocked);
         harness.Vm.CurrentStep = 1;
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
@@ -452,7 +452,7 @@ public class UploadWizardStepsTests
 
         // A pre-seeded warning → the border is visible (HasHosterValidationWarnings reads Count>0 at bind).
         using VmHarness warned = new();
-        warned.Vm.HosterValidationWarnings.Add("Catbox: 3 files exceed the size limit");
+        warned.Vm.Hosters.HosterValidationWarnings.Add("Catbox: 3 files exceed the size limit");
         warned.Vm.CurrentStep = 1;
         (Window warnedWindow, UploadWizardWindow warnedWizard) = Show(warned.Vm);
         try

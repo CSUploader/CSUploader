@@ -16,7 +16,10 @@
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:beh="clr-namespace:CSUploader.Behaviors"
         xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
+        xmlns:dal="clr-namespace:CSUploader.Dal;assembly=CSUploader.Core"
         x:Class="CSUploader.Views.UploadWizardWindow"
+        x:CompileBindings="True"
+        x:DataType="vm:UploadWizardViewModel"
         Title="{loc:Loc Wizard_Title}"
         Width="850" Height="620"
         WindowStartupLocation="CenterOwner"
@@ -174,7 +177,9 @@
            label columns share one width (SharedSizeGroup=WizStep0Label) so both input boxes line up. -->
       <Grid x:Name="Step0Panel" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto"
             Grid.IsSharedSizeScope="True"
-            IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
+            DataContext="{Binding Sources}"
+            x:DataType="vm:WizardSourcesViewModel"
+            IsVisible="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=0}">
 
         <!-- Row 0: the two Add buttons. There is no Directory/Files MODE any more - a package routinely
              draws from more than one place, and under the old model picking a second folder silently
@@ -241,7 +246,7 @@
                       SelectedItem="{Binding SelectedNode}"
                       Background="Transparent" BorderThickness="0">
               <TreeView.ItemTemplate>
-                <TreeDataTemplate ItemsSource="{Binding Children}">
+                <TreeDataTemplate x:DataType="vm:UploadTreeNode" ItemsSource="{Binding Children}">
                   <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,1">
                     <!-- Tri-state: ticking a folder ticks everything beneath it, and a branch with only
                          some of its files ticked reads as indeterminate. -->
@@ -266,7 +271,7 @@
                             Background="Transparent" BorderThickness="0"
                             IsVisible="{Binding IsRemovable}"
                             ToolTip.Tip="{loc:Loc Wizard_Step0_RemoveSource}"
-                            Command="{Binding $parent[TreeView].DataContext.RemoveSourceCommand}"
+                            Command="{Binding $parent[TreeView].((vm:WizardSourcesViewModel)DataContext).RemoveSourceCommand}"
                             CommandParameter="{Binding Source}">
                       <Path Width="8" Height="8" Stretch="Uniform"
                             Fill="{DynamicResource TextSecondaryBrush}"
@@ -276,7 +281,7 @@
                 </TreeDataTemplate>
               </TreeView.ItemTemplate>
               <TreeView.Styles>
-                <Style Selector="TreeViewItem">
+                <Style Selector="TreeViewItem" x:DataType="vm:UploadTreeNode">
                   <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                 </Style>
               </TreeView.Styles>
@@ -312,13 +317,13 @@
             </Style>
           </DataGrid.Styles>
           <DataGrid.Columns>
-            <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected}" Width="35"
+            <DataGridCheckBoxColumn x:DataType="vm:FileEntry" Header="" Binding="{Binding IsSelected}" Width="35"
                                     CellStyleClasses="check-center" />
-            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step1_Col_File}" Width="*" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileEntry" Header="{loc:Loc Wizard_Step1_Col_File}" Width="*" IsReadOnly="True"
                                     SortMemberPath="RelativePath"
                                     ClipboardContentBinding="{Binding RelativePath}">
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileEntry">
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Image Source="{Binding RelativePath, Converter={StaticResource FileTypeIconConverter}}"
                            Width="16" Height="16" Margin="2,0,6,0" />
@@ -333,7 +338,7 @@
             <!-- Mode=OneWay is load-bearing: Avalonia's DataGridTextColumn.Binding defaults to TwoWay and
                  writes the ConvertBack result back on bind even in a read-only column; ByteUnitConverter
                  throws on ConvertBack, which would blank FileEntry.Size (the UploadedView port gotcha). -->
-            <DataGridTextColumn Header="{loc:Loc Wizard_Step1_Col_Size}"
+            <DataGridTextColumn x:DataType="vm:FileEntry" Header="{loc:Loc Wizard_Step1_Col_Size}"
                                 Binding="{Binding Size, Converter={StaticResource ByteUnitConverter}, Mode=OneWay}"
                                 Width="100" IsReadOnly="True" />
           </DataGrid.Columns>
@@ -367,7 +372,9 @@
            italic-when-no-saved-accounts hoster name become conditional-class bindings (rule 40). The grid
            is SelectionMode=Single with the ClearSelectionOnEmptyClick + SelectRowOnRightClick behaviors. -->
       <Grid x:Name="Step1Panel" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto"
-            IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+            DataContext="{Binding Hosters}"
+            x:DataType="vm:WizardHostersViewModel"
+            IsVisible="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
 
         <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Step2_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
@@ -416,7 +423,7 @@
                  they reach the cell-template content (the same mechanism the step-0 check-center style uses).
                  .blocked = WPF's !CanUse Opacity=0.45 (+ the account-required tooltip); .no-accounts = WPF's
                  !HasAccounts FontStyle=Italic. -->
-            <Style Selector="StackPanel.blocked">
+            <Style Selector="StackPanel.blocked" x:DataType="vm:FileHosterSelectionViewModel">
               <Setter Property="Opacity" Value="0.45" />
               <Setter Property="ToolTip.Tip" Value="{Binding UseBlockedTooltip}" />
             </Style>
@@ -439,20 +446,20 @@
                  rendered as a missing-glyph box (tofu). The checkbox zeroes Padding/MinWidth so the box itself
                  centres exactly (Fluent reserves 8px content padding right of the 20px box even with no
                  content — the step-0 check-center fix), aligning it with the centred padlock. -->
-            <DataGridTemplateColumn Width="42" SortMemberPath="Use">
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="42" SortMemberPath="Use">
               <!-- The header IS the tick-everything box: with ~80 hosters and a filter above the grid,
                    the useful bulk action is "everything I can currently see", and a header box is
                    where that lives in every list that has one. It binds to the WINDOW's DataContext,
                    not the column's — a DataGrid column header has no row behind it. -->
               <DataGridTemplateColumn.Header>
                 <CheckBox IsThreeState="True"
-                          IsChecked="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).AllListedHostersChecked, Mode=TwoWay}"
+                          IsChecked="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).Hosters.AllListedHostersChecked, Mode=TwoWay}"
                           Padding="0" MinWidth="0"
                           HorizontalAlignment="Center" VerticalAlignment="Center"
                           ToolTip.Tip="{loc:Loc Wizard_Step2_CheckAllTip}" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <CheckBox IsChecked="{Binding Use}"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -470,11 +477,11 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <!-- FileHoster: icon + name; dimmed with a tooltip when !CanUse, italic when no saved accounts. -->
-            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_FileHoster}" Width="180" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Header="{loc:Loc Wizard_Step2_Col_FileHoster}" Width="180" IsReadOnly="True"
                                     SortMemberPath="FileHosterName"
                                     ClipboardContentBinding="{Binding FileHosterName}">
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                               Classes.blocked="{Binding !CanUse}">
                     <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
@@ -491,11 +498,11 @@
                  this hoster. The command lives on the grid's DataContext (the wizard VM). -->
             <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_Account}" Width="*">
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <Grid>
                     <ComboBox ItemsSource="{Binding AccountOptions}"
                               SelectedItem="{Binding SelectedAccount}"
-                              DisplayMemberBinding="{Binding DisplayName}"
+                              DisplayMemberBinding="{Binding DisplayName, DataType=dal:FileHosterLoginDto}"
                               VerticalAlignment="Center" HorizontalAlignment="Stretch"
                               Margin="0,2,8,2" Padding="8,2" FontSize="12"
                               BorderBrush="{DynamicResource InputFieldBorderBrush}"
@@ -514,11 +521,11 @@
             </DataGridTemplateColumn>
             <!-- Max file size for the selected account (re-resolves when the account dropdown changes —
                  tiers can differ). Read-only display (rule 32). -->
-            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxFileSize}" Width="110" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Header="{loc:Loc Wizard_Step2_Col_MaxFileSize}" Width="110" IsReadOnly="True"
                                     SortMemberPath="MaxFileSizeBytes"
                                     ClipboardContentBinding="{Binding MaxFileSizeDisplay}">
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <TextBlock Text="{Binding MaxFileSizeDisplay}" FontSize="12"
                              VerticalAlignment="Center" HorizontalAlignment="Right"
                              Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
@@ -530,11 +537,11 @@
                  This is the HOSTER's ceiling, not the effective one: the scheduler uses the smaller of it
                  and the per-host setting in Settings. Re-resolves with the account dropdown (tiers differ)
                  and is read-only display (rule 32). -->
-            <DataGridTemplateColumn Header="{loc:Loc Wizard_Step2_Col_MaxConcurrent}" Width="100" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Header="{loc:Loc Wizard_Step2_Col_MaxConcurrent}" Width="100" IsReadOnly="True"
                                     SortMemberPath="MaxConcurrentUploads"
                                     ClipboardContentBinding="{Binding MaxConcurrentUploadsDisplay}">
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <TextBlock Text="{Binding MaxConcurrentUploadsDisplay}" FontSize="12"
                              VerticalAlignment="Center" HorizontalAlignment="Right"
                              Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
@@ -549,7 +556,7 @@
                  RetentionFor, which cites its source; re-resolves with the account dropdown (tiers
                  differ — upload.ee keeps 50 days anonymous, 120 signed in) and is read-only display
                  (rule 32). -->
-            <DataGridTemplateColumn Width="100" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="100" IsReadOnly="True"
                                     SortMemberPath="RetentionSortKey"
                                     ClipboardContentBinding="{Binding RetentionDisplay}">
               <DataGridTemplateColumn.Header>
@@ -558,7 +565,7 @@
                            ToolTip.Tip="{loc:Loc Wizard_Step2_Col_KeptFor_Tooltip}" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <!-- The tooltip rides the whole CELL (a stretched transparent Border), not the
                        TextBlock: an em dash is a few pixels of glyph, and its tooltip is the only
                        place the dash is explained — a hover target that small might as well not
@@ -632,7 +639,9 @@
            (rule 40). Reaching this step triggers a storage refresh for IStorageRefreshablePipeline hosters — a
            network no-op for Catbox (not refreshable) / Anonymous accounts, the safe selection the drivers use. -->
       <Grid x:Name="Step2Panel" RowDefinitions="Auto,Auto,Auto,*"
-            IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+            DataContext="{Binding Summary}"
+            x:DataType="vm:WizardSummaryViewModel"
+            IsVisible="{Binding $parent[Window].((vm:UploadWizardViewModel)DataContext).CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
 
         <TextBlock Grid.Row="0" Text="{loc:Loc Wizard_Summary_Title}" FontSize="16" FontWeight="SemiBold"
                    Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,6" />
@@ -821,7 +830,7 @@
         <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"
                    FontSize="12" TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource TextSecondaryBrush}"
-                   Text="{Binding TotalUploadSummary}"
+                   Text="{Binding Summary.TotalUploadSummary}"
                    IsVisible="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
           <Button x:Name="BackButton" Content="{loc:Loc Wizard_Btn_Back}" Width="80" Height="30" Margin="0,0,8,0"

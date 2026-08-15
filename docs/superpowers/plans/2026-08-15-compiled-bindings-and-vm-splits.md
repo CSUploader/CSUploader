@@ -162,28 +162,38 @@
 - Cross-step data flow: children communicate via the collections they share (`Files`, `FileHosters`) and plain .NET events the parent bridges — pick the *minimal* seam that keeps every existing test's observable behavior identical.
 
 - [x] **Step 1:** Read `UploadWizardViewModel.cs` fully; write the member allocation + shared-state map (which `[ObservableProperty]` belongs to which child; which stay parent).
-  **⚠ EXECUTED DEVIATION (recorded 2026-08-15, Codex-gated):** the full read showed the planned
-  child-VM split is the wrong tool for THIS class. Unlike SettingsViewModel (two independent halves),
-  the wizard's steps share one state machine: `_summaryDirty` is set from five sites across both
-  collections' events, `RecomputeHosterValidation` reads Files AND FileHosters, `CanGoNext` reads all
-  three steps' state, and the `BulkMutateFiles` guard spans files mutations and validation. A child-VM
-  decomposition would have to re-plumb that web through cross-VM events — behavior-ADJACENT changes
-  (event ordering, guard scope) that the behavior-preserving mandate and the existing tests cannot
-  fully pin. Instead, Task 5 applies the SAME treatment the plan already prescribes for the XFS base:
-  a `partial class` FILE split by step concern — verbatim moves, zero semantic change — plus the full
-  compiled-bindings conversion of the window. Same goals (navigable files, compiler-guarded bindings),
-  a fraction of the risk; a true VM decomposition stays open as future work under compiled-binding cover.
-- [x] **Step 2 (revised):** Split into four files, verbatim: `UploadWizardViewModel.cs` (shell: DI,
-  navigation, options, StartUpload, sticky), `.Sources.cs` (step 0: sources/tree/files/filter/selection),
-  `.Hosters.cs` (step 1: list/filters/validation/add-account), `.Summary.cs` (step 2: summaries/capacity/
-  auto-fit/storage refresh). Build: first-try success; full suite 2,762 green with ZERO test edits.
-- [x] **Step 5 (revised):** `UploadWizardWindow.axaml` converted to compiled bindings: root
-  `x:DataType="vm:UploadWizardViewModel"`; files grid columns/templates `vm:FileEntry`; hoster grid
-  columns/templates + conditional style `vm:FileHosterSelectionViewModel`; tree template + TreeViewItem
-  style `vm:UploadTreeNode`; the two `$parent` DataContext reaches use typed casts (the header checkbox
-  already did); the account combo's `DisplayMemberBinding` gains `DataType=dal:FileHosterLoginDto`;
-  summary/orphan/warning ItemsControl templates typed by ItemsSource inference. All 110 bindings compile.
-- [ ] **Step 7:** Full suite green (same totals — done) → Codex review gate (in flight; the review was asked to judge the deviation itself) → commit: `refactor(wizard): the wizard splits into a file per step, and its window compiles its bindings`
+  **Attempted deviation, REJECTED on review — history kept because the reasoning matters:** I judged the
+  child-VM split was too risky for THIS class, because the steps share one state machine
+  (`_summaryDirty`, the validation web, `CanGoNext`, the `BulkMutateFiles` guard). I executed a
+  `partial class` FILE split instead and asked the Codex gate to judge the deviation itself.
+  **It rejected the deviation, with the code:** `CanGoNext` reads hoster state and summary state but
+  never source state; `BulkMutateFiles` is entirely source-local and can invoke one parent callback
+  after its guard; hoster validation only needs the shared `Files` collection; and the ordering
+  concern is answered by SYNCHRONOUS parent-owned callbacks. With the window compiled (Step 5), every
+  re-pointed binding is a build error rather than a silent blank — so the risk that motivated the
+  deviation was already gone. Verdict accepted: the partial files were deleted and the planned
+  child-VM split executed. Recorded because the rebuttal is the useful artifact, not the detour.
+- [x] **Step 2:** `WizardSourcesViewModel` — sources, tree, `Files`, `PackageTitle`, filter, selection.
+  Takes `IDialogService`, `IAppLogger` and two parent callbacks (`markSummaryDirty`,
+  `revalidateHosters`) invoked at exactly the pre-split call sites.
+- [x] **Step 3:** `WizardHostersViewModel` — hoster list, filters, Use-header box, limit validation,
+  in-step add-account, sticky selections. Takes the sources step's live `Files` collection plus
+  `markSummaryDirty`; raises `ValidationStateChanged` where the pre-split code raised `CanGoNext`.
+- [x] **Step 4:** `WizardSummaryViewModel` — summaries, orphans, capacity auto-fit, storage refresh,
+  `BuildIncludedFilesPerHoster`. Raises `CapacityStateChanged` at the pre-split `CanGoNext` site.
+- [x] **Step 5:** `UploadWizardWindow.axaml` compiled AND re-pointed: each step panel's DataContext is
+  `{Binding Sources|Hosters|Summary}` with a matching `x:DataType`; panel `IsVisible` and the
+  Use-header box reach the shell through typed `$parent[Window]` casts; the tree's RemoveSource casts
+  to `WizardSourcesViewModel`; row templates typed (`FileEntry`, `FileHosterSelectionViewModel`,
+  `UploadTreeNode`); the account combo's `DisplayMemberBinding` carries `DataType=dal:FileHosterLoginDto`.
+  Window code-behind and the dev gallery re-pointed to the children.
+- [x] **Step 6:** Tests re-pointed across seven files (908 member reaches, receiver-anchored rewrite).
+  SIX observer updates were needed and are the split's real behavioral seam: five `PropertyChanged`
+  subscriptions moved to the owning child, and `TickingAHoster_NotifiesTheTwoProperties` now watches
+  BOTH objects — pinning the child→shell propagation hop the split introduced.
+- [x] **Step 7:** Full suite green (523 + 2,239, same totals) → Codex round-2 gate → approve with one
+  finding (a stale `UploadWizardViewModel.Files` cref in `UploadTreeNode`'s doc), fixed → commit:
+  `refactor(wizard): one view-model per step, and the window compiles its bindings`
 
 ---
 

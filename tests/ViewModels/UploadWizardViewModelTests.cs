@@ -72,9 +72,9 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
         FileHosterSelectionViewModel row = new("Rapidgator", []);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         Assert.False(row.HasAccounts);
         Assert.False(row.Use);
@@ -98,9 +98,9 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);
         FileHosterSelectionViewModel row = new("Rapidgator", []);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         // Persisted to DB
         FileHosterLoginDto[] persisted = await _loginRepo.FindAsync("Rapidgator");
@@ -120,7 +120,7 @@ public class UploadWizardViewModelTests : IDisposable
         Mock<IDialogService> dialog = new();
         UploadWizardViewModel vm = CreateVm(dialog.Object);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(null);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(null);
 
         dialog.Verify(
             d => d.ShowAddAccountDialogAsync(It.IsAny<string>(), It.IsAny<string[]>(), It.IsAny<Func<string, Task<AccountCheckResult>>>(), It.IsAny<string?>(), It.IsAny<Func<FileHosterLoginDto, CancellationToken, Task<AccountCheckResult>>?>()),
@@ -152,10 +152,10 @@ public class UploadWizardViewModelTests : IDisposable
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
 
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Single(vm.Files);
-            Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.PackageTitle);
+            Assert.Single(vm.Sources.Files);
+            Assert.Equal(Path.GetFileNameWithoutExtension(tempA), vm.Sources.PackageTitle);
         }
         finally
         {
@@ -174,7 +174,7 @@ public class UploadWizardViewModelTests : IDisposable
             dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
             // PackageTitle was defaulted from filename by BrowseFiles; leave it intact
 
             await vm.GoNextCommand.ExecuteAsync(null);
@@ -200,10 +200,10 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([tempA.ToUpperInvariant()]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Single(vm.Files);
+            Assert.Single(vm.Sources.Files);
         }
         finally
         {
@@ -230,11 +230,11 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([fileB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Equal(2, vm.Files.Count);
-            Assert.Contains(vm.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
+            Assert.Equal(2, vm.Sources.Files.Count);
+            Assert.Contains(vm.Sources.Files, f => f.RelativePath.Contains(Path.GetFileName(dirB), StringComparison.Ordinal));
         }
         finally
         {
@@ -258,12 +258,12 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([tempB]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
-            Assert.Single(vm.Files);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
+            Assert.Single(vm.Sources.Files);
 
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Equal(2, vm.Files.Count);
+            Assert.Equal(2, vm.Sources.Files.Count);
         }
         finally
         {
@@ -288,12 +288,12 @@ public class UploadWizardViewModelTests : IDisposable
                 .ReturnsAsync([dir]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
 
-            await vm.AddFoldersCommand.ExecuteAsync(null);
+            await vm.Sources.AddFoldersCommand.ExecuteAsync(null);
 
-            Assert.Equal(2, vm.Files.Count);
+            Assert.Equal(2, vm.Sources.Files.Count);
 
             // The folder is remembered as a source, with what it contributed, so it can be taken back.
-            UploadSource source = Assert.Single(vm.Sources);
+            UploadSource source = Assert.Single(vm.Sources.Sources);
             Assert.Equal(dir, source.Path);
             Assert.True(source.IsFolder);
             Assert.Equal(2, source.FileCount);
@@ -325,15 +325,15 @@ public class UploadWizardViewModelTests : IDisposable
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
 
-            await vm.AddFoldersCommand.ExecuteAsync(null);
-            Assert.Single(vm.Files);
+            await vm.Sources.AddFoldersCommand.ExecuteAsync(null);
+            Assert.Single(vm.Sources.Files);
 
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
-            Assert.Equal(2, vm.Files.Count);
-            Assert.Equal(2, vm.Sources.Count);
-            Assert.Contains(vm.Files, f => f.FullPath == loose);
-            Assert.Contains(vm.Files, f => f.FileName == "in-folder.bin");
+            Assert.Equal(2, vm.Sources.Files.Count);
+            Assert.Equal(2, vm.Sources.Sources.Count);
+            Assert.Contains(vm.Sources.Files, f => f.FullPath == loose);
+            Assert.Contains(vm.Sources.Files, f => f.FileName == "in-folder.bin");
         }
         finally
         {
@@ -367,9 +367,9 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = CreateVm(dialog.Object, verifier.Object);
         FileHosterSelectionViewModel row = new("Rapidgator", []);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         Assert.NotNull(captured);
 
@@ -398,9 +398,9 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = CreateVm(dialog.Object);   // no verifier
         FileHosterSelectionViewModel row = new("Rapidgator", []);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         Assert.False(sawValidator);
         Assert.Single(await _loginRepo.FindAsync("Rapidgator"));
@@ -423,9 +423,9 @@ public class UploadWizardViewModelTests : IDisposable
         // Anonymous-capable on purpose: CanUse stays true here, so nothing else would stop Use being
         // ticked for a hoster the user never got an account on.
         FileHosterSelectionViewModel row = new("Catbox", [], supportsAnonymous: true);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         Assert.Empty(await _loginRepo.FindAsync("Catbox"));
         Assert.False(row.Use);
@@ -454,9 +454,9 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = CreateVm(dialog.Object, Mock.Of<IAccountVerifier>());
         FileHosterSelectionViewModel row = new("Rapidgator", []);
-        vm.FileHosters.Add(row);
+        vm.Hosters.FileHosters.Add(row);
 
-        await vm.AddAccountForHosterCommand.ExecuteAsync(row);
+        await vm.Hosters.AddAccountForHosterCommand.ExecuteAsync(row);
 
         FileHosterLoginDto persisted = Assert.Single(await _loginRepo.FindAsync("Rapidgator"));
         Assert.Equal("DERIVED-KEY", persisted.ApiKey);
@@ -493,15 +493,15 @@ public class UploadWizardViewModelTests : IDisposable
         FileEntry a = new() { FullPath = "a.bin", FileName = "a.bin", Size = 10, IsSelected = true };
         FileEntry b = new() { FullPath = "b.bin", FileName = "b.bin", Size = 20, IsSelected = true };
         FileEntry c = new() { FullPath = "c.bin", FileName = "c.bin", Size = 30, IsSelected = true };
-        vm.Files.Add(a);
-        vm.Files.Add(b);
-        vm.Files.Add(c);
+        vm.Sources.Files.Add(a);
+        vm.Sources.Files.Add(b);
+        vm.Sources.Files.Add(c);
 
         // Grid selects a + c only.
         System.Collections.IList selected = new System.Collections.ArrayList { a, c };
-        vm.RemoveSelectedFilesCommand.Execute(selected);
+        vm.Sources.RemoveSelectedFilesCommand.Execute(selected);
 
-        FileEntry only = Assert.Single(vm.Files);
+        FileEntry only = Assert.Single(vm.Sources.Files);
         Assert.Same(b, only);
     }
 
@@ -509,14 +509,14 @@ public class UploadWizardViewModelTests : IDisposable
     public void RemoveSelectedFiles_NullOrEmptySelection_IsNoOp()
     {
         UploadWizardViewModel vm = CreateVm(Mock.Of<IDialogService>());
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 10 });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 20 });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 10 });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 20 });
 
-        vm.RemoveSelectedFilesCommand.Execute(null);
-        Assert.Equal(2, vm.Files.Count);
+        vm.Sources.RemoveSelectedFilesCommand.Execute(null);
+        Assert.Equal(2, vm.Sources.Files.Count);
 
-        vm.RemoveSelectedFilesCommand.Execute(new System.Collections.ArrayList());
-        Assert.Equal(2, vm.Files.Count);
+        vm.Sources.RemoveSelectedFilesCommand.Execute(new System.Collections.ArrayList());
+        Assert.Equal(2, vm.Sources.Files.Count);
     }
 
     [Fact]
@@ -526,19 +526,19 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(brupload);
 
         FileEntry small = new() { FullPath = "small.iso", FileName = "small.iso", Size = 100, IsSelected = true };
         FileEntry huge = new() { FullPath = "huge.iso", FileName = "huge.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true };
-        vm.Files.Add(small);
-        vm.Files.Add(huge);
+        vm.Sources.Files.Add(small);
+        vm.Sources.Files.Add(huge);
 
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
 
         brupload.Use = true;
 
         // Warning must name the oversized file and say it won't be uploaded.
-        string warning = Assert.Single(vm.HosterValidationWarnings);
+        string warning = Assert.Single(vm.Hosters.HosterValidationWarnings);
         Assert.Contains("huge.iso", warning, StringComparison.Ordinal);
         Assert.Contains("won't be uploaded", warning, StringComparison.Ordinal);
         Assert.DoesNotContain("small.iso", warning, StringComparison.Ordinal);
@@ -549,7 +549,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         // Deselecting the oversized file clears the warning entirely.
         huge.IsSelected = false;
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
         Assert.True(vm.CanGoNext);
     }
 
@@ -560,15 +560,15 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(brupload);
 
-        vm.Files.Add(new FileEntry { FullPath = "a.iso", FileName = "a.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.iso", FileName = "b.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.iso", FileName = "a.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.iso", FileName = "b.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 1;
 
-        Assert.NotEmpty(vm.HosterValidationWarnings);
+        Assert.NotEmpty(vm.Hosters.HosterValidationWarnings);
         Assert.False(vm.CanGoNext);
     }
 
@@ -579,16 +579,16 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(brupload);
 
         for (int i = 0; i < 31; i++)
         {
-            vm.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
+            vm.Sources.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
         }
 
         brupload.Use = true;
 
-        Assert.Contains(vm.HosterValidationWarnings, w => w.Contains("31", StringComparison.Ordinal) && w.Contains("30", StringComparison.Ordinal));
+        Assert.Contains(vm.Hosters.HosterValidationWarnings, w => w.Contains("31", StringComparison.Ordinal) && w.Contains("30", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -600,18 +600,18 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(bz);
+        vm.Hosters.FileHosters.Add(bz);
 
         FileEntry clean = new() { FullPath = "clean.mkv", FileName = "clean.mkv", Size = 100, IsSelected = true };
         FileEntry bad = new() { FullPath = "ep #1.mkv", FileName = "ep #1.mkv", Size = 200, IsSelected = true };
-        vm.Files.Add(clean);
-        vm.Files.Add(bad);
+        vm.Sources.Files.Add(clean);
+        vm.Sources.Files.Add(bad);
 
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
 
         bz.Use = true;
 
-        string warning = Assert.Single(vm.HosterValidationWarnings);
+        string warning = Assert.Single(vm.Hosters.HosterValidationWarnings);
         Assert.Contains("ep #1.mkv", warning, StringComparison.Ordinal);
         Assert.Contains("won't be uploaded", warning, StringComparison.Ordinal);
         Assert.DoesNotContain("clean.mkv", warning, StringComparison.Ordinal);
@@ -622,7 +622,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         // Deselecting the rejected-name file clears the warning entirely.
         bad.IsSelected = false;
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
         Assert.True(vm.CanGoNext);
     }
 
@@ -639,19 +639,19 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel qu = new("Qu.ax", [new FileHosterLoginDto { Id = 1, FileHosterName = "Qu.ax", Username = "u" }]);
-        vm.FileHosters.Add(qu);
+        vm.Hosters.FileHosters.Add(qu);
 
         FileEntry part1 = new() { FullPath = "rls.part1.rar", FileName = "rls.part1.rar", Size = 100, IsSelected = true };
         FileEntry r00 = new() { FullPath = "rls.r00", FileName = "rls.r00", Size = 100, IsSelected = true };
         FileEntry sfv = new() { FullPath = "rls.sfv", FileName = "rls.sfv", Size = 10, IsSelected = true };
-        vm.Files.Add(part1);
-        vm.Files.Add(r00);
-        vm.Files.Add(sfv);
+        vm.Sources.Files.Add(part1);
+        vm.Sources.Files.Add(r00);
+        vm.Sources.Files.Add(sfv);
 
         qu.Use = true;
 
         // Named, on the hoster step, without the user doing anything else.
-        string warning = Assert.Single(vm.HosterValidationWarnings);
+        string warning = Assert.Single(vm.Hosters.HosterValidationWarnings);
         Assert.Contains("rls.r00", warning, StringComparison.Ordinal);
         Assert.Contains("rls.sfv", warning, StringComparison.Ordinal);
         Assert.DoesNotContain("rls.part1.rar", warning, StringComparison.Ordinal);
@@ -684,18 +684,18 @@ public class UploadWizardViewModelTests : IDisposable
             Mock<IDialogService> dialog = new();
             dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>())).ReturnsAsync([temp]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
+            await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 
             await vm.GoNextCommand.ExecuteAsync(null); // step 1 loads the hoster rows
             Assert.Equal(1, vm.CurrentStep);
 
-            FileHosterSelectionViewModel br = vm.FileHosters.First(h => h.FileHosterName == "BRupload");
+            FileHosterSelectionViewModel br = vm.Hosters.FileHosters.First(h => h.FileHosterName == "BRupload");
             Assert.Equal("kept", Assert.Single(br.Accounts).Username);
             Assert.Equal("kept", br.SelectedAccount?.Username);
 
             // A hoster whose ONLY account is switched off reads as having none — which is the truth:
             // there is nothing there to upload with until it's switched back on.
-            FileHosterSelectionViewModel bz = vm.FileHosters.First(h => h.FileHosterName == "Buzzheavier");
+            FileHosterSelectionViewModel bz = vm.Hosters.FileHosters.First(h => h.FileHosterName == "Buzzheavier");
             Assert.Empty(bz.Accounts);
             Assert.False(bz.HasAccounts);
         }
@@ -717,17 +717,17 @@ public class UploadWizardViewModelTests : IDisposable
 
         FileHosterLoginDto account = new() { Id = 1, FileHosterName = "BRupload", Username = "someone" };
         FileHosterSelectionViewModel brupload = new("BRupload", [account]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
 
         brupload.Use = true;
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
 
         account.MarkRefreshed(AccountCheckStatus.Failed, "nope", DateTime.Now);
         brupload.Use = false;
         brupload.Use = true; // re-tick to recompute, as toggling the checkbox does
 
-        string warning = Assert.Single(vm.HosterValidationWarnings);
+        string warning = Assert.Single(vm.Hosters.HosterValidationWarnings);
         Assert.Contains("BRupload", warning, StringComparison.Ordinal);
         Assert.Contains("someone", warning, StringComparison.Ordinal);
         Assert.Contains("check", warning, StringComparison.OrdinalIgnoreCase);
@@ -739,8 +739,8 @@ public class UploadWizardViewModelTests : IDisposable
 
         // And the summary still agrees about the outcome — the file has nowhere to go.
         vm.CurrentStep = 2;
-        Assert.Empty(vm.Summaries);
-        Assert.Single(vm.OrphanFiles);
+        Assert.Empty(vm.Summary.Summaries);
+        Assert.Single(vm.Summary.OrphanFiles);
     }
 
     [Fact]
@@ -751,14 +751,14 @@ public class UploadWizardViewModelTests : IDisposable
 
         FileHosterLoginDto disabled = new() { Id = 1, FileHosterName = "BRupload", Username = "someone", Disabled = true };
         FileHosterSelectionViewModel brupload = new("BRupload", [disabled]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
 
         brupload.Use = true;
 
         // A different sentence from the failed-check one: switching an account off is the user's own
         // doing, so it doesn't tell them to go and check it.
-        string warning = Assert.Single(vm.HosterValidationWarnings);
+        string warning = Assert.Single(vm.Hosters.HosterValidationWarnings);
         Assert.Contains("switched off", warning, StringComparison.OrdinalIgnoreCase);
 
         // The synthetic Anonymous selection carries no such state and must never be skipped — it has
@@ -766,11 +766,11 @@ public class UploadWizardViewModelTests : IDisposable
         // anonymous upload in the app.
         FileHosterLoginDto anonymous = new() { Id = 0, FileHosterName = "BRupload", IsAnonymous = true };
         FileHosterSelectionViewModel anon = new("BRupload", [anonymous]);
-        vm.FileHosters.Clear();
-        vm.FileHosters.Add(anon);
+        vm.Hosters.FileHosters.Clear();
+        vm.Hosters.FileHosters.Add(anon);
         anon.Use = true;
 
-        Assert.Empty(vm.HosterValidationWarnings);
+        Assert.Empty(vm.Hosters.HosterValidationWarnings);
     }
 
     [Fact]
@@ -786,21 +786,21 @@ public class UploadWizardViewModelTests : IDisposable
         failed.MarkRefreshed(AccountCheckStatus.Failed, "nope", DateTime.Now);
         FileHosterSelectionViewModel brupload = new("BRupload", [failed]);
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 2, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
-        vm.FileHosters.Add(bz);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(bz);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
 
         brupload.Use = true;
         bz.Use = true;
 
         // Warned about, but not a hard block: the file still has a destination.
-        Assert.Single(vm.HosterValidationWarnings);
+        Assert.Single(vm.Hosters.HosterValidationWarnings);
         vm.CurrentStep = 1;
         Assert.True(vm.CanGoNext);
 
         vm.CurrentStep = 2;
-        Assert.Equal("Buzzheavier", Assert.Single(vm.Summaries).HosterName);
-        Assert.Empty(vm.OrphanFiles);
+        Assert.Equal("Buzzheavier", Assert.Single(vm.Summary.Summaries).HosterName);
+        Assert.Empty(vm.Summary.OrphanFiles);
     }
 
     [Fact]
@@ -816,27 +816,27 @@ public class UploadWizardViewModelTests : IDisposable
 
         FileHosterSelectionViewModel rar = new("Uploadrar", [new FileHosterLoginDto { Id = 1, FileHosterName = "Uploadrar", Username = "u" }]);
         FileHosterSelectionViewModel dot = new("Filedot", [new FileHosterLoginDto { Id = 2, FileHosterName = "Filedot", Username = "u" }]);
-        vm.FileHosters.Add(rar);
-        vm.FileHosters.Add(dot);
+        vm.Hosters.FileHosters.Add(rar);
+        vm.Hosters.FileHosters.Add(dot);
 
         FileEntry video = new() { FullPath = "clip.avi", FileName = "clip.avi", Size = 100, IsSelected = true };
         FileEntry image = new() { FullPath = "cover.jpg", FileName = "cover.jpg", Size = 100, IsSelected = true };
         FileEntry archive = new() { FullPath = "rls.rar", FileName = "rls.rar", Size = 100, IsSelected = true };
-        vm.Files.Add(video);
-        vm.Files.Add(image);
-        vm.Files.Add(archive);
+        vm.Sources.Files.Add(video);
+        vm.Sources.Files.Add(image);
+        vm.Sources.Files.Add(archive);
 
         rar.Use = true;
         dot.Use = true;
 
         // Each hoster names only ITS OWN refusals — the .avi is fine for filedot and the .jpg for
         // Uploadrar, which is why this is per-hoster rather than a global deselect.
-        string rarWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Uploadrar", StringComparison.Ordinal));
+        string rarWarning = Assert.Single(vm.Hosters.HosterValidationWarnings, w => w.Contains("Uploadrar", StringComparison.Ordinal));
         Assert.Contains("clip.avi", rarWarning, StringComparison.Ordinal);
         Assert.DoesNotContain("cover.jpg", rarWarning, StringComparison.Ordinal);
         Assert.Contains("extension", rarWarning, StringComparison.OrdinalIgnoreCase);
 
-        string dotWarning = Assert.Single(vm.HosterValidationWarnings, w => w.Contains("Filedot", StringComparison.Ordinal));
+        string dotWarning = Assert.Single(vm.Hosters.HosterValidationWarnings, w => w.Contains("Filedot", StringComparison.Ordinal));
         Assert.Contains("cover.jpg", dotWarning, StringComparison.Ordinal);
         Assert.DoesNotContain("clip.avi", dotWarning, StringComparison.Ordinal);
 
@@ -854,15 +854,15 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(bz);
+        vm.Hosters.FileHosters.Add(bz);
 
-        vm.Files.Add(new FileEntry { FullPath = "a;.mkv", FileName = "a;.mkv", Size = 100, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b#.mkv", FileName = "b#.mkv", Size = 200, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a;.mkv", FileName = "a;.mkv", Size = 100, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b#.mkv", FileName = "b#.mkv", Size = 200, IsSelected = true });
 
         bz.Use = true;
         vm.CurrentStep = 1;
 
-        Assert.NotEmpty(vm.HosterValidationWarnings);
+        Assert.NotEmpty(vm.Hosters.HosterValidationWarnings);
         Assert.False(vm.CanGoNext);
     }
 
@@ -875,18 +875,18 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "testuser" }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 2048, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 1024, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 2048, IsSelected = true });
 
         brupload.Use = true;
 
         // Summary is empty before entering step 2 — it's lazy-populated.
-        Assert.Empty(vm.Summaries);
+        Assert.Empty(vm.Summary.Summaries);
 
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.Equal("BRupload", entry.HosterName);
         Assert.Equal("testuser", entry.AccountUsername);
         Assert.Equal(2, entry.FileCount);
@@ -894,8 +894,8 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.Equal(1024 + 2048, entry.TotalSize);
         // MaxFileSize flows through from the pipeline so the header can render the cap.
         Assert.Equal(1L * 1024 * 1024 * 1024, entry.MaxFileSize);
-        Assert.Empty(vm.OrphanFiles);
-        Assert.False(vm.HasOrphanFiles);
+        Assert.Empty(vm.Summary.OrphanFiles);
+        Assert.False(vm.Summary.HasOrphanFiles);
     }
 
     [Fact]
@@ -907,16 +907,16 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "big1.iso", FileName = "big1.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "big2.iso", FileName = "big2.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big1.iso", FileName = "big1.iso", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big2.iso", FileName = "big2.iso", Size = 3L * 1024 * 1024 * 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.Empty(vm.Summaries);
-        Assert.Equal(2, vm.OrphanFilesCount);
-        Assert.True(vm.HasOrphanFiles);
+        Assert.Empty(vm.Summary.Summaries);
+        Assert.Equal(2, vm.Summary.OrphanFilesCount);
+        Assert.True(vm.Summary.HasOrphanFiles);
     }
 
     [Fact]
@@ -926,18 +926,18 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "ok.bin", FileName = "ok.bin", Size = 1024, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "huge.bin", FileName = "huge.bin", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "ok.bin", FileName = "ok.bin", Size = 1024, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "huge.bin", FileName = "huge.bin", Size = 2L * 1024 * 1024 * 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         SummaryFileItem only = Assert.Single(entry.Files);
         Assert.Equal("ok.bin", only.FileName);
         // huge.bin had nowhere to go — it's an orphan even though BRupload appeared.
-        FileEntry orphan = Assert.Single(vm.OrphanFiles);
+        FileEntry orphan = Assert.Single(vm.Summary.OrphanFiles);
         Assert.Equal("huge.bin", orphan.FileName);
     }
 
@@ -950,16 +950,16 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(bz);
-        vm.Files.Add(new FileEntry { FullPath = "a #1.mkv", FileName = "a #1.mkv", Size = 100, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b; two.mkv", FileName = "b; two.mkv", Size = 200, IsSelected = true });
+        vm.Hosters.FileHosters.Add(bz);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a #1.mkv", FileName = "a #1.mkv", Size = 100, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b; two.mkv", FileName = "b; two.mkv", Size = 200, IsSelected = true });
 
         bz.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.Empty(vm.Summaries);
-        Assert.Equal(2, vm.OrphanFilesCount);
-        Assert.True(vm.HasOrphanFiles);
+        Assert.Empty(vm.Summary.Summaries);
+        Assert.Equal(2, vm.Summary.OrphanFilesCount);
+        Assert.True(vm.Summary.HasOrphanFiles);
     }
 
     [Fact]
@@ -969,17 +969,17 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(bz);
-        vm.Files.Add(new FileEntry { FullPath = "ok.mkv", FileName = "ok.mkv", Size = 100, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "Paladin; Agateram.mkv", FileName = "Paladin; Agateram.mkv", Size = 200, IsSelected = true });
+        vm.Hosters.FileHosters.Add(bz);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "ok.mkv", FileName = "ok.mkv", Size = 100, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "Paladin; Agateram.mkv", FileName = "Paladin; Agateram.mkv", Size = 200, IsSelected = true });
 
         bz.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         SummaryFileItem only = Assert.Single(entry.Files);
         Assert.Equal("ok.mkv", only.FileName);
-        FileEntry orphan = Assert.Single(vm.OrphanFiles);
+        FileEntry orphan = Assert.Single(vm.Summary.OrphanFiles);
         Assert.Equal("Paladin; Agateram.mkv", orphan.FileName);
     }
 
@@ -992,15 +992,15 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel bz = new("Buzzheavier", [new FileHosterLoginDto { Id = 1, FileHosterName = "Buzzheavier", Username = "u" }]);
-        vm.FileHosters.Add(bz);
-        vm.Files.Add(new FileEntry { FullPath = "s.mkv", FileName = "[BD] Show 05 (4k AV1@M10p DTS 2ch+5.1ch).mkv", Size = 100, IsSelected = true });
+        vm.Hosters.FileHosters.Add(bz);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "s.mkv", FileName = "[BD] Show 05 (4k AV1@M10p DTS 2ch+5.1ch).mkv", Size = 100, IsSelected = true });
 
         bz.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.Single(entry.Files);
-        Assert.Empty(vm.OrphanFiles);
+        Assert.Empty(vm.Summary.OrphanFiles);
     }
 
     [Fact]
@@ -1013,22 +1013,22 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
         brupload.Use = true;
 
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.Equal(900L, entry.IncludedBytes);   // 600 + one 300
         Assert.Equal(2, entry.IncludedCount);
         Assert.False(entry.IsOverCapacity);
         Assert.True(vm.CanGoNext);                  // within capacity → Next allowed
-        Assert.True(vm.HasAutoFitNotice);           // one file was auto-unchecked
+        Assert.True(vm.Summary.HasAutoFitNotice);           // one file was auto-unchecked
         // Single constrained hoster → the banner names its free space so the user sees what it fit to.
-        Assert.Contains("free", vm.AutoFitNotice, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("free", vm.Summary.AutoFitNotice, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1041,22 +1041,22 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 100000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
         brupload.Use = true;
 
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
-        Assert.False(vm.HasAutoFitNotice); // nothing was auto-evicted (everything fit)
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
+        Assert.False(vm.Summary.HasAutoFitNotice); // nothing was auto-evicted (everything fit)
 
         // The user unchecks a file by hand. It fit fine → this is NOT a space eviction, so the banner that
         // claims "unchecked to fit the available space" must stay hidden.
         entry.Files.First(f => f.Included).Included = false;
 
-        Assert.False(vm.HasAutoFitNotice);
-        Assert.Equal(string.Empty, vm.AutoFitNotice);
+        Assert.False(vm.Summary.HasAutoFitNotice);
+        Assert.Equal(string.Empty, vm.Summary.AutoFitNotice);
     }
 
     [Fact]
@@ -1066,27 +1066,27 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         List<string> raised = [];
-        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
+        vm.Sources.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
 
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 600, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 300, IsSelected = true });
 
-        Assert.Equal(2, vm.SelectedFileCount);
-        Assert.Equal(ByteUnit.FromBytes(900, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+        Assert.Equal(2, vm.Sources.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(900, ByteBase.Binary).ToFriendlyString(), vm.Sources.SelectedTotalSizeDisplay);
 
         // Unchecking a file must live-update BOTH footer stats (and raise change notifications for them —
         // that's what the Step-1 footer bindings ride on).
         raised.Clear();
-        vm.Files[0].IsSelected = false;
-        Assert.Equal(1, vm.SelectedFileCount);
-        Assert.Equal(ByteUnit.FromBytes(300, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
-        Assert.Contains(nameof(vm.SelectedFileCount), raised);
-        Assert.Contains(nameof(vm.SelectedTotalSizeDisplay), raised);
+        vm.Sources.Files[0].IsSelected = false;
+        Assert.Equal(1, vm.Sources.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(300, ByteBase.Binary).ToFriendlyString(), vm.Sources.SelectedTotalSizeDisplay);
+        Assert.Contains(nameof(vm.Sources.SelectedFileCount), raised);
+        Assert.Contains(nameof(vm.Sources.SelectedTotalSizeDisplay), raised);
 
         // Removing the remaining ticked file zeroes the footer.
-        vm.Files.RemoveAt(1);
-        Assert.Equal(0, vm.SelectedFileCount);
-        Assert.Equal(ByteUnit.FromBytes(0, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+        vm.Sources.Files.RemoveAt(1);
+        Assert.Equal(0, vm.Sources.SelectedFileCount);
+        Assert.Equal(ByteUnit.FromBytes(0, ByteBase.Binary).ToFriendlyString(), vm.Sources.SelectedTotalSizeDisplay);
     }
 
     [Fact]
@@ -1127,19 +1127,19 @@ public class UploadWizardViewModelTests : IDisposable
             UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
             int footerNotifications = 0;
-            vm.PropertyChanged += (_, e) =>
+            vm.Sources.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(vm.SelectedFileCount))
+                if (e.PropertyName == nameof(vm.Sources.SelectedFileCount))
                 {
                     footerNotifications++;
                 }
             };
 
-            vm.AddDroppedPaths([dir]); // triggers the bulk directory walk
+            vm.Sources.AddDroppedPaths([dir]); // triggers the bulk directory walk
 
             // Correctness: the footer reflects the whole scan.
-            Assert.Equal(6, vm.SelectedFileCount);
-            Assert.Equal(ByteUnit.FromBytes(600, ByteBase.Binary).ToFriendlyString(), vm.SelectedTotalSizeDisplay);
+            Assert.Equal(6, vm.Sources.SelectedFileCount);
+            Assert.Equal(ByteUnit.FromBytes(600, ByteBase.Binary).ToFriendlyString(), vm.Sources.SelectedTotalSizeDisplay);
 
             // Batching: the footer recomputes ONCE at the end of the scan, not once per file (was ~6+ → O(N²)).
             Assert.True(footerNotifications <= 2, $"expected footer to recompute at most twice, got {footerNotifications}");
@@ -1167,48 +1167,48 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel katfile = new(
             "KatFile",
             [new FileHosterLoginDto { Id = 2, FileHosterName = "KatFile", Username = "k", StorageQuotaBytes = 100_000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.FileHosters.Add(katfile);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(katfile);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
         brupload.Use = true;
         katfile.Use = true;
 
         List<string> footers = [];
-        vm.PropertyChanged += (_, e) =>
+        vm.Summary.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(UploadWizardViewModel.TotalUploadSummary))
+            if (e.PropertyName == nameof(WizardSummaryViewModel.TotalUploadSummary))
             {
-                footers.Add(vm.TotalUploadSummary);
+                footers.Add(vm.Summary.TotalUploadSummary);
             }
         };
 
         vm.CurrentStep = 2;
 
         // 2 hosters × 2 files = 4 uploads, 2 × (100 + 200) = 600 bytes — the grand total sums across hosters.
-        Assert.Equal(2, vm.Summaries.Count);
-        Assert.Equal(4, vm.Summaries.Sum(s => s.IncludedCount));
-        Assert.Equal(600L, vm.Summaries.Sum(s => s.IncludedBytes));
+        Assert.Equal(2, vm.Summary.Summaries.Count);
+        Assert.Equal(4, vm.Summary.Summaries.Sum(s => s.IncludedCount));
+        Assert.Equal(600L, vm.Summary.Summaries.Sum(s => s.IncludedBytes));
 
         string expected = string.Format(
             System.Globalization.CultureInfo.CurrentCulture,
             Localizer.Instance["Wizard_Summary_TotalFooter_Format"],
             4,
             ByteUnit.FromBytes(600L, ByteBase.Binary).ToFriendlyString());
-        Assert.Equal(expected, vm.TotalUploadSummary);
+        Assert.Equal(expected, vm.Summary.TotalUploadSummary);
 
         // Unchecking one file on one hoster drops the grand total to 3 uploads / 500 bytes and re-raises the footer.
         footers.Clear();
-        vm.Summaries[0].Files.First(f => f.Included && f.Size == 100).Included = false;
-        Assert.Equal(3, vm.Summaries.Sum(s => s.IncludedCount));
-        Assert.Equal(500L, vm.Summaries.Sum(s => s.IncludedBytes));
+        vm.Summary.Summaries[0].Files.First(f => f.Included && f.Size == 100).Included = false;
+        Assert.Equal(3, vm.Summary.Summaries.Sum(s => s.IncludedCount));
+        Assert.Equal(500L, vm.Summary.Summaries.Sum(s => s.IncludedBytes));
 
         string expectedAfter = string.Format(
             System.Globalization.CultureInfo.CurrentCulture,
             Localizer.Instance["Wizard_Summary_TotalFooter_Format"],
             3,
             ByteUnit.FromBytes(500L, ByteBase.Binary).ToFriendlyString());
-        Assert.Equal(expectedAfter, vm.TotalUploadSummary);
+        Assert.Equal(expectedAfter, vm.Summary.TotalUploadSummary);
         Assert.Contains(expectedAfter, footers);    // footer raised PropertyChanged on the toggle
     }
 
@@ -1221,14 +1221,14 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.True(vm.CanGoNext); // auto-fit kept it within capacity
 
         // User re-checks the auto-dropped file → 1200 > 1000 → Next blocked.
@@ -1251,17 +1251,17 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big.bin", FileName = "big.bin", Size = 600, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m1.bin", FileName = "m1.bin", Size = 300, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "m2.bin", FileName = "m2.bin", Size = 300, IsSelected = true });
         brupload.Use = true;
         vm.CurrentStep = 2; // populates Summaries + auto-fits (keeps 600 + one 300, drops the other)
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         string droppedPath = entry.Files.First(f => !f.Included).File.FullPath;
 
-        Dictionary<string, HashSet<string>>? map = vm.BuildIncludedFilesPerHoster();
+        Dictionary<string, HashSet<string>>? map = vm.Summary.BuildIncludedFilesPerHoster();
 
         Assert.NotNull(map);
         HashSet<string> included = Assert.Contains("BRupload", map!);
@@ -1280,13 +1280,13 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1_000_000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary built = Assert.Single(vm.Summaries);
+        HosterUploadSummary built = Assert.Single(vm.Summary.Summaries);
         Assert.Equal(2, built.IncludedCount);
 
         // User manually unchecks one file on Page 3.
@@ -1298,7 +1298,7 @@ public class UploadWizardViewModelTests : IDisposable
         vm.CurrentStep = 2;
 
         // Same summary instance, manual edit intact (no rebuild, no re-auto-fit).
-        HosterUploadSummary afterBack = Assert.Single(vm.Summaries);
+        HosterUploadSummary afterBack = Assert.Single(vm.Summary.Summaries);
         Assert.Same(built, afterBack);
         Assert.Equal(1, afterBack.IncludedCount);
         Assert.False(afterBack.Files.First(f => f.FileName == "a.bin").Included);
@@ -1311,21 +1311,21 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(brupload);
         FileEntry a = new() { FullPath = "a.bin", FileName = "a.bin", Size = 100, IsSelected = true };
-        vm.Files.Add(a);
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
+        vm.Sources.Files.Add(a);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 200, IsSelected = true });
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.Equal(2, Assert.Single(vm.Summaries).IncludedCount);
+        Assert.Equal(2, Assert.Single(vm.Summary.Summaries).IncludedCount);
 
         // Back, deselect a file on Page 1, return → the summary rebuilds with only the still-selected one.
         vm.CurrentStep = 1;
         a.IsSelected = false; // Page 1 change marks the summary dirty
         vm.CurrentStep = 2;
 
-        SummaryFileItem only = Assert.Single(Assert.Single(vm.Summaries).Files);
+        SummaryFileItem only = Assert.Single(Assert.Single(vm.Summary.Summaries).Files);
         Assert.Equal("b.bin", only.FileName);
     }
 
@@ -1351,15 +1351,15 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
         FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
-        vm.FileHosters.Add(icer);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        vm.Hosters.FileHosters.Add(icer);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
         icer.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
 
-        await vm.PendingStorageRefresh!;
+        await vm.Summary.PendingStorageRefresh!;
 
         Assert.Equal(100L, entry.AvailableBytes); // refreshed (snapshot said 1000)
         Assert.Equal(1, entry.IncludedCount);     // 80 + 80 > 100 → live re-fit keeps one
@@ -1375,15 +1375,15 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
         FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
-        vm.FileHosters.Add(icer);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        vm.Hosters.FileHosters.Add(icer);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
         icer.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
 
-        await vm.PendingStorageRefresh!;
+        await vm.Summary.PendingStorageRefresh!;
 
         Assert.Equal(1000L, entry.AvailableBytes); // snapshot kept
         Assert.Equal(2, entry.IncludedCount);
@@ -1402,13 +1402,13 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
         FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
-        vm.FileHosters.Add(icer);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        vm.Hosters.FileHosters.Add(icer);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
         icer.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
 
         // User unchecks BOTH while the refresh is still in flight. A re-fit would put one back (one 80
         // fits the fresh 100); because the user edited, the landing refresh must NOT re-fit.
@@ -1417,7 +1417,7 @@ public class UploadWizardViewModelTests : IDisposable
         Assert.True(entry.HasUserEdits);
 
         gate.SetResult(new StorageUsage(900L, 1000L)); // now the refresh lands (100 free)
-        await vm.PendingStorageRefresh!;
+        await vm.Summary.PendingStorageRefresh!;
 
         Assert.Equal(100L, entry.AvailableBytes); // available still updated…
         Assert.Equal(0, entry.IncludedCount);     // …but the user's selection is untouched (no re-fit)
@@ -1433,13 +1433,13 @@ public class UploadWizardViewModelTests : IDisposable
 
         UploadWizardViewModel vm = WizardWithVerifier(verifier.Object);
         FileHosterSelectionViewModel icer = IcerBoxRow(quota: 1000, used: 0);
-        vm.FileHosters.Add(icer);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
-        vm.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
+        vm.Hosters.FileHosters.Add(icer);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Sources.Files.Add(new FileEntry { FullPath = "b.bin", FileName = "b.bin", Size = 80, IsSelected = true });
         icer.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.True(entry.IsRefreshing); // in flight (gate not yet set)
 
         // The user makes an edit (toggle off then back on) so HasUserEdits latches while both stay
@@ -1451,7 +1451,7 @@ public class UploadWizardViewModelTests : IDisposable
 
         // Refresh shrinks available to 100. User edited → NO re-fit → 160 > 100 → over capacity.
         gate.SetResult(new StorageUsage(900L, 1000L));
-        await vm.PendingStorageRefresh!;
+        await vm.Summary.PendingStorageRefresh!;
 
         Assert.False(entry.IsRefreshing);
         Assert.Equal(100L, entry.AvailableBytes);
@@ -1470,13 +1470,13 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterSelectionViewModel brupload = new(
             "BRupload",
             [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u", StorageQuotaBytes = 1000L, StorageUsedBytes = 0L }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "a.bin", FileName = "a.bin", Size = 80, IsSelected = true });
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
-        await vm.PendingStorageRefresh!;
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
+        await vm.Summary.PendingStorageRefresh!;
 
         Assert.False(entry.IsRefreshing);
         verifier.Verify(
@@ -1494,18 +1494,18 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
+        vm.Hosters.FileHosters.Add(brupload);
         for (int i = 0; i < 32; i++)
         {
-            vm.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
+            vm.Sources.Files.Add(new FileEntry { FullPath = $"f{i}.bin", FileName = $"f{i}.bin", Size = 1024, IsSelected = true });
         }
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        HosterUploadSummary entry = Assert.Single(vm.Summaries);
+        HosterUploadSummary entry = Assert.Single(vm.Summary.Summaries);
         Assert.Equal(30, entry.FileCount);
-        Assert.Equal(2, vm.OrphanFilesCount);
+        Assert.Equal(2, vm.Summary.OrphanFilesCount);
     }
 
     [Fact]
@@ -1516,14 +1516,14 @@ public class UploadWizardViewModelTests : IDisposable
 
         FileHosterLoginDto disabledAccount = new() { Id = 1, FileHosterName = "BRupload", Username = "u", Disabled = true };
         FileHosterSelectionViewModel brupload = new("BRupload", [disabledAccount]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.Empty(vm.Summaries);
-        Assert.Single(vm.OrphanFiles);
+        Assert.Empty(vm.Summary.Summaries);
+        Assert.Single(vm.Summary.OrphanFiles);
     }
 
     [Fact]
@@ -1535,14 +1535,14 @@ public class UploadWizardViewModelTests : IDisposable
         FileHosterLoginDto failedAccount = new() { Id = 1, FileHosterName = "BRupload", Username = "u" };
         failedAccount.SetCheckStatus(AccountCheckStatus.Failed, "Auth failed");
         FileHosterSelectionViewModel brupload = new("BRupload", [failedAccount]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "f.bin", FileName = "f.bin", Size = 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.Empty(vm.Summaries);
-        Assert.Single(vm.OrphanFiles);
+        Assert.Empty(vm.Summary.Summaries);
+        Assert.Single(vm.Summary.OrphanFiles);
     }
 
     [Fact]
@@ -1554,13 +1554,13 @@ public class UploadWizardViewModelTests : IDisposable
         UploadWizardViewModel vm = new(_packageManager, _loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), new AppSettings(), registry);
 
         FileHosterSelectionViewModel brupload = new("BRupload", [new FileHosterLoginDto { Id = 1, FileHosterName = "BRupload", Username = "u" }]);
-        vm.FileHosters.Add(brupload);
-        vm.Files.Add(new FileEntry { FullPath = "big.iso", FileName = "big.iso", Size = 5L * 1024 * 1024 * 1024, IsSelected = true });
+        vm.Hosters.FileHosters.Add(brupload);
+        vm.Sources.Files.Add(new FileEntry { FullPath = "big.iso", FileName = "big.iso", Size = 5L * 1024 * 1024 * 1024, IsSelected = true });
 
         brupload.Use = true;
         vm.CurrentStep = 2;
 
-        Assert.True(vm.HasOrphanFiles);
+        Assert.True(vm.Summary.HasOrphanFiles);
         Assert.True(vm.CanGoNext);
     }
 

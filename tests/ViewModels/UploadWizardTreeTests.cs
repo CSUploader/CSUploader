@@ -83,9 +83,9 @@ public class UploadWizardTreeTests : IDisposable
         Directory.CreateDirectory(Path.Combine(season, "subs", "eng"));
         File.WriteAllText(Path.Combine(season, "subs", "eng", "e01.srt"), "s");
 
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode all = Assert.Single(_vm.TreeRoots);
+        UploadTreeNode all = Assert.Single(_vm.Sources.TreeRoots);
         UploadTreeNode root = Assert.Single(all.Children);
         Assert.Equal("Season 1", root.Name);
         Assert.Equal(3, root.FileCount);
@@ -107,9 +107,9 @@ public class UploadWizardTreeTests : IDisposable
         File.WriteAllText(a, "1");
         File.WriteAllText(b, "2");
 
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
-        UploadTreeNode all = Assert.Single(_vm.TreeRoots);
+        UploadTreeNode all = Assert.Single(_vm.Sources.TreeRoots);
         UploadTreeNode loose = Assert.Single(all.Children);
         Assert.Equal(UploadTreeNodeKind.LooseFiles, loose.Kind);
         Assert.Equal(2, loose.FileCount);
@@ -123,19 +123,19 @@ public class UploadWizardTreeTests : IDisposable
         File.WriteAllText(Path.Combine(season, "subs", "e01.srt"), "s");
         string other = MakeFolder("artwork", "cover.jpg");
 
-        _vm.AddDroppedPaths([season, other]);
+        _vm.Sources.AddDroppedPaths([season, other]);
 
-        UploadTreeNode all = _vm.TreeRoots[0];
+        UploadTreeNode all = _vm.Sources.TreeRoots[0];
         UploadTreeNode seasonNode = all.Children.First(c => c.Name == "Season 1");
 
-        _vm.SelectedNode = seasonNode;
+        _vm.Sources.SelectedNode = seasonNode;
         Assert.Equal(2, Visible().Length);                       // the mkv AND the srt beneath it
         Assert.DoesNotContain("cover.jpg", Visible());
 
-        _vm.SelectedNode = seasonNode.Children.First(c => c.Name == "subs");
+        _vm.Sources.SelectedNode = seasonNode.Children.First(c => c.Name == "subs");
         Assert.Equal(["e01.srt"], Visible());
 
-        _vm.SelectedNode = all;
+        _vm.Sources.SelectedNode = all;
         Assert.Equal(3, Visible().Length);
     }
 
@@ -145,10 +145,10 @@ public class UploadWizardTreeTests : IDisposable
         // Both narrow the same view, so one must not undo the other.
         string season = MakeFolder("Season 1", "e01.mkv", "e01.nfo");
         MakeFolder("artwork", "cover.jpg");
-        _vm.AddDroppedPaths([season, Path.Combine(_root, "artwork")]);
+        _vm.Sources.AddDroppedPaths([season, Path.Combine(_root, "artwork")]);
 
-        _vm.SelectedNode = _vm.TreeRoots[0].Children.First(c => c.Name == "Season 1");
-        _vm.FileFilter = "nfo";
+        _vm.Sources.SelectedNode = _vm.Sources.TreeRoots[0].Children.First(c => c.Name == "Season 1");
+        _vm.Sources.FileFilter = "nfo";
 
         Assert.Equal(["e01.nfo"], Visible());
     }
@@ -159,16 +159,16 @@ public class UploadWizardTreeTests : IDisposable
         string season = MakeFolder("Season 1", "e01.mkv");
         Directory.CreateDirectory(Path.Combine(season, "subs"));
         File.WriteAllText(Path.Combine(season, "subs", "e01.srt"), "s");
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode seasonNode = _vm.TreeRoots[0].Children[0];
+        UploadTreeNode seasonNode = _vm.Sources.TreeRoots[0].Children[0];
         Assert.True(seasonNode.IsChecked);   // everything arrives ticked
 
         seasonNode.IsChecked = false;
-        Assert.All(_vm.Files, f => Assert.False(f.IsSelected));
+        Assert.All(_vm.Sources.Files, f => Assert.False(f.IsSelected));
 
         seasonNode.IsChecked = true;
-        Assert.All(_vm.Files, f => Assert.True(f.IsSelected));
+        Assert.All(_vm.Sources.Files, f => Assert.True(f.IsSelected));
     }
 
     [Fact]
@@ -177,13 +177,13 @@ public class UploadWizardTreeTests : IDisposable
         string season = MakeFolder("Season 1", "e01.mkv");
         Directory.CreateDirectory(Path.Combine(season, "subs"));
         File.WriteAllText(Path.Combine(season, "subs", "e01.srt"), "s");
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode all = _vm.TreeRoots[0];
+        UploadTreeNode all = _vm.Sources.TreeRoots[0];
         UploadTreeNode seasonNode = all.Children[0];
         UploadTreeNode subs = seasonNode.Children[0];
 
-        _vm.Files.First(f => f.FileName == "e01.srt").IsSelected = false;
+        _vm.Sources.Files.First(f => f.FileName == "e01.srt").IsSelected = false;
 
         Assert.False(subs.IsChecked);       // that branch is now entirely unticked
         Assert.Null(seasonNode.IsChecked);  // …its parent is mixed
@@ -196,12 +196,12 @@ public class UploadWizardTreeTests : IDisposable
         // A three-state box cycles checked -> unchecked -> indeterminate, and "make this branch
         // partially ticked" means nothing; accepting it would look like an action and do nothing.
         string season = MakeFolder("Season 1", "e01.mkv", "e02.mkv");
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode node = _vm.TreeRoots[0].Children[0];
+        UploadTreeNode node = _vm.Sources.TreeRoots[0].Children[0];
         node.IsChecked = null;
 
-        Assert.All(_vm.Files, f => Assert.True(f.IsSelected));
+        Assert.All(_vm.Sources.Files, f => Assert.True(f.IsSelected));
     }
 
     [Fact]
@@ -210,15 +210,15 @@ public class UploadWizardTreeTests : IDisposable
         string season = MakeFolder("Season 1", "e01.mkv");
         Directory.CreateDirectory(Path.Combine(season, "subs"));
         File.WriteAllText(Path.Combine(season, "subs", "e01.srt"), "s");
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode all = _vm.TreeRoots[0];
+        UploadTreeNode all = _vm.Sources.TreeRoots[0];
 
-        _vm.SelectNoneCommand.Execute(null);
+        _vm.Sources.SelectNoneCommand.Execute(null);
         Assert.False(all.IsChecked);
         Assert.False(all.Children[0].IsChecked);
 
-        _vm.SelectAllCommand.Execute(null);
+        _vm.Sources.SelectAllCommand.Execute(null);
         Assert.True(all.IsChecked);
         Assert.True(all.Children[0].IsChecked);
     }
@@ -227,16 +227,16 @@ public class UploadWizardTreeTests : IDisposable
     public void AddingASecondFolder_KeepsTheSelectedSourceSelected()
     {
         string a = MakeFolder("first", "a.mkv");
-        _vm.AddDroppedPaths([a]);
-        UploadTreeNode firstNode = _vm.TreeRoots[0].Children[0];
-        _vm.SelectedNode = firstNode;
+        _vm.Sources.AddDroppedPaths([a]);
+        UploadTreeNode firstNode = _vm.Sources.TreeRoots[0].Children[0];
+        _vm.Sources.SelectedNode = firstNode;
 
-        _vm.AddDroppedPaths([MakeFolder("second", "b.mkv")]);
+        _vm.Sources.AddDroppedPaths([MakeFolder("second", "b.mkv")]);
 
         // The tree is rebuilt wholesale, so the node object differs — what must survive is WHERE the
         // user was, not which instance they were on.
-        Assert.NotNull(_vm.SelectedNode);
-        Assert.Equal("first", _vm.SelectedNode!.Name);
+        Assert.NotNull(_vm.Sources.SelectedNode);
+        Assert.Equal("first", _vm.Sources.SelectedNode!.Name);
         Assert.Equal(["a.mkv"], Visible());
     }
 
@@ -245,19 +245,19 @@ public class UploadWizardTreeTests : IDisposable
     {
         string a = MakeFolder("first", "a.mkv");
         string b = MakeFolder("second", "b.mkv");
-        _vm.AddDroppedPaths([a, b]);
+        _vm.Sources.AddDroppedPaths([a, b]);
 
-        UploadTreeNode firstNode = _vm.TreeRoots[0].Children.First(c => c.Name == "first");
-        _vm.SelectedNode = firstNode;
+        UploadTreeNode firstNode = _vm.Sources.TreeRoots[0].Children.First(c => c.Name == "first");
+        _vm.Sources.SelectedNode = firstNode;
 
-        _vm.RemoveSourceCommand.Execute(firstNode.Source);
+        _vm.Sources.RemoveSourceCommand.Execute(firstNode.Source);
 
-        UploadTreeNode all = Assert.Single(_vm.TreeRoots);
+        UploadTreeNode all = Assert.Single(_vm.Sources.TreeRoots);
         Assert.Single(all.Children);
         Assert.Equal("second", all.Children[0].Name);
 
         // The node that was selected is gone; the grid must not be left showing nothing.
-        Assert.Equal(UploadTreeNodeKind.All, _vm.SelectedNode!.Kind);
+        Assert.Equal(UploadTreeNodeKind.All, _vm.Sources.SelectedNode!.Kind);
         Assert.Equal(["b.mkv"], Visible());
     }
 
@@ -267,9 +267,9 @@ public class UploadWizardTreeTests : IDisposable
         string season = MakeFolder("Season 1", "e01.mkv");
         Directory.CreateDirectory(Path.Combine(season, "subs"));
         File.WriteAllText(Path.Combine(season, "subs", "e01.srt"), "s");
-        _vm.AddDroppedPaths([season]);
+        _vm.Sources.AddDroppedPaths([season]);
 
-        UploadTreeNode all = _vm.TreeRoots[0];
+        UploadTreeNode all = _vm.Sources.TreeRoots[0];
         UploadTreeNode root = all.Children[0];
 
         Assert.True(root.IsRemovable);
@@ -279,7 +279,7 @@ public class UploadWizardTreeTests : IDisposable
 
     /// <summary>What the grid would show: the rows its collection view keeps, which is the VM's own
     /// predicate rather than a per-row flag (a collapsed row could be drawn over its neighbour).</summary>
-    private string[] Visible() => [.. _vm.Files.Where(_vm.MatchesFileFilter).Select(f => f.FileName)];
+    private string[] Visible() => [.. _vm.Sources.Files.Where(_vm.Sources.MatchesFileFilter).Select(f => f.FileName)];
 
     private string MakeFolder(string name, params string[] files)
     {

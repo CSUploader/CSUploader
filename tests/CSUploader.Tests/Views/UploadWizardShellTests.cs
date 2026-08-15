@@ -110,11 +110,11 @@ public class UploadWizardShellTests
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            harness.Vm.AddDroppedPaths([dir, loose]);
+            harness.Vm.Sources.AddDroppedPaths([dir, loose]);
             Dispatcher.UIThread.RunJobs();
 
             // One All root, holding the folder (with its subfolder) and the loose-files bucket.
-            UploadTreeNode all = Assert.Single(harness.Vm.TreeRoots);
+            UploadTreeNode all = Assert.Single(harness.Vm.Sources.TreeRoots);
             Assert.Equal(UploadTreeNodeKind.All, all.Kind);
             Assert.Equal(3, all.FileCount);
             Assert.Equal(2, all.Children.Count);
@@ -126,13 +126,13 @@ public class UploadWizardShellTests
 
             // Selecting the folder scopes the GRID's view to it AND everything beneath.
             DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.filesGrid.ItemsSource);
-            harness.Vm.SelectedNode = folder;
+            harness.Vm.Sources.SelectedNode = folder;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(2, view.Count);
             Assert.DoesNotContain(view.Cast<FileEntry>(), f => f.FullPath == loose);
 
             // Back to All: everything shows again, each in its own row.
-            harness.Vm.SelectedNode = all;
+            harness.Vm.Sources.SelectedNode = all;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(3, view.Count);
             DataGridRow[] rows = ShownRows(wizard.filesGrid);
@@ -140,15 +140,15 @@ public class UploadWizardShellTests
             Assert.Equal(rows.Length, rows.Select(r => r.Bounds.Y).Distinct().Count());
 
             // Unticking one leaf leaves the branch partial, which is what the tri-state box shows.
-            harness.Vm.Files.First(f => f.FileName == "a.srt").IsSelected = false;
+            harness.Vm.Sources.Files.First(f => f.FileName == "a.srt").IsSelected = false;
             Assert.Null(folder.IsChecked);
             Assert.Null(all.IsChecked);
 
             // Removing the source takes its whole branch with it, leaving the loose file.
-            harness.Vm.RemoveSourceCommand.Execute(folder.Source);
+            harness.Vm.Sources.RemoveSourceCommand.Execute(folder.Source);
             Dispatcher.UIThread.RunJobs();
-            Assert.Single(harness.Vm.Files);
-            Assert.Single(Assert.Single(harness.Vm.TreeRoots).Children);
+            Assert.Single(harness.Vm.Sources.Files);
+            Assert.Single(Assert.Single(harness.Vm.Sources.TreeRoots).Children);
         }
         finally
         {
@@ -171,20 +171,20 @@ public class UploadWizardShellTests
         FileEntry a = MakeEntry("a.mkv", 10);
         FileEntry b = MakeEntry("b.txt", 20);
         FileEntry c = MakeEntry("c.zip", 30);
-        harness.Vm.Files.Add(a);
-        harness.Vm.Files.Add(b);
-        harness.Vm.Files.Add(c);
+        harness.Vm.Sources.Files.Add(a);
+        harness.Vm.Sources.Files.Add(b);
+        harness.Vm.Sources.Files.Add(c);
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
             DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.filesGrid.ItemsSource);
-            Assert.Same(harness.Vm.Files, view.SourceCollection);
+            Assert.Same(harness.Vm.Sources.Files, view.SourceCollection);
             Assert.Equal(3, view.Count);
             Assert.Equal(3, wizard.filesGrid.GetVisualDescendants().OfType<DataGridRow>().Count());
 
             // Filtering to one name drops the other two OUT of the view — no collapsed rows left behind.
-            harness.Vm.FileFilter = "b.txt";
+            harness.Vm.Sources.FileFilter = "b.txt";
             Dispatcher.UIThread.RunJobs();
             Assert.Single(view);
             Assert.DoesNotContain(a, view.Cast<object>());
@@ -196,7 +196,7 @@ public class UploadWizardShellTests
                 r => ReferenceEquals(r.DataContext, a) || ReferenceEquals(r.DataContext, c));
 
             // Clearing it brings them back, each in its own row.
-            harness.Vm.FileFilter = string.Empty;
+            harness.Vm.Sources.FileFilter = string.Empty;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(3, view.Count);
 

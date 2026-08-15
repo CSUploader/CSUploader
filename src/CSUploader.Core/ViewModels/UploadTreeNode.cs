@@ -19,7 +19,7 @@ namespace CSUploader.ViewModels;
 /// <para>
 /// Nodes hold no files of their own beyond <see cref="OwnFiles"/> (the ones directly inside that
 /// folder); everything else is derived by walking, so the tree can be rebuilt from
-/// <c>UploadWizardViewModel.Files</c> whenever it changes without any state to keep in step.
+/// <see cref="WizardSourcesViewModel.Files"/> whenever it changes without any state to keep in step.
 /// </para>
 /// </summary>
 public sealed partial class UploadTreeNode : ObservableObject

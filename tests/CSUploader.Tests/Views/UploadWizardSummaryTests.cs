@@ -55,22 +55,22 @@ public class UploadWizardSummaryTests
         // the (empty) selection and clears the dirty flag; seeding afterward survives (the ItemsControl picks up
         // the CollectionChanged). Seeding before would be wiped by that rebuild.
         harness.Vm.CurrentStep = 2;
-        harness.Vm.Summaries.Add(MakeSummary("Catbox", "me@example.test", available: null, ("clip.mkv", 4096, true)));
-        harness.Vm.Summaries.Add(MakeSummary("Gofile", "anon", available: null, ("archive.zip", 2048, true)));
+        harness.Vm.Summary.Summaries.Add(MakeSummary("Catbox", "me@example.test", available: null, ("clip.mkv", 4096, true)));
+        harness.Vm.Summary.Summaries.Add(MakeSummary("Gofile", "anon", available: null, ("archive.zip", 2048, true)));
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
         {
-            Assert.Same(harness.Vm.Summaries, wizard.SummariesList.ItemsSource);
+            Assert.Same(harness.Vm.Summary.Summaries, wizard.SummariesList.ItemsSource);
 
             List<Expander> expanders = Expanders(wizard);
             Assert.Equal(2, expanders.Count);
 
             // Each hoster's header renders its name and the checked-files summary line.
-            Expander catbox = ExpanderFor(wizard, harness.Vm.Summaries[0]);
+            Expander catbox = ExpanderFor(wizard, harness.Vm.Summary.Summaries[0]);
             List<string?> texts = catbox.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("Catbox", texts);
-            Assert.Contains(texts, t => t == harness.Vm.Summaries[0].IncludedSummary);
+            Assert.Contains(texts, t => t == harness.Vm.Summary.Summaries[0].IncludedSummary);
         }
         finally
         {
@@ -85,7 +85,7 @@ public class UploadWizardSummaryTests
     {
         using VmHarness harness = new();
         harness.Vm.CurrentStep = 2; // clear _summaryDirty before seeding (see the render test's note)
-        harness.Vm.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
+        harness.Vm.Summary.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
@@ -128,7 +128,7 @@ public class UploadWizardSummaryTests
         harness.Vm.CurrentStep = 2; // clear _summaryDirty before seeding (see the render test's note)
         // 2 KiB checked against a 1 KiB free quota → over capacity from the start.
         HosterUploadSummary summary = MakeSummary("Rapidgator", "user", available: 1024, ("big.bin", 2048, true));
-        harness.Vm.Summaries.Add(summary);
+        harness.Vm.Summary.Summaries.Add(summary);
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
@@ -162,7 +162,7 @@ public class UploadWizardSummaryTests
         // Two 800-byte files against a 1 KiB quota → both included = 1600 > 1024 (over); unchecking one → 800 (under).
         HosterUploadSummary summary = MakeSummary(
             "Rapidgator", "user", available: 1024, ("a.bin", 800, true), ("b.bin", 800, true));
-        harness.Vm.Summaries.Add(summary);
+        harness.Vm.Summary.Summaries.Add(summary);
 
         (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
         try
@@ -201,15 +201,15 @@ public class UploadWizardSummaryTests
         // Neither flag set → both banners hidden.
         using VmHarness plain = new();
         plain.Vm.CurrentStep = 2; // clear _summaryDirty before seeding (see the render test's note)
-        plain.Vm.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
+        plain.Vm.Summary.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
         (Window plainWindow, UploadWizardWindow plainWizard) = Show(plain.Vm);
 
         // Both flags pre-seeded (after the step-2 rebuild) before Show → both banners visible at bind time.
         using VmHarness flagged = new();
         flagged.Vm.CurrentStep = 2; // clear _summaryDirty before seeding (see the render test's note)
-        flagged.Vm.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
-        flagged.Vm.AutoFitNotice = "2 files unchecked to fit the available space.";
-        flagged.Vm.OrphanFiles.Add(new FileEntry { FileName = "toobig.iso", RelativePath = "toobig.iso", Size = 999_999 });
+        flagged.Vm.Summary.Summaries.Add(MakeSummary("Catbox", "me", available: null, ("clip.mkv", 4096, true)));
+        flagged.Vm.Summary.AutoFitNotice = "2 files unchecked to fit the available space.";
+        flagged.Vm.Summary.OrphanFiles.Add(new FileEntry { FileName = "toobig.iso", RelativePath = "toobig.iso", Size = 999_999 });
         (Window flaggedWindow, UploadWizardWindow flaggedWizard) = Show(flagged.Vm);
         try
         {
@@ -259,7 +259,7 @@ public class UploadWizardSummaryTests
     /// <summary>
     /// A real <see cref="UploadWizardViewModel"/> over an in-memory SQLite DB — the same scratch-repo harness the
     /// other wizard suites use. The Summary is populated by adding constructed <see cref="HosterUploadSummary"/>
-    /// items to <see cref="UploadWizardViewModel.Summaries"/> directly, never through GoNext.
+    /// items to <see cref="WizardSummaryViewModel.Summaries"/> directly, never through GoNext.
     /// </summary>
     private sealed class VmHarness : IDisposable
     {
