@@ -503,6 +503,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             Assert.NotNull(package.ScheduledStartTime);
 
             _packageManager.StartPackage(package);
+            await _scheduler.DrainAsync(); // the queuing runs on the pump now, not on this thread
 
             Assert.Null(package.ScheduledStartTime);
             Assert.Equal(1, _scheduler.RegisteredPackageCount);
@@ -863,18 +864,15 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             _packageManager.ResetPackage(file);
 
-            // The reset itself runs synchronously: state moves to HashQueued and error
-            // clears immediately. StartAll runs through the scheduler's channel, so we
-            // poll briefly for IsPaused → false to prove the unpause was actually queued
-            // and processed (the bug was that StartAll wasn't called at all, so IsPaused
-            // would stay true forever).
+            // Reset posts the file mutation and then the slot-fill onto the scheduler's pump, so
+            // one drain covers both: it cannot complete until every action queued ahead of it has
+            // run. IsPaused going false is what proves the slot-fill was actually queued and
+            // processed — the original bug was that nothing resumed the scheduler at all, leaving
+            // the reset file sitting in the queue forever.
+            await _scheduler.DrainAsync();
+
             Assert.Null(file.Error);
             Assert.NotEqual(FileState.Failed, file.State);
-
-            for (int i = 0; i < 250 && _scheduler.IsPaused; i++)
-            {
-                await Task.Delay(20);
-            }
             Assert.False(_scheduler.IsPaused);
         }
         finally
@@ -1053,11 +1051,13 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             _packageManager.StartPackage(target);
 
+            // ForceQueueIfStartable runs on the scheduler's pump (it writes file.State), so drain
+            // before reading the target's state. Sibling files are NOT asserted: with
+            // scheduleIdleFiles:false nothing sweeps them, which is the point of the per-row Start.
+            await _scheduler.DrainAsync();
+
             Assert.Null(package.ScheduledStartTime);
             Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            // Target transitions synchronously via ForceQueueIfStartable. Sibling files
-            // get queued asynchronously by SchedulePackageFiles when the scheduler's
-            // background loop drains the post — not asserted here to avoid a race.
             Assert.NotEqual(FileState.Idle, target.State);
         }
         finally
@@ -1226,7 +1226,8 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             file.State = FileState.Hashing; // simulate a force-started file mid-hash
             file.ForceStart = true;
 
-            PackageManager.StopPackage(file);
+            _packageManager.StopPackage(file);
+            await _scheduler.DrainAsync(); // the stop runs on the pump now, not on this thread
 
             Assert.False(file.ForceStart);
             Assert.Equal(FileState.Cancelled, file.State);
@@ -1254,6 +1255,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             file.ForceStart = true;
 
             _packageManager.ResetPackage(file);
+            await _scheduler.DrainAsync(); // the reset runs on the pump now, not on this thread
 
             Assert.False(file.ForceStart);
         }
@@ -1280,6 +1282,7 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             file.ForceStart = true;
 
             _packageManager.RemovePackage(file);
+            await _scheduler.DrainAsync(); // the detach runs on the pump now, not on this thread
 
             Assert.False(file.ForceStart);
         }

@@ -744,33 +744,29 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// <summary>
     /// Removes a specific package file from this package.
     /// </summary>
+    /// <remarks>
+    /// Drops the file from the list and nothing more. Cancelling its in-flight work belongs to
+    /// <see cref="UploadScheduler"/>, which owns <see cref="PackageFile.Cts"/> and only ever
+    /// touches it on its own pump — see <c>UploadScheduler.RemoveFile</c>, which the caller pairs
+    /// with this. Tearing the source down from here as well meant doing it on the UI thread, in a
+    /// race with the pump launching that same file.
+    /// </remarks>
     /// <param name="packageFile">The file to remove.</param>
     public void Remove(PackageFile packageFile)
     {
         lock (_filesLock)
         { PackageFiles.Remove(packageFile); }
-        packageFile.Cts?.Cancel();
-        packageFile.Cts?.Dispose();
-        packageFile.Cts = null;
     }
 
     /// <summary>
-    /// Removes all package files from this package.
+    /// Removes all package files from this package. Cancellation is the scheduler's job — see
+    /// <see cref="Remove(PackageFile)"/>.
     /// </summary>
     public void Remove()
     {
-        PackageFile[] snapshot;
         lock (_filesLock)
         {
-            snapshot = [.. PackageFiles];
             PackageFiles.Clear();
-        }
-
-        foreach (PackageFile packageFile in snapshot)
-        {
-            packageFile.Cts?.Cancel();
-            packageFile.Cts?.Dispose();
-            packageFile.Cts = null;
         }
     }
 
