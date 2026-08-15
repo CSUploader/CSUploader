@@ -181,6 +181,21 @@ public class PackageFile : INotifyPropertyChanged
     public CancellationTokenSource? Cts { get; set; }
 
     /// <summary>
+    /// Gets or sets which attempt currently owns this row. Bumped by the scheduler each time it
+    /// launches a hash or an upload for this file.
+    /// </summary>
+    /// <remarks>
+    /// A worker's completion callback is queued on the scheduler's pump and runs some time after
+    /// the work itself ends. If the user stops the file and starts it again in that window, the OLD
+    /// callback arrives to find a NEW attempt in possession of <see cref="Cts"/> and
+    /// <see cref="State"/>. Acting on it disposed the new attempt's source without cancelling it —
+    /// leaving an upload nothing could stop, behind a row that claimed to be cancelled. The
+    /// scheduler stamps each worker with the generation it launched under and drops callbacks that
+    /// no longer match. Read and written only on the pump thread.
+    /// </remarks>
+    internal int AttemptGeneration { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the user force-started this file from the
     /// Uploads context menu. When true the <see cref="UploadScheduler"/> launches its upload
     /// past the UPLOAD admission gate (global + per-host), while still respecting the hashing/CPU
