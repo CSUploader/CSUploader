@@ -128,15 +128,21 @@
 - Members that move (from the current file; the split boundary is "everything whose only consumers are account management"): `HasAccounts`, `HostersForEditing`, `ReloadAccountsAsync`, `LoadAccountsAsync`, `AddAccountDialogAsync` [RelayCommand], `VerifyCredentialsAsync`, `NowLocal`, `InteractiveLoginAsync`, `ApplySessionCookieIfPresent`, `AddAccountFromDialogAsync`, `RefreshAllAccountsAsync` [RelayCommand], `CheckOneForRefreshAllAsync`, `AccountCheckOutcomeForRow`, `NeedsInteractiveSignIn`, `CheckAccountAsync`, `AddAccountAsync` [RelayCommand], `RemoveSelectedAccountsAsync`, `ResolveAccountTargets`, `EditAccountAsync` [RelayCommand], `SaveEditedAccountAsync`, `RefreshSelectedAccountsAsync`, `RefreshSingleAccountAsync`, `EnableSelectedAccountsAsync`, `DisableSelectedAccountsAsync`, `ApplyEnabledStateAsync`, `AutoDisableIfFailed`, `RowStatus`, `BuildStatusMap`, `ApplyStatusMap` (×2), `UpdateAccountStatus`, the `Accounts` collection + account-side `[ObservableProperty]` fields (identify by reading lines 60–260: any property only the accounts grid binds), and the account-side portion of `LoadCoreAsync`.
 - `Loc`/`LocF` helpers are needed by both halves — duplicate the two one-liners (they're `private static` wrappers over `Localizer.Instance`).
 
-- [ ] **Step 1:** Read `SettingsViewModel.cs` fully. Write the member allocation list (settings-half vs accounts-half) as scratch notes; anything ambiguous (shared state) stays on SettingsViewModel with an explicit pass-through.
-- [ ] **Step 2:** Create `AccountManagerViewModel` with the moved members verbatim; primary ctor per Step 1's dependency audit.
-- [ ] **Step 3:** SettingsViewModel: remove moved members; add ctor param + `public AccountManagerViewModel AccountManager { get; }`; `LoadCoreAsync` calls `AccountManager.LoadAccountsAsync(...)` where it inlined that work before.
-- [ ] **Step 4:** `ServiceRegistration.AddCoreServices`: `services.AddSingleton<AccountManagerViewModel>();` next to the other VM singletons.
-- [ ] **Step 5:** Build Core only (`dotnet build src/CSUploader.Core -v:q`) and fix fallout; then full build. The head's SettingsView AXAML still binds account members on SettingsViewModel — fix now:
-- [ ] **Step 6:** `SettingsView.axaml`: wrap/point the accounts section at `DataContext="{Binding AccountManager}"`; convert the whole view: root `x:CompileBindings="True"` + `x:DataType="vm:SettingsViewModel"`, accounts section `x:DataType="vm:AccountManagerViewModel"`, the three connection-manager panels (lines ~527/552/687) `x:DataType="vm:ConnectionManagerViewModel"`.
-- [ ] **Step 7:** Re-point tests: account-behavior test classes construct `AccountManagerViewModel` directly (rename test classes/files to `AccountManagerViewModel*Tests` per the mirror-the-class convention); `SettingsViewModelTests` keeps the general half. `SettingsAccountsTests` (head) drives the view — update its VM setup to reach accounts via `AccountManager`.
-- [ ] **Step 8:** Full suite: same totals (moves, not deletions; add a construction smoke only if DI smoke doesn't already resolve the new VM transitively).
-- [ ] **Step 9:** Codex review gate → commit: `refactor(settings): account management moves into its own view-model`
+- [x] **Task 4 executed and Codex-gated.** Verdict: request changes — four Low findings, all fixed
+  before commit: (1) a dropped stacked doc comment on `ApplySessionCookieIfPresent` restored
+  verbatim; (2) two stale "inherited SettingsViewModel" ownership comments + one stale harness doc
+  updated to the AccountManager reality; (3) the OneWay-columns test pins the exact compiled-column
+  count (5) instead of NotEmpty; (4) informational — MultiBinding children DO compile under x:DataType
+  (the review premise said otherwise); no change needed. Full suite re-run green after fixes.
+- [x] **Step 1:** Read `SettingsViewModel.cs` fully. Write the member allocation list (settings-half vs accounts-half) as scratch notes; anything ambiguous (shared state) stays on SettingsViewModel with an explicit pass-through.
+- [x] **Step 2:** Create `AccountManagerViewModel` with the moved members verbatim; primary ctor per Step 1's dependency audit.
+- [x] **Step 3:** SettingsViewModel: remove moved members; add ctor param + `public AccountManagerViewModel AccountManager { get; }`; `LoadCoreAsync` calls `AccountManager.LoadAccountsAsync(...)` where it inlined that work before.
+- [x] **Step 4:** `ServiceRegistration.AddCoreServices`: `services.AddSingleton<AccountManagerViewModel>();` next to the other VM singletons.
+- [x] **Step 5:** Build Core only (`dotnet build src/CSUploader.Core -v:q`) and fix fallout; then full build. The head's SettingsView AXAML still binds account members on SettingsViewModel — fix now:
+- [x] **Step 6:** `SettingsView.axaml`: wrap/point the accounts section at `DataContext="{Binding AccountManager}"`; convert the whole view: root `x:CompileBindings="True"` + `x:DataType="vm:SettingsViewModel"`, accounts section `x:DataType="vm:AccountManagerViewModel"`, the three connection-manager panels (lines ~527/552/687) `x:DataType="vm:ConnectionManagerViewModel"`.
+- [x] **Step 7:** Re-point tests: account-behavior test classes construct `AccountManagerViewModel` directly (rename test classes/files to `AccountManagerViewModel*Tests` per the mirror-the-class convention); `SettingsViewModelTests` keeps the general half. `SettingsAccountsTests` (head) drives the view — update its VM setup to reach accounts via `AccountManager`.
+- [x] **Step 8:** Full suite: same totals (moves, not deletions; add a construction smoke only if DI smoke doesn't already resolve the new VM transitively).
+- [x] **Step 9:** Codex review gate → commit: `refactor(settings): account management moves into its own view-model`
 
 ---
 
@@ -155,13 +161,29 @@
 - Parent `UploadWizardViewModel`: keeps step index + `GoNextAsync`/`GoBack`, package options (`PackageName`, `ScheduledDate`, start mode…), `StartUploadAsync`, `SaveStickySelections`; exposes `Sources`, `Hosters`, `Summary` (get-only child VMs); constructs children, passing shared collections/callbacks — children never reference the parent type (one-way composition, parent subscribes to child events).
 - Cross-step data flow: children communicate via the collections they share (`Files`, `FileHosters`) and plain .NET events the parent bridges — pick the *minimal* seam that keeps every existing test's observable behavior identical.
 
-- [ ] **Step 1:** Read `UploadWizardViewModel.cs` fully; write the member allocation + shared-state map (which `[ObservableProperty]` belongs to which child; which stay parent).
-- [ ] **Step 2:** Extract `WizardSourcesViewModel` only. Parent delegates via `Sources` property; AXAML paths untouched for now (window still binds parent — add temporary pass-through members ONLY if a binding needs one, and record each for Step 5 cleanup). Build + Core tests after the move.
-- [ ] **Step 3:** Extract `WizardHostersViewModel` the same way. Build + tests.
-- [ ] **Step 4:** Extract `WizardSummaryViewModel` the same way. Build + tests.
-- [ ] **Step 5:** `UploadWizardWindow.axaml`: point each step panel's DataContext at `{Binding Sources}` / `{Binding Hosters}` / `{Binding Summary}`, drop the temporary pass-throughs, convert the window to compiled bindings (root `x:DataType="vm:UploadWizardViewModel"`, panels per child type, item templates per row type — `FileEntry`, `FileHosterSelectionViewModel`, `SummaryFileItem`, `HosterUploadSummary`, `UploadTreeNode`). Update `.axaml.cs` member reaches.
-- [ ] **Step 6:** Re-point Core tests to the child VMs (`UploadWizardSourcesTests`/`TreeTests` → `WizardSourcesViewModel`, `HosterFilterTests` → `WizardHostersViewModel`; `UploadWizardViewModelTests` keeps navigation/start coverage). Head wizard tests drive the window — update VM setup paths only.
-- [ ] **Step 7:** Full suite green (same or higher totals) → Codex review gate → commit: `refactor(wizard): one view-model per step, and the window compiles its bindings`
+- [x] **Step 1:** Read `UploadWizardViewModel.cs` fully; write the member allocation + shared-state map (which `[ObservableProperty]` belongs to which child; which stay parent).
+  **⚠ EXECUTED DEVIATION (recorded 2026-08-15, Codex-gated):** the full read showed the planned
+  child-VM split is the wrong tool for THIS class. Unlike SettingsViewModel (two independent halves),
+  the wizard's steps share one state machine: `_summaryDirty` is set from five sites across both
+  collections' events, `RecomputeHosterValidation` reads Files AND FileHosters, `CanGoNext` reads all
+  three steps' state, and the `BulkMutateFiles` guard spans files mutations and validation. A child-VM
+  decomposition would have to re-plumb that web through cross-VM events — behavior-ADJACENT changes
+  (event ordering, guard scope) that the behavior-preserving mandate and the existing tests cannot
+  fully pin. Instead, Task 5 applies the SAME treatment the plan already prescribes for the XFS base:
+  a `partial class` FILE split by step concern — verbatim moves, zero semantic change — plus the full
+  compiled-bindings conversion of the window. Same goals (navigable files, compiler-guarded bindings),
+  a fraction of the risk; a true VM decomposition stays open as future work under compiled-binding cover.
+- [x] **Step 2 (revised):** Split into four files, verbatim: `UploadWizardViewModel.cs` (shell: DI,
+  navigation, options, StartUpload, sticky), `.Sources.cs` (step 0: sources/tree/files/filter/selection),
+  `.Hosters.cs` (step 1: list/filters/validation/add-account), `.Summary.cs` (step 2: summaries/capacity/
+  auto-fit/storage refresh). Build: first-try success; full suite 2,762 green with ZERO test edits.
+- [x] **Step 5 (revised):** `UploadWizardWindow.axaml` converted to compiled bindings: root
+  `x:DataType="vm:UploadWizardViewModel"`; files grid columns/templates `vm:FileEntry`; hoster grid
+  columns/templates + conditional style `vm:FileHosterSelectionViewModel`; tree template + TreeViewItem
+  style `vm:UploadTreeNode`; the two `$parent` DataContext reaches use typed casts (the header checkbox
+  already did); the account combo's `DisplayMemberBinding` gains `DataType=dal:FileHosterLoginDto`;
+  summary/orphan/warning ItemsControl templates typed by ItemsSource inference. All 110 bindings compile.
+- [ ] **Step 7:** Full suite green (same totals — done) → Codex review gate (in flight; the review was asked to judge the deviation itself) → commit: `refactor(wizard): the wizard splits into a file per step, and its window compiles its bindings`
 
 ---
 

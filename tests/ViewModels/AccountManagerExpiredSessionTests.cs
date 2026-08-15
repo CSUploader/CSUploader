@@ -1,4 +1,4 @@
-// <copyright file="SettingsExpiredSessionTests.cs" company="CSUploader">
+// <copyright file="AccountManagerExpiredSessionTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -26,14 +26,13 @@ namespace CSUploader.Tests.ViewModels;
 /// again at the next start.
 /// </para>
 /// </summary>
-public class SettingsExpiredSessionTests : IDisposable
+public class AccountManagerExpiredSessionTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly IDbContextFactory<CSUploaderDbContext> _factory;
     private readonly FileHosterLoginRepository _loginRepo;
-    private readonly SettingRepository _settingRepo;
 
-    public SettingsExpiredSessionTests()
+    public AccountManagerExpiredSessionTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
@@ -47,7 +46,6 @@ public class SettingsExpiredSessionTests : IDisposable
         }
 
         _loginRepo = new FileHosterLoginRepository(_factory);
-        _settingRepo = new SettingRepository(_factory);
     }
 
     public void Dispose()
@@ -61,8 +59,8 @@ public class SettingsExpiredSessionTests : IDisposable
     {
         await _loginRepo.InsertAsync(Expired());
 
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm();
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
         Assert.True(row.Disabled);
@@ -85,8 +83,8 @@ public class SettingsExpiredSessionTests : IDisposable
             SessionCookieExpiresUtc = DateTime.UtcNow.AddHours(6),
         });
 
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm();
+        await vm.LoadAccountsAsync();
 
         Assert.False(Assert.Single(vm.Accounts).Disabled);
     }
@@ -102,8 +100,8 @@ public class SettingsExpiredSessionTests : IDisposable
             Password = "p",
         });
 
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm();
+        await vm.LoadAccountsAsync();
 
         Assert.False(Assert.Single(vm.Accounts).Disabled);
     }
@@ -123,8 +121,8 @@ public class SettingsExpiredSessionTests : IDisposable
                 SessionCookie: "fresh",
                 SessionCookieExpiresUtc: DateTime.UtcNow.AddHours(18)));
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
         Assert.True(row.Disabled);   // switched off by the load
 
@@ -152,8 +150,8 @@ public class SettingsExpiredSessionTests : IDisposable
             .Setup(v => v.CheckAsync("BowFile", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Sign-in was cancelled"));
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.EnableSelectedAccountsCommand.ExecuteAsync(new List<object> { Assert.Single(vm.Accounts) });
 
@@ -185,8 +183,8 @@ public class SettingsExpiredSessionTests : IDisposable
                 SessionCookie: "offered-but-rejected",
                 SessionCookieExpiresUtc: DateTime.UtcNow.AddHours(18)));
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.EnableSelectedAccountsCommand.ExecuteAsync(new List<object> { Assert.Single(vm.Accounts) });
 
@@ -209,8 +207,8 @@ public class SettingsExpiredSessionTests : IDisposable
         });
 
         Mock<IAccountVerifier> verifier = new();
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.EnableSelectedAccountsCommand.ExecuteAsync(new List<object> { Assert.Single(vm.Accounts) });
 
@@ -230,8 +228,8 @@ public class SettingsExpiredSessionTests : IDisposable
         });
 
         Mock<IAccountVerifier> verifier = new();
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.DisableSelectedAccountsCommand.ExecuteAsync(new List<object> { Assert.Single(vm.Accounts) });
 
@@ -247,10 +245,8 @@ public class SettingsExpiredSessionTests : IDisposable
         SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(-3),
     };
 
-    private SettingsViewModel CreateVm(IAccountVerifier? verifier = null) => new(
-        _settingRepo,
+    private AccountManagerViewModel CreateVm(IAccountVerifier? verifier = null) => new(
         _loginRepo,
-        new AppSettings(),
         Mock.Of<IDialogService>(),
         Mock.Of<IAppLogger>(),
         verifier ?? Mock.Of<IAccountVerifier>());

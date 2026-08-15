@@ -63,7 +63,15 @@ public class SettingsViewModelTests : IDisposable
         LogEntryRepository? logRepo = null,
         IAccountVerifier? verifier = null,
         CSUploader.Upload.Pipeline.IFileHosterRegistry? registry = null) =>
-        new(_settingRepo, _loginRepo, _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), verifier ?? Mock.Of<IAccountVerifier>(), logEntryRepository: logRepo, fileHosterRegistry: registry);
+        new(_settingRepo, CreateAccountVm(dialog, verifier, registry), _appSettings, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), logEntryRepository: logRepo);
+
+    /// <summary>The account-manager half, for the tests that drive account behavior directly (the
+    /// split moved those members off SettingsViewModel).</summary>
+    private AccountManagerViewModel CreateAccountVm(
+        IDialogService? dialog = null,
+        IAccountVerifier? verifier = null,
+        CSUploader.Upload.Pipeline.IFileHosterRegistry? registry = null) =>
+        new(_loginRepo, dialog ?? Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), verifier ?? Mock.Of<IAccountVerifier>(), registry);
 
     [Fact]
     public void AvailableHosters_LeavesOutHostsThatHaveNoLoginAtAll()
@@ -76,7 +84,7 @@ public class SettingsViewModelTests : IDisposable
             new CSUploader.Upload.Pipeline.Hosters.UpZurPipeline(),
         ]);
 
-        string[] offered = CreateVm(registry: registry).AvailableHosters;
+        string[] offered = CreateAccountVm(registry: registry).AvailableHosters;
 
         Assert.DoesNotContain("GigaFile", offered);
         Assert.DoesNotContain("Temp.sh", offered);
@@ -94,7 +102,7 @@ public class SettingsViewModelTests : IDisposable
     {
         // The registry is optional; without it the property behaves exactly as it did before, so a
         // test or head that doesn't wire one can't end up with an empty dialog.
-        Assert.Contains("GigaFile", CreateVm().AvailableHosters);
+        Assert.Contains("GigaFile", CreateAccountVm().AvailableHosters);
     }
 
     // Polls the DB briefly because each property's auto-save is fire-and-forget.
@@ -336,8 +344,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .Returns(gate.Task);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto dto = new()
         {
@@ -388,8 +396,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DNS failure"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
@@ -414,8 +422,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
@@ -442,8 +450,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("HitFile", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "HitFile account ready.", ApiKey: "APPID123"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
@@ -472,8 +480,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("verifier should never be called"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
@@ -502,8 +510,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "Logged in"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         DateTime before = DateTime.Now;
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
@@ -533,8 +541,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "Logged in"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         DateTime before = DateTime.Now;
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
@@ -562,8 +570,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         DateTime before = DateTime.Now;
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
@@ -593,8 +601,8 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         await _loginRepo.InsertAsync(seed);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         DateTime before = DateTime.Now;
 
         FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
@@ -622,8 +630,8 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         await _loginRepo.InsertAsync(seed);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
         vm.SelectedAccount = target;
@@ -654,8 +662,8 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         await _loginRepo.InsertAsync(seed);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
         Assert.False(target.Disabled);
@@ -682,8 +690,8 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         await _loginRepo.InsertAsync(seed);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto target = vm.Accounts.Single(a => a.Id == seed.Id);
         await vm.DisableSelectedAccountsCommand.ExecuteAsync(new List<FileHosterLoginDto> { target });
@@ -710,8 +718,8 @@ public class SettingsViewModelTests : IDisposable
         FileHosterLoginDto seed = new() { FileHosterName = "Rapidgator", Username = "u", Password = "p" };
         await _loginRepo.InsertAsync(seed);
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -730,8 +738,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
@@ -765,8 +773,8 @@ public class SettingsViewModelTests : IDisposable
         // The upload wizard's "Add account…" writes straight to the repository, and this VM is a
         // singleton whose list is otherwise filled once at startup — so the account was invisible in
         // Settings until the app restarted. MainViewModel calls this when the Settings tab is shown.
-        SettingsViewModel vm = CreateVm();
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm();
+        await vm.LoadAccountsAsync();
         Assert.Empty(vm.Accounts);
 
         await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "DDownload", Username = "added_by_wizard" });
@@ -780,10 +788,10 @@ public class SettingsViewModelTests : IDisposable
     public async Task ReloadAccountsAsync_KeepsTheHighlightedRow()
     {
         // A refresh on every visit to the tab must not yank the user's selection out from under them.
-        SettingsViewModel vm = CreateVm();
+        AccountManagerViewModel vm = CreateAccountVm();
         await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "KatFile", Username = "first" });
         await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "Uploady", Username = "second" });
-        await vm.LoadAsync();
+        await vm.LoadAccountsAsync();
 
         FileHosterLoginDto second = vm.Accounts.Single(a => a.Username == "second");
         vm.SelectedAccount = second;
@@ -813,8 +821,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "corrected", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Premium, "Signed in"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto
         {
             FileHosterName = "Rapidgator",
@@ -847,8 +855,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "u", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "ok", ApiKey: "FRESH-DERIVED-KEY"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "u", Password = "p" });
 
         FileHosterLoginDto row = Assert.Single(vm.Accounts);
@@ -866,8 +874,8 @@ public class SettingsViewModelTests : IDisposable
             .Setup(v => v.CheckAsync("Rapidgator", "still-wrong", "p", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(false, AccountType.Free, "Wrong password"));
 
-        SettingsViewModel vm = CreateVm(verifier: verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateAccountVm(verifier: verifier.Object);
+        await vm.LoadAccountsAsync();
         await vm.AddAccountFromDialogAsync(new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "u", Password = "p" });
 
         FileHosterLoginDto row = Assert.Single(vm.Accounts);

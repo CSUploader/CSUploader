@@ -77,6 +77,7 @@ public class MainViewModelInitializeTests : IDisposable
 
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
+        sc.AddSingleton<AccountManagerViewModel>();
         sc.AddSingleton<SettingsViewModel>();
         sc.AddSingleton<ConnectionManagerViewModel>();
         sc.AddSingleton<LogsViewModel>();

@@ -14,9 +14,12 @@
              xmlns:conv="clr-namespace:CSUploader.Converters"
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
+             xmlns:dal="clr-namespace:CSUploader.Dal;assembly=CSUploader.Core"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              xmlns:v="clr-namespace:CSUploader.Views"
              x:Class="CSUploader.Views.SettingsView"
+             x:CompileBindings="True"
+             x:DataType="vm:SettingsViewModel"
              Background="{DynamicResource SurfaceBrush}">
 
   <UserControl.Resources>
@@ -268,6 +271,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_Language_Label}" Classes="setting-label" />
           <ComboBox Grid.Column="1" x:Name="LanguageCombo" HorizontalAlignment="Stretch"
+                    x:CompileBindings="False"
                     ItemsSource="{Binding LanguageOptions}"
                     SelectedValueBinding="{Binding Value}"
                     DisplayMemberBinding="{Binding Label}"
@@ -348,6 +352,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_CloseAction}" Classes="setting-label" />
           <ComboBox Grid.Column="1" x:Name="CloseActionCombo" HorizontalAlignment="Stretch"
+                    x:CompileBindings="False"
                     ItemsSource="{Binding CloseActionOptions}"
                     SelectedValueBinding="{Binding Value}"
                     DisplayMemberBinding="{Binding Label}"
@@ -447,6 +452,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_RemoveFinished}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    x:CompileBindings="False"
                     ItemsSource="{Binding RemoveFinishedUploadsOptions}"
                     SelectedValueBinding="{Binding Value}"
                     DisplayMemberBinding="{Binding Label}"
@@ -457,6 +463,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_IfFileExists}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    x:CompileBindings="False"
                     ItemsSource="{Binding IfFileExistsOptions}"
                     SelectedValueBinding="{Binding Value}"
                     DisplayMemberBinding="{Binding Label}"
@@ -490,6 +497,7 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_Autostart}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    x:CompileBindings="False"
                     ItemsSource="{Binding AutostartUploadsOptions}"
                     SelectedValueBinding="{Binding Value}"
                     DisplayMemberBinding="{Binding Label}"
@@ -522,8 +530,12 @@
           RowDefinitions="Auto,*,Auto"
           IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
 
-      <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment. -->
-      <StackPanel Grid.Row="0" Margin="20,16,20,0"
+      <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment.
+           reflection islands (all three): the reach goes through the ancestor WINDOW's untyped
+           DataContext, whose runtime type varies by host (MainWindow's MainViewModel in production,
+           plain test doubles in the headless suites) — no single x:DataType is truthful, and the
+           Connection panel's VM is outside this refactor. -->
+      <StackPanel Grid.Row="0" Margin="20,16,20,0" x:CompileBindings="False"
                   DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
           <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24"
@@ -548,7 +560,7 @@
 
       <!-- The grid dims (Opacity 0.45, via the proxies-off conditional class) when Use-proxies is off but
            stays interactive so proxies can be curated before flipping the master switch back on. -->
-      <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8"
+      <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8" x:CompileBindings="False"
                 DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
                 Classes.proxies-off="{Binding !ProxiesEnabled}"
                 ItemsSource="{Binding Proxies}"
@@ -683,7 +695,7 @@
            resolve the grid's VM + live SelectedItems (the flyout lives in a separate popup namescope, so a
            cross-popup ElementName/SelectedItems binding is not reliable — same rule-19 reason the grid menu's
            params are code-behind). Add / Test All are plain buttons bound directly to the inherited VM. -->
-      <DockPanel Grid.Row="2" Margin="20,0,20,16"
+      <DockPanel Grid.Row="2" Margin="20,0,20,16" x:CompileBindings="False"
                  DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Classes="jd2" Margin="0,0,8,0">
@@ -747,14 +759,17 @@
     </Grid>
 
     <!-- 3: Accounts (READ-ONLY grid; rule 32 is PER-GRID and THIS grid is the read-only side — every data
-         column binds OneWay). Its DataContext is the SettingsView's own SettingsViewModel (inherited, unlike
-         the Connection panel's Window-ancestor lookup): Accounts / SelectedAccount / the account commands all
-         live on it. The storage "Available" cell is the rule-34 MultiBinding site. Panel visibility keys off
-         SelectedCategoryIndex via StepVisibilityConverter param 3. -->
+         column binds OneWay). Its DataContext is the account manager split out of SettingsViewModel:
+         Accounts / SelectedAccount / the account commands all live on AccountManagerViewModel now. The
+         storage "Available" cell is the rule-34 MultiBinding site. Panel visibility keys off the PARENT
+         view-model's SelectedCategoryIndex — reached through the typed $parent cast because this element's
+         own DataContext is already the account manager. -->
     <Grid Grid.Column="2" x:Name="AccountsPanel"
           Background="{DynamicResource SurfaceBrush}"
           RowDefinitions="Auto,*,Auto,Auto"
-          IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+          DataContext="{Binding AccountManager}"
+          x:DataType="vm:AccountManagerViewModel"
+          IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
 
       <!-- Header -->
       <StackPanel Grid.Row="0" Margin="20,16,20,0">
@@ -798,7 +813,7 @@
              identical to the shared DataGridAltRowBrush in light, distinct in dark; grid-scoped outranks the
              UserControl-level DataGridRow.alt style. -->
         <DataGrid.Styles>
-          <Style Selector="DataGridRow">
+          <Style Selector="DataGridRow" x:DataType="dal:FileHosterLoginDto">
             <Setter Property="Opacity" Value="{Binding Disabled, Converter={x:Static v:SettingsView.DisabledToOpacity}}" />
           </Style>
           <Style Selector="DataGridRow.alt">
@@ -806,10 +821,11 @@
           </Style>
         </DataGrid.Styles>
 
-        <!-- Row context menu (rules 18/19): commands bind through the inherited SettingsViewModel DataContext;
-             the SelectedItems-carrying parameters (Refresh / Enable / Disable / Delete) are assigned in
-             code-behind. The row-only items hide on a whitespace right-click (AccountsGrid_ContextMenuOpening),
-             leaving only Add. Edit takes no parameter (operates on SelectedAccount). -->
+        <!-- Row context menu (rules 18/19): commands bind through the inherited AccountManagerViewModel
+             DataContext; the SelectedItems-carrying parameters (Refresh / Enable / Disable / Delete) are
+             assigned in code-behind. The row-only items hide on a whitespace right-click
+             (AccountsGrid_ContextMenuOpening), leaving only Add. Edit takes no parameter (operates on
+             SelectedAccount). -->
         <DataGrid.ContextMenu>
           <ContextMenu Opening="AccountsGrid_ContextMenuOpening">
             <MenuItem x:Name="AccountsContextEditItem"
@@ -845,7 +861,7 @@
           <DataGridTemplateColumn Header="&#x2713;" Width="30" CanUserResize="False"
                                   CellStyleClasses="check-center">
             <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="dal:FileHosterLoginDto">
                 <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
                           IsChecked="{Binding Disabled, Converter={StaticResource InvertBool}}"
                           Click="AccountEnabledCheckBox_Click" />
@@ -855,10 +871,11 @@
 
           <!-- Hoster: icon + name (read-only template). -->
           <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Hoster}" Width="180"
+                                  x:DataType="dal:FileHosterLoginDto"
                                   SortMemberPath="FileHosterName"
                                   ClipboardContentBinding="{Binding FileHosterName}">
             <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="dal:FileHosterLoginDto">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                   <Image Source="{Binding FileHosterName, Converter={StaticResource HosterIconConverter}}"
                          Width="18" Height="18" Margin="0,0,6,0"
@@ -877,7 +894,7 @@
                no-op), so strict parity omits it. -->
           <DataGridTemplateColumn Header="{loc:Loc Settings_Accounts_Col_Status}" Width="200">
             <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="dal:FileHosterLoginDto">
                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding StatusMessage}"
@@ -889,7 +906,7 @@
           <!-- Username: OneWay (rule 32 — read-only; Avalonia's default TwoWay would push the string back on
                bind). Binds DisplayName, not Username, so key-only accounts (Ufile/NitroFlare, no username)
                show a masked key instead of a blank cell and several stay distinguishable. -->
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Username}"
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_Username}"
                               Binding="{Binding DisplayName, Mode=OneWay}" Width="180" />
 
           <!-- Password: fixed masked cell (WPF ElementStyle sets Text="******"). Accounts never show the
@@ -903,13 +920,13 @@
           </DataGridTemplateColumn>
 
           <!-- Type: OneWay text (rule 32). -->
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Type}"
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_Type}"
                               Binding="{Binding AccountType, Mode=OneWay}" Width="80" />
 
           <!-- Used: OneWay (rule 32 AND mandatory — ByteUnitConverter throws on ConvertBack, so a TwoWay
                bind would push default(long) back and blank the cell). ConverterParameter '-' renders the
                "unknown usage" placeholder for hosters that report no figure. -->
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Used}"
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_Used}"
                               Binding="{Binding StorageUsedBytes, Converter={StaticResource ByteUnit}, ConverterParameter='-', Mode=OneWay}"
                               Width="90" />
 
@@ -918,7 +935,7 @@
                and MultiBinding is an IBinding) — no template-column fallback needed. Mode=OneWay per rule 34
                (read-only; the child bindings over the NOTIFYING StorageUsedBytes/StorageQuotaBytes keep it
                live as refresh updates the row in place). -->
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_Available}" Width="110">
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_Available}" Width="110">
             <DataGridTextColumn.Binding>
               <MultiBinding Converter="{StaticResource StorageAvailableDisplayMulti}" Mode="OneWay">
                 <Binding Path="StorageUsedBytes" />
@@ -930,10 +947,10 @@
 
           <!-- Added / Refreshed: OneWay monospace timestamps (DateTimeFormatConverter throws on ConvertBack →
                OneWay mandatory; blank when null). -->
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_AddedAt}"
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_AddedAt}"
                               Binding="{Binding CreatedDateTime, Converter={StaticResource DateTimeFormat}, Mode=OneWay}"
                               CellStyleClasses="mono-cell" Width="140" />
-          <DataGridTextColumn Header="{loc:Loc Settings_Accounts_Col_RefreshedAt}"
+          <DataGridTextColumn x:DataType="dal:FileHosterLoginDto" Header="{loc:Loc Settings_Accounts_Col_RefreshedAt}"
                               Binding="{Binding LastRefreshedDateTime, Converter={StaticResource DateTimeFormat}, Mode=OneWay}"
                               CellStyleClasses="mono-cell" Width="140" />
         </DataGrid.Columns>

@@ -78,8 +78,9 @@ public partial class SettingsView : UserControl
 
         accountsGrid.AddHandler(InputElement.PointerPressedEvent, AccountsGrid_PointerPressed, RoutingStrategies.Tunnel);
 
-        // The accounts grid inherits the SettingsView's own SettingsViewModel DataContext (set by the host
-        // MainWindow), not present at construction — wire the Delete key when it resolves.
+        // The accounts grid inherits the AccountManagerViewModel DataContext the accounts panel re-points
+        // to (SettingsViewModel.AccountManager), not present at construction — wire the Delete key when it
+        // resolves.
         accountsGrid.DataContextChanged += OnAccountsGridDataContextChanged;
     }
 
@@ -165,12 +166,13 @@ public partial class SettingsView : UserControl
 
     // ── Accounts grid (Task 6) ──
 
-    /// <summary>The SettingsViewModel the accounts grid inherits (null until the view is attached).</summary>
-    private SettingsViewModel? AccountsVm => accountsGrid.DataContext as SettingsViewModel;
+    /// <summary>The AccountManagerViewModel the accounts grid inherits — the accounts panel re-points
+    /// its DataContext to <c>SettingsViewModel.AccountManager</c> (null until the view is attached).</summary>
+    private AccountManagerViewModel? AccountsVm => accountsGrid.DataContext as AccountManagerViewModel;
 
     private void OnAccountsGridDataContextChanged(object? sender, EventArgs e)
     {
-        if (_accountsDeleteWired || accountsGrid.DataContext is not SettingsViewModel vm)
+        if (_accountsDeleteWired || accountsGrid.DataContext is not AccountManagerViewModel vm)
         {
             return;
         }

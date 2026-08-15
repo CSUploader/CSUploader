@@ -49,7 +49,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         UploadsViewModel.SetActive(value == UploadsTabIndex);
         UploadedViewModel.SetActive(value == UploadedTabIndex);
 
-        // Re-read the accounts on the way in. SettingsViewModel is a singleton whose account list is
+        // Re-read the accounts on the way in. The account manager is a singleton whose list is
         // filled once at startup and otherwise only when Settings itself edits one — so an account
         // added from the upload wizard (which writes straight to the repository) was invisible here
         // until the app restarted. Reloading on show fixes that for ANY writer, not just the wizard,
@@ -57,7 +57,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // the previous row by id, so nothing the user had highlighted is lost.
         if (value == SettingsTabIndex)
         {
-            SettingsViewModel.ReloadAccountsAsync();
+            SettingsViewModel.AccountManager.ReloadAccountsAsync();
         }
     }
 

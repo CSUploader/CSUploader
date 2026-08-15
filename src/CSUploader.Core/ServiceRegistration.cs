@@ -390,6 +390,9 @@ public static class ServiceRegistration
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<UploadsViewModel>();
         services.AddSingleton<UploadedViewModel>();
+        // The Settings tab's Accounts page — split out of SettingsViewModel, which takes it as a
+        // ctor dependency and exposes it as AccountManager for the view's DataContext re-point.
+        services.AddSingleton<AccountManagerViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<ConnectionManagerViewModel>();
         services.AddSingleton<LogsViewModel>();

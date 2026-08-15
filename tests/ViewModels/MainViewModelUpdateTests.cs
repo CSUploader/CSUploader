@@ -65,6 +65,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(Mock.Of<IToastNotificationService>());
         sc.AddSingleton<UploadsViewModel>();
         sc.AddSingleton<UploadedViewModel>();
+        sc.AddSingleton<AccountManagerViewModel>();
         sc.AddSingleton<SettingsViewModel>();
         sc.AddSingleton<ConnectionManagerViewModel>();
         sc.AddSingleton<LogsViewModel>();

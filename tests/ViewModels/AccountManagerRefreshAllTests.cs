@@ -1,4 +1,4 @@
-// <copyright file="SettingsRefreshAllTests.cs" company="CSUploader">
+// <copyright file="AccountManagerRefreshAllTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -23,13 +23,12 @@ namespace CSUploader.Tests.ViewModels;
 /// instead, and enabling such a row signs it in one at a time.
 /// </para>
 /// </summary>
-public class SettingsRefreshAllTests : IDisposable
+public class AccountManagerRefreshAllTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly FileHosterLoginRepository _loginRepo;
-    private readonly SettingRepository _settingRepo;
 
-    public SettingsRefreshAllTests()
+    public AccountManagerRefreshAllTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
@@ -43,7 +42,6 @@ public class SettingsRefreshAllTests : IDisposable
         }
 
         _loginRepo = new FileHosterLoginRepository(factory);
-        _settingRepo = new SettingRepository(factory);
     }
 
     public void Dispose()
@@ -63,8 +61,8 @@ public class SettingsRefreshAllTests : IDisposable
         await _loginRepo.InsertAsync(UsernamePassword("Easybytez", "c"));
 
         Mock<IAccountVerifier> verifier = Verifier(valid: true);
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -88,8 +86,8 @@ public class SettingsRefreshAllTests : IDisposable
         });
 
         Mock<IAccountVerifier> verifier = Verifier(valid: true);
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -110,8 +108,8 @@ public class SettingsRefreshAllTests : IDisposable
         await _loginRepo.InsertAsync(new FileHosterLoginDto { FileHosterName = "KatFile", Username = "someone" });
 
         Mock<IAccountVerifier> verifier = Verifier(valid: true);
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -131,8 +129,8 @@ public class SettingsRefreshAllTests : IDisposable
         });
 
         Mock<IAccountVerifier> verifier = Verifier(valid: true);
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -153,8 +151,8 @@ public class SettingsRefreshAllTests : IDisposable
             SessionCookieExpiresUtc = DateTime.UtcNow.AddDays(-3),
         });
 
-        SettingsViewModel vm = CreateVm(Verifier(valid: true).Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(Verifier(valid: true).Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -168,8 +166,8 @@ public class SettingsRefreshAllTests : IDisposable
     {
         await _loginRepo.InsertAsync(UsernamePassword("Rapidgator", "a"));
 
-        SettingsViewModel vm = CreateVm(Verifier(valid: true).Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(Verifier(valid: true).Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -189,8 +187,8 @@ public class SettingsRefreshAllTests : IDisposable
         });
 
         Mock<IAccountVerifier> verifier = Verifier(valid: true);
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -213,8 +211,8 @@ public class SettingsRefreshAllTests : IDisposable
             .Setup(v => v.CheckAsync("Alfafile", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AccountCheckResult(true, AccountType.Free, "OK"));
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -258,8 +256,8 @@ public class SettingsRefreshAllTests : IDisposable
                 return new AccountCheckResult(true, AccountType.Free, "OK");
             });
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         Task refresh = vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -306,8 +304,8 @@ public class SettingsRefreshAllTests : IDisposable
                 return new AccountCheckResult(true, AccountType.Free, "OK");
             });
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -332,8 +330,8 @@ public class SettingsRefreshAllTests : IDisposable
                 return new AccountCheckResult(true, AccountType.Free, $"{hoster} ok");
             });
 
-        SettingsViewModel vm = CreateVm(verifier.Object);
-        await vm.LoadAsync();
+        AccountManagerViewModel vm = CreateVm(verifier.Object);
+        await vm.LoadAccountsAsync();
 
         await vm.RefreshAllAccountsCommand.ExecuteAsync(null);
 
@@ -381,10 +379,8 @@ public class SettingsRefreshAllTests : IDisposable
         Password = "p",
     };
 
-    private SettingsViewModel CreateVm(IAccountVerifier verifier) => new(
-        _settingRepo,
+    private AccountManagerViewModel CreateVm(IAccountVerifier verifier) => new(
         _loginRepo,
-        new AppSettings(),
         Mock.Of<IDialogService>(),
         Mock.Of<IAppLogger>(),
         verifier);

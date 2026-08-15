@@ -331,11 +331,14 @@ public class SettingsViewTests
 
             Vm = new SettingsViewModel(
                 settingRepo,
-                loginRepo,
+                new AccountManagerViewModel(
+                    loginRepo,
+                    Mock.Of<IDialogService>(),
+                    Mock.Of<IAppLogger>(),
+                    Mock.Of<IAccountVerifier>()),
                 new AppSettings(),
                 Mock.Of<IDialogService>(),
                 Mock.Of<IAppLogger>(),
-                Mock.Of<IAccountVerifier>(),
                 fontEnumerationService: new FakeFontEnumerationService(fontNames ?? ["Consolas", "Segoe UI"]));
         }
 

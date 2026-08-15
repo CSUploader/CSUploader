@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CSUploader.Converters;
@@ -43,20 +44,26 @@ public class SettingsAccountsTests
     public void ReadOnlyTextColumns_AreOneWay()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
             // The single-source text columns (Username / Type / Used / Added / Refreshed) must be OneWay —
             // Avalonia's DataGridTextColumn.Binding defaults to TwoWay and pushes ConvertBack on bind, which
-            // with a throwing converter (ByteUnit / DateTimeFormat) would blank the cell/DTO.
+            // with a throwing converter (ByteUnit / DateTimeFormat) would blank the cell/DTO. The columns are
+            // x:DataType'd (dal:FileHosterLoginDto), so each is a CompiledBindingExtension now; the Available
+            // column's MultiBinding is filtered out by the type check exactly as it was before.
             var textBindings = view.accountsGrid.Columns
                 .OfType<DataGridTextColumn>()
                 .Select(c => c.Binding)
-                .OfType<Binding>()
+                .OfType<CompiledBindingExtension>()
                 .ToList();
 
-            Assert.NotEmpty(textBindings);
+            // Exactly the five single-source text columns (Username / Type / Used / Added / Refreshed) —
+            // the Available column's MultiBinding is not a CompiledBindingExtension and is asserted by its
+            // own test. Pinning the count keeps a column that silently fell back to reflection from
+            // passing as "one fewer compiled binding".
+            Assert.Equal(5, textBindings.Count);
             Assert.All(textBindings, b => Assert.Equal(BindingMode.OneWay, b.Mode));
         }
         finally
@@ -69,7 +76,7 @@ public class SettingsAccountsTests
     public void AvailableColumn_IsAMultiBindingOnTheColumn_OneWay()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -108,9 +115,9 @@ public class SettingsAccountsTests
         FileHosterLoginDto unknown = Account("some.host", "unk"); // no storage info → "-"
 
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(knownCap);
-        harness.Vm.Accounts.Add(unlimited);
-        harness.Vm.Accounts.Add(unknown);
+        harness.Vm.AccountManager.Accounts.Add(knownCap);
+        harness.Vm.AccountManager.Accounts.Add(unlimited);
+        harness.Vm.AccountManager.Accounts.Add(unknown);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -143,7 +150,7 @@ public class SettingsAccountsTests
         account.StorageQuotaBytes = 8192;
 
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(account);
+        harness.Vm.AccountManager.Accounts.Add(account);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -170,7 +177,7 @@ public class SettingsAccountsTests
         account.Password = "hunter2-should-never-render";
 
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(account);
+        harness.Vm.AccountManager.Accounts.Add(account);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -196,9 +203,9 @@ public class SettingsAccountsTests
         FileHosterLoginDto a2 = Account("c.host", "c");
 
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(a0);
-        harness.Vm.Accounts.Add(a1);
-        harness.Vm.Accounts.Add(a2);
+        harness.Vm.AccountManager.Accounts.Add(a0);
+        harness.Vm.AccountManager.Accounts.Add(a1);
+        harness.Vm.AccountManager.Accounts.Add(a2);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -229,7 +236,7 @@ public class SettingsAccountsTests
     public void DoubleTap_EditsOnRow_NotOnHeader()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -255,8 +262,8 @@ public class SettingsAccountsTests
         disabled.Disabled = true;
 
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(enabled);
-        harness.Vm.Accounts.Add(disabled);
+        harness.Vm.AccountManager.Accounts.Add(enabled);
+        harness.Vm.AccountManager.Accounts.Add(disabled);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -282,7 +289,7 @@ public class SettingsAccountsTests
     public void ContextMenuAndRemove_CarryTheGridsSelectedItems()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -308,7 +315,7 @@ public class SettingsAccountsTests
     {
         FileHosterLoginDto account = Account("rapidgator.net", "user1");
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(account);
+        harness.Vm.AccountManager.Accounts.Add(account);
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
@@ -337,13 +344,13 @@ public class SettingsAccountsTests
     public void DeleteKey_WiredToRemoveSelectedAccounts_WithSelectedItems()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
             KeyBinding binding = Assert.Single(view.accountsGrid.KeyBindings);
             Assert.Equal(Key.Delete, binding.Gesture.Key);
-            Assert.Same(harness.Vm.RemoveSelectedAccountsCommand, binding.Command);
+            Assert.Same(harness.Vm.AccountManager.RemoveSelectedAccountsCommand, binding.Command);
             Assert.Same(view.accountsGrid.SelectedItems, binding.CommandParameter);
         }
         finally
@@ -358,14 +365,14 @@ public class SettingsAccountsTests
     public void BottomBarButtons_BoundToAccountCommands()
     {
         using VmHarness harness = new();
-        harness.Vm.Accounts.Add(Account("rapidgator.net", "user1"));
+        harness.Vm.AccountManager.Accounts.Add(Account("rapidgator.net", "user1"));
         (Window window, SettingsView view) = Show(harness.Vm);
         try
         {
             var buttons = view.AccountsPanel.GetVisualDescendants().OfType<Button>().ToList();
-            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.AddAccountDialogCommand));
-            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.RemoveSelectedAccountsCommand));
-            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.RefreshAllAccountsCommand));
+            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.AccountManager.AddAccountDialogCommand));
+            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.AccountManager.RemoveSelectedAccountsCommand));
+            Assert.Contains(buttons, b => ReferenceEquals(b.Command, harness.Vm.AccountManager.RefreshAllAccountsCommand));
         }
         finally
         {
@@ -405,9 +412,9 @@ public class SettingsAccountsTests
     }
 
     /// <summary>
-    /// A real <see cref="SettingsViewModel"/> over an in-memory SQLite DB — the scratch-repo harness the shell
-    /// tests use. LoadAsync is intentionally NOT called; the tests drive <see cref="SettingsViewModel.Accounts"/>
-    /// directly.
+    /// A real <see cref="SettingsViewModel"/> (with its <see cref="AccountManagerViewModel"/>) over an
+    /// in-memory SQLite DB — the scratch-repo harness the shell tests use. LoadAsync is intentionally NOT
+    /// called; the tests drive <c>Vm.AccountManager.Accounts</c> directly.
     /// </summary>
     private sealed class VmHarness : IDisposable
     {
@@ -433,11 +440,14 @@ public class SettingsAccountsTests
 
             Vm = new SettingsViewModel(
                 settingRepo,
-                loginRepo,
+                new AccountManagerViewModel(
+                    loginRepo,
+                    Mock.Of<IDialogService>(),
+                    Mock.Of<IAppLogger>(),
+                    Mock.Of<IAccountVerifier>()),
                 new AppSettings(),
                 Mock.Of<IDialogService>(),
                 Mock.Of<IAppLogger>(),
-                Mock.Of<IAccountVerifier>(),
                 fontEnumerationService: new FakeFontEnumerationService(["Consolas", "Segoe UI"]));
         }
 
