@@ -1,4 +1,4 @@
-// <copyright file="PackageManagerSoftRemoveTests.cs" company="CSUploader">
+﻿// <copyright file="PackageManagerSoftRemoveTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -35,6 +35,7 @@ namespace CSUploader.Tests.Upload;
 public class PackageManagerSoftRemoveTests : IAsyncLifetime
 {
     private readonly SqliteConnection _connection;
+    private readonly string _connectionString;
     private readonly IDbContextFactory<CSUploaderDbContext> _factory;
     private readonly UploadPackageRepository _packageRepo;
     private readonly UploadPackageFileRepository _fileRepo;
@@ -65,7 +66,8 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         // With a connection string each context opens its OWN connection into the shared cache and
         // SQLite does the locking. The same probe then reports 0 errors. Production was never
         // affected — it runs a file database where every context gets a pooled connection.
-        string connectionString = $"Data Source=csu-tests-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        _connectionString = $"Data Source=csu-tests-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        string connectionString = _connectionString;
         _connection = new SqliteConnection(connectionString);
         _connection.Open(); // keeper: a shared-cache in-memory db lives only while one connection is open
 
@@ -1229,6 +1231,175 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             try
             { Directory.Delete(tempDir, recursive: true); }
             catch { }
+        }
+    }
+
+    [Fact]
+    public async Task WhenTheTransitionWriteFails_NoEventFires_AndTheRowIsUntouched()
+    {
+        // The persistence contract: every event announces a fact as PERSISTED. When the
+        // transaction rolls back, none of them are facts — a FileCompleted fired anyway would let
+        // RemoveFinishedUploads=Immediately prune a row whose database state still says Uploading.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+            file.State = FileState.Uploading;
+            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
+
+            // A manager whose FILE repository fails every write, over the same database.
+            DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
+                .UseSqlite(_connectionString)
+                .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackageFile\""))
+                .Options;
+            UploadScheduler scheduler = new(NoSlots(), BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new DefaultFileHosterRegistry([]));
+            PackageManager manager = new(
+                NoSlots(), scheduler, _packageRepo,
+                new UploadPackageFileRepository(new TestDbContextFactory(faultingOptions)),
+                _loginRepo, _logger, new DefaultFileHosterRegistry([]));
+            _localPairs.Add((scheduler, manager));
+
+            List<string> fired = [];
+            manager.FileCompleted += (_, _) => fired.Add("FileCompleted");
+            manager.FileReopened += (_, _) => fired.Add("FileReopened");
+            manager.PackageCompleted += (_, _) => fired.Add("PackageCompleted");
+
+            manager.StopPackage(file);
+            await scheduler.DrainAsync();
+            await manager.DrainPendingPersistenceAsync();
+
+            Assert.Empty(fired);
+            Assert.Contains(_logger.Messages, m => m.Contains("Failed to persist state", StringComparison.Ordinal));
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.Equal(FileState.Uploading, persisted?.State); // the row kept its pre-stop shape
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task HashCompletion_PersistsTheHash_OnTheEverydayNonTerminalTransition()
+    {
+        // Hashing → UploadQueued is how every routine pre-upload hash lands in the DB — the ONLY
+        // route, since nothing else in production writes a hash. A restart must find it, or
+        // hash-before-upload hosters re-hash multi-GB files every session.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            // The shape OnHashCompleted leaves behind: hash computed and valid, transitioning off
+            // Hashing. Driven through ApplyFileState so it takes the real persistence path.
+            file.State = FileState.Hashing;
+            file.FileHash = "cafebabe";
+            file.IsHashingComplete = true;
+            scheduler.PostFileMutation(() => scheduler.ApplyFileState(file, FileState.UploadQueued));
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.Equal("cafebabe", persisted?.FileHash);
+            Assert.True(persisted?.IsHashingComplete);
+            Assert.Equal(FileState.UploadQueued, persisted?.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task PackageCompleted_DoesNotFire_WhenTheDbStillHoldsANonTerminalSibling()
+    {
+        // Memory can believe the package is done while the database disagrees — a sibling's
+        // transition failed and rolled back earlier in the chain, so its row is still running.
+        // Announcing completion then would export a "finished" package that is missing work; the
+        // database is the arbiter, and it declines.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string pathA = Path.Combine(tempDir, "a.iso");
+            string pathB = Path.Combine(tempDir, "b.iso");
+            await File.WriteAllBytesAsync(pathA, new byte[] { 0 });
+            await File.WriteAllBytesAsync(pathB, new byte[] { 0 });
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "p",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [pathA, pathB],
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+            };
+            Package package = await _packageManager.AddPackageOnlyAsync(options);
+            PackageFile fileA = package.First();
+            PackageFile fileB = package.Skip(1).First();
+
+            // Simulate fileA's failed write: MEMORY says terminal, its ROW still says Uploading.
+            fileA.State = FileState.Failed;
+            await _fileRepo.UpdateStateAsync(fileA.DbId!.Value, (int)FileState.Uploading, null, null);
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+            List<Package> completed = [];
+            idle.PackageCompleted += (_, p) => completed.Add(p);
+
+            fileB.State = FileState.Uploading;
+            scheduler.PostFileMutation(() => scheduler.ApplyFileState(fileB, FileState.Completed));
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            Assert.Empty(completed);
+            UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
+            Assert.False(persisted?.IsCompleted);
+
+            // FileB's own completion DID land — only the package-level claim was declined.
+            UploadPackageFileDto? b = await _fileRepo.FindAsync(fileB.DbId!.Value);
+            Assert.Equal(FileState.Completed, b?.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// Fails any command whose SQL touches the given quoted table name — the same fault-injection
+    /// shape as the Dal repository tests, here to prove the MANAGER's reaction to a failed write:
+    /// no events, and the row left in its pre-transition shape.
+    /// </summary>
+    private sealed class FaultingCommandInterceptor(string failCommandsTouching)
+        : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(
+            System.Data.Common.DbCommand command,
+            Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains(failCommandsTouching, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"injected fault: statement touches {failCommandsTouching}");
+            }
+
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
         }
     }
 

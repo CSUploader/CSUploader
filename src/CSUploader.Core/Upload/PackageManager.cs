@@ -458,6 +458,10 @@ public class PackageManager
 
     private async Task PersistNewPackageAsync(Package package)
     {
+        // Snapshot the in-memory files up front — the SAME array orders the dtos, so the id
+        // backfill below can pair them positionally.
+        PackageFile[] files = [.. package];
+
         try
         {
             UploadPackageDto pkgDto = new()
@@ -469,36 +473,41 @@ public class PackageManager
                 SpeedLimitKBps = package.SpeedLimitKBps,
                 StartMode = UploadStartMode.Immediately,
             };
-            await _packageRepo.InsertAsync(pkgDto);
-            package.DbId = pkgDto.Id;
 
             int sortOrder = 0;
-            foreach (PackageFile file in package)
+            UploadPackageFileDto[] fileDtos = [.. files.Select(file => new UploadPackageFileDto
             {
-                UploadPackageFileDto fileDto = new()
-                {
-                    FileName = file.Name,
-                    FileDirectory = file.Path ?? string.Empty,
-                    FileSize = file.Size ?? 0,
-                    FileHoster = file.FileHoster.Name,
-                    FileHosterName = file.FileHoster.Name,
-                    // Denormalize the account label (DisplayName: username, or a masked API key for
-                    // key-only hosters; null for anonymous, which the History tab renders as the
-                    // localized "(anonymous)" via FileHosterLoginId==0). Storing DisplayName persists
-                    // the masked key (e.g. "12GHte**") for key-only accounts so History stays as
-                    // distinguishable as the live grid; only newly recorded rows get it.
-                    FileHosterAccount = file.FileHosterLogin is { IsAnonymous: false } login ? login.DisplayName : null,
-                    StartDateTime = DateTime.Now,
-                    State = file.State,
-                    IsHashingComplete = file.IsHashingComplete,
-                    FileHash = file.FileHash,
-                    FileHosterLoginId = file.FileHosterLogin?.Id ?? 0,
-                    SortOrder = sortOrder++,
-                    PackageId = package.DbId.Value,
-                    QueueOrder = file.QueueOrder,
-                };
-                await _fileRepo.InsertAsync(fileDto);
-                file.DbId = fileDto.Id;
+                FileName = file.Name,
+                FileDirectory = file.Path ?? string.Empty,
+                FileSize = file.Size ?? 0,
+                FileHoster = file.FileHoster.Name,
+                FileHosterName = file.FileHoster.Name,
+                // Denormalize the account label (DisplayName: username, or a masked API key for
+                // key-only hosters; null for anonymous, which the History tab renders as the
+                // localized "(anonymous)" via FileHosterLoginId==0). Storing DisplayName persists
+                // the masked key (e.g. "12GHte**") for key-only accounts so History stays as
+                // distinguishable as the live grid; only newly recorded rows get it.
+                FileHosterAccount = file.FileHosterLogin is { IsAnonymous: false } login ? login.DisplayName : null,
+                StartDateTime = DateTime.Now,
+                State = file.State,
+                IsHashingComplete = file.IsHashingComplete,
+                FileHash = file.FileHash,
+                FileHosterLoginId = file.FileHosterLogin?.Id ?? 0,
+                SortOrder = sortOrder++,
+                QueueOrder = file.QueueOrder,
+            })];
+
+            // One save for the whole graph. Inserted row by row, a failure partway through left a
+            // package with only SOME of its file rows — and the files that missed out uploaded
+            // with no DbId, so their every state change was silently unpersistable and they
+            // vanished on restart. Now either the whole package survives a restart, or (on the
+            // failure logged below) none of it pretends it will.
+            await _packageRepo.InsertWithFilesAsync(pkgDto, fileDtos);
+
+            package.DbId = pkgDto.Id;
+            for (int i = 0; i < files.Length; i++)
+            {
+                files[i].DbId = fileDtos[i].Id;
             }
         }
         catch (Exception ex)
@@ -542,99 +551,88 @@ public class PackageManager
             return;
         }
 
-        int fileId = e.File.DbId.Value;
         FileState state = e.NewState;
-        string? error = e.File.Error;
-        string? fileUrl = e.File.FileUrl;
-        // Hashing → next-state transition is the natural "hash now valid" moment. Capture
-        // the hash here (string is interned-cheap) and persist alongside the state change.
-        string? fileHashIfJustComputed = e.OldState == FileState.Hashing
-                && e.File.IsHashingComplete
-                && !string.IsNullOrEmpty(e.File.FileHash)
-            ? e.File.FileHash
-            : null;
-        DateTime? finishedDateTime = IsTerminal(state)
-            ? (e.File.FinishedDate ?? DateTime.Now)
-            : null;
+        bool isTerminal = IsTerminal(state);
 
         // Read-and-clear inline: SetFileState raises this event synchronously on the pump, which is
         // also where the flag was set, so there is no window between the two.
-        bool clearHash = e.File.HashDiscarded;
+        bool discardHash = e.File.HashDiscarded;
         e.File.HashDiscarded = false;
 
         // A file leaving a terminal state re-opens its package. Nothing ever wrote the completed
         // flag back to false, so retrying one file in a finished package left queued rows inside a
         // package still marked complete — and the Uploaded tab's export reads by that flag.
-        bool reopened = IsTerminal(e.OldState) && !IsTerminal(state);
-        int? reopenedPackageId = reopened ? e.File.Package.DbId : null;
+        bool reopened = IsTerminal(e.OldState) && !isTerminal;
+
+        // Was this the package's last non-terminal file? Decided HERE, at event time on the pump —
+        // the states are pump-owned, and the answer belongs to this transition. (It used to be read
+        // at write time from the persistence thread: an unsynchronized scan whose answer could
+        // reflect transitions that came after this one.)
+        bool packageJustCompleted = isTerminal
+            && e.File.Package.DbId is not null
+            && e.File.Package.All(f => IsTerminal(f.State));
+
+        FileTransitionWrite write = new()
+        {
+            FileId = e.File.DbId.Value,
+            State = (int)state,
+            Error = e.File.Error,
+            FileUrl = e.File.FileUrl,
+            FinishedDateTime = isTerminal ? (e.File.FinishedDate ?? DateTime.Now) : null,
+            StartedDateTime = e.File.StartedDate,
+            // Hashing → next-state transition is the natural "hash now valid" moment. Capture
+            // the hash here (string is interned-cheap) and persist alongside the state change.
+            HashToStore = e.OldState == FileState.Hashing
+                    && e.File.IsHashingComplete
+                    && !string.IsNullOrEmpty(e.File.FileHash)
+                ? e.File.FileHash
+                : null,
+            DiscardHash = discardHash,
+            PackageIdNoLongerCompleted = reopened ? e.File.Package.DbId : null,
+            PackageIdNowCompleted = packageJustCompleted ? e.File.Package.DbId : null,
+        };
 
         TrackPersistence(async () =>
         {
+            FileTransitionResult result;
             try
             {
-                await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime, e.File.StartedDate);
-
-                // The steps below are separate SQLite statements, not one transaction — the repos
-                // each open their own context. So they are also individually guarded: a hash write
-                // that fails must not take the package flag and the UI notification down with it,
-                // when the state write it follows has already succeeded.
-                try
-                {
-                    if (fileHashIfJustComputed is not null)
-                    {
-                        await _fileRepo.UpdateHashAsync(fileId, fileHashIfJustComputed);
-                    }
-                    else if (clearHash)
-                    {
-                        await _fileRepo.ClearHashAsync(fileId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log(this, LogType.Error, $"Failed to persist the file hash: {ex.Message}");
-                }
-
-                if (reopenedPackageId is int reopenedId)
-                {
-                    await _packageRepo.UpdateCompletedFlagAsync(reopenedId, false);
-                }
-
-                if (reopened)
-                {
-                    // The Uploaded tab lists rows the DB calls Completed. This one no longer is, so
-                    // it has to re-query — otherwise the row lingers there, contradicting the file
-                    // it claims to describe, until something else happens to refresh it.
-                    FileReopened?.Invoke(this, e.File);
-                }
-
-                bool isTerminal = IsTerminal(state);
-                if (isTerminal)
-                {
-                    FileCompleted?.Invoke(this, e.File);
-
-                    if (e.File.Package.DbId is not null)
-                    {
-                        bool allDone = true;
-                        foreach (PackageFile f in e.File.Package)
-                        {
-                            if (f.State is not (FileState.Completed or FileState.Failed or FileState.Cancelled))
-                            {
-                                allDone = false;
-                                break;
-                            }
-                        }
-
-                        if (allDone)
-                        {
-                            await _packageRepo.UpdateCompletedFlagAsync(e.File.Package.DbId.Value, true);
-                            PackageCompleted?.Invoke(this, e.File.Package);
-                        }
-                    }
-                }
+                result = await _fileRepo.PersistTransitionAsync(write);
             }
             catch (Exception ex)
             {
+                // The transaction rolled back, so NOTHING below may fire: every event here
+                // announces a fact as persisted, and none of them are.
                 _logger.Log(this, LogType.Error, $"Failed to persist state: {ex.Message}");
+                return;
+            }
+
+            if (!result.FileRowExisted)
+            {
+                // The row was already deleted — nothing was written, so nothing is announced.
+                return;
+            }
+
+            if (reopened)
+            {
+                // The Uploaded tab lists rows the DB calls Completed. This one no longer is, so
+                // it has to re-query — otherwise the row lingers there, contradicting the file
+                // it claims to describe, until something else happens to refresh it.
+                FileReopened?.Invoke(this, e.File);
+            }
+
+            if (isTerminal)
+            {
+                FileCompleted?.Invoke(this, e.File);
+
+                // On the DATABASE's verdict, not packageJustCompleted's: memory believed the
+                // package was done, but if an earlier file's write failed and rolled back, the
+                // rows disagree — and announcing a completion the database doesn't show would
+                // hand the export a package that is still missing work.
+                if (result.PackageCompleted)
+                {
+                    PackageCompleted?.Invoke(this, e.File.Package);
+                }
             }
         });
     }

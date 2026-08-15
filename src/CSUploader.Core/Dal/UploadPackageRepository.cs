@@ -39,6 +39,40 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         return [.. entities.Select(MapToDto)];
     }
 
+    /// <summary>
+    /// Inserts a package and all of its file rows in one save — so the whole graph lands, or none
+    /// of it does. Generated ids are written back into the dtos (package id and each file's id and
+    /// PackageId, in order).
+    /// </summary>
+    /// <remarks>
+    /// Inserted separately (package first, then one insert per file, each on its own context), a
+    /// failure partway left a package row with only some of its files — and since the surviving
+    /// exception was logged-and-swallowed, the missing files simply had no rows: their uploads ran,
+    /// but every transition they tried to persist was discarded for lack of a DbId, so they
+    /// vanished on restart. A single <c>SaveChangesAsync</c> is one transaction; EF inserts the
+    /// package before its children and fixes up their PackageId itself.
+    /// </remarks>
+    public async Task InsertWithFilesAsync(UploadPackageDto package, IReadOnlyList<UploadPackageFileDto> files, CancellationToken ct = default)
+    {
+        UploadPackageDbm packageDbm = MapToDbm(package);
+        UploadPackageFileDbm[] fileDbms = [.. files.Select(UploadPackageFileRepository.ToDbm)];
+        foreach (UploadPackageFileDbm fileDbm in fileDbms)
+        {
+            packageDbm.Files.Add(fileDbm);
+        }
+
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        db.Set<UploadPackageDbm>().Add(packageDbm);
+        await db.SaveChangesAsync(ct);
+
+        package.Id = packageDbm.Id;
+        for (int i = 0; i < fileDbms.Length; i++)
+        {
+            files[i].Id = fileDbms[i].Id;
+            files[i].PackageId = packageDbm.Id;
+        }
+    }
+
     public async Task UpdateCompletedFlagAsync(int packageId, bool isCompleted, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
@@ -69,6 +103,11 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
         int completed = (int)FileState.Completed;
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
 
+        // One transaction, like the other multi-statement writes. Half a cleanup is at least
+        // self-healing (the next run would sweep the orphans), but there is no reason to leave
+        // the window open when closing it costs two lines.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+
         // Files that are gone from BOTH tabs: removed from Uploads, AND either hidden from
         // Uploaded or never qualified for Uploaded (state != Completed).
         int filesDeleted = await db.Set<UploadPackageFileDbm>()
@@ -82,6 +121,7 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
             .Where(p => !db.Set<UploadPackageFileDbm>().Any(f => f.PackageId == p.Id))
             .ExecuteDeleteAsync(ct);
 
+        await tx.CommitAsync(ct);
         return (filesDeleted, packagesDeleted);
     }
 
@@ -151,12 +191,17 @@ public class UploadPackageRepository(IDbContextFactory<CSUploaderDbContext> dbFa
     public async Task SoftRemoveFromUploadsAsync(int packageId, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
+
+        // One transaction: the package flag landing without the file flags would leave rows the
+        // Uploads tab has dropped but the loader still restores as live files on the next start.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Set<UploadPackageDbm>()
             .Where(p => p.Id == packageId)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsRemovedFromUploads, true), ct);
         await db.Set<UploadPackageFileDbm>()
             .Where(f => f.PackageId == packageId)
             .ExecuteUpdateAsync(s => s.SetProperty(f => f.IsRemovedFromUploads, true), ct);
+        await tx.CommitAsync(ct);
     }
 
 }

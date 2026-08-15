@@ -1,4 +1,4 @@
-// <copyright file="UploadPackageFileRepositoryTests.cs" company="CSUploader">
+﻿// <copyright file="UploadPackageFileRepositoryTests.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -245,6 +245,301 @@ public class UploadPackageFileRepositoryTests : IDisposable
 
         Assert.Equal(2, (await _fileRepo.FindAsync(a))!.QueueOrder);
         Assert.Equal(1, (await _fileRepo.FindAsync(b))!.QueueOrder);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_CommitsStateHashAndPackageFlagTogether()
+    {
+        // The full terminal shape in one call: the file completed, its hash became valid on the
+        // way, and it was the package's last running file.
+        var addTime = new DateTime(2026, 3, 3, 8, 0, 0, DateTimeKind.Local);
+        var realStart = new DateTime(2026, 3, 3, 9, 0, 0, DateTimeKind.Local);
+        var finished = new DateTime(2026, 3, 3, 9, 30, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Uploading, startDateTime: addTime);
+
+        FileTransitionResult result = await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.Completed,
+            FileUrl = "https://x/a.html",
+            FinishedDateTime = finished,
+            StartedDateTime = realStart,
+            HashToStore = "cafebabe",
+            PackageIdNowCompleted = packageId,
+        });
+
+        Assert.True(result.FileRowExisted);
+        Assert.True(result.PackageCompleted);
+
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.Completed, file!.State);
+        Assert.Equal("https://x/a.html", file.FileUrl);
+        Assert.Equal(finished, file.FinishedDateTime);
+        Assert.Equal(realStart, file.StartDateTime);
+        Assert.Equal("cafebabe", file.FileHash);
+        Assert.True(file.IsHashingComplete);
+
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.True(package!.IsCompleted);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_ResetShape_DiscardsTheHashAndReopensThePackage()
+    {
+        // The reset shape: back to HashQueued, hash thrown away, error cleared, and the package —
+        // finished until this moment — is running again. Also pins the date rules for a
+        // non-terminal write: no finish stamp, and the insert-time start is left alone.
+        var addTime = new DateTime(2026, 4, 4, 10, 0, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg", isCompleted: true);
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed, startDateTime: addTime);
+        await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+
+        // A real error on the row, so the "error cleared" assertion below cannot pass vacuously —
+        // the non-terminal branch dropping its Error write is precisely the mutation it guards.
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Completed, "old failure", null);
+
+        await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.HashQueued,
+            DiscardHash = true,
+            PackageIdNoLongerCompleted = packageId,
+        });
+
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.HashQueued, file!.State);
+        Assert.True(string.IsNullOrEmpty(file.FileHash));
+        Assert.False(file.IsHashingComplete);
+        Assert.True(string.IsNullOrEmpty(file.Error));
+        Assert.Equal(addTime, file.StartDateTime);
+
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.False(package!.IsCompleted);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_DoesNotMarkThePackageComplete_WhileTheDbHoldsANonTerminalSibling()
+    {
+        // The caller believes its file was the package's last running one, but the caller only
+        // knows its own memory. If a SIBLING's transition failed and rolled back earlier in the
+        // chain, that sibling's row is still non-terminal — and stamping the package complete
+        // around it would hand the export a "finished" package that is still missing work. The
+        // rows decide: the request is declined and the caller told so.
+        int packageId = await InsertPackageAsync("pkg");
+        await InsertFileAsync(packageId, "sibling.iso", FileState.Uploading); // the failed write's leftovers
+        int fileId = await InsertFileAsync(packageId, "b.iso", FileState.Uploading);
+
+        FileTransitionResult result = await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.Completed,
+            FinishedDateTime = DateTime.Now,
+            PackageIdNowCompleted = packageId,
+        });
+
+        Assert.True(result.FileRowExisted);
+        Assert.False(result.PackageCompleted);
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.False(package!.IsCompleted);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_IgnoresSoftRemovedSiblings_WhenDecidingPackageCompletion()
+    {
+        // A file removed from the Uploads tab mid-upload keeps its old running state in its row
+        // forever — its in-memory counterpart left the package, so nothing will ever finish it.
+        // Counting it would hold the package open for good; completion must look only at the rows
+        // still listed.
+        int packageId = await InsertPackageAsync("pkg");
+        int removedId = await InsertFileAsync(packageId, "removed.iso", FileState.Uploading);
+        await _fileRepo.SoftRemoveFromUploadsAsync(new[] { removedId });
+        int fileId = await InsertFileAsync(packageId, "b.iso", FileState.Uploading);
+
+        FileTransitionResult result = await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.Completed,
+            FinishedDateTime = DateTime.Now,
+            PackageIdNowCompleted = packageId,
+        });
+
+        Assert.True(result.PackageCompleted);
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.True(package!.IsCompleted);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_WhenTheFileRowIsGone_WritesNothingAndSaysSo()
+    {
+        // History cleanup can delete the row between the transition and the chained write reaching
+        // it. The transition then has nothing to say about the database: no other statement runs
+        // (a reopen would otherwise flip a package flag on behalf of a file that no longer exists)
+        // and the caller is told nothing landed, so it announces nothing.
+        int packageId = await InsertPackageAsync("pkg", isCompleted: true);
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+        await _fileRepo.DeleteAsync(fileId);
+
+        FileTransitionResult result = await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.HashQueued,
+            DiscardHash = true,
+            PackageIdNoLongerCompleted = packageId,
+        });
+
+        Assert.False(result.FileRowExisted);
+        Assert.False(result.PackageCompleted);
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.True(package!.IsCompleted); // the reopen flag was NOT applied for a ghost file
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_StoresAHashOnANonTerminalTransition()
+    {
+        // The everyday hash write: a hash-before-upload hoster finishes hashing and the file moves
+        // Hashing → UploadQueued. Non-terminal, so no dates — the hash must land anyway. This is
+        // the ONLY route a computed hash reaches the database (UpdateHashAsync has no production
+        // caller left), so pairing hash coverage exclusively with terminal writes would leave the
+        // routine path free to regress unseen.
+        var addTime = new DateTime(2026, 5, 5, 8, 0, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Hashing, startDateTime: addTime);
+
+        await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.UploadQueued,
+            HashToStore = "cafebabe",
+        });
+
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.UploadQueued, file!.State);
+        Assert.Equal("cafebabe", file.FileHash);
+        Assert.True(file.IsHashingComplete);
+
+        // No finish stamp was written — the column keeps its never-set default (non-nullable, so
+        // "untouched" reads back as DateTime.MinValue rather than null).
+        Assert.Equal(default, file.FinishedDateTime);
+        Assert.Equal(addTime, file.StartDateTime);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_TerminalWithNullStartedDateTime_KeepsTheInsertTimeStart()
+    {
+        // A file cancelled or failed while still queued goes terminal with StartedDate null. The
+        // coalesce must keep the add-time captured at insert rather than wiping it to
+        // default(DateTime). The same rule is pinned for UpdateStateAsync above, but that method
+        // no longer has a production caller — THIS copy is the live one, so it needs its own guard.
+        var addTime = new DateTime(2026, 6, 6, 10, 0, 0, DateTimeKind.Local);
+        var finished = new DateTime(2026, 6, 6, 10, 5, 0, DateTimeKind.Local);
+        int packageId = await InsertPackageAsync("pkg");
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.UploadQueued, startDateTime: addTime);
+
+        await _fileRepo.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.Cancelled,
+            FinishedDateTime = finished,
+            StartedDateTime = null,
+        });
+
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(addTime, file!.StartDateTime);
+        Assert.Equal(finished, file.FinishedDateTime);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_WhenALaterStatementFails_RollsBackTheWholeTransition()
+    {
+        // The reason this method exists. The package-flag statement is the LAST one in the
+        // transaction; failing it must take the state and hash statements — which had already
+        // executed — down with it. Issued as separate autocommitted statements (the old shape),
+        // the state and hash land and this test fails.
+        int packageId = await InsertPackageAsync("pkg", isCompleted: true);
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+        await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+
+        UploadPackageFileRepository faulting = new(
+            FaultingFactory(failCommandsTouching: "\"UploadPackage\""));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => faulting.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.HashQueued,
+            DiscardHash = true,
+            PackageIdNoLongerCompleted = packageId,
+        }));
+
+        // Nothing landed: the row still shows the pre-transition shape, hash included.
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.Completed, file!.State);
+        Assert.Equal("deadbeef", file.FileHash);
+        Assert.True(file.IsHashingComplete);
+
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.True(package!.IsCompleted);
+    }
+
+    [Fact]
+    public async Task PersistTransitionAsync_WhenAnEarlierStatementFails_TheLaterOnesNeverLand()
+    {
+        // The complement of the rollback test above, faulting the FIRST-executed table instead of
+        // the last. Today it holds trivially (nothing ran before the fault); its value is under a
+        // future statement reorder, where it becomes the proof that the transaction still exists —
+        // whichever order the statements run in, one of the pair is always faulting a non-first
+        // statement.
+        int packageId = await InsertPackageAsync("pkg", isCompleted: true);
+        int fileId = await InsertFileAsync(packageId, "a.iso", FileState.Completed);
+
+        UploadPackageFileRepository faulting = new(
+            FaultingFactory(failCommandsTouching: "\"UploadPackageFile\""));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => faulting.PersistTransitionAsync(new FileTransitionWrite
+        {
+            FileId = fileId,
+            State = (int)FileState.HashQueued,
+            DiscardHash = true,
+            PackageIdNoLongerCompleted = packageId,
+        }));
+
+        UploadPackageDto? package = await _packageRepo.FindAsync(packageId);
+        Assert.True(package!.IsCompleted); // the reopen flag, a LATER statement, never landed
+        UploadPackageFileDto? file = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.Completed, file!.State);
+    }
+
+    /// <summary>
+    /// A context factory whose commands fail when their SQL touches the given quoted table name —
+    /// fault injection for proving a multi-statement write is genuinely transactional. Matching
+    /// includes the identifier quotes because one table name here is a prefix of another
+    /// ("UploadPackage" / "UploadPackageFile").
+    /// </summary>
+    private IDbContextFactory<CSUploaderDbContext> FaultingFactory(string failCommandsTouching)
+    {
+        DbContextOptions<CSUploaderDbContext> options = new DbContextOptionsBuilder<CSUploaderDbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new FaultingCommandInterceptor(failCommandsTouching))
+            .Options;
+        return new TestDbContextFactory(options);
+    }
+
+    private sealed class FaultingCommandInterceptor(string failCommandsTouching)
+        : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(
+            System.Data.Common.DbCommand command,
+            Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains(failCommandsTouching, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"injected fault: statement touches {failCommandsTouching}");
+            }
+
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
     }
 
     private async Task<int> InsertPackageAsync(string name, bool isCompleted = false)
