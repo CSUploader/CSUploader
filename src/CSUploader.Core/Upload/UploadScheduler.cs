@@ -68,6 +68,21 @@ public class UploadScheduler : IDisposable
     public bool IsPaused { get; private set; }
 
     /// <summary>
+    /// Gets or sets the launcher used for the detached hash/upload workers. Defaults to
+    /// <see cref="Task.Run(Func{Task})"/>; test-only seam.
+    /// </summary>
+    /// <remarks>
+    /// The launch/cancel race these workers live in is otherwise only reachable by out-running the
+    /// thread pool, which makes for a regression test that silently stops testing on a fast enough
+    /// machine. Substituting a launcher that HOLDS the delegates lets a test freeze every worker at
+    /// the exact instant the race opens — after the file is Uploading and its source exists, before
+    /// the body has read anything — drive Stop/Pause through the pump, and only then release them.
+    /// It doubles as the drain handle teardown needs, in the same spirit as
+    /// <c>PackageManager.DrainPendingPersistenceAsync</c>.
+    /// </remarks>
+    internal Func<Func<Task>, Task> WorkLauncher { get; set; } = static work => Task.Run(work);
+
+    /// <summary>
     /// Starts the scheduler's consumer loop. Idempotent - subsequent calls are no-ops.
     /// </summary>
     /// <summary>
@@ -97,7 +112,12 @@ public class UploadScheduler : IDisposable
             return;
         }
 
-        _loopTask = Task.Run(ProcessLoopAsync);
+        // Token read here, not inside the loop: Dispose gives the loop two seconds to appear and
+        // then disposes _loopCts regardless, so a pool that hasn't started this work item yet would
+        // have it fault on _loopCts.Token — and ProcessLoopAsync only catches OperationCanceled, so
+        // the pump would die silently. Same reason as LaunchUpload.
+        CancellationToken ct = _loopCts.Token;
+        _loopTask = Task.Run(() => ProcessLoopAsync(ct));
     }
 
     /// <summary>
@@ -325,11 +345,11 @@ public class UploadScheduler : IDisposable
         }
     }
 
-    private async Task ProcessLoopAsync()
+    private async Task ProcessLoopAsync(CancellationToken ct)
     {
         try
         {
-            await foreach (Action action in _channel.Reader.ReadAllAsync(_loopCts.Token))
+            await foreach (Action action in _channel.Reader.ReadAllAsync(ct))
             {
                 try
                 {
@@ -550,12 +570,15 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        _ = Task.Run(async () =>
+        // Read the token HERE, on the launching thread — see LaunchUpload for why.
+        CancellationToken ct = cts.Token;
+
+        _ = WorkLauncher(async () =>
         {
             try
             {
                 string filePath = Path.Combine(file.Path ?? string.Empty, file.Name);
-                await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, cts.Token))
+                await foreach (Lib.Crypto.HashEvent ev in _hashingService.HashFileAsync(filePath, System.Security.Cryptography.HashAlgorithmName.MD5, ct))
                 {
                     if (ev is Lib.Crypto.HashStarted)
                     {
@@ -629,7 +652,16 @@ public class UploadScheduler : IDisposable
         CancellationTokenSource cts = new();
         file.Cts = cts;
 
-        _ = Task.Run(async () =>
+        // Read the token HERE, on the launching thread, and let the worker close over the token
+        // rather than the source. The file is already Uploading by the time the worker is handed
+        // off, so a stop arriving before the worker starts cancels AND disposes this source — and
+        // CancellationTokenSource.Token throws once disposed. Reading it inside the worker surfaced
+        // that as "Upload pipeline crashed: The CancellationTokenSource has been disposed." on rows
+        // the user had just stopped. A token obtained beforehand survives its source's disposal:
+        // every stop path cancels first, so the worker sees an ordinary cancellation instead.
+        CancellationToken ct = cts.Token;
+
+        _ = WorkLauncher(async () =>
         {
             bool success = false;
             bool cancelled = false;
@@ -637,7 +669,7 @@ public class UploadScheduler : IDisposable
             Lib.Net.Http.HttpHandler? attemptHandler = null;
             try
             {
-                await foreach (Pipeline.UploadEvent ev in _attemptRunner.RunAsync(file.BuildAttemptInputs(_logger), cts.Token))
+                await foreach (Pipeline.UploadEvent ev in _attemptRunner.RunAsync(file.BuildAttemptInputs(_logger), ct))
                 {
                     if (ev is Pipeline.HandlerBuilt hb)
                     {
