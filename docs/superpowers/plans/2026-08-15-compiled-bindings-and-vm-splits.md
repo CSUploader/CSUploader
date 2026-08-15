@@ -77,17 +77,20 @@
 
 **Procedure per view (bite-sized loop, ~3 min each):**
 
-- [ ] **Step A:** Read the view's `.axaml.cs` ctor(s); note the concrete DataContext type. If DataContext is the window itself, `x:DataType` is the window's own class. If a view has *no* DataContext (pure code-behind property setting), skip it with an inline comment `<!-- reflection: no DataContext; code-behind drives this view -->`.
-- [ ] **Step B:** On the root element add (namespace prefix as needed):
+- [x] **Step A:** Read the view's `.axaml.cs` ctor(s); note the concrete DataContext type. If DataContext is the window itself, `x:DataType` is the window's own class. If a view has *no* DataContext (pure code-behind property setting), skip it with an inline comment `<!-- reflection: no DataContext; code-behind drives this view -->`.
+  *Executed deviation:* eleven dialogs (MessageBox, CloseAction, SpeedLimit, ProxyText, About, Progress, UpdateProgress, ErrorDetails, HttpDetails, EditProxy — plus the excluded Cef window) contain **zero** `{Binding}` uses, so there was nothing to convert or mark; they were skipped without comment markers.
+- [x] **Step B:** On the root element add (namespace prefix as needed):
   ```xml
   xmlns:vm="using:CSUploader.ViewModels"
   x:CompileBindings="True"
   x:DataType="vm:TheViewModel"
   ```
-- [ ] **Step C:** `dotnet build` → fix every AVLN error the compiler now surfaces: each `DataTemplate` inside gets its own `x:DataType`; bindings to non-DataContext sources (`$parent`, `ElementName`, `x:Static`) usually compile as-is; a genuinely dynamic spot gets `x:CompileBindings="False"` on the smallest containing element + a comment naming why.
-- [ ] **Step D:** Run the head suite: `dotnet test tests/CSUploader.Tests/CSUploader.Tests.csproj --no-build` → 523 passed. Any view with an existing window test that lacks a `BindingErrorSink` assertion gets one added while there (`using BindingErrorSink sink = BindingErrorSink.Install();` … `Assert.Empty(sink.Errors);`).
+  *Converted:* LogDetailsWindow (vm:LogEntryViewModel), ToastWindow (CompileBindings added to existing DataType), WebViewLoginWindow (v:WebViewLoginViewModel), EditAccountWindow (ItemTemplate-scoped, x:String). GalleryWindow declared a reflection island by comment.
+- [x] **Step C:** `dotnet build` → fix every AVLN error the compiler now surfaces: each `DataTemplate` inside gets its own `x:DataType`; bindings to non-DataContext sources (`$parent`, `ElementName`, `x:Static`) usually compile as-is; a genuinely dynamic spot gets `x:CompileBindings="False"` on the smallest containing element + a comment naming why. → Zero AVLN errors on first build.
+- [x] **Step D:** Run the head suite: `dotnet test tests/CSUploader.Tests/CSUploader.Tests.csproj --no-build` → 523 passed. Any view with an existing window test that lacks a `BindingErrorSink` assertion gets one added while there (`using BindingErrorSink sink = BindingErrorSink.Install();` … `Assert.Empty(sink.Errors);`).
+  *Executed deviation:* sinks added to DetailWindowTests (LogDetails) and ToastWindowTests; WebViewLoginWindowTests deliberately never shows its window (headless WebView2 constraint), so bindings never activate there — compile-time checking is its net, no sink added.
 
-- [ ] **Final:** Full suite green → Codex review gate on the batch diff → commit: `refactor(bindings): the dialogs' bindings are checked by the compiler now`
+- [x] **Final:** Full suite green → Codex review gate on the batch diff → commit: `refactor(bindings): the dialogs' bindings are checked by the compiler now` → Codex verdict: approve, zero findings.
 
 ---
 

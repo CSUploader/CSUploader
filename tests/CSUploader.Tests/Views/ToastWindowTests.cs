@@ -52,6 +52,8 @@ public class ToastWindowTests
     [AvaloniaFact]
     public void CloseCommand_RunsAndWindowCloses()
     {
+        using BindingErrorSink sink = BindingErrorSink.Install();
+
         bool closed = false;
         var vm = MakeVm(close: () => closed = true);
         var w = new ToastWindow(vm);
@@ -67,6 +69,8 @@ public class ToastWindowTests
         {
             w.Close();
         }
+
+        Assert.Empty(sink.Errors);
     }
 
     [AvaloniaFact]

@@ -63,7 +63,8 @@
       <ComboBox Grid.Row="0" Grid.Column="1" x:Name="HosterCombo" Classes="field-combo"
                 HorizontalAlignment="Stretch" Margin="0,0,0,10">
         <ComboBox.ItemTemplate>
-          <DataTemplate>
+          <!-- Items are hoster-name strings (HosterCombo.ItemsSource = hosters, code-behind). -->
+          <DataTemplate x:CompileBindings="True" x:DataType="x:String">
             <StackPanel Orientation="Horizontal">
               <Image Source="{Binding Converter={StaticResource HosterIconConverter}}"
                      Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />

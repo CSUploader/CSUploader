@@ -12,6 +12,8 @@
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
         xmlns:v="clr-namespace:CSUploader.Views"
         x:Class="CSUploader.Views.WebViewLoginWindow"
+        x:CompileBindings="True"
+        x:DataType="v:WebViewLoginViewModel"
         Title="{loc:Loc WebViewLogin_WindowTitle}"
         Width="900" Height="720"
         WindowStartupLocation="CenterOwner"

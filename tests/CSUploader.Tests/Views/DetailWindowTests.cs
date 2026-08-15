@@ -114,6 +114,8 @@ public class DetailWindowTests
     [AvaloniaFact]
     public void LogDetails_Fields_BindThroughViewModel()
     {
+        using BindingErrorSink sink = BindingErrorSink.Install();
+
         var dlg = new LogDetailsWindow(new LogEntryViewModel(SynthLogEvent()));
         try
         {
@@ -132,6 +134,8 @@ public class DetailWindowTests
         {
             dlg.Close();
         }
+
+        Assert.Empty(sink.Errors);
     }
 
     // ── synthesized data (mirrors the WPF reference driver + the Avalonia gallery factories) ──

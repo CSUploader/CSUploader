@@ -10,7 +10,10 @@
   <!-- dev-only; no i18n by design (the single Loc sample below binds a real key ON PURPOSE, to
        exercise the LocExtension path — everything else is hardcoded English). This is a standing
        Phase 3-6 style/token test page: every section exercises one Phase 3 deliverable so the
-       contact-sheet reviewer can judge "tokens faithful + density close + everything renders". -->
+       contact-sheet reviewer can judge "tokens faithful + density close + everything renders".
+
+       reflection island: stays off compiled bindings on purpose — a DEBUG-only demo page whose
+       bindings target throwaway demo rows and a TemplatedParent toggle; typing them buys nothing. -->
   <Window.Resources>
     <conv:FileTypeIconConverter x:Key="FileTypeIconConverter" />
 
