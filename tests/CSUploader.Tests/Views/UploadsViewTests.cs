@@ -369,6 +369,42 @@ public class UploadsViewTests
         }
     }
 
+    // ── The reflection island's safety net ──
+
+    [AvaloniaFact]
+    public void MixedRows_BindQuietly_TheReflectionIslandHasNoSilentFailures()
+    {
+        // This grid is the one place in the app that still binds by reflection: its rows are Package OR
+        // PackageFile — duck-typed members, no shared base — so its columns cannot carry an x:DataType and
+        // the compiler cannot check them. That is precisely the arrangement where a mistyped path fails
+        // silently, showing a blank cell and writing one line to a developer's debug output, which is how
+        // the LogsView tooltip bug survived for months. Both row types are realized here and the view is
+        // asserted QUIET, so the island keeps a net the compiler would otherwise have provided.
+        using BindingErrorSink sink = BindingErrorSink.Install();
+
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin", "alpha2.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            // Force the package row AND its file rows through a real layout pass.
+            Dispatcher.UIThread.RunJobs();
+            var rows = view.uploadsGrid.GetVisualDescendants()
+                .OfType<DataGridRow>()
+                .Where(r => r.DataContext is Package or PackageFile)
+                .ToList();
+
+            Assert.Contains(rows, r => r.DataContext is Package);
+            Assert.Contains(rows, r => r.DataContext is PackageFile);
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        Assert.Empty(sink.Errors);
+    }
+
     // ── Editable Order (prep 7): BeginningEdit guard allows Order on a non-terminal file, cancels otherwise ──
 
     [AvaloniaFact]

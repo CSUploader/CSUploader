@@ -16,9 +16,10 @@
              xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
              xmlns:dal="clr-namespace:CSUploader.Dal;assembly=CSUploader.Core"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             xmlns:coreloc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Core"
+             xmlns:upload="clr-namespace:CSUploader.Upload;assembly=CSUploader.Core"
              xmlns:v="clr-namespace:CSUploader.Views"
              x:Class="CSUploader.Views.SettingsView"
-             x:CompileBindings="True"
              x:DataType="vm:SettingsViewModel"
              Background="{DynamicResource SurfaceBrush}">
 
@@ -268,13 +269,22 @@
         <Separator Margin="0,0,0,4" />
         <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Language_Desc}" />
 
+        <!-- Every option ComboBox on this page follows the same shape, and this is the one place it is
+             explained. ItemsSource and SelectedValue address THIS view-model and compile against the
+             view's x:DataType. The two item-level bindings address a ROW, and ComboBox — unlike a
+             DataGridTextColumn — does NOT infer its item type from a typed ItemsSource: left alone they
+             resolve against SettingsViewModel and fail to build. So each names its own row type on the
+             binding: the language list's is a record nested in this view-model
+             (SettingsViewModel+LanguageEntry), the option lists' are closed generics
+             (LocalizedOption<T> via x:TypeArguments). Both shapes are expressible, so none of these is
+             reflection — an earlier revision assumed they weren't nameable and wrongly gave up on ten
+             bindings. -->
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_Language_Label}" Classes="setting-label" />
           <ComboBox Grid.Column="1" x:Name="LanguageCombo" HorizontalAlignment="Stretch"
-                    x:CompileBindings="False"
                     ItemsSource="{Binding LanguageOptions}"
-                    SelectedValueBinding="{Binding Value}"
-                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type vm:SettingsViewModel+LanguageEntry}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type vm:SettingsViewModel+LanguageEntry}}"
                     SelectedValue="{Binding Language}"
                     FontSize="12" Padding="4,3" />
         </Grid>
@@ -352,10 +362,9 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_General_CloseAction}" Classes="setting-label" />
           <ComboBox Grid.Column="1" x:Name="CloseActionCombo" HorizontalAlignment="Stretch"
-                    x:CompileBindings="False"
                     ItemsSource="{Binding CloseActionOptions}"
-                    SelectedValueBinding="{Binding Value}"
-                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:CloseAction}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:CloseAction}}"
                     SelectedValue="{Binding CloseAction}"
                     FontSize="12" Padding="4,3" />
         </Grid>
@@ -452,10 +461,9 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_RemoveFinished}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                    x:CompileBindings="False"
                     ItemsSource="{Binding RemoveFinishedUploadsOptions}"
-                    SelectedValueBinding="{Binding Value}"
-                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:RemoveFinishedUploadsMode}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:RemoveFinishedUploadsMode}}"
                     SelectedValue="{Binding RemoveFinishedUploads}"
                     FontSize="12" Padding="4,3" />
         </Grid>
@@ -463,10 +471,9 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_IfFileExists}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                    x:CompileBindings="False"
                     ItemsSource="{Binding IfFileExistsOptions}"
-                    SelectedValueBinding="{Binding Value}"
-                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:IfFileExistsBehavior}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:IfFileExistsBehavior}}"
                     SelectedValue="{Binding IfFileExists}"
                     FontSize="12" Padding="4,3" />
         </Grid>
@@ -497,10 +504,9 @@
         <Grid Classes="setting-row" ColumnDefinitions="*,360">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_Autostart}" Classes="setting-label" />
           <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                    x:CompileBindings="False"
                     ItemsSource="{Binding AutostartUploadsOptions}"
-                    SelectedValueBinding="{Binding Value}"
-                    DisplayMemberBinding="{Binding Label}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:AutostartUploadsMode}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:AutostartUploadsMode}}"
                     SelectedValue="{Binding AutostartUploads}"
                     FontSize="12" Padding="4,3" />
         </Grid>
@@ -531,12 +537,14 @@
           IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
 
       <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment.
-           reflection islands (all three): the reach goes through the ancestor WINDOW's untyped
+           Only the ACQUISITION is unknowable: it reaches through the ancestor WINDOW's untyped
            DataContext, whose runtime type varies by host (MainWindow's MainViewModel in production,
-           plain test doubles in the headless suites) — no single x:DataType is truthful, and the
-           Connection panel's VM is outside this refactor. -->
-      <StackPanel Grid.Row="0" Margin="20,16,20,0" x:CompileBindings="False"
-                  DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
+           plain test doubles in the headless suites), so no cast would be truthful — hence an explicit
+           {ReflectionBinding} for that one hop on each of the three. What it yields is always a
+           ConnectionManagerViewModel, so the subtree declares it and everything below compiles. -->
+      <StackPanel Grid.Row="0" Margin="20,16,20,0"
+                  x:DataType="vm:ConnectionManagerViewModel"
+                  DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
           <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24"
                  VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -560,8 +568,9 @@
 
       <!-- The grid dims (Opacity 0.45, via the proxies-off conditional class) when Use-proxies is off but
            stays interactive so proxies can be curated before flipping the master switch back on. -->
-      <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8" x:CompileBindings="False"
-                DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+      <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8"
+                x:DataType="vm:ConnectionManagerViewModel"
+                DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
                 Classes.proxies-off="{Binding !ProxiesEnabled}"
                 ItemsSource="{Binding Proxies}"
                 AutoGenerateColumns="False"
@@ -695,8 +704,9 @@
            resolve the grid's VM + live SelectedItems (the flyout lives in a separate popup namescope, so a
            cross-popup ElementName/SelectedItems binding is not reliable — same rule-19 reason the grid menu's
            params are code-behind). Add / Test All are plain buttons bound directly to the inherited VM. -->
-      <DockPanel Grid.Row="2" Margin="20,0,20,16" x:CompileBindings="False"
-                 DataContext="{Binding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
+      <DockPanel Grid.Row="2" Margin="20,0,20,16"
+                 x:DataType="vm:ConnectionManagerViewModel"
+                 DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Classes="jd2" Margin="0,0,8,0">
             <Button.Flyout>

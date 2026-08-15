@@ -4,7 +4,6 @@
         xmlns:views="clr-namespace:CSUploader.Views"
         xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
         x:Class="CSUploader.Views.MainWindow"
-        x:CompileBindings="True"
         x:DataType="vm:MainViewModel"
         Title="{Binding WindowTitle}"
         Width="1024" Height="800"

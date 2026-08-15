@@ -16,7 +16,6 @@
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
         x:Class="CSUploader.Views.LogDetailsWindow"
-        x:CompileBindings="True"
         x:DataType="vm:LogEntryViewModel"
         Title="{loc:Loc LogDetails_WindowTitle}"
         Icon="/Assets/icon.ico"

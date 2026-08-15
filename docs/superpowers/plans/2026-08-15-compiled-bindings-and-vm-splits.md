@@ -201,11 +201,65 @@
 
 **Files:** `src/CSUploader/CSUploader.csproj`, all `.axaml` touched in Tasks 2–5.
 
-- [ ] **Step 1:** In `CSUploader.csproj` replace `<AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>` with `true`, and rewrite the surrounding comment: the port-parity rationale is done; reflection now lives only in explicit islands.
-- [ ] **Step 2:** Remove every per-root `x:CompileBindings="True"` added in Tasks 2–5 (now redundant; `x:DataType` stays). Keep every `x:CompileBindings="False"` island + its comment.
-- [ ] **Step 3:** Build. Any view that silently relied on the old default now errors — fix by the Task 2 Step C rules.
-- [ ] **Step 4:** Full suite green. `grep -r "CompileBindings=\"True\"" src/` → expect zero hits.
-- [ ] **Step 5:** Codex review gate → commit: `refactor(bindings): compiled bindings become the default; reflection is the exception now`
+- [x] **Step 1:** `CSUploader.csproj` → `true`, with the port-parity comment replaced by what the setting
+  now means and what the remaining islands are.
+- [x] **Step 2:** Removed all ten redundant `x:CompileBindings="True"` — nine on view roots plus
+  EditAccountWindow's, which was scoped to a DataTemplate rather than the root (the `x:DataType`s stay).
+- [x] **Step 3:** Build. **Two views only ever compiled by accident of the old default, and both errored
+  (AVLN2100, "cannot parse a compiled binding without an explicit x:DataType"):**
+  - `DevTools/GalleryWindow.axaml` (5) — the DEBUG dev page I'd declared a reflection island in a comment
+    back in Task 2; it now carries the actual `x:CompileBindings="False"` attribute.
+  - `Views/Cef/CefGlueLoginWindow.axaml` (2) — the Linux-only sign-in window the plan said not to touch
+    (unverifiable locally). It turned out to bind the SAME two members on the SAME
+    `WebViewLoginViewModel` as its Windows twin, and the `net10.0` TFM *does* compile here — so it got a
+    real `x:DataType` rather than an opt-out, verified by the build rather than by assumption.
+  ⚠ **Process note:** an incremental build reported success while both files were stale. Only
+  `--no-incremental` surfaced these 7 errors. Verify a flip like this with a clean rebuild.
+- [x] **Step 4:** Clean rebuild 0 warnings / 0 errors on both TFMs; full suite 523 + 2,239 green against
+  those fresh binaries. The proof the default is doing the work: `LogsViewTests.ConverterColumns_AreOneWayBound`
+  asserts every LogsView column is a `CompiledBindingExtension`, and it still passes with LogsView's own
+  opt-in deleted. (The plan's original "expect zero `CompileBindings="True"` hits" no longer holds — the
+  review-driven narrowing below deliberately re-enables compilation on one element, the uploads context
+  menu, inside an opted-out parent. One hit, and it is the point rather than a leftover.)
+- [x] **Step 5:** Codex review gate → **request changes, and the findings were right**: the islands I
+  had inherited from Tasks 3–4 were far coarser than the thing that actually needed reflection, which
+  made the csproj comment an overclaim. Rather than soften the claim, the islands were narrowed until
+  it was true — the compiler and the 2,762 tests made each step verifiable:
+  - **UploadsView**: the grid keeps its island for the mixed-row COLUMNS, but its context menu (~40
+    command bindings, all addressing `UploadsViewModel`) re-enables compilation explicitly, and
+    `SelectedItem` names the view-model on the binding. A round-3 finding caught that the island's
+    comment claimed `BindingErrorSink` coverage that `UploadsViewTests` never had — so rather than
+    delete the claim, `MixedRows_BindQuietly` now realizes both row types and asserts the view is
+    silent, which is the net the compiler cannot provide for those columns.
+  - **SettingsView connection panels ×3**: only the ancestor-window hop is unknowable, so it became an
+    explicit `{ReflectionBinding}` and the subtrees declare `x:DataType="vm:ConnectionManagerViewModel"`.
+    Everything below — including the proxy grid's columns, whose row type the compiler infers from the
+    typed `ItemsSource` — now compiles. Four `SettingsConnectionTests` asserted the binding MECHANISM
+    (`Binding`) and had to follow it to `CompiledBindingExtension`; the Mode assertions are unchanged,
+    and the helper matching on the compiled type is itself what pins those columns as compiled.
+  - **Option combos ×5**: `ItemsSource`/`SelectedValue` compile.
+  A **round-2 review then rejected my rationale for the last of these**, and it was right again. I had
+  made the combos' item-level `Value`/`Label` `{ReflectionBinding}`, claiming the row types were not
+  nameable in XAML. They are: a nested record is `vm:SettingsViewModel+LanguageEntry`, and a closed
+  generic is `{x:Type coreloc:LocalizedOption, x:TypeArguments=upload:CloseAction}`. Both verified by
+  building. The AVLN2000 I had taken as proof of impossibility only ever proved that ComboBox doesn't
+  INFER its item type the way a DataGrid column does. All ten now compile. The same round also showed an
+  element opt-out doesn't stop an explicit `{CompiledBinding …, DataType=…}`, so the uploads grid's
+  `SelectedItem` compiles too — leaving that island covering only its mixed-row columns.
+  A **round-3 review caught the two places where my claims had outrun my tests**, and one was a real
+  defect this conversion introduced:
+  - `SettingsConnectionTests` put a duck-typed `HostStub` in the SettingsView's own DataContext. That
+    worked under reflection, but the view now compiles against `SettingsViewModel`, so its generated
+    accessors CAST — every binding on that page was failing silently in those tests. The harness now
+    mirrors production: the WINDOW keeps the stub (that hop is genuinely host-varying, which is what
+    the `{ReflectionBinding}` is for) and the VIEW gets a real `SettingsViewModel`. A
+    `BindingErrorSink` assertion now guards the arrangement — and was mutation-tested: restoring the
+    old stub makes it fail, so it guards rather than decorates.
+  - the uploads island's comment claimed sink coverage `UploadsViewTests` never had → added.
+  **Final surface: 2 opted-out elements** (uploads columns, dev gallery), **1 deliberate re-enable**
+  (the uploads context menu), **3 reflection bindings** (the Connection panel's three ancestor-window
+  acquisitions — the one hop whose type genuinely varies by host). Suite: 524 + 2,239.
+  → commit: `refactor(bindings): compiled bindings become the default; reflection is the exception now`
 
 ---
 

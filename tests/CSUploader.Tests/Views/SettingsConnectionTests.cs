@@ -9,6 +9,7 @@ using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using CSUploader.Dal;
@@ -47,13 +48,13 @@ public class SettingsConnectionTests
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             foreach (string path in new[] { "Host", "Port", "Username", "Password" })
             {
                 DataGridTextColumn col = TextColumn(view.ProxyGrid, path);
-                var binding = Assert.IsType<Binding>(col.Binding);
+                var binding = Assert.IsType<CompiledBindingExtension>(col.Binding);
                 Assert.NotEqual(BindingMode.OneWay, binding.Mode); // Default (→TwoWay) or TwoWay — never OneWay
             }
         }
@@ -68,12 +69,12 @@ public class SettingsConnectionTests
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             DataGridCheckBoxColumn onColumn = view.ProxyGrid.Columns.OfType<DataGridCheckBoxColumn>().Single();
-            var binding = Assert.IsType<Binding>(onColumn.Binding);
-            Assert.Equal("Enabled", binding.Path);
+            var binding = Assert.IsType<CompiledBindingExtension>(onColumn.Binding);
+            Assert.Equal("Enabled", binding.Path.ToString());
             Assert.NotEqual(BindingMode.OneWay, binding.Mode);
         }
         finally
@@ -90,7 +91,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         ProxySettingItem row0 = Row("old.host", 8080, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             DataGrid grid = view.ProxyGrid;
@@ -126,7 +127,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         ProxySettingItem row0 = Row("host.a", 8080, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             ComboBox typeCombo = RowFor(view.ProxyGrid, row0).GetVisualDescendants().OfType<ComboBox>().First();
@@ -155,7 +156,7 @@ public class SettingsConnectionTests
         ProxySettingItem row1 = Row("host.b", 2, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
         harness.Vm.Proxies.Add(row1);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             var buttons = RowFor(view.ProxyGrid, row1).GetVisualDescendants()
@@ -191,7 +192,7 @@ public class SettingsConnectionTests
         withDetails.TestTransaction = new HttpTransaction { Method = "GET", Url = "https://example.test/" };
         harness.Vm.Proxies.Add(noDetails);
         harness.Vm.Proxies.Add(withDetails);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             Button? hidden = DetailsButton(view.ProxyGrid, noDetails, harness.Vm);
@@ -215,7 +216,7 @@ public class SettingsConnectionTests
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             // The context-menu Add is a MenuItem (not a Button, and not bound until opened), so exactly the
@@ -236,7 +237,7 @@ public class SettingsConnectionTests
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             Assert.Same(view.ProxyGrid.SelectedItems, view.ProxyContextTestItem.CommandParameter);
@@ -258,7 +259,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         ProxySettingItem row0 = Row("host.a", 8080, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             // Right-click on a row → the Test/Remove/Export-selected items (and their separators) show.
@@ -291,7 +292,7 @@ public class SettingsConnectionTests
     {
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             KeyBinding binding = Assert.Single(view.ProxyGrid.KeyBindings);
@@ -314,7 +315,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         ProxySettingItem row0 = Row("old.host", 8080, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             DataGrid grid = view.ProxyGrid;
@@ -364,7 +365,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         ProxySettingItem row0 = Row("host.a", 8080, ProxyType.Http, enabled: true);
         harness.Vm.Proxies.Add(row0);
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             DataGrid grid = view.ProxyGrid;
@@ -400,7 +401,7 @@ public class SettingsConnectionTests
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
         harness.Vm.ProxiesEnabled = true;
-        (Window window, SettingsView view) = Show(new HostStub(harness.Vm));
+        (Window window, SettingsView view) = Show(new HostStub(harness.Vm, harness.SettingsVm));
         try
         {
             // Classes.proxies-off="{Binding !ProxiesEnabled}" — set when the master switch is off (opacity 0.45),
@@ -427,9 +428,15 @@ public class SettingsConnectionTests
     [AvaloniaFact]
     public void PanelContent_ResolvesConnectionVm_ViaWindowAncestor_WhileTheGridKeepsTheSettingsVm()
     {
+        // Also the guard on the two-DataContext arrangement itself: the view compiles its bindings against
+        // SettingsViewModel while only the window-ancestor hop stays reflection, so putting a duck-typed
+        // stub in the view's slot would fail the page's compiled bindings — silently, since a failed
+        // binding only writes to debug output. The sink turns that into a test failure.
+        using BindingErrorSink sink = BindingErrorSink.Install();
+
         using ConnHarness harness = new();
         harness.Vm.Proxies.Add(Row("host.a", 8080, ProxyType.Http, enabled: true));
-        HostStub host = new(harness.Vm);
+        HostStub host = new(harness.Vm, harness.SettingsVm);
         (Window window, SettingsView view) = Show(host);
         try
         {
@@ -442,18 +449,25 @@ public class SettingsConnectionTests
             // on the Grid, IsVisible had to reach back up through
             // $visualParent[UserControl].DataContext, which is evaluated before the DataContext arrives
             // (MainWindow hosts this view inside a TabItem) and logged two binding errors every startup.
-            Assert.Same(host, view.ConnectionPanel.DataContext);
+            Assert.Same(harness.SettingsVm, view.ConnectionPanel.DataContext);
         }
         finally
         {
             window.Close();
         }
+
+        Assert.Empty(sink.Errors);
     }
 
     // ── helpers ──
 
+    // CompiledBindingExtension, not Binding: the proxy grid's rows are typed (the compiler infers
+    // ProxySettingItem from the ConnectionManagerViewModel.Proxies ItemsSource), so its columns are
+    // compiled bindings. Matching on the compiled type is also what pins them there — a column that
+    // fell back to reflection would no longer be found by this helper.
     private static DataGridTextColumn TextColumn(DataGrid grid, string path)
-        => grid.Columns.OfType<DataGridTextColumn>().First(c => c.Binding is Binding b && b.Path == path);
+        => grid.Columns.OfType<DataGridTextColumn>()
+            .First(c => c.Binding is CompiledBindingExtension b && b.Path.ToString() == path);
 
     private static DataGridRow RowFor(DataGrid grid, ProxySettingItem item)
         => grid.GetVisualDescendants().OfType<DataGridRow>().First(r => ReferenceEquals(r.DataContext, item));
@@ -508,9 +522,16 @@ public class SettingsConnectionTests
 
     private static (Window Window, SettingsView View) Show(HostStub host)
     {
+        // Mirrors production's two DataContexts, which are NOT the same object: the WINDOW carries the
+        // host (MainViewModel in the app, this stub here) and the VIEW carries a real SettingsViewModel.
+        // That split is load-bearing now the view compiles its bindings — SettingsView declares
+        // x:DataType="vm:SettingsViewModel", so its generated accessors CAST, and a duck-typed stub in
+        // that slot would fail every binding on the page silently. Only the window stays duck-typed,
+        // which is exactly the variance the Connection panel's {ReflectionBinding} acquisition exists for.
+        //
         // Wide enough that every proxy column (~1010px min) is in the horizontal viewport — the DataGrid
         // virtualizes columns, so a narrower window would leave the trailing Status/Details cells unrealized.
-        SettingsView view = new() { DataContext = host };
+        SettingsView view = new() { DataContext = host.SettingsViewModel };
         Window window = new() { Width = 1600, Height = 700, DataContext = host, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -518,20 +539,18 @@ public class SettingsConnectionTests
     }
 
     /// <summary>
-    /// Stands in for the Window's MainViewModel: exposes the <see cref="ConnectionManagerViewModel"/> the panel
-    /// resolves via <c>RelativeSource AncestorType=Window</c> and the SelectedCategoryIndex the panel visibility
-    /// keys off. The same instance backs the Window and the SettingsView DataContext — reflection bindings
-    /// (compiled bindings are off in the head) read both properties duck-typed. Index 2 = the Connection panel.
+    /// Stands in for the Window's MainViewModel — the one DataContext whose type genuinely varies by host,
+    /// which is why the Connection panel reaches it through a {ReflectionBinding}. Exposes the
+    /// <see cref="ConnectionManagerViewModel"/> that panel resolves via <c>RelativeSource AncestorType=Window</c>,
+    /// and the real <see cref="ViewModels.SettingsViewModel"/> the view itself binds (index 2 = Connection).
     /// </summary>
-    private sealed class HostStub(ConnectionManagerViewModel vm)
+    private sealed class HostStub(ConnectionManagerViewModel vm, SettingsViewModel settings)
     {
         public ConnectionManagerViewModel ConnectionManagerViewModel { get; } = vm;
 
-        public int SelectedCategoryIndex { get; set; } = 2;
-
-        /// <summary>Stands in for <c>MainViewModel.SettingsViewModel</c> so a test can bind the view's
-        /// DataContext the way MainWindow does. Returning itself keeps the one duck-typed stub.</summary>
-        public HostStub SettingsViewModel => this;
+        /// <summary>Stands in for <c>MainViewModel.SettingsViewModel</c> so the view's DataContext is the
+        /// same TYPE MainWindow gives it — a stub here would not survive the view's compiled bindings.</summary>
+        public SettingsViewModel SettingsViewModel { get; } = settings;
     }
 
     /// <summary>
@@ -564,9 +583,28 @@ public class SettingsConnectionTests
             {
                 ProxiesEnabled = true,
             };
+
+            // The real view-model the VIEW binds (the window gets the stub instead — see HostStub).
+            // Category 2 is the Connection page, which is what every test here looks at.
+            SettingsVm = new SettingsViewModel(
+                new SettingRepository(factory),
+                new AccountManagerViewModel(
+                    new FileHosterLoginRepository(factory),
+                    DialogMock.Object,
+                    Mock.Of<IAppLogger>(),
+                    Mock.Of<IAccountVerifier>()),
+                new AppSettings(),
+                DialogMock.Object,
+                Mock.Of<IAppLogger>())
+            {
+                SelectedCategoryIndex = 2,
+            };
         }
 
         public ConnectionManagerViewModel Vm { get; }
+
+        /// <summary>The real SettingsViewModel the view's compiled bindings resolve against.</summary>
+        public SettingsViewModel SettingsVm { get; }
 
         /// <summary>The dialog service the VM's RemoveSelected confirmation flows through — verifiable so the
         /// Delete-key guard tests can assert the remove path did / did not fire (Times.Never / Times.Once).</summary>

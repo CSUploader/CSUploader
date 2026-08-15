@@ -35,9 +35,24 @@
     <!-- WebView2's managed API marshals COM; required for the WebView2 login host (CoreWebView2 COM marshaling).
          Windows-target only — the WebView2 host does not exist in the portable build. -->
     <BuiltInComInteropSupport Condition="$(TargetFramework.Contains('windows'))">true</BuiltInComInteropSupport>
-    <!-- Parity-first migration: the WPF XAML being ported uses reflection bindings throughout.
-         Compiled bindings (x:DataType everywhere) are a deliberate opt-in AFTER the port. -->
-    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Compiled bindings are the default; the port-parity exception that kept them off is spent.
+         Every view whose bindings are meant to be checked declares an x:DataType, so a binding to a
+         member that doesn't exist is a BUILD error rather than a blank cell nobody notices — the
+         failure BindingErrorSink was written to catch after one sat in LogsView for months.
+         What is still reflection, and why — three bindings and two elements, nothing else:
+           • three {ReflectionBinding}s, all the same hop: the Connection panel's three child rows
+             each fetch their view-model through the ancestor WINDOW's DataContext, whose runtime
+             type varies by host (MainViewModel in the app, plain doubles in the headless suites),
+             so no cast would be true. What that hop yields is typed, and everything below it
+             compiles — including the proxy grid's columns, whose row type the compiler infers from
+             the typed ItemsSource;
+           • two x:CompileBindings="False" elements: the uploads grid, whose COLUMNS bind rows that
+             are Package or PackageFile with no shared base (its context menu re-enables compilation
+             and its SelectedItem names the view-model explicitly, so only the columns rely on it),
+             and the DEBUG-only dev gallery, deliberately untyped throwaway scaffolding.
+         Where a type is awkward but nameable, it is named rather than surrendered: bindings carry
+         their own DataType for nested records (Type+Nested) and closed generics (x:TypeArguments). -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationIcon Condition="$(TargetFramework.Contains('windows'))">..\Properties\Images\Logo\icon.ico</ApplicationIcon>
     <!-- Win32 supportedOS manifest — REQUIRED for Avalonia NativeControlHost / WebView2 hosting.
          Windows-target only (a Win32 manifest is meaningless on Linux). -->

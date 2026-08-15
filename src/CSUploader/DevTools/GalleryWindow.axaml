@@ -4,6 +4,7 @@
         xmlns:conv="clr-namespace:CSUploader.Converters"
         xmlns:beh="clr-namespace:CSUploader.Behaviors"
         x:Class="CSUploader.DevTools.GalleryWindow"
+        x:CompileBindings="False"
         Title="Gallery (dev)"
         Width="900" Height="700"
         WindowStartupLocation="CenterScreen">
