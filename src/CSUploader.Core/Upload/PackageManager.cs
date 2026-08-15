@@ -1,4 +1,4 @@
-// <copyright file="PackageManager.cs" company="CSUploader">
+﻿// <copyright file="PackageManager.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -24,16 +24,18 @@ public class PackageManager
     private readonly Pipeline.IFileHosterRegistry _registry;
     private readonly Lock _lock = new();
 
-    // Serializes state-change persistence so that when PackageCompleted fires for the last file,
-    // every prior file's UpdateStateAsync (and its URL) has already been committed to SQLite.
-    private readonly SemaphoreSlim _persistLock = new(1, 1);
+    // Tail of the persistence chain: every write is sequenced onto this one, so they reach SQLite
+    // in the order the scheduler produced them — and, being sequential, never overlap either. This
+    // replaced a SemaphoreSlim, which gave the second guarantee without the first: when
+    // PackageCompleted fires for the last file, "every prior file's state is already committed"
+    // needs prior to actually mean prior. See TrackPersistence.
+    private Task _persistTail = Task.CompletedTask;
 
     // Tracks every in-flight fire-and-forget persistence task so DrainPendingPersistenceAsync can
-    // await ALL of them — including a Task.Run that has been scheduled but hasn't yet started (and
-    // so hasn't taken _persistLock). Registering the task here happens synchronously on the
-    // event-firing thread BEFORE the work is dispatched, closing the window where the drain would
-    // otherwise acquire the free lock and return while a queued callback was still pending, letting
-    // its EF Core write race the SqliteConnection's dispose. See tests/CLAUDE.md.
+    // await ALL of them — including one that has been queued but hasn't started yet. Registering
+    // happens synchronously on the event-firing thread BEFORE the work is dispatched, closing the
+    // window where the drain would return while a queued callback was still pending, letting its
+    // EF Core write race the SqliteConnection's dispose. See tests/CLAUDE.md.
     private readonly HashSet<Task> _pendingPersistence = [];
     private readonly Lock _pendingPersistenceLock = new();
 
@@ -90,6 +92,14 @@ public class PackageManager
     /// waiting for the whole package to finish.
     /// </summary>
     public event EventHandler<PackageFile>? FileCompleted;
+
+    /// <summary>
+    /// Raised after a file that had reached a terminal state is put back in the queue (Retry,
+    /// Reset, or the re-upload of a completed file) and that has been persisted. The mirror of
+    /// <see cref="FileCompleted"/> — the Uploaded tab lists rows the database calls Completed, so
+    /// it needs to know when one stops being one.
+    /// </summary>
+    public event EventHandler<PackageFile>? FileReopened;
 
     /// <summary>
     /// Gets the list of packages.
@@ -506,9 +516,29 @@ public class PackageManager
     }
 
     private void OnFileStateChanged(object? sender, FileStateChangedEventArgs e)
+        => PersistFileTransition(e.File, e.OldState, e.NewState);
+
+    /// <summary>
+    /// Writes one file transition to the database: the state itself, plus whatever else that
+    /// transition implies — a newly computed hash, a discarded one, a package that is no longer
+    /// complete — as a single sequenced write.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the event handler because a mutation can be worth persisting without changing
+    /// the state: resetting a file that is ALREADY queued for hashing clears its hash and error but
+    /// leaves it in <see cref="FileState.HashQueued"/>, and <c>SetFileState</c> raises nothing when
+    /// the state does not move. Silently skipping the write there would leave the stale hash on
+    /// disk — the precise failure this is all meant to close.
+    /// </remarks>
+    private void PersistFileTransition(PackageFile file, FileState oldState, FileState newState)
     {
+        FileStateChangedEventArgs e = new(file, oldState, newState);
+
         if (e.File.DbId is null)
         {
+            // No row yet, but the flag must still be consumed — otherwise it survives to be spent
+            // on some later, unrelated transition.
+            e.File.HashDiscarded = false;
             return;
         }
 
@@ -523,23 +553,61 @@ public class PackageManager
                 && !string.IsNullOrEmpty(e.File.FileHash)
             ? e.File.FileHash
             : null;
-        DateTime? finishedDateTime = state is FileState.Completed or FileState.Failed or FileState.Cancelled
+        DateTime? finishedDateTime = IsTerminal(state)
             ? (e.File.FinishedDate ?? DateTime.Now)
             : null;
 
+        // Read-and-clear inline: SetFileState raises this event synchronously on the pump, which is
+        // also where the flag was set, so there is no window between the two.
+        bool clearHash = e.File.HashDiscarded;
+        e.File.HashDiscarded = false;
+
+        // A file leaving a terminal state re-opens its package. Nothing ever wrote the completed
+        // flag back to false, so retrying one file in a finished package left queued rows inside a
+        // package still marked complete — and the Uploaded tab's export reads by that flag.
+        bool reopened = IsTerminal(e.OldState) && !IsTerminal(state);
+        int? reopenedPackageId = reopened ? e.File.Package.DbId : null;
+
         TrackPersistence(async () =>
         {
-            await _persistLock.WaitAsync();
             try
             {
                 await _fileRepo.UpdateStateAsync(fileId, (int)state, error, fileUrl, finishedDateTime, e.File.StartedDate);
 
-                if (fileHashIfJustComputed is not null)
+                // The steps below are separate SQLite statements, not one transaction — the repos
+                // each open their own context. So they are also individually guarded: a hash write
+                // that fails must not take the package flag and the UI notification down with it,
+                // when the state write it follows has already succeeded.
+                try
                 {
-                    await _fileRepo.UpdateHashAsync(fileId, fileHashIfJustComputed);
+                    if (fileHashIfJustComputed is not null)
+                    {
+                        await _fileRepo.UpdateHashAsync(fileId, fileHashIfJustComputed);
+                    }
+                    else if (clearHash)
+                    {
+                        await _fileRepo.ClearHashAsync(fileId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log(this, LogType.Error, $"Failed to persist the file hash: {ex.Message}");
                 }
 
-                bool isTerminal = state is FileState.Completed or FileState.Failed or FileState.Cancelled;
+                if (reopenedPackageId is int reopenedId)
+                {
+                    await _packageRepo.UpdateCompletedFlagAsync(reopenedId, false);
+                }
+
+                if (reopened)
+                {
+                    // The Uploaded tab lists rows the DB calls Completed. This one no longer is, so
+                    // it has to re-query — otherwise the row lingers there, contradicting the file
+                    // it claims to describe, until something else happens to refresh it.
+                    FileReopened?.Invoke(this, e.File);
+                }
+
+                bool isTerminal = IsTerminal(state);
                 if (isTerminal)
                 {
                     FileCompleted?.Invoke(this, e.File);
@@ -568,12 +636,11 @@ public class PackageManager
             {
                 _logger.Log(this, LogType.Error, $"Failed to persist state: {ex.Message}");
             }
-            finally
-            {
-                _persistLock.Release();
-            }
         });
     }
+
+    private static bool IsTerminal(FileState state)
+        => state is FileState.Completed or FileState.Failed or FileState.Cancelled;
 
     private void OnQueueOrderChanged(object? sender, IReadOnlyList<PackageFile> files)
     {
@@ -587,7 +654,6 @@ public class PackageManager
 
         TrackPersistence(async () =>
         {
-            await _persistLock.WaitAsync();
             try
             {
                 await _fileRepo.UpdateQueueOrderAsync(orders);
@@ -595,10 +661,6 @@ public class PackageManager
             catch (Exception ex)
             {
                 _logger.Log(this, LogType.Error, $"Failed to persist queue order: {ex.Message}");
-            }
-            finally
-            {
-                _persistLock.Release();
             }
         });
     }
@@ -620,12 +682,11 @@ public class PackageManager
     /// </summary>
     internal async Task DrainPendingPersistenceAsync()
     {
-        // Snapshot and await every tracked persistence task. A task that was scheduled but not yet
+        // Snapshot and await every tracked persistence task. A task that was queued but not yet
         // started is already in the set (TrackPersistence registers it synchronously before
-        // dispatch), so awaiting the snapshot covers callbacks that haven't taken _persistLock yet —
-        // the gap a bare `_persistLock.WaitAsync()/Release()` would miss. Loop because a draining
-        // task could, in principle, queue another; in practice the scheduler is stopped first so the
-        // second pass is empty.
+        // dispatch), so awaiting the snapshot covers callbacks that have not begun. Loop because a
+        // draining task could, in principle, queue another; in practice the scheduler is stopped
+        // first so the second pass is empty.
         while (true)
         {
             Task[] pending;
@@ -652,28 +713,52 @@ public class PackageManager
     }
 
     /// <summary>
-    /// Runs a fire-and-forget persistence callback while registering it in
-    /// <see cref="_pendingPersistence"/> for the lifetime of the work, so
-    /// <see cref="DrainPendingPersistenceAsync"/> can await it. The task is added synchronously on
-    /// the caller's thread (before <see cref="Task.Run"/> schedules anything) and removed in a
-    /// continuation when the body completes.
+    /// Queues a persistence callback behind the ones already queued, and registers it in
+    /// <see cref="_pendingPersistence"/> for the lifetime of the work so
+    /// <see cref="DrainPendingPersistenceAsync"/> can await it.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CHAINED, not raced. Each body used to get its own <see cref="Task.Run"/> and then contend
+    /// for a semaphore — which guarantees that no two writes overlap, but says nothing about which
+    /// goes first. Two transitions produced microseconds apart could therefore
+    /// reach the database backwards, and the scheduler produces exactly such pairs: a Stop followed
+    /// by a Reset, or a reset's requeue and the hash launch that FillSlots does for it in the very
+    /// same pump pass. Landing backwards leaves the row holding the earlier state permanently.
+    /// Sequencing each write onto the previous one makes the database follow the order the
+    /// scheduler actually produced.
+    /// </para>
+    /// <para>
+    /// The chain must never break: a body that threw would fault the tail and, worse, surface in
+    /// <see cref="DrainPendingPersistenceAsync"/>. Failures are logged and swallowed here so one bad
+    /// write cannot stall or poison every write behind it.
+    /// </para>
+    /// </remarks>
     private void TrackPersistence(Func<Task> body)
     {
-        // Gate the work on a TCS so the task is registered in _pendingPersistence BEFORE its body
-        // can run (and therefore before it can complete and try to remove itself). Without the gate,
-        // a body that finished between Task.Run and the Add could remove-then-never-have-been-added,
-        // or the Add could land after the removal continuation — either way leaving a stale entry or
-        // missing one. Releasing the gate after the Add makes the add-then-remove order deterministic.
-        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var task = Task.Run(async () =>
-        {
-            await gate.Task;
-            await body();
-        });
-
+        Task task;
         lock (_pendingPersistenceLock)
         {
+            task = _persistTail.ContinueWith(
+                async _ =>
+                {
+                    try
+                    {
+                        await body();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log(this, LogType.Error, $"Persistence step failed: {ex.Message}");
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.None,
+                TaskScheduler.Default).Unwrap();
+
+            _persistTail = task;
+
+            // Registered here, under the same lock the removal continuation takes — so the entry is
+            // always added before it can be removed, however fast the body finishes.
             _pendingPersistence.Add(task);
         }
 
@@ -688,8 +773,6 @@ public class PackageManager
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-
-        gate.SetResult();
     }
 
     /// <summary>
@@ -763,7 +846,6 @@ public class PackageManager
             {
                 TrackPersistence(async () =>
                 {
-                    await _persistLock.WaitAsync();
                     try
                     {
                         await _packageRepo.SoftRemoveFromUploadsAsync(pid);
@@ -771,10 +853,6 @@ public class PackageManager
                     catch (Exception ex)
                     {
                         _logger.Log(this, LogType.Error, $"Failed to soft-remove package from Uploads: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _persistLock.Release();
                     }
                 });
             }
@@ -791,7 +869,6 @@ public class PackageManager
             {
                 TrackPersistence(async () =>
                 {
-                    await _persistLock.WaitAsync();
                     try
                     {
                         await _fileRepo.SoftRemoveFromUploadsAsync(new[] { fid });
@@ -799,10 +876,6 @@ public class PackageManager
                     catch (Exception ex)
                     {
                         _logger.Log(this, LogType.Error, $"Failed to soft-remove file from Uploads: {ex.Message}");
-                    }
-                    finally
-                    {
-                        _persistLock.Release();
                     }
                 });
             }
@@ -915,20 +988,12 @@ public class PackageManager
 
         if (package.DbId is int id)
         {
-            // Fire-and-forget like the other post-mutation persistence — a failed write must not
-            // take down the rename (the in-memory name is already applied); it just won't survive
-            // a restart, and the error lands in the log.
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _packageRepo.UpdateNameAsync(id, newName);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log(this, LogType.Error, $"Persisting package rename failed: {ex.Message}");
-                }
-            });
+            // Through the chain like every other post-mutation write — a failed write must not take
+            // down the rename (the in-memory name is already applied); it just won't survive a
+            // restart, and the error lands in the log. On its own Task.Run this was the one write
+            // that could both land out of order against a rapid second rename and slip past
+            // DrainPendingPersistenceAsync entirely.
+            TrackPersistence(() => _packageRepo.UpdateNameAsync(id, newName));
         }
     }
 
@@ -962,7 +1027,7 @@ public class PackageManager
         }
     }
 
-    private static void ForceQueueIfStartable(PackageFile file)
+    private void ForceQueueIfStartable(PackageFile file)
     {
         // Don't disturb files that are already running or done. HashQueued/UploadQueued
         // also no-op: they're already in the queue; FillSlots will pick them up.
@@ -996,14 +1061,13 @@ public class PackageManager
             file.QueueOrder = 0;
         }
 
-        if (!file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash))
-        {
-            file.State = FileState.HashQueued;
-        }
-        else
-        {
-            file.State = FileState.UploadQueued;
-        }
+        // Announced, not assigned — the requeue (and the Error clear above it) has to reach the DB,
+        // or a restart restores the terminal state the user just retried away from.
+        _scheduler.ApplyFileState(
+            file,
+            !file.IsHashingComplete || string.IsNullOrEmpty(file.FileHash)
+                ? FileState.HashQueued
+                : FileState.UploadQueued);
     }
 
     /// <summary>
@@ -1039,25 +1103,57 @@ public class PackageManager
         }
     }
 
-    private static void ResetFile(PackageFile file)
+    private void ResetFile(PackageFile file)
     {
-        StopFile(file);
+        CancelWork(file);
+
         // No explicit RefreshConnection — AttemptRunner rebuilds the HttpHandler against
         // the current rotation when the scheduler picks the file up again.
         file.IsHashingComplete = false;
         file.FileHash = null;         // clear stored hash so it is re-computed
+        file.HashDiscarded = true;    // ...and so the STORED one goes with it
         file.Error = null;
         file.FileUrl = null;
         file.IsUploadFinished = false;
         file.QueueOrder = 0;          // re-queue: append to the END of the upload order
-        file.State = FileState.HashQueued;   // always restart from hash
+
+        // Straight to HashQueued, never through Cancelled. The old code passed through it on the
+        // way, which was invisible while these assignments were silent — now that the transition
+        // is announced, stopping there would report the file as terminal (firing FileCompleted and
+        // refreshing the Uploaded tab) in the middle of a reset.
+        // One announced transition carries the whole reset to disk — the state, the cleared error,
+        // and (via HashDiscarded) the cleared hash. Issuing the hash clear as its own write would
+        // put it in a race with any hash write already queued for this file.
+        FileState before = file.State;
+        _scheduler.ApplyFileState(file, FileState.HashQueued); // always restart from hash
+
+        if (before == FileState.HashQueued)
+        {
+            // Resetting a file that was ALREADY queued for hashing moves no state, so nothing was
+            // announced — but the cleared hash and error still have to land.
+            PersistFileTransition(file, before, FileState.HashQueued);
+        }
     }
 
-    private static void StopFile(PackageFile file)
+    private void StopFile(PackageFile file)
     {
-        // Clear the force-start override (also covers Reset, which routes through here): a hash
-        // that finishes in the cancellation window must not let OnHashCompleted launch an
-        // over-limit upload for a file the user just stopped/reset. See PackageFile.ForceStart.
+        CancelWork(file);
+
+        if (file.State is not FileState.Completed and not FileState.Idle)
+        {
+            _scheduler.ApplyFileState(file, FileState.Cancelled);
+        }
+    }
+
+    /// <summary>
+    /// Tears down whatever the file has in flight, without deciding what state it lands in — that
+    /// differs between Stop (Cancelled) and Reset (straight back to HashQueued).
+    /// </summary>
+    private static void CancelWork(PackageFile file)
+    {
+        // Clear the force-start override: a hash that finishes in the cancellation window must not
+        // let OnHashCompleted launch an over-limit upload for a file the user just stopped/reset.
+        // See PackageFile.ForceStart.
         file.ForceStart = false;
 
         // The attempt being stopped no longer owns this row — a completion already queued behind
@@ -1075,10 +1171,5 @@ public class PackageManager
         }
 
         file.Cts = null;
-
-        if (file.State is not FileState.Completed and not FileState.Idle)
-        {
-            file.State = FileState.Cancelled;
-        }
     }
 }

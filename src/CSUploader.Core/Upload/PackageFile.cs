@@ -213,6 +213,21 @@ public class PackageFile : INotifyPropertyChanged
     internal void SupersedeAttempt() => AttemptGeneration++;
 
     /// <summary>
+    /// Gets or sets a value indicating whether a user action has just thrown this file's hash away,
+    /// so the stored one must go with it.
+    /// </summary>
+    /// <remarks>
+    /// Reset and the re-upload of a Completed file both clear <see cref="FileHash"/> and
+    /// <see cref="IsHashingComplete"/> in memory. Nothing in the persistence path clears a stored
+    /// hash — it only ever writes one — so without this the row kept the old hash and its flag, and
+    /// a restart before the file got a slot reloaded that hash and skipped straight to uploading:
+    /// exactly what re-hashing exists to prevent. Set on the scheduler's pump immediately before
+    /// the state transition that announces the change; <c>PackageManager.OnFileStateChanged</c>
+    /// reads and clears it inline on that same thread.
+    /// </remarks>
+    internal bool HashDiscarded { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether the user force-started this file from the
     /// Uploads context menu. When true the <see cref="UploadScheduler"/> launches its upload
     /// past the UPLOAD admission gate (global + per-host), while still respecting the hashing/CPU

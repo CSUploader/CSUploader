@@ -68,6 +68,11 @@ public partial class UploadedViewModel : ObservableObject
         _refresh = new UiRefreshCoalescer(_uiDispatcher, () => LoadAsync(), _logger);
         packageManager.PackageCompleted += OnPackageCompleted;
         packageManager.FileCompleted += OnFileCompleted;
+
+        // A row can also leave this list: retrying or resetting a completed file makes the DB stop
+        // calling it Completed, and without a reload the grid keeps showing a "finished" upload
+        // that is queued again. Same coalescer, so it costs nothing on a burst.
+        packageManager.FileReopened += OnFileReopened;
     }
 
     private readonly UiRefreshCoalescer _refresh;
@@ -347,4 +352,6 @@ public partial class UploadedViewModel : ObservableObject
     private void OnPackageCompleted(object? sender, Package package) => RequestRefresh();
 
     private void OnFileCompleted(object? sender, PackageFile file) => RequestRefresh();
+
+    private void OnFileReopened(object? sender, PackageFile file) => RequestRefresh();
 }

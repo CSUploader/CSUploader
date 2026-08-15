@@ -132,6 +132,12 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
     private PackageManager NewLocalManager(AppSettings settings, DefaultFileHosterRegistry registry)
         => NewLocalManager(settings, registry, out _);
 
+    /// <summary>
+    /// Settings whose scheduler admits no work at all — for tests that assert what an operation
+    /// WROTE, without the queue running the file and overwriting it with the next attempt's result.
+    /// </summary>
+    private static AppSettings NoSlots() => new() { MaxConcurrentUploadJobs = 0, MaxConcurrentCPUJobs = 0 };
+
     [Fact]
     public async Task RemovePackage_PackageInstance_FlipsIsRemovedFromUploadsInDatabase()
     {
@@ -920,6 +926,303 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             // The OTHER package's idle file must NOT have been swept into the queue.
             Assert.Equal(FileState.Idle, fileB.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StopPackage_PersistsTheCancelledState_SoARestartDoesNotResumeIt()
+    {
+        // The per-row Stop used to assign file.State directly, which raised no FileStateChanged and
+        // so never reached the DB. The row stayed Uploading on disk, and the loader's default
+        // OnlyIfRunningAtLastSession policy reads that as "was running when we closed" — so a
+        // stopped upload came back and resumed on the next launch.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+
+            // Put the row where a running upload leaves it, on disk as well as in memory.
+            file.State = FileState.Uploading;
+            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
+
+            _packageManager.StopPackage(file);
+            await _scheduler.DrainAsync();
+            await _packageManager.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.Equal(FileState.Cancelled, persisted?.State);
+
+            // ...and go the whole way: a fresh manager loading that row must leave the file alone.
+            // Uploading is what the loader re-queues; Cancelled is terminal and stays put.
+            PackageManager restarted = NewLocalManager(
+                new AppSettings { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession },
+                new DefaultFileHosterRegistry([]),
+                out UploadScheduler restartedScheduler);
+            await restarted.LoadPersistedPackagesAsync();
+            await restartedScheduler.DrainAsync();
+            await restarted.DrainPendingPersistenceAsync();
+
+            PackageFile reloaded = restarted.Packages.SelectMany(p => p).Single(f => f.DbId == fileId);
+            Assert.Equal(FileState.Cancelled, reloaded.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ResetPackage_ClearsThePersistedHash_SoARestartReallyDoesRehash()
+    {
+        // Reset cleared the hash in memory only. Nothing in the persistence path ever CLEARS a
+        // hash — it only writes one — so the row kept the old hash and its IsHashingComplete flag.
+        // Reset a file, close before it gets a slot, and it came back hashed and went straight to
+        // uploading: the one thing Reset exists to prevent.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+
+            file.FileHash = "deadbeef";
+            file.IsHashingComplete = true;
+            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+
+            // A manager whose scheduler admits nothing, so the reset is observed as it lands rather
+            // than after the queue has already re-hashed the file and written a fresh hash over it.
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.ResetPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
+            Assert.False(persisted?.IsHashingComplete);
+            Assert.Equal(FileState.HashQueued, persisted?.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StartPackage_PersistsTheRequeuedState_SoARetryIsNotForgotten()
+    {
+        // Retrying a Failed row has to reach the DB too, or a restart restores the failure the user
+        // just retried away from.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+
+            file.State = FileState.Failed;
+            file.Error = "boom";
+            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Failed, "boom", null);
+
+            // Admits nothing, so what is asserted is the requeue itself — not the outcome of the
+            // attempt the queue would otherwise go on to run (and, with no real hoster, fail).
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.StartPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.NotEqual(FileState.Failed, persisted?.State);
+            Assert.True(string.IsNullOrEmpty(persisted?.Error), $"the old error survived the retry: {persisted?.Error}");
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task StopThenReset_PersistsInThatOrder_SoTheResetIsNotOverwrittenByTheStop()
+    {
+        // Two user actions a moment apart queue two writes. Each used to get its own Task.Run and
+        // then contend for a semaphore, which prevents overlap but not overtaking — so the Stop's
+        // Cancelled could reach SQLite after the Reset's HashQueued and leave the row stopped.
+        // A guard rather than a reproduction: with the writes chained the order is structural, and
+        // this fails the moment anything makes them independent again.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+            file.State = FileState.Uploading;
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.StopPackage(file);
+            idle.ResetPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.Equal(FileState.HashQueued, persisted?.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ResettingAnAlreadyQueuedFile_StillClearsThePersistedHash()
+    {
+        // Reset lands the file on HashQueued. If it was already there, the state does not move and
+        // SetFileState announces nothing — so the write that carries the cleared hash never
+        // happened, and the file came back hashed after a restart. The one case where a mutation
+        // is worth persisting without a state change.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+
+            file.State = FileState.HashQueued;
+            file.FileHash = "deadbeef";
+            file.IsHashingComplete = true;
+            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.HashQueued, null, null);
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.ResetPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
+            Assert.False(persisted?.IsHashingComplete);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ResettingAFinishedPackage_ClearsItsPersistedCompletedFlag()
+    {
+        // Nothing ever wrote IsCompleted back to false, so retrying one file left queued rows
+        // inside a package the DB still called complete — and the Uploaded tab's export reads by
+        // exactly that flag, so an in-progress package could be exported as finished.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Completed;
+            await _packageRepo.UpdateCompletedFlagAsync(package.DbId!.Value, true);
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.ResetPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
+            Assert.False(persisted?.IsCompleted, "the package is running again — it is not completed");
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ResettingACompletedFile_AnnouncesThatItLeftTheDoneList()
+    {
+        // The Uploaded tab lists rows the DB calls Completed and refreshes on FileCompleted. Once
+        // Reset started persisting, a reset row stopped being Completed on disk while still sitting
+        // in that grid, with no event to tell it otherwise.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Completed;
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+            List<PackageFile> reopened = [];
+            idle.FileReopened += (_, f) => reopened.Add(f);
+
+            idle.ResetPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            Assert.Equal([file], reopened);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ForceStartingACompletedFile_ClearsThePersistedHashToo()
+    {
+        // The re-upload path discards the hash for the same reason Reset does — the file on disk
+        // may have changed — and had the same gap: it only cleared the in-memory copy.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            int fileId = file.DbId!.Value;
+            file.State = FileState.Completed;
+            file.FileHash = "deadbeef";
+            file.IsHashingComplete = true;
+            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+
+            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            idle.ForceStartPackage(file);
+            await scheduler.DrainAsync();
+            await idle.DrainPendingPersistenceAsync();
+
+            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the re-upload: {persisted?.FileHash}");
+            Assert.False(persisted?.IsHashingComplete);
         }
         finally
         {
