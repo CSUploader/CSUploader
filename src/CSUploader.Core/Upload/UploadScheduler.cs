@@ -137,6 +137,23 @@ public class UploadScheduler : IDisposable
     }
 
     /// <summary>
+    /// Completes once every action posted before this call has been processed. Test-only.
+    /// </summary>
+    /// <remarks>
+    /// The pump is a single consumer over a FIFO channel, so a marker posted now cannot run before
+    /// the actions already queued ahead of it. That turns "has the scheduler seen my stop yet?" into
+    /// an exact barrier instead of a poll — which matters for the cases where a correct scheduler
+    /// does NOTHING observable (a stale completion callback that must be ignored leaves no state
+    /// change to wait for, so polling would just be a sleep in disguise).
+    /// </remarks>
+    internal Task DrainAsync()
+    {
+        TaskCompletionSource marker = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Post(marker.SetResult);
+        return marker.Task;
+    }
+
+    /// <summary>
     /// Adds a package and schedules its files. Idempotent — re-adding an existing package is a no-op.
     /// </summary>
     /// <param name="package">The package to add.</param>
@@ -572,6 +589,7 @@ public class UploadScheduler : IDisposable
 
         // Read the token HERE, on the launching thread — see LaunchUpload for why.
         CancellationToken ct = cts.Token;
+        int generation = ++file.AttemptGeneration;
 
         _ = WorkLauncher(async () =>
         {
@@ -614,23 +632,27 @@ public class UploadScheduler : IDisposable
             }
             catch (OperationCanceledException)
             {
-                Post(() => OnHashCompleted(file, success: false, cancelled: true));
+                Post(() => OnHashCompleted(file, generation, success: false, cancelled: true));
                 return;
             }
             catch (Exception ex)
             {
                 file.Error = ex.Message;
                 _logger.Log(this, LogType.Error, $"Hashing pipeline crashed: {ex}");
-                Post(() => OnHashCompleted(file, success: false));
+                Post(() => OnHashCompleted(file, generation, success: false));
                 return;
             }
 
-            Post(() => OnHashCompleted(file, success: file.IsHashingComplete));
+            Post(() => OnHashCompleted(file, generation, success: file.IsHashingComplete));
         });
     }
 
     private void LaunchUpload(PackageFile file)
     {
+        // Stamped before the skip check below, so even the skipped path reports under the attempt
+        // it belongs to — see PackageFile.AttemptGeneration.
+        int generation = ++file.AttemptGeneration;
+
         // An account that already failed to sign in during this run cannot succeed for this file
         // either, and running the pipeline would ask for a browser sign-in nobody answered the
         // first time. Report it once, plainly, instead of repeating the same red row per file.
@@ -644,7 +666,7 @@ public class UploadScheduler : IDisposable
             // POSTED, not called straight through: LaunchUpload runs inside FillSlots, and
             // OnUploadCompleted ends by calling FillSlots again — completing inline would re-enter it
             // once per skipped file. The async path posts for the same reason.
-            Post(() => OnUploadCompleted(file, success: false));
+            Post(() => OnUploadCompleted(file, generation, success: false));
             return;
         }
 
@@ -715,22 +737,27 @@ public class UploadScheduler : IDisposable
 
             if (cancelled)
             {
-                Post(() => OnUploadCompleted(file, success: false, cancelled: true));
+                Post(() => OnUploadCompleted(file, generation, success: false, cancelled: true));
                 return;
             }
 
             if (crashed)
             {
-                Post(() => OnUploadCompleted(file, success: false));
+                Post(() => OnUploadCompleted(file, generation, success: false));
                 return;
             }
 
-            Post(() => OnUploadCompleted(file, success: success));
+            Post(() => OnUploadCompleted(file, generation, success: success));
         });
     }
 
-    private void OnHashCompleted(PackageFile file, bool success, bool cancelled = false)
+    private void OnHashCompleted(PackageFile file, int generation, bool success, bool cancelled = false)
     {
+        if (IsStaleAttempt(file, generation))
+        {
+            return;
+        }
+
         DisposeCts(file);
 
         if (cancelled)
@@ -768,8 +795,13 @@ public class UploadScheduler : IDisposable
         FillSlots();
     }
 
-    private void OnUploadCompleted(PackageFile file, bool success, bool cancelled = false)
+    private void OnUploadCompleted(PackageFile file, int generation, bool success, bool cancelled = false)
     {
+        if (IsStaleAttempt(file, generation))
+        {
+            return;
+        }
+
         DisposeCts(file);
 
         // The force-start override is consumed once the upload reaches a terminal state, so a
@@ -792,6 +824,20 @@ public class UploadScheduler : IDisposable
         RenumberQueue();
         FillSlots();
     }
+
+    /// <summary>
+    /// True when this completion belongs to an attempt the file has already moved on from — the
+    /// user stopped it and started it again while the old worker was still unwinding.
+    /// </summary>
+    /// <remarks>
+    /// Such a callback must do NOTHING. Its <see cref="DisposeCts"/> would dispose the CURRENT
+    /// attempt's source (and without cancelling it, since only the stop paths cancel), leaving an
+    /// upload nothing can stop; its SetFileState would then paint the old attempt's outcome over
+    /// the new attempt's row. Note this deliberately does not fire on stop or pause, which cancel
+    /// the source but do not begin a new attempt — pause in particular RELIES on the callback
+    /// arriving to move the row from Uploading to Paused.
+    /// </remarks>
+    private static bool IsStaleAttempt(PackageFile file, int generation) => file.AttemptGeneration != generation;
 
     private static void DisposeCts(PackageFile file)
     {

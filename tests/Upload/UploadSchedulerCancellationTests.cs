@@ -56,9 +56,8 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
     private const int FileCount = 8;
 
     private readonly string _tempDir;
-    private readonly List<UploadScheduler> _schedulers = [];
+    private readonly List<(UploadScheduler Scheduler, HeldWorkLauncher Launcher)> _harnesses = [];
     private readonly List<GatedPipeline> _pipelines = [];
-    private readonly List<HeldWorkLauncher> _launchers = [];
 
     public UploadSchedulerCancellationTests()
     {
@@ -81,12 +80,12 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
             pipeline.ReleaseAll();
         }
 
-        foreach (HeldWorkLauncher launcher in _launchers)
+        foreach ((UploadScheduler scheduler, HeldWorkLauncher launcher) in _harnesses)
         {
-            await launcher.ReleaseAndDrainAsync();
+            await launcher.ReleaseAndDrainAsync(scheduler.DrainAsync);
         }
 
-        foreach (UploadScheduler scheduler in _schedulers)
+        foreach ((UploadScheduler scheduler, _) in _harnesses)
         {
             scheduler.Dispose();
         }
@@ -112,7 +111,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         scheduler.StopAll();
         await WaitFor(() => package.All(f => f.State == FileState.Cancelled));
 
-        await launcher.ReleaseAndDrainAsync();
+        await launcher.ReleaseAndDrainAsync(scheduler.DrainAsync);
 
         AssertNoDisposedTokenSource(package, logger);
         Assert.All(package, f => Assert.Equal(FileState.Cancelled, f.State));
@@ -133,7 +132,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         scheduler.StopAll();
         await WaitFor(() => package.All(f => f.State == FileState.Cancelled));
 
-        await launcher.ReleaseAndDrainAsync();
+        await launcher.ReleaseAndDrainAsync(scheduler.DrainAsync);
 
         AssertNoDisposedTokenSource(package, logger);
     }
@@ -157,11 +156,89 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
 
         // Pause leaves the rows Uploading until each worker's completion callback parks them, so
         // releasing the workers is what produces the final states.
-        await launcher.ReleaseAndDrainAsync();
+        await launcher.ReleaseAndDrainAsync(scheduler.DrainAsync);
         await WaitFor(() => package.All(f => f.State is FileState.Paused or FileState.Failed));
 
         AssertNoDisposedTokenSource(package, logger);
         Assert.All(package, f => Assert.Equal(FileState.Paused, f.State));
+    }
+
+    [Fact]
+    public async Task CompletionCallback_FromAnAttemptTheUserAlreadyRestarted_LeavesTheNewAttemptAlone()
+    {
+        // Stop, then restart before the stopped attempt has finished unwinding. The old attempt's
+        // completion callback is already queued and knows nothing about the new one — but it ends up
+        // running against whatever the row holds by then.
+        GatedPipeline pipeline = new("Rapidgator");
+        RecordingLogger logger = new();
+        (UploadScheduler scheduler, Package package, HeldWorkLauncher launcher) = Build(pipeline, logger, fileCount: 1);
+        PackageFile file = package.Single();
+
+        scheduler.AddPackage(package);
+        await launcher.WaitForHeldAsync(1);
+
+        scheduler.StopAll();
+        await WaitFor(() => file.State == FileState.Cancelled);
+
+        // The user changes their mind. Attempt B installs its own source and takes the row back.
+        scheduler.StartAll();
+        await launcher.WaitForHeldAsync(2);
+        Assert.Equal(FileState.Uploading, file.State);
+        CancellationTokenSource attemptB = file.Cts!;
+        Assert.NotNull(attemptB);
+
+        // Only now does attempt A finish unwinding and post its completion.
+        await launcher.ReleaseAsync(0);
+        await scheduler.DrainAsync();
+
+        // A's callback belongs to an attempt that no longer owns this row, so it must leave B's
+        // source in place: dropping it makes B unstoppable — a ghost upload the user cannot cancel
+        // behind a row that claims to be finished.
+        Assert.Same(attemptB, file.Cts);
+
+        // ...and must not have disposed it either. Reading Token throws once a source is disposed,
+        // and a disposed-but-uncancelled source is the one state where the pipeline's own
+        // cancellation registration can still throw ObjectDisposedException.
+        Assert.False(attemptB.Token.IsCancellationRequested);
+
+        // ...nor overwrite B's state with A's outcome.
+        Assert.Equal(FileState.Uploading, file.State);
+    }
+
+    [Fact]
+    public async Task HashCompletionCallback_FromAnAttemptTheUserAlreadyRestarted_LeavesTheNewAttemptAlone()
+    {
+        // The hashing half of the same restart window. Worth its own test because a stale hash
+        // completion has an extra way to do damage: on success it does not merely mark the row, it
+        // LAUNCHES the upload — so an unguarded one could start a second attempt for a file that
+        // already has one running.
+        GatedPipeline pipeline = new("Rapidgator", requiresHash: true);
+        RecordingLogger logger = new();
+        (UploadScheduler scheduler, Package package, HeldWorkLauncher launcher) = Build(pipeline, logger, fileCount: 1);
+        PackageFile file = package.Single();
+
+        scheduler.AddPackage(package);
+        await launcher.WaitForHeldAsync(1);
+        Assert.Equal(FileState.Hashing, file.State);
+
+        scheduler.StopAll();
+        await WaitFor(() => file.State == FileState.Cancelled);
+
+        scheduler.StartAll();
+        await launcher.WaitForHeldAsync(2);
+        Assert.Equal(FileState.Hashing, file.State);
+        CancellationTokenSource attemptB = file.Cts!;
+        Assert.NotNull(attemptB);
+
+        await launcher.ReleaseAsync(0);
+        await scheduler.DrainAsync();
+
+        Assert.Same(attemptB, file.Cts);
+        Assert.False(attemptB.Token.IsCancellationRequested); // throws if A's callback disposed it
+        Assert.Equal(FileState.Hashing, file.State);
+
+        // And no third worker: the stale completion must not have launched an upload alongside B.
+        Assert.Equal(2, launcher.HeldCount);
     }
 
     /// <summary>
@@ -205,7 +282,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         Assert.True(condition(), $"condition was not met within the timeout: {expression}");
     }
 
-    private (UploadScheduler Scheduler, Package Package, HeldWorkLauncher Launcher) Build(GatedPipeline pipeline, IAppLogger logger)
+    private (UploadScheduler Scheduler, Package Package, HeldWorkLauncher Launcher) Build(GatedPipeline pipeline, IAppLogger logger, int fileCount = FileCount)
     {
         _pipelines.Add(pipeline);
 
@@ -221,10 +298,9 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
 
         HeldWorkLauncher launcher = new();
         scheduler.WorkLauncher = launcher.Launch;
-        _launchers.Add(launcher);
 
         scheduler.Start(); // PackageManager does this in production; here we drive the scheduler directly.
-        _schedulers.Add(scheduler);
+        _harnesses.Add((scheduler, launcher));
 
         FileHosterClient hoster = new(pipeline.Name, Protocol.Http);
         FileHosterLoginDto login = new() { FileHosterName = pipeline.Name, IsAnonymous = true };
@@ -236,7 +312,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
             FileHosters = new() { { hoster, login } },
         };
         Package package = new(options);
-        PackageFile[] files = [.. Enumerable.Range(0, FileCount).Select(i => MakeFile(package, hoster, login, $"f{i}.bin"))];
+        PackageFile[] files = [.. Enumerable.Range(0, fileCount).Select(i => MakeFile(package, hoster, login, $"f{i}.bin"))];
         package.AddPackageFiles(files);
 
         return (scheduler, package, launcher);
@@ -272,17 +348,31 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
     /// </remarks>
     private sealed class HeldWorkLauncher
     {
-        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly ConcurrentQueue<Task> _started = new();
-        private int _held;
+        private readonly List<TaskCompletionSource> _gates = [];
+        private readonly List<Task> _started = [];
+        private readonly Lock _lock = new();
 
-        public int HeldCount => Volatile.Read(ref _held);
+        public int HeldCount
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _gates.Count;
+                }
+            }
+        }
 
         public Task Launch(Func<Task> work)
         {
-            Interlocked.Increment(ref _held);
-            Task started = RunWhenReleasedAsync(work);
-            _started.Enqueue(started);
+            TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task started = RunWhenReleasedAsync(gate, work);
+            lock (_lock)
+            {
+                _gates.Add(gate);
+                _started.Add(started);
+            }
+
             return started;
         }
 
@@ -292,22 +382,64 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
             Assert.Equal(count, HeldCount);
         }
 
-        public async Task ReleaseAndDrainAsync()
+        /// <summary>
+        /// Releases a single worker by launch order and waits for it to unwind — which is how a
+        /// test arranges for one attempt to finish while a later attempt is still held.
+        /// </summary>
+        public async Task ReleaseAsync(int index)
         {
-            _release.TrySetResult();
-
-            // Drain repeatedly: a released worker's completion callback goes back through the pump,
-            // which can launch further work (a finished hash queues its upload), and that lands in
-            // the queue behind us.
-            while (_started.TryDequeue(out Task? started))
+            Task started;
+            lock (_lock)
             {
-                await started;
+                _gates[index].TrySetResult();
+                started = _started[index];
+            }
+
+            await started;
+        }
+
+        /// <summary>
+        /// Releases every held worker and returns once they — and anything their completions went
+        /// on to launch — have finished.
+        /// </summary>
+        /// <param name="pumpBarrier">
+        /// The scheduler's <c>DrainAsync</c>. Awaiting the workers is not enough on its own: a
+        /// finished worker only POSTS its completion, and it is that callback, running later on the
+        /// pump, which launches any follow-up work (a completed hash queues its upload). Without
+        /// running the pump in between, the loop would check for new workers before the thing that
+        /// creates them has run, and return early.
+        /// </param>
+        public async Task ReleaseAndDrainAsync(Func<Task> pumpBarrier)
+        {
+            while (true)
+            {
+                Task[] pending;
+                lock (_lock)
+                {
+                    foreach (TaskCompletionSource gate in _gates)
+                    {
+                        gate.TrySetResult();
+                    }
+
+                    pending = [.. _started];
+                }
+
+                await Task.WhenAll(pending);
+                await pumpBarrier();
+
+                lock (_lock)
+                {
+                    if (_started.Count == pending.Length)
+                    {
+                        return;
+                    }
+                }
             }
         }
 
-        private async Task RunWhenReleasedAsync(Func<Task> work)
+        private static async Task RunWhenReleasedAsync(TaskCompletionSource gate, Func<Task> work)
         {
-            await _release.Task;
+            await gate.Task;
             await work();
         }
     }
@@ -319,6 +451,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
     private sealed class GatedPipeline(string name, bool requiresHash = false) : IFileHosterPipeline
     {
         private readonly ConcurrentDictionary<string, TaskCompletionSource> _gates = new(StringComparer.Ordinal);
+        private int _releasedAll;
 
         public string Name { get; } = name;
 
@@ -330,8 +463,19 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
 
         public int? MaxFilesPerPackage => null;
 
+        /// <summary>
+        /// Opens every gate, including ones that do not exist yet.
+        /// </summary>
+        /// <remarks>
+        /// Sticky on purpose. Teardown releases the pipeline before it releases the held workers,
+        /// and a worker released afterwards can still reach this pipeline for the first time — a
+        /// held hash worker that finally succeeds makes the scheduler launch its upload, which
+        /// arrives here looking for a gate created after this ran. Without the flag that upload
+        /// parks forever and teardown never returns.
+        /// </remarks>
         public void ReleaseAll()
         {
+            Interlocked.Exchange(ref _releasedAll, 1);
             foreach (TaskCompletionSource tcs in _gates.Values)
             {
                 tcs.TrySetResult();
@@ -354,7 +498,18 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         }
 
         private TaskCompletionSource Gate(string fileName)
-            => _gates.GetOrAdd(fileName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        {
+            TaskCompletionSource gate = _gates.GetOrAdd(fileName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+
+            // Checked after the add, and ReleaseAll sets the flag before its sweep — so either the
+            // sweep sees this gate or this sees the flag. Neither order can leave it closed.
+            if (Volatile.Read(ref _releasedAll) == 1)
+            {
+                gate.TrySetResult();
+            }
+
+            return gate;
+        }
     }
 
     /// <summary>
