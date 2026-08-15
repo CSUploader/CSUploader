@@ -343,6 +343,20 @@ public class UploadScheduler : IDisposable
     /// </remarks>
     internal void PostFileMutation(Action mutation) => Post(mutation);
 
+    /// <summary>
+    /// Sets a file's state from inside a <see cref="PostFileMutation"/>, raising
+    /// <see cref="FileStateChanged"/> exactly as the scheduler's own transitions do.
+    /// </summary>
+    /// <remarks>
+    /// The per-row Stop and Reset used to assign <c>file.State</c> directly, which is why they
+    /// never reached the database: <see cref="FileStateChanged"/> is what
+    /// <c>PackageManager.OnFileStateChanged</c> persists from, and no event meant no write. A
+    /// stopped file stayed Uploading on disk, and the loader's default policy treats that as "was
+    /// running at last exit" — so a stopped upload came back and resumed on the next launch. The
+    /// global Stop never had the problem because it goes through the same transition this exposes.
+    /// </remarks>
+    internal void ApplyFileState(PackageFile file, FileState newState) => SetFileState(file, newState);
+
     /// <inheritdoc/>
     public void Dispose()
     {
@@ -580,6 +594,7 @@ public class UploadScheduler : IDisposable
             file.IsUploadFinished = false;
             file.IsHashingComplete = false;
             file.FileHash = null;
+            file.HashDiscarded = true; // ...and the STORED hash too — see PackageFile.HashDiscarded
             file.QueueOrder = 0; // re-queue: append to the END (EnsureQueueOrdered places it after the max)
         }
 

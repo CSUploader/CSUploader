@@ -100,6 +100,25 @@ public class UploadPackageFileRepository(IDbContextFactory<CSUploaderDbContext> 
                 .SetProperty(f => f.IsHashingComplete, true), ct);
     }
 
+    /// <summary>
+    /// Forgets a stored hash, so the file hashes again from scratch. The counterpart to
+    /// <see cref="UpdateHashAsync"/>, for Reset.
+    /// </summary>
+    /// <remarks>
+    /// Without this, a reset only cleared the hash in memory. The row still carried the old hash
+    /// and its IsHashingComplete flag, so a reset followed by a restart reloaded the stale hash and
+    /// went straight to uploading — the one thing Reset exists to avoid.
+    /// </remarks>
+    public async Task ClearHashAsync(int fileId, CancellationToken ct = default)
+    {
+        using CSUploaderDbContext db = DbFactory.CreateDbContext();
+        await db.Set<UploadPackageFileDbm>()
+            .Where(f => f.Id == fileId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(f => f.FileHash, (string?)null)
+                .SetProperty(f => f.IsHashingComplete, false), ct);
+    }
+
     public async Task UpdateFinishedAsync(int fileId, DateTime finishedDateTime, string? fileUrl, CancellationToken ct = default)
     {
         using CSUploaderDbContext db = DbFactory.CreateDbContext();
