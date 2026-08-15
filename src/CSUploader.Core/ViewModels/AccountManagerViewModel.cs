@@ -49,18 +49,8 @@ public partial class AccountManagerViewModel(
     [ObservableProperty]
     public partial FileHosterLoginDto? SelectedAccount { get; set; }
 
-    [ObservableProperty]
-    public partial string NewAccountHoster { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string NewAccountUsername { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string NewAccountPassword { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial AccountType NewAccountType { get; set; } = AccountType.Free;
-
+    /// <summary>The status line under the accounts grid — what the last add / check / refresh did.
+    /// Written by every path that talks to a verifier, and bound by the Accounts page.</summary>
     [ObservableProperty]
     public partial string CheckAccountStatus { get; set; } = string.Empty;
 
@@ -583,135 +573,6 @@ public partial class AccountManagerViewModel(
            || (HosterCredentialModes.IsWebViewSignInHoster(account.FileHosterName)
                && string.IsNullOrEmpty(account.SessionCookie)
                && string.IsNullOrEmpty(account.ApiKey));
-
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task CheckAccountAsync(CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(NewAccountHoster) || string.IsNullOrWhiteSpace(NewAccountUsername))
-        {
-            await _dialogService.ShowErrorAsync(Loc("Settings_Accounts_Validation_FillHosterUser"));
-            return;
-        }
-
-        IsCheckingAccount = true;
-        CheckAccountStatus = Loc("Settings_Accounts_Status_Checking");
-
-        try
-        {
-            var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
-            if (client is null)
-            {
-                CheckAccountStatus = LocF("Settings_Accounts_Status_NoImplWillSave_Format", NewAccountHoster);
-                return;
-            }
-
-            AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken: cancellationToken);
-
-            if (result.IsValid)
-            {
-                NewAccountType = result.AccountType;
-                CheckAccountStatus = LocF("Settings_Accounts_Status_ValidExclaim_Format", result.Message);
-            }
-            else
-            {
-                CheckAccountStatus = LocF("Settings_Accounts_Status_Failed_Format", result.Message);
-            }
-        }
-        catch (Exception ex)
-        {
-            CheckAccountStatus = LocF("Settings_Accounts_Status_Error_Format", ex.Message);
-        }
-        finally
-        {
-            IsCheckingAccount = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task AddAccountAsync(CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(NewAccountHoster)
-            || string.IsNullOrWhiteSpace(NewAccountUsername)
-            || string.IsNullOrWhiteSpace(NewAccountPassword))
-        {
-            await _dialogService.ShowErrorAsync(Loc("Settings_Accounts_Validation_FillHosterUser"));
-            return;
-        }
-
-        // Auto-check if a client implementation exists
-        var client = FileHosterClient.FindByHost(NewAccountHoster, Protocol.Http, _logger);
-        // Captured from the verifier when a captcha-gated hoster (Ex-Load) returns a
-        // session cookie alongside IsValid. Stamped onto the DTO below so the first
-        // upload doesn't re-pop the WebView.
-        AccountCheckResult? verifyResult = null;
-        if (client is not null)
-        {
-            IsCheckingAccount = true;
-            CheckAccountStatus = Loc("Settings_Accounts_Status_Verifying");
-
-            try
-            {
-                AccountCheckResult result = await VerifyCredentialsAsync(NewAccountHoster, NewAccountUsername, NewAccountPassword, apiKey: null, cancellationToken: cancellationToken);
-                verifyResult = result;
-                if (result.IsValid)
-                {
-                    NewAccountType = result.AccountType;
-                    CheckAccountStatus = LocF("Settings_Accounts_Status_Verified_Format", result.Message);
-                }
-                else
-                {
-                    CheckAccountStatus = LocF("Settings_Accounts_Status_Warning_Format", result.Message);
-                    if (!await _dialogService.ShowConfirmationAsync(LocF("Settings_Accounts_Check_FailedAddAnyway_Format", result.Message), Loc("Settings_Accounts_Check_DialogTitle")))
-                    {
-                        IsCheckingAccount = false;
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                CheckAccountStatus = LocF("Settings_Accounts_Status_CheckError_Format", ex.Message);
-                if (!await _dialogService.ShowConfirmationAsync(LocF("Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format", ex.Message), Loc("Settings_Accounts_Check_DialogTitle")))
-                {
-                    IsCheckingAccount = false;
-                    return;
-                }
-            }
-            finally
-            {
-                IsCheckingAccount = false;
-            }
-        }
-
-        FileHosterLoginDto dto = new()
-        {
-            FileHosterName = NewAccountHoster,
-            Username = NewAccountUsername,
-            Password = NewAccountPassword,
-            AccountType = NewAccountType,
-            CreatedDateTime = NowLocal(),
-        };
-        if (client is not null)
-        {
-            // Reaching here means we attempted a verifier round-trip (success, failure
-            // signal handled by the dialog, OR exception the user dismissed via "Add
-            // anyway"). Stamp the "Refreshed at" column unconditionally so the user
-            // can tell when we last tried — failure included.
-            dto.LastRefreshedDateTime = NowLocal();
-        }
-        if (verifyResult is not null)
-        {
-            ApplySessionCookieIfPresent(dto, verifyResult);
-        }
-
-        await _accountRepository.InsertAsync(dto, cancellationToken);
-
-        CheckAccountStatus = LocF("Settings_Accounts_Status_AccountAdded_Format", NewAccountHoster);
-        NewAccountUsername = string.Empty;
-        NewAccountPassword = string.Empty;
-
-        await LoadAccountsAsync(cancellationToken);
-    }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task RemoveSelectedAccountsAsync(IList? selectedItems, CancellationToken cancellationToken = default)

@@ -1036,48 +1036,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
     <value>是否移除 {0} 个所选账户？</value>
   </data>
-  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
-    <value>请填写文件托管商、用户名和密码。</value>
-  </data>
-  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
-    <value>账户检查</value>
-  </data>
-  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
-    <value>账户检查失败：{0}
-
-是否仍然添加？</value>
-  </data>
-  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
-    <value>无法验证账户：{0}
-
-是否仍然添加？</value>
-  </data>
   <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
     <value>正在验证凭据…</value>
-  </data>
-  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
-    <value>正在检查账户…</value>
   </data>
   <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
     <value>没有可刷新的账户。</value>
   </data>
-  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
-    <value>已验证：{0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
-    <value>警告：{0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
     <value>有效：{0}</value>
   </data>
-  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
-    <value>有效！{0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
     <value>失败：{0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
-    <value>检查错误：{0}</value>
   </data>
   <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
     <value>错误：{0}</value>
@@ -1087,9 +1056,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
     <value>尚未实现 {0}，无法检查。</value>
-  </data>
-  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
-    <value>尚未实现 {0}，账户将不经验证直接保存。</value>
   </data>
   <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
     <value>正在检查 {0}@{1}…（{2}/{3}）</value>
@@ -1165,12 +1131,6 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>线程</value>
-  </data>
-  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
-    <value>所选项中未包含 URL；剪贴板已清空</value>
-  </data>
-  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
-    <value>已复制 {0} 个 URL 到剪贴板</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>已从"历史"标签页隐藏 {0} 个文件</value>

@@ -1087,48 +1087,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Accounts_Remove_MessageBulk_Format" xml:space="preserve">
     <value>Remove {0} selected accounts?</value>
   </data>
-  <data name="Settings_Accounts_Validation_FillHosterUser" xml:space="preserve">
-    <value>Please fill in the file hoster, username, and password.</value>
-  </data>
-  <data name="Settings_Accounts_Check_DialogTitle" xml:space="preserve">
-    <value>Account Check</value>
-  </data>
-  <data name="Settings_Accounts_Check_FailedAddAnyway_Format" xml:space="preserve">
-    <value>Account check failed: {0}
-
-Add anyway?</value>
-  </data>
-  <data name="Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format" xml:space="preserve">
-    <value>Could not verify account: {0}
-
-Add anyway?</value>
-  </data>
   <data name="Settings_Accounts_Status_Verifying" xml:space="preserve">
     <value>Verifying credentials...</value>
-  </data>
-  <data name="Settings_Accounts_Status_Checking" xml:space="preserve">
-    <value>Checking account...</value>
   </data>
   <data name="Settings_Accounts_Status_NoAccountsToRefresh" xml:space="preserve">
     <value>No accounts to refresh.</value>
   </data>
-  <data name="Settings_Accounts_Status_Verified_Format" xml:space="preserve">
-    <value>Verified: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_Warning_Format" xml:space="preserve">
-    <value>Warning: {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Valid_Format" xml:space="preserve">
     <value>Valid: {0}</value>
   </data>
-  <data name="Settings_Accounts_Status_ValidExclaim_Format" xml:space="preserve">
-    <value>Valid! {0}</value>
-  </data>
   <data name="Settings_Accounts_Status_Failed_Format" xml:space="preserve">
     <value>Failed: {0}</value>
-  </data>
-  <data name="Settings_Accounts_Status_CheckError_Format" xml:space="preserve">
-    <value>Check error: {0}</value>
   </data>
   <data name="Settings_Accounts_Status_Error_Format" xml:space="preserve">
     <value>Error: {0}</value>
@@ -1138,9 +1107,6 @@ Add anyway?</value>
   </data>
   <data name="Settings_Accounts_Status_NoImpl_Format" xml:space="preserve">
     <value>No implementation for {0}. Cannot check.</value>
-  </data>
-  <data name="Settings_Accounts_Status_NoImplWillSave_Format" xml:space="preserve">
-    <value>No implementation for {0}. Account will be saved without verification.</value>
   </data>
   <data name="Settings_Accounts_Status_CheckingProgress_Format" xml:space="preserve">
     <value>Checking {0}@{1}... ({2}/{3})</value>
@@ -1231,12 +1197,6 @@ Add anyway?</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
     <value>Reset the Logs columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
-  </data>
-  <data name="Logs_Status_NoUrlsClipboardCleared" xml:space="preserve">
-    <value>No URLs in selection; clipboard cleared</value>
-  </data>
-  <data name="Logs_Status_CopiedUrls_Format" xml:space="preserve">
-    <value>Copied {0} URL(s) to clipboard</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>Hid {0} file(s) from the History tab</value>

@@ -486,25 +486,15 @@ Settings_Accounts_Remove_Title             = Remove Account
 Settings_Accounts_Remove_Message_Format    = Remove account '{0}' for {1}?                  # {0} = username, {1} = file hoster name
 Settings_Accounts_Remove_MessageBulk_Format = Remove {0} selected accounts?                  # {0} = count
 
-Settings_Accounts_Validation_FillHosterUser = Please fill in the file hoster, username, and password.
-Settings_Accounts_Check_DialogTitle         = Account Check
-Settings_Accounts_Check_FailedAddAnyway_Format = Account check failed: {0}\n\nAdd anyway?    # {0} = error message
-Settings_Accounts_Check_CouldNotVerifyAddAnyway_Format = Could not verify account: {0}\n\nAdd anyway?   # {0} = error message
 
 # CheckAccountStatus inline status messages
 Settings_Accounts_Status_Verifying          = Verifying credentials...
-Settings_Accounts_Status_Checking           = Checking account...
 Settings_Accounts_Status_NoAccountsToRefresh = No accounts to refresh.
-Settings_Accounts_Status_Verified_Format    = Verified: {0}                                  # {0} = result.Message
-Settings_Accounts_Status_Warning_Format     = Warning: {0}                                   # {0} = result.Message
 Settings_Accounts_Status_Valid_Format       = Valid: {0}                                     # {0} = result.Message
-Settings_Accounts_Status_ValidExclaim_Format = Valid! {0}                                    # {0} = result.Message  (separate from above — different exclamation)
 Settings_Accounts_Status_Failed_Format      = Failed: {0}                                    # {0} = result.Message
-Settings_Accounts_Status_CheckError_Format  = Check error: {0}                               # {0} = exception.Message
 Settings_Accounts_Status_Error_Format       = Error: {0}                                     # {0} = exception.Message
 Settings_Accounts_Status_AccountAdded_Format = Account added for {0}!                        # {0} = file hoster name
 Settings_Accounts_Status_NoImpl_Format      = No implementation for {0}. Cannot check.       # {0} = file hoster name
-Settings_Accounts_Status_NoImplWillSave_Format = No implementation for {0}. Account will be saved without verification.   # {0} = file hoster name
 Settings_Accounts_Status_CheckingProgress_Format = Checking {0}@{1}... ({2}/{3})             # {0} = username, {1} = hoster, {2} = current, {3} = total
 Settings_Accounts_Status_CheckingShort      = Checking...
 Settings_Accounts_Status_NoImpl             = No implementation
@@ -552,8 +542,6 @@ Logs_ResetColumns_Message          = Reset the Logs columns to their defaults? T
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
-Logs_Status_NoUrlsClipboardCleared = No URLs in selection; clipboard cleared
-Logs_Status_CopiedUrls_Format      = Copied {0} URL(s) to clipboard                          # {0} = url count
 Logs_Status_HiddenFiles_Format     = Hid {0} file(s) from the History tab                    # {0} = file count
 Logs_Status_ExportedPackages_Format = Exported {0} package(s) to {1}                         # {0} = pkg count, {1} = file path
 ```
