@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -244,16 +245,18 @@ public class LogsViewTests
 
         // The throwing-ConvertBack converter columns — four DateTime (one per grid) + the HTTP grid's URL —
         // are the rule-32 hazard: Avalonia's default TwoWay column binding would invoke their ConvertBack.
-        // (Every Binding carries a non-null default value converter, so filter on the CONFIGURED type.)
-        List<Binding> converterColumns = columns
-            .Select(c => Assert.IsType<Binding>(c.Binding))
+        // The columns are x:DataType'd, so each Binding is a CompiledBindingExtension now — asserting the
+        // compiled type is itself part of the invariant (a plain Binding here would mean the column lost
+        // its x:DataType and fell back to reflection).
+        List<CompiledBindingExtension> converterColumns = columns
+            .Select(c => Assert.IsType<CompiledBindingExtension>(c.Binding))
             .Where(b => b.Converter is DateTimeFormatConverter or UrlDecodeConverter)
             .ToList();
         Assert.Equal(5, converterColumns.Count);
         Assert.All(converterColumns, b => Assert.Equal(BindingMode.OneWay, b.Mode));
 
         // ...and the whole read-only grid holds the invariant the XAML states: every column binds OneWay.
-        Assert.All(columns, c => Assert.Equal(BindingMode.OneWay, Assert.IsType<Binding>(c.Binding).Mode));
+        Assert.All(columns, c => Assert.Equal(BindingMode.OneWay, Assert.IsType<CompiledBindingExtension>(c.Binding).Mode));
     }
 
     // ── Rule 32 (render half): the converter columns render their Convert output — the positive proof the

@@ -16,7 +16,10 @@
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
              xmlns:upload="clr-namespace:CSUploader.Upload;assembly=CSUploader.Core"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
              x:Class="CSUploader.Views.LogsView"
+             x:CompileBindings="True"
+             x:DataType="vm:LogsViewModel"
              Background="{DynamicResource LogBackgroundBrush}">
 
   <UserControl.Resources>
@@ -108,18 +111,18 @@
                     Tag="{x:Static upload:SettingKey.LogsStatusTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
             <DataGrid.Columns>
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_DateTime}" Width="160"
                                   Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Filename}" Width="180"
                                   Binding="{Binding Filename, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Function}" Width="160"
                                   Binding="{Binding Function, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Line}" Width="60"
                                   Binding="{Binding LineNumber, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -143,27 +146,27 @@
                     Tag="{x:Static upload:SettingKey.LogsHttpTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
             <DataGrid.Columns>
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_DateTime}" Width="160"
                                   Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Status}" Width="60"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Status}" Width="60"
                                   Binding="{Binding StatusCode, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Method}" Width="70"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Method}" Width="70"
                                   Binding="{Binding HttpTransaction.Method, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Url}" Width="320"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Url}" Width="320"
                                   CellStyleClasses="url-cell"
                                   Binding="{Binding HttpTransaction.Url, Converter={StaticResource UrlDecodeConverter}, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Proxy}" Width="140"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Proxy}" Width="140"
                                   Binding="{Binding HttpTransaction.Proxy, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Filename}" Width="180"
                                   Binding="{Binding Filename, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Function}" Width="160"
                                   Binding="{Binding Function, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Line}" Width="60"
                                   Binding="{Binding LineNumber, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -187,18 +190,18 @@
                     Tag="{x:Static upload:SettingKey.LogsErrorsTabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
             <DataGrid.Columns>
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_DateTime}" Width="160"
                                   Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Filename}" Width="180"
                                   Binding="{Binding Filename, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Function}" Width="160"
                                   Binding="{Binding Function, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Line}" Width="60"
                                   Binding="{Binding LineNumber, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>
@@ -222,18 +225,18 @@
                     Tag="{x:Static upload:SettingKey.LogsUITabHiddenColumns}"
                     beh:AutoScrollBehavior.IsEnabled="{Binding AutoScroll}">
             <DataGrid.Columns>
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_DateTime}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_DateTime}" Width="160"
                                   Binding="{Binding DateTime, Converter={StaticResource DateTimeFormatConverter}, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Filename}" Width="180"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Filename}" Width="180"
                                   Binding="{Binding Filename, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Function}" Width="160"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Function}" Width="160"
                                   Binding="{Binding Function, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Line}" Width="60"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Line}" Width="60"
                                   Binding="{Binding LineNumber, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Message}" Width="600" MinWidth="120"
                                   CellStyleClasses="msg-cell"
                                   Binding="{Binding Message, Mode=OneWay}" />
-              <DataGridTextColumn Header="{loc:Loc Logs_Col_Thread}" Width="80"
+              <DataGridTextColumn x:DataType="vm:LogEntryViewModel" Header="{loc:Loc Logs_Col_Thread}" Width="80"
                                   Binding="{Binding ThreadId, Mode=OneWay}" />
             </DataGrid.Columns>
           </DataGrid>

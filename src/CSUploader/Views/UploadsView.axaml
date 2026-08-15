@@ -14,7 +14,10 @@
              xmlns:beh="clr-namespace:CSUploader.Behaviors"
              xmlns:ctrl="clr-namespace:CSUploader.Views.Controls"
              xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
-             x:Class="CSUploader.Views.UploadsView">
+             xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
+             x:Class="CSUploader.Views.UploadsView"
+             x:CompileBindings="True"
+             x:DataType="vm:UploadsViewModel">
 
   <UserControl.Resources>
     <conv:ByteUnitConverter x:Key="ByteUnitConverter" />
@@ -327,7 +330,12 @@
     <!-- Main DataGrid. IsReadOnly=False is here ONLY so the Order cell can be typed into (Task 11 adds the
          BeginningEdit guard that cancels edits for every other column); all read-only text columns are
          Mode=OneWay so an interim edit can never write back through a throwing converter (rule 32). -->
+    <!-- reflection island: the grid shows Package AND PackageFile rows through one column set —
+         duck-typed members (Name/Size/State/…) with no shared base, so no x:DataType exists for the
+         columns. The whole grid (context menu included, lexically inside) stays reflection; the
+         island's bindings are pinned by UploadsViewTests + the BindingErrorSink assertions instead. -->
     <DataGrid x:Name="uploadsGrid" Grid.Row="1"
+              x:CompileBindings="False"
               Classes="listview"
               AutoGenerateColumns="False"
               IsReadOnly="False"

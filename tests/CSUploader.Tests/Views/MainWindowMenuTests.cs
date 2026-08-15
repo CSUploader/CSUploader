@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -11,7 +10,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using CommunityToolkit.Mvvm.Input;
 using CSUploader.Dal;
 using CSUploader.Lib.Update;
 using CSUploader.Services;
@@ -103,40 +101,66 @@ public class MainWindowMenuTests
     [AvaloniaFact]
     public void UploadOverviewMenuItem_TwoWayBinds_And_View_Help_CommandsBound()
     {
-        var fake = new FakeMainVm();
-        var w = new MainWindow { DataContext = fake };
+        // A real MainViewModel from the real graph, not a shape-alike: the menu binds COMPILED now
+        // (MainWindow x:DataType), so a reflection stand-in with look-alike members no longer binds at
+        // all. Same DI recipe as MenuCheckForUpdates_WhenCheckFails_ShowsErrorDialog below; the mocked
+        // IUpdateService keeps Velopack's locator out of the resolution path.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-menu-overview-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        ServiceCollection services = new();
+        App.ConfigureServices(services, tempDir);
+        services.AddSingleton<IUpdateService>(Mock.Of<IUpdateService>()); // last registration wins for GetRequiredService
+        ServiceProvider provider = services.BuildServiceProvider();
         try
         {
-            w.Show();
-            Dispatcher.UIThread.RunJobs();
+            using (CSUploaderDbContext db = provider.GetRequiredService<IDbContextFactory<CSUploaderDbContext>>().CreateDbContext())
+            {
+                db.Database.EnsureCreated();
+            }
 
-            Menu menu = w.GetVisualDescendants().OfType<Menu>().First();
-            var view = (MenuItem)menu.Items[1]!;
-            var overview = (MenuItem)view.Items[0]!;
-            var theme = (MenuItem)view.Items[2]!;
-            var help = (MenuItem)menu.Items[2]!;
-            var install = (MenuItem)help.Items[1]!;
+            MainViewModel vm = provider.GetRequiredService<MainViewModel>();
+            var w = new MainWindow { DataContext = vm };
+            try
+            {
+                w.Show();
+                Dispatcher.UIThread.RunJobs();
 
-            // Initial state flows VM → UI (fake starts true).
-            Assert.True(overview.IsChecked);
+                Menu menu = w.GetVisualDescendants().OfType<Menu>().First();
+                var view = (MenuItem)menu.Items[1]!;
+                var overview = (MenuItem)view.Items[0]!;
+                var theme = (MenuItem)view.Items[2]!;
+                var help = (MenuItem)menu.Items[2]!;
+                var install = (MenuItem)help.Items[1]!;
 
-            // VM → UI: flipping the VM property updates the menu check.
-            fake.UploadsViewModel.ShowUploadOverview = false;
-            Dispatcher.UIThread.RunJobs();
-            Assert.False(overview.IsChecked);
+                // VM → UI: the menu check mirrors the VM property through both flips.
+                vm.UploadsViewModel.ShowUploadOverview = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(overview.IsChecked);
 
-            // UI → VM (the two-way half): checking the menu item writes back to the VM.
-            overview.IsChecked = true;
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(fake.UploadsViewModel.ShowUploadOverview);
+                vm.UploadsViewModel.ShowUploadOverview = false;
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(overview.IsChecked);
 
-            // The View theme toggle and Help Install-update items bind their Command to the VM's commands.
-            Assert.Same(fake.ToggleThemeCommand, theme.Command);
-            Assert.Same(fake.InstallUpdateCommand, install.Command);
+                // UI → VM (the two-way half): checking the menu item writes back to the VM.
+                overview.IsChecked = true;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(vm.UploadsViewModel.ShowUploadOverview);
+
+                // The View theme toggle and Help Install-update items bind their Command to the VM's commands.
+                Assert.Same(vm.ToggleThemeCommand, theme.Command);
+                Assert.Same(vm.InstallUpdateCommand, install.Command);
+            }
+            finally
+            {
+                w.Close();
+            }
         }
         finally
         {
-            w.Close();
+            provider.Dispose(); // stops the VM's timers + detaches its Localizer subscription
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { /* best-effort; Windows may still hold a handle on the SQLite file */ }
         }
     }
 
@@ -258,38 +282,4 @@ public class MainWindowMenuTests
     private static IEnumerable<MenuItem> AllMenuItems(Menu menu)
         => menu.Items.OfType<MenuItem>()
             .SelectMany(top => new[] { top }.Concat(top.Items.OfType<MenuItem>()));
-
-    // Reflection-bound stand-in (the head runs AvaloniaUseCompiledBindingsByDefault=false, so the menu's
-    // {Binding} paths resolve by name). Exposes the members this test asserts against; the untested
-    // Header/Title bindings (ThemeMenuLabel, WindowTitle) simply resolve to null on this partial double.
-    private sealed class FakeMainVm
-    {
-        public FakeUploadsVm UploadsViewModel { get; } = new();
-
-        public RelayCommand ToggleThemeCommand { get; } = new(() => { });
-
-        public RelayCommand InstallUpdateCommand { get; } = new(() => { });
-
-        public bool IsUpdateAvailable { get; set; } = true;
-
-        public int SelectedTabIndex { get; set; }
-    }
-
-    private sealed class FakeUploadsVm : INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public bool ShowUploadOverview
-        {
-            get;
-            set
-            {
-                if (field != value)
-                {
-                    field = value;
-                    this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.ShowUploadOverview)));
-                }
-            }
-        } = true;
-    }
 }

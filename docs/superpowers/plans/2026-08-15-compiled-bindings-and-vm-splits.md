@@ -105,11 +105,11 @@
 - UploadedView's group headers bind `DataGridCollectionViewGroup`; its rows are `UploadedFileRow` — try `x:DataType="vm:UploadedFileRow"` on the columns; fall back to a grid-scoped opt-out if the group-header bindings fight it.
 - LogsView rows are `LogEntryViewModel` — expect full conversion to work.
 
-- [ ] **Step 1:** LogsView: root `x:CompileBindings="True"` + `x:DataType="vm:LogsViewModel"`; DataGrid columns `x:DataType="vm:LogEntryViewModel"` where needed. Build; fix AVLN; head tests.
-- [ ] **Step 2:** UploadedView: same procedure with `vm:UploadedViewModel` / `vm:UploadedFileRow`; group-header caveat above. Build; head tests.
-- [ ] **Step 3:** UploadsView: root compiles against `vm:UploadsViewModel`; DataGrid stays a documented reflection island. Build; head tests.
-- [ ] **Step 4:** MainWindow: root `x:DataType="vm:MainViewModel"`; the four `<views:*View DataContext="{Binding *ViewModel}" />` assignments compile against MainViewModel's properties. Build; head tests.
-- [ ] **Step 5:** Full suite green → Codex review gate → commit: `refactor(bindings): the shell and the three tab views compile their bindings`
+- [x] **Step 1:** LogsView: root `x:CompileBindings="True"` + `x:DataType="vm:LogsViewModel"`; DataGrid columns `x:DataType="vm:LogEntryViewModel"` where needed (28 columns). Build; fix AVLN; head tests.
+- [x] **Step 2:** UploadedView: same procedure with `vm:UploadedViewModel` / `vm:UploadedFileRow`; group-header caveat above. *Learned:* template columns need `x:DataType` on BOTH the column and its inner DataTemplate; the group-header theme DOES inherit the view scope, so its content is typed `acol:DataGridCollectionViewGroup` (an opt-out attribute on a resource-dictionary ControlTheme is rejected by the compiler — AVLN3000).
+- [x] **Step 3:** UploadsView: root compiles against `vm:UploadsViewModel` (~60 bindings); DataGrid stays a documented reflection island (mixed Package/PackageFile duck-typed rows, verified no shared base) — the grid's context menu sits lexically inside the island.
+- [x] **Step 4:** MainWindow: root `x:DataType="vm:MainViewModel"`; the four `<views:*View DataContext="{Binding *ViewModel}" />` assignments compile against MainViewModel's properties.
+- [x] **Step 5:** Full suite green → Codex review gate → commit: `refactor(bindings): the shell and the three tab views compile their bindings` → Codex verdict: approve. *Test deviation (Codex-scrutinized):* two tests asserted the binding MECHANISM and had to follow it — LogsViewTests now asserts `CompiledBindingExtension` (same Mode/Converter checks), and MainWindowMenuTests' reflection-era duck-typed FakeMainVm is replaced by a real MainViewModel from the in-file DI recipe (fakes deleted).
 
 ---
 
