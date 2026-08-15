@@ -783,10 +783,8 @@ public class PackageManager
         }
         else if (item is PackageFile packageFile)
         {
-            packageFile.ForceStart = false;
-            packageFile.Cts?.Cancel();
-            packageFile.Cts?.Dispose();
-            packageFile.Cts = null;
+            // The scheduler cancels it on its pump; this thread only takes the row out of the list.
+            _scheduler.RemoveFile(packageFile);
 
             int? fileDbId = packageFile.DbId;
             if (fileDbId is int fid)
@@ -814,19 +812,6 @@ public class PackageManager
     }
 
     /// <summary>
-    /// Removes a single package file.
-    /// </summary>
-    /// <param name="packageFile">The package file to remove.</param>
-    public static void RemovePackageFile(PackageFile packageFile)
-    {
-        packageFile.ForceStart = false;
-        packageFile.Cts?.Cancel();
-        packageFile.Cts?.Dispose();
-        packageFile.Cts = null;
-        packageFile.Package.Remove(packageFile);
-    }
-
-    /// <summary>
     /// Starts (or force-starts) a specific package or package file. Manual start
     /// overrides any pending scheduled start: <see cref="Package.ScheduledStartTime"/>
     /// is cleared and the package is registered with the scheduler immediately.
@@ -841,14 +826,23 @@ public class PackageManager
             return;
         }
 
+        // The queuing runs on the scheduler's pump, like Stop and Reset — ForceQueueIfStartable
+        // writes file.State, and the pump is the one thread allowed to. Posting it BEFORE
+        // AddPackage keeps the order the pump sees identical to the old inline order: queue the
+        // startable files, then let AddPackage's SchedulePackageFiles sweep whatever is still idle,
+        // then fill slots.
         if (item is Package package)
         {
             package.ScheduledStartTime = null;
 
-            foreach (PackageFile file in package)
+            PackageFile[] files = [.. package];
+            _scheduler.PostFileMutation(() =>
             {
-                ForceQueueIfStartable(file);
-            }
+                foreach (PackageFile file in files)
+                {
+                    ForceQueueIfStartable(file);
+                }
+            });
 
             // Idempotent: registers the package with the scheduler if it hasn't
             // been added yet (e.g. user clicked Start before a future-scheduled
@@ -867,7 +861,8 @@ public class PackageManager
             // in the package, so starting one row would start the whole package.
             _scheduler.AddPackage(packageFile.Package, scheduleIdleFiles: false);
 
-            ForceQueueIfStartable(packageFile);
+            _scheduler.PostFileMutation(() => ForceQueueIfStartable(packageFile));
+
             // FillAvailableSlots so only this file starts — StartAll would requeue every
             // idle file across all packages (the bug where one row's Start ran everything).
             _scheduler.FillAvailableSlots();
@@ -940,19 +935,30 @@ public class PackageManager
     /// <summary>
     /// Stops a specific package or package file.
     /// </summary>
+    /// <remarks>
+    /// Runs on the scheduler's pump rather than the calling thread — <see cref="StopFile"/> writes
+    /// the same <c>Cts</c>/<c>State</c> the scheduler writes when it launches work, and the two
+    /// interleaving is what left uploads running with no source to cancel them. Instance rather
+    /// than static for that reason: it needs the scheduler to post to.
+    /// </remarks>
     /// <param name="item">The package or file to stop.</param>
-    public static void StopPackage(object item)
+    public void StopPackage(object item)
     {
         if (item is Package package)
         {
-            foreach (PackageFile file in package)
+            // Snapshot on this thread; the pump does the stopping.
+            PackageFile[] files = [.. package];
+            _scheduler.PostFileMutation(() =>
             {
-                StopFile(file);
-            }
+                foreach (PackageFile file in files)
+                {
+                    StopFile(file);
+                }
+            });
         }
         else if (item is PackageFile packageFile)
         {
-            StopFile(packageFile);
+            _scheduler.PostFileMutation(() => StopFile(packageFile));
         }
     }
 
@@ -981,10 +987,10 @@ public class PackageManager
 
         // Re-queueing a TERMINAL file (manual Retry / per-row Start of a Failed or Cancelled
         // file) appends to the end: clear its stale QueueOrder so the subsequent
-        // FillAvailableSlots → FillSlots → EnsureQueueOrdered (on the scheduler loop) gives it a
-        // fresh position past the current max. Setting QueueOrder here is off-loop, consistent
-        // with the file.State / file.Error mutations already done in this method. Idle is already
-        // 0; Paused kept its place in the non-terminal set, so leave it to preserve its position.
+        // FillAvailableSlots → FillSlots → EnsureQueueOrdered gives it a fresh position past the
+        // current max. This whole method runs ON the scheduler loop (StartPackage posts it), same
+        // as the FillSlots that follows. Idle is already 0; Paused kept its place in the
+        // non-terminal set, so leave it to preserve its position.
         if (file.State is FileState.Failed or FileState.Cancelled)
         {
             file.QueueOrder = 0;
@@ -1008,20 +1014,27 @@ public class PackageManager
         // ResetFile already transitions each file to HashQueued, so we only need to fill
         // slots — NOT StartAll, which would also requeue every idle/failed file in OTHER
         // packages (same over-reach bug as the per-row Start).
+        // Registering the package first is safe — with scheduleIdleFiles:false it only records the
+        // package, it does not read any file state. The reset and the slot-fill that follows are
+        // both posted, and the pump is FIFO, so the files are back in the queue before FillSlots
+        // looks at them. ResetFile writes Cts/State, so it belongs on the pump like Stop does.
         if (item is Package package)
         {
-            foreach (PackageFile file in package)
-            {
-                ResetFile(file);
-            }
-
+            PackageFile[] files = [.. package];
             _scheduler.AddPackage(package, scheduleIdleFiles: false);
+            _scheduler.PostFileMutation(() =>
+            {
+                foreach (PackageFile file in files)
+                {
+                    ResetFile(file);
+                }
+            });
             _scheduler.FillAvailableSlots();
         }
         else if (item is PackageFile packageFile)
         {
-            ResetFile(packageFile);
             _scheduler.AddPackage(packageFile.Package, scheduleIdleFiles: false);
+            _scheduler.PostFileMutation(() => ResetFile(packageFile));
             _scheduler.FillAvailableSlots();
         }
     }
@@ -1046,8 +1059,21 @@ public class PackageManager
         // that finishes in the cancellation window must not let OnHashCompleted launch an
         // over-limit upload for a file the user just stopped/reset. See PackageFile.ForceStart.
         file.ForceStart = false;
-        file.Cts?.Cancel();
-        file.Cts?.Dispose();
+
+        // The attempt being stopped no longer owns this row — a completion already queued behind
+        // this stop must not be allowed to act on it. See PackageFile.SupersedeAttempt.
+        file.SupersedeAttempt();
+
+        // ONE read, not three. Read separately, a source installed between the Cancel and the
+        // Dispose gets disposed without ever being cancelled — the shape that produced uploads
+        // nothing could stop. Posting this onto the pump is what actually closes the window; this
+        // makes the method safe to read on its own terms.
+        if (file.Cts is CancellationTokenSource cts)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+
         file.Cts = null;
 
         if (file.State is not FileState.Completed and not FileState.Idle)

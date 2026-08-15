@@ -1,4 +1,4 @@
-// <copyright file="UploadScheduler.cs" company="CSUploader">
+﻿// <copyright file="UploadScheduler.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -311,10 +311,37 @@ public class UploadScheduler : IDisposable
     public void Reschedule() => Post(FillSlots);
 
     /// <summary>
-    /// Removes a package from the scheduler.
+    /// Removes a package from the scheduler, cancelling whatever it still has running.
     /// </summary>
     /// <param name="package">The package to remove.</param>
-    public void RemovePackage(Package package) => Post(() => DoRemovePackage(package));
+    public void RemovePackage(Package package)
+    {
+        // Snapshot the files HERE, on the caller's thread. PackageManager empties the package
+        // immediately after this returns, so a pump that read the package later would find nothing
+        // to cancel and every running upload would carry on with no way to stop it.
+        PackageFile[] files = [.. package];
+        Post(() => DoRemovePackage(package, files));
+    }
+
+    /// <summary>
+    /// Detaches a single file from the scheduler, cancelling it if it is running.
+    /// </summary>
+    /// <param name="file">The file being removed from its package.</param>
+    public void RemoveFile(PackageFile file) => Post(() => DetachFile(file));
+
+    /// <summary>
+    /// Runs <paramref name="mutation"/> on the scheduler's pump, where every other write to a
+    /// file's <see cref="PackageFile.Cts"/> and <see cref="PackageFile.State"/> happens.
+    /// </summary>
+    /// <remarks>
+    /// The per-row Stop and Reset used to mutate those fields straight from the UI thread while the
+    /// pump could be launching the very same file. <c>StopFile</c> reads <c>file.Cts</c> three
+    /// separate times — for Cancel, for Dispose, and to clear it — so a launch landing between the
+    /// first two read null and then disposed the brand-new source WITHOUT cancelling it: an upload
+    /// nothing could stop, holding a token whose source was disposed but never cancelled. Posting
+    /// the whole mutation removes the interleaving rather than trying to make each field atomic.
+    /// </remarks>
+    internal void PostFileMutation(Action mutation) => Post(mutation);
 
     /// <inheritdoc/>
     public void Dispose()
@@ -845,6 +872,23 @@ public class UploadScheduler : IDisposable
         file.Cts = null;
     }
 
+    /// <summary>
+    /// Cancels and releases a file's in-flight work because it is leaving the scheduler.
+    /// </summary>
+    /// <remarks>
+    /// Clears ForceStart too: the file is on its way out, so a hash completing in the cancellation
+    /// window must not launch a detached upload for it. Cancel before Dispose, always — a token
+    /// whose source was disposed without being cancelled is the one shape the pipelines cannot
+    /// survive. Pump-thread only, like every other write to <see cref="PackageFile.Cts"/>.
+    /// </remarks>
+    private static void DetachFile(PackageFile file)
+    {
+        file.ForceStart = false;
+        file.SupersedeAttempt();
+        file.Cts?.Cancel();
+        DisposeCts(file);
+    }
+
     private void PauseRunningFiles()
     {
         PackageFile[] allFiles;
@@ -936,8 +980,12 @@ public class UploadScheduler : IDisposable
         foreach (PackageFile file in allFiles)
         {
             // Stopping clears any force-start override so a hash completing in the cancellation
-            // window can't launch an upload for a file the user just stopped.
+            // window can't launch an upload for a file the user just stopped. Retiring the attempt
+            // closes the same window for the NORMAL queue-the-upload branch, which the ForceStart
+            // flag never covered — see PackageFile.SupersedeAttempt. (Pause, deliberately, does
+            // neither: it needs the callback to arrive and park the row.)
             file.ForceStart = false;
+            file.SupersedeAttempt();
 
             if (file.State is FileState.Hashing or FileState.Uploading)
             {
@@ -954,16 +1002,13 @@ public class UploadScheduler : IDisposable
         }
     }
 
-    private void DoRemovePackage(Package package)
+    private void DoRemovePackage(Package package, IReadOnlyList<PackageFile> files)
     {
-        // Cancel all running files. Clear ForceStart too: the file is leaving the scheduler,
-        // so a hash completing in the cancellation window must not launch a detached upload.
-        foreach (PackageFile file in package)
+        // `files` is the snapshot RemovePackage took, not a fresh read of the package — by now the
+        // caller has emptied it.
+        foreach (PackageFile file in files)
         {
-            file.ForceStart = false;
-            file.Cts?.Cancel();
-            file.Cts?.Dispose();
-            file.Cts = null;
+            DetachFile(file);
         }
 
         lock (_packagesLock)

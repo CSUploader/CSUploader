@@ -420,13 +420,11 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         => selectedItems is null ? [] : [.. selectedItems.Cast<object>()];
 
     [RelayCommand]
-#pragma warning disable CA1822 // Must be instance method for RelayCommand
     private void StopSelected(IList? selectedItems)
-#pragma warning restore CA1822
     {
         foreach (object item in Snapshot(selectedItems))
         {
-            PackageManager.StopPackage(item);
+            _packageManager.StopPackage(item);
         }
     }
 
@@ -538,11 +536,11 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private static void SkipUpload(IList? selectedItems)
+    private void SkipUpload(IList? selectedItems)
     {
         foreach (object item in Snapshot(selectedItems))
         {
-            PackageManager.StopPackage(item);
+            _packageManager.StopPackage(item);
         }
     }
 

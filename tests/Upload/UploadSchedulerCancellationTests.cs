@@ -138,6 +138,35 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task StopAll_WhenTheHashFinishedJustBeforeTheStop_DoesNotQueueTheUploadAnyway()
+    {
+        // Cancelling a worker does not recall its completion. If the hash has already SUCCEEDED and
+        // its callback is sitting in the queue behind the stop, that callback used to run as though
+        // nothing had happened: it moved the row to UploadQueued and FillSlots started uploading the
+        // file the user had just stopped.
+        GatedPipeline pipeline = new("Rapidgator", requiresHash: true);
+        RecordingLogger logger = new();
+        (UploadScheduler scheduler, Package package, HeldWorkLauncher launcher) = Build(pipeline, logger, fileCount: 1);
+        PackageFile file = package.Single();
+
+        scheduler.AddPackage(package);
+        await launcher.WaitForHeldAsync(1);
+
+        // Hold the pump so the ordering below is exact rather than lucky: the stop is queued first,
+        // then the hash worker runs to completion with a token that is still live and posts its
+        // SUCCESS behind the stop. That is the window, reproduced deterministically.
+        using PumpBlock block = new(scheduler);
+        scheduler.StopAll();
+        await launcher.ReleaseAsync(0);
+
+        block.Release();
+        await scheduler.DrainAsync();
+
+        Assert.Equal(FileState.Cancelled, file.State);
+        Assert.Equal(1, launcher.HeldCount); // no upload worker was launched for the stopped file
+    }
+
+    [Fact]
     public async Task PauseAll_WhenTheWorkerStartsAfterThePause_ParksEveryRowAsPausedNotFailed()
     {
         // Pause is where the race hurts most. PauseRunningFiles cancels and disposes the source but
@@ -441,6 +470,38 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         {
             await gate.Task;
             await work();
+        }
+    }
+
+    /// <summary>
+    /// Occupies the scheduler's single consumer, so a test can queue actions behind it and control
+    /// the exact order the pump sees them in.
+    /// </summary>
+    private sealed class PumpBlock : IDisposable
+    {
+        private readonly ManualResetEventSlim _held = new(false);
+        private readonly ManualResetEventSlim _release = new(false);
+
+        public PumpBlock(UploadScheduler scheduler)
+        {
+            scheduler.PostFileMutation(() =>
+            {
+                _held.Set();
+                _release.Wait();
+            });
+
+            Assert.True(_held.Wait(TimeSpan.FromSeconds(10)), "the pump never picked up the blocking action");
+        }
+
+        public void Release() => _release.Set();
+
+        public void Dispose()
+        {
+            // Release on the way out too: a failed assertion must not leave the pump wedged and
+            // hang the rest of the class in teardown.
+            _release.Set();
+            _held.Dispose();
+            _release.Dispose();
         }
     }
 

@@ -196,6 +196,23 @@ public class PackageFile : INotifyPropertyChanged
     internal int AttemptGeneration { get; set; }
 
     /// <summary>
+    /// Retires the attempt currently owning this row, so its completion callback is ignored when it
+    /// eventually arrives.
+    /// </summary>
+    /// <remarks>
+    /// Cancelling a worker does not stop its callback: the work may already have FINISHED, with its
+    /// completion sitting in the scheduler's queue behind the stop. That callback reports success
+    /// and, for a hash, moves the row to UploadQueued — starting the upload of a file the user just
+    /// stopped. Reset has the mirror problem: it queues the file again, and the cancelled attempt's
+    /// callback then paints Cancelled back over it, silently undoing the reset.
+    /// <para>
+    /// Every operation that SUPERSEDES an attempt calls this — stop, reset, detach. Pause must not:
+    /// it cancels the work but leaves the row Uploading precisely so the callback can park it.
+    /// </para>
+    /// </remarks>
+    internal void SupersedeAttempt() => AttemptGeneration++;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the user force-started this file from the
     /// Uploads context menu. When true the <see cref="UploadScheduler"/> launches its upload
     /// past the UPLOAD admission gate (global + per-host), while still respecting the hashing/CPU
