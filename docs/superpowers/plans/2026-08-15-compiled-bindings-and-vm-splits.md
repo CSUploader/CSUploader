@@ -29,7 +29,7 @@
 - [x] **Step 2:** `git submodule update --init --recursive` (build guard requires `external/vscode-icons/icons/file_type_json.svg`).
 - [x] **Step 3:** `dotnet build CSUploader.sln -v:q -nologo` → Build succeeded, 0 warnings.
 - [x] **Step 4:** `dotnet test CSUploader.sln --no-build` → 523 + 2,239 passed, 0 failed.
-- [ ] **Step 5:** Commit this plan + spec: `git add docs/superpowers && git commit -m "docs: the plan for compiled bindings and the VM splits"`.
+- [x] **Step 5:** Commit this plan + spec: `git add docs/superpowers && git commit -m "docs: the plan for compiled bindings and the VM splits"`.
 
 ---
 
@@ -44,13 +44,13 @@
 
 **Interfaces:** All four classes keep their exact public surface and namespace `CSUploader.ViewModels` — zero reference changes anywhere.
 
-- [ ] **Step 1:** Read `UploadWizardViewModel.cs:1795-2189` to capture each class verbatim, including its doc comments and any preceding blank-line separators.
-- [ ] **Step 2:** Create the four files. Each = copyright header (filename adjusted) + the `using` directives the moved code needs (copy the source file's usings, then let the build prune: remove any that IDE0005/CS8019 would flag — in practice each file needs only what its members reference) + `namespace CSUploader.ViewModels;` + the class, verbatim.
-- [ ] **Step 3:** Delete lines 1802–2189 from `UploadWizardViewModel.cs` (keep the file ending at `UploadWizardViewModel`'s closing brace).
-- [ ] **Step 4:** Build. Expected: succeeds, 0 warnings (unused-using warnings mean Step 2 pruning was missed).
-- [ ] **Step 5:** Full test suite. Expected: 523 + 2,239 passed (no count change — no test files touched).
-- [ ] **Step 6:** Codex review gate on `git diff` (staged). Address findings.
-- [ ] **Step 7:** Commit: `refactor(wizard): the view-model file stops hosting four other classes`
+- [x] **Step 1:** Read `UploadWizardViewModel.cs:1795-2189` to capture each class verbatim, including its doc comments and any preceding blank-line separators.
+- [x] **Step 2:** Create the four files. Each = copyright header (filename adjusted) + the `using` directives the moved code needs (copy the source file's usings, then let the build prune: remove any that IDE0005/CS8019 would flag — in practice each file needs only what its members reference) + `namespace CSUploader.ViewModels;` + the class, verbatim.
+- [x] **Step 3:** Delete lines 1802–2189 from `UploadWizardViewModel.cs` (keep the file ending at `UploadWizardViewModel`'s closing brace).
+- [x] **Step 4:** Build. Expected: succeeds, 0 warnings (unused-using warnings mean Step 2 pruning was missed).
+- [x] **Step 5:** Full test suite. Expected: 523 + 2,239 passed (no count change — no test files touched).
+- [x] **Step 6:** Codex review gate on `git diff` (staged). Address findings. → Codex verdict: approve, zero findings.
+- [x] **Step 7:** Commit: `refactor(wizard): the view-model file stops hosting four other classes`
 
 ---
 
