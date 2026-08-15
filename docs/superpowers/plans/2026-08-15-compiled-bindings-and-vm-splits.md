@@ -222,10 +222,19 @@
 
 **Rules:** verbatim moves; each new file gets the copyright header + only the usings its members need; the main file's class doc comment stays put; private nested types/records move with their sole consumer; a shared private field stays in the main file. Line numbers above are pre-Task-1 references into the current file — re-locate by member name at execution time.
 
-- [ ] **Step 1:** Create the five partial files, move members per the allocation. Build after each file to keep errors local.
-- [ ] **Step 2:** Full build → 0 warnings.
-- [ ] **Step 3:** Run the XFS-family tests: `dotnet test tests/CSUploader.Core.Tests.csproj --no-build --filter "FullyQualifiedName~XFileSharing|FullyQualifiedName~Xfs"` → all pass; then the full suite.
-- [ ] **Step 4:** Codex review gate → commit: `refactor(hosters): the XFS base spreads across six files, one concern each`
+- [x] **Step 1:** Create the partial files, move members per the allocation.
+  *Executed:* FOUR new files, not five — the scrape/parse utilities travel with the transport band
+  rather than getting a `.Scrape.cs` of their own, because the cut was made along CONTIGUOUS line
+  bands (762 / 1169 / 1611 / 2180 / tail) rather than by hand-picking members. Bands make the move
+  provably verbatim — the five files concatenate back to the original class body — which is worth
+  more on a 3,124-line protocol base than a tidier concern boundary. Two members land slightly off
+  their nominal concern (`LooksLikeCloudflareChallenge` in Anonymous, `ParseSizeToBytes` in
+  AccountCheck); the review judged both acceptable for partials.
+- [x] **Step 2:** Full build → 0 warnings.
+- [x] **Step 3:** XFS-family tests pass; then the full suite (523 + 2,239).
+- [x] **Step 4:** Codex review gate → request changes, both trivial and fixed: the class docs said
+  "six files" when there are five, and the blank line at the 762/764 seam was dropped. → commit:
+  `refactor(hosters): the XFS base spreads across five files, one concern each`
 
 ---
 
