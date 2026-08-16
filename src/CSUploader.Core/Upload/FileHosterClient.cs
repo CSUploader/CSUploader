@@ -145,12 +145,16 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // the managed challenge. See TakeFilePipeline.cs class-level remarks. (Live host was the apex
         // takefile.link; www. redirected.)
         // { "TakeFile", "takefile.link" },
-        // storage.to is a Laravel front end that hands bytes to Cloudflare R2 via a presigned PUT
-        // (anonymous, no login). See StorageToPipeline.cs.
         // Send.now — classic XFileSharing, anonymous web-form upload. Formerly send.cm (tusfiles /
         // sendit lineage); send.cm 301s here, so this single entry covers both. See SendNowPipeline.cs.
         { "Send.now", "send.now" },
-        { "Storage.to", "storage.to" },
+        // storage.to DISABLED 2026-08-16 — the whole zone moved behind a Cloudflare *managed*
+        // challenge (cType:'managed'); the anonymous bootstrap GET that mints the CSRF/session gets
+        // the "Just a moment…" interstitial, so the Laravel→R2 presigned-PUT flow can't start. Same
+        // TLS-fingerprint wall as TakeFile — a .NET client is rejected even with a browser-earned
+        // cf_clearance. Pipeline DI registration is commented out alongside this. Do NOT re-add
+        // without confirming the managed challenge is gone. See StorageToPipeline.cs class remarks.
+        // { "Storage.to", "storage.to" },
         { "TezFiles", "tezfiles.com" },
         // transfer.it is a frontend over MEGA — uploads use MEGA's end-to-end-encrypted protocol
         // (anonymous ephemeral session). See TransferItPipeline.cs + the Mega/ helpers.

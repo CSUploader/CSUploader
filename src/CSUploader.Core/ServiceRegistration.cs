@@ -347,8 +347,17 @@ public static class ServiceRegistration
                 sp.GetRequiredService<IInteractiveAuthService>()));
         // gofile.io — anonymous guest upload (create account → folder → multipart uploadfile).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.GofilePipeline>();
-        // storage.to — anonymous-only presigned-R2 upload (init-batch → PUT → confirm-batch), no login.
-        services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
+        // storage.to DISABLED 2026-08-16 — the whole zone is now behind a Cloudflare *managed*
+        // challenge (cType:'managed'): the homepage bootstrap GET that mints the CSRF token + session
+        // cookies gets the "Just a moment…" interstitial, so the anonymous init-batch → PUT →
+        // confirm-batch flow can't even start. Same TLS-fingerprint wall as TakeFile/ExtMatrix/
+        // Hotlink/FlashBit — cf_clearance forwarding was implemented + tested against a managed
+        // challenge and rejected regardless (a .NET HttpClient can't reproduce the browser TLS
+        // fingerprint). The pipeline (working when unblocked, verified 2026-06-29) is retained; the
+        // FileHosterClient registry entry is commented out alongside this and the smoke test asserts
+        // it's absent. Re-enable only after confirming storage.to drops the managed challenge. See
+        // StorageToPipeline.cs class-level remarks.
+        // services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.StorageToPipeline>();
         // filehoster.io — account-only XFileSharing "xfspro" chunked upload (login → start_upload → put_chunk → import_file).
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilehosterIoPipeline>();
         // wormhole.app — anonymous WebTorrent + RFC 8188 E2E + Backblaze B2 (room → encrypt → manifest → B2 → finish).

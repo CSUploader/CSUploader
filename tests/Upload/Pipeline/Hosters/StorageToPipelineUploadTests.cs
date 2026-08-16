@@ -42,13 +42,26 @@ public class StorageToPipelineUploadTests
     [Fact]
     public void Properties_DeclareStorageToConfig()
     {
+        // The pipeline class is retained while storage.to is disabled (see below) — this keeps that
+        // retention honest: the config still compiles and reads as it did when it worked.
         StorageToPipeline pipeline = new();
         Assert.Equal("Storage.to", pipeline.Name);
         Assert.Equal(25L * 1000 * 1000 * 1000, pipeline.MaxFileSize);
         Assert.Null(pipeline.MaxFilesPerPackage);
         Assert.True(pipeline.SupportsAnonymousUpload);
         Assert.False(pipeline.RequiresHashingBeforeUpload);
-        Assert.True(FileHosterClient.FileHosters.ContainsKey("Storage.to"));
+    }
+
+    [Fact]
+    public void Name_IsNotRegistered_WhileDisabled()
+    {
+        // Sentinel: if this starts failing, someone re-added "Storage.to" to
+        // FileHosterClient.FileHosters. Before flipping it to Assert.True, walk StorageToPipeline.cs's
+        // re-enable checklist — the registry entry is one of three touchpoints (DI registration in
+        // ServiceRegistration.cs + this test also need to flip), and storage.to's Cloudflare managed
+        // challenge must be confirmed gone upstream. DISABLED 2026-08-16.
+        StorageToPipeline pipeline = new();
+        Assert.False(FileHosterClient.FileHosters.ContainsKey(pipeline.Name));
     }
 
     [Fact]

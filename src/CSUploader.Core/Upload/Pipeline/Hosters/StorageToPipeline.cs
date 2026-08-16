@@ -38,6 +38,35 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// record is what actually creates the share — a failed PUT before it leaves nothing behind, which is
 /// why a mid-send abort is safe to retry). The account path is intentionally not wired up yet
 /// (see <see cref="CheckAccountAsync"/>); uploads use the wizard's built-in Anonymous option.
+/// <para>
+/// DISABLED 2026-08-16 — the class is retained (DI registration + the FileHosterClient registry
+/// entry are commented out; the smoke test asserts it is absent from the registry) so a re-enable
+/// is low-churn.
+/// </para>
+/// <para>
+/// Why: storage.to's whole zone moved behind a Cloudflare <b>managed</b> challenge
+/// (<c>cType:'managed'</c>). The bootstrap step above — the <c>GET https://storage.to/</c> that
+/// scrapes the CSRF token and seeds the session cookies — now gets the "Just a moment…"
+/// interstitial (HTTP 403, <c>Cf-Mitigated: challenge</c>) instead of the homepage, so the flow
+/// can't even reach init-batch. Everything below the bootstrap depends on that token+session, and
+/// init/confirm hit storage.to itself (behind the same zone), so there is no API entry point that
+/// sidesteps it. Verified working 2026-06-29; the challenge appeared since.
+/// </para>
+/// <para>
+/// What can't fix it: an API-only call — the API needs the challenged homepage's CSRF/session, and
+/// its own calls are behind the same challenge. And the app's cf_clearance path (solve in the
+/// embedded browser, pin the UA, forward the clearance) was implemented + tested for TakeFile and
+/// rejected regardless: a <i>managed</i> challenge also validates the browser TLS fingerprint, which
+/// a .NET <c>HttpClient</c> can't reproduce, so a valid clearance + matching UA + IP still fails.
+/// Same wall as TakeFile/ExtMatrix/Hotlink/FlashBit.
+/// </para>
+/// <para>
+/// Re-enable checklist (only after confirming storage.to no longer serves a managed challenge to
+/// non-browser clients): (1) un-comment the DI registration in ServiceRegistration.cs; (2) un-comment
+/// the FileHosterClient registry entry; (3) flip the StorageToPipelineUploadTests sentinel back to
+/// asserting the registry contains it. The wizard's Anonymous list is built from the DI-registered
+/// pipelines, so (1) restores it there automatically.
+/// </para>
 /// </summary>
 public sealed partial class StorageToPipeline : IFileHosterPipeline
 {
