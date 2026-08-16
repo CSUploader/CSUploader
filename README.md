@@ -8,7 +8,7 @@ CSUploader is a desktop application for **Windows** and **Linux** for uploading 
 
 - **Upload Wizard** — Guided flow for gathering files from any number of folders in an explorer view, choosing file hosters and accounts, and starting the upload.
 - **Upload Queue** — Concurrent jobs with pause/resume, per-file upload order, and a global speed limit.
-- **File Hosters** — 77 hosters shipping, 41 of them needing no account at all. Per-hoster account management with credential verification, and the wizard shows each host's size cap, parallel-upload limit and how long it keeps a file. Three hosters upload end-to-end encrypted. The [changelog](CHANGELOG.md) tracks which hosters each release added.
+- **File Hosters** — 76 hosters shipping, 40 of them needing no account at all. Per-hoster account management with credential verification, and the wizard shows each host's size cap, parallel-upload limit and how long it keeps a file. Three hosters upload end-to-end encrypted. The [changelog](CHANGELOG.md) tracks which hosters each release added.
 - **Connection Manager** — Optional proxy support with priority ordering, automatic rotation on retry, and connectivity testing.
 - **Dark / Light Themes** — Choose your preferred theme; the choice persists between sessions.
 - **System Tray** — Optional minimize-to-tray and close-to-tray with a first-run prompt to choose the close button's behaviour.
