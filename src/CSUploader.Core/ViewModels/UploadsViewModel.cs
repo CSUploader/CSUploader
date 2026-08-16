@@ -1,4 +1,4 @@
-// <copyright file="UploadsViewModel.cs" company="CSUploader">
+﻿// <copyright file="UploadsViewModel.cs" company="CSUploader">
 // Copyright (c) CSUploader. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
@@ -84,6 +84,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _packageManager.PackageAdded += PackageManager_PackageAdded;
         _packageManager.FileCompleted += PackageManager_FileCompleted;
         _packageManager.PackageCompleted += PackageManager_PackageCompleted;
+        _packageManager.FileRevived += PackageManager_FileRevived;
 
         _refreshTimer = _uiDispatcher.CreateTimer(TimeSpan.FromMilliseconds(500), RefreshTimerTick);
         _refreshTimer.Start();
@@ -394,6 +395,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         foreach (object item in items)
         {
+            // Vetoed BEFORE the manager sees it: re-uploading a completed row revives it, and a
+            // pending auto-remove from its completion must not prune it while the revival is still
+            // queued on the pump. See _pendingRevivals.
+            MarkPendingRevivals(item);
             _packageManager.ForceStartPackage(item);
         }
     }
@@ -578,6 +583,8 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
         foreach (object item in items)
         {
+            // Vetoed BEFORE the manager sees it — see ForceStartSelectedAsync and _pendingRevivals.
+            MarkPendingRevivals(item);
             _packageManager.ResetPackage(item);
         }
     }
@@ -890,6 +897,60 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Completed files whose revival (Reset / re-upload) has been REQUESTED on this thread but may
+    /// not have reached the scheduler's pump yet. UI-thread only.
+    /// </summary>
+    /// <remarks>
+    /// The auto-remove callbacks re-read <see cref="PackageFile.State"/> at removal time, which
+    /// covers every revival the pump has already APPLIED. It cannot cover one that is merely
+    /// queued: the command posts the mutation and returns, and until the pump processes it the
+    /// state still reads Completed — under pump backlog, for arbitrarily long. But the commands
+    /// that revive a completed file and the callbacks that remove one run on the SAME thread, so a
+    /// veto set here by the command is ordered against the callback by the UI thread itself: if
+    /// the click came first, the veto is visible and the removal declines, always. Consumed by
+    /// <see cref="PackageManager_FileRevived"/> once the scheduler applies the revival — the dispatcher is
+    /// FIFO, so every removal posted before the revival has already run (and declined) by the time
+    /// the veto is lifted.
+    /// </remarks>
+    private readonly HashSet<PackageFile> _pendingRevivals = [];
+
+    /// <summary>
+    /// Vetoes the auto-removal of every completed file <paramref name="item"/> is about to revive.
+    /// Call on the UI thread, in the command, BEFORE handing the revival to the manager.
+    /// </summary>
+    private void MarkPendingRevivals(object item)
+    {
+        switch (item)
+        {
+            // The membership condition keeps a veto from pinning a file whose row is already gone
+            // (removed while the command's confirmation dialog was open) — the manager declines to
+            // revive those anyway, so a veto for one would just never be consumed.
+            case PackageFile file when file.State == FileState.Completed && file.Package.Contains(file):
+                _pendingRevivals.Add(file);
+                break;
+            case Package package:
+                foreach (PackageFile file in package)
+                {
+                    if (file.State == FileState.Completed)
+                    {
+                        _pendingRevivals.Add(file);
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private void PackageManager_FileRevived(object? sender, PackageFile file)
+        // The scheduler has APPLIED the revival; the queued-but-unapplied window the veto covered
+        // is over. Posted, so the FIFO dispatcher runs every removal that predates the revival
+        // before the veto lifts. Keyed on FileRevived (the in-memory fact, raised from the pump),
+        // NOT FileReopened (the persisted fact): a transient write failure swallows the latter,
+        // and a veto that waited on it would outlive its revival and exempt the row from
+        // auto-remove forever after.
+        => _uiDispatcher.Post(() => _pendingRevivals.Remove(file));
+
     private void PackageManager_FileCompleted(object? sender, PackageFile file)
     {
         // Immediately mode: drop this single file from the Uploads tab the moment it
@@ -901,28 +962,56 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _uiDispatcher.Post(() => RemoveFileAndPruneEmptyPackage(file));
+        _uiDispatcher.Post(() =>
+        {
+            // Decided again HERE, at removal time — the check above only filtered. The event
+            // carries the live PackageFile, and in the gap between the persistence thread raising
+            // it and this callback getting its turn on the dispatcher, the user can reset or retry
+            // the row (revival APPLIED → State moved off Completed), or merely have clicked it
+            // (revival QUEUED → the veto in _pendingRevivals). Removing it either way would
+            // silently swallow the revival — the row vanishes mid-retry and the retry's work is
+            // detached and cancelled. The mode is re-read too, so a setting flipped during the
+            // dispatch gap doesn't execute the old policy. Same shape as the IsExpanded handlers,
+            // which also re-read their predicate inside the Post.
+            if (_settings.RemoveFinishedUploads != RemoveFinishedUploadsMode.Immediately
+                || file.State != FileState.Completed
+                || _pendingRevivals.Contains(file))
+            {
+                return;
+            }
+
+            RemoveFileAndPruneEmptyPackage(file);
+        });
     }
 
     private void PackageManager_PackageCompleted(object? sender, Package package)
     {
         // WhenPackageIsReady mode: remove the package once every file in it succeeded.
-        // Packages with any failure stay visible so the user notices.
         if (_settings.RemoveFinishedUploads != RemoveFinishedUploadsMode.WhenPackageIsReady)
         {
             return;
         }
 
-        foreach (PackageFile f in package)
+        _uiDispatcher.Post(() =>
         {
-            if (f.State != FileState.Completed)
+            // Decided at removal time, not event time — see PackageManager_FileCompleted for the
+            // whole story (applied revivals via State, queued ones via the veto, and the mode
+            // re-read). A single file reset in the dispatch gap revives the package, and it must
+            // stay on screen with its requeued row. Packages with any failure stay visible so the
+            // user notices.
+            if (_settings.RemoveFinishedUploads != RemoveFinishedUploadsMode.WhenPackageIsReady)
             {
                 return;
             }
-        }
 
-        _uiDispatcher.Post(() =>
-        {
+            foreach (PackageFile f in package)
+            {
+                if (f.State != FileState.Completed || _pendingRevivals.Contains(f))
+                {
+                    return;
+                }
+            }
+
             PackageFile[] files = [.. package];
             _packageManager.RemovePackage(package);
             RemovePackageFromView(package, files);
@@ -1167,6 +1256,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             _packageManager.PackageAdded -= PackageManager_PackageAdded;
             _packageManager.FileCompleted -= PackageManager_FileCompleted;
             _packageManager.PackageCompleted -= PackageManager_PackageCompleted;
+            _packageManager.FileRevived -= PackageManager_FileRevived;
         }
 
         _disposed = true;
