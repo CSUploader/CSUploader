@@ -102,6 +102,20 @@ public class PackageManager
     public event EventHandler<PackageFile>? FileReopened;
 
     /// <summary>
+    /// Raised the moment the scheduler APPLIES a terminal → non-terminal transition — the
+    /// in-memory fact, before and regardless of whether it persists. Fired from the scheduler's
+    /// pump, synchronously with the state change.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately distinct from <see cref="FileReopened"/>, which announces the persisted fact
+    /// and is what the Uploaded tab keys on. Anything gating on "the revival has HAPPENED" — the
+    /// Uploads tab's auto-remove veto — must use this one instead: a transient write failure
+    /// swallows FileReopened, and a veto waiting on it would outlive its revival and silently
+    /// exempt the row from auto-remove forever after.
+    /// </remarks>
+    public event EventHandler<PackageFile>? FileRevived;
+
+    /// <summary>
     /// Gets the list of packages.
     /// </summary>
     public List<Package> Packages { get; } = [];
@@ -525,7 +539,16 @@ public class PackageManager
     }
 
     private void OnFileStateChanged(object? sender, FileStateChangedEventArgs e)
-        => PersistFileTransition(e.File, e.OldState, e.NewState);
+    {
+        if (IsTerminal(e.OldState) && !IsTerminal(e.NewState))
+        {
+            // The in-memory revival signal — see FileRevived. Raised here, on the pump, BEFORE the
+            // persistence below, so it fires even when the write ends up failing.
+            FileRevived?.Invoke(this, e.File);
+        }
+
+        PersistFileTransition(e.File, e.OldState, e.NewState);
+    }
 
     /// <summary>
     /// Writes one file transition to the database: the state itself, plus whatever else that
@@ -883,6 +906,47 @@ public class PackageManager
     }
 
     /// <summary>
+    /// True while <paramref name="item"/> is still live: a package this manager still lists, or a
+    /// file its package still lists.
+    /// </summary>
+    /// <remarks>
+    /// The guard the revival paths (<see cref="StartPackage"/>, <see cref="ForceStartPackage"/>,
+    /// <see cref="ResetPackage"/>) run first. They sit behind confirmation dialogs, and while a
+    /// dialog is open the dispatcher keeps pumping — auto-remove can legitimately take the very
+    /// row being confirmed. Acting on the confirmed ghost did real damage: <c>AddPackage</c>
+    /// re-registered the removed package with the scheduler, whose PackageAdded resurrected an
+    /// empty phantom row in the grid, while the detached file was mutated and persisted but never
+    /// scheduled again — a reset that silently did nothing and pulled the row off the Uploaded tab
+    /// besides. A dead item's revival is simply declined; the user is looking at a grid that no
+    /// longer shows the row, which is the truthful outcome.
+    /// </remarks>
+    private bool IsAlive(object item)
+    {
+        switch (item)
+        {
+            case Package package:
+                return IsManaged(package);
+
+            case PackageFile file:
+                // Both conditions: a file can be detached from a live package (its row was pruned),
+                // and a file can sit inside a package this manager never owned or no longer does —
+                // reviving through either shape registers dead work.
+                return file.Package.Contains(file) && IsManaged(file.Package);
+
+            default:
+                return false;
+        }
+    }
+
+    private bool IsManaged(Package package)
+    {
+        lock (_lock)
+        {
+            return Packages.Contains(package);
+        }
+    }
+
+    /// <summary>
     /// Starts (or force-starts) a specific package or package file. Manual start
     /// overrides any pending scheduled start: <see cref="Package.ScheduledStartTime"/>
     /// is cleared and the package is registered with the scheduler immediately.
@@ -892,7 +956,7 @@ public class PackageManager
     /// <param name="item">The package or file to start.</param>
     public void StartPackage(object item)
     {
-        if (IsPaused)
+        if (IsPaused || !IsAlive(item))
         {
             return;
         }
@@ -954,6 +1018,11 @@ public class PackageManager
     /// <param name="item">The package or file to force-start.</param>
     public void ForceStartPackage(object item)
     {
+        if (!IsAlive(item))
+        {
+            return; // removed while the command's confirmation was open — see IsAlive
+        }
+
         if (item is Package package)
         {
             package.ScheduledStartTime = null;
@@ -1073,6 +1142,11 @@ public class PackageManager
     /// </summary>
     public void ResetPackage(object item)
     {
+        if (!IsAlive(item))
+        {
+            return; // removed while the command's confirmation was open — see IsAlive
+        }
+
         // ResetFile already transitions each file to HashQueued, so we only need to fill
         // slots — NOT StartAll, which would also requeue every idle/failed file in OTHER
         // packages (same over-reach bug as the per-row Start).

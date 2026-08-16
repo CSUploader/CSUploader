@@ -1007,6 +1007,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             // than after the queue has already re-hashed the file and written a fresh hash over it.
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
+
             idle.ResetPackage(file);
             await scheduler.DrainAsync();
             await idle.DrainPendingPersistenceAsync();
@@ -1045,6 +1050,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             // attempt the queue would otherwise go on to run (and, with no real hoster, fail).
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
+
             idle.StartPackage(file);
             await scheduler.DrainAsync();
             await idle.DrainPendingPersistenceAsync();
@@ -1079,6 +1089,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             file.State = FileState.Uploading;
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
 
             idle.StopPackage(file);
             idle.ResetPackage(file);
@@ -1119,6 +1134,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
+
             idle.ResetPackage(file);
             await scheduler.DrainAsync();
             await idle.DrainPendingPersistenceAsync();
@@ -1152,6 +1172,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
+
             idle.ResetPackage(file);
             await scheduler.DrainAsync();
             await idle.DrainPendingPersistenceAsync();
@@ -1182,6 +1207,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             file.State = FileState.Completed;
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
             List<PackageFile> reopened = [];
             idle.FileReopened += (_, f) => reopened.Add(f);
 
@@ -1217,6 +1247,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
 
             idle.ForceStartPackage(file);
             await scheduler.DrainAsync();
@@ -1301,6 +1336,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
+
             // The shape OnHashCompleted leaves behind: hash computed and valid, transitioning off
             // Hashing. Driven through ApplyFileState so it takes the real persistence path.
             file.State = FileState.Hashing;
@@ -1356,6 +1396,11 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             await _fileRepo.UpdateStateAsync(fileA.DbId!.Value, (int)FileState.Uploading, null, null);
 
             PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+
+            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+            // manager both created and revives; these tests split those roles to pin settings.
+            idle.Packages.Add(package);
             List<Package> completed = [];
             idle.PackageCompleted += (_, p) => completed.Add(p);
 
@@ -1371,6 +1416,107 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
             // FileB's own completion DID land — only the package-level claim was declined.
             UploadPackageFileDto? b = await _fileRepo.FindAsync(fileB.DbId!.Value);
             Assert.Equal(FileState.Completed, b?.State);
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Theory]
+    [InlineData("start")]
+    [InlineData("force")]
+    [InlineData("reset")]
+    public async Task RevivingADetachedFile_DoesNothing(string via)
+    {
+        // A row removed from the grid while a confirmation dialog was open is a ghost: its file
+        // left its package. Reviving it re-registered the package with the scheduler (a phantom
+        // empty row for the UI) and mutated a file nothing would ever schedule. All three revival
+        // entry points decline dead items instead.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            PackageFile file = package.Single();
+            file.State = FileState.Completed;
+
+            // The auto-remove path: the file leaves its package, the empty package leaves the manager.
+            _packageManager.RemovePackage(file);
+            _packageManager.RemovePackage(package);
+            await _scheduler.DrainAsync();
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+            switch (via)
+            {
+                case "start": _packageManager.StartPackage(file); break;
+                case "force": _packageManager.ForceStartPackage(file); break;
+                default: _packageManager.ResetPackage(file); break;
+            }
+
+            await _scheduler.DrainAsync();
+            await _packageManager.DrainPendingPersistenceAsync();
+
+            Assert.Equal(0, _scheduler.RegisteredPackageCount); // no resurrection
+            Assert.Equal(FileState.Completed, file.State);      // the ghost was left alone
+        }
+        finally
+        {
+            try
+            { Directory.Delete(tempDir, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public async Task RevivingAnUnmanagedPackage_DoesNotReRegisterIt()
+    {
+        // The package flavour: reset a package row whose package was already auto-removed. The
+        // scheduler must not learn about it again.
+        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+            Assert.Contains(package, _packageManager.Packages); // genuinely managed first
+
+            _packageManager.RemovePackage(package);
+            await _scheduler.DrainAsync();
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+            _packageManager.ResetPackage(package);
+            _packageManager.StartPackage(package);
+            _packageManager.ForceStartPackage(package);
+            await _scheduler.DrainAsync();
+
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+            // A file still INSIDE a package this manager never owned is just as dead — the file
+            // overload must not let the unmanaged package in through the side door.
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
+            Package foreign = new(new PackageOptions
+            {
+                Title = "foreign",
+                Logger = Mock.Of<IAppLogger>(),
+                Settings = new AppSettings(),
+                FileHosters = new() { { hoster, login } },
+            });
+            string path = Path.Combine(tempDir, "foreign.iso");
+            await File.WriteAllBytesAsync(path, new byte[] { 0 });
+            PackageFile orphan = new(foreign, path, hoster, login);
+            foreign.AddPackageFiles([orphan]);
+            orphan.State = FileState.Failed;
+
+            _packageManager.StartPackage(orphan);
+            _packageManager.ResetPackage(orphan);
+            _packageManager.ForceStartPackage(orphan);
+            await _scheduler.DrainAsync();
+
+            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+            Assert.Equal(FileState.Failed, orphan.State);
         }
         finally
         {

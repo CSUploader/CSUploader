@@ -298,6 +298,11 @@ public sealed class PackageManagerStopOwnershipTests : IDisposable
         PackageFile file = new(package, path, hoster, login);
         package.AddPackageFiles([file]);
 
+        // Registered the way CreatePackageAsync would — the revival paths (Start/Reset/ForceStart)
+        // decline files whose package the manager doesn't own, so a raw unregistered package would
+        // sidestep the very methods these tests drive.
+        _packageManager.Packages.Add(package);
+
         file.State = FileState.Uploading;
         file.ForceStart = true;
         file.Cts = new CancellationTokenSource();
