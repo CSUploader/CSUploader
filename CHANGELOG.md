@@ -4,6 +4,34 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-08-21
+
+A "Download captcha?" column on the wizard's hoster step: whether a free/anonymous downloader must
+solve a captcha to fetch a shared link — 71 of the 76 hosters carry a verdict, each sourced from
+the host's own pages, its own shipped code, or a walked live download. See
+[docs/release-notes/v1.4.2.md](docs/release-notes/v1.4.2.md) for the full notes.
+
+### Added
+
+- **"Download captcha?" column** on the wizard's File Hosters step. **Yes** (39 hosts) means the
+  ordinary free download flow gates the file behind a captcha the downloader must solve; **No**
+  (32) means the flow was verified captcha-free — direct-link hosts where a captcha is impossible,
+  hosts whose own FAQ says no, and hosts whose live free flow was walked to the bytes or the final
+  direct file link; an em dash (5) means the flow couldn't be verified, and the cell's tooltip says
+  so. Wait timers and automatic browser checks don't count, per the header's tooltip. One verdict
+  per host — the cell ignores the account dropdown, because it reports what the link's *downloader*
+  faces. Sorting groups each answer together, unknowns included. The full research register
+  (verdict, confidence, check date, evidence per host) lives in `docs/hoster-download-captcha.md`,
+  pinned to the pipelines by a build-failing coverage test.
+
+### Changed
+
+- **The hoster grid's columns are user-resizable** (the Use checkbox and scrollbar-gutter strips
+  stay fixed), matching the Uploads, Uploaded, Logs and Accounts grids.
+- **"Max file size", "Max parallel" and the new captcha column shrank to fit their values** (the
+  Account column absorbs the freed width), and slim-column labels now wrap instead of clipping in
+  any of the six languages.
+
 ## [1.4.1] - 2026-08-13
 
 A "Kept for" column on the wizard's hoster step: how long each host keeps an uploaded file, from
@@ -318,6 +346,9 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.4.2]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.2
+[1.4.1]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.1
+[1.4.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.0
 [1.3.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.3.0
 [1.2.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.2.0
 [1.1.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.1.0
