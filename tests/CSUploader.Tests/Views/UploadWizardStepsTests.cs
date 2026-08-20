@@ -399,6 +399,46 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: hoster columns resize like every other grid's; the control strips don't ──
+
+    [AvaloniaFact]
+    public void HostersGrid_ColumnsAreUserResizable_ExceptControlStrips()
+    {
+        using VmHarness harness = new();
+        harness.Vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("Catbox", [], supportsAnonymous: true));
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            Assert.True(wizard.fileHostersGrid.CanUserResizeColumns);
+
+            // The Use checkbox column and the scrollbar-gutter strip are fixed furniture, not data —
+            // dragging either to nothing (or to half the grid) helps nobody. Every DATA column in
+            // between must stay draggable.
+            Assert.False(wizard.fileHostersGrid.Columns[0].CanUserResize);
+            Assert.False(wizard.fileHostersGrid.Columns[^1].CanUserResize);
+            foreach (DataGridColumn dataColumn in wizard.fileHostersGrid.Columns.Skip(1).Take(wizard.fileHostersGrid.Columns.Count - 2))
+            {
+                Assert.True(dataColumn.CanUserResize);
+            }
+
+            // The three slim capability headers ("Max file size", "Max parallel", "Kept for") wrap
+            // instead of clipping: the columns are sized for their VALUES, and several locales'
+            // labels outgrow that — initial readability must not depend on discovering the resize
+            // grip. (The captcha header's wrap is pinned by its own test below.)
+            foreach (int slimColumn in (int[])[3, 4, 5])
+            {
+                TextBlock slimHeader = Assert.IsType<TextBlock>(wizard.fileHostersGrid.Columns[slimColumn].Header);
+                Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, slimHeader.TextWrapping);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the "Download captcha?" column renders the verdict; its dash explains itself ──
 
     [AvaloniaFact]
