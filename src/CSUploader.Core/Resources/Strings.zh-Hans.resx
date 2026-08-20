@@ -1258,6 +1258,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
     <value>最后一次下载 {0} 后删除。</value>
   </data>
+  <data name="Wizard_Step2_Col_Captcha" xml:space="preserve">
+    <value>下载需人机验证？</value>
+  </data>
+  <data name="Wizard_Step2_Col_Captcha_Tooltip" xml:space="preserve">
+    <value>无账号用户通过分享链接下载时是否需要进行人机验证。等待倒计时和自动执行的浏览器检查不计在内。</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_UnknownTooltip" xml:space="preserve">
+    <value>尚未确认该主机的下载流程是否需要人机验证。</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>（匿名）</value>
   </data>

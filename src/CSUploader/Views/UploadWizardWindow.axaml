@@ -578,11 +578,45 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- Whether a free/anonymous downloader must solve a captcha to fetch a shared link:
+                 the localized Yes/No verdict, or an em dash for hosts nobody has verified (its
+                 tooltip says so — an unknown, not a "no"). One value per HOSTER, not per account —
+                 the column reports the host's ordinary free/anonymous download flow and ignores
+                 the uploader's credentials, so this cell ignores the dropdown. The header tooltip
+                 carries the column's definition (wait timers and automatic browser checks don't
+                 count); values come from each pipeline's DownloadCaptcha, which cites its source,
+                 with the full research matrix in docs/hoster-download-captcha.md. Centred, not
+                 right-aligned: categorical text, not a number. The header wraps: "Download
+                 captcha?" fits 110px only in some of the six languages. Read-only display
+                 (rule 32). -->
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="110" IsReadOnly="True"
+                                    SortMemberPath="DownloadCaptchaSortKey"
+                                    ClipboardContentBinding="{Binding DownloadCaptchaDisplay}">
+              <DataGridTemplateColumn.Header>
+                <TextBlock Text="{loc:Loc Wizard_Step2_Col_Captcha}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           ToolTip.Tip="{loc:Loc Wizard_Step2_Col_Captcha_Tooltip}" />
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
+                  <!-- Tooltip on the whole cell, exactly like the "Kept for" dash: the em dash is
+                       the only cell that needs explaining, and its glyph is no hover target. -->
+                  <Border Background="Transparent" ToolTip.Tip="{Binding DownloadCaptchaTooltip}">
+                    <TextBlock Text="{Binding DownloadCaptchaDisplay}" FontSize="12"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Classes.blocked="{Binding !CanUse}" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <!-- Scrollbar gutter. Avalonia's DataGrid draws its vertical scrollbar OVER the rows
                  presenter (the template spans the presenter under the scrollbar's grid column), so
-                 whatever column is last loses its right edge to the expanded track — right-aligned
-                 "Kept for" values read "Permanen"/"121 day". This empty strip is what the scrollbar
-                 rides on instead. Keep it LAST: a real column added after it inherits the clipping. -->
+                 whatever column is last loses its right edge to the expanded track — the last real
+                 column's values would lose their right edge (as right-aligned "Kept for" once read
+                 "Permanen"/"121 day"). This empty strip is what the scrollbar rides on instead.
+                 Keep it LAST: a real column added after it inherits the clipping. -->
             <DataGridTemplateColumn Width="16" IsReadOnly="True">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>

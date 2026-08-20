@@ -1258,6 +1258,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
     <value>Bị xóa {0} sau lần tải xuống cuối cùng.</value>
   </data>
+  <data name="Wizard_Step2_Col_Captcha" xml:space="preserve">
+    <value>CAPTCHA khi tải xuống?</value>
+  </data>
+  <data name="Wizard_Step2_Col_Captcha_Tooltip" xml:space="preserve">
+    <value>Có cần giải CAPTCHA khi tải xuống từ liên kết chia sẻ mà không đăng nhập tài khoản hay không. Thời gian chờ và các bước kiểm tra trình duyệt diễn ra tự động không được tính.</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_UnknownTooltip" xml:space="preserve">
+    <value>Chưa xác minh liệu quy trình tải xuống của máy chủ này có yêu cầu CAPTCHA hay không.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(ẩn danh)</value>
   </data>

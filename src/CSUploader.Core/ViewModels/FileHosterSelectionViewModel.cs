@@ -48,7 +48,8 @@ public partial class FileHosterSelectionViewModel : ObservableObject
         bool supportsAnonymous = false,
         Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null,
         Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = null,
-        Func<FileHosterLoginDto?, Upload.Pipeline.FileRetention>? retentionResolver = null)
+        Func<FileHosterLoginDto?, Upload.Pipeline.FileRetention>? retentionResolver = null,
+        Upload.Pipeline.DownloadCaptchaRequirement? downloadCaptcha = null)
     {
         FileHosterName = fileHosterName;
         Accounts = accounts;
@@ -56,6 +57,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
         _maxFileSizeResolver = maxFileSizeResolver;
         _maxConcurrentResolver = maxConcurrentResolver;
         _retentionResolver = retentionResolver;
+        DownloadCaptcha = downloadCaptcha;
 
         _anonymousOption = supportsAnonymous
             ? new FileHosterLoginDto
@@ -278,6 +280,46 @@ public partial class FileHosterSelectionViewModel : ObservableObject
                 Localizer.Instance["Wizard_Step2_Retention_Hours_Format"],
                 (int)Math.Round(span.TotalHours));
     }
+
+    /// <summary>
+    /// Whether a free/anonymous downloader must solve a captcha to fetch a file from this hoster.
+    /// Models the host's ordinary free/anonymous download flow and intentionally ignores the
+    /// uploader's credentials, so unlike the three tiered columns the account dropdown has no say.
+    /// Null when the wizard has no pipeline registry (tests), which renders blank like the other
+    /// capability columns.
+    /// </summary>
+    public Upload.Pipeline.DownloadCaptchaRequirement? DownloadCaptcha { get; }
+
+    /// <summary>
+    /// Sort key for the "Download captcha?" column: captcha-free rows before captcha-gated ones,
+    /// and null for unverified rows so they group together instead of pretending to be either.
+    /// </summary>
+    public int? DownloadCaptchaSortKey => DownloadCaptcha switch
+    {
+        Upload.Pipeline.DownloadCaptchaRequirement.NotRequired => 0,
+        Upload.Pipeline.DownloadCaptchaRequirement.Required => 1,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The "Download captcha?" column's text: the localized Yes/No verdict, an em dash for hosts
+    /// nobody has verified (a blank claim, not a "no"), and empty when no pipeline was supplied.
+    /// </summary>
+    public string DownloadCaptchaDisplay => DownloadCaptcha switch
+    {
+        Upload.Pipeline.DownloadCaptchaRequirement.NotRequired => Localizer.Instance["Common_No"],
+        Upload.Pipeline.DownloadCaptchaRequirement.Required => Localizer.Instance["Common_Yes"],
+        Upload.Pipeline.DownloadCaptchaRequirement.Unknown => Localizer.Instance["Wizard_Step2_Captcha_Unknown"],
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// The dash's tooltip — the only cell whose text doesn't carry the whole fact. Yes/No cells say
+    /// it all themselves; the column's definition rides the header's tooltip.
+    /// </summary>
+    public string? DownloadCaptchaTooltip => DownloadCaptcha is Upload.Pipeline.DownloadCaptchaRequirement.Unknown
+        ? Localizer.Instance["Wizard_Step2_Captcha_UnknownTooltip"]
+        : null;
 
     /// <summary>
     /// Replaces the available accounts (e.g. after the user adds one through the

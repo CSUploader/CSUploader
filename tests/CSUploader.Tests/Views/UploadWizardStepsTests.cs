@@ -399,6 +399,69 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the "Download captcha?" column renders the verdict; its dash explains itself ──
+
+    [AvaloniaFact]
+    public void HostersGrid_DownloadCaptchaColumn_ShowsVerdictAndExplainsTheDash()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel gated = new(
+            "Rapidgator",
+            [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }],
+            downloadCaptcha: CSUploader.Upload.Pipeline.DownloadCaptchaRequirement.Required);
+        FileHosterSelectionViewModel unverified = new(
+            "Hxfile",
+            [new FileHosterLoginDto { FileHosterName = "Hxfile", Username = "me" }],
+            downloadCaptcha: CSUploader.Upload.Pipeline.DownloadCaptchaRequirement.Unknown);
+        harness.Vm.Hosters.FileHosters.Add(gated);
+        harness.Vm.Hosters.FileHosters.Add(unverified);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            string yes = CSUploader.Lib.Localization.Localizer.Instance["Common_Yes"];
+            string dash = CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Captcha_Unknown"];
+            string explain = CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Captcha_UnknownTooltip"];
+
+            TextBlock yesText = RowFor(wizard.fileHostersGrid, gated)
+                .GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == yes);
+
+            // Centred, not right-aligned like the numeric columns: categorical text.
+            Assert.Equal(global::Avalonia.Layout.HorizontalAlignment.Center, yesText.HorizontalAlignment);
+
+            // The dash's tooltip must ride the cell-filling Border, not the few-pixel glyph —
+            // same rationale as the "Kept for" dash above.
+            TextBlock dashText = RowFor(wizard.fileHostersGrid, unverified)
+                .GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == dash);
+            Border cell = Assert.IsType<Border>(dashText.GetVisualParent());
+            Assert.Equal(explain, ToolTip.GetTip(cell));
+            Assert.True(cell.Bounds.Width > dashText.Bounds.Width * 2);
+
+            // Column-level seams nothing else pins: the stringly-typed sort path, the clipboard
+            // binding, and the header (its definition tooltip + wrapping — "Download captcha?"
+            // fits 110px in only some of the six languages). [^2] = the last real column, ahead
+            // of the scrollbar-gutter strip that must stay last.
+            DataGridColumn captchaColumn = wizard.fileHostersGrid.Columns[^2];
+            Assert.Equal(nameof(FileHosterSelectionViewModel.DownloadCaptchaSortKey), captchaColumn.SortMemberPath);
+            // Compiled bindings are this project's default, so the XAML produces a
+            // CompiledBindingExtension, not a reflection Binding.
+            var clipboard = Assert.IsType<global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindingExtension>(
+                captchaColumn.ClipboardContentBinding);
+            Assert.Equal(nameof(FileHosterSelectionViewModel.DownloadCaptchaDisplay), clipboard.Path.ToString());
+            TextBlock header = Assert.IsType<TextBlock>(captchaColumn.Header);
+            Assert.Equal(CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Col_Captcha"], header.Text);
+            Assert.Equal(
+                CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Col_Captcha_Tooltip"],
+                ToolTip.GetTip(header));
+            Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, header.TextWrapping);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the "Add account…" link runs AddAccountForHosterCommand for its row ──
 
     [AvaloniaFact]
