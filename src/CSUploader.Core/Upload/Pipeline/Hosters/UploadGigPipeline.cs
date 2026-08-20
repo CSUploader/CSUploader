@@ -85,6 +85,10 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
 
     public string Name => "UploadGIG";
 
+    /// <summary>Free downloads are captcha-gated: its live free-download section instructs
+    /// ticking an i-am-not-a-robot box before the button (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

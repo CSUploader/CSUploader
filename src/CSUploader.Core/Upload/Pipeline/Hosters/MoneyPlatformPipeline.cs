@@ -127,6 +127,14 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
     /// <inheritdoc/>
     public abstract string Name { get; }
 
+    /// <summary>
+    /// Free downloads are captcha-gated platform-wide, so this lives on the base rather than per
+    /// host: the operator's own API docs (keep2share.github.io/api, covering k2s.cc, fboom.me and
+    /// tezfiles.com alike) make a guest getUrl demand requestCaptcha/captcha_response and answer
+    /// 406 "Captcha required" without it (checked 2026-08-20). Premium tokens skip the step.
+    /// </summary>
+    public virtual DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

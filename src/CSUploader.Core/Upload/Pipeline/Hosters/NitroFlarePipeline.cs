@@ -133,6 +133,10 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
 
     public string Name => "NitroFlare";
 
+    /// <summary>Free downloads are captcha-gated: its download page lists "Captcha request" as
+    /// a Free Download tier condition (live page, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

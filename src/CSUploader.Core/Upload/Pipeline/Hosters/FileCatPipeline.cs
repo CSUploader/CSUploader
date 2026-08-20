@@ -87,6 +87,10 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
 
     public string Name => "FileCat";
 
+    /// <summary>Free downloads are captcha-gated: its live API answers a guest download request
+    /// with captcha_needed true (api.filecat.net/dwnldreq, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

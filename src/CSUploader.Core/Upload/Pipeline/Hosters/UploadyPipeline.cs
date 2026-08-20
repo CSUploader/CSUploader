@@ -87,6 +87,10 @@ public sealed class UploadyPipeline : XFileSharingApiPipeline, IStorageRefreshab
 
     public override string Name => "Uploady";
 
+    /// <summary>Free downloads are captcha-gated: its own download page's free column reads ads
+    /// and captcha required (live page, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12), under "When are your files deleted?
     /// (after last download)": anonymous 3, registered 30, premium 60.</summary>
     public override FileRetention RetentionFor(FileHosterLoginDto credentials)

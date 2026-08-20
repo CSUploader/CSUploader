@@ -135,6 +135,10 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
 
     public string Name => "MediaFire";
 
+    /// <summary>Downloads are captcha-free: the file page embeds a direct CDN href in its
+    /// initial HTML with no captcha widget (live page, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>MediaFire dedups on SHA-256, but the app's shared hasher is MD5, so this pipeline
     /// computes its own hash — it does NOT rely on the runner's pre-hash.</summary>
     public bool RequiresHashingBeforeUpload => false;

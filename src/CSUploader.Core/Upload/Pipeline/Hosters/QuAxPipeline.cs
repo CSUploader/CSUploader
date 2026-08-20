@@ -80,6 +80,10 @@ public sealed class QuAxPipeline : IFileHosterPipeline
 
     public string Name => "Qu.ax";
 
+    /// <summary>Downloads are captcha-free: the raw file is served directly at qu.ax/x/, and
+    /// the viewer page has no captcha markup (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

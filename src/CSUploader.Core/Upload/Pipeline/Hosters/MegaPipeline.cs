@@ -48,6 +48,11 @@ public sealed class MegaPipeline : IFileHosterPipeline, IStorageRefreshablePipel
 
     public string Name => "MEGA";
 
+    /// <summary>Downloads are captcha-free: MEGA's own tooling documents anonymous public-link
+    /// downloads with no captcha step; free limits are transfer quota (MEGAcmd guide,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

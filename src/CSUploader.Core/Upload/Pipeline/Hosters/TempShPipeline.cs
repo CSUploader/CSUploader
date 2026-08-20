@@ -51,6 +51,10 @@ public sealed class TempShPipeline : IFileHosterPipeline
 
     public string Name => "Temp.sh";
 
+    /// <summary>Downloads are captcha-free: the share page's plain POST form returns the raw
+    /// file with no captcha in the flow (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

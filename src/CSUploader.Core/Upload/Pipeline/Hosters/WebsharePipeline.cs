@@ -99,6 +99,11 @@ public sealed class WebsharePipeline : IFileHosterPipeline
 
     public string Name => "Webshare";
 
+    /// <summary>Downloads are captcha-free: an anonymous file_link API call returns a direct
+    /// link that serves the bytes; VIP buys speed, not captcha removal (live probe,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

@@ -77,6 +77,10 @@ public sealed class HostizePipeline : IFileHosterPipeline
 
     public string Name => "Hostize";
 
+    /// <summary>Downloads are captcha-free: the anonymous download API 302s to a presigned file
+    /// URL and the share-page chunk has no captcha (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

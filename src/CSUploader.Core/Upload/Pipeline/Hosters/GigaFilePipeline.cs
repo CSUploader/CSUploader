@@ -96,6 +96,10 @@ public sealed class GigaFilePipeline : IFileHosterPipeline
 
     public string Name => "GigaFile";
 
+    /// <summary>Downloads are captcha-free: its support FAQ says pressing download starts it
+    /// immediately, and a live probe's download page had no captcha (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

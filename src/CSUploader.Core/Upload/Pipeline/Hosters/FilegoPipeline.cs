@@ -74,6 +74,10 @@ public sealed class FilegoPipeline : IFileHosterPipeline
 
     public string Name => "Filego";
 
+    /// <summary>Downloads are captcha-free: its whole app bundle contains no captcha and
+    /// download is a direct navigation to /api/dl/file (bundle.js, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

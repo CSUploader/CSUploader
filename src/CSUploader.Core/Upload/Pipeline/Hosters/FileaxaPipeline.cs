@@ -42,6 +42,11 @@ public sealed class FileaxaPipeline : XfsProAnonymousPipeline
 
     public override string Name => "FILEAXA";
 
+    /// <summary>Downloads are captcha-free: its premium page checks "No downloads captcha" for
+    /// every tier including anonymous, and the live free flow 302s to the bytes
+    /// (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own premium.html plan table (read 2026-08-12), "File retention": guest
     /// "5 days after last download", registered "30 days after last download", premium and pro
     /// "Never".</summary>

@@ -86,6 +86,10 @@ public sealed class ClicknuploadPipeline : XFileSharingApiPipeline, IStorageRefr
 
     public override string Name => "Clicknupload";
 
+    /// <summary>Free downloads are captcha-gated: its premium table crosses "No downloads
+    /// captcha" for Free and Registered (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): guest 10, registered 35, premium 60 -
     /// all "days after last download".</summary>
     public override FileRetention RetentionFor(FileHosterLoginDto credentials)

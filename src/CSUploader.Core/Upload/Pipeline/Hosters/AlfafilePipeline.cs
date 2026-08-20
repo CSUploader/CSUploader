@@ -72,6 +72,11 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     public string Name => "Alfafile";
 
+    /// <summary>Free downloads are captcha-gated: the live free flow lands on a Turnstile
+    /// captcha page that itself says premium users download without captcha codes
+    /// (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => true;
 
     public bool RequiresHashingAfterUpload => false;

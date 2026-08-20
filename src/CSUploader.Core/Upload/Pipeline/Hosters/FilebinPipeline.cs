@@ -63,6 +63,11 @@ public sealed class FilebinPipeline : IFileHosterPipeline
 
     public string Name => "Filebin";
 
+    /// <summary>Downloads are captcha-free: its own OpenAPI 302s GET bin/filename to a
+    /// presigned URL; the only gate is a click-through warning, not a captcha (api.yaml,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

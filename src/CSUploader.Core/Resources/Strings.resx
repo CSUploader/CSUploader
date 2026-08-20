@@ -1358,7 +1358,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>—</value>
   </data>
   <data name="Wizard_Step2_Captcha_UnknownTooltip" xml:space="preserve">
-    <value>This host's download flow hasn't been checked for a captcha.</value>
+    <value>This host's download-captcha requirement couldn't be verified.</value>
   </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(anonymous)</value>

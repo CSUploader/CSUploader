@@ -98,6 +98,10 @@ public sealed class SubysharePipeline : XFileSharingApiPipeline
 
     public override string Name => "SubyShare";
 
+    /// <summary>Free downloads are captcha-gated: its premium table's "Solve Captcha on
+    /// download" row reads YES for Free and Registered (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): guest 1, registered 30, premium 180 -
     /// all "days after last download".</summary>
     public override FileRetention RetentionFor(FileHosterLoginDto credentials)

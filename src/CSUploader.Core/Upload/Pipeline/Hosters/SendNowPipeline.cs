@@ -76,6 +76,10 @@ public sealed class SendNowPipeline : XFileSharingApiPipeline
 
     public override string Name => "Send.now";
 
+    /// <summary>Downloads are captcha-free: the host's own demo file page downloads with no
+    /// captcha and no countdown (live flow, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     protected override string Host => "https://send.now";
 
     /// <summary>Anonymous (not-logged-in) upload verified against the live site.</summary>

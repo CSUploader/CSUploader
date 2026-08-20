@@ -137,6 +137,10 @@ public sealed class TurbobitPipeline : IFileHosterPipeline
 
     public string Name => "Turbobit";
 
+    /// <summary>Free downloads are captcha-gated: its own free-download SPA chunk gates the
+    /// link behind FreeDownloadCaptchaView (FreePage bundle, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

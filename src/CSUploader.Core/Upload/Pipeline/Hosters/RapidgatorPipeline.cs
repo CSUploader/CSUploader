@@ -58,6 +58,10 @@ public sealed class RapidgatorPipeline : IFileHosterPipeline, IStorageRefreshabl
 
     public string Name => "Rapidgator";
 
+    /// <summary>Free downloads are captcha-gated: the live free flow ends on /download/captcha,
+    /// which says premium users download files without captcha codes (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => true;
 
     public bool RequiresHashingAfterUpload => false;

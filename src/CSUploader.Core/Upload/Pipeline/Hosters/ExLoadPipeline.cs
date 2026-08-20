@@ -35,6 +35,10 @@ public sealed class ExLoadPipeline : XFileSharingApiPipeline
 
     public override string Name => "Ex-Load";
 
+    /// <summary>Free downloads are captcha-gated: its own FAQ describes the free flow as wait
+    /// for the timer, enter the captcha (faq.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://ex-load.com";
 
     /// <summary>

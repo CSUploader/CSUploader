@@ -272,6 +272,12 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     /// </summary>
     public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
 
+    /// <summary>Per-site, not per-family: YetiShare sites configure the download captcha
+    /// individually (Filestank gates on reCAPTCHA where udrop's FAQ promises none), so the base
+    /// stays Unknown and each site declares its own verified verdict — see
+    /// docs/hoster-download-captcha.md.</summary>
+    public virtual DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Unknown;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Account-only: the node authenticates on a signed-in <c>_sessionid</c>.</summary>

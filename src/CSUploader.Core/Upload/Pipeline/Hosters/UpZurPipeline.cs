@@ -91,6 +91,11 @@ public sealed class UpZurPipeline : XFileSharingApiPipeline
 
     public override string Name => "UpZur";
 
+    /// <summary>Downloads are captcha-free: its premium comparison grants "No downloads
+    /// captcha" to the FREE tier too, and the live free flow yields a direct link
+    /// (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     protected override string Host => "https://upzur.com";
 
     /// <summary>Verified by uploading a file and fetching the resulting page — not by a form being

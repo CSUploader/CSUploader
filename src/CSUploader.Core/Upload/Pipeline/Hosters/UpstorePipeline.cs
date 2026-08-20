@@ -108,6 +108,10 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
 
     public string Name => "Upstore";
 
+    /// <summary>Free downloads are captcha-gated: its premium page lists "Captcha" under the
+    /// free slow-download column and "No captcha" under premium (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>Its premium page (read 2026-08-12) gives premium "Files kept on server forever";
     /// the free column says only "Limited lifetime storage" with no number, so guest and free
     /// report unknown.</summary>

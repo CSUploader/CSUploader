@@ -44,6 +44,10 @@ public sealed class BowFilePipeline : YetiSharePipeline
 
     public override string Name => "BowFile";
 
+    /// <summary>Downloads are captcha-free: the ordinary free flow is a 3s countdown revealing a
+    /// plain download redirect, with no captcha widget at any stage (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own FAQ (read 2026-08-12): "Free/non accounts files are kept for 20 days.
     /// Premium accounts files are kept for 100 days." - "non accounts" covers guest uploads. The FAQ
     /// does not say what the days count from, so this reports the from-upload floor.</summary>

@@ -56,5 +56,10 @@ public sealed class KatFilePipeline : XFileSharingApiPipeline
 
     public override string Name => "KatFile";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 embeds an interactive
+    /// Turnstile widget and says premium downloads skip it (live flow + premium.php,
+    /// 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://katfile.biz";
 }

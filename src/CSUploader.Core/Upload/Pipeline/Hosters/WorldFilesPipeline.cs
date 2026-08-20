@@ -70,6 +70,10 @@ public sealed class WorldFilesPipeline : XFileSharingApiPipeline
     /// <summary>The host's own <c>&lt;SiteName&gt;</c>, spelled as it spells it.</summary>
     public override string Name => "World Files";
 
+    /// <summary>Free downloads are captcha-gated: its premium table checks "No downloads
+    /// captcha" for Premium only (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): registered "45 days after last
     /// download". Premium says only "On the individual condition" and the guest column is empty, so
     /// both report unknown.</summary>

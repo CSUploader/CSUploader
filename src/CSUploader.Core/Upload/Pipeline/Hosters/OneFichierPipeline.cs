@@ -99,6 +99,10 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
 
     public string Name => "1Fichier";
 
+    /// <summary>Free downloads are captcha-gated: its pricing comparison lists "Captcha" for
+    /// Guests and "No captcha" for Premium (tarifs.html, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

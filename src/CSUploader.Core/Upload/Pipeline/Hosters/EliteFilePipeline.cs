@@ -74,6 +74,10 @@ public sealed class EliteFilePipeline : XFileSharingApiPipeline, IStorageRefresh
 
     public override string Name => "EliteFile";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 form carries the
+    /// classic XFS positioned-digit captcha (live flow, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://elitefile.net";
 
     /// <summary>Web-form (no-API) hoster — its <c>/api/upload/server</c> is a 404.</summary>

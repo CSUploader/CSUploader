@@ -22,14 +22,17 @@ namespace CSUploader.Upload.Pipeline;
 /// </summary>
 public enum DownloadCaptchaRequirement
 {
-    /// <summary>This host's free download flow has not been verified (the default).</summary>
+    /// <summary>This host's free download flow could not be verified (the default) — covering both
+    /// hosts nobody has researched and researched-but-inconclusive ones (see the matrix).</summary>
     Unknown = 0,
 
-    /// <summary>The free download flow was verified to involve no captcha — e.g. the share link IS
-    /// the raw file, or an inspected download page starts the download without a challenge.</summary>
+    /// <summary>The ORDINARY free download flow was verified to involve no captcha — e.g. the share
+    /// link IS the raw file, or the walked flow reached the bytes (or the final direct file URL)
+    /// with no challenge. Abuse-triggered exceptions (rate-limit or virus-flag challenges, e.g.
+    /// Pixeldrain's) don't count against this.</summary>
     NotRequired,
 
-    /// <summary>The free download flow makes the downloader solve a captcha before the file is
-    /// handed over. (Whether a paid tier bypasses it is the host's business and not claimed here.)</summary>
+    /// <summary>The ordinary free download flow gates the download behind a captcha the downloader
+    /// must solve. (Whether a paid tier bypasses it is the host's business and not claimed here.)</summary>
     Required,
 }

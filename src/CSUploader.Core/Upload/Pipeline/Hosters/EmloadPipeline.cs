@@ -81,6 +81,11 @@ public sealed class EmloadPipeline : IFileHosterPipeline, ISessionRefreshablePip
 
     public string Name => "Emload";
 
+    /// <summary>Free downloads are captcha-gated: the live free widget demands "Verify Captcha
+    /// to Download" (reCAPTCHA v2) and its own core.js sells no-captcha as premium
+    /// (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

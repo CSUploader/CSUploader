@@ -51,6 +51,10 @@ public sealed class MegaUpPipeline : YetiSharePipeline
 
     public override string Name => "MegaUp";
 
+    /// <summary>Downloads are captcha-free: the ordinary free flow is a 2s countdown revealing the
+    /// final direct download link, with no captcha widget (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own FAQ (read 2026-08-12): "All files will be deleted after 30 days
     /// inactivity." - every tier, and inactivity means the countdown restarts on a
     /// download.</summary>

@@ -57,6 +57,10 @@ public sealed class PrefilesPipeline : XFileSharingApiPipeline
 
     public override string Name => "PreFiles";
 
+    /// <summary>Free downloads are captcha-gated: its pricing comparison lists "No downloads
+    /// captcha" as a PRO perk (prefiles.com/pricing, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://prefiles.com";
 
     /// <summary>Measured at the node, not read off a page: the guest field set earns "uploads are not

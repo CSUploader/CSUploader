@@ -68,6 +68,11 @@ public sealed class DataVaultsPipeline : XFileSharingApiPipeline
 
     public override string Name => "DataVaults";
 
+    /// <summary>Free downloads are captcha-gated: its premium page's "Downloads Captcha" row
+    /// marks yes for Anonymous and Registered, no for Premium (premium.html,
+    /// 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): anonymous "3 Days", registered
     /// "7 Days", premium "Never". Unlike its siblings the page does NOT say what the days count
     /// from, so this reports the floor - from upload - rather than promising the last-download

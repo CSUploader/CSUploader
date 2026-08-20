@@ -61,6 +61,10 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
 
     public string Name => "TmpFiles";
 
+    /// <summary>Downloads are captcha-free: the download page holds only a plain /dl/ link and
+    /// that URL returns the raw bytes (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;
