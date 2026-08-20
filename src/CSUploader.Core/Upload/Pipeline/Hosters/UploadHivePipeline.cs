@@ -81,6 +81,10 @@ public sealed class UploadHivePipeline : XFileSharingApiPipeline
 
     public override string Name => "UploadHive";
 
+    /// <summary>Free downloads are captcha-gated: its premium page sells "No downloads captcha"
+    /// as a premium-only perk (uploadhive.com/premium, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): free 50, registered 140, "days after
     /// last download"; premium "Never".</summary>
     public override FileRetention RetentionFor(FileHosterLoginDto credentials)

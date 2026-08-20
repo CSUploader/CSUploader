@@ -106,6 +106,10 @@ public sealed class BuzzheavierPipeline : IFileHosterPipeline
 
     public string Name => "Buzzheavier";
 
+    /// <summary>Downloads are captcha-free: a probe upload's public page downloads through a
+    /// plain tokenized link straight to the bytes (live flow, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

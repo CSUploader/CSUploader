@@ -1348,6 +1348,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
     <value>Deleted {0} after the last download.</value>
   </data>
+  <data name="Wizard_Step2_Col_Captcha" xml:space="preserve">
+    <value>Download captcha?</value>
+  </data>
+  <data name="Wizard_Step2_Col_Captcha_Tooltip" xml:space="preserve">
+    <value>Whether someone downloading a shared link without an account must solve a captcha. Wait timers and automatic browser checks don't count.</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_UnknownTooltip" xml:space="preserve">
+    <value>This host's download-captcha requirement couldn't be verified.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(anonymous)</value>
   </data>

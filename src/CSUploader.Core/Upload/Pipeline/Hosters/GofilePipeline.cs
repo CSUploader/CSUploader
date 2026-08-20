@@ -65,6 +65,10 @@ public sealed class GofilePipeline : IFileHosterPipeline
 
     public string Name => "Gofile";
 
+    /// <summary>Downloads are captcha-free: a live guest session fetched the bytes from the
+    /// download page with zero captcha widgets in the DOM (probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own FAQ (read 2026-08-12): content is kept for 10 days and stays longer
     /// only while it keeps being downloaded - matching the host's own public statement that files
     /// "remain on the servers for at least 10 days" and go when not downloaded. Uploads here ride a

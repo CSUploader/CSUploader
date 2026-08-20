@@ -101,6 +101,11 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
 
     public string Name => "DataNodes";
 
+    /// <summary>Free downloads are captcha-gated: its live free download component embeds an
+    /// interactive Turnstile widget and premium sells no-ads-or-captchas
+    /// (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

@@ -103,6 +103,10 @@ public sealed class BtaFilePipeline : XFileSharingApiPipeline
 
     public override string Name => "BtaFile";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 step renders the stock
+    /// XFS image captcha (live flow, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://btafile.com";
 
     /// <summary>Verified by uploading real bytes with no account and fetching the resulting page — not

@@ -639,7 +639,17 @@ public sealed partial class WizardHostersViewModel : ObservableObject
                 h => string.Equals(h.FileHosterName, fileHosterName, StringComparison.Ordinal));
 
             FileHosterSelectionViewModel vm = new(
-                fileHosterName, accounts, supportsAnonymous, maxFileSizeResolver, maxConcurrentResolver, retentionResolver);
+                fileHosterName,
+                accounts,
+                supportsAnonymous,
+                maxFileSizeResolver,
+                maxConcurrentResolver,
+                retentionResolver,
+
+                // Fixed per hoster, not per account — this reports the host's ordinary
+                // free/anonymous download flow and intentionally ignores the uploader's
+                // credentials. Null (blank cell) when the wizard has no pipeline to ask.
+                pipeline?.DownloadCaptcha);
             if (sticky is not null)
             {
                 vm.Use = sticky.Use;

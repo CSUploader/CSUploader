@@ -100,6 +100,10 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
 
     public string Name => "FileMirage";
 
+    /// <summary>Downloads are captcha-free: a live probe's server-rendered download page has
+    /// zero captcha markup and offers direct-link embeds (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

@@ -71,6 +71,10 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
 
     public string Name => "VikingFile";
 
+    /// <summary>Free downloads are captcha-gated: its file page gates the download link behind
+    /// a Turnstile widget whose callback reveals it (live page, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

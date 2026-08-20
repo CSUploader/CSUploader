@@ -82,6 +82,10 @@ public sealed class WormholePipeline : IFileHosterPipeline
 
     public string Name => "Wormhole";
 
+    /// <summary>Downloads are captcha-free: the recipient page starts the end-to-end-encrypted
+    /// download on click with no captcha widget (live test, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own FAQ (read 2026-08-12): "Files are permanently deleted from the server
     /// after 24 hours." This is a transfer service, not storage.</summary>
     public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)

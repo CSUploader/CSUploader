@@ -52,6 +52,11 @@ public sealed class FilehosterIoPipeline : XfsProSessionPipeline
 
     public override string Name => "Filehoster.io";
 
+    /// <summary>Downloads are captcha-free: a live anonymous probe downloaded through the free
+    /// flow with only a 1s wait, and its premium page checks "No downloads captcha" for Free
+    /// too (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own premium page (read 2026-08-12): free "5 days after last download",
     /// registered "60 days after last download", premium "Never".</summary>
     public override FileRetention RetentionFor(Dal.FileHosterLoginDto credentials)

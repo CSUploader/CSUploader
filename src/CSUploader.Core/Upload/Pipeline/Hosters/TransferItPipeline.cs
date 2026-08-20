@@ -42,6 +42,10 @@ public sealed class TransferItPipeline : IFileHosterPipeline
 
     public string Name => "Transfer.it";
 
+    /// <summary>Downloads are captcha-free: a live anonymous transfer downloaded from the
+    /// recipient page with zero captcha widgets or scripts (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

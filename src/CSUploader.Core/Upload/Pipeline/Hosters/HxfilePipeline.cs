@@ -34,6 +34,10 @@ public sealed class HxfilePipeline : XFileSharingApiPipeline
 
     public override string Name => "Hxfile";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 form embeds a visible
+    /// reCAPTCHA v2 widget (live page, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>Its premium plans each say "Your files stored 365 days" (read 2026-08-12) - premium
     /// only, basis unstated, so this is the from-upload floor. No figure is published for free
     /// accounts.</summary>

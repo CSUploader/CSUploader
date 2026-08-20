@@ -91,6 +91,10 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
 
     public string Name => "FileGarden";
 
+    /// <summary>Downloads are captcha-free: the share link serves raw bytes from file.garden
+    /// directly, so there is no page to put a captcha on (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

@@ -147,6 +147,11 @@ public abstract class XfsProSessionPipeline : IFileHosterPipeline, IStorageRefre
     /// </summary>
     public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
 
+    /// <summary>Per-site, not per-family: the two xfspro-session hosts already disagree (Easybytez
+    /// sells no-captcha as premium, filehoster.io's free flow runs none), so the base stays Unknown
+    /// and each site declares its own verified verdict — see docs/hoster-download-captcha.md.</summary>
+    public virtual DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Unknown;
+
     /// <summary>Both hosts require an account: their guest tiers exist but refuse the upload
     /// ("uploads are not enabled for your account type"). The wizard won't offer "Anonymous".</summary>
     public bool SupportsAnonymousUpload => false;

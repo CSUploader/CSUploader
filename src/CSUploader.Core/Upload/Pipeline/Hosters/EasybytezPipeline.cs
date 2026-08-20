@@ -68,6 +68,10 @@ public sealed class EasybytezPipeline : XfsProSessionPipeline
 
     public override string Name => "Easybytez";
 
+    /// <summary>Free downloads are captcha-gated: its premium table lists "No downloads
+    /// captcha" as a Premium benefit only (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://easybytez.org";
 
     /// <summary>200 MB on the registered tier, read as binary — the family's figures are 1024-based and

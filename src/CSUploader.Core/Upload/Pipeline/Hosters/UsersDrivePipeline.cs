@@ -49,6 +49,11 @@ public sealed class UsersDrivePipeline : XFileSharingApiPipeline
 
     public override string Name => "UsersDrive";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 form embeds an
+    /// interactive Turnstile widget above the create-link button (live page,
+    /// 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): the free plan "9 days after last
     /// download", premium "19 days after last download". Guest uploads have no stated figure, so the
     /// anonymous route reports unknown rather than borrowing the account one.</summary>

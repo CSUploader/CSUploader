@@ -105,6 +105,11 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
 
     public string Name => "DepositFiles";
 
+    /// <summary>Free downloads are captcha-gated: its own FAQ describes the free flow as wait
+    /// 60 seconds then enter the confirmation code, i.e. captcha (faq.html,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

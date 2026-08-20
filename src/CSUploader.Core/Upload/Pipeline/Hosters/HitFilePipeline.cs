@@ -193,6 +193,10 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
 
     public string Name => "HitFile";
 
+    /// <summary>Free downloads are captcha-gated: its own free-download SPA chunk implements
+    /// FreeDownloadCaptchaView with an image captcha (FreePage bundle, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

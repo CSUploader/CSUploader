@@ -97,6 +97,11 @@ public sealed class DropMbPipeline : IFileHosterPipeline, ISessionRefreshablePip
 
     public string Name => "DropMB";
 
+    /// <summary>Downloads are captcha-free: the Pingvin Share download API returned the bytes
+    /// after an auto-issued share token; configs expose no captcha keys (live probe,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

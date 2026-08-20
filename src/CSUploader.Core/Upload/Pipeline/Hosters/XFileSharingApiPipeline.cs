@@ -170,6 +170,11 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     /// </summary>
     public virtual FileRetention RetentionFor(FileHosterLoginDto credentials) => FileRetention.Unspecified;
 
+    /// <summary>Per-site, not per-family: XFS sites configure the download captcha individually
+    /// (DDownload embeds Turnstile where Send.now and UpZur run none), so the base stays Unknown
+    /// and each shim declares its own verified verdict — see docs/hoster-download-captcha.md.</summary>
+    public virtual DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Unknown;
+
     /// <inheritdoc/>
     public bool RequiresHashingBeforeUpload => false;
 

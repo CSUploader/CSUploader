@@ -89,6 +89,10 @@ public sealed class DDownloadPipeline : XFileSharingApiPipeline, IStorageRefresh
 
     public override string Name => "DDownload";
 
+    /// <summary>Free downloads are captcha-gated: its free op=download2 form embeds an
+    /// interactive Turnstile widget plus a 60s countdown (live page, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://ddownload.com";
 
     /// <summary>Web-form (no-API) hoster — see the class remarks for why the REST API isn't used.</summary>

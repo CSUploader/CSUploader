@@ -382,6 +382,58 @@ public class FileHosterSelectionViewModelTests
         Assert.Contains(nameof(FileHosterSelectionViewModel.RetentionTooltip), changed);
     }
 
+    [Fact]
+    public void DownloadCaptcha_WithoutValue_IsBlank()
+    {
+        // No pipeline (registry-less test wizard) means no claim at all: the cell stays EMPTY like
+        // the size/parallel/kept-for columns do, distinct from a pipeline that answered Unknown.
+        FileHosterSelectionViewModel vm = new("Rapidgator", [Login(1, "alice")]);
+
+        Assert.Null(vm.DownloadCaptcha);
+        Assert.Equal(string.Empty, vm.DownloadCaptchaDisplay);
+        Assert.Null(vm.DownloadCaptchaSortKey);
+        Assert.Null(vm.DownloadCaptchaTooltip);
+    }
+
+    [Fact]
+    public void DownloadCaptcha_Unknown_ShowsDashWithExplainingTooltip()
+    {
+        FileHosterSelectionViewModel vm = new(
+            "Rapidgator", [Login(1, "alice")], downloadCaptcha: DownloadCaptchaRequirement.Unknown);
+
+        Assert.Equal("—", vm.DownloadCaptchaDisplay);
+        Assert.Equal(Localizer.Instance["Wizard_Step2_Captcha_UnknownTooltip"], vm.DownloadCaptchaTooltip);
+
+        // Localizer falls back to the raw key when a resx entry is missing — the tooltip must be a
+        // sentence, not the key echoed back.
+        Assert.NotEqual("Wizard_Step2_Captcha_UnknownTooltip", vm.DownloadCaptchaTooltip);
+        Assert.Null(vm.DownloadCaptchaSortKey);
+    }
+
+    [Fact]
+    public void DownloadCaptcha_NotRequired_ShowsNoWithoutTooltip()
+    {
+        FileHosterSelectionViewModel vm = new(
+            "Catbox", [], supportsAnonymous: true, downloadCaptcha: DownloadCaptchaRequirement.NotRequired);
+
+        Assert.Equal(Localizer.Instance["Common_No"], vm.DownloadCaptchaDisplay);
+        Assert.Null(vm.DownloadCaptchaTooltip);
+        Assert.Equal(0, vm.DownloadCaptchaSortKey);
+    }
+
+    [Fact]
+    public void DownloadCaptcha_Required_ShowsYesWithoutTooltip()
+    {
+        // No cell tooltip on Yes either: the header tooltip carries the column's definition, and a
+        // per-cell "premium probably skips it" would be a claim nothing was verified against.
+        FileHosterSelectionViewModel vm = new(
+            "Rapidgator", [Login(1, "alice")], downloadCaptcha: DownloadCaptchaRequirement.Required);
+
+        Assert.Equal(Localizer.Instance["Common_Yes"], vm.DownloadCaptchaDisplay);
+        Assert.Null(vm.DownloadCaptchaTooltip);
+        Assert.Equal(1, vm.DownloadCaptchaSortKey);
+    }
+
     private static FileHosterLoginDto Login(int id, string username) => new()
     {
         Id = id,

@@ -47,6 +47,10 @@ public sealed class FilestankPipeline : YetiSharePipeline
 
     public override string Name => "Filestank";
 
+    /// <summary>Free downloads are captcha-gated: after the countdown its continue step embeds
+    /// a visible reCAPTCHA v2 widget in the download form (live flow, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own FAQ (read 2026-08-12): "Free/non accounts files are kept for 30 days."
     /// Basis unstated, so this is the from-upload floor. The same FAQ prints "Premium accounts files
     /// are kept for 22 days" - a premium shorter than free is self-contradictory (fetched twice to

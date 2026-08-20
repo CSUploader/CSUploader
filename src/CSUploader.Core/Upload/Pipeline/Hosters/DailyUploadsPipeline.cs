@@ -41,6 +41,10 @@ public sealed class DailyUploadsPipeline : XfsProAnonymousPipeline
 
     public override string Name => "DailyUploads";
 
+    /// <summary>Downloads are captcha-free: the live free flow (download1, 30s wait, download2)
+    /// returns the bytes with no captcha field anywhere (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own premium.html (read 2026-08-12), "When are your files deleted?": guest
     /// "1 days after last download", registered 15, premium 40. One download a day is all that keeps
     /// a guest file alive.</summary>

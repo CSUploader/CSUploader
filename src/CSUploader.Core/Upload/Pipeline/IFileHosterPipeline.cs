@@ -124,6 +124,16 @@ public interface IFileHosterPipeline
     public FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Unspecified;
 
     /// <summary>
+    /// Whether a FREE/ANONYMOUS downloader must solve a captcha before this hoster hands over a
+    /// shared file — the wizard's "Download captcha?" column. This models the host's ordinary
+    /// free/anonymous download flow and intentionally ignores the uploader's credentials, so there
+    /// is no parameter. Defaults to <see cref="DownloadCaptchaRequirement.Unknown"/> ("not
+    /// verified", not "no captcha"); pipelines override only with what was verified, citing the
+    /// source in remarks (full research matrix: <c>docs/hoster-download-captcha.md</c>).
+    /// </summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Unknown;
+
+    /// <summary>
     /// Returns null when the hoster accepts a file named <paramref name="fileName"/>, or a short
     /// user-facing reason when the hoster's server would REJECT the name outright — independent of
     /// size or count (e.g. a disallowed character). The name-analog of <see cref="MaxFileSize"/>: the

@@ -84,6 +84,11 @@ public sealed class PixeldrainPipeline : IFileHosterPipeline
 
     public string Name => "Pixeldrain";
 
+    /// <summary>Downloads are captcha-free: its own API docs serve GET /api/file/id
+    /// unauthenticated; captcha exists only as abuse exceptions (pixeldrain.com/api,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own about page (read 2026-08-12): "Files will be removed if they have not
     /// been accessed for 60 days", every tier; a download resets the timer (at most once per 24
     /// hours, and only when more than a tenth of the file is fetched).</summary>

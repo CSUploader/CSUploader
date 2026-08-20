@@ -69,6 +69,10 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
 
     public string Name => "Litterbox";
 
+    /// <summary>Downloads are captcha-free: the share link IS the raw file on
+    /// litter.catbox.moe, so there is no page to put a captcha on (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

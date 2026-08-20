@@ -96,6 +96,10 @@ public sealed class FiledotPipeline : XFileSharingApiPipeline, IStorageRefreshab
 
     public override string Name => "Filedot";
 
+    /// <summary>Free downloads are captcha-gated: its premium table grants "No downloads
+    /// captcha" to Premium only (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own premium.html (read 2026-08-12): registered "1000 days after last
     /// download", premium "Never". The guest column is a dash there, matching a host with no guest
     /// upload at all.</summary>

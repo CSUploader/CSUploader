@@ -1258,6 +1258,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_Retention_LastDownloadTooltip_Format" xml:space="preserve">
     <value>마지막 다운로드 후 {0} 뒤에 삭제됩니다.</value>
   </data>
+  <data name="Wizard_Step2_Col_Captcha" xml:space="preserve">
+    <value>다운로드 캡차?</value>
+  </data>
+  <data name="Wizard_Step2_Col_Captcha_Tooltip" xml:space="preserve">
+    <value>계정 없이 공유 링크를 다운로드할 때 캡차를 풀어야 하는지 여부입니다. 대기 시간과 브라우저 자동 검사는 포함되지 않습니다.</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_Unknown" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Wizard_Step2_Captcha_UnknownTooltip" xml:space="preserve">
+    <value>이 호스트에서 다운로드할 때 캡차가 필요한지는 확인되지 않았습니다.</value>
+  </data>
   <data name="Wizard_Step2_AccountAnonymous" xml:space="preserve">
     <value>(익명)</value>
   </data>

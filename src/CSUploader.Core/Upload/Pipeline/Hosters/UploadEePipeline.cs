@@ -150,6 +150,11 @@ public sealed class UploadEePipeline : IFileHosterPipeline
 
     public string Name => "Upload.ee";
 
+    /// <summary>Downloads are captcha-free: the file page embeds the direct tokenized
+    /// /download/ link which serves the file; no captcha markup (live page,
+    /// 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

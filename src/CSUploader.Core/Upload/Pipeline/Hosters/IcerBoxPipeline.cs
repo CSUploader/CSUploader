@@ -92,6 +92,10 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
     public string Name => "IcerBox";
 
+    /// <summary>Free downloads are captcha-gated: its own app.min.js posts free downloads to
+    /// dl/free/step2 with reCAPTCHA response fields (2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

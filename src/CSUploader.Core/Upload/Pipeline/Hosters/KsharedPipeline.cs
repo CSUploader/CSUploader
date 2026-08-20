@@ -89,6 +89,10 @@ public sealed class KsharedPipeline : IFileHosterPipeline, ISessionRefreshablePi
 
     public string Name => "kshared";
 
+    /// <summary>Free downloads are captcha-gated: its premium page lists "No captcha codes"
+    /// among every tier's paid benefits (kshared.com/premium, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

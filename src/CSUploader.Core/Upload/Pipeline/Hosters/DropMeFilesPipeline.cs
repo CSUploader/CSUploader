@@ -109,6 +109,11 @@ public sealed class DropMeFilesPipeline : IFileHosterPipeline
 
     public string Name => "DropMeFiles";
 
+    /// <summary>Downloads are captcha-free: a fresh anonymous session fetched the server-
+    /// rendered per-file URL straight to the bytes; the securimage overlay arms only for
+    /// flagged traffic (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

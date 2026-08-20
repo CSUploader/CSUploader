@@ -86,6 +86,10 @@ public sealed class TeraBytezPipeline : XFileSharingApiPipeline, IStorageRefresh
 
     public override string Name => "TeraBytez";
 
+    /// <summary>Free downloads are captcha-gated: its premium table checks "No downloads
+    /// captcha" for Premium only (premium.html, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     protected override string Host => "https://terabytez.org";
 
     /// <summary>Web-form (no-API) hoster — see <see cref="XFileSharingApiPipeline.UsesWebFormUpload"/>.</summary>

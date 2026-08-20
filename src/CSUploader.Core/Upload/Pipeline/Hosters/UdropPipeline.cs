@@ -49,6 +49,10 @@ public sealed class UdropPipeline : YetiSharePipeline
 
     public override string Name => "Udrop";
 
+    /// <summary>Downloads are captcha-free: its FAQ answers the question directly: downloaders
+    /// never wait on a timer or solve captchas (udrop.com/faq, 2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     protected override string SiteBase => "https://www.udrop.com";
 
     /// <summary>Verified by uploading a file as a signed-out visitor, not by the ticket merely being

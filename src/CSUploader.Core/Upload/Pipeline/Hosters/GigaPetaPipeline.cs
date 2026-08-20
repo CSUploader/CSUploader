@@ -86,6 +86,10 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
 
     public string Name => "GigaPeta";
 
+    /// <summary>Free downloads are captcha-gated: its own download.js injects an image-digit
+    /// captcha into the free download form after the timer (live page, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     public bool RequiresHashingBeforeUpload => false;
 
     public bool RequiresHashingAfterUpload => false;

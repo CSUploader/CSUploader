@@ -100,6 +100,10 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
 
     public string Name => "BRupload";
 
+    /// <summary>Free downloads are captcha-gated: its premium table crosses "Sem Captcha" for
+    /// Visitante and Registrado (premium.html, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Required;
+
     /// <summary>From its own plans table (read 2026-08-12, in Portuguese), "Arquivo expira em":
     /// guest "3 dias sem downloads", registered "30 dias sem downloads" (days without downloads),
     /// premium "NUNCA" (never).</summary>

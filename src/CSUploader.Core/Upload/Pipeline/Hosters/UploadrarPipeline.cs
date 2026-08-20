@@ -75,6 +75,10 @@ public sealed class UploadrarPipeline : XFileSharingApiPipeline
 
     public override string Name => "Uploadrar";
 
+    /// <summary>Downloads are captcha-free: its premium row "No downloads captcha" is green for
+    /// free tiers and the live free flow ends in a direct link (2026-08-20).</summary>
+    public override DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own premium.html (read 2026-08-12), "When are your files deleted?":
     /// anonymous 1, registered 90, premium 120, premium pro 360 - all "days after last
     /// download".</summary>

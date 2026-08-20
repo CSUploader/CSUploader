@@ -409,6 +409,7 @@
 
         <DataGrid Grid.Row="3" x:Name="fileHostersGrid"
                   AutoGenerateColumns="False" SelectionMode="Single"
+                  CanUserResizeColumns="True"
                   HeadersVisibility="Column"
                   GridLinesVisibility="All"
                   HorizontalGridLinesBrush="{DynamicResource DataGridGridLineBrush}"
@@ -445,7 +446,8 @@
                  rendered as a missing-glyph box (tofu). The checkbox zeroes Padding/MinWidth so the box itself
                  centres exactly (Fluent reserves 8px content padding right of the 20px box even with no
                  content — the step-0 check-center fix), aligning it with the centred padlock. -->
-            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="42" SortMemberPath="Use">
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="42" SortMemberPath="Use"
+                                    CanUserResize="False">
               <!-- The header IS the tick-everything box: with ~80 hosters and a filter above the grid,
                    the useful bulk action is "everything I can currently see", and a header box is
                    where that lives in every list that has one. It binds to the WINDOW's DataContext,
@@ -520,9 +522,17 @@
             </DataGridTemplateColumn>
             <!-- Max file size for the selected account (re-resolves when the account dropdown changes —
                  tiers can differ). Read-only display (rule 32). -->
-            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Header="{loc:Loc Wizard_Step2_Col_MaxFileSize}" Width="110" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="90" IsReadOnly="True"
                                     SortMemberPath="MaxFileSizeBytes"
                                     ClipboardContentBinding="{Binding MaxFileSizeDisplay}">
+              <DataGridTemplateColumn.Header>
+                <!-- Wraps like its slim neighbours: 90px fits the English label but not every
+                     locale's, and first-glance readability must not depend on finding the resize
+                     grip. -->
+                <TextBlock Text="{loc:Loc Wizard_Step2_Col_MaxFileSize}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center" />
+              </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <TextBlock Text="{Binding MaxFileSizeDisplay}" FontSize="12"
@@ -536,9 +546,17 @@
                  This is the HOSTER's ceiling, not the effective one: the scheduler uses the smaller of it
                  and the per-host setting in Settings. Re-resolves with the account dropdown (tiers differ)
                  and is read-only display (rule 32). -->
-            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Header="{loc:Loc Wizard_Step2_Col_MaxConcurrent}" Width="100" IsReadOnly="True"
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="80" IsReadOnly="True"
                                     SortMemberPath="MaxConcurrentUploads"
                                     ClipboardContentBinding="{Binding MaxConcurrentUploadsDisplay}">
+              <DataGridTemplateColumn.Header>
+                <!-- Wrapped like the captcha header: the values ("No limit", a small number) are
+                     narrower than the words above them, so the column is sized for the values and
+                     the header folds ("Max" / "parallel") rather than clipping to "Max paralle". -->
+                <TextBlock Text="{loc:Loc Wizard_Step2_Col_MaxConcurrent}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center" />
+              </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
                   <TextBlock Text="{Binding MaxConcurrentUploadsDisplay}" FontSize="12"
@@ -559,8 +577,11 @@
                                     SortMemberPath="RetentionSortKey"
                                     ClipboardContentBinding="{Binding RetentionDisplay}">
               <DataGridTemplateColumn.Header>
+                <!-- Wrap for the locales whose label outgrows 100px (Filipino's does); the header
+                     row is already two lines tall for the wrapped neighbours. -->
                 <TextBlock Text="{loc:Loc Wizard_Step2_Col_KeptFor}"
-                           VerticalAlignment="Center"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
                            ToolTip.Tip="{loc:Loc Wizard_Step2_Col_KeptFor_Tooltip}" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
@@ -578,12 +599,47 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
+            <!-- Whether a free/anonymous downloader must solve a captcha to fetch a shared link:
+                 the localized Yes/No verdict, or an em dash for hosts nobody has verified (its
+                 tooltip says so — an unknown, not a "no"). One value per HOSTER, not per account —
+                 the column reports the host's ordinary free/anonymous download flow and ignores
+                 the uploader's credentials, so this cell ignores the dropdown. The header tooltip
+                 carries the column's definition (wait timers and automatic browser checks don't
+                 count); values come from each pipeline's DownloadCaptcha, which cites its source,
+                 with the full research matrix in docs/hoster-download-captcha.md. Centred, not
+                 right-aligned: categorical text, not a number. The header wraps to two lines by
+                 design — the values are two-letter words, so the column is sized for THEM and the
+                 header folds ("Download" / "captcha?"); a locale it still clips in can be dragged
+                 wider now that columns resize. Read-only display (rule 32). -->
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="80" IsReadOnly="True"
+                                    SortMemberPath="DownloadCaptchaSortKey"
+                                    ClipboardContentBinding="{Binding DownloadCaptchaDisplay}">
+              <DataGridTemplateColumn.Header>
+                <TextBlock Text="{loc:Loc Wizard_Step2_Col_Captcha}"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           ToolTip.Tip="{loc:Loc Wizard_Step2_Col_Captcha_Tooltip}" />
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:FileHosterSelectionViewModel">
+                  <!-- Tooltip on the whole cell, exactly like the "Kept for" dash: the em dash is
+                       the only cell that needs explaining, and its glyph is no hover target. -->
+                  <Border Background="Transparent" ToolTip.Tip="{Binding DownloadCaptchaTooltip}">
+                    <TextBlock Text="{Binding DownloadCaptchaDisplay}" FontSize="12"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Padding="6,2" Foreground="{DynamicResource TextPrimaryBrush}"
+                               Classes.blocked="{Binding !CanUse}" />
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
             <!-- Scrollbar gutter. Avalonia's DataGrid draws its vertical scrollbar OVER the rows
                  presenter (the template spans the presenter under the scrollbar's grid column), so
-                 whatever column is last loses its right edge to the expanded track — right-aligned
-                 "Kept for" values read "Permanen"/"121 day". This empty strip is what the scrollbar
-                 rides on instead. Keep it LAST: a real column added after it inherits the clipping. -->
-            <DataGridTemplateColumn Width="16" IsReadOnly="True">
+                 whatever column is last loses its right edge to the expanded track — the last real
+                 column's values would lose their right edge (as right-aligned "Kept for" once read
+                 "Permanen"/"121 day"). This empty strip is what the scrollbar rides on instead.
+                 Keep it LAST: a real column added after it inherits the clipping. -->
+            <DataGridTemplateColumn Width="16" IsReadOnly="True" CanUserResize="False">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <Panel />

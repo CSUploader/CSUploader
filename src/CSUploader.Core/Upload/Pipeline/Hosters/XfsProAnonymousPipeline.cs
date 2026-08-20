@@ -115,6 +115,11 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
     /// </summary>
     public virtual FileRetention RetentionFor(Dal.FileHosterLoginDto credentials) => FileRetention.Unspecified;
 
+    /// <summary>Per-site, not per-family: XFS sites configure the download captcha individually, so
+    /// the base stays Unknown and each site declares its own verified verdict (both current
+    /// xfspro-anonymous hosts happen to be captcha-free) — see docs/hoster-download-captcha.md.</summary>
+    public virtual DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.Unknown;
+
     public int? MaxFilesPerPackage => null;
 
     /// <summary>Anonymous IS the path — <c>sess_id</c> simply goes out empty.</summary>

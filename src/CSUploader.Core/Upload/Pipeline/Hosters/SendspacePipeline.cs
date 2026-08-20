@@ -97,6 +97,10 @@ public sealed class SendspacePipeline : IFileHosterPipeline
 
     public string Name => "Sendspace";
 
+    /// <summary>Downloads are captcha-free: the file page hands a cookie-less client a server-
+    /// rendered direct download link with no captcha markup (live probe, 2026-08-20).</summary>
+    public DownloadCaptchaRequirement DownloadCaptcha => DownloadCaptchaRequirement.NotRequired;
+
     /// <summary>From its own FAQ (read 2026-08-12): "A file becomes inactive if it has not been
     /// downloaded at least once during a 30 day period", and "We do not delete active files" -
     /// guest and free alike. Premium files "will not be deleted even if inactive", but that holds
