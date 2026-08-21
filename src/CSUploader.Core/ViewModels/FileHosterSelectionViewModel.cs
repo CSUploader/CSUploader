@@ -143,10 +143,12 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     public long? MaxFileSizeBytes => _maxFileSizeResolver?.Invoke(SelectedAccount);
 
     /// <summary>
-    /// Friendly per-file size cap for the "Max file size" column (e.g. "5.12 GiB"), or the
-    /// localized "No limit" when the hoster doesn't cap. Empty when no resolver was supplied.
-    /// Same binary-unit formatting as the step-2 oversize warning, so the column and the
-    /// warning never show two different numbers for the same cap.
+    /// Friendly per-file size cap for the "Max file size" column, or the localized "No limit"
+    /// when the hoster doesn't cap. Empty when no resolver was supplied. Rendered in whichever
+    /// base the cap is ROUND in, because that's how the host itself states it — DropMB's
+    /// 512,000,000 bytes reads "512 MB" like its site, not the arithmetically-identical
+    /// "488.28 MiB" (a user reported exactly that cell as wrong). Same formatting as the step-2
+    /// oversize warning, so the column and the warning never show two different numbers.
     /// </summary>
     public string MaxFileSizeDisplay
     {
@@ -158,7 +160,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
             }
 
             return MaxFileSizeBytes is long maxBytes
-                ? ByteUnit.FromBytes(maxBytes, ByteBase.Binary).ToFriendlyString()
+                ? ByteUnit.FromBytesPreferRoundUnit(maxBytes).ToFriendlyString()
                 : Localizer.Instance["Wizard_Step2_NoLimit"];
         }
     }

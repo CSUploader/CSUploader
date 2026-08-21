@@ -446,7 +446,9 @@ public sealed partial class WizardHostersViewModel : ObservableObject
                     CultureInfo.CurrentCulture,
                     Localizer.Instance["Wizard_Hoster_FileTooLarge_Format"],
                     hoster.FileHosterName,
-                    ByteUnit.FromBytes(limitBytes, ByteBase.Binary).ToFriendlyString(),
+                    // The roundness-picking base, like the "Max file size" column — the warning
+                    // quotes the same cap and must never show a different number for it.
+                    ByteUnit.FromBytesPreferRoundUnit(limitBytes).ToFriendlyString(),
                     string.Join("\n", oversizedNames)));
             }
 
