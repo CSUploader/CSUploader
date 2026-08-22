@@ -236,7 +236,7 @@ public class WizardBrowseStartTests : IDisposable
         return dialogs.Object;
     }
 
-    private WizardSourcesViewModel Build(
+    private static WizardSourcesViewModel Build(
         AppSettings? settings,
         IDialogService? dialogService = null,
         SettingRepository? repo = null)
