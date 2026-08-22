@@ -4,6 +4,24 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-08-22
+
+Hoster size caps now read in the units their hosts state them in: DropMB's cell says **512 MB**, the
+figure on its own site, instead of the arithmetically-identical 488.28 MiB. See
+[docs/release-notes/v1.4.4.md](docs/release-notes/v1.4.4.md) for the full notes.
+
+### Fixed
+
+- **The "Max file size" column quoted every cap in binary units**, so hosts that advertise a
+  decimal-round figure disagreed with their own copy — DropMB's 512,000,000-byte cap rendered as
+  "488.28 MiB" against the "512 MB" its site and its `/api/configs` both state, and 1Fichier's 5 GB
+  showed as "4.66 GiB". Declared caps now render in whichever base the figure is round in, so
+  DropMB reads "512 MB" while DropMeFiles' genuine 53,687,091,200-byte cap stays "50 GiB". The
+  change covers the three surfaces that quote a *declared* cap — the wizard column, its oversize
+  warning, and the queue-skip log line — and they stay in lockstep, pinned by a test. Measured
+  quantities (file sizes, transfer progress, storage figures) keep their explicit bases: they are
+  nobody's advertised figure, and letting them pick a base would make their units flap.
+
 ## [1.4.3] - 2026-08-22
 
 A **"No download captcha"** filter on the wizard's hoster step: one tick narrows the list to the 32
@@ -363,6 +381,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.4.4]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.4
 [1.4.3]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.3
 [1.4.2]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.2
 [1.4.1]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.1
