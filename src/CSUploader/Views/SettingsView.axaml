@@ -510,6 +510,27 @@
                     SelectedValue="{Binding AutostartUploads}"
                     FontSize="12" Padding="4,3" />
         </Grid>
+
+        <!-- Upload Wizard -->
+        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
+          <Image Source="{StaticResource StatusUploadingImage}" Width="24" Height="24"
+                 VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
+          <TextBlock Text="{loc:Loc Settings_Upload_Wizard_Title}" Classes="section-title" />
+        </StackPanel>
+        <Separator Margin="0,0,0,4" />
+        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_Upload_Wizard_Desc}" />
+
+        <!-- Only the mode the hoster step OPENS on. The wizard's own filter still moves freely, and
+             its "Clear filter" returns to Both regardless of what is chosen here. -->
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_WizardHosterFilter}" Classes="setting-label" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding WizardHosterAccountFilterOptions}"
+                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:HosterAccountFilter}}"
+                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:HosterAccountFilter}}"
+                    SelectedValue="{Binding WizardHosterAccountFilter}"
+                    FontSize="12" Padding="4,3" />
+        </Grid>
       </StackPanel>
     </ScrollViewer>
 

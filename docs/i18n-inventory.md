@@ -366,6 +366,10 @@ Settings_Upload_Autostart                         = Autostart uploads at applica
 Settings_Upload_Autostart_Always                  = Always
 Settings_Upload_Autostart_OnlyIfRunning           = Only if uploads were running at last session's end
 Settings_Upload_Autostart_Never                   = Never
+
+Settings_Upload_Wizard_Title                      = Upload Wizard
+Settings_Upload_Wizard_Desc                       = How the wizard's File Hosters step opens.
+Settings_Upload_WizardHosterFilter                = Show hosters
 ```
 
 ---
@@ -627,7 +631,10 @@ Wizard_Step2_PickAtLeastOne = Pick at least one file hoster to continue.
 Wizard_Step2_FilterLabel        = Filter
 Wizard_Step2_FilterWatermark    = Hoster name…
 Wizard_Step2_FilterAnonymous    = Anonymous only
-Wizard_Step2_FilterAnonymousTip = Show only hosters that accept uploads without an account.
+Wizard_Step2_FilterAccount      = Accounts
+Wizard_Step2_FilterAccountTip   = Narrow the list by how you would upload. Hosters that accept both anonymous and account uploads appear under either option.
+Wizard_Step2_FilterAccountBoth  = Both
+Wizard_Step2_FilterAccountOnly  = Account only
 Wizard_Step2_FilterNoCaptcha    = No download captcha
 Wizard_Step2_FilterNoCaptchaTip = Show only hosters whose ordinary free-download flow was verified not to require a captcha. Unverified hosters (—) are hidden.
 Wizard_Step2_FilterClear        = Clear filter

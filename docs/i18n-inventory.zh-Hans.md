@@ -348,6 +348,10 @@ Settings_Upload_Autostart                         = 应用启动时自动开始�
 Settings_Upload_Autostart_Always                  = 始终
 Settings_Upload_Autostart_OnlyIfRunning           = 仅当上次会话结束时仍有上传在运行
 Settings_Upload_Autostart_Never                   = 从不
+
+Settings_Upload_Wizard_Title                      = 上传向导
+Settings_Upload_Wizard_Desc                       = “文件托管”步骤打开时的默认设置。
+Settings_Upload_WizardHosterFilter                = 显示托管商
 ```
 
 ---
@@ -594,7 +598,10 @@ Wizard_Step2_PickAtLeastOne = 请至少选择一个网盘以继续。
 Wizard_Step2_FilterLabel        = 筛选
 Wizard_Step2_FilterWatermark    = 网盘名称…
 Wizard_Step2_FilterAnonymous    = 仅匿名
-Wizard_Step2_FilterAnonymousTip = 仅显示无需账户即可上传的网盘。
+Wizard_Step2_FilterAccount      = 账号
+Wizard_Step2_FilterAccountTip   = 按上传方式筛选列表。同时支持匿名和账号上传的托管商在两个选项下都会显示。
+Wizard_Step2_FilterAccountBoth  = 两者
+Wizard_Step2_FilterAccountOnly  = 仅账号
 Wizard_Step2_FilterNoCaptcha    = 无需人机验证
 Wizard_Step2_FilterNoCaptchaTip = 仅显示已确认在常规免费下载流程中无需人机验证的网盘。未确认（—）的网盘将被隐藏。
 Wizard_Step2_FilterClear        = 清除筛选

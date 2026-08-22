@@ -817,6 +817,15 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
     <value>Never</value>
   </data>
+  <data name="Settings_Upload_Wizard_Title" xml:space="preserve">
+    <value>Upload Wizard</value>
+  </data>
+  <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
+    <value>How the wizard's File Hosters step opens.</value>
+  </data>
+  <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
+    <value>Show hosters</value>
+  </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Connection Manager</value>
   </data>
@@ -1417,8 +1426,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
     <value>Anonymous only</value>
   </data>
-  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
-    <value>Show only hosters that accept uploads without an account.</value>
+  <data name="Wizard_Step2_FilterAccount" xml:space="preserve">
+    <value>Accounts</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountTip" xml:space="preserve">
+    <value>Narrow the list by how you would upload. Hosters that accept both anonymous and account uploads appear under either option.</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountBoth" xml:space="preserve">
+    <value>Both</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountOnly" xml:space="preserve">
+    <value>Account only</value>
   </data>
   <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
     <value>No download captcha</value>

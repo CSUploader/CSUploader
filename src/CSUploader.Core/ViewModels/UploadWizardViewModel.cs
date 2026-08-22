@@ -68,6 +68,11 @@ public partial class UploadWizardViewModel : ObservableObject
             markSummaryDirty: () => _summaryDirty = true,
             fileHosterRegistry,
             accountVerifier);
+
+        // The wizard OPENS filtered to whichever upload mode the user configured; set before any
+        // subscriber exists, so this seeds the state rather than firing a re-filter at nobody.
+        // "Clear filter" in the wizard still returns to Both — see ClearHosterFilter.
+        Hosters.AccountFilter = settings.WizardHosterAccountFilter;
         Summary = new WizardSummaryViewModel(
             logger,
             Sources.Files,

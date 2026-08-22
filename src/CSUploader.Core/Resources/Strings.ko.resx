@@ -766,6 +766,15 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
     <value>안 함</value>
   </data>
+  <data name="Settings_Upload_Wizard_Title" xml:space="preserve">
+    <value>업로드 마법사</value>
+  </data>
+  <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
+    <value>파일 호스터 단계가 열릴 때의 기본값입니다.</value>
+  </data>
+  <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
+    <value>표시할 호스터</value>
+  </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>연결 관리자</value>
   </data>
@@ -1327,8 +1336,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
     <value>익명만</value>
   </data>
-  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
-    <value>계정 없이 업로드할 수 있는 호스터만 표시합니다.</value>
+  <data name="Wizard_Step2_FilterAccount" xml:space="preserve">
+    <value>계정</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountTip" xml:space="preserve">
+    <value>업로드 방식으로 목록을 좁힙니다. 익명과 계정 업로드를 모두 지원하는 호스터는 두 옵션 모두에 표시됩니다.</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountBoth" xml:space="preserve">
+    <value>모두</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountOnly" xml:space="preserve">
+    <value>계정만</value>
   </data>
   <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
     <value>다운로드 캡차 없음</value>

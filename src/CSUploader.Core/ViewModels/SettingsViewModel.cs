@@ -141,6 +141,14 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     public partial int SpeedLimitValue { get; set; }
 
+    // ── Upload wizard settings ──
+
+    /// <summary>Which upload mode the wizard's File Hosters step opens filtered to. The starting
+    /// value only — the wizard's own filter still moves freely, and its Clear returns to Both.</summary>
+    [ObservableProperty]
+    public partial HosterAccountFilter WizardHosterAccountFilter { get; set; }
+        = AppSettings.DefaultWizardHosterAccountFilter;
+
     // ── Notification settings ──
 
     [ObservableProperty]
@@ -165,6 +173,15 @@ public partial class SettingsViewModel(
         new(IfFileExistsBehavior.Skip, "Settings_Upload_IfExists_Skip"),
         new(IfFileExistsBehavior.Overwrite, "Settings_Upload_IfExists_Overwrite"),
         new(IfFileExistsBehavior.Rename, "Settings_Upload_IfExists_Rename"),
+    ];
+
+    /// <summary>Same three options the wizard's own filter bar offers, same strings — this picks
+    /// which one it OPENS on.</summary>
+    public LocalizedOption<HosterAccountFilter>[] WizardHosterAccountFilterOptions { get; } =
+    [
+        new(HosterAccountFilter.Both, "Wizard_Step2_FilterAccountBoth"),
+        new(HosterAccountFilter.AnonymousOnly, "Wizard_Step2_FilterAnonymous"),
+        new(HosterAccountFilter.AccountOnly, "Wizard_Step2_FilterAccountOnly"),
     ];
 
     public LocalizedOption<AutostartUploadsMode>[] AutostartUploadsOptions { get; } =
@@ -323,6 +340,14 @@ public partial class SettingsViewModel(
                     MinimizeToTray = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.WizardHosterAccountFilter:
+                    if (Enum.TryParse(setting.Value, out HosterAccountFilter accountFilter))
+                    {
+                        WizardHosterAccountFilter = accountFilter;
+                    }
+
+                    break;
+
                 case var k when k == SettingKey.ShowCompletionToasts:
                     ShowCompletionToasts = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
@@ -384,6 +409,7 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
+        _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
 
         // Resolve the active UI language: saved value → fallback to OS detection if blank.
         // Display the resolved tag on the dropdown so it always reflects what's in effect.
@@ -547,6 +573,14 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = value;
         _trayIconManager?.UpdateVisibility();
         _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
+    }
+
+    partial void OnWizardHosterAccountFilterChanged(HosterAccountFilter value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.WizardHosterAccountFilter = value;
+        _ = AutoSaveAsync(SettingKey.WizardHosterAccountFilter, value.ToString());
     }
 
     partial void OnShowCompletionToastsChanged(bool value)

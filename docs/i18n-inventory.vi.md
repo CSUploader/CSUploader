@@ -356,6 +356,10 @@ Settings_Upload_Autostart                         = Tự động bắt đầu t�
 Settings_Upload_Autostart_Always                  = Luôn luôn
 Settings_Upload_Autostart_OnlyIfRunning           = Chỉ khi có lượt tải lên đang chạy lúc kết thúc phiên trước
 Settings_Upload_Autostart_Never                   = Không bao giờ
+
+Settings_Upload_Wizard_Title                      = Trình hướng dẫn tải lên
+Settings_Upload_Wizard_Desc                       = Cách bước Hoster Tệp mở ra.
+Settings_Upload_WizardHosterFilter                = Hiển thị hoster
 ```
 
 ---
@@ -602,7 +606,10 @@ Wizard_Step2_PickAtLeastOne = Chọn ít nhất một nhà lưu trữ tệp đ�
 Wizard_Step2_FilterLabel        = Bộ lọc
 Wizard_Step2_FilterWatermark    = Tên nhà lưu trữ…
 Wizard_Step2_FilterAnonymous    = Chỉ ẩn danh
-Wizard_Step2_FilterAnonymousTip = Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.
+Wizard_Step2_FilterAccount      = Tài khoản
+Wizard_Step2_FilterAccountTip   = Thu hẹp danh sách theo cách bạn tải lên. Các hoster hỗ trợ cả tải lên ẩn danh và bằng tài khoản sẽ xuất hiện ở cả hai tùy chọn.
+Wizard_Step2_FilterAccountBoth  = Cả hai
+Wizard_Step2_FilterAccountOnly  = Chỉ tài khoản
 Wizard_Step2_FilterNoCaptcha    = Không cần CAPTCHA
 Wizard_Step2_FilterNoCaptchaTip = Chỉ hiển thị các nhà lưu trữ đã được xác minh là không cần CAPTCHA trong quy trình tải xuống miễn phí thông thường. Các nhà lưu trữ chưa được xác minh (—) sẽ bị ẩn.
 Wizard_Step2_FilterClear        = Xóa bộ lọc

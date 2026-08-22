@@ -30,6 +30,12 @@ public class UploadWizardHosterFilterTests : IDisposable
     private readonly UploadScheduler _scheduler;
     private readonly UploadWizardViewModel _vm;
 
+    // Kept so a test can open a SECOND wizard against different settings — the startup-filter
+    // seeding is a construction-time behaviour, so it can't be observed on the shared one.
+    private readonly PackageManager _packageManager;
+    private readonly FileHosterLoginRepository _loginRepo;
+    private readonly IDialogService _dialogService = Mock.Of<IDialogService>();
+
     public UploadWizardHosterFilterTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
@@ -63,20 +69,28 @@ public class UploadWizardHosterFilterTests : IDisposable
             Mock.Of<IAppLogger>(),
             registry);
 
-        _vm = new UploadWizardViewModel(packageManager, loginRepo, Mock.Of<IDialogService>(), Mock.Of<IAppLogger>(), settings);
+        _packageManager = packageManager;
+        _loginRepo = loginRepo;
+        _vm = new UploadWizardViewModel(packageManager, loginRepo, _dialogService, Mock.Of<IAppLogger>(), settings);
 
-        // A realistic mix: two anonymous-capable, two account-only, and names that overlap so a
-        // substring filter has something to discriminate.
-        // Captcha verdicts are each hoster's real one (docs/hoster-download-captcha.md), so the
-        // captcha filter is exercised against the same shape the wizard builds at runtime.
+        // A realistic mix, and deliberately not a tidy one: Catbox does BOTH (anonymous uploads and
+        // accounts), which is the case an "account = not anonymous" filter would get wrong. World
+        // Files is anonymous with no accounts to offer; the other two are account-only. Names
+        // overlap so a substring filter has something to discriminate.
+        // Capabilities and captcha verdicts are each hoster's real ones (see the pipelines and
+        // docs/hoster-download-captcha.md), so the filters are exercised against the shape the
+        // wizard actually builds at runtime.
         _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
-            "Catbox", [], supportsAnonymous: true, downloadCaptcha: DownloadCaptchaRequirement.NotRequired));
+            "Catbox", [], supportsAnonymous: true, supportsAccounts: true,
+            downloadCaptcha: DownloadCaptchaRequirement.NotRequired));
         _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
             "World Files", [], supportsAnonymous: true, downloadCaptcha: DownloadCaptchaRequirement.Required));
         _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
-            "Rapidgator", [Account("Rapidgator")], downloadCaptcha: DownloadCaptchaRequirement.Required));
+            "Rapidgator", [Account("Rapidgator")], supportsAccounts: true,
+            downloadCaptcha: DownloadCaptchaRequirement.Required));
         _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
-            "FileCat", [Account("FileCat")], downloadCaptcha: DownloadCaptchaRequirement.Required));
+            "FileCat", [Account("FileCat")], supportsAccounts: true,
+            downloadCaptcha: DownloadCaptchaRequirement.Required));
     }
 
     public void Dispose()
@@ -110,16 +124,56 @@ public class UploadWizardHosterFilterTests : IDisposable
     [Fact]
     public void AnonymousOnly_KeepsOnlyHostersThatNeedNoAccount()
     {
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
 
         Assert.Equal(["Catbox", "World Files"], Visible());
         Assert.True(_vm.Hosters.IsHosterFilterActive);
     }
 
     [Fact]
+    public void AccountOnly_KeepsHostersThatOFFERAccounts_NotMerelyTheNonAnonymousOnes()
+    {
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AccountOnly;
+
+        // Catbox is the whole point: it takes anonymous uploads AND offers accounts, so it belongs
+        // here too. Reading "account only" as "not anonymous" would drop it — and with it catbox,
+        // gofile, ufile, upload.ee and UpZur in the real list, which is exactly the mistake
+        // IFileHosterPipeline.SupportsAccounts warns about in its own doc comment.
+        Assert.Equal(["Catbox", "Rapidgator", "FileCat"], Visible());
+        Assert.True(_vm.Hosters.IsHosterFilterActive);
+    }
+
+    [Fact]
+    public void TheTwoNarrowingModes_OverlapRatherThanPartition()
+    {
+        // Stated directly, because it is the property the whole enum exists to preserve: a hoster
+        // that does both appears under EITHER mode, so the two are not complements.
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
+        Assert.Contains("Catbox", Visible());
+
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AccountOnly;
+        Assert.Contains("Catbox", Visible());
+
+        // …and a host that does only one is in only one.
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
+        Assert.DoesNotContain("Rapidgator", Visible());
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AccountOnly;
+        Assert.DoesNotContain("World Files", Visible());
+    }
+
+    [Fact]
+    public void Both_IsTheNeutralMode_AndDoesNotCountAsFiltering()
+    {
+        _vm.Hosters.AccountFilter = HosterAccountFilter.Both;
+
+        Assert.Equal(4, _vm.Hosters.VisibleHosterCount);
+        Assert.False(_vm.Hosters.IsHosterFilterActive);
+    }
+
+    [Fact]
     public void TheTwoFiltersCombine_RatherThanReplaceEachOther()
     {
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
         _vm.Hosters.HosterFilterText = "cat";
 
         // FileCat matches the name but isn't anonymous; Catbox is both.
@@ -163,7 +217,7 @@ public class UploadWizardHosterFilterTests : IDisposable
         Assert.Equal(["Catbox", "FileGarden"], Visible());
 
         // Anonymous-only drops FileGarden, which the captcha filter had kept.
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
         Assert.Equal(["Catbox"], Visible());
 
         // …and the name filter still applies on top of both: nothing survives all three.
@@ -188,7 +242,7 @@ public class UploadWizardHosterFilterTests : IDisposable
         _vm.Hosters.HosterFilterInvalidated += (_, _) => raised++;
 
         _vm.Hosters.HosterFilterText = "cat";
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
         _vm.Hosters.NoDownloadCaptchaOnly = true;
 
         Assert.Equal(3, raised);
@@ -198,13 +252,13 @@ public class UploadWizardHosterFilterTests : IDisposable
     public void ClearingResetsEveryFilter()
     {
         _vm.Hosters.HosterFilterText = "cat";
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AccountOnly;
         _vm.Hosters.NoDownloadCaptchaOnly = true;
 
         _vm.Hosters.ClearHosterFilterCommand.Execute(null);
 
         Assert.Equal(string.Empty, _vm.Hosters.HosterFilterText);
-        Assert.False(_vm.Hosters.AnonymousHostersOnly);
+        Assert.Equal(HosterAccountFilter.Both, _vm.Hosters.AccountFilter);
         Assert.False(_vm.Hosters.NoDownloadCaptchaOnly);
         Assert.False(_vm.Hosters.IsHosterFilterActive);
         Assert.Equal(4, _vm.Hosters.VisibleHosterCount);
@@ -269,7 +323,7 @@ public class UploadWizardHosterFilterTests : IDisposable
     {
         // The entire point of putting it next to a filter: with "Anonymous only" on, check-all
         // should tick the anonymous ones and leave the rest alone.
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
 
         _vm.Hosters.AllListedHostersChecked = true;
 
@@ -351,7 +405,7 @@ public class UploadWizardHosterFilterTests : IDisposable
         Assert.Contains(nameof(WizardHostersViewModel.AllListedHostersChecked), changed);
 
         changed.Clear();
-        _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
         Assert.Contains(nameof(WizardHostersViewModel.AllListedHostersChecked), changed);
     }
 
@@ -419,6 +473,46 @@ public class UploadWizardHosterFilterTests : IDisposable
             _vm.CurrentStep = step;
             Assert.True(_vm.CanGoNext);
         }
+    }
+
+    // ── The wizard opens on the mode the user configured ──
+
+    [Theory]
+    [InlineData(HosterAccountFilter.Both)]
+    [InlineData(HosterAccountFilter.AnonymousOnly)]
+    [InlineData(HosterAccountFilter.AccountOnly)]
+    public void TheWizardOpensFilteredToTheConfiguredMode(HosterAccountFilter configured)
+    {
+        AppSettings settings = new() { WizardHosterAccountFilter = configured };
+
+        UploadWizardViewModel wizard = new(
+            _packageManager, _loginRepo, _dialogService, Mock.Of<IAppLogger>(), settings);
+
+        Assert.Equal(configured, wizard.Hosters.AccountFilter);
+    }
+
+    [Fact]
+    public void ClearReturnsToBoth_EvenWhenTheWizardOpenedNarrowed()
+    {
+        // Clear means show everything. Returning to the CONFIGURED mode instead would leave rows
+        // hidden right after the user asked for the filter to be cleared.
+        AppSettings settings = new() { WizardHosterAccountFilter = HosterAccountFilter.AccountOnly };
+        UploadWizardViewModel wizard = new(
+            _packageManager, _loginRepo, _dialogService, Mock.Of<IAppLogger>(), settings);
+        Assert.Equal(HosterAccountFilter.AccountOnly, wizard.Hosters.AccountFilter);
+
+        wizard.Hosters.ClearHosterFilterCommand.Execute(null);
+
+        Assert.Equal(HosterAccountFilter.Both, wizard.Hosters.AccountFilter);
+        Assert.False(wizard.Hosters.IsHosterFilterActive);
+    }
+
+    [Fact]
+    public void TheDropdownOffersExactlyTheThreeModes_InTheOrderTheFilterBarShowsThem()
+    {
+        Assert.Equal(
+            [HosterAccountFilter.Both, HosterAccountFilter.AnonymousOnly, HosterAccountFilter.AccountOnly],
+            _vm.Hosters.AccountFilterOptions.Select(o => o.Value));
     }
 
     private string[] Visible() => [.. _vm.Hosters.FileHosters.Where(_vm.Hosters.MatchesHosterFilter).Select(h => h.FileHosterName)];

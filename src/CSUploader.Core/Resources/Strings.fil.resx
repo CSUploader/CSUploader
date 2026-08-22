@@ -766,6 +766,15 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
     <value>Hinding-hindi</value>
   </data>
+  <data name="Settings_Upload_Wizard_Title" xml:space="preserve">
+    <value>Upload Wizard</value>
+  </data>
+  <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
+    <value>Kung paano bubukas ang hakbang na File Hosters.</value>
+  </data>
+  <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
+    <value>Ipakita ang mga hoster</value>
+  </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Connection Manager</value>
   </data>
@@ -1327,8 +1336,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
     <value>Anonymous lamang</value>
   </data>
-  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
-    <value>Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.</value>
+  <data name="Wizard_Step2_FilterAccount" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountTip" xml:space="preserve">
+    <value>Paliitin ang listahan ayon sa paraan ng pag-upload. Ang mga hoster na tumatanggap ng parehong anonymous at account na pag-upload ay lalabas sa alinmang opsyon.</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountBoth" xml:space="preserve">
+    <value>Pareho</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountOnly" xml:space="preserve">
+    <value>Account lamang</value>
   </data>
   <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
     <value>Walang captcha</value>

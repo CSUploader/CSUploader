@@ -348,6 +348,10 @@ Settings_Upload_Autostart                         = Autostart na uploads sa pags
 Settings_Upload_Autostart_Always                  = Palagi
 Settings_Upload_Autostart_OnlyIfRunning           = Kung tumatakbo ang uploads sa pagtatapos ng huling session lamang
 Settings_Upload_Autostart_Never                   = Hinding-hindi
+
+Settings_Upload_Wizard_Title                      = Upload Wizard
+Settings_Upload_Wizard_Desc                       = Kung paano bubukas ang hakbang na File Hosters.
+Settings_Upload_WizardHosterFilter                = Ipakita ang mga hoster
 ```
 
 ---
@@ -594,7 +598,10 @@ Wizard_Step2_PickAtLeastOne = Pumili ng hindi bababa sa isang file hoster upang 
 Wizard_Step2_FilterLabel        = Salain
 Wizard_Step2_FilterWatermark    = Pangalan ng hoster…
 Wizard_Step2_FilterAnonymous    = Anonymous lamang
-Wizard_Step2_FilterAnonymousTip = Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.
+Wizard_Step2_FilterAccount      = Account
+Wizard_Step2_FilterAccountTip   = Paliitin ang listahan ayon sa paraan ng pag-upload. Ang mga hoster na tumatanggap ng parehong anonymous at account na pag-upload ay lalabas sa alinmang opsyon.
+Wizard_Step2_FilterAccountBoth  = Pareho
+Wizard_Step2_FilterAccountOnly  = Account lamang
 Wizard_Step2_FilterNoCaptcha    = Walang captcha
 Wizard_Step2_FilterNoCaptchaTip = Ipakita lamang ang mga hoster na kumpirmadong hindi nangangailangan ng captcha sa karaniwang proseso ng libreng pag-download. Nakatago ang mga hindi pa nakukumpirma (—).
 Wizard_Step2_FilterClear        = I-clear ang salain

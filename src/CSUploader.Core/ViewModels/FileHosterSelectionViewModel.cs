@@ -46,6 +46,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
         string fileHosterName,
         FileHosterLoginDto[] accounts,
         bool supportsAnonymous = false,
+        bool supportsAccounts = false,
         Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = null,
         Func<FileHosterLoginDto?, int?>? maxConcurrentResolver = null,
         Func<FileHosterLoginDto?, Upload.Pipeline.FileRetention>? retentionResolver = null,
@@ -54,6 +55,7 @@ public partial class FileHosterSelectionViewModel : ObservableObject
         FileHosterName = fileHosterName;
         Accounts = accounts;
         SupportsAnonymous = supportsAnonymous;
+        SupportsAccounts = supportsAccounts;
         _maxFileSizeResolver = maxFileSizeResolver;
         _maxConcurrentResolver = maxConcurrentResolver;
         _retentionResolver = retentionResolver;
@@ -92,6 +94,20 @@ public partial class FileHosterSelectionViewModel : ObservableObject
     /// at construction from <see cref="Upload.Pipeline.IFileHosterPipeline.SupportsAnonymousUpload"/>.
     /// </summary>
     public bool SupportsAnonymous { get; }
+
+    /// <summary>
+    /// True when the hoster offers accounts at all, from
+    /// <see cref="Upload.Pipeline.IFileHosterPipeline.SupportsAccounts"/>. Deliberately NOT the
+    /// inverse of <see cref="SupportsAnonymous"/> — that interface says so itself, because catbox,
+    /// gofile, ufile, upload.ee and UpZur do both. The wizard's account-mode filter reads this, so
+    /// treating it as an inverse would hide exactly the hosters that offer the user a choice.
+    /// <para>
+    /// This is a capability of the HOST, not a statement about the user: whether they have an
+    /// account saved is <see cref="HasAccounts"/>, and whether the row is usable is
+    /// <see cref="CanUse"/>.
+    /// </para>
+    /// </summary>
+    public bool SupportsAccounts { get; }
 
     /// <summary>
     /// Whether this row can be uploaded to at all: it has a saved account to pick, OR the

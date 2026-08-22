@@ -766,6 +766,15 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
     <value>Không bao giờ</value>
   </data>
+  <data name="Settings_Upload_Wizard_Title" xml:space="preserve">
+    <value>Trình hướng dẫn tải lên</value>
+  </data>
+  <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
+    <value>Cách bước Hoster Tệp mở ra.</value>
+  </data>
+  <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
+    <value>Hiển thị hoster</value>
+  </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Trình quản lý kết nối</value>
   </data>
@@ -1327,8 +1336,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
     <value>Chỉ ẩn danh</value>
   </data>
-  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
-    <value>Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.</value>
+  <data name="Wizard_Step2_FilterAccount" xml:space="preserve">
+    <value>Tài khoản</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountTip" xml:space="preserve">
+    <value>Thu hẹp danh sách theo cách bạn tải lên. Các hoster hỗ trợ cả tải lên ẩn danh và bằng tài khoản sẽ xuất hiện ở cả hai tùy chọn.</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountBoth" xml:space="preserve">
+    <value>Cả hai</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountOnly" xml:space="preserve">
+    <value>Chỉ tài khoản</value>
   </data>
   <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
     <value>Không cần CAPTCHA</value>

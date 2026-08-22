@@ -17,6 +17,8 @@
         xmlns:beh="clr-namespace:CSUploader.Behaviors"
         xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
         xmlns:dal="clr-namespace:CSUploader.Dal;assembly=CSUploader.Core"
+        xmlns:coreloc="clr-namespace:CSUploader.Lib.Localization;assembly=CSUploader.Core"
+        xmlns:upload="clr-namespace:CSUploader.Upload;assembly=CSUploader.Core"
         x:Class="CSUploader.Views.UploadWizardWindow"
         x:DataType="vm:UploadWizardViewModel"
         Title="{loc:Loc Wizard_Title}"
@@ -381,7 +383,7 @@
                    FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
 
         <!-- Filter bar. The list is ~80 hosters long, so it needs a way in: a name box, an
-             anonymous-only toggle and a captcha-free toggle. The grid's ItemsSource is a
+             account-mode dropdown and a captcha-free toggle. The grid's ItemsSource is a
              DataGridCollectionView built in code-behind (the Uploads tab's pattern) — the filter is
              a VIEW concern, so a hoster that is ticked and then filtered out of sight still
              uploads, and the count on the right is what says so. -->
@@ -393,10 +395,22 @@
                    Text="{Binding HosterFilterText}"
                    Watermark="{loc:Loc Wizard_Step2_FilterWatermark}"
                    FontSize="11" Padding="6,3" VerticalContentAlignment="Center" />
-          <CheckBox Grid.Column="2" IsChecked="{Binding AnonymousHostersOnly}"
-                    Content="{loc:Loc Wizard_Step2_FilterAnonymous}"
-                    FontSize="11" Margin="12,0,0,0" VerticalAlignment="Center"
-                    ToolTip.Tip="{loc:Loc Wizard_Step2_FilterAnonymousTip}" />
+          <!-- Account mode. A dropdown and not two checkboxes because the three states are mutually
+               exclusive: Both / Anonymous only / Account only. The last is SupportsAccounts, not
+               "not anonymous" — hosters that do both (catbox, gofile, upload.ee) belong under
+               either, which a pair of checkboxes would have quietly got wrong. -->
+          <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                      Margin="12,0,0,0" ToolTip.Tip="{loc:Loc Wizard_Step2_FilterAccountTip}">
+            <TextBlock Text="{loc:Loc Wizard_Step2_FilterAccount}"
+                       FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+            <ComboBox x:Name="HosterAccountFilterBox" MinWidth="130"
+                      ItemsSource="{Binding AccountFilterOptions}"
+                      SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:HosterAccountFilter}}"
+                      DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:HosterAccountFilter}}"
+                      SelectedValue="{Binding AccountFilter}"
+                      FontSize="11" Padding="6,2" VerticalAlignment="Center" />
+          </StackPanel>
           <!-- Captcha-free toggle: destinations that put no puzzle in a downloader's way. Hides the
                unverified (em-dash) hosters too — this filter promises no captcha in the ordinary
                free-download flow, and an unknown has never meant that. -->

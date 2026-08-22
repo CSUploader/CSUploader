@@ -46,6 +46,10 @@ public class AppSettings
 
     public static bool DefaultShowCompletionToasts { get; } = true;
 
+    /// <summary>Show every hoster — the wizard's list is a catalogue, and pre-filtering it by
+    /// default would hide destinations from someone who never asked to.</summary>
+    public static HosterAccountFilter DefaultWizardHosterAccountFilter { get; } = HosterAccountFilter.Both;
+
     public static bool DefaultAllowInvalidServerCertificates { get; } = false;
 
     // OFF by default, even in DEBUG. When on, EVERY outbound hoster request is rewritten to
@@ -148,6 +152,13 @@ public class AppSettings
     /// so the first close prompts the user to choose minimise-to-tray or full exit.
     /// </summary>
     public CloseAction CloseAction { get; set; } = DefaultCloseAction;
+
+    /// <summary>
+    /// The upload mode the wizard's File Hosters step opens filtered to. Only the STARTING value —
+    /// the user can change the filter in the wizard, and "Clear filter" there returns to
+    /// <see cref="HosterAccountFilter.Both"/> regardless of this.
+    /// </summary>
+    public HosterAccountFilter WizardHosterAccountFilter { get; set; } = DefaultWizardHosterAccountFilter;
 
     /// <summary>
     /// When true, a proxy that fails a connectivity test or an upload is automatically

@@ -123,12 +123,26 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     public partial string HosterFilterText { get; set; } = string.Empty;
 
     /// <summary>
-    /// Narrows the File Hosters step to hosters that accept uploads with no account
-    /// (<see cref="FileHosterSelectionViewModel.SupportsAnonymous"/>). Combines with the other
-    /// filters — all must match.
+    /// Narrows the File Hosters step by UPLOAD MODE: everything, only hosters that take uploads
+    /// with no account, or only hosters that offer accounts. Combines with the other filters — all
+    /// must match. Seeded from <see cref="Upload.AppSettings.WizardHosterAccountFilter"/> when the
+    /// wizard opens, so someone who only ever uploads one way stops re-picking it every time.
+    /// <para>
+    /// The two narrowing modes are NOT each other's inverse — see <see cref="HosterAccountFilter"/>.
+    /// A hoster that does both (catbox, gofile, upload.ee) is listed under either.
+    /// </para>
     /// </summary>
     [ObservableProperty]
-    public partial bool AnonymousHostersOnly { get; set; }
+    public partial HosterAccountFilter AccountFilter { get; set; }
+
+    /// <summary>The three modes for the filter bar's dropdown. "Anonymous only" reuses the string
+    /// the checkbox this replaced already had, in all six languages.</summary>
+    public LocalizedOption<HosterAccountFilter>[] AccountFilterOptions { get; } =
+    [
+        new(HosterAccountFilter.Both, "Wizard_Step2_FilterAccountBoth"),
+        new(HosterAccountFilter.AnonymousOnly, "Wizard_Step2_FilterAnonymous"),
+        new(HosterAccountFilter.AccountOnly, "Wizard_Step2_FilterAccountOnly"),
+    ];
 
     /// <summary>
     /// Narrows the File Hosters step to hosters whose ORDINARY free-download flow was verified not
@@ -156,9 +170,10 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     /// <summary>
     /// The File Hosters step's filter predicate, applied by the head to its collection view. Every
     /// active filter must match: the name contains <see cref="HosterFilterText"/> (case-insensitive,
-    /// trimmed), AND — when <see cref="AnonymousHostersOnly"/> is set — the hoster supports
-    /// anonymous upload, AND — when <see cref="NoDownloadCaptchaOnly"/> is set — its downloads were
-    /// verified captcha-free (an unverified verdict does NOT pass; see that property).
+    /// trimmed), AND — unless <see cref="AccountFilter"/> is
+    /// <see cref="HosterAccountFilter.Both"/> — the hoster declares the matching capability, AND —
+    /// when <see cref="NoDownloadCaptchaOnly"/> is set — its downloads were verified captcha-free
+    /// (an unverified verdict does NOT pass; see that property).
     /// </summary>
     public bool MatchesHosterFilter(object item)
     {
@@ -167,7 +182,16 @@ public sealed partial class WizardHostersViewModel : ObservableObject
             return false;
         }
 
-        if (AnonymousHostersOnly && !hoster.SupportsAnonymous)
+        // Each mode asks the hoster for the capability it names. AccountOnly is deliberately
+        // SupportsAccounts and not !SupportsAnonymous: the two overlap, and inverting one would
+        // hide every hoster that offers the user a choice of route.
+        bool modeMatches = AccountFilter switch
+        {
+            HosterAccountFilter.AnonymousOnly => hoster.SupportsAnonymous,
+            HosterAccountFilter.AccountOnly => hoster.SupportsAccounts,
+            _ => true,
+        };
+        if (!modeMatches)
         {
             return false;
         }
@@ -189,7 +213,9 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     /// <summary>True when any filter is narrowing the list — drives the "showing N of M" hint and
     /// the Clear button, both of which are noise when everything is visible.</summary>
     public bool IsHosterFilterActive
-        => AnonymousHostersOnly || NoDownloadCaptchaOnly || !string.IsNullOrWhiteSpace(HosterFilterText);
+        => AccountFilter != HosterAccountFilter.Both
+           || NoDownloadCaptchaOnly
+           || !string.IsNullOrWhiteSpace(HosterFilterText);
 
     /// <summary>How many hosters the current filter leaves visible.</summary>
     public int VisibleHosterCount => FileHosters.Count(MatchesHosterFilter);
@@ -265,18 +291,23 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     private IEnumerable<FileHosterSelectionViewModel> ListedUsableHosters()
         => FileHosters.Where(h => h.CanUse && MatchesHosterFilter(h));
 
-    /// <summary>Resets all three filters — the one-click way back to the whole list.</summary>
+    /// <summary>
+    /// Resets all three filters — the one-click way back to the whole list. Clear means CLEAR, so
+    /// the account mode returns to <see cref="HosterAccountFilter.Both"/> rather than to the
+    /// configured startup mode: the button's job is to show everything, and a Clear that left rows
+    /// hidden would be lying about what it did.
+    /// </summary>
     [RelayCommand]
     private void ClearHosterFilter()
     {
         HosterFilterText = string.Empty;
-        AnonymousHostersOnly = false;
+        AccountFilter = HosterAccountFilter.Both;
         NoDownloadCaptchaOnly = false;
     }
 
     partial void OnHosterFilterTextChanged(string value) => RaiseHosterFilterChanged();
 
-    partial void OnAnonymousHostersOnlyChanged(bool value) => RaiseHosterFilterChanged();
+    partial void OnAccountFilterChanged(HosterAccountFilter value) => RaiseHosterFilterChanged();
 
     partial void OnNoDownloadCaptchaOnlyChanged(bool value) => RaiseHosterFilterChanged();
 
@@ -644,6 +675,10 @@ public sealed partial class WizardHostersViewModel : ObservableObject
             IFileHosterPipeline? pipeline = _fileHosterRegistry?.Find(fileHosterName);
             bool supportsAnonymous = pipeline?.SupportsAnonymousUpload ?? false;
 
+            // Both default FALSE with no pipeline, matching supportsAnonymous above: an unregistered
+            // hoster has declared nothing, and a capability filter must not claim one on its behalf.
+            bool supportsAccounts = pipeline?.SupportsAccounts ?? false;
+
             // Same account-vs-fallback rule RecomputeHosterValidation applies, so the "Max file
             // size" column always shows the number the oversize warning would enforce.
             Func<FileHosterLoginDto?, long?>? maxFileSizeResolver = pipeline is null
@@ -670,6 +705,7 @@ public sealed partial class WizardHostersViewModel : ObservableObject
                 fileHosterName,
                 accounts,
                 supportsAnonymous,
+                supportsAccounts,
                 maxFileSizeResolver,
                 maxConcurrentResolver,
                 retentionResolver,

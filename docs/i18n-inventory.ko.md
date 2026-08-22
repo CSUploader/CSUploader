@@ -348,6 +348,10 @@ Settings_Upload_Autostart                         = 응용 프로그램 시작 �
 Settings_Upload_Autostart_Always                  = 항상
 Settings_Upload_Autostart_OnlyIfRunning           = 마지막 세션 종료 시 업로드가 실행 중이었던 경우에만
 Settings_Upload_Autostart_Never                   = 안 함
+
+Settings_Upload_Wizard_Title                      = 업로드 마법사
+Settings_Upload_Wizard_Desc                       = 파일 호스터 단계가 열릴 때의 기본값입니다.
+Settings_Upload_WizardHosterFilter                = 표시할 호스터
 ```
 
 ---
@@ -594,7 +598,10 @@ Wizard_Step2_PickAtLeastOne = 계속하려면 파일 호스터를 하나 이상 
 Wizard_Step2_FilterLabel        = 필터
 Wizard_Step2_FilterWatermark    = 호스터 이름…
 Wizard_Step2_FilterAnonymous    = 익명만
-Wizard_Step2_FilterAnonymousTip = 계정 없이 업로드할 수 있는 호스터만 표시합니다.
+Wizard_Step2_FilterAccount      = 계정
+Wizard_Step2_FilterAccountTip   = 업로드 방식으로 목록을 좁힙니다. 익명과 계정 업로드를 모두 지원하는 호스터는 두 옵션 모두에 표시됩니다.
+Wizard_Step2_FilterAccountBoth  = 모두
+Wizard_Step2_FilterAccountOnly  = 계정만
 Wizard_Step2_FilterNoCaptcha    = 다운로드 캡차 없음
 Wizard_Step2_FilterNoCaptchaTip = 일반적인 무료 다운로드 과정에서 캡차가 필요 없다고 확인된 호스터만 표시합니다. 확인되지 않은(—) 호스터는 숨겨집니다.
 Wizard_Step2_FilterClear        = 필터 지우기

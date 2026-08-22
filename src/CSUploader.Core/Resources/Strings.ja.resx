@@ -766,6 +766,15 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_Autostart_Never" xml:space="preserve">
     <value>しない</value>
   </data>
+  <data name="Settings_Upload_Wizard_Title" xml:space="preserve">
+    <value>アップロードウィザード</value>
+  </data>
+  <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
+    <value>「ファイルホスター」ステップを開いたときの既定です。</value>
+  </data>
+  <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
+    <value>表示するホスター</value>
+  </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>接続マネージャー</value>
   </data>
@@ -1327,8 +1336,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymous" xml:space="preserve">
     <value>匿名のみ</value>
   </data>
-  <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
-    <value>アカウントなしでアップロードできるホスターのみを表示します。</value>
+  <data name="Wizard_Step2_FilterAccount" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountTip" xml:space="preserve">
+    <value>アップロード方法で一覧を絞り込みます。匿名とアカウントの両方に対応するホスターは、どちらの選択肢でも表示されます。</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountBoth" xml:space="preserve">
+    <value>両方</value>
+  </data>
+  <data name="Wizard_Step2_FilterAccountOnly" xml:space="preserve">
+    <value>アカウントのみ</value>
   </data>
   <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
     <value>DL時CAPTCHAなし</value>

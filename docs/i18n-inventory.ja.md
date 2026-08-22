@@ -347,6 +347,10 @@ Settings_Upload_Autostart                         = アプリ起動時にアッ�
 Settings_Upload_Autostart_Always                  = 常に
 Settings_Upload_Autostart_OnlyIfRunning           = 前回終了時にアップロードが実行中だった場合のみ
 Settings_Upload_Autostart_Never                   = しない
+
+Settings_Upload_Wizard_Title                      = アップロードウィザード
+Settings_Upload_Wizard_Desc                       = 「ファイルホスター」ステップを開いたときの既定です。
+Settings_Upload_WizardHosterFilter                = 表示するホスター
 ```
 
 ---
@@ -593,7 +597,10 @@ Wizard_Step2_PickAtLeastOne = 続行するには、ファイルホスターを 1
 Wizard_Step2_FilterLabel        = フィルター
 Wizard_Step2_FilterWatermark    = ホスター名…
 Wizard_Step2_FilterAnonymous    = 匿名のみ
-Wizard_Step2_FilterAnonymousTip = アカウントなしでアップロードできるホスターのみを表示します。
+Wizard_Step2_FilterAccount      = アカウント
+Wizard_Step2_FilterAccountTip   = アップロード方法で一覧を絞り込みます。匿名とアカウントの両方に対応するホスターは、どちらの選択肢でも表示されます。
+Wizard_Step2_FilterAccountBoth  = 両方
+Wizard_Step2_FilterAccountOnly  = アカウントのみ
 Wizard_Step2_FilterNoCaptcha    = DL時CAPTCHAなし
 Wizard_Step2_FilterNoCaptchaTip = 通常の無料ダウンロード時にCAPTCHAが不要と確認されたホスターのみを表示します。未確認（—）のホスターは非表示になります。
 Wizard_Step2_FilterClear        = フィルターをクリア

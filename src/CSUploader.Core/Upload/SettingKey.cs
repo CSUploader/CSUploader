@@ -57,5 +57,7 @@ public static class SettingKey
 
     public static string ShowCompletionToasts { get; } = "showCompletionToasts";
 
+    public static string WizardHosterAccountFilter { get; } = "wizardHosterAccountFilter";
+
     public static string AllowInvalidServerCertificates { get; } = "allowInvalidServerCertificates";
 }

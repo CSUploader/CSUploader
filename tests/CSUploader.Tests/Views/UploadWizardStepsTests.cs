@@ -228,7 +228,7 @@ public class UploadWizardStepsTests
             Assert.Null(header.IsChecked);
 
             // Filtering changes what "all" means: only the listed row is ticked.
-            harness.Vm.Hosters.AnonymousHostersOnly = true;
+            harness.Vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
             Dispatcher.UIThread.RunJobs();
             header.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
@@ -307,7 +307,7 @@ public class UploadWizardStepsTests
 
             // Anonymous-only swaps which one is left — Rapidgator needs an account.
             harness.Vm.Hosters.HosterFilterText = string.Empty;
-            harness.Vm.Hosters.AnonymousHostersOnly = true;
+            harness.Vm.Hosters.AccountFilter = HosterAccountFilter.AnonymousOnly;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Single(view);
