@@ -4,6 +4,23 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-08-22
+
+A **"No download captcha"** filter on the wizard's hoster step: one tick narrows the list to the 32
+hosters whose ordinary free-download flow was verified to put no puzzle in a downloader's way. See
+[docs/release-notes/v1.4.3.md](docs/release-notes/v1.4.3.md) for the full notes.
+
+### Added
+
+- **"No download captcha" filter** on the wizard's File Hosters step, beside "Anonymous only". It
+  keeps only the hosters whose "Download captcha?" verdict is a verified **No** — the 32 that
+  shipped with the column in 1.4.2. **Unverified hosters (the column's em dash) are hidden, not
+  kept**: the filter's promise is that a downloader meets no puzzle, and Unknown has never meant
+  that. The three filters — the name box, "Anonymous only" and this one — AND together, and **Clear
+  filter** now resets all three. Filtering stays a view concern, so a hoster ticked and then
+  filtered out of sight still uploads, and the "showing N of M" hint is what says so. Localized in
+  all six languages.
+
 ## [1.4.2] - 2026-08-21
 
 A "Download captcha?" column on the wizard's hoster step: whether a free/anonymous downloader must
@@ -346,6 +363,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.4.3]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.3
 [1.4.2]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.2
 [1.4.1]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.1
 [1.4.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.0
