@@ -20,7 +20,7 @@
         x:Class="CSUploader.Views.UploadWizardWindow"
         x:DataType="vm:UploadWizardViewModel"
         Title="{loc:Loc Wizard_Title}"
-        Width="850" Height="620"
+        Width="940" Height="620"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         Background="{DynamicResource SurfaceBrush}"
@@ -614,11 +614,19 @@
                  carries the column's definition (wait timers and automatic browser checks don't
                  count); values come from each pipeline's DownloadCaptcha, which cites its source,
                  with the full research matrix in docs/hoster-download-captcha.md. Centred, not
-                 right-aligned: categorical text, not a number. The header wraps to two lines by
-                 design — the values are two-letter words, so the column is sized for THEM and the
-                 header folds ("Download" / "captcha?"); a locale it still clips in can be dragged
-                 wider now that columns resize. Read-only display (rule 32). -->
-            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="80" IsReadOnly="True"
+                 right-aligned: categorical text, not a number. The header folds to two lines by
+                 design — the values are two-letter words, so the column is sized for THEM, not for
+                 the label.
+                 WIDTH HERE IS ARITHMETIC, NOT TASTE. A header's text budget is the column width
+                 minus this window's DataGridColumnHeader padding (6,5 — 12px horizontal) minus the
+                 sort-glyph reserve (DataGridSortIconMinWidth, 8px in Tokens.axaml). At the original
+                 80 that left 60px for the word "Download": enough in Segoe UI by a hair, and NOT
+                 enough in the wider default UI fonts on Linux, where it character-wrapped to
+                 "Downloa" / "d captcha?" (user screenshot, 2026-08-22). 100 gives it 80px. Any
+                 relabelling must clear the longest WORD, not the whole string — "Max parallel" next
+                 door survives its own 60px budget only because "parallel" is narrow lowercase.
+                 Read-only display (rule 32). -->
+            <DataGridTemplateColumn x:DataType="vm:FileHosterSelectionViewModel" Width="100" IsReadOnly="True"
                                     SortMemberPath="DownloadCaptchaSortKey"
                                     ClipboardContentBinding="{Binding DownloadCaptchaDisplay}">
               <DataGridTemplateColumn.Header>
