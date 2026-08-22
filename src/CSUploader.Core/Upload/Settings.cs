@@ -50,8 +50,6 @@ public class AppSettings
     /// default would hide destinations from someone who never asked to.</summary>
     public static HosterAccountFilter DefaultWizardHosterAccountFilter { get; } = HosterAccountFilter.Both;
 
-    /// <summary>Reopen where the user last was — the behaviour that needs no configuring.</summary>
-    public static BrowseStartMode DefaultBrowseStartMode { get; } = BrowseStartMode.LastUsed;
 
     public static bool DefaultAllowInvalidServerCertificates { get; } = false;
 
@@ -163,17 +161,19 @@ public class AppSettings
     /// </summary>
     public HosterAccountFilter WizardHosterAccountFilter { get; set; } = DefaultWizardHosterAccountFilter;
 
-    /// <summary>Where the wizard's file/folder pickers open. See <see cref="BrowseStartMode"/>.</summary>
-    public BrowseStartMode BrowseStartMode { get; set; } = DefaultBrowseStartMode;
-
-    /// <summary>The fixed directory used when <see cref="BrowseStartMode"/> is
-    /// <see cref="Upload.BrowseStartMode.FixedFolder"/>. Blank means "no suggestion".</summary>
-    public string BrowseStartFolder { get; set; } = string.Empty;
+    /// <summary>
+    /// Where the wizard's "Add files…" / "Add folder…" pickers open. Blank — the default — means
+    /// reopen wherever the last pick was made (<see cref="LastBrowsedFolder"/>), which is itself
+    /// blank until the first pick and then hands the choice to the OS. A value here always wins:
+    /// it is for a staging directory everything is uploaded from.
+    /// </summary>
+    public string DefaultUploadDirectory { get; set; } = string.Empty;
 
     /// <summary>
-    /// The directory the last pick was made in, remembered across restarts for
-    /// <see cref="Upload.BrowseStartMode.LastUsed"/>. Bookkeeping the wizard writes, not something
-    /// the user sets — it has no Settings row.
+    /// The directory the last pick was made in, remembered across restarts and used whenever
+    /// <see cref="DefaultUploadDirectory"/> is blank. Bookkeeping the wizard writes, not something
+    /// the user sets — it has no Settings row. Recorded even while a default directory is set, so
+    /// clearing that box falls straight back to somewhere useful.
     /// </summary>
     public string LastBrowsedFolder { get; set; } = string.Empty;
 

@@ -775,23 +775,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
     <value>Ipakita ang mga hoster</value>
   </data>
-  <data name="Settings_Upload_BrowseStart" xml:space="preserve">
-    <value>Bubukas ang “Add files/folder” sa</value>
+  <data name="Settings_Upload_DefaultUploadDirectory" xml:space="preserve">
+    <value>Default na upload directory</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_LastUsed" xml:space="preserve">
-    <value>Huling ginamit na folder</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_Watermark" xml:space="preserve">
+    <value>Buksan kung saan huling nag-browse</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_FixedFolder" xml:space="preserve">
-    <value>Nakatakdang folder</value>
+  <data name="Settings_Upload_DefaultUploadDirectoryTip" xml:space="preserve">
+    <value>Kung saan bubukas ang “Add files…” at “Add folder…”. Iwanang blangko para buksan kung saan ka huling nag-browse.</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_SystemDefault" xml:space="preserve">
-    <value>Default ng system</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_Folder" xml:space="preserve">
-    <value>Nakatakdang folder</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_DialogTitle" xml:space="preserve">
-    <value>Piliin ang folder kung saan magsisimula ang wizard</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_DialogTitle" xml:space="preserve">
+    <value>Piliin ang default na upload directory</value>
   </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Connection Manager</value>

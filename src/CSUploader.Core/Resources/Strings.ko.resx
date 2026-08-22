@@ -775,23 +775,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
     <value>표시할 호스터</value>
   </data>
-  <data name="Settings_Upload_BrowseStart" xml:space="preserve">
-    <value>파일/폴더 추가 시작 위치</value>
+  <data name="Settings_Upload_DefaultUploadDirectory" xml:space="preserve">
+    <value>기본 업로드 디렉터리</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_LastUsed" xml:space="preserve">
-    <value>마지막으로 사용한 폴더</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_Watermark" xml:space="preserve">
+    <value>마지막으로 찾아본 위치 열기</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_FixedFolder" xml:space="preserve">
-    <value>지정한 폴더</value>
+  <data name="Settings_Upload_DefaultUploadDirectoryTip" xml:space="preserve">
+    <value>“파일 추가…”와 “폴더 추가…”가 열리는 위치입니다. 비워 두면 마지막으로 찾아본 위치가 열립니다.</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_SystemDefault" xml:space="preserve">
-    <value>시스템 기본값</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_Folder" xml:space="preserve">
-    <value>지정한 폴더</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_DialogTitle" xml:space="preserve">
-    <value>마법사가 시작할 폴더를 선택하세요</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_DialogTitle" xml:space="preserve">
+    <value>기본 업로드 디렉터리 선택</value>
   </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>연결 관리자</value>

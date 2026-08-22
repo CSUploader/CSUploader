@@ -352,12 +352,10 @@ Settings_Upload_Autostart_Never                   = 从不
 Settings_Upload_Wizard_Title                      = 上传向导
 Settings_Upload_Wizard_Desc                       = 上传向导打开时的默认设置。
 Settings_Upload_WizardHosterFilter                = 显示托管商
-Settings_Upload_BrowseStart                       = “添加文件/文件夹”打开位置
-Settings_Upload_BrowseStart_LastUsed              = 上次使用的文件夹
-Settings_Upload_BrowseStart_FixedFolder           = 固定文件夹
-Settings_Upload_BrowseStart_SystemDefault         = 系统默认
-Settings_Upload_BrowseStart_Folder                = 固定文件夹
-Settings_Upload_BrowseStart_DialogTitle           = 选择向导的起始文件夹
+Settings_Upload_DefaultUploadDirectory             = 默认上传目录
+Settings_Upload_DefaultUploadDirectory_Watermark   = 打开上次浏览的位置
+Settings_Upload_DefaultUploadDirectoryTip          = “添加文件…”和“添加文件夹…”的打开位置。留空则打开上次浏览的位置。
+Settings_Upload_DefaultUploadDirectory_DialogTitle = 选择默认上传目录
 ```
 
 ---

@@ -352,12 +352,10 @@ Settings_Upload_Autostart_Never                   = Hinding-hindi
 Settings_Upload_Wizard_Title                      = Upload Wizard
 Settings_Upload_Wizard_Desc                       = Ang mga default kapag bumukas ang upload wizard.
 Settings_Upload_WizardHosterFilter                = Ipakita ang mga hoster
-Settings_Upload_BrowseStart                       = Bubukas ang “Add files/folder” sa
-Settings_Upload_BrowseStart_LastUsed              = Huling ginamit na folder
-Settings_Upload_BrowseStart_FixedFolder           = Nakatakdang folder
-Settings_Upload_BrowseStart_SystemDefault         = Default ng system
-Settings_Upload_BrowseStart_Folder                = Nakatakdang folder
-Settings_Upload_BrowseStart_DialogTitle           = Piliin ang folder kung saan magsisimula ang wizard
+Settings_Upload_DefaultUploadDirectory             = Default na upload directory
+Settings_Upload_DefaultUploadDirectory_Watermark   = Buksan kung saan huling nag-browse
+Settings_Upload_DefaultUploadDirectoryTip          = Kung saan bubukas ang “Add files…” at “Add folder…”. Iwanang blangko para buksan kung saan ka huling nag-browse.
+Settings_Upload_DefaultUploadDirectory_DialogTitle = Piliin ang default na upload directory
 ```
 
 ---

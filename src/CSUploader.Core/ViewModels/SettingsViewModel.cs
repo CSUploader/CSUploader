@@ -149,38 +149,22 @@ public partial class SettingsViewModel(
     public partial HosterAccountFilter WizardHosterAccountFilter { get; set; }
         = AppSettings.DefaultWizardHosterAccountFilter;
 
-    /// <summary>Where the wizard's file/folder pickers open.</summary>
+    /// <summary>Where the wizard's file/folder pickers open. Blank means "reopen where I last was".</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsBrowseStartFolderEnabled))]
-    public partial BrowseStartMode BrowseStartMode { get; set; } = AppSettings.DefaultBrowseStartMode;
+    public partial string DefaultUploadDirectory { get; set; } = string.Empty;
 
-    /// <summary>The fixed directory, meaningful only in <see cref="Upload.BrowseStartMode.FixedFolder"/>.</summary>
-    [ObservableProperty]
-    public partial string BrowseStartFolder { get; set; } = string.Empty;
-
-    /// <summary>Greys the folder box out in the two modes that would ignore it, so the row can't
-    /// invite the user to fill in something that has no effect.</summary>
-    public bool IsBrowseStartFolderEnabled => BrowseStartMode == BrowseStartMode.FixedFolder;
-
-    public LocalizedOption<BrowseStartMode>[] BrowseStartModeOptions { get; } =
-    [
-        new(Upload.BrowseStartMode.LastUsed, "Settings_Upload_BrowseStart_LastUsed"),
-        new(Upload.BrowseStartMode.FixedFolder, "Settings_Upload_BrowseStart_FixedFolder"),
-        new(Upload.BrowseStartMode.SystemDefault, "Settings_Upload_BrowseStart_SystemDefault"),
-    ];
-
-    /// <summary>Picks the fixed start folder with the same native dialog the wizard uses. Cancel
-    /// leaves the current value alone rather than blanking it.</summary>
+    /// <summary>Picks the default directory with the same native dialog the wizard uses. Cancel
+    /// leaves the current value alone rather than blanking it — clearing is what the box is for.</summary>
     [RelayCommand]
-    private async Task BrowseForStartFolderAsync()
+    private async Task BrowseForDefaultUploadDirectoryAsync()
     {
         string? picked = await _dialogService.BrowseFolderAsync(
-            string.IsNullOrWhiteSpace(BrowseStartFolder) ? null : BrowseStartFolder,
-            Loc("Settings_Upload_BrowseStart_DialogTitle"));
+            string.IsNullOrWhiteSpace(DefaultUploadDirectory) ? null : DefaultUploadDirectory,
+            Loc("Settings_Upload_DefaultUploadDirectory_DialogTitle"));
 
         if (!string.IsNullOrWhiteSpace(picked))
         {
-            BrowseStartFolder = picked;
+            DefaultUploadDirectory = picked;
         }
     }
 
@@ -375,16 +359,8 @@ public partial class SettingsViewModel(
                     MinimizeToTray = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
-                case var k when k == SettingKey.BrowseStartMode:
-                    if (Enum.TryParse(setting.Value, out BrowseStartMode browseStartMode))
-                    {
-                        BrowseStartMode = browseStartMode;
-                    }
-
-                    break;
-
-                case var k when k == SettingKey.BrowseStartFolder:
-                    BrowseStartFolder = setting.Value ?? string.Empty;
+                case var k when k == SettingKey.DefaultUploadDirectory:
+                    DefaultUploadDirectory = setting.Value ?? string.Empty;
                     break;
 
                 // No ObservableProperty for this one: it is bookkeeping the wizard writes after each
@@ -463,8 +439,7 @@ public partial class SettingsViewModel(
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
         _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
-        _settings.BrowseStartMode = BrowseStartMode;
-        _settings.BrowseStartFolder = BrowseStartFolder;
+        _settings.DefaultUploadDirectory = DefaultUploadDirectory;
 
         // Resolve the active UI language: saved value → fallback to OS detection if blank.
         // Display the resolved tag on the dropdown so it always reflects what's in effect.
@@ -630,20 +605,12 @@ public partial class SettingsViewModel(
         _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
     }
 
-    partial void OnBrowseStartModeChanged(BrowseStartMode value)
+    partial void OnDefaultUploadDirectoryChanged(string value)
     {
         if (_suppressAutoSave)
             return;
-        _settings.BrowseStartMode = value;
-        _ = AutoSaveAsync(SettingKey.BrowseStartMode, value.ToString());
-    }
-
-    partial void OnBrowseStartFolderChanged(string value)
-    {
-        if (_suppressAutoSave)
-            return;
-        _settings.BrowseStartFolder = value;
-        _ = AutoSaveAsync(SettingKey.BrowseStartFolder, value);
+        _settings.DefaultUploadDirectory = value;
+        _ = AutoSaveAsync(SettingKey.DefaultUploadDirectory, value);
     }
 
     partial void OnWizardHosterAccountFilterChanged(HosterAccountFilter value)

@@ -370,12 +370,10 @@ Settings_Upload_Autostart_Never                   = Never
 Settings_Upload_Wizard_Title                      = Upload Wizard
 Settings_Upload_Wizard_Desc                       = Defaults the upload wizard opens with.
 Settings_Upload_WizardHosterFilter                = Show hosters
-Settings_Upload_BrowseStart                       = Add files/folder opens in
-Settings_Upload_BrowseStart_LastUsed              = Last used folder
-Settings_Upload_BrowseStart_FixedFolder           = A fixed folder
-Settings_Upload_BrowseStart_SystemDefault         = System default
-Settings_Upload_BrowseStart_Folder                = Fixed folder
-Settings_Upload_BrowseStart_DialogTitle           = Choose the folder the wizard should start in
+Settings_Upload_DefaultUploadDirectory             = Default upload directory
+Settings_Upload_DefaultUploadDirectory_Watermark   = Reopen where I last browsed
+Settings_Upload_DefaultUploadDirectoryTip          = Where “Add files…” and “Add folder…” open. Leave it empty to reopen wherever you last browsed.
+Settings_Upload_DefaultUploadDirectory_DialogTitle = Choose the default upload directory
 ```
 
 ---

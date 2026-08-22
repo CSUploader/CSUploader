@@ -20,6 +20,11 @@ namespace CSUploader.Tests.ViewModels;
 /// started at the last folder added in THAT wizard session and the file picker started nowhere at
 /// all — <c>BrowseFilesAsync</c> had no start-directory parameter to give it one — so every fresh
 /// wizard began wherever the OS felt like, however many times the user had just browsed elsewhere.
+/// <para>
+/// There is no mode control: <see cref="AppSettings.DefaultUploadDirectory"/> being EMPTY is the
+/// mode, and means "reopen where I last was". So the resolution is a two-step fallback chain, and
+/// most of what is worth pinning here is the order of it.
+/// </para>
 /// </summary>
 public class WizardBrowseStartTests : IDisposable
 {
@@ -58,29 +63,16 @@ public class WizardBrowseStartTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    // ── Which directory the picker is told to open in ──
+    // ── The fallback chain: configured directory, then last used, then nothing ──
 
     [Fact]
-    public void SystemDefault_SuggestsNothing_AndLetsTheOsDecide()
+    public void AConfiguredDirectory_Wins_EvenOverWhereTheUserLastWas()
     {
+        // The staging-directory case: someone who always uploads from one place set it deliberately,
+        // so browsing elsewhere once must not quietly move it.
         WizardSourcesViewModel vm = Build(new AppSettings
         {
-            BrowseStartMode = BrowseStartMode.SystemDefault,
-            BrowseStartFolder = _root,
-            LastBrowsedFolder = _root,
-        });
-
-        // Both other values are populated on purpose: this mode must IGNORE them, not merely lack them.
-        Assert.Null(vm.ResolveBrowseStart());
-    }
-
-    [Fact]
-    public void FixedFolder_SuggestsTheConfiguredFolder_EvenWhenSomethingElseWasUsedLast()
-    {
-        WizardSourcesViewModel vm = Build(new AppSettings
-        {
-            BrowseStartMode = BrowseStartMode.FixedFolder,
-            BrowseStartFolder = _root,
+            DefaultUploadDirectory = _root,
             LastBrowsedFolder = Path.Combine(_root, "somewhere-else"),
         });
 
@@ -90,37 +82,27 @@ public class WizardBrowseStartTests : IDisposable
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void FixedFolder_WithNothingConfigured_SuggestsNothing(string configured)
+    public void AnEmptyDirectory_FallsBackToWhereTheUserLastWas(string configured)
     {
-        // The mode is selected but the box is empty — suggest nothing rather than a blank path the
-        // picker would have to interpret.
+        // Empty is not "no preference expressed and therefore nothing to do" — it IS the preference,
+        // and it means last-used. Whitespace counts as empty; a path box people clear by hand ends
+        // up with a stray space more often than not.
+        string lastUsed = Path.Combine(_root, "last");
         WizardSourcesViewModel vm = Build(new AppSettings
         {
-            BrowseStartMode = BrowseStartMode.FixedFolder,
-            BrowseStartFolder = configured,
+            DefaultUploadDirectory = configured,
+            LastBrowsedFolder = lastUsed,
         });
 
-        Assert.Null(vm.ResolveBrowseStart());
+        Assert.Equal(lastUsed, vm.ResolveBrowseStart());
     }
 
     [Fact]
-    public void LastUsed_SuggestsTheRememberedFolder()
+    public void WithNeitherSet_ItIsNoWorseThanBeforeAnyOfThisExisted()
     {
-        WizardSourcesViewModel vm = Build(new AppSettings
-        {
-            BrowseStartMode = BrowseStartMode.LastUsed,
-            LastBrowsedFolder = _root,
-        });
-
-        Assert.Equal(_root, vm.ResolveBrowseStart());
-    }
-
-    [Fact]
-    public void LastUsed_WithNothingRemembered_IsNoWorseThanBeforeTheSettingExisted()
-    {
-        // The pre-setting fallback: the last folder added in this wizard. A first-ever run has
-        // neither, and then there is genuinely nothing to suggest.
-        WizardSourcesViewModel vm = Build(new AppSettings { BrowseStartMode = BrowseStartMode.LastUsed });
+        // The pre-setting fallback: the last folder added in this wizard. A first-ever run has none
+        // of the three, and then there is genuinely nothing to suggest.
+        WizardSourcesViewModel vm = Build(new AppSettings());
         Assert.Null(vm.ResolveBrowseStart());
 
         string folder = Path.Combine(_root, "season-1");
@@ -131,9 +113,9 @@ public class WizardBrowseStartTests : IDisposable
     }
 
     [Fact]
-    public void WithNoSettingsAtAll_TheDefaultModeStillApplies()
+    public void WithNoSettingsAtAll_NothingThrows()
     {
-        // Null settings is the shape older callers and tests construct; it must not throw.
+        // Null settings is the shape older callers and tests construct.
         WizardSourcesViewModel vm = Build(settings: null);
 
         Assert.Null(vm.ResolveBrowseStart());
@@ -149,12 +131,8 @@ public class WizardBrowseStartTests : IDisposable
         string file = Path.Combine(folder, "a.bin");
         await File.WriteAllBytesAsync(file, [1]);
 
-        AppSettings settings = new() { BrowseStartMode = BrowseStartMode.LastUsed };
-        Mock<IDialogService> dialogs = new();
-        dialogs.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-            .ReturnsAsync([file]);
-
-        WizardSourcesViewModel vm = Build(settings, dialogs.Object);
+        AppSettings settings = new();
+        WizardSourcesViewModel vm = Build(settings, FilePicker(file));
         await vm.AddFilesCommand.ExecuteAsync(null);
 
         Assert.Equal(folder, settings.LastBrowsedFolder);
@@ -169,7 +147,7 @@ public class WizardBrowseStartTests : IDisposable
         string picked = Path.Combine(parent, "season-1");
         Directory.CreateDirectory(picked);
 
-        AppSettings settings = new() { BrowseStartMode = BrowseStartMode.LastUsed };
+        AppSettings settings = new();
         Mock<IDialogService> dialogs = new();
         dialogs.Setup(d => d.BrowseFoldersAsync(It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync([picked]);
@@ -181,25 +159,24 @@ public class WizardBrowseStartTests : IDisposable
     }
 
     [Fact]
-    public async Task TheOtherModes_RememberNothing_BecauseNeitherWouldEverReadIt()
+    public async Task ItKeepsRemembering_EvenWhileAConfiguredDirectoryIsWinning()
     {
-        string folder = Path.Combine(_root, "fixed");
+        // The configured directory suppresses the FALLBACK, not the bookkeeping. Clearing that box
+        // should land somewhere useful immediately rather than on a cold start.
+        string folder = Path.Combine(_root, "elsewhere");
         Directory.CreateDirectory(folder);
         string file = Path.Combine(folder, "a.bin");
         await File.WriteAllBytesAsync(file, [1]);
 
-        foreach (BrowseStartMode mode in (BrowseStartMode[])[BrowseStartMode.FixedFolder, BrowseStartMode.SystemDefault])
-        {
-            AppSettings settings = new() { BrowseStartMode = mode };
-            Mock<IDialogService> dialogs = new();
-            dialogs.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync([file]);
+        AppSettings settings = new() { DefaultUploadDirectory = _root };
+        WizardSourcesViewModel vm = Build(settings, FilePicker(file));
+        await vm.AddFilesCommand.ExecuteAsync(null);
 
-            WizardSourcesViewModel vm = Build(settings, dialogs.Object);
-            await vm.AddFilesCommand.ExecuteAsync(null);
+        Assert.Equal(folder, settings.LastBrowsedFolder);
+        Assert.Equal(_root, vm.ResolveBrowseStart());   // still winning…
 
-            Assert.Equal(string.Empty, settings.LastBrowsedFolder);
-        }
+        settings.DefaultUploadDirectory = string.Empty;
+        Assert.Equal(folder, vm.ResolveBrowseStart());  // …and clearing it lands on the remembered one
     }
 
     [Fact]
@@ -211,12 +188,8 @@ public class WizardBrowseStartTests : IDisposable
         await File.WriteAllBytesAsync(file, [1]);
 
         SettingRepository repo = new(_factory);
-        AppSettings settings = new() { BrowseStartMode = BrowseStartMode.LastUsed };
-        Mock<IDialogService> dialogs = new();
-        dialogs.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-            .ReturnsAsync([file]);
-
-        WizardSourcesViewModel vm = Build(settings, dialogs.Object, repo);
+        AppSettings settings = new();
+        WizardSourcesViewModel vm = Build(settings, FilePicker(file), repo);
         await vm.AddFilesCommand.ExecuteAsync(null);
 
         // In-memory is only half of "remember" — the row has to reach the DB for the next launch.
@@ -232,16 +205,11 @@ public class WizardBrowseStartTests : IDisposable
     {
         // BrowseFilesAsync had no start-directory parameter at all, so every resolution above would
         // have been computed and then thrown away. This pins that it reaches the dialog.
-        AppSettings settings = new()
-        {
-            BrowseStartMode = BrowseStartMode.FixedFolder,
-            BrowseStartFolder = _root,
-        };
         Mock<IDialogService> dialogs = new();
         dialogs.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync((string[]?)null);
 
-        WizardSourcesViewModel vm = Build(settings, dialogs.Object);
+        WizardSourcesViewModel vm = Build(new AppSettings { DefaultUploadDirectory = _root }, dialogs.Object);
         await vm.AddFilesCommand.ExecuteAsync(null);
 
         dialogs.Verify(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), _root), Times.Once);
@@ -250,19 +218,22 @@ public class WizardBrowseStartTests : IDisposable
     [Fact]
     public async Task TheFolderPickerIsGivenTheSameAnswer()
     {
-        AppSettings settings = new()
-        {
-            BrowseStartMode = BrowseStartMode.FixedFolder,
-            BrowseStartFolder = _root,
-        };
         Mock<IDialogService> dialogs = new();
         dialogs.Setup(d => d.BrowseFoldersAsync(It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync((string[]?)null);
 
-        WizardSourcesViewModel vm = Build(settings, dialogs.Object);
+        WizardSourcesViewModel vm = Build(new AppSettings { DefaultUploadDirectory = _root }, dialogs.Object);
         await vm.AddFoldersCommand.ExecuteAsync(null);
 
         dialogs.Verify(d => d.BrowseFoldersAsync(_root, It.IsAny<string?>()), Times.Once);
+    }
+
+    private static IDialogService FilePicker(string returns)
+    {
+        Mock<IDialogService> dialogs = new();
+        dialogs.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .ReturnsAsync([returns]);
+        return dialogs.Object;
     }
 
     private WizardSourcesViewModel Build(

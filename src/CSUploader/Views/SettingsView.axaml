@@ -532,28 +532,18 @@
                     FontSize="12" Padding="4,3" />
         </Grid>
 
-        <Grid Classes="setting-row" ColumnDefinitions="*,360">
-          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_BrowseStart}" Classes="setting-label" />
-          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                    ItemsSource="{Binding BrowseStartModeOptions}"
-                    SelectedValueBinding="{CompiledBinding Value, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:BrowseStartMode}}"
-                    DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type coreloc:LocalizedOption, x:TypeArguments=upload:BrowseStartMode}}"
-                    SelectedValue="{Binding BrowseStartMode}"
-                    FontSize="12" Padding="4,3" />
-        </Grid>
-
-        <!-- Only "A fixed folder" reads this, so the row greys out in the other two modes rather
-             than inviting a path that would be ignored. -->
-        <Grid Classes="setting-row" ColumnDefinitions="*,272,80">
-          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_BrowseStart_Folder}" Classes="setting-label"
-                     IsEnabled="{Binding IsBrowseStartFolderEnabled}" />
+        <!-- Where "Add files…" / "Add folder…" open. Empty is the default and means "reopen where I
+             last was", so there is no mode control to set — the box being empty IS the mode. The
+             tooltip carries that, since a blank path box otherwise looks merely unset. -->
+        <Grid Classes="setting-row" ColumnDefinitions="*,272,80"
+              ToolTip.Tip="{loc:Loc Settings_Upload_DefaultUploadDirectoryTip}">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_DefaultUploadDirectory}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch" Classes="setting-input"
-                   Text="{Binding BrowseStartFolder, UpdateSourceTrigger=LostFocus}"
-                   IsEnabled="{Binding IsBrowseStartFolderEnabled}" />
+                   Text="{Binding DefaultUploadDirectory, UpdateSourceTrigger=LostFocus}"
+                   Watermark="{loc:Loc Settings_Upload_DefaultUploadDirectory_Watermark}" />
           <Button Grid.Column="2" Content="{loc:Loc Common_Browse}" Margin="8,0,0,0"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                  Command="{Binding BrowseForStartFolderCommand}"
-                  IsEnabled="{Binding IsBrowseStartFolderEnabled}" />
+                  Command="{Binding BrowseForDefaultUploadDirectoryCommand}" />
         </Grid>
       </StackPanel>
     </ScrollViewer>

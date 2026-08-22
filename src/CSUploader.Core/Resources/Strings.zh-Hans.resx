@@ -775,23 +775,17 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
     <value>显示托管商</value>
   </data>
-  <data name="Settings_Upload_BrowseStart" xml:space="preserve">
-    <value>“添加文件/文件夹”打开位置</value>
+  <data name="Settings_Upload_DefaultUploadDirectory" xml:space="preserve">
+    <value>默认上传目录</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_LastUsed" xml:space="preserve">
-    <value>上次使用的文件夹</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_Watermark" xml:space="preserve">
+    <value>打开上次浏览的位置</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_FixedFolder" xml:space="preserve">
-    <value>固定文件夹</value>
+  <data name="Settings_Upload_DefaultUploadDirectoryTip" xml:space="preserve">
+    <value>“添加文件…”和“添加文件夹…”的打开位置。留空则打开上次浏览的位置。</value>
   </data>
-  <data name="Settings_Upload_BrowseStart_SystemDefault" xml:space="preserve">
-    <value>系统默认</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_Folder" xml:space="preserve">
-    <value>固定文件夹</value>
-  </data>
-  <data name="Settings_Upload_BrowseStart_DialogTitle" xml:space="preserve">
-    <value>选择向导的起始文件夹</value>
+  <data name="Settings_Upload_DefaultUploadDirectory_DialogTitle" xml:space="preserve">
+    <value>选择默认上传目录</value>
   </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>连接管理器</value>

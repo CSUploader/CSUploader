@@ -352,12 +352,10 @@ Settings_Upload_Autostart_Never                   = 안 함
 Settings_Upload_Wizard_Title                      = 업로드 마법사
 Settings_Upload_Wizard_Desc                       = 업로드 마법사가 열릴 때의 기본값입니다.
 Settings_Upload_WizardHosterFilter                = 표시할 호스터
-Settings_Upload_BrowseStart                       = 파일/폴더 추가 시작 위치
-Settings_Upload_BrowseStart_LastUsed              = 마지막으로 사용한 폴더
-Settings_Upload_BrowseStart_FixedFolder           = 지정한 폴더
-Settings_Upload_BrowseStart_SystemDefault         = 시스템 기본값
-Settings_Upload_BrowseStart_Folder                = 지정한 폴더
-Settings_Upload_BrowseStart_DialogTitle           = 마법사가 시작할 폴더를 선택하세요
+Settings_Upload_DefaultUploadDirectory             = 기본 업로드 디렉터리
+Settings_Upload_DefaultUploadDirectory_Watermark   = 마지막으로 찾아본 위치 열기
+Settings_Upload_DefaultUploadDirectoryTip          = “파일 추가…”와 “폴더 추가…”가 열리는 위치입니다. 비워 두면 마지막으로 찾아본 위치가 열립니다.
+Settings_Upload_DefaultUploadDirectory_DialogTitle = 기본 업로드 디렉터리 선택
 ```
 
 ---

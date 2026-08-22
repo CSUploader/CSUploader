@@ -351,12 +351,10 @@ Settings_Upload_Autostart_Never                   = しない
 Settings_Upload_Wizard_Title                      = アップロードウィザード
 Settings_Upload_Wizard_Desc                       = アップロードウィザードを開いたときの既定です。
 Settings_Upload_WizardHosterFilter                = 表示するホスター
-Settings_Upload_BrowseStart                       = 「ファイル/フォルダーを追加」の開始場所
-Settings_Upload_BrowseStart_LastUsed              = 前回使用したフォルダー
-Settings_Upload_BrowseStart_FixedFolder           = 固定フォルダー
-Settings_Upload_BrowseStart_SystemDefault         = システム既定
-Settings_Upload_BrowseStart_Folder                = 固定フォルダー
-Settings_Upload_BrowseStart_DialogTitle           = ウィザードの開始フォルダーを選択
+Settings_Upload_DefaultUploadDirectory             = 既定のアップロードディレクトリ
+Settings_Upload_DefaultUploadDirectory_Watermark   = 前回参照した場所を開く
+Settings_Upload_DefaultUploadDirectoryTip          = 「ファイルを追加…」「フォルダーを追加…」を開く場所です。空欄にすると前回参照した場所を開きます。
+Settings_Upload_DefaultUploadDirectory_DialogTitle = 既定のアップロードディレクトリを選択
 ```
 
 ---

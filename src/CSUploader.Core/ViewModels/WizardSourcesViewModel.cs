@@ -357,25 +357,22 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Where the next pick should open, per <see cref="AppSettings.BrowseStartMode"/>. Null means
-    /// "no suggestion" and hands the choice back to the OS.
-    /// <para>
-    /// The <see cref="BrowseStartMode.LastUsed"/> arm keeps the pre-setting behaviour as its
-    /// fallback — the last folder added in THIS wizard — so a first run with nothing remembered is
-    /// no worse than before.
-    /// </para>
+    /// Where the next pick should open. A configured
+    /// <see cref="AppSettings.DefaultUploadDirectory"/> always wins; blank falls back to wherever
+    /// the last pick was made, and blank again to the last folder added in THIS wizard — the
+    /// behaviour that predates the setting, so a first run is no worse than before. Null at the end
+    /// of that chain means "no suggestion", handing the choice back to the OS.
     /// </summary>
     internal string? ResolveBrowseStart()
     {
-        BrowseStartMode mode = _settings?.BrowseStartMode ?? AppSettings.DefaultBrowseStartMode;
-        return mode switch
+        if (!Blank(_settings?.DefaultUploadDirectory))
         {
-            BrowseStartMode.SystemDefault => null,
-            BrowseStartMode.FixedFolder => Blank(_settings?.BrowseStartFolder) ? null : _settings!.BrowseStartFolder,
-            _ => Blank(_settings?.LastBrowsedFolder)
-                ? Sources.LastOrDefault(s => s.IsFolder)?.Path
-                : _settings!.LastBrowsedFolder,
-        };
+            return _settings!.DefaultUploadDirectory;
+        }
+
+        return Blank(_settings?.LastBrowsedFolder)
+            ? Sources.LastOrDefault(s => s.IsFolder)?.Path
+            : _settings!.LastBrowsedFolder;
 
         static bool Blank(string? s) => string.IsNullOrWhiteSpace(s);
     }
@@ -387,13 +384,14 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     /// "the next season" or "the next release" a single click. A drive root has no parent, so
     /// nothing is recorded and the previous value stands.
     /// <para>
-    /// Only <see cref="BrowseStartMode.LastUsed"/> records; the other two modes would never read it,
-    /// and writing a setting nobody consults is just a stray DB row.
+    /// Recorded even while <see cref="AppSettings.DefaultUploadDirectory"/> is set and therefore
+    /// winning: the moment that box is cleared this is what the picker falls back to, and it should
+    /// not be a cold start.
     /// </para>
     /// </summary>
     private void RememberBrowsedDirectory(string picked)
     {
-        if (_settings is null || _settings.BrowseStartMode != BrowseStartMode.LastUsed)
+        if (_settings is null)
         {
             return;
         }
