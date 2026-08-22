@@ -535,7 +535,11 @@
         <!-- Where "Add files…" / "Add folder…" open. Empty is the default and means "reopen where I
              last was", so there is no mode control to set — the box being empty IS the mode. The
              tooltip carries that, since a blank path box otherwise looks merely unset. -->
-        <Grid Classes="setting-row" ColumnDefinitions="*,272,80"
+        <!-- Columns sum to 360 so the box's LEFT edge lines up with every other setting row's
+             control, which all sit in a single 360px column. The button's 8px gap has to come out
+             of that 360, not be added to it — 272+80 plus an 8px margin pushed the whole block 8px
+             right of its neighbours, which is exactly how far off it looked. -->
+        <Grid Classes="setting-row" ColumnDefinitions="*,272,88"
               ToolTip.Tip="{loc:Loc Settings_Upload_DefaultUploadDirectoryTip}">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_DefaultUploadDirectory}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch" Classes="setting-input"
