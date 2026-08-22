@@ -821,7 +821,10 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                         LogType.Status,
                         $"Skipping queueing of '{IOPath.GetFileName(filePath)}' on {fileHoster.Name}: "
                         + $"{ByteUnit.FromBytes(fileSize, ByteBase.Binary).ToFriendlyString()} exceeds the "
-                        + $"{ByteUnit.FromBytes(cap, ByteBase.Binary).ToFriendlyString()} per-file limit.");
+
+                        // The DECLARED cap reads in whichever base the host states it (like the
+                        // wizard column); the measured file size above stays binary.
+                        + $"{ByteUnit.FromBytesPreferRoundUnit(cap).ToFriendlyString()} per-file limit.");
                     continue;
                 }
 

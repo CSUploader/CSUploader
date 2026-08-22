@@ -178,11 +178,36 @@ public class FileHosterSelectionViewModelTests
     [Fact]
     public void MaxFileSize_WithCap_FormatsLikeTheOversizeWarning()
     {
+        // The invariant is the SHARED formatter: whatever base the roundness pick lands on, the
+        // column and the step-2 oversize warning must never show two different numbers.
         const long Cap = 5_500_000_000;
         FileHosterSelectionViewModel vm = new("Wormhole", [], supportsAnonymous: true, maxFileSizeResolver: _ => Cap);
 
         Assert.Equal(Cap, vm.MaxFileSizeBytes);
-        Assert.Equal(ByteUnit.FromBytes(Cap, ByteBase.Binary).ToFriendlyString(), vm.MaxFileSizeDisplay);
+        Assert.Equal(ByteUnit.FromBytesPreferRoundUnit(Cap).ToFriendlyString(), vm.MaxFileSizeDisplay);
+    }
+
+    [Fact]
+    public void MaxFileSize_DecimalRoundCap_ShowsTheHostsOwnFigure()
+    {
+        // DropMB's share.maxSize is exactly 512,000,000 bytes — the "512 MB" its site advertises.
+        // Rendering that as "488.28 MiB" was faithful arithmetic and a wrong-looking cell (user
+        // report, 2026-08-22).
+        FileHosterSelectionViewModel vm = new(
+            "DropMB", [], supportsAnonymous: true, maxFileSizeResolver: _ => 512_000_000);
+
+        Assert.Equal("512 MB", vm.MaxFileSizeDisplay);
+    }
+
+    [Fact]
+    public void MaxFileSize_BinaryRoundCap_StaysBinary()
+    {
+        // DropMeFiles' cap is a genuine 50 GiB — flipping everything to decimal would have traded
+        // DropMB's complaint for "53.69 GB" here.
+        FileHosterSelectionViewModel vm = new(
+            "DropMeFiles", [], supportsAnonymous: true, maxFileSizeResolver: _ => 53_687_091_200);
+
+        Assert.Equal("50 GiB", vm.MaxFileSizeDisplay);
     }
 
     [Fact]

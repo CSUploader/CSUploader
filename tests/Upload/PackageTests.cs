@@ -301,6 +301,57 @@ public class PackageTests
     }
 
     [Fact]
+    public void AddPackageFiles_OversizeSkipMessage_QuotesTheCapInItsRoundUnit()
+    {
+        // The skip message quotes the hoster's DECLARED cap, which must read the way the host
+        // states it (a 2,000-byte cap is "2 kB", not "1.95 KiB") — the same roundness rule as the
+        // wizard's "Max file size" column. The MEASURED file size stays binary: it is nobody's
+        // advertised figure.
+        string temp = Path.Combine(Path.GetTempPath(), $"task1-capunit-{Guid.NewGuid():N}.bin");
+        File.WriteAllBytes(temp, new byte[3000]);
+        try
+        {
+            FileHosterClient capped = new("Rapidgator", Protocol.Http);
+            PackageOptions options = new()
+            {
+                Title = "test",
+                Logger = Mock.Of<IAppLogger>(),
+                SelectedFiles = [temp],
+                FileHosters = new()
+                {
+                    { capped, new FileHosterLoginDto { FileHosterName = "Rapidgator" } },
+                },
+            };
+            Package package = new(options);
+
+            StubRegistry registry = new(new Dictionary<string, long?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Rapidgator"] = 2_000,
+            });
+            Mock<IAppLogger> logger = new();
+
+            package.AddPackageFiles(registry, logger.Object);
+
+            Assert.Empty(package);
+            logger.Verify(
+                l => l.Log(
+                    package,
+                    LogType.Status,
+                    It.Is<string>(s => s.Contains("2 kB per-file limit", StringComparison.Ordinal)
+                                       && s.Contains("2.93 KiB exceeds", StringComparison.Ordinal)),
+                    It.IsAny<HttpTransaction?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>()),
+                Times.Once);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+
+    [Fact]
     public void AddPackageFiles_AccountAtQuota_SkipsFile()
     {
         // The (file, hoster) pair is skipped when the account's persisted storage usage

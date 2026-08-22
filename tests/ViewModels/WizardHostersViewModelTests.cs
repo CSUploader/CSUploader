@@ -25,6 +25,7 @@ public class WizardHostersViewModelTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly WizardHostersViewModel _vm;
+    private readonly System.Collections.ObjectModel.ObservableCollection<FileEntry> _files = [];
 
     public WizardHostersViewModelTests()
     {
@@ -44,9 +45,10 @@ public class WizardHostersViewModelTests : IDisposable
             new FileHosterLoginRepository(factory),
             Mock.Of<IDialogService>(),
             Mock.Of<IAppLogger>(),
-            [],
+            _files,
             markSummaryDirty: () => { },
-            fileHosterRegistry: new DefaultFileHosterRegistry([new CaptchaFreePipeline(), new DefaultingPipeline()]));
+            fileHosterRegistry: new DefaultFileHosterRegistry(
+                [new CaptchaFreePipeline(), new DefaultingPipeline(), new DecimalCappedPipeline()]));
     }
 
     public void Dispose()
@@ -72,6 +74,46 @@ public class WizardHostersViewModelTests : IDisposable
         // A hoster the registry doesn't know keeps the no-claim blank, not a dash.
         FileHosterSelectionViewModel unregistered = _vm.FileHosters.Single(h => h.FileHosterName == "Rapidgator");
         Assert.Null(unregistered.DownloadCaptcha);
+    }
+
+    [Fact]
+    public async Task OversizeWarning_QuotesTheCapExactlyAsTheColumnShowsIt()
+    {
+        // The warning and the "Max file size" cell describe the same cap and must never show two
+        // different numbers for it — including the base the roundness rule picks: DropMB's
+        // 512,000,000-byte cap reads "512 MB" in both, never "488.28 MiB" in one.
+        await _vm.LoadFileHostersAsync();
+        _files.Add(new FileEntry { FileName = "big.bin", Size = 600_000_000, IsSelected = true });
+
+        FileHosterSelectionViewModel dropMb = _vm.FileHosters.Single(h => h.FileHosterName == "DropMB");
+        dropMb.Use = true; // triggers RecomputeHosterValidation via the collection's PropertyChanged hook
+
+        string warning = Assert.Single(_vm.HosterValidationWarnings);
+        Assert.Contains("512 MB", warning, StringComparison.Ordinal);
+        Assert.Contains(dropMb.MaxFileSizeDisplay, warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>Stub DropMB pipeline with the host's real decimal-round cap, for proving the
+    /// oversize warning and the size column quote it identically.</summary>
+    private sealed class DecimalCappedPipeline : IFileHosterPipeline
+    {
+        public string Name => "DropMB";
+
+        public bool RequiresHashingBeforeUpload => false;
+
+        public bool RequiresHashingAfterUpload => false;
+
+        public long? MaxFileSize => 512_000_000;
+
+        public int? MaxFilesPerPackage => null;
+
+        public bool SupportsAnonymousUpload => true;
+
+        public IAsyncEnumerable<UploadEvent> RunAsync(AttemptContext ctx, CancellationToken ct)
+            => throw new NotSupportedException();
+
+        public Task<AccountCheckResult> CheckAccountAsync(string username, string password, string? apiKey, HttpHandler handler, CSUploader.Lib.Net.ProxyChoice proxy, CancellationToken ct)
+            => throw new NotSupportedException();
     }
 
     /// <summary>Stub Pixeldrain pipeline that declares nothing, so its row must surface the

@@ -86,6 +86,33 @@ public readonly record struct ByteUnit(double Bytes, ByteBase Base)
     public static ByteUnit FromBytes(double bytes, ByteBase byteBase) => new(bytes, byteBase);
 
     /// <summary>
+    /// Constructs with the base chosen by ROUNDNESS: whichever base renders the count cleanly (a
+    /// whole number, or exactly one decimal place) at its largest applicable unit wins; binary
+    /// takes ties and the values clean in neither. For hoster-DECLARED caps, which hosts advertise
+    /// in whichever system their figure is round in: 512,000,000 is the "512 MB" DropMB's own
+    /// config states — not the arithmetically-identical "488.28 MiB" — while 53,687,091,200 stays
+    /// DropMeFiles' "50 GiB". Measured quantities (file sizes, progress, storage) should keep an
+    /// explicit base instead: they are nobody's advertised figure, and this would flap their units.
+    /// </summary>
+    public static ByteUnit FromBytesPreferRoundUnit(double bytes)
+    {
+        return IsCleanIn(ByteBase.Binary) || !IsCleanIn(ByteBase.Decimal)
+            ? new ByteUnit(bytes, ByteBase.Binary)
+            : new ByteUnit(bytes, ByteBase.Decimal);
+
+        bool IsCleanIn(ByteBase byteBase)
+        {
+            (ByteUnit unit, _, _) = Tables.LargestApplicableUnit(bytes, byteBase);
+            double count = unit.Bytes == 0 ? 0 : bytes / unit.Bytes;
+
+            // "Clean" = one decimal place within floating-point tolerance, so 512 and 5.5 qualify
+            // where 488.28 doesn't.
+            double tenths = count * 10;
+            return Math.Abs(tenths - Math.Round(tenths)) < 1e-9;
+        }
+    }
+
+    /// <summary>
     /// Attempts to parse text shapes like <c>"1.5 KiB"</c>, <c>"20MB"</c>, or a plain
     /// integer (treated as bytes). Returns <c>true</c> and a populated
     /// <paramref name="byteUnit"/> on success; <c>false</c> otherwise.
