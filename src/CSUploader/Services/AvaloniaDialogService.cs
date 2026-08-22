@@ -108,12 +108,18 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
         return paths.Length > 0 ? paths : null;
     }
 
-    public async Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null)
+    public async Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null, string? initialDirectory = null)
     {
         IStorageProvider storage = (await GetOwnerOrRevealAsync()).StorageProvider;
 
+        // Same null-on-missing-path contract the folder pickers rely on (Reality-check #10): a
+        // remembered directory that has since been deleted or unmounted just means "no suggestion".
+        IStorageFolder? start = string.IsNullOrEmpty(initialDirectory)
+            ? null
+            : await storage.TryGetFolderFromPathAsync(initialDirectory);
+
         IReadOnlyList<IStorageFile> picked = await storage.OpenFilePickerAsync(
-            BuildOpenOptions(title ?? Localizer.Instance["Common_SelectFiles"], filter, multiple: true));
+            BuildOpenOptions(title ?? Localizer.Instance["Common_SelectFiles"], filter, multiple: true, start));
 
         if (picked.Count == 0)
         {
@@ -164,12 +170,14 @@ public sealed class AvaloniaDialogService(AppSettings settings, SettingRepositor
             SuggestedStartLocation = suggestedStartLocation,
         };
 
-    internal static FilePickerOpenOptions BuildOpenOptions(string title, string? filter, bool multiple) =>
+    internal static FilePickerOpenOptions BuildOpenOptions(
+        string title, string? filter, bool multiple, IStorageFolder? suggestedStartLocation = null) =>
         new()
         {
             Title = title,
             AllowMultiple = multiple,
             FileTypeFilter = MapFilter(filter),
+            SuggestedStartLocation = suggestedStartLocation,
         };
 
     // No Title: mirrors the WPF SaveFileDialog, which sets none. DefaultExtension gets the bare extension

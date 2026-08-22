@@ -548,7 +548,7 @@ public partial class GalleryWindow : Window
 
         public Task<string[]?> BrowseFoldersAsync(string? initialDirectory = null, string? title = null) => Task.FromResult<string[]?>(null);
 
-        public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null) => Task.FromResult<string[]?>(null);
+        public Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null, string? initialDirectory = null) => Task.FromResult<string[]?>(null);
 
         public Task<string?> BrowseOpenFileAsync(string? title = null, string? filter = null, string? defaultExt = null) => Task.FromResult<string?>(null);
 

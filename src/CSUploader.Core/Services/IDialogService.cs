@@ -47,7 +47,11 @@ public interface IDialogService
     /// (e.g. <c>"All files|*.*"</c>); implementations on non-Win32 dialog stacks must parse it.
     /// <c>null</c> means no filter. Returns the array of full paths chosen, or <c>null</c> on cancel.
     /// </summary>
-    Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null);
+    /// <param name="initialDirectory">Where the picker opens, or null to let the OS choose. Added
+    /// alongside the folder pickers' equivalent, which had it from the start — the file picker
+    /// silently ignored the question, so every "Add files…" began at the OS default no matter how
+    /// many times the user had just browsed somewhere else.</param>
+    Task<string[]?> BrowseFilesAsync(string? title = null, string? filter = null, string? initialDirectory = null);
 
     /// <summary>
     /// Opens a single-select "open file" dialog. <paramref name="filter"/> follows Win32 filter

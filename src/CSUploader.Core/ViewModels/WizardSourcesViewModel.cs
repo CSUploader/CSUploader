@@ -8,9 +8,11 @@ using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CSUploader.Dal;
 using CSUploader.Lib;
 using CSUploader.Lib.Localization;
 using CSUploader.Services;
+using CSUploader.Upload;
 
 namespace CSUploader.ViewModels;
 
@@ -34,16 +36,29 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     /// one of its two inputs.</summary>
     private readonly Action _revalidateHosters;
 
+    /// <summary>Supplies the browse-start mode, the fixed folder, and the remembered one. Null in
+    /// tests that don't care, in which case the pickers behave as they did before the setting.</summary>
+    private readonly AppSettings? _settings;
+
+    /// <summary>Persists the remembered folder so it survives a restart. Null means remember for
+    /// this run only — the in-memory <see cref="AppSettings.LastBrowsedFolder"/> still updates, so
+    /// the wizard behaves correctly either way and only the durability is lost.</summary>
+    private readonly SettingRepository? _settingRepository;
+
     public WizardSourcesViewModel(
         IDialogService dialogService,
         IAppLogger logger,
         Action markSummaryDirty,
-        Action revalidateHosters)
+        Action revalidateHosters,
+        AppSettings? settings = null,
+        SettingRepository? settingRepository = null)
     {
         _dialogService = dialogService;
         _logger = logger;
         _markSummaryDirty = markSummaryDirty;
         _revalidateHosters = revalidateHosters;
+        _settings = settings;
+        _settingRepository = settingRepository;
 
         // Hook collection-changed once: any new entry into Files has its PropertyChanged subscribed
         // so validation auto-refreshes on selection toggles, regardless of which code path added it.
@@ -300,15 +315,16 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     [RelayCommand]
     private async Task AddFoldersAsync()
     {
-        string? startAt = Sources.LastOrDefault(s => s.IsFolder)?.Path;
         string[]? folders = await _dialogService.BrowseFoldersAsync(
-            startAt,
+            ResolveBrowseStart(),
             Localizer.Instance["Wizard_Step0_BrowseDialogTitle"]);
 
         if (folders is null || folders.Length == 0)
         {
             return;
         }
+
+        RememberBrowsedDirectory(folders[0]);
 
         foreach (string folder in folders)
         {
@@ -324,16 +340,91 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     private async Task AddFilesAsync()
     {
         string[]? picked = await _dialogService.BrowseFilesAsync(
-            Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"]);
+            Localizer.Instance["Wizard_Step0_Files_BrowseDialogTitle"],
+            filter: null,
+            initialDirectory: ResolveBrowseStart());
 
         if (picked is null || picked.Length == 0)
         {
             return;
         }
 
+        RememberBrowsedDirectory(picked[0]);
+
         AddFileSources(picked);
         SeedPackageTitleFromFirstSource();
         SourcesChanged();
+    }
+
+    /// <summary>
+    /// Where the next pick should open, per <see cref="AppSettings.BrowseStartMode"/>. Null means
+    /// "no suggestion" and hands the choice back to the OS.
+    /// <para>
+    /// The <see cref="BrowseStartMode.LastUsed"/> arm keeps the pre-setting behaviour as its
+    /// fallback — the last folder added in THIS wizard — so a first run with nothing remembered is
+    /// no worse than before.
+    /// </para>
+    /// </summary>
+    internal string? ResolveBrowseStart()
+    {
+        BrowseStartMode mode = _settings?.BrowseStartMode ?? AppSettings.DefaultBrowseStartMode;
+        return mode switch
+        {
+            BrowseStartMode.SystemDefault => null,
+            BrowseStartMode.FixedFolder => Blank(_settings?.BrowseStartFolder) ? null : _settings!.BrowseStartFolder,
+            _ => Blank(_settings?.LastBrowsedFolder)
+                ? Sources.LastOrDefault(s => s.IsFolder)?.Path
+                : _settings!.LastBrowsedFolder,
+        };
+
+        static bool Blank(string? s) => string.IsNullOrWhiteSpace(s);
+    }
+
+    /// <summary>
+    /// Records the directory the picker was SHOWING when <paramref name="picked"/> was chosen —
+    /// the parent, for both a picked file and a picked folder. Deliberately the parent and not the
+    /// folder itself: reopening one level up shows the pick and its siblings, which is what makes
+    /// "the next season" or "the next release" a single click. A drive root has no parent, so
+    /// nothing is recorded and the previous value stands.
+    /// <para>
+    /// Only <see cref="BrowseStartMode.LastUsed"/> records; the other two modes would never read it,
+    /// and writing a setting nobody consults is just a stray DB row.
+    /// </para>
+    /// </summary>
+    private void RememberBrowsedDirectory(string picked)
+    {
+        if (_settings is null || _settings.BrowseStartMode != BrowseStartMode.LastUsed)
+        {
+            return;
+        }
+
+        string? directory = Path.GetDirectoryName(picked);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        _settings.LastBrowsedFolder = directory;
+        _ = PersistLastBrowsedDirectoryAsync(directory);
+    }
+
+    /// <summary>Fire-and-forget by design: the pick must not wait on a DB write, and losing the
+    /// memory of one directory is not worth surfacing to the user. Logged, not swallowed.</summary>
+    private async Task PersistLastBrowsedDirectoryAsync(string directory)
+    {
+        if (_settingRepository is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _settingRepository.UpsertAsync(SettingKey.LastBrowsedFolder, directory);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log(this, LogType.Error, $"Failed to remember the last browsed folder: {ex.Message}");
+        }
     }
 
     /// <summary>

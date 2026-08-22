@@ -358,8 +358,14 @@ Settings_Upload_Autostart_OnlyIfRunning           = Chỉ khi có lượt tải 
 Settings_Upload_Autostart_Never                   = Không bao giờ
 
 Settings_Upload_Wizard_Title                      = Trình hướng dẫn tải lên
-Settings_Upload_Wizard_Desc                       = Cách bước Hoster Tệp mở ra.
+Settings_Upload_Wizard_Desc                       = Các mặc định khi trình hướng dẫn tải lên mở ra.
 Settings_Upload_WizardHosterFilter                = Hiển thị hoster
+Settings_Upload_BrowseStart                       = “Thêm tệp/thư mục” mở tại
+Settings_Upload_BrowseStart_LastUsed              = Thư mục dùng lần trước
+Settings_Upload_BrowseStart_FixedFolder           = Thư mục cố định
+Settings_Upload_BrowseStart_SystemDefault         = Mặc định hệ thống
+Settings_Upload_BrowseStart_Folder                = Thư mục cố định
+Settings_Upload_BrowseStart_DialogTitle           = Chọn thư mục để trình hướng dẫn bắt đầu
 ```
 
 ---

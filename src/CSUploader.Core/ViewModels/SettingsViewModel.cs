@@ -149,6 +149,41 @@ public partial class SettingsViewModel(
     public partial HosterAccountFilter WizardHosterAccountFilter { get; set; }
         = AppSettings.DefaultWizardHosterAccountFilter;
 
+    /// <summary>Where the wizard's file/folder pickers open.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBrowseStartFolderEnabled))]
+    public partial BrowseStartMode BrowseStartMode { get; set; } = AppSettings.DefaultBrowseStartMode;
+
+    /// <summary>The fixed directory, meaningful only in <see cref="Upload.BrowseStartMode.FixedFolder"/>.</summary>
+    [ObservableProperty]
+    public partial string BrowseStartFolder { get; set; } = string.Empty;
+
+    /// <summary>Greys the folder box out in the two modes that would ignore it, so the row can't
+    /// invite the user to fill in something that has no effect.</summary>
+    public bool IsBrowseStartFolderEnabled => BrowseStartMode == BrowseStartMode.FixedFolder;
+
+    public LocalizedOption<BrowseStartMode>[] BrowseStartModeOptions { get; } =
+    [
+        new(Upload.BrowseStartMode.LastUsed, "Settings_Upload_BrowseStart_LastUsed"),
+        new(Upload.BrowseStartMode.FixedFolder, "Settings_Upload_BrowseStart_FixedFolder"),
+        new(Upload.BrowseStartMode.SystemDefault, "Settings_Upload_BrowseStart_SystemDefault"),
+    ];
+
+    /// <summary>Picks the fixed start folder with the same native dialog the wizard uses. Cancel
+    /// leaves the current value alone rather than blanking it.</summary>
+    [RelayCommand]
+    private async Task BrowseForStartFolderAsync()
+    {
+        string? picked = await _dialogService.BrowseFolderAsync(
+            string.IsNullOrWhiteSpace(BrowseStartFolder) ? null : BrowseStartFolder,
+            Loc("Settings_Upload_BrowseStart_DialogTitle"));
+
+        if (!string.IsNullOrWhiteSpace(picked))
+        {
+            BrowseStartFolder = picked;
+        }
+    }
+
     // ── Notification settings ──
 
     [ObservableProperty]
@@ -340,6 +375,24 @@ public partial class SettingsViewModel(
                     MinimizeToTray = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.BrowseStartMode:
+                    if (Enum.TryParse(setting.Value, out BrowseStartMode browseStartMode))
+                    {
+                        BrowseStartMode = browseStartMode;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.BrowseStartFolder:
+                    BrowseStartFolder = setting.Value ?? string.Empty;
+                    break;
+
+                // No ObservableProperty for this one: it is bookkeeping the wizard writes after each
+                // pick, not a preference, so it goes straight to AppSettings with no Settings row.
+                case var k when k == SettingKey.LastBrowsedFolder:
+                    _settings.LastBrowsedFolder = setting.Value ?? string.Empty;
+                    break;
+
                 case var k when k == SettingKey.WizardHosterAccountFilter:
                     if (Enum.TryParse(setting.Value, out HosterAccountFilter accountFilter))
                     {
@@ -410,6 +463,8 @@ public partial class SettingsViewModel(
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
         _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
+        _settings.BrowseStartMode = BrowseStartMode;
+        _settings.BrowseStartFolder = BrowseStartFolder;
 
         // Resolve the active UI language: saved value → fallback to OS detection if blank.
         // Display the resolved tag on the dropdown so it always reflects what's in effect.
@@ -573,6 +628,22 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = value;
         _trayIconManager?.UpdateVisibility();
         _ = AutoSaveAsync(SettingKey.MinimizeToTray, value ? "true" : "false");
+    }
+
+    partial void OnBrowseStartModeChanged(BrowseStartMode value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.BrowseStartMode = value;
+        _ = AutoSaveAsync(SettingKey.BrowseStartMode, value.ToString());
+    }
+
+    partial void OnBrowseStartFolderChanged(string value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.BrowseStartFolder = value;
+        _ = AutoSaveAsync(SettingKey.BrowseStartFolder, value);
     }
 
     partial void OnWizardHosterAccountFilterChanged(HosterAccountFilter value)
@@ -744,18 +815,6 @@ public partial class SettingsViewModel(
         }
     }
 
-    private async Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
-    {
-        SettingDto? existing = await _settingRepository.FindByKeyAsync(key, cancellationToken);
-
-        if (existing is not null)
-        {
-            existing.Value = value;
-            await _settingRepository.UpdateAsync(existing, cancellationToken);
-        }
-        else
-        {
-            await _settingRepository.InsertAsync(new SettingDto { Key = key, Value = value }, cancellationToken);
-        }
-    }
+    private Task SaveSettingAsync(string key, string value, CancellationToken cancellationToken)
+        => _settingRepository.UpsertAsync(key, value, cancellationToken);
 }

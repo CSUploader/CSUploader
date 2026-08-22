@@ -821,10 +821,28 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Upload Wizard</value>
   </data>
   <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
-    <value>How the wizard's File Hosters step opens.</value>
+    <value>Defaults the upload wizard opens with.</value>
   </data>
   <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
     <value>Show hosters</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart" xml:space="preserve">
+    <value>Add files/folder opens in</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_LastUsed" xml:space="preserve">
+    <value>Last used folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_FixedFolder" xml:space="preserve">
+    <value>A fixed folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_SystemDefault" xml:space="preserve">
+    <value>System default</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_Folder" xml:space="preserve">
+    <value>Fixed folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_DialogTitle" xml:space="preserve">
+    <value>Choose the folder the wizard should start in</value>
   </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Connection Manager</value>

@@ -5,6 +5,7 @@
 
 using Avalonia.Platform.Storage;
 using CSUploader.Services;
+using Moq;
 
 namespace CSUploader.Tests.Avalonia.Services;
 
@@ -157,6 +158,32 @@ public class PickerOptionsTests
         // The member passes null when initialDirectory is absent or TryGetFolderFromPathAsync couldn't
         // resolve it (Reality-check #10) — the builder must carry that through as "no suggestion".
         FolderPickerOpenOptions options = AvaloniaDialogService.BuildFolderOptions("Select", suggestedStartLocation: null);
+
+        Assert.Null(options.SuggestedStartLocation);
+    }
+
+    // ── BuildOpenOptions: the suggested start location the FILE picker never had ──────────────────
+
+    [Fact]
+    public void BuildOpenOptions_CarriesTheSuggestedStartLocation()
+    {
+        // The file picker used to build its options without this at all, so "Add files…" always
+        // opened at the OS default however recently the user had browsed somewhere else. The folder
+        // picker had honoured it from the start; this is the file side catching up.
+        IStorageFolder start = Mock.Of<IStorageFolder>();
+
+        FilePickerOpenOptions options = AvaloniaDialogService.BuildOpenOptions(
+            "Pick", null, multiple: true, suggestedStartLocation: start);
+
+        Assert.Same(start, options.SuggestedStartLocation);
+    }
+
+    [Fact]
+    public void BuildOpenOptions_WithoutAStartLocation_SuggestsNothing()
+    {
+        // Absent, blank, or an unresolvable path all arrive here as null and must stay "no suggestion"
+        // rather than becoming some default the caller never asked for.
+        FilePickerOpenOptions options = AvaloniaDialogService.BuildOpenOptions("Pick", null, multiple: true);
 
         Assert.Null(options.SuggestedStartLocation);
     }

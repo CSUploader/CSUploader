@@ -59,5 +59,13 @@ public static class SettingKey
 
     public static string WizardHosterAccountFilter { get; } = "wizardHosterAccountFilter";
 
+    public static string BrowseStartMode { get; } = "browseStartMode";
+
+    public static string BrowseStartFolder { get; } = "browseStartFolder";
+
+    /// <summary>Bookkeeping, not a preference — written by the wizard after each pick, never shown
+    /// in Settings.</summary>
+    public static string LastBrowsedFolder { get; } = "lastBrowsedFolder";
+
     public static string AllowInvalidServerCertificates { get; } = "allowInvalidServerCertificates";
 }

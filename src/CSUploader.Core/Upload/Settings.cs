@@ -50,6 +50,9 @@ public class AppSettings
     /// default would hide destinations from someone who never asked to.</summary>
     public static HosterAccountFilter DefaultWizardHosterAccountFilter { get; } = HosterAccountFilter.Both;
 
+    /// <summary>Reopen where the user last was — the behaviour that needs no configuring.</summary>
+    public static BrowseStartMode DefaultBrowseStartMode { get; } = BrowseStartMode.LastUsed;
+
     public static bool DefaultAllowInvalidServerCertificates { get; } = false;
 
     // OFF by default, even in DEBUG. When on, EVERY outbound hoster request is rewritten to
@@ -159,6 +162,20 @@ public class AppSettings
     /// <see cref="HosterAccountFilter.Both"/> regardless of this.
     /// </summary>
     public HosterAccountFilter WizardHosterAccountFilter { get; set; } = DefaultWizardHosterAccountFilter;
+
+    /// <summary>Where the wizard's file/folder pickers open. See <see cref="BrowseStartMode"/>.</summary>
+    public BrowseStartMode BrowseStartMode { get; set; } = DefaultBrowseStartMode;
+
+    /// <summary>The fixed directory used when <see cref="BrowseStartMode"/> is
+    /// <see cref="Upload.BrowseStartMode.FixedFolder"/>. Blank means "no suggestion".</summary>
+    public string BrowseStartFolder { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The directory the last pick was made in, remembered across restarts for
+    /// <see cref="Upload.BrowseStartMode.LastUsed"/>. Bookkeeping the wizard writes, not something
+    /// the user sets — it has no Settings row.
+    /// </summary>
+    public string LastBrowsedFolder { get; set; } = string.Empty;
 
     /// <summary>
     /// When true, a proxy that fails a connectivity test or an upload is automatically

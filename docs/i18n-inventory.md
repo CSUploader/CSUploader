@@ -368,8 +368,14 @@ Settings_Upload_Autostart_OnlyIfRunning           = Only if uploads were running
 Settings_Upload_Autostart_Never                   = Never
 
 Settings_Upload_Wizard_Title                      = Upload Wizard
-Settings_Upload_Wizard_Desc                       = How the wizard's File Hosters step opens.
+Settings_Upload_Wizard_Desc                       = Defaults the upload wizard opens with.
 Settings_Upload_WizardHosterFilter                = Show hosters
+Settings_Upload_BrowseStart                       = Add files/folder opens in
+Settings_Upload_BrowseStart_LastUsed              = Last used folder
+Settings_Upload_BrowseStart_FixedFolder           = A fixed folder
+Settings_Upload_BrowseStart_SystemDefault         = System default
+Settings_Upload_BrowseStart_Folder                = Fixed folder
+Settings_Upload_BrowseStart_DialogTitle           = Choose the folder the wizard should start in
 ```
 
 ---

@@ -147,7 +147,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
@@ -171,7 +171,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             await vm.Sources.AddFilesCommand.ExecuteAsync(null);
@@ -195,7 +195,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA])
                 .ReturnsAsync([tempA.ToUpperInvariant()]);
 
@@ -225,7 +225,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([fileA])
                 .ReturnsAsync([fileB]);
 
@@ -253,7 +253,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.SetupSequence(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([tempA])
                 .ReturnsAsync([tempB]);
 
@@ -320,7 +320,7 @@ public class UploadWizardViewModelTests : IDisposable
             Mock<IDialogService> dialog = new();
             dialog.Setup(d => d.BrowseFoldersAsync(It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([dir]);
-            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>()))
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync([loose]);
 
             UploadWizardViewModel vm = CreateVm(dialog.Object);
@@ -682,7 +682,7 @@ public class UploadWizardViewModelTests : IDisposable
         try
         {
             Mock<IDialogService> dialog = new();
-            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>())).ReturnsAsync([temp]);
+            dialog.Setup(d => d.BrowseFilesAsync(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>())).ReturnsAsync([temp]);
             UploadWizardViewModel vm = CreateVm(dialog.Object);
             await vm.Sources.AddFilesCommand.ExecuteAsync(null);
 

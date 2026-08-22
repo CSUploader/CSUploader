@@ -44,7 +44,8 @@ public partial class UploadWizardViewModel : ObservableObject
         IAppLogger logger,
         AppSettings settings,
         IFileHosterRegistry? fileHosterRegistry = null,
-        IAccountVerifier? accountVerifier = null)
+        IAccountVerifier? accountVerifier = null,
+        SettingRepository? settingRepository = null)
     {
         this.packageManager = packageManager;
         this.dialogService = dialogService;
@@ -59,7 +60,9 @@ public partial class UploadWizardViewModel : ObservableObject
             dialogService,
             logger,
             markSummaryDirty: () => _summaryDirty = true,
-            revalidateHosters: () => Hosters!.RecomputeHosterValidation());
+            revalidateHosters: () => Hosters!.RecomputeHosterValidation(),
+            settings,
+            settingRepository);
         Hosters = new WizardHostersViewModel(
             fileHosterLoginRepository,
             dialogService,

@@ -770,10 +770,28 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Upload Wizard</value>
   </data>
   <data name="Settings_Upload_Wizard_Desc" xml:space="preserve">
-    <value>Kung paano bubukas ang hakbang na File Hosters.</value>
+    <value>Ang mga default kapag bumukas ang upload wizard.</value>
   </data>
   <data name="Settings_Upload_WizardHosterFilter" xml:space="preserve">
     <value>Ipakita ang mga hoster</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart" xml:space="preserve">
+    <value>Bubukas ang “Add files/folder” sa</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_LastUsed" xml:space="preserve">
+    <value>Huling ginamit na folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_FixedFolder" xml:space="preserve">
+    <value>Nakatakdang folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_SystemDefault" xml:space="preserve">
+    <value>Default ng system</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_Folder" xml:space="preserve">
+    <value>Nakatakdang folder</value>
+  </data>
+  <data name="Settings_Upload_BrowseStart_DialogTitle" xml:space="preserve">
+    <value>Piliin ang folder kung saan magsisimula ang wizard</value>
   </data>
   <data name="Settings_Conn_Title" xml:space="preserve">
     <value>Connection Manager</value>

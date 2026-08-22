@@ -22,6 +22,26 @@ public class SettingRepository(IDbContextFactory<CSUploaderDbContext> dbFactory)
         return entity is not null ? MapToDto(entity) : null;
     }
 
+    /// <summary>
+    /// Writes <paramref name="value"/> for <paramref name="key"/>, inserting the row when it is not
+    /// there yet. Lifted here out of SettingsViewModel, which owned the only copy: the upload wizard
+    /// now records the last browsed folder too, and two hand-rolled find-then-insert-or-update
+    /// blocks is one more than this deserves.
+    /// </summary>
+    public async Task UpsertAsync(string key, string value, CancellationToken cancellationToken = default)
+    {
+        SettingDto? existing = await FindByKeyAsync(key, cancellationToken);
+        if (existing is not null)
+        {
+            existing.Value = value;
+            await UpdateAsync(existing, cancellationToken);
+        }
+        else
+        {
+            await InsertAsync(new SettingDto { Key = key, Value = value }, cancellationToken);
+        }
+    }
+
     public Task<int> DeleteAsync(int id, CancellationToken cancellationToken = default)
         => DeleteByPredicateAsync(dbSetting => dbSetting.Id == id, cancellationToken);
 
