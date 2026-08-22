@@ -628,6 +628,8 @@ Wizard_Step2_FilterLabel        = Filter
 Wizard_Step2_FilterWatermark    = Hoster name…
 Wizard_Step2_FilterAnonymous    = Anonymous only
 Wizard_Step2_FilterAnonymousTip = Show only hosters that accept uploads without an account.
+Wizard_Step2_FilterNoCaptcha    = No download captcha
+Wizard_Step2_FilterNoCaptchaTip = Show only hosters whose ordinary free-download flow was verified not to require a captcha. Unverified hosters (—) are hidden.
 Wizard_Step2_FilterClear        = Clear filter
 Wizard_Step2_FilterCount_Format = {0} of {1} shown   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = This hoster's limits would be exceeded:

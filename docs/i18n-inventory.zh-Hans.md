@@ -595,6 +595,8 @@ Wizard_Step2_FilterLabel        = 筛选
 Wizard_Step2_FilterWatermark    = 网盘名称…
 Wizard_Step2_FilterAnonymous    = 仅匿名
 Wizard_Step2_FilterAnonymousTip = 仅显示无需账户即可上传的网盘。
+Wizard_Step2_FilterNoCaptcha    = 无需人机验证
+Wizard_Step2_FilterNoCaptchaTip = 仅显示已确认在常规免费下载流程中无需人机验证的网盘。未确认（—）的网盘将被隐藏。
 Wizard_Step2_FilterClear        = 清除筛选
 Wizard_Step2_FilterCount_Format = 显示 {0} / {1}   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = 该托管商的限制将被超出：

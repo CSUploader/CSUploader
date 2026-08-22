@@ -1330,6 +1330,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>Walang captcha</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>Ipakita lamang ang mga hoster na kumpirmadong hindi nangangailangan ng captcha sa karaniwang proseso ng libreng pag-download. Nakatago ang mga hindi pa nakukumpirma (—).</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>I-clear ang salain</value>
   </data>

@@ -1330,6 +1330,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>계정 없이 업로드할 수 있는 호스터만 표시합니다.</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>다운로드 캡차 없음</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>일반적인 무료 다운로드 과정에서 캡차가 필요 없다고 확인된 호스터만 표시합니다. 확인되지 않은(—) 호스터는 숨겨집니다.</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>필터 지우기</value>
   </data>

@@ -1420,6 +1420,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>Show only hosters that accept uploads without an account.</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>No download captcha</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>Show only hosters whose ordinary free-download flow was verified not to require a captcha. Unverified hosters (—) are hidden.</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>Clear filter</value>
   </data>

@@ -124,14 +124,28 @@ public sealed partial class WizardHostersViewModel : ObservableObject
 
     /// <summary>
     /// Narrows the File Hosters step to hosters that accept uploads with no account
-    /// (<see cref="FileHosterSelectionViewModel.SupportsAnonymous"/>). Combines with
-    /// <see cref="HosterFilterText"/> — both must match.
+    /// (<see cref="FileHosterSelectionViewModel.SupportsAnonymous"/>). Combines with the other
+    /// filters — all must match.
     /// </summary>
     [ObservableProperty]
     public partial bool AnonymousHostersOnly { get; set; }
 
     /// <summary>
-    /// Raised when either hoster filter changes. The head re-evaluates its DataGrid collection view
+    /// Narrows the File Hosters step to hosters whose ORDINARY free-download flow was verified not
+    /// to require a captcha (<see cref="Upload.Pipeline.DownloadCaptchaRequirement.NotRequired"/>) —
+    /// for picking destinations that put no puzzle in a downloader's way. Combines with the other
+    /// filters; all must match.
+    /// <para>
+    /// Unverified hosters (the column's em dash) and hosters with no pipeline verdict are hidden,
+    /// not kept: this filter promises no captcha, and Unknown has never meant that. See
+    /// <c>docs/hoster-download-captcha.md</c>.
+    /// </para>
+    /// </summary>
+    [ObservableProperty]
+    public partial bool NoDownloadCaptchaOnly { get; set; }
+
+    /// <summary>
+    /// Raised when any hoster filter changes. The head re-evaluates its DataGrid collection view
     /// in response — the same split the Uploads tab uses (<c>UploadsViewModel.FilterInvalidated</c>),
     /// which keeps this ViewModel framework-free and, more importantly, keeps the filter a VIEW
     /// concern: <see cref="FileHosters"/> itself is never touched, so a hoster ticked and then
@@ -140,9 +154,11 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     public event EventHandler? HosterFilterInvalidated;
 
     /// <summary>
-    /// The File Hosters step's filter predicate, applied by the head to its collection view. A row
-    /// passes when its name contains <see cref="HosterFilterText"/> (case-insensitive, trimmed) AND,
-    /// when <see cref="AnonymousHostersOnly"/> is set, the hoster supports anonymous upload.
+    /// The File Hosters step's filter predicate, applied by the head to its collection view. Every
+    /// active filter must match: the name contains <see cref="HosterFilterText"/> (case-insensitive,
+    /// trimmed), AND — when <see cref="AnonymousHostersOnly"/> is set — the hoster supports
+    /// anonymous upload, AND — when <see cref="NoDownloadCaptchaOnly"/> is set — its downloads were
+    /// verified captcha-free (an unverified verdict does NOT pass; see that property).
     /// </summary>
     public bool MatchesHosterFilter(object item)
     {
@@ -156,6 +172,12 @@ public sealed partial class WizardHostersViewModel : ObservableObject
             return false;
         }
 
+        if (NoDownloadCaptchaOnly
+            && hoster.DownloadCaptcha != Upload.Pipeline.DownloadCaptchaRequirement.NotRequired)
+        {
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(HosterFilterText))
         {
             return true;
@@ -164,9 +186,10 @@ public sealed partial class WizardHostersViewModel : ObservableObject
         return hoster.FileHosterName.Contains(HosterFilterText.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>True when either filter is narrowing the list — drives the "showing N of M" hint and
+    /// <summary>True when any filter is narrowing the list — drives the "showing N of M" hint and
     /// the Clear button, both of which are noise when everything is visible.</summary>
-    public bool IsHosterFilterActive => AnonymousHostersOnly || !string.IsNullOrWhiteSpace(HosterFilterText);
+    public bool IsHosterFilterActive
+        => AnonymousHostersOnly || NoDownloadCaptchaOnly || !string.IsNullOrWhiteSpace(HosterFilterText);
 
     /// <summary>How many hosters the current filter leaves visible.</summary>
     public int VisibleHosterCount => FileHosters.Count(MatchesHosterFilter);
@@ -242,17 +265,20 @@ public sealed partial class WizardHostersViewModel : ObservableObject
     private IEnumerable<FileHosterSelectionViewModel> ListedUsableHosters()
         => FileHosters.Where(h => h.CanUse && MatchesHosterFilter(h));
 
-    /// <summary>Resets both filters — the one-click way back to the whole list.</summary>
+    /// <summary>Resets all three filters — the one-click way back to the whole list.</summary>
     [RelayCommand]
     private void ClearHosterFilter()
     {
         HosterFilterText = string.Empty;
         AnonymousHostersOnly = false;
+        NoDownloadCaptchaOnly = false;
     }
 
     partial void OnHosterFilterTextChanged(string value) => RaiseHosterFilterChanged();
 
     partial void OnAnonymousHostersOnlyChanged(bool value) => RaiseHosterFilterChanged();
+
+    partial void OnNoDownloadCaptchaOnlyChanged(bool value) => RaiseHosterFilterChanged();
 
     private void RaiseHosterFilterChanged()
     {
