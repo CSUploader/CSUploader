@@ -634,6 +634,50 @@ public class UploadWizardStepsTests
     private static Control GlyphIn(DataGridRow row)
         => row.GetVisualDescendants().OfType<global::Avalonia.Controls.Shapes.Path>().First(p => p.Name == "UseLockGlyph");
 
+    // ── Step 0: the drop hint is withheld where the platform cannot deliver a drop ──
+
+    [AvaloniaFact]
+    public void DropHint_IsHidden_WhereThePlatformCannotDeliverADrop()
+    {
+        // Avalonia's X11 backend implements no XDND, so a Linux drop never arrives and the hint
+        // promises something that silently does nothing — which is how it got reported as a bug.
+        // Forced rather than read from the OS: this suite only ever runs on Windows, where the real
+        // value is true, so the hidden case — the actual fix — would otherwise go unasserted.
+        using VmHarness harness = new();
+        harness.Vm.Sources.SupportsFileDrop = false;
+        harness.Vm.CurrentStep = 0;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            Assert.False(wizard.DropHint.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DropHint_IsShown_WhereDropsDoArrive()
+    {
+        // The other half: the binding must not simply hide it always, which would "pass" the test
+        // above while removing the affordance from Windows and macOS too.
+        using VmHarness harness = new();
+        harness.Vm.Sources.SupportsFileDrop = true;
+        harness.Vm.CurrentStep = 0;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            Assert.True(wizard.DropHint.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static (Window Window, UploadWizardWindow Wizard) Show(UploadWizardViewModel vm)
     {
         UploadWizardWindow wizard = new(vm);

@@ -28,6 +28,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="CSUploader.Core.Tests" />
     <InternalsVisibleTo Include="CSUploader" />
+    <!-- The Avalonia head's own suite. It needs the internal seams that let a HEAD test force a
+         platform-dependent value (WizardSourcesViewModel.SupportsFileDrop) — otherwise a binding
+         that only differs on Linux can never be asserted on the Windows-only CI run. -->
+    <InternalsVisibleTo Include="CSUploader.Tests" />
   </ItemGroup>
 
 </Project>

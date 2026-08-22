@@ -357,6 +357,32 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Whether this platform can actually receive a dropped file, which is what decides if the
+    /// step's "…or drop files and folders anywhere on this page" hint is shown at all.
+    /// <para>
+    /// FALSE ON LINUX, and not as a precaution: Avalonia's X11 backend implements no XDND. Verified
+    /// against the shipped assemblies — Avalonia.Win32 carries a full OLE drop target
+    /// (<c>OleDropTarget</c>, <c>IDropTarget</c>, <c>DROPFILES</c>) and Avalonia.Native a macOS one
+    /// (<c>AvaloniaNativeDragSource</c>, <c>DndCallback</c>), while Avalonia.X11 defines no
+    /// drag-drop types and, decisively, none of the <c>Xdnd*</c> atoms the protocol requires. It
+    /// therefore never sets <c>XdndAware</c> on its windows, so no file manager will even offer one
+    /// a drop. Same in 11.3.12, 11.3.18 and 12.0.5, so this is not waiting on a version bump.
+    /// </para>
+    /// <para>
+    /// The drop HANDLER in the head is left wired regardless — it costs nothing when the platform
+    /// never raises the event, and the feature comes back on its own if Avalonia implements XDND.
+    /// Only the promise is withheld: advertising a drop that silently does nothing reads as a
+    /// broken app rather than an absent feature, which is exactly how it was reported.
+    /// </para>
+    /// </summary>
+    /// <remarks>The setter is internal so a head test can force it. CI runs the head's suite on
+    /// Windows only, where this is always true — so without the seam the FALSE case, which is the
+    /// entire fix, could never be exercised at all. (A misspelt binding is not the risk here:
+    /// compiled bindings plus the panel's x:DataType make that a build error, verified by
+    /// deliberately breaking it.) Nothing in the app writes this.</remarks>
+    public bool SupportsFileDrop { get; internal set; } = !OperatingSystem.IsLinux();
+
+    /// <summary>
     /// Where the next pick should open. A configured
     /// <see cref="AppSettings.DefaultUploadDirectory"/> always wins; blank falls back to wherever
     /// the last pick was made, and blank again to the last folder added in THIS wizard — the

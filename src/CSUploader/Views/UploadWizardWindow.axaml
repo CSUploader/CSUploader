@@ -190,7 +190,11 @@
                   MinWidth="130" Padding="10,6" Command="{Binding AddFoldersCommand}" />
           <Button x:Name="AddFilesButton" Content="{loc:Loc Wizard_Step0_AddFiles}"
                   MinWidth="130" Padding="10,6" Margin="8,0,0,0" Command="{Binding AddFilesCommand}" />
-          <TextBlock Text="{loc:Loc Wizard_Step0_DropHint}" FontSize="11" Margin="12,0,0,0"
+          <!-- Hidden where the platform cannot deliver a drop — Linux, because Avalonia's X11
+               backend implements no XDND (see WizardSourcesViewModel.SupportsFileDrop). The drop
+               handler stays wired either way; it is the PROMISE that has to be withheld. -->
+          <TextBlock x:Name="DropHint" Text="{loc:Loc Wizard_Step0_DropHint}" FontSize="11" Margin="12,0,0,0"
+                     IsVisible="{Binding SupportsFileDrop}"
                      VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
         </StackPanel>
 
