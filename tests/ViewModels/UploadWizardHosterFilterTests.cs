@@ -67,10 +67,16 @@ public class UploadWizardHosterFilterTests : IDisposable
 
         // A realistic mix: two anonymous-capable, two account-only, and names that overlap so a
         // substring filter has something to discriminate.
-        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("Catbox", [], supportsAnonymous: true));
-        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("World Files", [], supportsAnonymous: true));
-        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("Rapidgator", [Account("Rapidgator")]));
-        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("FileCat", [Account("FileCat")]));
+        // Captcha verdicts are each hoster's real one (docs/hoster-download-captcha.md), so the
+        // captcha filter is exercised against the same shape the wizard builds at runtime.
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "Catbox", [], supportsAnonymous: true, downloadCaptcha: DownloadCaptchaRequirement.NotRequired));
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "World Files", [], supportsAnonymous: true, downloadCaptcha: DownloadCaptchaRequirement.Required));
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "Rapidgator", [Account("Rapidgator")], downloadCaptcha: DownloadCaptchaRequirement.Required));
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "FileCat", [Account("FileCat")], downloadCaptcha: DownloadCaptchaRequirement.Required));
     }
 
     public void Dispose()
@@ -121,6 +127,51 @@ public class UploadWizardHosterFilterTests : IDisposable
     }
 
     [Fact]
+    public void NoDownloadCaptchaOnly_KeepsOnlyHostersVerifiedCaptchaFree()
+    {
+        // The point of the toggle: "show me hosts my downloaders can just download from".
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
+
+        Assert.Equal(["Catbox"], Visible());
+        Assert.True(_vm.Hosters.IsHosterFilterActive);
+    }
+
+    [Fact]
+    public void NoDownloadCaptchaOnly_HidesUnverifiedHosters_BecauseADashIsNotANo()
+    {
+        // The honesty rule the whole column is built on: Unknown means "not verified", never "no
+        // captcha". Neither an unverified hoster nor one with no pipeline verdict at all may pass a
+        // filter whose promise is that the downloader won't meet a captcha.
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "Xubster", [Account("Xubster")], downloadCaptcha: DownloadCaptchaRequirement.Unknown));
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel("Nowhere", [Account("Nowhere")]));
+
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
+
+        Assert.Equal(["Catbox"], Visible());
+    }
+
+    [Fact]
+    public void AllThreeFiltersCombine()
+    {
+        // FileGarden is captcha-free but account-only, so neither toggle can stand in for the
+        // other — each has to do its own work for these assertions to hold.
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "FileGarden", [Account("FileGarden")], downloadCaptcha: DownloadCaptchaRequirement.NotRequired));
+
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
+        Assert.Equal(["Catbox", "FileGarden"], Visible());
+
+        // Anonymous-only drops FileGarden, which the captcha filter had kept.
+        _vm.Hosters.AnonymousHostersOnly = true;
+        Assert.Equal(["Catbox"], Visible());
+
+        // …and the name filter still applies on top of both: nothing survives all three.
+        _vm.Hosters.HosterFilterText = "world";
+        Assert.Empty(Visible());
+    }
+
+    [Fact]
     public void TheSummaryCountsWhatIsVisible_OutOfTheWholeList()
     {
         _vm.Hosters.HosterFilterText = "cat";
@@ -131,27 +182,30 @@ public class UploadWizardHosterFilterTests : IDisposable
     }
 
     [Fact]
-    public void EditingEitherFilter_RaisesTheInvalidationTheHeadRefreshesOn()
+    public void EditingAnyFilter_RaisesTheInvalidationTheHeadRefreshesOn()
     {
         int raised = 0;
         _vm.Hosters.HosterFilterInvalidated += (_, _) => raised++;
 
         _vm.Hosters.HosterFilterText = "cat";
         _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
 
-        Assert.Equal(2, raised);
+        Assert.Equal(3, raised);
     }
 
     [Fact]
-    public void ClearingResetsBothFilters()
+    public void ClearingResetsEveryFilter()
     {
         _vm.Hosters.HosterFilterText = "cat";
         _vm.Hosters.AnonymousHostersOnly = true;
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
 
         _vm.Hosters.ClearHosterFilterCommand.Execute(null);
 
         Assert.Equal(string.Empty, _vm.Hosters.HosterFilterText);
         Assert.False(_vm.Hosters.AnonymousHostersOnly);
+        Assert.False(_vm.Hosters.NoDownloadCaptchaOnly);
         Assert.False(_vm.Hosters.IsHosterFilterActive);
         Assert.Equal(4, _vm.Hosters.VisibleHosterCount);
     }
@@ -221,6 +275,24 @@ public class UploadWizardHosterFilterTests : IDisposable
 
         Assert.All(_vm.Hosters.FileHosters.Where(h => h.SupportsAnonymous), h => Assert.True(h.Use));
         Assert.All(_vm.Hosters.FileHosters.Where(h => !h.SupportsAnonymous), h => Assert.False(h.Use));
+    }
+
+    [Fact]
+    public void CheckAll_WithTheCaptchaFilterOn_TicksOnlyTheVerifiedCaptchaFreeRows()
+    {
+        // The bulk action a captcha-conscious user actually performs: filter to the captcha-free
+        // hosts, then tick everything shown. Nothing captcha-gated — or merely unverified — may be
+        // swept in, because those rows aren't listed.
+        _vm.Hosters.FileHosters.Add(new FileHosterSelectionViewModel(
+            "Xubster", [Account("Xubster")], downloadCaptcha: DownloadCaptchaRequirement.Unknown));
+        _vm.Hosters.NoDownloadCaptchaOnly = true;
+
+        _vm.Hosters.AllListedHostersChecked = true;
+
+        Assert.True(_vm.Hosters.FileHosters.First(h => h.FileHosterName == "Catbox").Use);
+        Assert.All(
+            _vm.Hosters.FileHosters.Where(h => h.FileHosterName != "Catbox"),
+            h => Assert.False(h.Use));
     }
 
     [Fact]

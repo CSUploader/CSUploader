@@ -1330,6 +1330,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>Không cần CAPTCHA</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>Chỉ hiển thị các nhà lưu trữ đã được xác minh là không cần CAPTCHA trong quy trình tải xuống miễn phí thông thường. Các nhà lưu trữ chưa được xác minh (—) sẽ bị ẩn.</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>Xóa bộ lọc</value>
   </data>

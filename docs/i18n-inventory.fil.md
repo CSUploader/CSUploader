@@ -595,6 +595,8 @@ Wizard_Step2_FilterLabel        = Salain
 Wizard_Step2_FilterWatermark    = Pangalan ng hoster…
 Wizard_Step2_FilterAnonymous    = Anonymous lamang
 Wizard_Step2_FilterAnonymousTip = Ipakita lamang ang mga hoster na tumatanggap ng upload nang walang account.
+Wizard_Step2_FilterNoCaptcha    = Walang captcha
+Wizard_Step2_FilterNoCaptchaTip = Ipakita lamang ang mga hoster na kumpirmadong hindi nangangailangan ng captcha sa karaniwang proseso ng libreng pag-download. Nakatago ang mga hindi pa nakukumpirma (—).
 Wizard_Step2_FilterClear        = I-clear ang salain
 Wizard_Step2_FilterCount_Format = {0} sa {1} ang ipinapakita   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na ito:

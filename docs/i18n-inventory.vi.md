@@ -603,6 +603,8 @@ Wizard_Step2_FilterLabel        = Bộ lọc
 Wizard_Step2_FilterWatermark    = Tên nhà lưu trữ…
 Wizard_Step2_FilterAnonymous    = Chỉ ẩn danh
 Wizard_Step2_FilterAnonymousTip = Chỉ hiển thị các nhà lưu trữ chấp nhận tải lên không cần tài khoản.
+Wizard_Step2_FilterNoCaptcha    = Không cần CAPTCHA
+Wizard_Step2_FilterNoCaptchaTip = Chỉ hiển thị các nhà lưu trữ đã được xác minh là không cần CAPTCHA trong quy trình tải xuống miễn phí thông thường. Các nhà lưu trữ chưa được xác minh (—) sẽ bị ẩn.
 Wizard_Step2_FilterClear        = Xóa bộ lọc
 Wizard_Step2_FilterCount_Format = Hiển thị {0} trong {1}   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này sẽ bị vượt quá:

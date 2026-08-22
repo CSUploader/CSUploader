@@ -324,6 +324,57 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the captcha-free filter checkbox is wired to the grid ──
+
+    [AvaloniaFact]
+    public void HostersFilterBar_NoCaptchaCheckbox_FiltersTheGridToVerifiedCaptchaFreeHosters()
+    {
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel catbox = new(
+            "Catbox",
+            [],
+            supportsAnonymous: true,
+            downloadCaptcha: CSUploader.Upload.Pipeline.DownloadCaptchaRequirement.NotRequired);
+        FileHosterSelectionViewModel rapidgator = new(
+            "Rapidgator",
+            [new FileHosterLoginDto { FileHosterName = "Rapidgator", Username = "me" }],
+            downloadCaptcha: CSUploader.Upload.Pipeline.DownloadCaptchaRequirement.Required);
+        FileHosterSelectionViewModel unverified = new(
+            "Xubster",
+            [new FileHosterLoginDto { FileHosterName = "Xubster", Username = "me" }],
+            downloadCaptcha: CSUploader.Upload.Pipeline.DownloadCaptchaRequirement.Unknown);
+        harness.Vm.Hosters.FileHosters.Add(catbox);
+        harness.Vm.Hosters.FileHosters.Add(rapidgator);
+        harness.Vm.Hosters.FileHosters.Add(unverified);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            CheckBox box = wizard.GetVisualDescendants().OfType<CheckBox>().First(
+                c => Equals(c.Content, CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_FilterNoCaptcha"]));
+            DataGridCollectionView view = Assert.IsType<DataGridCollectionView>(wizard.fileHostersGrid.ItemsSource);
+            Assert.Equal(3, view.Count);
+
+            box.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+
+            // Ticking the box drives the VM flag, and the grid's view re-filters to the one hoster
+            // whose downloads were VERIFIED captcha-free — the unverified dash is hidden, not kept.
+            Assert.True(harness.Vm.Hosters.NoDownloadCaptchaOnly);
+            Assert.Single(view);
+            Assert.Contains(catbox, view.Cast<object>());
+            Assert.DoesNotContain(unverified, view.Cast<object>());
+
+            // …and the row filtered out of sight keeps whatever tick it had: the filter is a view.
+            Assert.Contains(rapidgator, harness.Vm.Hosters.FileHosters);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: the two cap columns render the row's text, including "No limit" for the common case ──
 
     [AvaloniaFact]

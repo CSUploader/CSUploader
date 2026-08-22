@@ -1330,6 +1330,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>仅显示无需账户即可上传的网盘。</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>无需人机验证</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>仅显示已确认在常规免费下载流程中无需人机验证的网盘。未确认（—）的网盘将被隐藏。</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>清除筛选</value>
   </data>

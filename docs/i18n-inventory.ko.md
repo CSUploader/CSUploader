@@ -595,6 +595,8 @@ Wizard_Step2_FilterLabel        = 필터
 Wizard_Step2_FilterWatermark    = 호스터 이름…
 Wizard_Step2_FilterAnonymous    = 익명만
 Wizard_Step2_FilterAnonymousTip = 계정 없이 업로드할 수 있는 호스터만 표시합니다.
+Wizard_Step2_FilterNoCaptcha    = 다운로드 캡차 없음
+Wizard_Step2_FilterNoCaptchaTip = 일반적인 무료 다운로드 과정에서 캡차가 필요 없다고 확인된 호스터만 표시합니다. 확인되지 않은(—) 호스터는 숨겨집니다.
 Wizard_Step2_FilterClear        = 필터 지우기
 Wizard_Step2_FilterCount_Format = {1}개 중 {0}개 표시   # {0} = visible hosters, {1} = total hosters
 Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:

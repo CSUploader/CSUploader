@@ -1330,6 +1330,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Wizard_Step2_FilterAnonymousTip" xml:space="preserve">
     <value>アカウントなしでアップロードできるホスターのみを表示します。</value>
   </data>
+  <data name="Wizard_Step2_FilterNoCaptcha" xml:space="preserve">
+    <value>DL時CAPTCHAなし</value>
+  </data>
+  <data name="Wizard_Step2_FilterNoCaptchaTip" xml:space="preserve">
+    <value>通常の無料ダウンロード時にCAPTCHAが不要と確認されたホスターのみを表示します。未確認（—）のホスターは非表示になります。</value>
+  </data>
   <data name="Wizard_Step2_FilterClear" xml:space="preserve">
     <value>フィルターをクリア</value>
   </data>
