@@ -4,6 +4,38 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-08-22
+
+The upload wizard remembers how you work: filter the hoster list by upload mode, and point the file
+pickers at the folder you actually upload from. Plus two fixes for things Linux users were seeing
+and Windows users were not. See [docs/release-notes/v1.4.5.md](docs/release-notes/v1.4.5.md) for the
+full notes.
+
+### Added
+
+- **Filter the hoster list by upload mode.** The File Hosters step's "Anonymous only" checkbox
+  becomes an **Accounts** dropdown — **Both**, **Anonymous only**, or **Account only** — and
+  Settings gains the mode the wizard opens on, for anyone who always uploads the same way. "Account
+  only" means hosters that *offer* accounts, not merely the ones that refuse anonymous uploads: the
+  two overlap, so catbox, gofile, ufile, upload.ee and UpZur appear under either. It ANDs with the
+  name box and "No download captcha" as before, and Clear still returns to Both.
+- **A "Default upload directory" setting** (Settings → Upload). "Add files…" and "Add folder…" open
+  there. Leave it empty — the default — and they reopen wherever you last browsed, remembered across
+  restarts; what gets remembered is the folder's *parent*, so the next season or the next release is
+  one click away. Underneath, the file picker gained a start directory it never had: it used to open
+  at the OS default no matter where you had just been.
+
+### Fixed
+
+- **The "Download captcha?" column header broke mid-word** into "Downloa / d captcha?" on Linux. The
+  column's 80px left the header 60px of text budget against a 57px string — three pixels, which held
+  in Segoe UI and did not in the wider default UI fonts. It is 100px now, clear by 40%. The wizard
+  window also went 850 → 940 so the Account column keeps its width.
+- **The wizard no longer advertises drag-and-drop on Linux**, where it cannot work: Avalonia's X11
+  backend implements no XDND, so a dropped file never arrives. Promising it made the app look broken
+  rather than the feature absent. Windows and macOS are unchanged, and the handler stays wired
+  everywhere so the feature returns by itself if Avalonia implements XDND.
+
 ## [1.4.4] - 2026-08-22
 
 Hoster size caps now read in the units their hosts state them in: DropMB's cell says **512 MB**, the
@@ -381,6 +413,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.4.5]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.5
 [1.4.4]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.4
 [1.4.3]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.3
 [1.4.2]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.2
