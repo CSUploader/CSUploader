@@ -17,6 +17,18 @@ namespace CSUploader.Upload.Pipeline;
 /// <c>FileStream</c> gets wrong. It is also Task-based, so it can exercise overlap and cancellation
 /// at all; the synchronous seam it replaced could do neither.
 /// </para>
+/// <para>
+/// Two contracts an implementation must honour, stated because they are easy to miss when this
+/// pattern is copied:
+/// </para>
+/// <list type="bullet">
+///   <item><c>reportProgress</c> takes CUMULATIVE bytes sent within THIS part, not a delta and not
+///   an absolute file position. The aggregator sums across parts and keeps a high-water mark, so a
+///   delta would double-count and an absolute position would count the file several times.</item>
+///   <item>The returned task must not complete until the implementation has finished with
+///   <c>body</c>. The slice shares one anchor file handle that is disposed as soon as every part's
+///   task completes, so reading afterwards is a use-after-dispose.</item>
+/// </list>
 /// </summary>
 internal delegate Task<HttpResponseSnapshot> PutPartHandler(
     string url,

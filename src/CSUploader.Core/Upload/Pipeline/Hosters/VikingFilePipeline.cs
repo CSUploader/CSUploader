@@ -21,9 +21,11 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <item><b>Initiate.</b> <c>POST /api/get-upload-url</c> with the file <c>size</c> →
 ///   <c>{uploadId, key, partSize, numberParts, urls[]}</c>. The URLs are <b>Cloudflare R2 presigned
 ///   PUTs</b> — the same shape as storage.to's large-file path, so this reuses
-///   <see cref="HttpHandler.PutChunkAsync"/> and <see cref="ChunkSliceStream"/>.</item>
-///   <item><b>PUT each part</b> and keep its <c>ETag</c> response header. R2 returns the ETag quoted;
-///   <see cref="HttpResponseSnapshot"/> already unquotes it.</item>
+///   <see cref="HttpHandler.PutChunkAsync"/>, with a <see cref="FileSliceReader"/> slice per part
+///   so several parts can be in flight at once.</item>
+///   <item><b>PUT each part</b> and keep its <c>ETag</c> response header. R2 returns the ETag
+///   quoted and <see cref="HttpResponseSnapshot"/> keeps it verbatim, quotes included — which is
+///   what complete-upload echoes back, so it must not be stripped.</item>
 ///   <item><b>Finalise.</b> <c>POST /api/complete-upload</c> with <c>key</c>, <c>uploadId</c>,
 ///   <c>name</c>, an empty <c>user</c>, and the parts as <c>parts[i][PartNumber]</c> /
 ///   <c>parts[i][ETag]</c> → <c>{name, size, hash, url}</c>. The share link is that <c>url</c>
@@ -57,6 +59,18 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
 
     public VikingFilePipeline()
     {
+    }
+
+    /// <summary>
+    /// Test ctor that stubs ONLY the two API form POSTs, leaving the part PUTs to go through the
+    /// real <see cref="HttpHandler"/>. That is what lets a test cover the production call — the
+    /// slice, the speed budget, and the progress hook — which the fully-stubbed ctor below bypasses
+    /// entirely.
+    /// </summary>
+    internal VikingFilePipeline(
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride)
+    {
+        _postFormOverride = postFormOverride;
     }
 
     /// <summary>Test ctor — drives the two API form POSTs and each part PUT from canned responses, so
@@ -179,6 +193,12 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         {
             snap = await PostFormAsync(ctx, GetUploadUrlEndpoint, form);
         }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            // The user cancelled. Let it propagate so AttemptRunner marks the file cancelled rather
+            // than failed — a failure would be retried, and there is nothing wrong to retry.
+            throw;
+        }
         catch (Exception ex)
         {
             return (null, "VikingFile get-upload-url request failed: " + ex.Message);
@@ -263,6 +283,18 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         long total = ctx.FileSize;
         DateTime started = DateTime.Now;
 
+        // Validate the server's part map against the file before sending a byte. Trusting
+        // PartUrls.Count blindly has three failure modes, and the quiet one is the worst: TOO FEW
+        // urls uploads a prefix of the file and still calls complete-upload, publishing a truncated
+        // object that looks successful. Too many yields a zero-length or negative-length slice.
+        long expectedParts = Math.Max(1, ((total - 1) / init.PartSize) + 1);
+        if (init.PartUrls.Count != expectedParts)
+        {
+            return (null,
+                $"VikingFile returned {init.PartUrls.Count} part URL(s) for a {total}-byte file at "
+                + $"{init.PartSize} bytes per part, where {expectedParts} were expected.");
+        }
+
         using FileSliceReader source = new(ctx.FilePath);
         PartProgressAggregator progress = new(
             init.PartUrls.Count,
@@ -333,6 +365,12 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         try
         {
             snap = await PostFormAsync(ctx, CompleteUploadEndpoint, form);
+        }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            // As above: cancellation is not a failure to retry. Every part is already uploaded at
+            // this point, so the multipart is left unfinalised and R2 expires it.
+            throw;
         }
         catch (Exception ex)
         {

@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
@@ -120,34 +121,53 @@ public class VikingFileParallelPartsTests : IDisposable
     [Fact]
     public async Task Parts_AreSentConcurrently_AndCompleteWithETagsInPartOrder()
     {
+        // ETags must line up with part numbers or complete-multipart is rejected — and finishing
+        // order is NOT part order once parts run together, so the parts here finish in reverse.
         int running = 0;
         int peak = 0;
         Lock sync = new();
-        List<string> posts = [];
+        IReadOnlyDictionary<string, string>? completeForm = null;
 
-        VikingFilePipeline pipeline = Pipeline(
-            async (url, partNumber, offset, length, body, report, ct) =>
+        VikingFilePipeline pipeline = new(
+            postFormOverride: (url, form) =>
+            {
+                if (url.Contains("complete-upload", StringComparison.Ordinal))
+                {
+                    completeForm = new Dictionary<string, string>(form, StringComparer.Ordinal);
+                    return Task.FromResult(new HttpResponseSnapshot(200, CompleteJson, Array.Empty<string>()));
+                }
+
+                return Task.FromResult(new HttpResponseSnapshot(200, InitJson(), Array.Empty<string>()));
+            },
+            putPartOverride: async (url, partNumber, offset, length, body, report, ct) =>
             {
                 lock (sync)
                 {
                     peak = Math.Max(peak, ++running);
                 }
 
-                await Task.Delay(30, ct);
+                await Task.Delay((Parts - partNumber + 1) * 25, ct); // part 4 finishes FIRST
                 lock (sync)
                 {
                     running--;
                 }
 
                 return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: $"etag-{partNumber}");
-            },
-            posts);
+            });
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 4), CancellationToken.None));
 
         Assert.True(peak > 1, "parts were still sent one at a time");
         Assert.Empty(events.OfType<AttemptFailed>());
-        Assert.Equal(2, posts.Count); // get-upload-url, then complete-upload
+        Assert.NotNull(completeForm);
+
+        // The finalise form carries parts[i][PartNumber] / parts[i][ETag]; each index must hold its
+        // OWN part's ETag despite the reversed completion order.
+        for (int i = 0; i < Parts; i++)
+        {
+            Assert.Equal((i + 1).ToString(CultureInfo.InvariantCulture), completeForm![$"parts[{i}][PartNumber]"]);
+            Assert.Equal($"etag-{i + 1}", completeForm[$"parts[{i}][ETag]"]);
+        }
     }
 
     /// <summary>
@@ -222,6 +242,106 @@ public class VikingFileParallelPartsTests : IDisposable
         Assert.NotEmpty(published);
         Assert.Equal(published.OrderBy(x => x), published);
         Assert.Equal(FileBytes, published[^1]);
+    }
+
+    /// <summary>
+    /// The production path, with NO part-PUT stub: the parts go through the real
+    /// <c>HttpHandler.PutChunkAsync</c> against a draining message handler. This is the test that
+    /// notices if the pipeline stops passing <c>reportPartProgress</c> — every other test here
+    /// drives the seam directly and would stay green.
+    /// </summary>
+    [Fact]
+    public async Task ThroughTheRealHandler_ProgressIsAggregated_NotAbsolutePerPart()
+    {
+        List<long> published = [];
+        Lock sync = new();
+        using HttpHandler handler = new(
+            new HttpClient(new DrainingHandler()), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+        handler.UploadProgress += (_, e) =>
+        {
+            lock (sync)
+            {
+                published.Add(e.BytesProcessed);
+            }
+        };
+
+        VikingFilePipeline pipeline = new(postFormOverride: (url, _) => Task.FromResult(
+            new HttpResponseSnapshot(
+                200,
+                url.Contains("complete-upload", StringComparison.Ordinal) ? CompleteJson : InitJson(),
+                Array.Empty<string>(),
+                ETag: null)));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 4, handler), CancellationToken.None));
+
+        Assert.Empty(events.OfType<AttemptFailed>());
+        Assert.NotEmpty(published);
+
+        // Aggregated: one monotonic stream ending at the file size. Absolute per-part figures would
+        // exceed it (part 4 alone reports basePosition 12288 + 4096) and arrive out of order.
+        Assert.Equal(published.OrderBy(x => x), published);
+        Assert.Equal(FileBytes, published[^1]);
+        Assert.All(published, value => Assert.InRange(value, 1, FileBytes));
+    }
+
+    [Fact]
+    public async Task AMismatchedPartMap_FailsBeforeSendingAnyBytes()
+    {
+        // The quiet failure mode: too FEW urls uploads a prefix of the file and still calls
+        // complete-upload, publishing a truncated object that looks like a success.
+        List<int> attempted = [];
+        string shortInit =
+            $$"""{"uploadId":"UP1","key":"K","partSize":{{PartSize}},"numberParts":2,"urls":["{{PartUrls[0]}}","{{PartUrls[1]}}"]}""";
+        List<string> posts = [];
+
+        VikingFilePipeline pipeline = new(
+            postFormOverride: (url, _) =>
+            {
+                posts.Add(url);
+                return Task.FromResult(new HttpResponseSnapshot(200, shortInit, Array.Empty<string>()));
+            },
+            putPartOverride: (url, partNumber, offset, length, body, report, ct) =>
+            {
+                attempted.Add(partNumber);
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: "e"));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 4), CancellationToken.None));
+
+        Assert.Empty(attempted);                       // not a single byte sent
+        Assert.Single(posts);                          // get-upload-url only — never complete-upload
+        Assert.Contains("2 part URL(s)", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Reads the whole request body and answers 200 with the right ETag, so the production part PUT
+    /// genuinely streams its slice and raises progress.
+    /// <para>
+    /// It deliberately delays in REVERSE part order. Without that the parts complete almost
+    /// instantly and often happen to finish in order — under which absolute per-part progress is
+    /// monotonic too, so the test would pass against the very bug it exists to catch. Forcing part 4
+    /// to finish first is what makes the two modes distinguishable.
+    /// </para>
+    /// </summary>
+    private sealed class DrainingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            int partNumber = int.Parse(
+                request.RequestUri!.Query.Split("partNumber=")[1],
+                CultureInfo.InvariantCulture);
+
+            await Task.Delay((Parts - partNumber + 1) * 30, cancellationToken);
+
+            if (request.Content is not null)
+            {
+                await request.Content.CopyToAsync(Stream.Null, cancellationToken);
+            }
+
+            HttpResponseMessage response = new(System.Net.HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
+            response.Headers.TryAddWithoutValidation("ETag", $"\"etag-{partNumber}\"");
+            return response;
+        }
     }
 
     /// <summary>
