@@ -311,7 +311,10 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     /// <summary>The body of the transfer, split out so <see cref="TransferAsync"/> is just the
     /// open/close bracket around it. <paramref name="markAssembled"/> is called once the storage has
-    /// confirmed the object exists — after that, there is no longer an upload id to abort.</summary>
+    /// answered the completion without reporting a failure — which is what
+    /// <see cref="CompleteAsync"/> checks, rather than positively confirming a
+    /// <c>CompleteMultipartUploadResult</c>. Getting that wrong in the lenient direction costs a
+    /// skipped cleanup, not a deleted object.</summary>
     private async Task<string?> TransferPartsAsync(AttemptContext ctx, Upload upload, string uploadId, Action markAssembled)
     {
         List<string> etags = [];
@@ -476,10 +479,12 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// </remarks>
     private async Task AbortAsync(AttemptContext ctx, Upload upload, string uploadId)
     {
-        string query = $"uploadId={Uri.EscapeDataString(uploadId)}";
-
         try
         {
+            // Inside the try, all of it. Uri.EscapeDataString and the CancellationTokenSource
+            // constructor are not expected to throw, but "not expected to" is not the standard a
+            // method called from a finally is held to.
+            string query = $"uploadId={Uri.EscapeDataString(uploadId)}";
             using CancellationTokenSource cleanup = new(AbortTimeout);
 
             string datetime = Timestamp();
@@ -527,11 +532,28 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         }
     }
 
-    private static void LogAbandoned(AttemptContext ctx, string? why) => ctx.Logger.Log(
-        null,
-        LogType.Status,
-        $"UploadNow: couldn't clean up the abandoned upload of {ctx.FileName} ({why}); "
-        + "the parts already sent stay on the host's storage.");
+    /// <summary>
+    /// Says the cleanup failed, and cannot itself fail. <c>IAppLogger.Log</c> raises
+    /// <c>OnLogOutput</c> synchronously, so a throwing subscriber would propagate out of the catch
+    /// in <see cref="AbortAsync"/>, out of the <c>finally</c>, and replace the upload's real error -
+    /// the exact outcome the catch exists to prevent, arriving through the reporting of it.
+    /// </summary>
+    private static void LogAbandoned(AttemptContext ctx, string? why)
+    {
+        try
+        {
+            ctx.Logger.Log(
+                null,
+                LogType.Status,
+                $"UploadNow: couldn't clean up the abandoned upload of {ctx.FileName} ({why}); "
+                + "the parts already sent stay on the host's storage.");
+        }
+        catch (Exception)
+        {
+            // Nowhere left to report it: the log IS the reporting channel. Losing this line is
+            // strictly better than losing the failure the user is waiting to hear about.
+        }
+    }
 
     private async Task<(string? UploadId, string? Error)> InitiateAsync(AttemptContext ctx, Upload upload)
     {

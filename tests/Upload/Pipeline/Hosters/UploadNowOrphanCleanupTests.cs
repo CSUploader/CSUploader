@@ -25,7 +25,13 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// file that fails all four attempts leaves four sets of parts behind, billed to whoever owns the
 /// bucket. UploadNow is the only one of the five converted hosters that CAN be cleaned up: it signs
 /// its own storage requests through the host's signer, so <c>DELETE ?uploadId=</c> is available to
-/// us. The other four are handed presigned PART urls and a complete endpoint, and nothing else.
+/// us. VikingFile, Hostize and storage.to are handed presigned PART urls and a complete endpoint and
+/// nothing else; DataNodes is not an S3 multipart at all.
+/// </para>
+/// <para>
+/// What "nothing collects them" means precisely: this app has no cleanup path. Whether UploadNow's
+/// bucket carries a server-side lifecycle rule that expires incomplete multiparts is not something
+/// the client can see, so the cleanup is worth sending either way.
 /// </para>
 /// </summary>
 public class UploadNowOrphanCleanupTests : IDisposable
@@ -212,15 +218,17 @@ public class UploadNowOrphanCleanupTests : IDisposable
     /// query, or header set, and a rejected abort orphans the parts exactly as thoroughly as no
     /// abort at all.
     /// <para>
-    /// The method and query cannot be read back from the signer call — it is handed a string-to-sign
-    /// carrying only a HASH of the canonical request, so asserting on them would mean recomputing
-    /// that hash here and comparing the production code to itself. What IS observable is the header
-    /// set the signature commits to, and it must be the abort's own: borrowing a part's would carry
-    /// <c>content-md5</c>, which this request neither signs nor sends.
+    /// <b>This reaches the header set only.</b> The signer is handed a string-to-sign carrying a
+    /// HASH of the canonical request, so the method and the query cannot be read back out of it —
+    /// asserting on those would mean recomputing that hash here and comparing the production code to
+    /// itself. Signing the canonical request as <c>PUT</c>, or for a different query, would still
+    /// pass this. What it does pin is that a DELETE is sent, that the signature commits to the
+    /// abort's OWN headers rather than a part's (which would carry <c>content-md5</c>), and that the
+    /// empty-body hash is the one sent.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task TheAbort_IsSignedForItsOwnEmptyBodiedRequest()
+    public async Task TheAbort_CommitsToItsOwnHeaderSet_NotAPartsHeaders()
     {
         UploadNowPipeline pipeline = Pipeline(part: number => number == 1 ? Refused(number) : Accepted(number));
 
@@ -256,6 +264,43 @@ public class UploadNowOrphanCleanupTests : IDisposable
         AttemptFailed failed = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("refused part 2", failed.Reason, StringComparison.Ordinal);
         Assert.True(ComplainedAboutCleanup, "the failed cleanup left no trace in the log");
+    }
+
+    /// <summary>
+    /// Containment, which an HTTP 500 does not exercise: the cleanup runs in a <c>finally</c>, so
+    /// anything it THROWS — a transport fault, a disposal, a logger with a throwing subscriber —
+    /// would propagate out and replace the error the caller is holding. The refused part must still
+    /// be what reaches the user.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)] // ...and the reporting of the failure must not fail either
+    public async Task AnAbortThatThrows_LeavesTheRealErrorIntact(bool loggerAlsoThrows)
+    {
+        if (loggerAlsoThrows)
+        {
+            _logger
+                .Setup(l => l.Log(
+                    It.IsAny<object?>(),
+                    It.IsAny<LogType>(),
+                    It.IsAny<string>(),
+                    It.IsAny<HttpTransaction?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>()))
+                .Throws(new InvalidOperationException("a log subscriber blew up"));
+        }
+
+        UploadNowPipeline pipeline = Pipeline(
+            part: number => number == 2 ? Refused(number) : Accepted(number),
+            api: (method, url) => method == HttpMethod.Delete
+                ? throw new HttpRequestException("the cleanup could not connect")
+                : null);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(), CancellationToken.None));
+
+        AttemptFailed failed = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("refused part 2", failed.Reason, StringComparison.Ordinal);
     }
 
     /// <summary>

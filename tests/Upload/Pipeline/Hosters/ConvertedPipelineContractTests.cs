@@ -24,9 +24,15 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// Per-hoster suites cover each protocol's own quirks, and three of them (VikingFile, Hostize,
 /// DataNodes) already read and compare their part bodies. What no per-hoster suite covers is the
 /// shared contract, asserted here for all five in one place: that progress is AGGREGATED rather than
-/// published as an absolute <c>basePosition + bytes</c>, and that the work actually routes through
-/// <c>ParallelPartUploader</c>. The storage.to and UploadNow cases additionally compare bytes,
-/// because those two suites did not.
+/// published as an absolute <c>basePosition + bytes</c>. The storage.to and UploadNow cases also
+/// require the parts to overlap in flight and to carry their own bytes, because those two suites
+/// did not.
+/// </para>
+/// <para>
+/// Note what "aggregated" and "overlapping" are: observable PROPERTIES, not evidence that any
+/// particular helper was called. A hand-rolled <c>Task.WhenAll</c> that aggregated correctly would
+/// satisfy every case here, and for the three progress-only hosters so would a sequential loop.
+/// Nothing in this class pins <c>ParallelPartUploader</c> itself.
 /// </para>
 /// <para>
 /// <b>What these do NOT prove.</b> Every case injects a part override, so the real
@@ -162,9 +168,9 @@ public class ConvertedPipelineContractTests : IDisposable
         catch (TimeoutException)
         {
             throw new InvalidOperationException(
-                $"part {index.ToString(CultureInfo.InvariantCulture)} never released its predecessor: "
-                + "the parts are not all in flight at once, so the reverse-order read this assertion "
-                + "depends on cannot happen.");
+                $"part {index.ToString(CultureInfo.InvariantCulture)} never finished reading, so its "
+                + "predecessor is still waiting: the parts are not all in flight at once, so the "
+                + "reverse-order read this assertion depends on cannot happen.");
         }
     }
 
