@@ -74,7 +74,14 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     /// <summary>Bytes per R2 part. R2 allows 10,000 parts, so this covers the full 100 GB with room to
     /// spare while keeping the per-part MD5 pass cheap.</summary>
-    private const int PartSizeBytes = 64 * 1024 * 1024;
+    private const int DefaultPartSizeBytes = 64 * 1024 * 1024;
+
+    /// <summary>
+    /// Bytes per R2 part. Overridable only through the test constructor: the parts read REAL slices
+    /// now, so a test wanting genuine multipart behaviour would otherwise have to write a 128 MB
+    /// file. Production always uses <see cref="DefaultPartSizeBytes"/>.
+    /// </summary>
+    private readonly int _partSizeBytes = DefaultPartSizeBytes;
 
     private static readonly Regex _etagRegex = new("""<ETag>\s*(?:&quot;|")?([^<"&]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _uploadIdRegex = new("""<UploadId>([^<]+)</UploadId>""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -98,10 +105,12 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// without the network.</summary>
     internal UploadNowPipeline(
         Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> apiOverride,
-        Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> partOverride)
+        Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> partOverride,
+        int partSizeBytes = DefaultPartSizeBytes)
     {
         _apiOverride = apiOverride;
         _partOverride = partOverride;
+        _partSizeBytes = partSizeBytes;
     }
 
     public string Name => "UploadNow";
@@ -292,7 +301,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         // part, silently uploading a truncated object that still completes.
         int totalParts = ctx.FileSize <= 0
             ? 0
-            : (int)(((ctx.FileSize - 1) / PartSizeBytes) + 1);
+            : (int)(((ctx.FileSize - 1) / _partSizeBytes) + 1);
 
         PartProgressAggregator progress = new(
             Math.Max(1, totalParts),
@@ -307,8 +316,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             async (index, ct) =>
             {
                 int number = index + 1;
-                long partOffset = (long)index * PartSizeBytes;
-                long length = Math.Min(PartSizeBytes, ctx.FileSize - partOffset);
+                long partOffset = (long)index * _partSizeBytes;
+                long length = Math.Min(_partSizeBytes, ctx.FileSize - partOffset);
 
                 // Content-MD5 is signed, so it has to be known before the part is sent — hence a read
                 // pass over the slice ahead of the upload pass. Its OWN slice: the pre-pass and the
@@ -332,7 +341,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                         };
 
                         (string? auth, partSignError) = await AuthorizeAsync(
-                            ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime).ConfigureAwait(false);
+                            ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime, ct).ConfigureAwait(false);
                         if (auth is null)
                         {
                             return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
@@ -426,7 +435,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             };
 
             (string? auth, signError) = await AuthorizeAsync(
-                ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime).ConfigureAwait(false);
+                ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime, ctx.Cancellation).ConfigureAwait(false);
             if (auth is null)
             {
                 // Nothing to send; a 0 status stops the retry loop and signError carries the reason.
@@ -489,7 +498,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
         string query = $"uploadId={Uri.EscapeDataString(uploadId)}";
         (string? auth, string? signError) = await AuthorizeAsync(
-            ctx, upload, "POST", upload.ObjectUrl, query, signed, Sha256Hex(body), datetime);
+            ctx, upload, "POST", upload.ObjectUrl, query, signed, Sha256Hex(body), datetime, ctx.Cancellation);
         if (auth is null)
         {
             return signError;
@@ -531,7 +540,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         string query,
         IReadOnlyDictionary<string, string> signedHeaders,
         string payloadHash,
-        string datetime)
+        string datetime,
+        CancellationToken ct)
     {
         string dateStamp = datetime[..8];
         string scope = $"{dateStamp}/{upload.Config.Region}/s3/aws4_request";
@@ -563,7 +573,15 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         {
             response = _apiOverride is not null
                 ? await _apiOverride(HttpMethod.Get, url, null, null)
-                : await ctx.Handler.GetSnapshotAsync(url, null, ctx.Cancellation);
+                : await ctx.Handler.GetSnapshotAsync(url, null, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancellation is not a signing failure. Swallowing it here did two bad things: a user
+            // who cancelled saw the upload marked Failed rather than Cancelled, and — once parts run
+            // concurrently — a sibling's failure would surface as a bogus "signing service could not
+            // be reached" instead of the real cause.
+            throw;
         }
         catch (Exception ex)
         {

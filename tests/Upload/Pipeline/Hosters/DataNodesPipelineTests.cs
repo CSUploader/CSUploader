@@ -601,7 +601,7 @@ public class DataNodesPipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task Run_AFileExactlyAtTheCap_IsStillUploaded()
+    public async Task Run_AFileExactlyAtTheCap_PassesTheSizeGate()
     {
         // The cap is inclusive — the host's own uploader accepts a file of exactly :max-size — so an
         // off-by-one here would silently skip files the server would have taken.
@@ -621,10 +621,9 @@ public class DataNodesPipelineTests : IDisposable
             break;
         }
 
-        Assert.NotNull(first);
-        Assert.False(
-            first is AttemptFailed failed && failed.Reason.Contains("per-file limit", StringComparison.Ordinal),
-            "a file of exactly the cap was rejected — the comparison is off by one");
+        // Positively: the gate ACCEPTED it and the upload began. Asserting merely that the first
+        // event is not a size failure would pass for any unrelated failure too.
+        Assert.IsType<TransferStarted>(first);
     }
 
     [Fact]

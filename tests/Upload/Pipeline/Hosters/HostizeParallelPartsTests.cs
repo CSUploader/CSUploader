@@ -200,6 +200,37 @@ public class HostizeParallelPartsTests : IDisposable
         Assert.Equal(Expected(2 * PartSize, FileBytes - (2 * PartSize)), bodies[3]);
     }
 
+    /// <summary>
+    /// A part map with the right COUNT but the wrong numbers. [1, 1, 3] passes a size check, sends
+    /// part 1's bytes to two different presigned URLs and never sends part 2 — and because complete
+    /// takes only the share id, the server would publish that corruption without a word.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1, 3)]   // duplicate, with a gap
+    [InlineData(1, 2, 4)]   // out of range
+    [InlineData(0, 1, 2)]   // a missing partNumber, left as 0 rather than invented
+    public async Task AMalformedPartMap_IsRejectedBeforeSendingAnyBytes(int a, int b, int c)
+    {
+        List<int> attempted = [];
+        string ticket = $$"""{"id":"SHARE","tickets":[{"partSize":2048,"uploadId":"U","partUrls":[{"partNumber":{{a}},"url":"https://s3.invalid/a"},{"partNumber":{{b}},"url":"https://s3.invalid/b"},{"partNumber":{{c}},"url":"https://s3.invalid/c"}]}]}""";
+
+        HostizePipeline pipeline = new(
+            (url, _) => Task.FromResult(new HttpResponseSnapshot(
+                url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
+                url.EndsWith("/request", StringComparison.Ordinal) ? ticket : CompletedJson,
+                Array.Empty<string>())),
+            (url, partNumber, offset, length, body, report, ct) =>
+            {
+                attempted.Add(partNumber);
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 3), CancellationToken.None));
+
+        Assert.Empty(attempted);
+        Assert.Contains("malformed part map", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task TheTicketRequest_DeclaresTheConcurrencyItWillActuallyUse()
     {

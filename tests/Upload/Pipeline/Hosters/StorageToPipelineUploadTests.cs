@@ -23,8 +23,26 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// lock in the event sequence, the CSRF/cookie forwarding (incl. the rotated session cookie reaching
 /// confirm), the share URL, and each failure branch. Captured live 2026-06-29.
 /// </summary>
-public class StorageToPipelineUploadTests
+public class StorageToPipelineUploadTests : IDisposable
 {
+    // MakeContext writes a real file per call now; without this they accumulate in TEMP forever.
+    private static readonly List<string> TempFiles = [];
+
+    public void Dispose()
+    {
+        lock (TempFiles)
+        {
+            foreach (string path in TempFiles)
+            {
+                File.Delete(path);
+            }
+
+            TempFiles.Clear();
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
     private const string HomeHtml = """
         <!DOCTYPE html><html><head>
         <meta name="csrf-token" content="TESTCSRF123">
@@ -492,6 +510,11 @@ public class StorageToPipelineUploadTests
         }
 
         File.WriteAllBytes(path, content);
+        lock (TempFiles)
+        {
+            TempFiles.Add(path);
+        }
+
         return MakeContextForPath(path, fileSize);
     }
 

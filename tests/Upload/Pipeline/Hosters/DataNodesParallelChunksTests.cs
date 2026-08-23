@@ -203,6 +203,29 @@ public class DataNodesParallelChunksTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Requiring only that the body mentions "status" somewhere and "OK" somewhere accepts every one
+    /// of these, which defeats the check entirely and can finalise a file with a missing chunk.
+    /// </summary>
+    [Theory]
+    [InlineData("""{"status":"NOT OK"}""")]
+    [InlineData("""{"status":"BROKEN"}""")]
+    [InlineData("""{"status":"ERROR","message":"OK"}""")]
+    public async Task AFailureBodyThatMerelyContainsOk_IsStillAFailure(string body)
+    {
+        DataNodesPipeline pipeline = Pipeline((url, headers, length, chunkBody, report, ct) =>
+            Task.FromResult(long.Parse(headers["X-Seek-To"], CultureInfo.InvariantCulture) == ChunkSize
+                ? new HttpResponseSnapshot(200, body, Array.Empty<string>())
+                : new HttpResponseSnapshot(200, ChunkOkJson, Array.Empty<string>())));
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 3), CancellationToken.None));
+
+        Assert.Contains(
+            "did not accept chunk",
+            Assert.Single(events.OfType<AttemptFailed>()).Reason,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AZeroByteFile_StillSendsOneChunk()
     {

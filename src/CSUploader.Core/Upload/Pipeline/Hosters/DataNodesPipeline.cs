@@ -50,7 +50,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// verified — because at 1 MiB a 3 GiB file would be three thousand round trips.
 /// </para>
 /// </summary>
-public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
+public sealed partial class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
 {
     private const string Host = "https://datanodes.to";
     private const string LoginPageUrl = Host + "/login";
@@ -357,13 +357,22 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
     }
 
     /// <summary>
-    /// The documented per-chunk success is <c>{"status":"OK"}</c>. Checked as a substring rather
-    /// than parsed: the host has been seen to pad the envelope, and an over-strict parse here would
-    /// fail uploads that actually worked.
+    /// The documented per-chunk success is <c>{"status":"OK"}</c>.
+    /// <para>
+    /// Matched as a PAIR, not as two independent substrings. Requiring only that the body mentions
+    /// <c>status</c> somewhere and <c>OK</c> somewhere accepts <c>{"status":"NOT OK"}</c>,
+    /// <c>{"status":"BROKEN"}</c> and <c>{"status":"ERROR","message":"OK"}</c> — which defeats the
+    /// whole point of the check and can finalise a file with a missing chunk.
+    /// </para>
+    /// <para>
+    /// A regex rather than a JSON parse because the host has been seen to pad the envelope, and an
+    /// over-strict parse would fail uploads that actually worked.
+    /// </para>
     /// </summary>
-    private static bool LooksAccepted(string body)
-        => body.Contains("\"status\"", StringComparison.OrdinalIgnoreCase)
-            && body.Contains("OK", StringComparison.OrdinalIgnoreCase);
+    private static bool LooksAccepted(string body) => AcceptedStatus().IsMatch(body);
+
+    [GeneratedRegex("""["']status["']\s*:\s*["']OK["']""", RegexOptions.IgnoreCase)]
+    private static partial Regex AcceptedStatus();
 
     private async Task<(string? Link, string? DeleteLink, string? Error)> ImportFileAsync(
         AttemptContext ctx, string node, string sid, string sessionId)

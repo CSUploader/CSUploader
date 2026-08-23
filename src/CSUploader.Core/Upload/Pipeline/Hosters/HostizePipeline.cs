@@ -257,11 +257,13 @@ public sealed class HostizePipeline : IFileHosterPipeline
                     index++;
                     if (part.TryGetProperty("url", out JsonElement u) && u.GetString() is { Length: > 0 } url)
                     {
-                        // The ticket carries an explicit partNumber; fall back to position only if
-                        // it is missing.
+                        // The ticket carries an explicit partNumber. Falling back to array position
+                        // when it is missing INVENTS one, which turns a malformed ticket into a
+                        // plausible-looking duplicate — so a missing number is left as 0 and the
+                        // validation below rejects the whole ticket.
                         int number = part.TryGetProperty("partNumber", out JsonElement pn) && pn.TryGetInt32(out int parsed)
                             ? parsed
-                            : index;
+                            : 0;
                         urls.Add((number, url));
                     }
                 }
@@ -300,6 +302,19 @@ public sealed class HostizePipeline : IFileHosterPipeline
             return $"Hostize returned {ticket.Parts.Count.ToString(CultureInfo.InvariantCulture)} part URL(s) "
                 + $"for a {total.ToString(CultureInfo.InvariantCulture)}-byte file at "
                 + $"{ticket.PartSize.ToString(CultureInfo.InvariantCulture)} bytes per part, where "
+                + $"{expectedParts.ToString(CultureInfo.InvariantCulture)} were expected.";
+        }
+
+        // The COUNT being right is not enough. A ticket numbered [1, 1, 3] has the right size, sends
+        // part 1's bytes to two different presigned URLs and never sends part 2 at all — and because
+        // complete takes only the share id, the server would publish that corruption without a
+        // word. The numbers must be exactly 1..n, each once.
+        HashSet<int> numbers = [.. ticket.Parts.Select(p => p.PartNumber)];
+        if (numbers.Count != ticket.Parts.Count || numbers.Any(n => n < 1 || n > expectedParts))
+        {
+            return "Hostize's ticket carried a malformed part map ("
+                + string.Join(", ", ticket.Parts.Select(p => p.PartNumber.ToString(CultureInfo.InvariantCulture)))
+                + $"); {expectedParts.ToString(CultureInfo.InvariantCulture)} parts numbered 1.."
                 + $"{expectedParts.ToString(CultureInfo.InvariantCulture)} were expected.";
         }
 

@@ -44,7 +44,7 @@ public class HostizePipelineTests : IDisposable
     private const int FlowFileBytes = 5120; // 2048 + 2048 + 1024: three parts, with a SHORT tail
 
     private const string CompletedJson = """
-        {"id":"Pf6M_0gNjc","expiresAt":"2026-08-09T16:05:49.437Z","size":"12000000","downloads":0,"uploaded":true}
+        {"id":"Pf6M_0gNjc","expiresAt":"2026-08-09T16:05:49.437Z","size":"5120","downloads":0,"uploaded":true}
         """;
 
     public HostizePipelineTests()
