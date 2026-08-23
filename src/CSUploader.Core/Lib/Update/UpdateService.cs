@@ -58,21 +58,30 @@ public sealed class UpdateService : IUpdateService
     }
 
     /// <summary>
-    /// Velopack's own delta-eligibility rule, mirrored so the byte readout counts against the
-    /// package that will actually be fetched.
+    /// Whether a size can be counted against the reported percentage, by asking the question
+    /// Velopack asks itself: is it going to fetch one package whole, or apply deltas?
     /// <para>
-    /// From <c>UpdateManager.DownloadUpdatesAsync</c> in Velopack 1.2.0: deltas are used only when a
+    /// From <c>UpdateManager.DownloadUpdatesAsync</c> in Velopack 1.2.0, deltas are used only when a
     /// base release with a file name exists, there is at least one delta, there are no more than
     /// <see cref="MaximumDeltasBeforeFallback"/> of them, and their summed size does not exceed the
-    /// full package. Any other shape downloads the full package immediately — no delta attempt, so
-    /// nothing later corrects a guess that assumed one.
+    /// full package. Every other shape downloads the full package immediately.
+    /// </para>
+    /// <para>
+    /// The delta path yields <see cref="UpdateDownloadPlan.Unknown"/> rather than a size — see
+    /// <see cref="UpdateDownloadPlan"/> for why no byte figure can be derived there. Note that only
+    /// the ANSWER matters here, not the reasoning: getting this wrong shows or hides a byte readout,
+    /// it cannot produce a wrong one.
     /// </para>
     /// </summary>
     internal static UpdateDownloadPlan PlanDownload(UpdateInfo info)
     {
-        long full = Math.Max(0, info.TargetFullRelease?.Size ?? 0);
+        long full = info.TargetFullRelease?.Size ?? 0;
+        if (full <= 0)
+        {
+            return UpdateDownloadPlan.Unknown;
+        }
 
-        VelopackAsset[] deltas = [.. (info.DeltasToTarget ?? []).OrderBy(d => d.Version)];
+        VelopackAsset[] deltas = [.. info.DeltasToTarget ?? []];
         if (info.BaseRelease?.FileName is null || deltas.Length == 0 || deltas.Length > MaximumDeltasBeforeFallback)
         {
             return UpdateDownloadPlan.Full(full);
@@ -83,17 +92,17 @@ public sealed class UpdateService : IUpdateService
         {
             if (delta.Size < 0 || delta.Size > long.MaxValue - summed)
             {
-                return UpdateDownloadPlan.Full(full);
+                // Metadata this malformed says nothing trustworthy about either path. Velopack's own
+                // Sum would throw here and be caught by its delta-fallback handler; we decline to
+                // guess rather than mirror that, because a wrong guess is a wrong number on screen.
+                return UpdateDownloadPlan.Unknown;
             }
 
             summed += delta.Size;
         }
 
-        // Velopack's own fallback conditions. Note it compares against the FULL size, so a delta set
-        // that is not actually smaller is discarded rather than used.
-        return summed > full
-            ? UpdateDownloadPlan.Full(full)
-            : UpdateDownloadPlan.Deltas([.. deltas.Select(d => d.Size)]);
+        // Velopack's own fallback condition: deltas that are not actually smaller are discarded.
+        return summed <= full ? UpdateDownloadPlan.Unknown : UpdateDownloadPlan.Full(full);
     }
 
     /// <summary>

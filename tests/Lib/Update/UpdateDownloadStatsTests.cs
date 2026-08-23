@@ -264,6 +264,23 @@ public class UpdateDownloadStatsTests
         Assert.Equal(TimeSpan.FromSeconds(8.5), stats.Report(15).Remaining);
     }
 
+    /// <summary>
+    /// A single sample taken across a machine's sleep implies a rate near zero, and extrapolating
+    /// from it implies centuries. Past a day the figure is noise rather than information, and
+    /// <see cref="TimeSpan.FromSeconds"/> throws outright past its own range.
+    /// </summary>
+    [Fact]
+    public void AnAbsurdlySlowSample_IsBoundedRatherThanExtrapolated()
+    {
+        (UpdateDownloadStats stats, ManualTimeProvider clock) = Build();
+
+        stats.Report(0);
+        clock.Advance(TimeSpan.FromDays(30)); // the laptop was shut
+        UpdateDownloadProgress p = stats.Report(1);
+
+        Assert.Equal(TimeSpan.FromHours(24), p.Remaining);
+    }
+
     [Theory]
     [InlineData(-5, 0)]
     [InlineData(101, 100)]

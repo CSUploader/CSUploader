@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 namespace CSUploader.Tests.Lib.Localization;
 
 /// <summary>
-/// Every translated inventory carries every key the English one does.
+/// The translated inventories and the English one hold the same set of keys.
 /// <para>
 /// <c>md-to-resx.py --check</c> gates each file against its OWN regeneration, so a key added to
 /// <c>i18n-inventory.md</c> and forgotten in the other five passes every existing gate — and the
@@ -125,7 +125,7 @@ public class InventoryKeyParityTests
     [InlineData("ko")]
     [InlineData("vi")]
     [InlineData("fil")]
-    public void EveryTranslatedInventory_CarriesEveryEnglishKey(string culture)
+    public void EveryTranslatedInventory_HoldsTheSameKeysAsEnglish(string culture)
     {
         string docs = InventoryDirectory();
         HashSet<string> english = KeysOf(Path.Combine(docs, "i18n-inventory.md"));

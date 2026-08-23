@@ -110,7 +110,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task CheckForUpdatesAsync_WhenUpdateAvailable_SetsFlagsAndTitle()
     {
-        UpdateAvailableInfo info = new("2.3.4", new object());
+        UpdateAvailableInfo info = new("2.3.4", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
@@ -151,7 +151,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task InstallUpdateCommand_WhenUpdateAvailable_CanExecute()
     {
-        UpdateAvailableInfo info = new("9.9.9", new object());
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
@@ -164,7 +164,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task InstallUpdateCommand_DrivesUpdateProgressSink()
     {
-        UpdateAvailableInfo info = new("9.9.9", new object());
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater
@@ -283,7 +283,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task CheckForUpdatesAsync_FailureAfterAvailable_KeepsUpdateAvailable()
     {
-        UpdateAvailableInfo info = new("2.3.4", new object());
+        UpdateAvailableInfo info = new("2.3.4", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         MainViewModel vm = CreateVm(updater.Object);
 
