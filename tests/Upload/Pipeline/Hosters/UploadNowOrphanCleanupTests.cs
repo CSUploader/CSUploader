@@ -20,10 +20,10 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// <summary>
 /// What happens to the parts already on the storage when an UploadNow multipart is abandoned.
 /// <para>
-/// This app has no other cleanup path. An incomplete multipart is invisible to the account's file list
-/// and to the site's own UI, and the runner retries the whole attempt from a fresh initiate — so a
-/// file that fails all four attempts leaves four sets of parts behind, billed to whoever owns the
-/// bucket. UploadNow is the only one of the five converted hosters that CAN be cleaned up: it signs
+/// Apart from the abort this class exercises, there is no way back to them. An incomplete multipart
+/// is invisible to the account's file list and to the site's own UI, and a retried attempt starts
+/// from a fresh initiate — so without the abort, every attempt that gets as far as sending bytes
+/// leaves another set of parts behind, billed to whoever owns the bucket. UploadNow is the only one of the five converted hosters that CAN be cleaned up: it signs
 /// its own storage requests through the host's signer, so <c>DELETE ?uploadId=</c> is available to
 /// us. VikingFile, Hostize and storage.to are handed presigned PART urls and a complete endpoint and
 /// nothing else; DataNodes is not an S3 multipart at all.
@@ -193,6 +193,10 @@ public class UploadNowOrphanCleanupTests : IDisposable
     // A DTD declaring nested entities: the billion-laughs shape, and it names the RIGHT root, so
     // only refusing to process the DTD keeps it out. XDocument.Parse expands these on .NET 10.
     [InlineData("""<?xml version="1.0"?><!DOCTYPE r [<!ENTITY a "AAAAAAAAAA"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">]><CompleteMultipartUploadResult>&c;</CompleteMultipartUploadResult>""")]
+
+    // TRUNCATED: the right root, then a cut connection. Stopping at the root element accepts it,
+    // and a reply cut mid-flight is the worst possible case in which to assume success.
+    [InlineData("""<CompleteMultipartUploadResult><Bucket>b</Bucket><broken""")]
     public async Task ACompletionThatIsNotAnAssembly_FailsAndAborts(string body)
     {
         UploadNowPipeline pipeline = Pipeline(
@@ -203,7 +207,13 @@ public class UploadNowOrphanCleanupTests : IDisposable
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(), CancellationToken.None));
 
         Assert.Empty(events.OfType<TransferCompleted>());
-        Assert.Single(events.OfType<AttemptFailed>());
+
+        // The REASON, not merely that something failed: without it an unrelated break anywhere after
+        // the initiate would satisfy every row of this theory and it would prove nothing.
+        Assert.Contains(
+            "wouldn't assemble the file",
+            Assert.Single(events.OfType<AttemptFailed>()).Reason,
+            StringComparison.Ordinal);
         Assert.NotNull(Abort);
     }
 

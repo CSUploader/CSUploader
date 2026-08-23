@@ -1390,9 +1390,10 @@ twice.
   `SpeedBudget.Unlimited` out loud. Inside the handler the `speedBudget is not null` branch became
   `!ReferenceEquals(speedBudget, SpeedBudget.Unlimited)`. Not literally the same predicate: before,
   `null` meant a raw stream and the `Unlimited` singleton was wrapped; now the singleton means a raw
-  stream and a null would enter `ThrottledStream` and fail there. No production caller is affected —
-  every one builds `new SpeedBudget(...)`, which was wrapped before and is wrapped now — but the
-  point is one fewer way to be silently unthrottled, not an identity. It also surfaced a nullable `SpeedBudget?` on storage.to's private `PutAsync`.
+  stream and a null would enter `ThrottledStream` and fail there. No production caller is affected:
+  every call that carries FILE BYTES builds `new SpeedBudget(...)`, which was wrapped before and is
+  wrapped now, and the only callers naming the singleton are the three control requests that carry
+  none. The point is one fewer way to be silently unthrottled, not an identity. It also surfaced — and removed — a nullable `SpeedBudget?` on storage.to's private `PutAsync`.
 - [x] **Step 5:** Committed.
 
 **What Step 4 would NOT have caught:** MEGA and transfer.it never called `HttpHandler` at all — they

@@ -168,9 +168,10 @@ public class ConvertedPipelineContractTests : IDisposable
         catch (TimeoutException)
         {
             throw new InvalidOperationException(
-                $"part {index.ToString(CultureInfo.InvariantCulture)} never finished reading, so the "
-                + "part before it is still waiting: they are not all in flight at once, and the "
-                + "reverse-order read this assertion depends on cannot happen.");
+                $"part {(index + 1).ToString(CultureInfo.InvariantCulture)} never finished reading, "
+                + $"so part {index.ToString(CultureInfo.InvariantCulture)} is still waiting for it: "
+                + "the parts are not all in flight at once, and the reverse-order read this "
+                + "assertion depends on cannot happen.");
         }
     }
 

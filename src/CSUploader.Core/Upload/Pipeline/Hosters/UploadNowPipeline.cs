@@ -312,10 +312,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     /// <summary>The body of the transfer, split out so <see cref="TransferAsync"/> is just the
     /// open/close bracket around it. <paramref name="markAssembled"/> is called once the storage has
-    /// answered the completion without reporting a failure — which is what
-    /// <see cref="CompleteAsync"/> checks, rather than positively confirming a
-    /// <c>CompleteMultipartUploadResult</c>. Getting that wrong in the lenient direction costs a
-    /// skipped cleanup, not a deleted object.</summary>
+    /// answered the completion with a <c>CompleteMultipartUploadResult</c> — see
+    /// <see cref="LooksAssembled"/>, which is what decides it.</summary>
     private async Task<string?> TransferPartsAsync(AttemptContext ctx, Upload upload, string uploadId, Action markAssembled)
     {
         List<string> etags = [];
@@ -689,16 +687,28 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// <para>
     /// Only <c>CompleteMultipartUploadResult</c> counts, matched on the LOCAL name so a namespaced
     /// document still reads. Anything else — an <c>Error</c> document inside a 200, an empty body, a
-    /// proxy's HTML — is not an assembly. Erring strict costs a wasted retry: a completion that
-    /// really did commit has consumed the upload id, so the abort 404s and the runner starts a fresh
-    /// multipart. Erring lenient publishes a file that was never assembled.
+    /// proxy's HTML — is not an assembly.
     /// </para>
     /// <para>
-    /// A reader rather than an <see cref="XDocument"/>, and DTDs prohibited rather than defaulted.
-    /// This body comes off the network, and <c>XDocument.Parse</c> on .NET 10 expands internal
-    /// entities — a small reply declaring a few nested entities is the billion-laughs shape, which
-    /// is not a thing to hand a remote host. Stopping at the root element also means a large reply
-    /// is never materialised as a tree.
+    /// The two ways to be wrong are not symmetrical, and the strict one is not free. A rejected
+    /// completion that really did commit is TERMINAL: the runner treats a yielded server verdict as
+    /// final, so the row goes Failed, the abort 404s because the upload id is already consumed, the
+    /// committed object is stranded unpublished, and a manual retry re-uploads the whole file. That
+    /// is the cost of strictness. Being lenient tells the user a file is online when the storage
+    /// never assembled it — which is worse, because nothing later contradicts it.
+    /// </para>
+    /// <para>
+    /// A reader rather than an <see cref="System.Xml.Linq.XDocument"/>, and DTDs prohibited rather
+    /// than defaulted. This body comes off the network, and <c>XDocument.Parse</c> on .NET 10 sets
+    /// <c>DtdProcessing.Parse</c> and allows ten million characters of internal entity expansion — a
+    /// few hundred bytes of nested entities is the billion-laughs shape, which is not a lever to
+    /// hand a remote host. Nothing is materialised as a tree either.
+    /// </para>
+    /// <para>
+    /// It reads to the END, not just to the root. Stopping at <c>MoveToContent</c> accepts
+    /// <c>&lt;CompleteMultipartUploadResult&gt;&lt;broken</c> — a truncated response, which is
+    /// exactly what a connection cut mid-reply produces, and exactly the case where assuming success
+    /// is worst. The character cap is ~100x the real reply and only bounds a hostile one.
     /// </para>
     /// </summary>
     private static bool LooksAssembled(string body)
@@ -713,13 +723,24 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             DtdProcessing = DtdProcessing.Prohibit,
             XmlResolver = null,
             CloseInput = true,
+            MaxCharactersInDocument = 64 * 1024,
         };
 
         try
         {
             using XmlReader reader = XmlReader.Create(new StringReader(body), settings);
-            return reader.MoveToContent() == XmlNodeType.Element
-                && reader.LocalName == "CompleteMultipartUploadResult";
+            if (reader.MoveToContent() != XmlNodeType.Element
+                || reader.LocalName != "CompleteMultipartUploadResult")
+            {
+                return false;
+            }
+
+            // Throws on anything malformed from here to EOF, truncation included.
+            while (reader.Read())
+            {
+            }
+
+            return true;
         }
         catch (XmlException)
         {
