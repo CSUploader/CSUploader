@@ -178,9 +178,8 @@ public class UpdateDownloadStatsTests
     }
 
     /// <summary>
-    /// The advertised size is only ever a guess — the updater prefers delta packages and falls back
-    /// to the full one on error, and which it took is invisible from outside. However wrong it is,
-    /// the estimate must not move.
+    /// The size is only ever as good as what the release advertised. However wrong it turns out to
+    /// be, the time estimate must not move with it.
     /// <para>
     /// This does NOT distinguish the percentage-based estimate from a byte-based one: the total
     /// cancels out of both, so they agree here. What it pins is the invariance itself, against some
@@ -268,9 +267,15 @@ public class UpdateDownloadStatsTests
         Assert.Equal(TenMegabytes / 20, afterRestart.BytesReceived);
 
         // ...and it measures the NEW attempt from here, not from the old baseline: 10% in that
-        // second, 85% still to go.
+        // second, 85% still to go, at a tenth of the file per second.
         clock.Advance(TimeSpan.FromSeconds(1));
-        Assert.Equal(TimeSpan.FromSeconds(8.5), stats.Report(15).Remaining);
+        UpdateDownloadProgress second = stats.Report(15);
+        Assert.Equal(TimeSpan.FromSeconds(8.5), second.Remaining);
+
+        // The BYTE samples had to go too, not only the clock. Leaving the first attempt's 90% in
+        // the window adds its bytes to this one's over this one's seconds alone - measured at ten
+        // times the truth, and only visible once a second sample arrives to divide them by.
+        Assert.Equal(TenMegabytes / 10, second.BytesPerSecond);
     }
 
     /// <summary>

@@ -154,9 +154,8 @@ public class UpdateServicePlanTests
 
     /// <summary>
     /// Metadata that cannot be added up says nothing trustworthy about either path, so no size is
-    /// claimed. Velopack's own <c>Sum</c> would throw here and be caught by its delta-fallback
-    /// handler; this deliberately does NOT mirror that, because guessing which path results could
-    /// put a wrong number on screen and declining cannot.
+    /// claimed. Velopack's own <c>Sum</c> throws on an overflow, and OUTSIDE its delta-fallback
+    /// handler, so nothing gets fetched at all — there is no download for a size to describe.
     /// </summary>
     [Theory]
     [InlineData(long.MaxValue)]
@@ -165,6 +164,21 @@ public class UpdateServicePlanTests
     {
         UpdateDownloadPlan plan = UpdateService.PlanDownload(
             Info(Full(90_000_000), Full(80_000_000), Delta(deltaSize, "1"), Delta(deltaSize, "2")));
+
+        Assert.False(plan.IsKnown);
+    }
+
+    /// <summary>
+    /// The NEGATIVE half of the overflow guard, which the pair of -1s above cannot reach because
+    /// they add up perfectly well. <see cref="long.MinValue"/> followed by -1 underflows and wraps
+    /// to <see cref="long.MaxValue"/>, which then looks too large for the delta path — so an
+    /// unguarded sum answers with the full package's size for a download Velopack will not perform.
+    /// </summary>
+    [Fact]
+    public void WhenTheDeltaSizesUnderflow_NoSizeIsClaimed()
+    {
+        UpdateDownloadPlan plan = UpdateService.PlanDownload(
+            Info(Full(90_000_000), Full(80_000_000), Delta(long.MinValue, "1"), Delta(-1, "2")));
 
         Assert.False(plan.IsKnown);
     }

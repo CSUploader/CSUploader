@@ -93,10 +93,10 @@ public sealed class UpdateService : IUpdateService
         long full = info.TargetFullRelease?.Size ?? 0;
         VelopackAsset[] deltas = [.. info.DeltasToTarget ?? []];
 
-        // Summed FIRST and unconditionally, because that is the order Velopack does it in: its
-        // Sum runs before any of the branch conditions, and an overflow there throws OUT of the
-        // whole download rather than into its delta-fallback handler. Metadata that cannot be added
-        // up therefore means nothing gets fetched at all, and there is no size to show for it.
+        // Summed before any of the eligibility conditions, because that is the order Velopack does
+        // it in, and an overflow there throws OUT of the whole download rather than into its
+        // delta-fallback handler. Metadata that cannot be added up therefore means nothing gets
+        // fetched at all, and there is no size to show for it.
         long summed = 0;
         foreach (VelopackAsset delta in deltas)
         {
