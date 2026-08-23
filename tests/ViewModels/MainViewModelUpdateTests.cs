@@ -110,7 +110,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task CheckForUpdatesAsync_WhenUpdateAvailable_SetsFlagsAndTitle()
     {
-        UpdateAvailableInfo info = new("2.3.4", new object());
+        UpdateAvailableInfo info = new("2.3.4", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
@@ -151,7 +151,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task InstallUpdateCommand_WhenUpdateAvailable_CanExecute()
     {
-        UpdateAvailableInfo info = new("9.9.9", new object());
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
@@ -164,7 +164,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task InstallUpdateCommand_DrivesUpdateProgressSink()
     {
-        UpdateAvailableInfo info = new("9.9.9", new object());
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater
@@ -192,12 +192,45 @@ public class MainViewModelUpdateTests : IDisposable
         // Progress pumps through the sink. Report arrives via Progress<int>, which marshals off the
         // captured synchronization context onto the thread pool, so wait rather than assert inline.
         Assert.True(sink.WaitForAnyReport(TimeSpan.FromSeconds(5)));
-        Assert.Contains(100, sink.Reports);
+        Assert.Contains(100, sink.Percents);
 
         // The WPF install flow never programmatically closes the window (success restarts the
         // process; failure leaves the error visible), so the sink is never Closed. This asserts the
         // behavior was preserved by the reroute.
         Assert.Equal(0, sink.CloseCount);
+    }
+
+    /// <summary>
+    /// The join the sink tests cannot reach: the size the update advertised has to arrive at the
+    /// window. Drop it — construct the stats with 0 instead of <c>DownloadBytes</c> — and every
+    /// other test here stays green while the byte readout silently disappears from the real window.
+    /// </summary>
+    [Fact]
+    public async Task InstallUpdateCommand_FeedsTheAdvertisedSizeIntoTheProgress()
+    {
+        const long Advertised = 71_303_168;
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Full(Advertised));
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+        updater
+            .Setup(u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()))
+            .Returns((UpdateAvailableInfo _, IProgress<int>? p, CancellationToken _) =>
+            {
+                p?.Report(0);
+                p?.Report(50);
+                return Task.CompletedTask;
+            });
+
+        FakeUpdateProgressSink sink = new();
+        MainViewModel vm = CreateVm(updater.Object, sink);
+
+        await vm.CheckForUpdatesAsync();
+        await vm.InstallUpdateCommand.ExecuteAsync(null);
+        Assert.True(sink.WaitForAnyReport(TimeSpan.FromSeconds(5)));
+
+        UpdateDownloadProgress last = await sink.WaitForPercentAsync(50, TimeSpan.FromSeconds(5));
+        Assert.Equal(Advertised, last.TotalBytes);
+        Assert.Equal(Advertised / 2, last.BytesReceived);
     }
 
     [Fact]
@@ -250,7 +283,7 @@ public class MainViewModelUpdateTests : IDisposable
     [Fact]
     public async Task CheckForUpdatesAsync_FailureAfterAvailable_KeepsUpdateAvailable()
     {
-        UpdateAvailableInfo info = new("2.3.4", new object());
+        UpdateAvailableInfo info = new("2.3.4", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
         MainViewModel vm = CreateVm(updater.Object);
 
@@ -313,16 +346,22 @@ public class MainViewModelUpdateTests : IDisposable
     {
         private readonly ManualResetEventSlim _reported = new();
         private readonly object _gate = new();
-        private readonly List<int> _reports = [];
+        private readonly List<UpdateDownloadProgress> _reports = [];
         private readonly List<string> _statuses = [];
 
         public int OpenCount { get; private set; }
 
         public int CloseCount { get; private set; }
 
-        public IReadOnlyList<int> Reports
+        public IReadOnlyList<UpdateDownloadProgress> Reports
         {
             get { lock (_gate) { return [.. _reports]; } }
+        }
+
+        /// <summary>Just the percentages, for the assertions that only care about those.</summary>
+        public IReadOnlyList<int> Percents
+        {
+            get { lock (_gate) { return [.. _reports.Select(r => r.Percent)]; } }
         }
 
         public IReadOnlyList<string> Statuses
@@ -340,9 +379,9 @@ public class MainViewModelUpdateTests : IDisposable
             lock (_gate) { _statuses.Add(status); }
         }
 
-        public void Report(int percent)
+        public void Report(UpdateDownloadProgress progress)
         {
-            lock (_gate) { _reports.Add(percent); }
+            lock (_gate) { _reports.Add(progress); }
             _reported.Set();
         }
 
@@ -352,5 +391,30 @@ public class MainViewModelUpdateTests : IDisposable
         }
 
         public bool WaitForAnyReport(TimeSpan timeout) => _reported.Wait(timeout);
+
+        /// <summary>
+        /// Waits for the tick carrying <paramref name="percent"/>. Progress&lt;int&gt; posts every
+        /// report to the thread pool, so the last one can still be in flight when the command's task
+        /// completes — asserting on the list right away is a race that passes on a fast machine.
+        /// </summary>
+        public async Task<UpdateDownloadProgress> WaitForPercentAsync(int percent, TimeSpan timeout)
+        {
+            DateTime deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (_gate)
+                {
+                    int index = _reports.FindIndex(r => r.Percent == percent);
+                    if (index >= 0)
+                    {
+                        return _reports[index];
+                    }
+                }
+
+                await Task.Delay(10);
+            }
+
+            throw new TimeoutException($"no report at {percent}% arrived within {timeout}");
+        }
     }
 }

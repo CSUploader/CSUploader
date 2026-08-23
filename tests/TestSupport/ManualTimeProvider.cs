@@ -6,9 +6,9 @@
 namespace CSUploader.Tests.TestSupport;
 
 /// <summary>
-/// A clock the test drives. <see cref="CSUploader.Lib.Net.Http.SpeedLimiter"/>'s behaviour is
-/// entirely a function of elapsed time, so real-clock tests of it are slow and flaky; this makes
-/// them exact and instant. Hand-rolled rather than pulling in
+/// A clock the test drives, for behaviour that is a function of elapsed time — the speed limiter's
+/// token bucket, the update window's download rate. Real-clock tests of those are slow to run and
+/// flaky on a loaded machine; this makes them exact and instant. Hand-rolled rather than pulling in
 /// <c>Microsoft.Extensions.TimeProvider.Testing</c> for one type.
 /// </summary>
 internal sealed class ManualTimeProvider : TimeProvider

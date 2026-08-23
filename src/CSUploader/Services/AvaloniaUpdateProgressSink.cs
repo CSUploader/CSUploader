@@ -6,6 +6,8 @@
 using Avalonia.Controls;
 using CSUploader.Views;
 
+using CSUploader.Lib.Update;
+
 namespace CSUploader.Services;
 
 /// <summary>
@@ -51,7 +53,7 @@ public sealed class AvaloniaUpdateProgressSink : IUpdateProgressSink
 
     public void SetStatus(string status) => CurrentWindow?.SetStatus(status);
 
-    public void Report(int percent) => CurrentWindow?.SetProgress(percent);
+    public void Report(UpdateDownloadProgress progress) => CurrentWindow?.SetProgress(progress);
 
     /// <summary>
     /// Closes the current window and drops the reference. Unused by the current WPF caller (on success the

@@ -40,6 +40,19 @@ public sealed class SpeedSampleBuffer
         }
     }
 
+    /// <summary>
+    /// Drops every retained sample, as if newly constructed. For a series that has restarted and
+    /// whose earlier samples now describe something else — averaging across that seam would report a
+    /// rate that was never true of either side.
+    /// </summary>
+    public void Clear()
+    {
+        // The ring's contents are deliberately NOT wiped: every reader is bounded by _count, so a
+        // stale value is unreachable, and clearing it would be a line that cannot be observed.
+        _count = 0;
+        _next = 0;
+    }
+
     /// <summary>A fresh array of the retained samples, oldest first (length == <see cref="Count"/>).</summary>
     public double[] Snapshot()
     {

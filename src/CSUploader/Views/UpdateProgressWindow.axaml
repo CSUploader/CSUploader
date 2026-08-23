@@ -6,7 +6,10 @@
      status line (downloading / restarting / failed), and the Progress<int> pump feeds SetProgress. The bar
      is a bare ProgressBar consumed AS-IS (Task 1 verdict: accept Fluent's SystemAccentColor blue — the WPF
      bar was only the unstyled OS-default green, not a design choice). NoResize→CanResize=False (rule 1);
-     Icon→/Assets/icon.ico (rule 3). -->
+     Icon→/Assets/icon.ico (rule 3).
+     Beyond the WPF original: the bytes/rate/time row under the bar. Everything in it is derived
+     from the percentage - see UpdateDownloadStats - so it appears a moment after the download
+     starts rather than with it. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
@@ -29,10 +32,28 @@
                  Minimum="0"
                  Maximum="100"
                  Value="0" />
+    <!-- Bytes on the left, rate and time on the right. Both start EMPTY rather than showing a
+         placeholder: the updater reports a percentage only, so neither figure exists until enough
+         has arrived to derive one, and a "0 B/s" sitting there for the first second reads as a
+         stalled download rather than an unmeasured one. -->
+    <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+      <TextBlock x:Name="BytesText"
+                 Grid.Column="0"
+                 Text=""
+                 HorizontalAlignment="Left"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 FontSize="11" />
+      <TextBlock x:Name="StatsText"
+                 Grid.Column="1"
+                 Text=""
+                 HorizontalAlignment="Right"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 FontSize="11" />
+    </Grid>
     <TextBlock x:Name="PercentText"
                Text="{loc:Loc UpdateProgress_PercentInitial}"
                HorizontalAlignment="Right"
-               Margin="0,4,0,0"
+               Margin="0,2,0,0"
                Foreground="{DynamicResource TextSecondaryBrush}"
                FontSize="11" />
   </StackPanel>
