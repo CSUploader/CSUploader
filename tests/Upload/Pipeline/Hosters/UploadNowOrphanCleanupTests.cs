@@ -189,6 +189,10 @@ public class UploadNowOrphanCleanupTests : IDisposable
     [InlineData("   ")]
     [InlineData("<html><body>502 Bad Gateway</body></html>")]
     [InlineData("""<?xml version="1.0"?><SomethingElse/>""")]
+
+    // A DTD declaring nested entities: the billion-laughs shape, and it names the RIGHT root, so
+    // only refusing to process the DTD keeps it out. XDocument.Parse expands these on .NET 10.
+    [InlineData("""<?xml version="1.0"?><!DOCTYPE r [<!ENTITY a "AAAAAAAAAA"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">]><CompleteMultipartUploadResult>&c;</CompleteMultipartUploadResult>""")]
     public async Task ACompletionThatIsNotAnAssembly_FailsAndAborts(string body)
     {
         UploadNowPipeline pipeline = Pipeline(

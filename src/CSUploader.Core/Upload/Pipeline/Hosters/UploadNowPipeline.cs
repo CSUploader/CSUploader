@@ -8,9 +8,9 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Xml.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Threading.Channels;
 using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
@@ -688,10 +688,17 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// Whether the storage's completion reply says the object was assembled.
     /// <para>
     /// Only <c>CompleteMultipartUploadResult</c> counts, matched on the LOCAL name so a namespaced
-    /// document still reads. Anything else - an <c>Error</c> document inside a 200, an empty body, a
-    /// proxy's HTML - is not an assembly. Erring strict costs a wasted retry, because the upload id
-    /// is consumed by a completion that really did commit and the retry starts a fresh multipart.
-    /// Erring lenient publishes a file that was never assembled.
+    /// document still reads. Anything else — an <c>Error</c> document inside a 200, an empty body, a
+    /// proxy's HTML — is not an assembly. Erring strict costs a wasted retry: a completion that
+    /// really did commit has consumed the upload id, so the abort 404s and the runner starts a fresh
+    /// multipart. Erring lenient publishes a file that was never assembled.
+    /// </para>
+    /// <para>
+    /// A reader rather than an <see cref="XDocument"/>, and DTDs prohibited rather than defaulted.
+    /// This body comes off the network, and <c>XDocument.Parse</c> on .NET 10 expands internal
+    /// entities — a small reply declaring a few nested entities is the billion-laughs shape, which
+    /// is not a thing to hand a remote host. Stopping at the root element also means a large reply
+    /// is never materialised as a tree.
     /// </para>
     /// </summary>
     private static bool LooksAssembled(string body)
@@ -701,11 +708,20 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             return false;
         }
 
+        XmlReaderSettings settings = new()
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            CloseInput = true,
+        };
+
         try
         {
-            return XDocument.Parse(body).Root?.Name.LocalName is "CompleteMultipartUploadResult";
+            using XmlReader reader = XmlReader.Create(new StringReader(body), settings);
+            return reader.MoveToContent() == XmlNodeType.Element
+                && reader.LocalName == "CompleteMultipartUploadResult";
         }
-        catch (System.Xml.XmlException)
+        catch (XmlException)
         {
             return false;
         }
