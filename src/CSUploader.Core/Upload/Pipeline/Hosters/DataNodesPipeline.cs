@@ -50,7 +50,7 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// verified — because at 1 MiB a 3 GiB file would be three thousand round trips.
 /// </para>
 /// </summary>
-public sealed partial class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
+public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshablePipeline
 {
     private const string Host = "https://datanodes.to";
     private const string LoginPageUrl = Host + "/login";
@@ -359,20 +359,34 @@ public sealed partial class DataNodesPipeline : IFileHosterPipeline, ISessionRef
     /// <summary>
     /// The documented per-chunk success is <c>{"status":"OK"}</c>.
     /// <para>
-    /// Matched as a PAIR, not as two independent substrings. Requiring only that the body mentions
-    /// <c>status</c> somewhere and <c>OK</c> somewhere accepts <c>{"status":"NOT OK"}</c>,
-    /// <c>{"status":"BROKEN"}</c> and <c>{"status":"ERROR","message":"OK"}</c> — which defeats the
-    /// whole point of the check and can finalise a file with a missing chunk.
+    /// PARSED, not pattern-matched. Two earlier attempts were both too loose. Checking for
+    /// <c>status</c> and <c>OK</c> as independent substrings accepts <c>{"status":"NOT OK"}</c>;
+    /// tightening that to a regex for the PAIR still accepts
+    /// <c>{"error":{"status":"OK"},"result":"FAIL"}</c> and any body quoting the pair inside a
+    /// string, because a regex has no notion of nesting. Either mistake finalises a file with a
+    /// missing chunk, which is the failure this check exists to prevent.
     /// </para>
     /// <para>
-    /// A regex rather than a JSON parse because the host has been seen to pad the envelope, and an
-    /// over-strict parse would fail uploads that actually worked.
+    /// A TOP-LEVEL <c>status</c> whose string value is exactly <c>OK</c>, and nothing else.
+    /// <see cref="JsonDocument"/> tolerates surrounding whitespace on its own; an unparseable body
+    /// is not an acceptance.
     /// </para>
     /// </summary>
-    private static bool LooksAccepted(string body) => AcceptedStatus().IsMatch(body);
-
-    [GeneratedRegex("""["']status["']\s*:\s*["']OK["']""", RegexOptions.IgnoreCase)]
-    private static partial Regex AcceptedStatus();
+    private static bool LooksAccepted(string body)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("status", out JsonElement status)
+                && status.ValueKind == JsonValueKind.String
+                && string.Equals(status.GetString(), "OK", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     private async Task<(string? Link, string? DeleteLink, string? Error)> ImportFileAsync(
         AttemptContext ctx, string node, string sid, string sessionId)

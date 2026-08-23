@@ -619,6 +619,13 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                     ? await _apiOverride(HttpMethod.Post, SignUpUrl, """{"returnSecureToken":true}""", null)
                     : await ctx.Handler.PostJsonAsync(SignUpUrl, """{"returnSecureToken":true}""", null, ctx.Cancellation);
             }
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+            {
+                // As in AuthorizeAsync: cancellation is not a sign-up failure. Swallowed here it
+                // becomes AttemptFailed, which AttemptRunner treats as terminal — so the scheduler
+                // never learns the user cancelled.
+                throw;
+            }
             catch (Exception ex)
             {
                 return (null, $"UploadNow guest sign-up failed: {ex.Message}");

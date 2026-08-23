@@ -211,6 +211,17 @@ public class DataNodesParallelChunksTests : IDisposable
     [InlineData("""{"status":"NOT OK"}""")]
     [InlineData("""{"status":"BROKEN"}""")]
     [InlineData("""{"status":"ERROR","message":"OK"}""")]
+
+    // NESTED: a regex for the "status":"OK" pair matches this happily, because a pattern
+    // has no notion of what is top level.
+    [InlineData("""{"error":{"status":"OK"},"result":"FAIL"}""")]
+
+    // QUOTED: the pair appears inside a string value, not as structure.
+    [InlineData("""{"error":"upstream said 'status':'OK'","result":"FAIL"}""")]
+
+    // Not JSON at all. An unparseable body is not an acceptance.
+    [InlineData("<html>502 Bad Gateway</html>")]
+    [InlineData("")]
     public async Task AFailureBodyThatMerelyContainsOk_IsStillAFailure(string body)
     {
         DataNodesPipeline pipeline = Pipeline((url, headers, length, chunkBody, report, ct) =>

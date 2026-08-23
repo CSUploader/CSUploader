@@ -208,7 +208,6 @@ public class HostizeParallelPartsTests : IDisposable
     [Theory]
     [InlineData(1, 1, 3)]   // duplicate, with a gap
     [InlineData(1, 2, 4)]   // out of range
-    [InlineData(0, 1, 2)]   // a missing partNumber, left as 0 rather than invented
     public async Task AMalformedPartMap_IsRejectedBeforeSendingAnyBytes(int a, int b, int c)
     {
         List<int> attempted = [];
@@ -218,6 +217,34 @@ public class HostizeParallelPartsTests : IDisposable
             (url, _) => Task.FromResult(new HttpResponseSnapshot(
                 url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
                 url.EndsWith("/request", StringComparison.Ordinal) ? ticket : CompletedJson,
+                Array.Empty<string>())),
+            (url, partNumber, offset, length, body, report, ct) =>
+            {
+                attempted.Add(partNumber);
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>()));
+            });
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(degree: 3), CancellationToken.None));
+
+        Assert.Empty(attempted);
+        Assert.Contains("malformed part map", Assert.Single(events.OfType<AttemptFailed>()).Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A ticket entry that genuinely OMITS partNumber, which the theory above cannot express — it
+    /// always emits the property, so restoring the old "fall back to array position" behaviour would
+    /// leave that test green.
+    /// </summary>
+    [Fact]
+    public async Task ATicketEntryMissingItsPartNumber_IsRejectedRatherThanNumberedByPosition()
+    {
+        List<int> attempted = [];
+        const string TicketMissingANumber = """{"id":"SHARE","tickets":[{"partSize":2048,"uploadId":"U","partUrls":[{"url":"https://s3.invalid/a"},{"partNumber":2,"url":"https://s3.invalid/b"},{"partNumber":3,"url":"https://s3.invalid/c"}]}]}""";
+
+        HostizePipeline pipeline = new(
+            (url, _) => Task.FromResult(new HttpResponseSnapshot(
+                url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
+                url.EndsWith("/request", StringComparison.Ordinal) ? TicketMissingANumber : CompletedJson,
                 Array.Empty<string>())),
             (url, partNumber, offset, length, body, report, ct) =>
             {

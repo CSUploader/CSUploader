@@ -22,8 +22,17 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// to have survived four copy-and-paste conversions.
 /// <para>
 /// Per-hoster suites cover each protocol's own quirks. What they miss is the shared contract: a
-/// conversion that forgets <c>reportPartProgress</c>, publishes an absolute <c>basePosition + bytes</c>,
-/// or never routes through <c>ParallelPartUploader</c> at all would keep every one of them green.
+/// conversion that forgets to aggregate progress, publishes an absolute <c>basePosition + bytes</c>,
+/// slices the wrong region, or never routes through <c>ParallelPartUploader</c> at all would keep
+/// every one of them green.
+/// </para>
+/// <para>
+/// <b>What these do NOT prove.</b> Every case injects a part override, so the real
+/// <c>HttpHandler.PutChunkAsync</c> branch is bypassed — deleting <c>reportPartProgress:</c> from a
+/// pipeline's PRODUCTION call would still leave them green. They pin the seam-to-aggregator path,
+/// not the transport join. VikingFile has a separate real-handler test
+/// (<c>ThroughTheRealHandler_ProgressIsAggregated</c>); the other four are the deferred Task 9 gap
+/// in the plan, and this comment exists so nobody reads these as covering it.
 /// </para>
 /// </summary>
 public class ConvertedPipelineContractTests : IDisposable
@@ -112,6 +121,28 @@ public class ConvertedPipelineContractTests : IDisposable
         return (handler, published, sync);
     }
 
+    private static byte Pattern(int index) => (byte)(index % 251);
+
+    private static byte[] Expected(int from, int count)
+        => [.. Enumerable.Range(from, count).Select(i => Pattern(i))];
+
+    private static async Task<byte[]> ReadAllAsync(Stream stream)
+    {
+        using MemoryStream sink = new();
+        await stream.CopyToAsync(sink);
+        return sink.ToArray();
+    }
+
+    /// <summary>Each part must carry ITS OWN region, including the short final one. Recording the
+    /// offset a pipeline passed proves only that its arithmetic ran.</summary>
+    private static void AssertEachPartCarriedItsOwnBytes(IDictionary<int, byte[]> bodies)
+    {
+        Assert.Equal(Parts, bodies.Count);
+        Assert.Equal(Expected(0, PartSize), bodies[1]);
+        Assert.Equal(Expected(PartSize, PartSize), bodies[2]);
+        Assert.Equal(Expected(2 * PartSize, FileBytes - (2 * PartSize)), bodies[3]);
+    }
+
     private static void AssertAggregated(List<long> published)
     {
         Assert.NotEmpty(published);
@@ -186,11 +217,14 @@ public class ConvertedPipelineContractTests : IDisposable
                     "start_upload" => new HttpResponseSnapshot(200, """{"plugin":"xfspro","url":"https://node42.datanodes.to/cgi-bin"}""", Array.Empty<string>()),
                     _ => new HttpResponseSnapshot(200, """{"links":{"download_link":"https://datanodes.to/a/b","delete_link":"https://datanodes.to/a/b?killcode=k","html_code":"x"}}""", Array.Empty<string>()),
                 }),
-                chunkOverride: (url, headers, length, body, report, ct) =>
+                chunkOverride: async (url, headers, length, body, report, ct) =>
                 {
+                    // await, not ContinueWith: a continuation runs regardless of the antecedent's
+                    // outcome, so a fault or cancellation inside ReportInStepsAsync would be turned
+                    // into a success response and the test would pass through the failure.
                     int number = (int)(long.Parse(headers["X-Seek-To"], CultureInfo.InvariantCulture) / PartSize) + 1;
-                    return ReportInStepsAsync(number, length, report, ct, null)
-                        .ContinueWith(t => new HttpResponseSnapshot(200, """{"status":"OK"}""", Array.Empty<string>()), TaskScheduler.Default);
+                    await ReportInStepsAsync(number, length, report, ct, null);
+                    return new HttpResponseSnapshot(200, """{"status":"OK"}""", Array.Empty<string>());
                 },
                 getOverride: null,
                 chunkSizeBytes: PartSize);
@@ -214,6 +248,14 @@ public class ConvertedPipelineContractTests : IDisposable
         int running = 0;
         int peak = 0;
         Lock sync = new();
+        ConcurrentDictionary<int, byte[]> bodies = new();
+
+        // Forced REVERSE consumption: part N waits for N+1 to finish reading. Ascending order is
+        // what a shared advancing FileStream happens to get right, so it would hide the bug.
+        TaskCompletionSource[] released = [.. Enumerable.Range(0, Parts + 1)
+            .Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously))];
+        released[Parts].SetResult();
+
         // Literal 2048/3 rather than interpolated: the payload ends in }}} , which fights raw-string
         // interpolation harder than it is worth. Asserted against the constants below.
         Assert.Equal(2048, PartSize);
@@ -238,21 +280,27 @@ public class ConvertedPipelineContractTests : IDisposable
                         peak = Math.Max(peak, ++running);
                     }
 
-                    HttpResponseSnapshot response =
-                        await ReportInStepsAsync(partNumber, length, report, ct, $"\"etag-{partNumber}\"");
-
-                    lock (sync)
+                    await released[partNumber].Task.WaitAsync(ct);
+                    try
                     {
-                        running--;
+                        bodies[partNumber] = await ReadAllAsync(body);
+                        return await ReportInStepsAsync(partNumber, length, report, ct, $"\"etag-{partNumber}\"");
                     }
-
-                    return response;
+                    finally
+                    {
+                        released[partNumber - 1].TrySetResult();
+                        lock (sync)
+                        {
+                            running--;
+                        }
+                    }
                 });
 
             await DrainAsync(pipeline.RunAsync(Context("Storage.to", handler, Parts), CancellationToken.None));
         }
 
         Assert.True(peak > 1, "storage.to still sent its parts one at a time");
+        AssertEachPartCarriedItsOwnBytes(bodies);
         AssertAggregated(published);
     }
 
@@ -269,22 +317,38 @@ public class ConvertedPipelineContractTests : IDisposable
         int peak = 0;
         Lock sync = new();
         ConcurrentDictionary<int, long> lengths = new();
+        ConcurrentDictionary<int, byte[]> bodies = new();
+        ConcurrentDictionary<int, string> signedMd5 = new();
+        string? completeBody = null;
 
         using (handler)
         {
             UploadNowPipeline pipeline = new(
-                apiOverride: (method, url, body, headers) => Task.FromResult(UploadNowStubs.Reply(url)),
+                apiOverride: (method, url, body, headers) =>
+                {
+                    if (url.EndsWith("?uploadId=UP-1", StringComparison.Ordinal) || (body?.Contains("CompleteMultipartUpload", StringComparison.Ordinal) ?? false))
+                    {
+                        completeBody = body;
+                    }
+
+                    return Task.FromResult(UploadNowStubs.Reply(url));
+                },
                 partOverride: async (url, offset, length, headers, openBody, report, ct) =>
                 {
                     int partNumber = (int)(offset / PartSize) + 1;
                     lengths[partNumber] = length;
+                    signedMd5[partNumber] = headers["Content-MD5"];
+
+                    // openBody(), not body: the retry re-invokes this delegate, so the seam hands a
+                    // FACTORY. Reading it also proves the slice is this part's own region.
+                    bodies[partNumber] = await ReadAllAsync(openBody());
 
                     lock (sync)
                     {
                         peak = Math.Max(peak, ++running);
                     }
 
-                    HttpResponseSnapshot response = await ReportInStepsAsync(partNumber, length, report, ct, "\"etag\"");
+                    HttpResponseSnapshot response = await ReportInStepsAsync(partNumber, length, report, ct, $"\"etag-{partNumber}\"");
 
                     lock (sync)
                     {
@@ -301,6 +365,24 @@ public class ConvertedPipelineContractTests : IDisposable
         Assert.True(peak > 1, "UploadNow still sent its parts one at a time");
         Assert.Equal(Parts, lengths.Count);
         Assert.Equal(FileBytes - (2 * PartSize), lengths[Parts]); // the SHORT final part
+        AssertEachPartCarriedItsOwnBytes(bodies);
         AssertAggregated(published);
+
+        // The MD5 pre-pass and the upload pass used to share one FileStream; each part's signed
+        // hash must be of the bytes that part actually sent.
+        for (int part = 1; part <= Parts; part++)
+        {
+            Assert.Equal(
+                Convert.ToBase64String(System.Security.Cryptography.MD5.HashData(bodies[part])),
+                signedMd5[part]);
+        }
+
+        // Distinct ETags, in PART order, so the completion body proves ordering rather than
+        // accidentally agreeing because every part returned the same value.
+        Assert.NotNull(completeBody);
+        int first = completeBody!.IndexOf("etag-1", StringComparison.Ordinal);
+        int second = completeBody.IndexOf("etag-2", StringComparison.Ordinal);
+        int third = completeBody.IndexOf("etag-3", StringComparison.Ordinal);
+        Assert.True(first >= 0 && first < second && second < third, $"ETags out of part order: {completeBody}");
     }
 }
