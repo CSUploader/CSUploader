@@ -12,9 +12,10 @@ namespace CSUploader.Tests.Lib.Net.Http;
 /// <summary>
 /// What a speed limit MEANS when more than one upload runs at once. The scheduler launches up to
 /// <c>AppSettings.MaxConcurrentUploadJobs</c> files concurrently, and each request body wraps its own
-/// <see cref="ThrottledStream"/> (HttpHandler constructs one per body). Every instance keeps a PRIVATE
-/// 1-second window and byte counter, and the limit delegate returns a RATE rather than drawing on a
-/// shared budget — so N concurrent uploads are each allowed the full limit.
+/// <see cref="ThrottledStream"/> (HttpHandler constructs one per body). Every instance USED TO keep
+/// a private 1-second window and byte counter, with the limit delegate returning a RATE rather than
+/// drawing on a shared budget — so N concurrent uploads were each allowed the full limit. They now
+/// share one <c>SpeedLimiter</c> bucket, and these tests are what hold that.
 /// </summary>
 public class ThrottledStreamConcurrencyTests
 {
@@ -119,7 +120,7 @@ public class ThrottledStreamConcurrencyTests
 
         clock.Stop();
 
-        // 800 kB of MemoryStream reads with no limit is milliseconds' work; a full second means a
+        // 200 kB of MemoryStream reads with no limit is milliseconds' work; a full second means a
         // ceiling crept in where the user asked for none.
         Assert.True(
             clock.Elapsed.TotalSeconds < 1,

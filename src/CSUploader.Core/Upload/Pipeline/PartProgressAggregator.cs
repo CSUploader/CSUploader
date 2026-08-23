@@ -27,13 +27,26 @@ namespace CSUploader.Upload.Pipeline;
 /// request-body serialization, turning a progress failure into an upload failure.
 /// </para>
 /// </summary>
-public sealed class PartProgressAggregator(int partCount, Action<long> publish)
+public sealed class PartProgressAggregator
 {
-    private readonly long[] _highWaterPerPart = new long[partCount];
+    private readonly long[] _highWaterPerPart;
+    private readonly Action<long> _publish;
     private readonly Lock _sync = new();
     private readonly Queue<long> _pending = new();
     private long _total;
     private bool _draining;
+
+    public PartProgressAggregator(int partCount, Action<long> publish)
+    {
+        // Validated rather than left to fail later. A null publisher throws inside Drain, which
+        // deliberately swallows subscriber exceptions — so progress would vanish silently and
+        // forever. A zero part count fails only on the first report, far from the mistake.
+        ArgumentOutOfRangeException.ThrowIfLessThan(partCount, 1);
+        ArgumentNullException.ThrowIfNull(publish);
+
+        _highWaterPerPart = new long[partCount];
+        _publish = publish;
+    }
 
     /// <summary>
     /// Records <paramref name="cumulativeBytesInThatPart"/> as part <paramref name="partIndex"/>'s
@@ -84,7 +97,7 @@ public sealed class PartProgressAggregator(int partCount, Action<long> publish)
 
             try
             {
-                publish(next);
+                _publish(next);
             }
             catch (Exception)
             {

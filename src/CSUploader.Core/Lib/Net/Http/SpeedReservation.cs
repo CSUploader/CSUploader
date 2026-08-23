@@ -11,8 +11,8 @@ namespace CSUploader.Lib.Net.Http;
 /// <para>
 /// ONE-SHOT: refund exactly once. Two refunds of a copied reservation would fill the bucket twice
 /// with no elapsed time, and capacity clamping does not prevent that because another stream can
-/// spend the tokens in between. <see cref="ThrottledStream"/> is the only caller and refunds once
-/// in a <c>finally</c>.
+/// spend the tokens in between. <see cref="ThrottledStream"/> refunds once in a <c>finally</c>;
+/// MEGA's send loop takes a reservation and sends exactly it, so it has nothing to give back.
 /// </para>
 /// <para>
 /// <see cref="None"/> means NO GRANT (zero bytes). It is not the unlimited case — unlimited is

@@ -12,10 +12,14 @@ namespace CSUploader.Upload;
 /// Holds the one bucket belonging to each speed-limit scope.
 /// <para>
 /// Side tables rather than fields, for two reasons. <see cref="Package"/> is a primary-constructor
-/// class with no body to initialise into. And <see cref="ConditionalWeakTable{TKey,TValue}.GetValue"/>
-/// creates at most one value per key even under concurrent first access — where a lazy <c>??=</c>
-/// races, and the scheduler calls <c>BuildAttemptInputs</c> from concurrent <c>Task.Run</c> workers.
-/// Entries die with their scope object.
+/// class, so there is no constructor body to initialise a field from — and a field initialiser
+/// cannot capture <c>this</c>, which these rate callbacks need. And
+/// <see cref="ConditionalWeakTable{TKey,TValue}.GetValue"/> guarantees that one value per key is
+/// STORED and handed to every caller even under concurrent first access; its factory may run more
+/// than once and the losing instances are discarded, which is fine here because what matters is that
+/// everyone ends up holding the same bucket. A lazy <c>??=</c> gives neither guarantee, and the
+/// scheduler calls <c>BuildAttemptInputs</c> from concurrent <c>Task.Run</c> workers. Entries die
+/// with their scope object.
 /// </para>
 /// </summary>
 public static class SpeedLimitScopes

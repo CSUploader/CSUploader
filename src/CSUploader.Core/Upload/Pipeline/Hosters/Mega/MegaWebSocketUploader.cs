@@ -98,7 +98,7 @@ internal static class MegaWebSocketUploader
         uint fileno,
         long size,
         Action<long, long>? progress,
-        SpeedBudget? speedBudget,
+        SpeedBudget speedBudget,
         CancellationToken ct)
     {
         using ClientWebSocket ws = new();
@@ -227,18 +227,20 @@ internal static class MegaWebSocketUploader
                 macsByOffset[pos] = mac;
 
                 byte[] header = BuildChunkHeader(fileno, pos, chunkLen, cipher);
-
-                // Charge the shared budget for everything about to go on the wire. This path never
-                // touches HttpHandler or ThrottledStream — it reads the file itself and writes
-                // ciphertext straight to a WebSocket — so without this MEGA and TransferIt ignore
-                // the user's speed limit entirely while every other hoster obeys it.
-                await ChargeAsync(speedBudget, header.Length + cipher.Length, cts.Token).ConfigureAwait(false);
-
                 await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
-                if (cipher.Length > 0)
-                {
-                    await ws.SendAsync(cipher, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
-                }
+                Volatile.Write(ref lastActivity, Environment.TickCount64);
+
+                // This path never touches HttpHandler or ThrottledStream — it reads the file itself
+                // and writes ciphertext straight to a WebSocket — so without this MEGA and
+                // TransferIt ignore the user's speed limit entirely while every other hoster obeys
+                // it. Ciphertext only: MegaCrypto's cipher is the same length as the plaintext, and
+                // the HTTP path likewise throttles the file payload rather than its framing.
+                await SendChunkThrottledAsync(
+                    (segment, endOfMessage, token) => ws.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, token),
+                    cipher,
+                    speedBudget,
+                    () => Volatile.Write(ref lastActivity, Environment.TickCount64),
+                    cts.Token).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -311,27 +313,45 @@ internal static class MegaWebSocketUploader
     }
 
     /// <summary>
-    /// Takes <paramref name="bytes"/> from the shared budget, waiting as needed, before those bytes
-    /// are written to the socket. Loops because a grant may be partial — the bucket hands out what
-    /// it can currently afford.
+    /// Sends one chunk's ciphertext as a single WebSocket message, split into fragments no larger
+    /// than what the shared budget grants at that moment.
     /// <para>
-    /// Nothing is refunded: unlike a stream read, which may come up short, every byte charged here
-    /// is one the caller is about to send. An unlimited budget returns the whole request on the
-    /// first pass without taking a lock.
+    /// Charging the WHOLE chunk up front and then sending it in one go was the obvious shape and is
+    /// wrong twice over. A chunk reaches 1 MiB, so at 100 kB/s it would accumulate grants for about
+    /// ten seconds and then burst a megabyte — defeating the bucket's deliberate 100 ms burst bound.
+    /// And because the idle watchdog is fed only by RECEIVED messages, at 8 KiB/s the pre-charge
+    /// alone outlasts the 120 s timeout and a perfectly healthy throttled upload is cancelled as
+    /// idle.
+    /// </para>
+    /// <para>
+    /// So: acquire, send that much immediately, repeat. <paramref name="onFragmentSent"/> feeds the
+    /// watchdog, because deliberate throttling is not inactivity. Nothing is refunded — once a send
+    /// has begun the API cannot say how much escaped — but nor is anything charged for bytes a later
+    /// fragment has not yet attempted.
     /// </para>
     /// </summary>
-    internal static async Task ChargeAsync(SpeedBudget? speedBudget, int bytes, CancellationToken ct)
+    internal static async Task SendChunkThrottledAsync(
+        Func<ArraySegment<byte>, bool, CancellationToken, Task> sendFragment,
+        byte[] cipher,
+        SpeedBudget speedBudget,
+        Action onFragmentSent,
+        CancellationToken ct)
     {
-        if (speedBudget is null || bytes <= 0)
+        if (cipher.Length == 0)
         {
             return;
         }
 
-        int remaining = bytes;
-        while (remaining > 0)
+        int sent = 0;
+        while (sent < cipher.Length)
         {
-            SpeedReservation reservation = await speedBudget.AcquireAsync(remaining, ct).ConfigureAwait(false);
-            remaining -= reservation.Bytes;
+            SpeedReservation reservation = await speedBudget.AcquireAsync(cipher.Length - sent, ct).ConfigureAwait(false);
+            int allowed = Math.Min(reservation.Bytes, cipher.Length - sent);
+            bool endOfMessage = sent + allowed >= cipher.Length;
+
+            await sendFragment(new ArraySegment<byte>(cipher, sent, allowed), endOfMessage, ct).ConfigureAwait(false);
+            sent += allowed;
+            onFragmentSent();
         }
     }
 }

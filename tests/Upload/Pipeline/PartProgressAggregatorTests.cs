@@ -115,30 +115,41 @@ public class PartProgressAggregatorTests
         Assert.Equal([10, 20], seen);
     }
 
+    /// <summary>
+    /// Publishing under the lock would run arbitrary subscriber code — ultimately the UI — while
+    /// holding it, blocking every other part's progress behind whatever that code does.
+    /// <para>
+    /// This must be a TWO-THREAD test. An earlier version re-entered <c>Report</c> from inside the
+    /// publisher on the same thread and claimed to prove the property, but
+    /// <see cref="System.Threading.Lock"/> is re-entrant like <c>Monitor</c>: the inner call would
+    /// simply take the lock again, enqueue, and produce the same observable result either way.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Report_DoesNotHoldItsLockWhilePublishing()
+    public async Task Report_DoesNotHoldItsLockWhilePublishing()
     {
-        // Publishing under the lock would run arbitrary subscriber code — ultimately the UI — while
-        // holding it. It would not DEADLOCK on the same thread (System.Threading.Lock is re-entrant,
-        // like Monitor): the re-entrant Report would take the lock again and publish its total from
-        // inside the outer publish, so the inner figure surfaces before the outer one. Verified by
-        // mutation — publishing inside the lock fails exactly this test.
-        List<long> published = [];
-        PartProgressAggregator? aggregator = null;
-        bool reentered = false;
-
-        aggregator = new PartProgressAggregator(2, total =>
+        using ManualResetEventSlim publisherEntered = new(false);
+        using ManualResetEventSlim releasePublisher = new(false);
+        PartProgressAggregator aggregator = new(2, _ =>
         {
-            published.Add(total);
-            if (!reentered)
-            {
-                reentered = true;
-                aggregator!.Report(1, 5); // re-entrant call from inside the publisher
-            }
+            publisherEntered.Set();
+            releasePublisher.Wait(TimeSpan.FromSeconds(5));
         });
 
-        aggregator.Report(0, 10);
+        Task first = Task.Run(() => aggregator.Report(0, 10));
+        Assert.True(publisherEntered.Wait(TimeSpan.FromSeconds(5)), "the publisher never ran");
 
-        Assert.Equal([10, 15], published);
+        // A DIFFERENT thread reports while the publisher is still inside its callback. If the lock
+        // were held across publication this would block until the publisher is released, and the
+        // wait below would time out.
+        Task second = Task.Run(() => aggregator.Report(1, 5));
+
+        Assert.True(
+            second.Wait(TimeSpan.FromSeconds(2)),
+            "a second thread's Report blocked behind the publisher — the lock is held across publication");
+
+        releasePublisher.Set();
+        await first;
+        await second;
     }
 }
