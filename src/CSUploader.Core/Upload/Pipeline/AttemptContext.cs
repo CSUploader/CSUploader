@@ -38,7 +38,7 @@ public sealed record AttemptContext
 
     public required IAppLogger Logger { get; init; }
 
-    public required Func<long?> SpeedLimitProvider { get; init; }
+    public required SpeedBudget SpeedBudget { get; init; }
 
     public required CancellationToken Cancellation { get; init; }
 }

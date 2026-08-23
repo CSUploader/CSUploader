@@ -306,7 +306,7 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
                     totalFileSize: fileSize,
                     dateTimeStarted: started,
                     headers: headers,
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
             }
 

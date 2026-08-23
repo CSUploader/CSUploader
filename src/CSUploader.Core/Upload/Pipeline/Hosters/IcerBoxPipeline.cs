@@ -62,7 +62,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
     private readonly Func<string, string, Task<HttpResponseSnapshot>>? _loginOverride;
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     /// <summary>Production ctor — uses the <see cref="AttemptContext.Handler"/> for HTTP.</summary>
     public IcerBoxPipeline()
@@ -84,7 +84,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
     internal IcerBoxPipeline(
         Func<string, string, HttpResponseSnapshot> loginOverride,
         Func<string, HttpResponseSnapshot> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
         : this(loginOverride, getOverride)
     {
         _uploadOverride = uploadOverride;
@@ -487,7 +487,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
 
         if (_uploadOverride is not null)
         {
-            return _uploadOverride(ctx.FilePath, endpoint, _noExtraFields, headers, ctx.SpeedLimitProvider);
+            return _uploadOverride(ctx.FilePath, endpoint, _noExtraFields, headers, ctx.SpeedBudget);
         }
 
         return ctx.Handler.UploadMultipartAsync(
@@ -496,7 +496,7 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
             fileFieldName: FileFieldName,
             extraFields: _noExtraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

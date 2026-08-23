@@ -114,7 +114,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
 
     private readonly IInteractiveAuthService? _authService;
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public NitroFlarePipeline(IInteractiveAuthService? authService = null)
     {
@@ -125,7 +125,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
     /// so the discovery/parse logic can be exercised without the network.</summary>
     internal NitroFlarePipeline(
         Func<string, HttpResponseSnapshot> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getOverride = url => Task.FromResult(getOverride(url));
         _uploadOverride = uploadOverride;
@@ -389,7 +389,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -398,7 +398,7 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
             fileFieldName: "files[]",
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

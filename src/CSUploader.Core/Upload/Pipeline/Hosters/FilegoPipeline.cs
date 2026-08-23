@@ -292,7 +292,7 @@ public sealed class FilegoPipeline : IFileHosterPipeline
                 endpoint,
                 "application/octet-stream",
                 headers,
-                ctx.SpeedLimitProvider,
+                ctx.SpeedBudget,
                 ctx.Cancellation);
     }
 

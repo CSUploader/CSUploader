@@ -5,6 +5,7 @@
 
 using CSUploader.Dal;
 using CSUploader.Lib;
+using CSUploader.Lib.Net.Http;
 
 namespace CSUploader.Upload.Pipeline;
 
@@ -22,5 +23,5 @@ public sealed record AttemptInputs
     public required string HosterName { get; init; }
     public required FileHosterLoginDto Credentials { get; init; }
     public required IAppLogger Logger { get; init; }
-    public required Func<long?> SpeedLimitProvider { get; init; }
+    public required SpeedBudget SpeedBudget { get; init; }
 }

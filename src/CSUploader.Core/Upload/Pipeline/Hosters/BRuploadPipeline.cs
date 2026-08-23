@@ -52,7 +52,7 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
 
     private readonly Func<string, Task<string>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     // Matches `name="X" value="Y"` or `value="Y" name="X"` for a given input name — used
     // both for the CSRF `token` field on login.html and `sess_id` on upload_form.html.
@@ -88,7 +88,7 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
     internal BRuploadPipeline(
         Func<string, string> getOverride,
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getOverride = url => Task.FromResult(getOverride(url));
         _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
@@ -575,7 +575,7 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, uploadHeaders, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, auth.UploadActionUrl, extraFields, uploadHeaders, ctx.SpeedBudget);
         }
 
         // The header set (uploadHeaders, built above) the browser sends on this exact
@@ -596,7 +596,7 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
             fileFieldName: "file_0",
             extraFields: extraFields,
             headers: uploadHeaders,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

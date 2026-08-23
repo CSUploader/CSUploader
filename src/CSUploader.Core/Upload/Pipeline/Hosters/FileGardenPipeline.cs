@@ -70,7 +70,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
 
     private readonly Func<string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
 
     public FileGardenPipeline()
@@ -81,7 +81,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
     /// so the whole login → exists-check → upload orchestration runs without the network or a real file.</summary>
     internal FileGardenPipeline(
         Func<string, string?, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot> postJsonOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot>? getOverride = null)
     {
         _postJsonOverride = (url, json, headers) => Task.FromResult(postJsonOverride(url, json, headers));
@@ -388,7 +388,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadFileBodyAsync(
@@ -397,7 +397,7 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
             url,
             contentType: "application/octet-stream",
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

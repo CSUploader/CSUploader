@@ -380,7 +380,7 @@ public class XfsAnonymousHostersTests
         Assert.Empty(calls);
     }
 
-    private static Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> Capture(
+    private static Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> Capture(
         List<UploadCall> calls, string responseBody)
         => (filePath, endpoint, fields, headers, _) =>
         {
@@ -420,7 +420,7 @@ public class XfsAnonymousHostersTests
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

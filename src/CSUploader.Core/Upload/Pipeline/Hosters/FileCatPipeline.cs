@@ -67,7 +67,7 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
     private const long MaxFileSizeBytes = 2_097_152_000;
 
     private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
 
     public FileCatPipeline()
@@ -77,7 +77,7 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
     /// <summary>Test ctor — stubs the JSON calls, the plain GETs and the multipart upload.</summary>
     internal FileCatPipeline(
         Func<string, string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> postJsonOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? getOverride = null)
     {
         _postJsonOverride = postJsonOverride;
@@ -150,8 +150,8 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
         // sends it to sNN.filecat.net as well. Without it the node takes the entire file and then
         // answers 403 "Access denied", measured.
         Task<HttpResponseSnapshot> uploadTask = _uploadOverride is not null
-            ? _uploadOverride(ctx.FilePath, node, NodeHeaders(session), ctx.SpeedLimitProvider)
-            : ctx.Handler.UploadMultipartAsync(ctx.FilePath, node, "file", null, NodeHeaders(session), ctx.SpeedLimitProvider, ctx.Cancellation);
+            ? _uploadOverride(ctx.FilePath, node, NodeHeaders(session), ctx.SpeedBudget)
+            : ctx.Handler.UploadMultipartAsync(ctx.FilePath, node, "file", null, NodeHeaders(session), ctx.SpeedBudget, ctx.Cancellation);
 
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),

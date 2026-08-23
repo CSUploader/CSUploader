@@ -505,7 +505,7 @@ public sealed class DropMeFilesPipeline : IFileHosterPipeline
                             total,
                             started,
                             headers,
-                            ctx.SpeedLimitProvider,
+                            ctx.SpeedBudget,
                             ctx.Cancellation,
                             HttpMethod.Post);
                 }

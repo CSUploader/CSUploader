@@ -277,7 +277,7 @@ public class PixeldrainPipelineTests
         public IReadOnlyDictionary<string, string>? LastValidationHeaders { get; private set; }
 
         /// <summary>Overridable so a test can make the PUT throw or return a specific verdict.</summary>
-        public Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
+        public Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
 
         public PixeldrainPipeline Build() => new(PostForm, Upload, Get);
 
@@ -299,7 +299,7 @@ public class PixeldrainPipelineTests
                 : new HttpResponseSnapshot(404, """{"success":false,"value":"user_not_found","message":"User with this name or e-mail address does not exist"}""", []);
         }
 
-        private Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, Func<long?>? bps)
+        private Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, SpeedBudget? bps)
         {
             Uploads++;
             LastUploadUrl = url;
@@ -342,7 +342,7 @@ public class PixeldrainPipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = MakeHandler(),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

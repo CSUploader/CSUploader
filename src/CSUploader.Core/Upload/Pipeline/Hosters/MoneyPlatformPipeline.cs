@@ -87,7 +87,7 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
     private readonly FileHosterLoginRepository? _loginRepository;
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     /// <summary>
     /// Backoff (ms) between retries of the <c>/v1/files/upload-url</c> discovery GET when the API
@@ -112,7 +112,7 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _authService = authService;
         _loginRepository = loginRepository;
@@ -726,14 +726,14 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
 
         IReadOnlyDictionary<string, string> headers = UploadOriginHeaders;
         return _uploadOverride is not null
-            ? _uploadOverride(ctx.FilePath, endpoint.Url, fields, headers, ctx.SpeedLimitProvider)
+            ? _uploadOverride(ctx.FilePath, endpoint.Url, fields, headers, ctx.SpeedBudget)
             : ctx.Handler.UploadMultipartAsync(
                 ctx.FilePath,
                 endpoint.Url,
                 fileFieldName: "file",
                 extraFields: fields,
                 headers: headers,
-                getBytesPerSecond: ctx.SpeedLimitProvider,
+                speedBudget: ctx.SpeedBudget,
                 cancellationToken: ctx.Cancellation);
     }
 

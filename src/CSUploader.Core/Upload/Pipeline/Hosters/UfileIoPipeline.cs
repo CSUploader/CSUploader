@@ -567,7 +567,7 @@ public sealed class UfileIoPipeline : IFileHosterPipeline
             totalFileSize: ctx.FileSize,
             dateTimeStarted: started,
             headers: ApiHeaders(csrf, session),
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

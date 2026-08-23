@@ -241,7 +241,7 @@ public sealed class FileStorePipeline : IFileHosterPipeline, ISessionRefreshable
         return _uploadOverride is not null
             ? _uploadOverride(ctx.FilePath, node, fields)
             : ctx.Handler.UploadMultipartAsync(
-                ctx.FilePath, node, "file_0", fields, headers, ctx.SpeedLimitProvider, ctx.Cancellation);
+                ctx.FilePath, node, "file_0", fields, headers, ctx.SpeedBudget, ctx.Cancellation);
     }
 
     /// <summary>

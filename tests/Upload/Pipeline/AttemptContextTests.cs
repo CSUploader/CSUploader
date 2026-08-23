@@ -32,7 +32,7 @@ public class AttemptContextTests
             Proxy = ProxyChoice.Direct,
             Handler = handler,
             Logger = Mock.Of<IAppLogger>(),
-            SpeedLimitProvider = () => null,
+            SpeedBudget = SpeedBudget.Unlimited,
             Cancellation = default,
         };
 

@@ -266,7 +266,7 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
                 ? _putPartOverride(init.PartUrls[i], partNumber)
                 : await ctx.Handler.PutChunkAsync(
                     init.PartUrls[i], new ChunkSliceStream(fs!, len), len, basePos, total, started,
-                    headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
+                    headers: null, ctx.SpeedBudget, ctx.Cancellation);
 
             if (resp.StatusCode is < 200 or >= 300)
             {

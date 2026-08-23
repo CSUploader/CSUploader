@@ -3,23 +3,26 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Diagnostics;
-
 namespace CSUploader.Lib.Net.Http;
 
 /// <summary>
-/// A read-only stream wrapper that rate-limits reads to a caller-provided bytes/second value.
-/// The limit is queried on each read via the <see cref="_getBytesPerSecond"/> delegate so it can
-/// change live (e.g. when the user adjusts the speed limit while an upload is running).
-/// Returning <c>null</c> or a non-positive value disables throttling.
+/// A read-only stream wrapper that rate-limits reads against a <see cref="SpeedBudget"/>.
+/// <para>
+/// The budget is SHARED by every stream governed by the same limit, which is the whole point: this
+/// class used to hold a <c>Func&lt;long?&gt;</c> returning a rate and enforce it against its own
+/// private one-second window, so the scheduler's concurrent uploads were each allowed the full
+/// limit and a user's 1 MB/s became N MB/s.
+/// </para>
+/// <para>
+/// Every read reserves an allowance, moves at most that many bytes, and refunds the remainder in a
+/// <c>finally</c> — covering the short read, the EOF probe and the cancelled read, all of which
+/// would otherwise spend budget on bytes that never moved.
+/// </para>
 /// </summary>
-public class ThrottledStream(Stream inner, Func<long?> getBytesPerSecond) : Stream
+public class ThrottledStream(Stream inner, SpeedBudget budget) : Stream
 {
     private readonly Stream _inner = inner;
-    private readonly Func<long?> _getBytesPerSecond = getBytesPerSecond;
-    private readonly Stopwatch _clock = Stopwatch.StartNew();
-    private long _bytesReadSinceReset;
-    private long _windowStartMs;
+    private readonly SpeedBudget _budget = budget;
 
     public override bool CanRead => _inner.CanRead;
     public override bool CanSeek => _inner.CanSeek;
@@ -32,89 +35,46 @@ public class ThrottledStream(Stream inner, Func<long?> getBytesPerSecond) : Stre
     public override void SetLength(long value) => _inner.SetLength(value);
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
+    /// <summary>
+    /// The synchronous path, kept for interface completeness. No production caller uses it — all
+    /// eight <c>HttpHandler</c> construction sites are upload bodies read asynchronously by
+    /// <see cref="ProgressStreamContent"/> — and blocking here is not new behaviour.
+    /// </summary>
     public override int Read(byte[] buffer, int offset, int count)
     {
-        int allowed = WaitForBudget(count);
-        int read = _inner.Read(buffer, offset, allowed);
-        _bytesReadSinceReset += read;
-        return read;
+        // Validate BEFORE acquiring: a negative count would otherwise become a zero-byte grant and
+        // a silent 0-return, where the Stream contract calls for ArgumentOutOfRangeException.
+        ValidateBufferArguments(buffer, offset, count);
+
+        SpeedReservation reservation = _budget.AcquireAsync(count, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        int read = 0;
+        try
+        {
+            read = _inner.Read(buffer, offset, reservation.Bytes);
+            return read;
+        }
+        finally
+        {
+            reservation.Refund(reservation.Bytes - read);
+        }
     }
 
     public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-    {
-        int allowed = await WaitForBudgetAsync(count, cancellationToken);
-        int read = await _inner.ReadAsync(buffer.AsMemory(offset, allowed), cancellationToken);
-        _bytesReadSinceReset += read;
-        return read;
-    }
+        => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        int allowed = await WaitForBudgetAsync(buffer.Length, cancellationToken);
-        int read = await _inner.ReadAsync(buffer[..allowed], cancellationToken);
-        _bytesReadSinceReset += read;
-        return read;
-    }
-
-    private int WaitForBudget(int requestedBytes)
-    {
-        while (true)
+        SpeedReservation reservation = await _budget.AcquireAsync(buffer.Length, cancellationToken).ConfigureAwait(false);
+        int read = 0;
+        try
         {
-            int allowed = ComputeAllowedBytes(requestedBytes, out int sleepMs);
-            if (allowed > 0)
-            {
-                return allowed;
-            }
-
-            Thread.Sleep(sleepMs);
+            read = await _inner.ReadAsync(buffer[..reservation.Bytes], cancellationToken).ConfigureAwait(false);
+            return read;
         }
-    }
-
-    private async Task<int> WaitForBudgetAsync(int requestedBytes, CancellationToken cancellationToken)
-    {
-        while (true)
+        finally
         {
-            int allowed = ComputeAllowedBytes(requestedBytes, out int sleepMs);
-            if (allowed > 0)
-            {
-                return allowed;
-            }
-
-            await Task.Delay(sleepMs, cancellationToken);
+            reservation.Refund(reservation.Bytes - read);
         }
-    }
-
-    private int ComputeAllowedBytes(int requestedBytes, out int sleepMs)
-    {
-        sleepMs = 0;
-        long? bps = _getBytesPerSecond();
-        if (bps is null or <= 0)
-        {
-            _bytesReadSinceReset = 0;
-            _windowStartMs = _clock.ElapsedMilliseconds;
-            return requestedBytes;
-        }
-
-        long nowMs = _clock.ElapsedMilliseconds;
-        long elapsedMs = nowMs - _windowStartMs;
-
-        // Roll the 1-second window
-        if (elapsedMs >= 1000)
-        {
-            _windowStartMs = nowMs;
-            _bytesReadSinceReset = 0;
-            elapsedMs = 0;
-        }
-
-        long remaining = bps.Value - _bytesReadSinceReset;
-        if (remaining <= 0)
-        {
-            // Budget exhausted; wait until the window rolls over
-            sleepMs = (int)Math.Max(1, 1000 - elapsedMs);
-            return 0;
-        }
-
-        return (int)Math.Min(requestedBytes, remaining);
     }
 
     protected override void Dispose(bool disposing)

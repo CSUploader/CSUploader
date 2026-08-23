@@ -295,7 +295,7 @@ public class XubsterPipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = MakeHandler(),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 

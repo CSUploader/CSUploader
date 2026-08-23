@@ -109,7 +109,7 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             Proxy = proxy,
             Handler = handler,
             Logger = inputs.Logger,
-            SpeedLimitProvider = inputs.SpeedLimitProvider,
+            SpeedBudget = inputs.SpeedBudget,
             Cancellation = ct,
         };
 

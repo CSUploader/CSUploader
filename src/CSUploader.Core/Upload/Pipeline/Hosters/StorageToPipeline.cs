@@ -87,7 +87,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, string, string, Action<long, long>, Func<long?>?, Task<HttpResponseSnapshot>>? _putOverride;
+    private readonly Func<string, string, string, Action<long, long>, SpeedBudget?, Task<HttpResponseSnapshot>>? _putOverride;
     private readonly Func<string, int, HttpResponseSnapshot>? _putPartOverride;
 
     public StorageToPipeline()
@@ -251,7 +251,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     private async Task<(bool Ok, string? Error)> UploadSingleAsync(
         AttemptContext ctx, string uploadUrl, string contentType, Action<long, long> progress)
     {
-        HttpResponseSnapshot putResponse = await PutAsync(ctx, uploadUrl, contentType, progress, ctx.SpeedLimitProvider);
+        HttpResponseSnapshot putResponse = await PutAsync(ctx, uploadUrl, contentType, progress, ctx.SpeedBudget);
         return putResponse.StatusCode is >= 200 and < 300
             ? (true, null)
             : (false, $"storage.to R2 upload failed (HTTP {putResponse.StatusCode}): {Snippet(putResponse.Body)}");
@@ -286,7 +286,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
                     ? _putPartOverride(init.PartUrls[i], partNumber)
                     : await ctx.Handler.PutChunkAsync(
                         init.PartUrls[i], new ChunkSliceStream(fs!, len), len, basePos, total, started,
-                        headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
+                        headers: null, ctx.SpeedBudget, ctx.Cancellation);
 
                 if (resp.StatusCode is < 200 or >= 300)
                 {
@@ -611,18 +611,18 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     /// <summary>Runs the R2 PUT, funnelling byte progress into <paramref name="progress"/>. The
     /// production path bridges <see cref="HttpHandler.UploadProgress"/>; the test override calls the
     /// callback directly.</summary>
-    private async Task<HttpResponseSnapshot> PutAsync(AttemptContext ctx, string url, string contentType, Action<long, long> progress, Func<long?>? getBytesPerSecond)
+    private async Task<HttpResponseSnapshot> PutAsync(AttemptContext ctx, string url, string contentType, Action<long, long> progress, SpeedBudget? speedBudget)
     {
         if (_putOverride is not null)
         {
-            return await _putOverride(ctx.FilePath, url, contentType, progress, getBytesPerSecond);
+            return await _putOverride(ctx.FilePath, url, contentType, progress, speedBudget);
         }
 
         void OnProgress(object? _, OperationProgressEventArgs e) => progress(e.BytesProcessed, e.Size);
         ctx.Handler.UploadProgress += OnProgress;
         try
         {
-            return await ctx.Handler.UploadPutAsync(ctx.FilePath, url, contentType, headers: null, getBytesPerSecond, ctx.Cancellation);
+            return await ctx.Handler.UploadPutAsync(ctx.FilePath, url, contentType, headers: null, speedBudget, ctx.Cancellation);
         }
         finally
         {

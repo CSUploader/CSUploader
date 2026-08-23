@@ -279,7 +279,7 @@ public sealed class GigaFilePipeline : IFileHosterPipeline
                     filePartName: "blob",
                     extraFields: fields,
                     headers: BrowserHeaders(jar),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
             }
 

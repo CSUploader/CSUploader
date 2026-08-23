@@ -78,7 +78,7 @@ public sealed class WebsharePipeline : IFileHosterPipeline
     private static readonly Regex NonSlugRegex = new("[^0-9A-Za-z]+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, long, long, Task<HttpResponseSnapshot>>? _chunkOverride;
 
     public WebsharePipeline()
@@ -89,7 +89,7 @@ public sealed class WebsharePipeline : IFileHosterPipeline
     /// canned responses, so the ident/offset threading runs without the network.</summary>
     internal WebsharePipeline(
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>, long, long, Task<HttpResponseSnapshot>>? chunkOverride = null)
     {
         _postFormOverride = postFormOverride;
@@ -367,14 +367,14 @@ public sealed class WebsharePipeline : IFileHosterPipeline
         if (ctx.FileSize <= ChunkSize)
         {
             HttpResponseSnapshot single = _uploadOverride is not null
-                ? await _uploadOverride(ctx.FilePath, node, BuildFields(ctx, 0, null), ctx.SpeedLimitProvider)
+                ? await _uploadOverride(ctx.FilePath, node, BuildFields(ctx, 0, null), ctx.SpeedBudget)
                 : await ctx.Handler.UploadMultipartAsync(
                     ctx.FilePath,
                     node,
                     fileFieldName: FileFieldName,
                     extraFields: BuildFields(ctx, 0, null),
                     headers: NodeHeaders(),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
 
             return ParseUploadResponse(single);
@@ -428,7 +428,7 @@ public sealed class WebsharePipeline : IFileHosterPipeline
                         totalFileSize: total,
                         dateTimeStarted: started,
                         headers: NodeHeaders(),
-                        getBytesPerSecond: ctx.SpeedLimitProvider,
+                        speedBudget: ctx.SpeedBudget,
                         cancellationToken: ctx.Cancellation);
                 }
 

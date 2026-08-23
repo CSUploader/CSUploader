@@ -43,7 +43,7 @@ public sealed partial class CatboxPipeline : IFileHosterPipeline
     private readonly ConcurrentDictionary<int, string> _userhashByCredId = new();
     private readonly ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
 
@@ -54,7 +54,7 @@ public sealed partial class CatboxPipeline : IFileHosterPipeline
     /// <summary>Test ctor — stubs the multipart upload (and optionally the login POST + view.php GET
     /// for the account flow) so the orchestration runs without the network.</summary>
     internal CatboxPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot>? getSnapshotOverride = null,
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot>? postFormOverride = null)
     {
@@ -312,7 +312,7 @@ public sealed partial class CatboxPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, ApiUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, ApiUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -321,7 +321,7 @@ public sealed partial class CatboxPipeline : IFileHosterPipeline
             fileFieldName: "fileToUpload",
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

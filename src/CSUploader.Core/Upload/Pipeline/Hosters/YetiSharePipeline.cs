@@ -231,7 +231,7 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
     private readonly FileHosterLoginRepository? _loginRepository;
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     protected YetiSharePipeline(IInteractiveAuthService? authService = null, FileHosterLoginRepository? loginRepository = null)
     {
@@ -244,7 +244,7 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _authService = authService;
         _loginRepository = loginRepository;
@@ -996,14 +996,14 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
         if (_uploadOverride is not null || ctx.FileSize <= MaxChunkSize)
         {
             return _uploadOverride is not null
-                ? await _uploadOverride(ctx.FilePath, ticket.UploadUrl, fields, NodeHeaders(session, ticket.UploadUrl), ctx.SpeedLimitProvider)
+                ? await _uploadOverride(ctx.FilePath, ticket.UploadUrl, fields, NodeHeaders(session, ticket.UploadUrl), ctx.SpeedBudget)
                 : await ctx.Handler.UploadMultipartAsync(
                     ctx.FilePath,
                     ticket.UploadUrl,
                     fileFieldName: FileFieldName,
                     extraFields: fields,
                     headers: NodeHeaders(session, ticket.UploadUrl),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
         }
 
@@ -1048,7 +1048,7 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 totalFileSize: total,
                 dateTimeStarted: started,
                 headers: headers,
-                getBytesPerSecond: ctx.SpeedLimitProvider,
+                speedBudget: ctx.SpeedBudget,
                 cancellationToken: ctx.Cancellation);
 
             // An explicit per-file error means the node has given up; sending the rest wastes the

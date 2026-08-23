@@ -64,7 +64,7 @@ public sealed class PixeldrainPipeline : IFileHosterPipeline
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public PixeldrainPipeline()
     {
@@ -74,7 +74,7 @@ public sealed class PixeldrainPipeline : IFileHosterPipeline
     /// GET so the whole sign-in → key → upload orchestration runs without the network or a real file.</summary>
     internal PixeldrainPipeline(
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>?, HttpResponseSnapshot>? getOverride = null)
     {
         _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
@@ -344,7 +344,7 @@ public sealed class PixeldrainPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadPutAsync(
@@ -352,7 +352,7 @@ public sealed class PixeldrainPipeline : IFileHosterPipeline
             url,
             contentType: MimeTypeGuesser.Guess(ctx.FilePath),
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

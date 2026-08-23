@@ -562,7 +562,7 @@ public abstract class XfsProSessionPipeline : IFileHosterPipeline, IStorageRefre
                 // all chunks. The PUT's content disposes the slice; that's a no-op for the inner stream.
                 ChunkSliceStream slice = new(fs, len);
                 HttpResponseSnapshot resp = await ctx.Handler.PutChunkAsync(
-                    chunkUrl, slice, len, basePos, total, started, headers, ctx.SpeedLimitProvider, ctx.Cancellation);
+                    chunkUrl, slice, len, basePos, total, started, headers, ctx.SpeedBudget, ctx.Cancellation);
                 (bool ok, string? error) = CheckChunkResponse(resp, i);
                 if (!ok)
                 {

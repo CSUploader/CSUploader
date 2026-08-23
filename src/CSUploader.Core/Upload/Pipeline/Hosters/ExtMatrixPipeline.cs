@@ -134,7 +134,7 @@ public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
     private readonly FileHosterLoginRepository? _loginRepository;
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<string>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     /// <summary>API key extractor — four branches:
     /// <list type="number">
@@ -174,7 +174,7 @@ public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _authService = authService;
         _loginRepository = loginRepository;
@@ -592,13 +592,13 @@ public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
         if (_uploadOverride is not null)
         {
             // Func<> delegate parameters are positional, not named — keep the argument
-            // order: filePath, endpoint, extraFields, headers, getBytesPerSecond.
+            // order: filePath, endpoint, extraFields, headers, speedBudget.
             return await _uploadOverride(
                 ctx.FilePath,
                 ApiUploadUrl,
                 extraFields,
                 headers,
-                ctx.SpeedLimitProvider);
+                ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -607,7 +607,7 @@ public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
             fileFieldName: "file",
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

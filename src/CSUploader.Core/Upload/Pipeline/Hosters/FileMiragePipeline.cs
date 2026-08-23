@@ -297,7 +297,7 @@ public sealed class FileMiragePipeline : IFileHosterPipeline
                     filePartName: ctx.FileName,
                     extraFields: fields,
                     headers: BrowserHeaders(token),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
+                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
             }
 

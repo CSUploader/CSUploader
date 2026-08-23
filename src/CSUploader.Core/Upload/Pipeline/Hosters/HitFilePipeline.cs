@@ -166,7 +166,7 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
 
     private readonly IInteractiveAuthService? _authService;
     private readonly Func<string, string, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, string?, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _cookiePostOverride;
 
     public HitFilePipeline(IInteractiveAuthService? authService = null)
@@ -178,7 +178,7 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
     /// responses so the parse logic can be exercised without the network.</summary>
     internal HitFilePipeline(
         Func<string, string, HttpResponseSnapshot> postJsonOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _postJsonOverride = (url, body) => Task.FromResult(postJsonOverride(url, body));
         _uploadOverride = uploadOverride;
@@ -740,7 +740,7 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -749,7 +749,7 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
             fileFieldName: "Filedata",
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

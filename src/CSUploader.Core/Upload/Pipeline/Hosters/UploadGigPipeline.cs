@@ -67,7 +67,7 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
     private const long FreeStorageBytes = 10240L * 1024 * 1024;
 
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public UploadGigPipeline()
     {
@@ -77,7 +77,7 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
     /// network or a real file.</summary>
     internal UploadGigPipeline(
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _postFormOverride = postFormOverride;
         _uploadOverride = uploadOverride;
@@ -325,7 +325,7 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, actionUrl, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, actionUrl, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadFileBodyAsync(
@@ -334,7 +334,7 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
             actionUrl,
             contentType: "application/octet-stream",
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

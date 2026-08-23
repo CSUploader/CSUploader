@@ -342,7 +342,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                         totalFileSize: ctx.FileSize,
                         dateTimeStarted: started,
                         headers: headers,
-                        getBytesPerSecond: ctx.SpeedLimitProvider,
+                        speedBudget: ctx.SpeedBudget,
                         cancellationToken: ctx.Cancellation).ConfigureAwait(false);
                 }).ConfigureAwait(false);
 

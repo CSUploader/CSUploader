@@ -282,7 +282,7 @@ public sealed class HostizePipeline : IFileHosterPipeline
                 ? await _putPartOverride(ticket.PartUrls[i], partNumber, len)
                 : await ctx.Handler.PutChunkAsync(
                     ticket.PartUrls[i], new ChunkSliceStream(file!, len), len, basePos, total, started,
-                    headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
+                    headers: null, ctx.SpeedBudget, ctx.Cancellation);
 
             if (response.StatusCode is < 200 or >= 300)
             {

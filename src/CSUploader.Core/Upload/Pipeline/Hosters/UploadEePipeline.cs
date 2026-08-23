@@ -129,7 +129,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
     private readonly System.Collections.Concurrent.ConcurrentDictionary<int, SemaphoreSlim> _loginGates = new();
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _postFormOverride;
 
     public UploadEePipeline()
@@ -140,7 +140,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
     /// without the network. The form POST is optional: only the account path uses it.</summary>
     internal UploadEePipeline(
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? postFormOverride = null)
     {
         _getOverride = getOverride;
@@ -634,7 +634,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, url, extraFields, BrowserHeaders(cookies), ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, url, extraFields, BrowserHeaders(cookies), ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
@@ -643,7 +643,7 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             fileFieldName: "upfile_0",
             extraFields: extraFields,
             headers: BrowserHeaders(cookies),
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

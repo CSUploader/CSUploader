@@ -285,7 +285,7 @@ public abstract partial class XFileSharingApiPipeline
 
         if (_uploadOverride is not null)
         {
-            return _uploadOverride(ctx.FilePath, uploadUrl, fields, headers, ctx.SpeedLimitProvider);
+            return _uploadOverride(ctx.FilePath, uploadUrl, fields, headers, ctx.SpeedBudget);
         }
 
         return ctx.Handler.UploadMultipartAsync(
@@ -294,7 +294,7 @@ public abstract partial class XFileSharingApiPipeline
             fileFieldName: "file_0",
             extraFields: fields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
+            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

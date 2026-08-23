@@ -412,7 +412,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
     private readonly FileHosterLoginRepository? _loginRepository;
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<string>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     // Hidden-input regex for the CSRF token on the my_account page. Same shape every
     // XFileSharing variant renders for its `token` fields — handles attribute order
@@ -534,7 +534,7 @@ public abstract partial class XFileSharingApiPipeline : IFileHosterPipeline, ISe
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? postFormOverride = null)
     {
         _authService = authService;
