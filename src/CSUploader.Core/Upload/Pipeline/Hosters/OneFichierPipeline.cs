@@ -81,7 +81,7 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     private static readonly Regex _whitespaceRegex = WhitespaceRegex();
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public OneFichierPipeline()
     {
@@ -91,7 +91,7 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
     /// from canned responses so the scrape/parse chain runs without the network.</summary>
     internal OneFichierPipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
         _uploadOverride = uploadOverride;
@@ -385,16 +385,16 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, actionUrl, new Dictionary<string, string>(StringComparer.Ordinal), headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, actionUrl, new Dictionary<string, string>(StringComparer.Ordinal), headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             actionUrl,
             fileFieldName: "file[]",
+            ctx.SpeedBudget,
             extraFields: new Dictionary<string, string>(StringComparer.Ordinal),
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

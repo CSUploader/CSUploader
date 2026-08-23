@@ -46,7 +46,7 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
     /// </summary>
     private const string ExpireSeconds = "172800";
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public TmpFilesPipeline()
     {
@@ -54,7 +54,7 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
 
     /// <summary>Test ctor — stubs the multipart upload so the orchestration runs without the network.</summary>
     internal TmpFilesPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _uploadOverride = uploadOverride;
     }
@@ -211,16 +211,16 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, UploadUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, UploadUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 }

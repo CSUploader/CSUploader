@@ -23,8 +23,26 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// lock in the event sequence, the CSRF/cookie forwarding (incl. the rotated session cookie reaching
 /// confirm), the share URL, and each failure branch. Captured live 2026-06-29.
 /// </summary>
-public class StorageToPipelineUploadTests
+public class StorageToPipelineUploadTests : IDisposable
 {
+    // MakeContext writes a real file per call now; without this they accumulate in TEMP forever.
+    private static readonly List<string> TempFiles = [];
+
+    public void Dispose()
+    {
+        lock (TempFiles)
+        {
+            foreach (string path in TempFiles)
+            {
+                File.Delete(path);
+            }
+
+            TempFiles.Clear();
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
     private const string HomeHtml = """
         <!DOCTYPE html><html><head>
         <meta name="csrf-token" content="TESTCSRF123">
@@ -75,7 +93,9 @@ public class StorageToPipelineUploadTests
             confirm: new HttpResponseSnapshot(200, ConfirmJson, []),
             putStatus: 200);
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+        // Explicitly 1 MiB: this is the SINGLE-PUT path, so the multipart default does not apply
+        // and the init body's declared size is part of what the test checks.
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(1_048_576L), CancellationToken.None));
 
         Assert.Contains(events, e => e is TransferStarted);
         Assert.Contains(events, e => e is TransferProgress);
@@ -157,7 +177,7 @@ public class StorageToPipelineUploadTests
 
     // Large files: storage.to returns a multipart R2 upload (initial_urls = partNumber→presigned PUT).
     private const string MultipartInitJson =
-        """{"success":true,"results":{"0":{"success":true,"type":"multipart","upload_id":"UPID-1","r2_key":"R2KEY","part_size":33554432,"total_parts":3,"initial_urls":{"1":"https://r2.mock/p1","2":"https://r2.mock/p2","3":"https://r2.mock/p3"},"owner_token":"owner_v1_x"}}}""";
+        """{"success":true,"results":{"0":{"success":true,"type":"multipart","upload_id":"UPID-1","r2_key":"R2KEY","part_size":4096,"total_parts":3,"initial_urls":{"1":"https://r2.mock/p1","2":"https://r2.mock/p2","3":"https://r2.mock/p3"},"owner_token":"owner_v1_x"}}}""";
 
     [Fact]
     public async Task RunAsync_MultipartUpload_PutsEveryPart_Completes_AndConfirms()
@@ -170,11 +190,11 @@ public class StorageToPipelineUploadTests
             init: new HttpResponseSnapshot(200, MultipartInitJson, []),
             confirm: new(200, ConfirmJson, []),
             putStatus: 200, // single-PUT path unused
-            putPart: (url, partNumber) =>
+            putPart: (url, partNumber, _, _, _, _, _) =>
             {
                 partPuts.Add((url, partNumber));
                 // R2 part PUT → 200 with the ETag response header (quoted, verbatim).
-                return new HttpResponseSnapshot(200, string.Empty, [], ETag: "\"etag" + partNumber + "\"");
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, [], ETag: "\"etag" + partNumber + "\""));
             });
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
@@ -210,9 +230,9 @@ public class StorageToPipelineUploadTests
             init: new HttpResponseSnapshot(200, MultipartInitJson, []),
             confirm: new(200, ConfirmJson, []),
             putStatus: 200,
-            putPart: (url, partNumber) => partNumber == 1
+            putPart: (url, partNumber, _, _, _, _, _) => Task.FromResult(partNumber == 1
                 ? new HttpResponseSnapshot(200, string.Empty, [], ETag: "\"e1\"")
-                : new HttpResponseSnapshot(403, "<Error>AccessDenied</Error>", [])); // part 2 rejected
+                : new HttpResponseSnapshot(403, "<Error>AccessDenied</Error>", []))); // part 2 rejected
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
@@ -235,7 +255,7 @@ public class StorageToPipelineUploadTests
             init: new HttpResponseSnapshot(200, MultipartInitJson, []),
             confirm: new(200, ConfirmJson, []),
             putStatus: 200,
-            putPart: (_, _) =>
+            putPart: (_, _, _, _, _, _, _) =>
             {
                 partCalls++;
                 throw new HttpRequestException(
@@ -407,7 +427,7 @@ public class StorageToPipelineUploadTests
         HttpResponseSnapshot confirm,
         int putStatus,
         HttpResponseSnapshot? complete = null,
-        Func<string, int, HttpResponseSnapshot>? putPart = null)
+        PutPartHandler? putPart = null)
     {
         return new StorageToPipeline(
             getOverride: url =>
@@ -472,10 +492,36 @@ public class StorageToPipelineUploadTests
     // Anonymous context: a blank login DTO (no username), exactly what the wizard builds for an
     // anonymous-capable hoster with no selected account. The .bin extension guesses to
     // application/octet-stream (MimeTypeGuesser's fallback).
-    private static AttemptContext MakeContext(long fileSize = 1_048_576L) => new()
+    private static AttemptContext MakeContext(long fileSize = 12_288L)
+    {
+        // The pipeline opens the file and reads REAL slices now, so it has to exist and match the
+        // declared size. 12,288 = three 4,096-byte parts, matching MultipartInitJson — whose
+        // fixture previously described three 32 MiB parts for a 1 MiB file, a shape the server
+        // could never produce and which the new part-map validation rightly rejects.
+        string path = Path.Combine(Path.GetTempPath(), $"csu-st-{Guid.NewGuid():N}.bin");
+
+        // Except for the cap-rejection cases, which declare gigabytes deliberately and stop before
+        // any upload.
+        const long MaxRealBytes = 4 * 1024 * 1024;
+        byte[] content = new byte[fileSize <= MaxRealBytes ? fileSize : 0];
+        for (int i = 0; i < content.Length; i++)
+        {
+            content[i] = (byte)(i % 251);
+        }
+
+        File.WriteAllBytes(path, content);
+        lock (TempFiles)
+        {
+            TempFiles.Add(path);
+        }
+
+        return MakeContextForPath(path, fileSize);
+    }
+
+    private static AttemptContext MakeContextForPath(string path, long fileSize) => new()
     {
         AttemptId = Guid.NewGuid(),
-        FilePath = @"C:\nope\package1\1mb.bin",
+        FilePath = path,
         FileName = "1mb.bin",
         FileSize = fileSize,
         HosterName = "Storage.to",
@@ -483,7 +529,7 @@ public class StorageToPipelineUploadTests
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

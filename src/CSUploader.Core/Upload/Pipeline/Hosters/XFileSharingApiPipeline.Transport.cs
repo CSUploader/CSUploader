@@ -132,7 +132,7 @@ public abstract partial class XFileSharingApiPipeline
                 uploadUrl,
                 BuildClassicExtraFields(ctx, sessId),
                 BrowserClassicHeaders(),
-                ctx.SpeedLimitProvider);
+                ctx.SpeedBudget);
         }
 
         if (UsesChunkedUpload)
@@ -160,9 +160,9 @@ public abstract partial class XFileSharingApiPipeline
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: BuildClassicExtraFields(ctx, sessId),
             headers: BrowserClassicHeaders(),
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
 
     /// <summary>
@@ -256,8 +256,8 @@ public abstract partial class XFileSharingApiPipeline
                     basePosition: position,
                     totalFileSize: fileSize,
                     dateTimeStarted: started,
+                    ctx.SpeedBudget,
                     headers: headers,
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
                     cancellationToken: ctx.Cancellation);
             }
             catch when (chunkIndex == 0)
@@ -387,7 +387,7 @@ public abstract partial class XFileSharingApiPipeline
         if (_uploadOverride is not null)
         {
             // Override delegate is positional (no parameter names) — pass arguments in
-            // order: filePath, endpoint, extraFields, headers, getBytesPerSecond.
+            // order: filePath, endpoint, extraFields, headers, speedBudget.
             return await _uploadOverride(string.Empty, url, form, headers, null);
         }
         return await ctx.Handler.PostFormAsync(url, form, ctx.Cancellation);

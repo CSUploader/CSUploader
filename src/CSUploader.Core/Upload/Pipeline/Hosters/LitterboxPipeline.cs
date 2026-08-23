@@ -54,7 +54,7 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
     /// </summary>
     private const string FileNameLength = "16";
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public LitterboxPipeline()
     {
@@ -62,7 +62,7 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
 
     /// <summary>Test ctor — stubs the multipart upload so the orchestration runs without the network.</summary>
     internal LitterboxPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _uploadOverride = uploadOverride;
     }
@@ -210,16 +210,16 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, ApiUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, ApiUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             ApiUrl,
             fileFieldName: "fileToUpload",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 }

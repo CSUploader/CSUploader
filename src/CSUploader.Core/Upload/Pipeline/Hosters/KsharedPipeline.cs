@@ -293,7 +293,7 @@ public sealed class KsharedPipeline : IFileHosterPipeline, ISessionRefreshablePi
         return _uploadOverride is not null
             ? _uploadOverride(ctx.FilePath, node.Uri, fields)
             : ctx.Handler.UploadMultipartAsync(
-                ctx.FilePath, node.Uri, "file", fields, headers, ctx.SpeedLimitProvider, ctx.Cancellation);
+                ctx.FilePath, node.Uri, "file", ctx.SpeedBudget, fields, headers, ctx.Cancellation);
     }
 
     /// <summary>Reads the upload reply into the share link its own site builds — <c>/file/{ID}</c>.

@@ -712,6 +712,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
     <value>Số lượt tải lên đồng thời tối đa cho mỗi nhà lưu trữ tập tin</value>
   </data>
+  <data name="Settings_Upload_MaxParallelParts" xml:space="preserve">
+    <value>Số phần song song tối đa mỗi tệp</value>
+  </data>
+  <data name="Settings_Upload_MaxParallelPartsTip" xml:space="preserve">
+    <value>Chỉ áp dụng cho các nhà lưu trữ có giao thức cho phép gửi các phần của tệp không theo thứ tự. Hãy giảm giá trị này trên kết nối tính theo dung lượng hoặc không ổn định.</value>
+  </data>
   <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
     <value>Xóa các lượt tải lên đã hoàn tất</value>
   </data>

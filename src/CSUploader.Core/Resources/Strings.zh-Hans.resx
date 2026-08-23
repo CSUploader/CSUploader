@@ -712,6 +712,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
     <value>每个文件托管商的最大同时上传数</value>
   </data>
+  <data name="Settings_Upload_MaxParallelParts" xml:space="preserve">
+    <value>每个文件的最大并行分片数</value>
+  </data>
+  <data name="Settings_Upload_MaxParallelPartsTip" xml:space="preserve">
+    <value>仅适用于协议允许乱序发送文件分片的网盘。在按流量计费或不稳定的连接上请调低此值。</value>
+  </data>
   <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
     <value>移除已完成的上传</value>
   </data>

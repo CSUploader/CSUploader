@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Threading.Channels;
 using CSUploader.Lib;
 using CSUploader.Lib.Net.Http;
@@ -74,7 +75,14 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     /// <summary>Bytes per R2 part. R2 allows 10,000 parts, so this covers the full 100 GB with room to
     /// spare while keeping the per-part MD5 pass cheap.</summary>
-    private const int PartSizeBytes = 64 * 1024 * 1024;
+    private const int DefaultPartSizeBytes = 64 * 1024 * 1024;
+
+    /// <summary>
+    /// Bytes per R2 part. Overridable only through the test constructor: the parts read REAL slices
+    /// now, so a test wanting genuine multipart behaviour would otherwise have to write a 128 MB
+    /// file. Production always uses <see cref="DefaultPartSizeBytes"/>.
+    /// </summary>
+    private readonly int _partSizeBytes = DefaultPartSizeBytes;
 
     private static readonly Regex _etagRegex = new("""<ETag>\s*(?:&quot;|")?([^<"&]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex _uploadIdRegex = new("""<UploadId>([^<]+)</UploadId>""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -86,7 +94,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     private Identity? _identity;
 
     private readonly Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _apiOverride;
-    private readonly Func<string, long, long, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _partOverride;
+    /// <summary>Test seam. Takes a body FACTORY rather than a body, because the storage retry
+    /// re-invokes the part delegate and a consumed slice would send EOF on the second attempt.</summary>
+    private readonly Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>>? _partOverride;
 
     public UploadNowPipeline()
     {
@@ -96,10 +106,12 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// without the network.</summary>
     internal UploadNowPipeline(
         Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> apiOverride,
-        Func<string, long, long, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> partOverride)
+        Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> partOverride,
+        int partSizeBytes = DefaultPartSizeBytes)
     {
         _apiOverride = apiOverride;
         _partOverride = partOverride;
+        _partSizeBytes = partSizeBytes;
     }
 
     public string Name => "UploadNow";
@@ -204,7 +216,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     private static async Task<HttpResponseSnapshot> WithStorageRetryAsync(
         AttemptContext ctx,
         string what,
-        Func<Task<HttpResponseSnapshot>> attempt)
+        Func<Task<HttpResponseSnapshot>> attempt,
+        CancellationToken ct)
     {
         HttpResponseSnapshot response = await attempt().ConfigureAwait(false);
         for (int i = 2; i <= StorageAttempts && response.StatusCode >= 500; i++)
@@ -215,7 +228,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 $"UploadNow: storage answered HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)} to {what}; "
                 + $"retrying ({i.ToString(CultureInfo.InvariantCulture)}/{StorageAttempts.ToString(CultureInfo.InvariantCulture)}).");
 
-            await Task.Delay(TimeSpan.FromSeconds(i), ctx.Cancellation).ConfigureAwait(false);
+            // The WORKER's token: a sibling's failure must stop this retry loop too.
+            await Task.Delay(TimeSpan.FromSeconds(i), ct).ConfigureAwait(false);
             response = await attempt().ConfigureAwait(false);
         }
 
@@ -276,99 +290,287 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         (string? uploadId, string? initError) = await InitiateAsync(ctx, upload);
         if (uploadId is null)
         {
+            // Nothing was started, so there is nothing to clean up.
             return initError;
         }
 
+        bool assembled = false;
+        try
+        {
+            return await TransferPartsAsync(ctx, upload, uploadId, () => assembled = true);
+        }
+        finally
+        {
+            // Covers every way out that leaves the multipart open: a refused part, a refused
+            // assembly, a raw transport fault, and cancellation.
+            if (!assembled)
+            {
+                await AbortAsync(ctx, upload, uploadId).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>The body of the transfer, split out so <see cref="TransferAsync"/> is just the
+    /// open/close bracket around it. <paramref name="markAssembled"/> is called once the storage has
+    /// answered the completion with a <c>CompleteMultipartUploadResult</c> — see
+    /// <see cref="LooksAssembled"/>, which is what decides it.</summary>
+    private async Task<string?> TransferPartsAsync(AttemptContext ctx, Upload upload, string uploadId, Action markAssembled)
+    {
         List<string> etags = [];
         DateTime started = DateTime.Now;
 
-        await using FileStream file = new(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        long position = 0;
-        int partNumber = 1;
+        using FileSliceReader source = new(ctx.FilePath);
 
-        while (position < ctx.FileSize)
-        {
-            long length = Math.Min(PartSizeBytes, ctx.FileSize - position);
+        // Ceiling division, and at least one part. Integer division alone drops the final partial
+        // part, silently uploading a truncated object that still completes.
+        int totalParts = ctx.FileSize <= 0
+            ? 0
+            : (int)(((ctx.FileSize - 1) / _partSizeBytes) + 1);
 
-            // Content-MD5 is signed, so it has to be known before the part is sent — hence a read pass
-            // over the slice ahead of the upload pass. Cheap next to the transfer itself.
-            string contentMd5 = await ComputeMd5Async(file, position, length, ctx.Cancellation);
+        PartProgressAggregator progress = new(
+            Math.Max(1, totalParts),
+            fileTotal => ctx.Handler.RaiseUploadProgress(
+                new OperationProgressEventArgs(ctx.FileSize, fileTotal, started)));
 
-            string query = $"partNumber={partNumber.ToString(CultureInfo.InvariantCulture)}&uploadId={Uri.EscapeDataString(uploadId)}";
-            long partOffset = position;
-            string? partSignError = null;
-            int number = partNumber;
+        string?[] partEtags = new string?[totalParts];
 
-            HttpResponseSnapshot part = await WithStorageRetryAsync(
-                ctx,
-                $"part {number.ToString(CultureInfo.InvariantCulture)}",
-                async () =>
+        PartResult[] results = await ParallelPartUploader.RunAsync(
+            totalParts,
+            ctx.MaxParallelParts,
+            async (index, ct) =>
+            {
+                int number = index + 1;
+                long partOffset = (long)index * _partSizeBytes;
+                long length = Math.Min(_partSizeBytes, ctx.FileSize - partOffset);
+
+                // Content-MD5 is signed, so it has to be known before the part is sent — hence a read
+                // pass over the slice ahead of the upload pass. Its OWN slice: the pre-pass and the
+                // upload pass used to share one FileStream and move its position between them.
+                string contentMd5 = await ComputeMd5Async(source.OpenSlice(partOffset, length), length, ct);
+
+                string query = $"partNumber={number.ToString(CultureInfo.InvariantCulture)}&uploadId={Uri.EscapeDataString(uploadId)}";
+                string? partSignError = null;
+
+                HttpResponseSnapshot part = await WithStorageRetryAsync(
+                    ctx,
+                    $"part {number.ToString(CultureInfo.InvariantCulture)}",
+                    async () =>
+                    {
+                        string datetime = Timestamp();
+                        Dictionary<string, string> signed = new(StringComparer.Ordinal)
+                        {
+                            ["content-md5"] = contentMd5,
+                            ["host"] = new Uri(upload.ObjectUrl).Host,
+                            ["x-amz-date"] = datetime,
+                        };
+
+                        (string? auth, partSignError) = await AuthorizeAsync(
+                            ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime, ct).ConfigureAwait(false);
+                        if (auth is null)
+                        {
+                            return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
+                        }
+
+                        Dictionary<string, string> headers = new(StringComparer.Ordinal)
+                        {
+                            ["Authorization"] = auth,
+                            ["x-amz-date"] = datetime,
+                            ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
+                            ["Content-MD5"] = contentMd5,
+                        };
+
+                        // A FRESH slice per attempt: this delegate is re-invoked by the retry loop,
+                        // and a consumed one would send EOF the second time round.
+                        if (_partOverride is not null)
+                        {
+                            return await _partOverride(
+                                $"{upload.ObjectUrl}?{query}",
+                                partOffset,
+                                length,
+                                headers,
+                                () => source.OpenSlice(partOffset, length),
+                                bytes => progress.Report(index, bytes),
+                                ct).ConfigureAwait(false);
+                        }
+
+                        return await ctx.Handler.PutChunkAsync(
+                            $"{upload.ObjectUrl}?{query}",
+                            source.OpenSlice(partOffset, length),
+                            length,
+                            basePosition: partOffset,
+                            totalFileSize: ctx.FileSize,
+                            dateTimeStarted: started,
+                            ctx.SpeedBudget,
+                            headers: headers,
+                            cancellationToken: ct,
+                            method: null,
+                            reportPartProgress: bytes => progress.Report(index, bytes)).ConfigureAwait(false);
+                    },
+                    ct).ConfigureAwait(false);
+
+                if (partSignError is not null)
                 {
-                    string datetime = Timestamp();
-                    Dictionary<string, string> signed = new(StringComparer.Ordinal)
-                    {
-                        ["content-md5"] = contentMd5,
-                        ["host"] = new Uri(upload.ObjectUrl).Host,
-                        ["x-amz-date"] = datetime,
-                    };
+                    return new PartResult(number, null, partSignError);
+                }
 
-                    (string? auth, partSignError) = await AuthorizeAsync(
-                        ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime).ConfigureAwait(false);
-                    if (auth is null)
-                    {
-                        return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
-                    }
+                if (part.StatusCode is < 200 or >= 300)
+                {
+                    return new PartResult(
+                        number,
+                        null,
+                        $"UploadNow's storage refused part {number.ToString(CultureInfo.InvariantCulture)} "
+                        + $"(HTTP {part.StatusCode}): {Snippet(part.Body)}");
+                }
 
-                    Dictionary<string, string> headers = new(StringComparer.Ordinal)
-                    {
-                        ["Authorization"] = auth,
-                        ["x-amz-date"] = datetime,
-                        ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
-                        ["Content-MD5"] = contentMd5,
-                    };
+                if (part.ETag is not { Length: > 0 } etag)
+                {
+                    return new PartResult(
+                        number,
+                        null,
+                        $"UploadNow's storage returned no ETag for part {number.ToString(CultureInfo.InvariantCulture)}, "
+                        + "so the upload cannot be completed.");
+                }
 
-                    if (_partOverride is not null)
-                    {
-                        return await _partOverride($"{upload.ObjectUrl}?{query}", partOffset, length, headers).ConfigureAwait(false);
-                    }
+                partEtags[index] = etag.Trim('"');
+                return new PartResult(number, partEtags[index], null);
+            },
+            ctx.Cancellation);
 
-                    // Rewound per attempt: a retry has to re-send the same slice from the start.
-                    file.Position = partOffset;
-                    return await ctx.Handler.PutChunkAsync(
-                        $"{upload.ObjectUrl}?{query}",
-                        new ChunkSliceStream(file, length),
-                        length,
-                        basePosition: partOffset,
-                        totalFileSize: ctx.FileSize,
-                        dateTimeStarted: started,
-                        headers: headers,
-                        getBytesPerSecond: ctx.SpeedLimitProvider,
-                        cancellationToken: ctx.Cancellation).ConfigureAwait(false);
-                }).ConfigureAwait(false);
-
-            if (partSignError is not null)
-            {
-                return partSignError;
-            }
-
-            if (part.StatusCode is < 200 or >= 300)
-            {
-                return $"UploadNow's storage refused part {partNumber.ToString(CultureInfo.InvariantCulture)} "
-                       + $"(HTTP {part.StatusCode}): {Snippet(part.Body)}";
-            }
-
-            if (part.ETag is not { Length: > 0 } etag)
-            {
-                return $"UploadNow's storage returned no ETag for part {partNumber.ToString(CultureInfo.InvariantCulture)}, "
-                       + "so the upload cannot be completed.";
-            }
-
-            etags.Add(etag.Trim('"'));
-            position += length;
-            partNumber++;
+        if (Array.Find(results, r => r.Error is not null) is { Error: not null } failed)
+        {
+            return failed.Error;
         }
 
-        return await CompleteAsync(ctx, upload, uploadId, etags);
+        etags.AddRange(partEtags.Select(e => e!));
+
+        string? completeError = await CompleteAsync(ctx, upload, uploadId, etags);
+        if (completeError is null)
+        {
+            markAssembled();
+        }
+
+        return completeError;
+    }
+
+    /// <summary>How long the whole cleanup gets - signing plus the DELETE. Bounded because it runs
+    /// on the way out of a failed or cancelled upload: a user who cancels waits this long, at worst,
+    /// to see it marked Cancelled. Two small round trips fit comfortably.</summary>
+    private static readonly TimeSpan AbortTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// S3's AbortMultipartUpload - <c>DELETE {object}?uploadId=...</c>. Without it every part that
+    /// landed before the failure stays on the host's storage under the abandoned id, and since the
+    /// runner retries the whole attempt from a fresh initiate, a file that fails four times leaves
+    /// four sets of parts behind. This app has no other way to reach them: an incomplete multipart
+    /// is invisible to the account's file list and to the site's own UI. Whether the bucket carries
+    /// a server-side lifecycle rule that expires them is not something a client can see, which is
+    /// reason to send the abort rather than reason to skip it.
+    /// </summary>
+    /// <remarks>
+    /// <para>It runs on its OWN bounded token. The usual reason to be here is that
+    /// <c>ctx.Cancellation</c> is already cancelled, and signing or sending on that token would
+    /// cancel the cleanup before it ever left the machine - which is the failure mode that makes a
+    /// cleanup path look present and do nothing.</para>
+    /// <para>Safe when the assembly actually succeeded but looked like a failure to us - a lost
+    /// response on the last hop. Once an upload is completed its id no longer exists, so the DELETE
+    /// answers 404 and the finished object is untouched. Aborting cannot destroy a good upload.</para>
+    /// <para>Its own failure is never surfaced: the caller already holds the real error, and
+    /// replacing "the storage refused part 3" with "the cleanup failed" would hide the cause. It is
+    /// called from a <c>finally</c>, so it must not throw for that reason too.</para>
+    /// </remarks>
+    private async Task AbortAsync(AttemptContext ctx, Upload upload, string uploadId)
+    {
+        try
+        {
+            // Inside the try, all of it. Uri.EscapeDataString and the CancellationTokenSource
+            // constructor are not expected to throw, but "not expected to" is not the standard a
+            // method called from a finally is held to.
+            string query = $"uploadId={Uri.EscapeDataString(uploadId)}";
+            using CancellationTokenSource cleanup = new(AbortTimeout);
+
+            string datetime = Timestamp();
+            Dictionary<string, string> signed = new(StringComparer.Ordinal)
+            {
+                ["host"] = new Uri(upload.ObjectUrl).Host,
+                ["x-amz-date"] = datetime,
+            };
+
+            (string? auth, string? signError) = await AuthorizeAsync(
+                ctx, upload, "DELETE", upload.ObjectUrl, query, signed, EmptyBodySha256, datetime, cleanup.Token)
+                .ConfigureAwait(false);
+
+            if (auth is null)
+            {
+                LogAbandoned(ctx, signError);
+                return;
+            }
+
+            Dictionary<string, string> headers = new(StringComparer.Ordinal)
+            {
+                ["Authorization"] = auth,
+                ["x-amz-date"] = datetime,
+                ["x-amz-content-sha256"] = EmptyBodySha256,
+            };
+
+            string url = $"{upload.ObjectUrl}?{query}";
+            cleanup.Token.ThrowIfCancellationRequested();
+            HttpResponseSnapshot response = _apiOverride is not null
+                ? await _apiOverride(HttpMethod.Delete, url, null, headers).ConfigureAwait(false)
+                : await ctx.Handler.SendJsonAsync(HttpMethod.Delete, url, null, headers, cleanup.Token).ConfigureAwait(false);
+
+            // 204 is the success. 404 means it was already gone - completed, or aborted by an
+            // earlier pass - which is equally fine. Anything else is worth a line in the log.
+            if (response.StatusCode is (< 200 or >= 300) and not 404)
+            {
+                LogAbandoned(ctx, $"HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)}: {Snippet(response.Body)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Deliberately catch-all, cancellation included: this is best-effort cleanup running in
+            // a finally, and an exception escaping here would replace the failure the user needs.
+            // The exception itself, not ex.Message - Message is VIRTUAL, so reading it here would
+            // put an unguarded call between the catch and the guard that is supposed to cover it.
+            LogAbandoned(ctx, ex);
+        }
+    }
+
+    /// <summary>
+    /// Says the cleanup failed, and cannot itself fail. <c>IAppLogger.Log</c> raises
+    /// <c>OnLogOutput</c> synchronously, so a throwing subscriber would propagate out of the catch
+    /// in <see cref="AbortAsync"/>, out of the <c>finally</c>, and replace the upload's real error -
+    /// the exact outcome the catch exists to prevent, arriving through the reporting of it.
+    /// </summary>
+    private static void LogAbandoned(AttemptContext ctx, Exception ex)
+    {
+        string why;
+        try
+        {
+            why = ex.Message;
+        }
+        catch (Exception)
+        {
+            why = ex.GetType().Name;
+        }
+
+        LogAbandoned(ctx, why);
+    }
+
+    private static void LogAbandoned(AttemptContext ctx, string? why)
+    {
+        try
+        {
+            ctx.Logger.Log(
+                null,
+                LogType.Status,
+                $"UploadNow: couldn't clean up the abandoned upload of {ctx.FileName} ({why}); "
+                + "the parts already sent stay on the host's storage.");
+        }
+        catch (Exception)
+        {
+            // Nowhere left to report it: the log IS the reporting channel. Losing this line is
+            // strictly better than losing the failure the user is waiting to hear about.
+        }
     }
 
     private async Task<(string? UploadId, string? Error)> InitiateAsync(AttemptContext ctx, Upload upload)
@@ -384,7 +586,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             };
 
             (string? auth, signError) = await AuthorizeAsync(
-                ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime).ConfigureAwait(false);
+                ctx, upload, "POST", upload.ObjectUrl, "uploads=", signed, EmptyBodySha256, datetime, ctx.Cancellation).ConfigureAwait(false);
             if (auth is null)
             {
                 // Nothing to send; a 0 status stops the retry loop and signError carries the reason.
@@ -402,9 +604,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?uploads", null, headers).ConfigureAwait(false)
                 // No Content-Type, exactly as the browser's CreateMultipartUpload sends it.
                 : await ctx.Handler.UploadBytesAsync(
-                    HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, headers, cancellationToken: ctx.Cancellation)
+                    HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation)
                     .ConfigureAwait(false);
-        }).ConfigureAwait(false);
+        }, ctx.Cancellation).ConfigureAwait(false);
 
         if (signError is not null)
         {
@@ -447,7 +649,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
         string query = $"uploadId={Uri.EscapeDataString(uploadId)}";
         (string? auth, string? signError) = await AuthorizeAsync(
-            ctx, upload, "POST", upload.ObjectUrl, query, signed, Sha256Hex(body), datetime);
+            ctx, upload, "POST", upload.ObjectUrl, query, signed, Sha256Hex(body), datetime, ctx.Cancellation);
         if (auth is null)
         {
             return signError;
@@ -464,16 +666,90 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             _apiOverride is not null
                 ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?{query}", Encoding.UTF8.GetString(body), headers).ConfigureAwait(false)
                 : await ctx.Handler.UploadBytesAsync(
-                    HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, headers, cancellationToken: ctx.Cancellation)
-                    .ConfigureAwait(false)).ConfigureAwait(false);
+                    HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation)
+                    .ConfigureAwait(false), ctx.Cancellation).ConfigureAwait(false);
 
-        // R2, like S3, can report a failure inside a 200 on this call — so the body is checked too.
-        if (response.StatusCode is < 200 or >= 300 || response.Body.Contains("<Error>", StringComparison.OrdinalIgnoreCase))
+        // R2, like S3, can report a failure inside a 200 on this call, so the status is not the
+        // answer. The body was matched against the literal "<Error>", which a namespaced
+        // <Error xmlns="http://s3.amazonaws.com/doc/2006-03-01/"> walks straight past - and this is
+        // the call that decides whether the file gets published. It is parsed now, and only the
+        // documented success root is a success.
+        if (response.StatusCode is < 200 or >= 300 || !LooksAssembled(response.Body))
         {
             return $"UploadNow's storage wouldn't assemble the file (HTTP {response.StatusCode}): {Snippet(response.Body)}";
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the storage's completion reply says the object was assembled.
+    /// <para>
+    /// Only <c>CompleteMultipartUploadResult</c> counts, matched on the LOCAL name so a namespaced
+    /// document still reads. Anything else — an <c>Error</c> document inside a 200, an empty body, a
+    /// proxy's HTML — is not an assembly.
+    /// </para>
+    /// <para>
+    /// The two ways to be wrong are not symmetrical, and the strict one is not free. A rejected
+    /// completion that really did commit is TERMINAL: the runner treats a yielded server verdict as
+    /// final, so the row goes Failed, the abort 404s because the upload id is already consumed, the
+    /// committed object is stranded unpublished, and a manual retry re-uploads the whole file. That
+    /// is the cost of strictness. Being lenient tells the user a file is online when the storage
+    /// never assembled it — which is worse, because nothing later contradicts it.
+    /// </para>
+    /// <para>
+    /// A reader rather than an <see cref="System.Xml.Linq.XDocument"/>, and DTDs prohibited rather
+    /// than defaulted. This body comes off the network, and <c>XDocument.Parse</c> on .NET 10 sets
+    /// <c>DtdProcessing.Parse</c> and allows ten million characters of internal entity expansion — a
+    /// few hundred bytes of nested entities is the billion-laughs shape, which is not a lever to
+    /// hand a remote host. Nothing is materialised as a tree either.
+    /// </para>
+    /// <para>
+    /// It reads to the END, not just to the root. Stopping at <c>MoveToContent</c> accepts
+    /// <c>&lt;CompleteMultipartUploadResult&gt;&lt;broken</c> — a truncated response, which is
+    /// exactly what a connection cut mid-reply produces, and exactly the case where assuming success
+    /// is worst. The character cap is ~100x the real reply and only bounds a hostile one.
+    /// </para>
+    /// </summary>
+    /// <summary>About a hundred times the real reply — a completion result carries a bucket, a key
+    /// bounded by S3's 1024 bytes, and an ETag. It bounds a hostile reply, not a legitimate one, and
+    /// a test pins that so raising it is a deliberate act.</summary>
+    private const int MaxCompletionCharacters = 64 * 1024;
+
+    private static bool LooksAssembled(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return false;
+        }
+
+        XmlReaderSettings settings = new()
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = MaxCompletionCharacters,
+        };
+
+        try
+        {
+            using XmlReader reader = XmlReader.Create(new StringReader(body), settings);
+            if (reader.MoveToContent() != XmlNodeType.Element
+                || reader.LocalName != "CompleteMultipartUploadResult")
+            {
+                return false;
+            }
+
+            // Throws on anything malformed from here to EOF, truncation included.
+            while (reader.Read())
+            {
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -489,8 +765,14 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         string query,
         IReadOnlyDictionary<string, string> signedHeaders,
         string payloadHash,
-        string datetime)
+        string datetime,
+        CancellationToken ct)
     {
+        // What ctx.Handler's senders do on their first line. Without it here the override seam is
+        // MORE permissive than production - it would sign happily on an already-cancelled token,
+        // which is the one thing a cleanup path must not be able to do unnoticed.
+        ct.ThrowIfCancellationRequested();
+
         string dateStamp = datetime[..8];
         string scope = $"{dateStamp}/{upload.Config.Region}/s3/aws4_request";
 
@@ -521,7 +803,15 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         {
             response = _apiOverride is not null
                 ? await _apiOverride(HttpMethod.Get, url, null, null)
-                : await ctx.Handler.GetSnapshotAsync(url, null, ctx.Cancellation);
+                : await ctx.Handler.GetSnapshotAsync(url, null, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancellation is not a signing failure. Swallowing it here did two bad things: a user
+            // who cancelled saw the upload marked Failed rather than Cancelled, and — once parts run
+            // concurrently — a sibling's failure would surface as a bogus "signing service could not
+            // be reached" instead of the real cause.
+            throw;
         }
         catch (Exception ex)
         {
@@ -559,6 +849,13 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                     ? await _apiOverride(HttpMethod.Post, SignUpUrl, """{"returnSecureToken":true}""", null)
                     : await ctx.Handler.PostJsonAsync(SignUpUrl, """{"returnSecureToken":true}""", null, ctx.Cancellation);
             }
+            catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+            {
+                // As in AuthorizeAsync: cancellation is not a sign-up failure. Swallowed here it
+                // becomes AttemptFailed, which AttemptRunner treats as terminal — so the scheduler
+                // never learns the user cancelled.
+                throw;
+            }
             catch (Exception ex)
             {
                 return (null, $"UploadNow guest sign-up failed: {ex.Message}");
@@ -595,7 +892,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         }
 
         byte[] body = Encoding.UTF8.GetBytes(json ?? string.Empty);
-        return ctx.Handler.UploadBytesAsync(method, url, body, "application/json", headers, cancellationToken: ctx.Cancellation);
+        // Unlimited, deliberately: this is the site's JSON API, not the file. Throttling an
+        // 80-byte control request would only make an upload slower to START.
+        return ctx.Handler.UploadBytesAsync(method, url, body, "application/json", SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation);
     }
 
     /// <summary>Reads the file id and the bucket configuration out of the declare-file reply. Internal
@@ -656,9 +955,14 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     internal static string Sha256Hex(byte[] data) => Convert.ToHexStringLower(SHA256.HashData(data));
 
-    private static async Task<string> ComputeMd5Async(FileStream file, long offset, long length, CancellationToken ct)
+    /// <summary>
+    /// Hashes one slice. Takes a Stream it OWNS rather than repositioning a shared FileStream: the
+    /// MD5 pre-pass and the upload pass used to share one handle and move its position between them,
+    /// which two concurrent parts would corrupt.
+    /// </summary>
+    private static async Task<string> ComputeMd5Async(Stream slice, long length, CancellationToken ct)
     {
-        file.Position = offset;
+        using Stream file = slice;
         using MD5 md5 = MD5.Create();
         byte[] buffer = new byte[81920];
         long remaining = length;
@@ -712,4 +1016,13 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             AccountType.Free,
             "UploadNow only sells paid accounts — use the built-in Anonymous option in the upload wizard."));
     }
+
+    /// <summary>
+    /// Parts are order-independent here — each S3 part request signed on demand — so they may be sent
+    /// concurrently. Measured against live VikingFile on 2026-08-23: degree 8 reached 2.57x degree
+    /// 1 and had not plateaued, so these hosts throttle per connection. Declared EXPLICITLY rather
+    /// than relying on the interface default, which is not callable as a concrete-class member.
+    /// The user's MaxParallelPartsPerFile setting caps this.
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 8;
 }

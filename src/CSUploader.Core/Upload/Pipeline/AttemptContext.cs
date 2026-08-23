@@ -38,7 +38,14 @@ public sealed record AttemptContext
 
     public required IAppLogger Logger { get; init; }
 
-    public required Func<long?> SpeedLimitProvider { get; init; }
+    public required SpeedBudget SpeedBudget { get; init; }
+
+    /// <summary>
+    /// The RESOLVED number of parts this attempt may send at once — the lesser of what the hoster
+    /// declares and what the user allows. Defaulted to 1, not <c>required</c>: many tests build a
+    /// context directly, and sequential is the safe value.
+    /// </summary>
+    public int MaxParallelParts { get; init; } = 1;
 
     public required CancellationToken Cancellation { get; init; }
 }

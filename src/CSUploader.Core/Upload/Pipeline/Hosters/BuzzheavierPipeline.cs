@@ -85,7 +85,7 @@ public sealed class BuzzheavierPipeline : IFileHosterPipeline
         """;
 
     private readonly IInteractiveAuthService? _authService;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public BuzzheavierPipeline(IInteractiveAuthService? authService = null)
     {
@@ -97,7 +97,7 @@ public sealed class BuzzheavierPipeline : IFileHosterPipeline
     /// or a real file. An optional auth service exercises the WebView sign-in path in
     /// <see cref="CheckAccountAsync"/>.</summary>
     internal BuzzheavierPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         IInteractiveAuthService? authService = null)
     {
         _uploadOverride = uploadOverride;
@@ -276,15 +276,15 @@ public sealed class BuzzheavierPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, url, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadPutAsync(
             ctx.FilePath,
             url,
             contentType: MimeTypeGuesser.Guess(ctx.FilePath),
+            ctx.SpeedBudget,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

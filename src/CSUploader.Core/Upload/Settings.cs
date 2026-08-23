@@ -15,6 +15,13 @@ public class AppSettings
 
     public static int DefaultMaxUploadsPerHost { get; } = 1;
 
+    /// <summary>
+    /// Deliberately below what the parallel-capable hosters declare (8). Degree multiplies with
+    /// <see cref="DefaultMaxConcurrentUploadJobs"/>: at its default of 5, a ceiling of 8 would mean
+    /// 40 in-flight part bodies at once.
+    /// </summary>
+    public static int DefaultMaxParallelPartsPerFile { get; } = 4;
+
     public static RemoveFinishedUploadsMode DefaultRemoveFinishedUploads { get; } = RemoveFinishedUploadsMode.Never;
 
     public static string DefaultGridFontFamily { get; } = "Tahoma";
@@ -63,6 +70,7 @@ public class AppSettings
     private int? maxConcurrentCPUJobs;
     private int? maxConcurrentUploadJobs;
     private int? maxUploadsPerHost;
+    private int? maxParallelPartsPerFile;
 
     public int UploadsTabPageRefreshTimer
     {
@@ -88,6 +96,16 @@ public class AppSettings
     {
         get => maxUploadsPerHost ?? DefaultMaxUploadsPerHost;
         set => maxUploadsPerHost = value;
+    }
+
+    /// <summary>
+    /// Ceiling on concurrent parts within ONE file, capping whatever a hoster declares. Lets a user
+    /// on a metered or fragile link pull every host back to sequential with one setting.
+    /// </summary>
+    public int MaxParallelPartsPerFile
+    {
+        get => maxParallelPartsPerFile ?? DefaultMaxParallelPartsPerFile;
+        set => maxParallelPartsPerFile = value;
     }
 
     public RemoveFinishedUploadsMode RemoveFinishedUploads { get; set; } = DefaultRemoveFinishedUploads;

@@ -64,7 +64,7 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
     private static readonly Regex _downloadLinkRegex = DownloadLinkRegex();
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<int, CancellationToken, Task> _retryDelay;
 
     public GigaPetaPipeline()
@@ -77,7 +77,7 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
     /// retry backoff.</summary>
     internal GigaPetaPipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
         _uploadOverride = uploadOverride;
@@ -290,16 +290,16 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, endpoint, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, endpoint, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             endpoint,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

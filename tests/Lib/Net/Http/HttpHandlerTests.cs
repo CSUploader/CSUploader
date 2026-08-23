@@ -114,7 +114,7 @@ public class HttpHandlerTests
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0", SpeedBudget.Unlimited);
 
         string? ct = capture.RequestContentType;
         Assert.NotNull(ct);
@@ -132,7 +132,7 @@ public class HttpHandlerTests
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0", SpeedBudget.Unlimited);
 
         string body = capture.RequestBody ?? string.Empty;
         Assert.Contains("name=\"file_0\"; filename=\"ascii-name.mp4\"", body, StringComparison.Ordinal);
@@ -150,7 +150,7 @@ public class HttpHandlerTests
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file");
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file", SpeedBudget.Unlimited);
 
         string body = capture.RequestBody ?? string.Empty;
         Assert.Contains("filename=\"résumé.pdf\"", body, StringComparison.Ordinal);
@@ -166,7 +166,7 @@ public class HttpHandlerTests
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0");
+        await handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file_0", SpeedBudget.Unlimited);
 
         string body = capture.RequestBody ?? string.Empty;
         // The file part's Content-Type line should reflect the real MIME for .mp4.
@@ -195,6 +195,7 @@ public class HttpHandlerTests
 
         await handler.UploadMultipartAsync(temp.Path, "https://example.test/u",
             fileFieldName: "file_0",
+            SpeedBudget.Unlimited,
             extraFields: extras);
 
         string body = capture.RequestBody ?? string.Empty;
@@ -235,7 +236,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file"));
+            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file", SpeedBudget.Unlimited));
 
         Assert.True(
             UploadBodyTransferException.IsInChain(thrown),
@@ -257,7 +258,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file"));
+            () => handler.UploadMultipartAsync(temp.Path, "https://example.test/u", fileFieldName: "file", SpeedBudget.Unlimited));
 
         Assert.False(
             UploadBodyTransferException.IsInChain(thrown),
@@ -281,7 +282,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadMultipartAsync(missingPath, "https://example.test/u", fileFieldName: "file"));
+            () => handler.UploadMultipartAsync(missingPath, "https://example.test/u", fileFieldName: "file", SpeedBudget.Unlimited));
 
         Assert.False(
             UploadBodyTransferException.IsInChain(thrown),
@@ -304,7 +305,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream"));
+            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream", SpeedBudget.Unlimited));
 
         Assert.True(
             UploadBodyTransferException.IsInChain(thrown),
@@ -325,7 +326,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream"));
+            () => handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream", SpeedBudget.Unlimited));
 
         Assert.False(
             UploadBodyTransferException.IsInChain(thrown),
@@ -347,7 +348,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.UploadPutAsync(missingPath, "https://example.test/u", "application/octet-stream"));
+            () => handler.UploadPutAsync(missingPath, "https://example.test/u", "application/octet-stream", SpeedBudget.Unlimited));
 
         Assert.False(
             UploadBodyTransferException.IsInChain(thrown),
@@ -363,7 +364,7 @@ public class HttpHandlerTests
         CapturingHandler capture = new();
         HttpHandler handler = new(new HttpClient(capture), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
 
-        await handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream");
+        await handler.UploadPutAsync(temp.Path, "https://example.test/u", "application/octet-stream", SpeedBudget.Unlimited);
 
         Assert.Equal(new FileInfo(temp.Path).Length, capture.RequestContentLength);
         Assert.Equal("application/octet-stream", capture.RequestContentType);
@@ -410,7 +411,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, basePosition: 0, totalFileSize: chunk.Length, DateTime.Now));
+            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, basePosition: 0, totalFileSize: chunk.Length, DateTime.Now, SpeedBudget.Unlimited));
 
         Assert.True(
             UploadBodyTransferException.IsInChain(thrown),
@@ -428,7 +429,7 @@ public class HttpHandlerTests
             MockServerConfig.Disabled);
 
         Exception thrown = await Assert.ThrowsAnyAsync<Exception>(
-            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, 0, chunk.Length, DateTime.Now));
+            () => handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, chunk.Length, 0, chunk.Length, DateTime.Now, SpeedBudget.Unlimited));
 
         Assert.False(
             UploadBodyTransferException.IsInChain(thrown),
@@ -451,7 +452,7 @@ public class HttpHandlerTests
             lastTotal = e.Size;
         };
 
-        await handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, 50, basePosition: 200, totalFileSize: 1000, DateTime.Now);
+        await handler.PutChunkAsync("https://example.test/put_chunk.cgi", chunk, 50, basePosition: 200, totalFileSize: 1000, DateTime.Now, SpeedBudget.Unlimited);
 
         Assert.Equal(1000, lastTotal);
         Assert.Equal(250, lastProcessed);
@@ -491,7 +492,8 @@ public class HttpHandlerTests
                 chunkIndex: 0,
                 basePosition: 0,
                 totalFileSize: chunk.Length,
-                dateTimeStarted: DateTime.Now));
+                dateTimeStarted: DateTime.Now,
+                SpeedBudget.Unlimited));
 
         // The marker was stripped — chunked can never be whole-pipeline retried.
         Assert.False(

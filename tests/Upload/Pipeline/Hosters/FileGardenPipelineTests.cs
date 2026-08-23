@@ -292,7 +292,7 @@ public class FileGardenPipelineTests
         public IReadOnlyDictionary<string, string>? LastListHeaders { get; private set; }
 
         /// <summary>Overridable so a test can make the upload throw or return a specific verdict.</summary>
-        public Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
+        public Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
 
         public FileGardenPipeline Build() => new(PostJson, Upload, Get);
 
@@ -312,7 +312,7 @@ public class FileGardenPipelineTests
                 : new HttpResponseSnapshot(LoginStatus, LoginBody, []);
         }
 
-        private Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, Func<long?>? bps)
+        private Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, SpeedBudget? bps)
         {
             Uploads++;
             LastUploadUrl = url;
@@ -358,7 +358,7 @@ public class FileGardenPipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = MakeHandler(),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

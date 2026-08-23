@@ -510,7 +510,7 @@ public class AttemptRunnerTests
         HosterName = "Rapidgator",
         Credentials = new FileHosterLoginDto { Id = 1, FileHosterName = "Rapidgator", Username = "u", Password = "p" },
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
     };
 
     private sealed class FakeHosterPipeline(bool success, string fileUrl) : IFileHosterPipeline

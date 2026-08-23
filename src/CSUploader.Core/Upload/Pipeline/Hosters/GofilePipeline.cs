@@ -36,7 +36,7 @@ public sealed class GofilePipeline : IFileHosterPipeline
     private const string Origin = "https://gofile.io";
 
     private readonly Func<HttpMethod, string, string?, string?, Task<HttpResponseSnapshot>>? _apiOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<int, CancellationToken, Task> _retryDelay;
 
     // ONE guest account is created and reused across every anonymous upload (matching gofile's site,
@@ -56,7 +56,7 @@ public sealed class GofilePipeline : IFileHosterPipeline
     /// receives (method, url, jsonBody, bearerToken).</summary>
     internal GofilePipeline(
         Func<HttpMethod, string, string?, string?, HttpResponseSnapshot> api,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, HttpResponseSnapshot> upload)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, HttpResponseSnapshot> upload)
     {
         _apiOverride = (m, u, j, t) => Task.FromResult(api(m, u, j, t));
         _uploadOverride = (fp, u, f, h, s) => Task.FromResult(upload(fp, u, f, h, s));
@@ -313,16 +313,16 @@ public sealed class GofilePipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, UploadUrl, fields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, UploadUrl, fields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: fields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

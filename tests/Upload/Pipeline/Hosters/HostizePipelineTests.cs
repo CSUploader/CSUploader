@@ -32,11 +32,31 @@ public class HostizePipelineTests : IDisposable
         {"id":"Pf6M_0gNjc","tickets":[{"partSize":5242880,"uploadId":"2~9dC7a7twiRP_k2UdS5TZBhvigstFt98","partUrls":[{"partNumber":1,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=one"},{"partNumber":2,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=two"},{"partNumber":3,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=three"}]}]}
         """;
 
-    private const string CompletedJson = """
-        {"id":"Pf6M_0gNjc","expiresAt":"2026-08-09T16:05:49.437Z","size":"12000000","downloads":0,"uploaded":true}
+    /// <summary>
+    /// The same shape at a size a test file can actually be. The pipeline now opens real slices, so
+    /// the declared size, the part size and the bytes on disk have to agree — the live TicketJson
+    /// above implies a 12 MB file, which is not worth writing once per test.
+    /// </summary>
+    private const string FlowTicketJson = """
+        {"id":"Pf6M_0gNjc","tickets":[{"partSize":2048,"uploadId":"2~9dC7a7twiRP_k2UdS5TZBhvigstFt98","partUrls":[{"partNumber":1,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=one"},{"partNumber":2,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=two"},{"partNumber":3,"url":"https://s3.dynabic.com/hostize/a.rar?X-Amz-Signature=three"}]}]}
         """;
 
-    public HostizePipelineTests() => File.WriteAllBytes(_file, new byte[4096]);
+    private const int FlowFileBytes = 5120; // 2048 + 2048 + 1024: three parts, with a SHORT tail
+
+    private const string CompletedJson = """
+        {"id":"Pf6M_0gNjc","expiresAt":"2026-08-09T16:05:49.437Z","size":"5120","downloads":0,"uploaded":true}
+        """;
+
+    public HostizePipelineTests()
+    {
+        byte[] content = new byte[FlowFileBytes];
+        for (int i = 0; i < content.Length; i++)
+        {
+            content[i] = (byte)(i % 251);
+        }
+
+        File.WriteAllBytes(_file, content);
+    }
 
     public void Dispose()
     {
@@ -56,16 +76,16 @@ public class HostizePipelineTests : IDisposable
                 posts.Add(url);
                 return Task.FromResult(new HttpResponseSnapshot(
                     url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
-                    url.EndsWith("/request", StringComparison.Ordinal) ? TicketJson : CompletedJson,
+                    url.EndsWith("/request", StringComparison.Ordinal) ? FlowTicketJson : CompletedJson,
                     Array.Empty<string>()));
             },
-            (_, partNumber, _) =>
+            (_, partNumber, _, _, _, _, _) =>
             {
                 parts.Add(partNumber);
                 return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag\""));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(12_000_000), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(FlowFileBytes), CancellationToken.None));
 
         Assert.Empty(events.OfType<AttemptFailed>());
         Assert.Equal("https://www.hostize.com/api/upload/request", posts[0]);
@@ -82,10 +102,10 @@ public class HostizePipelineTests : IDisposable
         List<long> lengths = [];
         HostizePipeline pipeline = MakePipeline([], lengths);
 
-        await DrainAsync(pipeline.RunAsync(MakeContext(12_000_000), CancellationToken.None));
+        await DrainAsync(pipeline.RunAsync(MakeContext(FlowFileBytes), CancellationToken.None));
 
-        Assert.Equal([5_242_880, 5_242_880, 1_514_240], lengths);
-        Assert.Equal(12_000_000, lengths.Sum());
+        Assert.Equal([2048, 2048, 1024], lengths);
+        Assert.Equal(FlowFileBytes, lengths.Sum());
     }
 
     [Theory]
@@ -113,7 +133,7 @@ public class HostizePipelineTests : IDisposable
         Assert.Null(error);
         Assert.Equal("Pf6M_0gNjc", ticket!.Value.ShareId);
         Assert.Equal(5_242_880, ticket.Value.PartSize);
-        Assert.Equal(3, ticket.Value.PartUrls.Count);
+        Assert.Equal(3, ticket.Value.Parts.Count);
     }
 
     [Fact]
@@ -128,9 +148,9 @@ public class HostizePipelineTests : IDisposable
             (url, _) =>
             {
                 posts.Add(url);
-                return Task.FromResult(new HttpResponseSnapshot(201, TicketJson, Array.Empty<string>()));
+                return Task.FromResult(new HttpResponseSnapshot(201, FlowTicketJson, Array.Empty<string>()));
             },
-            (_, partNumber, _) =>
+            (_, partNumber, _, _, _, _, _) =>
             {
                 parts.Add(partNumber);
                 return Task.FromResult(partNumber == 2
@@ -138,7 +158,7 @@ public class HostizePipelineTests : IDisposable
                     : new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>()));
             });
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(12_000_000), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(FlowFileBytes), CancellationToken.None));
 
         Assert.Equal([1, 2], parts);
         Assert.Single(posts);   // request only — complete never ran
@@ -152,9 +172,9 @@ public class HostizePipelineTests : IDisposable
             (url, _) => Task.FromResult(url.EndsWith("/complete", StringComparison.Ordinal)
                 ? new HttpResponseSnapshot(500, """{"message":"boom"}""", Array.Empty<string>())
                 : new HttpResponseSnapshot(201, TicketJson, Array.Empty<string>())),
-            (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
+            (_, _, _, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
 
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(12_000_000), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(FlowFileBytes), CancellationToken.None));
 
         Assert.Empty(events.OfType<TransferCompleted>());
         Assert.Single(events.OfType<AttemptFailed>());
@@ -171,16 +191,16 @@ public class HostizePipelineTests : IDisposable
                 bodies.Add(json);
                 return Task.FromResult(new HttpResponseSnapshot(
                     url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
-                    url.EndsWith("/request", StringComparison.Ordinal) ? TicketJson : CompletedJson,
+                    url.EndsWith("/request", StringComparison.Ordinal) ? FlowTicketJson : CompletedJson,
                     Array.Empty<string>()));
             },
-            (_, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
+            (_, _, _, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
 
-        await DrainAsync(pipeline.RunAsync(MakeContext(12_000_000), CancellationToken.None));
+        await DrainAsync(pipeline.RunAsync(MakeContext(FlowFileBytes), CancellationToken.None));
 
         JsonElement declared = JsonDocument.Parse(bodies[0]).RootElement.GetProperty("files")[0];
         Assert.Equal("probe.rar", declared.GetProperty("name").GetString());
-        Assert.Equal(12_000_000, declared.GetProperty("size").GetInt64());
+        Assert.Equal(FlowFileBytes, declared.GetProperty("size").GetInt64());
 
         // Complete carries only the share id — this host finalises the multipart itself, so unlike
         // storage.to and VikingFile there are no ETags to send.
@@ -227,10 +247,10 @@ public class HostizePipelineTests : IDisposable
             posts.Add(url);
             return Task.FromResult(new HttpResponseSnapshot(
                 url.EndsWith("/request", StringComparison.Ordinal) ? 201 : 200,
-                url.EndsWith("/request", StringComparison.Ordinal) ? TicketJson : CompletedJson,
+                url.EndsWith("/request", StringComparison.Ordinal) ? FlowTicketJson : CompletedJson,
                 Array.Empty<string>()));
         },
-        (_, _, length) =>
+        (_, _, _, length, _, _, _) =>
         {
             lengths.Add(length);
             return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>()));
@@ -247,7 +267,7 @@ public class HostizePipelineTests : IDisposable
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 

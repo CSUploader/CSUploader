@@ -40,7 +40,7 @@ public class AttemptRunnerIntegrationTests
             HosterName = "Fake",
             Credentials = new FileHosterLoginDto(),
             Logger = Mock.Of<IAppLogger>(),
-            SpeedLimitProvider = () => null,
+            SpeedBudget = SpeedBudget.Unlimited,
         };
 
         await foreach (UploadEvent _ in runner.RunAsync(inputs, CancellationToken.None))

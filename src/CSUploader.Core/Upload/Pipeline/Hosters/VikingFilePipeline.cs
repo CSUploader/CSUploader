@@ -21,9 +21,11 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 ///   <item><b>Initiate.</b> <c>POST /api/get-upload-url</c> with the file <c>size</c> →
 ///   <c>{uploadId, key, partSize, numberParts, urls[]}</c>. The URLs are <b>Cloudflare R2 presigned
 ///   PUTs</b> — the same shape as storage.to's large-file path, so this reuses
-///   <see cref="HttpHandler.PutChunkAsync"/> and <see cref="ChunkSliceStream"/>.</item>
-///   <item><b>PUT each part</b> and keep its <c>ETag</c> response header. R2 returns the ETag quoted;
-///   <see cref="HttpResponseSnapshot"/> already unquotes it.</item>
+///   <see cref="HttpHandler.PutChunkAsync"/>, with a <see cref="FileSliceReader"/> slice per part
+///   so several parts can be in flight at once.</item>
+///   <item><b>PUT each part</b> and keep its <c>ETag</c> response header. R2 returns the ETag
+///   quoted and <see cref="HttpResponseSnapshot"/> keeps it verbatim, quotes included — which is
+///   what complete-upload echoes back, so it must not be stripped.</item>
 ///   <item><b>Finalise.</b> <c>POST /api/complete-upload</c> with <c>key</c>, <c>uploadId</c>,
 ///   <c>name</c>, an empty <c>user</c>, and the parts as <c>parts[i][PartNumber]</c> /
 ///   <c>parts[i][ETag]</c> → <c>{name, size, hash, url}</c>. The share link is that <c>url</c>
@@ -53,17 +55,29 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
     private const string CompleteUploadEndpoint = Host + "/api/complete-upload";
 
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, int, HttpResponseSnapshot>? _putPartOverride;
+    private readonly PutPartHandler? _putPartOverride;
 
     public VikingFilePipeline()
     {
+    }
+
+    /// <summary>
+    /// Test ctor that stubs ONLY the two API form POSTs, leaving the part PUTs to go through the
+    /// real <see cref="HttpHandler"/>. That is what lets a test cover the production call — the
+    /// slice, the speed budget, and the progress hook — which the fully-stubbed ctor below bypasses
+    /// entirely.
+    /// </summary>
+    internal VikingFilePipeline(
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride)
+    {
+        _postFormOverride = postFormOverride;
     }
 
     /// <summary>Test ctor — drives the two API form POSTs and each part PUT from canned responses, so
     /// the slice/ETag/finalise chain runs without the network.</summary>
     internal VikingFilePipeline(
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
-        Func<string, int, HttpResponseSnapshot> putPartOverride)
+        PutPartHandler putPartOverride)
     {
         _postFormOverride = postFormOverride;
         _putPartOverride = putPartOverride;
@@ -179,6 +193,12 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         {
             snap = await PostFormAsync(ctx, GetUploadUrlEndpoint, form);
         }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            // The user cancelled. Let it propagate so AttemptRunner marks the file cancelled rather
+            // than failed — a failure would be retried, and there is nothing wrong to retry.
+            throw;
+        }
         catch (Exception ex)
         {
             return (null, "VikingFile get-upload-url request failed: " + ex.Message);
@@ -242,47 +262,84 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         }
     }
 
-    /// <summary>PUTs every part, collects the ETags, then finalises via complete-upload.</summary>
+    /// <summary>
+    /// PUTs every part — up to <see cref="AttemptContext.MaxParallelParts"/> at once — collects the
+    /// ETags in PART order, then finalises via complete-upload.
+    /// <para>
+    /// One <see cref="FileSliceReader"/> is held for the whole transfer, replacing the single
+    /// advancing <c>FileStream</c> the sequential version used. That stream position moves as each
+    /// slice is consumed, so two parts reading it together would each receive a nondeterministic
+    /// mixture of the file. The anchor handle also preserves the sharing lock the sequential loop
+    /// held, so the source cannot be swapped underneath a multi-part upload.
+    /// </para>
+    /// <para>
+    /// Progress goes through a <see cref="PartProgressAggregator"/>, because
+    /// <c>basePosition + bytes</c> is an absolute file position that means nothing out of order —
+    /// and the UI derives speed and ETA from it.
+    /// </para>
+    /// </summary>
     private async Task<(string? Url, string? Error)> UploadPartsAndCompleteAsync(AttemptContext ctx, UploadInit init)
     {
         long total = ctx.FileSize;
         DateTime started = DateTime.Now;
-        (int PartNumber, string ETag)[] parts = new (int, string)[init.PartUrls.Count];
 
-        await using FileStream? fs = _putPartOverride is null
-            ? new FileStream(ctx.FilePath, FileMode.Open, FileAccess.Read)
-            : null;
-
-        for (int i = 0; i < init.PartUrls.Count; i++)
+        // Validate the server's part map against the file before sending a byte. Trusting
+        // PartUrls.Count blindly has three failure modes, and the quiet one is the worst: TOO FEW
+        // urls uploads a prefix of the file and still calls complete-upload, publishing a truncated
+        // object that looks successful. Too many yields a zero-length or negative-length slice.
+        long expectedParts = Math.Max(1, ((total - 1) / init.PartSize) + 1);
+        if (init.PartUrls.Count != expectedParts)
         {
-            int partNumber = i + 1;
-            long basePos = (long)i * init.PartSize;
-            long len = Math.Min(init.PartSize, total - basePos);
-
-            // A part-PUT transport fault (or cancellation) is left to THROW so it reaches the retry
-            // layer raw — nothing is committed until complete-upload, so re-running from a fresh
-            // get-upload-url is safe and orphans only an unfinalised R2 multipart.
-            HttpResponseSnapshot resp = _putPartOverride is not null
-                ? _putPartOverride(init.PartUrls[i], partNumber)
-                : await ctx.Handler.PutChunkAsync(
-                    init.PartUrls[i], new ChunkSliceStream(fs!, len), len, basePos, total, started,
-                    headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
-
-            if (resp.StatusCode is < 200 or >= 300)
-            {
-                return (null, $"VikingFile R2 part {partNumber} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}");
-            }
-
-            if (string.IsNullOrEmpty(resp.ETag))
-            {
-                // Without every ETag, complete-upload cannot finalise the multipart at all.
-                return (null, $"VikingFile R2 part {partNumber} returned no ETag");
-            }
-
-            parts[i] = (partNumber, resp.ETag);
+            return (null,
+                $"VikingFile returned {init.PartUrls.Count} part URL(s) for a {total}-byte file at "
+                + $"{init.PartSize} bytes per part, where {expectedParts} were expected.");
         }
 
-        return await CompleteUploadAsync(ctx, init, parts);
+        using FileSliceReader source = new(ctx.FilePath);
+        PartProgressAggregator progress = new(
+            init.PartUrls.Count,
+            fileTotal => ctx.Handler.RaiseUploadProgress(new OperationProgressEventArgs(total, fileTotal, started)));
+
+        // A part-PUT transport fault (or cancellation) is left to THROW so it reaches the retry
+        // layer raw — nothing is PUBLISHED until complete-upload, so re-running from a fresh
+        // get-upload-url is safe and orphans only an unfinalised R2 multipart.
+        PartResult[] results = await ParallelPartUploader.RunAsync(
+            init.PartUrls.Count,
+            ctx.MaxParallelParts,
+            async (i, ct) =>
+            {
+                int partNumber = i + 1;
+                long basePos = (long)i * init.PartSize;
+                long len = Math.Min(init.PartSize, total - basePos);
+                Stream body = source.OpenSlice(basePos, len);
+
+                HttpResponseSnapshot resp = _putPartOverride is not null
+                    ? await _putPartOverride(
+                        init.PartUrls[i], partNumber, basePos, len, body, bytes => progress.Report(i, bytes), ct)
+                    : await ctx.Handler.PutChunkAsync(
+                        init.PartUrls[i], body, len, basePos, total, started, ctx.SpeedBudget,
+                        headers: null, ct, method: null,
+                        reportPartProgress: bytes => progress.Report(i, bytes));
+
+                if (resp.StatusCode is < 200 or >= 300)
+                {
+                    return new PartResult(partNumber, null, $"VikingFile R2 part {partNumber} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}");
+                }
+
+                return string.IsNullOrEmpty(resp.ETag)
+
+                    // Without every ETag, complete-upload cannot finalise the multipart at all.
+                    ? new PartResult(partNumber, null, $"VikingFile R2 part {partNumber} returned no ETag")
+                    : new PartResult(partNumber, resp.ETag, null);
+            },
+            ctx.Cancellation);
+
+        if (Array.Find(results, r => r.Error is not null) is { Error: not null } failed)
+        {
+            return (null, failed.Error);
+        }
+
+        return await CompleteUploadAsync(ctx, init, [.. results.Select(r => (r.PartNumber, r.ETag!))]);
     }
 
     private async Task<(string? Url, string? Error)> CompleteUploadAsync(
@@ -308,6 +365,12 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         try
         {
             snap = await PostFormAsync(ctx, CompleteUploadEndpoint, form);
+        }
+        catch (OperationCanceledException) when (ctx.Cancellation.IsCancellationRequested)
+        {
+            // As above: cancellation is not a failure to retry. Every part is already uploaded at
+            // this point, so the multipart is left unfinalised and R2 expires it.
+            throw;
         }
         catch (Exception ex)
         {
@@ -385,4 +448,13 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
+
+    /// <summary>
+    /// Parts are order-independent here — server-issued presigned R2 part URLs — so they may be sent
+    /// concurrently. Measured against live VikingFile on 2026-08-23: degree 8 reached 2.57x degree
+    /// 1 and had not plateaued, so these hosts throttle per connection. Declared EXPLICITLY rather
+    /// than relying on the interface default, which is not callable as a concrete-class member.
+    /// The user's MaxParallelPartsPerFile setting caps this.
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 8;
 }

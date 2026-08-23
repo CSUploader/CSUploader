@@ -330,6 +330,18 @@ public class PackageFile : INotifyPropertyChanged
     public int? SpeedLimitKBps { get; set; }
 
     /// <summary>
+    /// The bucket in force for this file: its own override when set, else its package's (which is
+    /// in turn the package's own or the global). Mirrors the resolution order of
+    /// <see cref="GetEffectiveSpeedLimitBytesPerSecond"/> — only the SCOPE of enforcement is new.
+    /// </summary>
+    public Lib.Net.Http.SpeedLimiter SpeedLimiter
+        => SpeedLimitKBps is > 0 ? SpeedLimitScopes.ForFile(this) : Package.SpeedLimiter;
+
+    /// <summary>What this file's streams hand to ThrottledStream. Resolved per read, never cached,
+    /// because the user can change a limit mid-upload.</summary>
+    public Lib.Net.Http.SpeedBudget SpeedBudget => new(() => SpeedLimiter);
+
+    /// <summary>
     /// Returns the effective upload speed limit in bytes/second, preferring the per-file
     /// override, then the owning package, then the global setting. Null means unlimited.
     /// </summary>
@@ -470,7 +482,9 @@ public class PackageFile : INotifyPropertyChanged
         HosterName = FileHoster.Name,
         Credentials = FileHosterLogin,
         Logger = logger,
-        SpeedLimitProvider = GetEffectiveSpeedLimitBytesPerSecond,
+        SpeedBudget = SpeedBudget,
+        MaxParallelPartsCeiling = Package.Options.Settings?.MaxParallelPartsPerFile
+            ?? AppSettings.DefaultMaxParallelPartsPerFile,
     };
 
     private void ResetProgressValues()

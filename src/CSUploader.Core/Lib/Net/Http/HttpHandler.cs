@@ -71,6 +71,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
     public event EventHandler<OperationProgressEventArgs>? UploadProgress;
 
+    /// <summary>
+    /// Raises <see cref="UploadProgress"/> on this handler's behalf. Exists for the parallel
+    /// part-upload path, where a <c>PartProgressAggregator</c> outside this class owns the
+    /// file-level figure — an event cannot be raised from outside the type that declares it.
+    /// </summary>
+    internal void RaiseUploadProgress(OperationProgressEventArgs args) => UploadProgress?.Invoke(this, args);
+
     public event EventHandler<ProtocolUploadFinishedEventArgs>? UploadFinished;
 
     protected HttpClient HttpClient { get; } = httpclient;
@@ -439,9 +446,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string fileFieldName,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? extraFields = null,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -474,8 +481,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             }
 
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = getBytesPerSecond is not null
-                ? new ThrottledStream(rawStream, getBytesPerSecond)
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using Stream disposeFileStream = fileStream;
             progressContent = new(
@@ -570,10 +577,10 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
-        => UploadFileBodyAsync(HttpMethod.Put, filePath, endpoint, contentType, headers, getBytesPerSecond, cancellationToken);
+        => UploadFileBodyAsync(HttpMethod.Put, filePath, endpoint, contentType, speedBudget, headers, cancellationToken);
 
     /// <summary>
     /// Streams a file as the raw request body via an arbitrary <paramref name="method"/> — the
@@ -590,8 +597,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -614,8 +621,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         try
         {
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = getBytesPerSecond is not null
-                ? new ThrottledStream(rawStream, getBytesPerSecond)
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using Stream disposeFileStream = fileStream;
             progressContent = new(
@@ -698,8 +705,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string url,
         byte[] body,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -718,7 +725,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         try
         {
             MemoryStream rawStream = new(body, 0, body.Length, writable: false);
-            Stream bodyStream = getBytesPerSecond is not null ? new ThrottledStream(rawStream, getBytesPerSecond) : rawStream;
+            Stream bodyStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited) ? new ThrottledStream(rawStream, speedBudget) : rawStream;
             using Stream disposeBodyStream = bodyStream;
             progressContent = new(
                 bodyStream,
@@ -811,10 +818,11 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default,
-        HttpMethod? method = null)
+        HttpMethod? method = null,
+        Action<long>? reportPartProgress = null)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
 
@@ -833,15 +841,27 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            Stream chunkStream = getBytesPerSecond is not null
-                ? new ThrottledStream(chunkData, getBytesPerSecond)
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             progressContent = new(
                 chunkStream,
-                // Per-chunk → file-cumulative progress so the UI sees one monotonic stream.
-                (_, bytesInThisChunk) => UploadProgress?.Invoke(
-                    this,
-                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                (_, bytesInThisChunk) =>
+                {
+                    if (reportPartProgress is null)
+                    {
+                        // Sequential: per-chunk → file-cumulative, so the UI sees one monotonic stream.
+                        UploadProgress?.Invoke(
+                            this,
+                            new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted));
+                        return;
+                    }
+
+                    // Parallel: basePosition + bytes is meaningless out of order, so the caller's
+                    // aggregator sums across parts and raises the event itself. Raising here as well
+                    // would interleave a per-part figure with the file-wide ones.
+                    reportPartProgress(bytesInThisChunk);
+                },
                 cancellationToken);
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
@@ -948,9 +968,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         DateTime dateTimeStarted,
         string fileFieldName,
         string filePartName,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? extraFields = null,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -975,8 +995,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 }
             }
 
-            Stream chunkStream = getBytesPerSecond is not null
-                ? new ThrottledStream(chunkData, getBytesPerSecond)
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             ProgressStreamContent chunkPart = new(
                 chunkStream,
@@ -1045,8 +1065,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -1065,8 +1085,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
             AddBareStringPart(multipartContent, "sid", sid);
 
-            Stream chunkStream = getBytesPerSecond is not null
-                ? new ThrottledStream(chunkData, getBytesPerSecond)
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             ProgressStreamContent chunkPart = new(
                 chunkStream,
@@ -1166,8 +1186,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        Func<long?>? getBytesPerSecond = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -1193,8 +1213,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 AddBareStringPart(multipartContent, field.Key, field.Value);
             }
 
-            Stream chunkStream = getBytesPerSecond is not null
-                ? new ThrottledStream(chunkData, getBytesPerSecond)
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             chunkPart = new(
                 chunkStream,
@@ -1284,7 +1304,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         return [];
     }
 
-    public async Task UploadFileAsync(string filePath, string endpoint, Func<long?>? getBytesPerSecond = null, CancellationToken cancellationToken = default)
+    public async Task UploadFileAsync(string filePath, string endpoint, SpeedBudget speedBudget, CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
 
@@ -1303,8 +1323,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         {
             using MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = getBytesPerSecond is not null
-                ? new ThrottledStream(rawStream, getBytesPerSecond)
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
+                ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using var disposeFileStream = fileStream;
             var progressContent = new ProgressStreamContent(fileStream, (totalBytes, bytesTransferred) => UploadProgress?.Invoke(this, new OperationProgressEventArgs(totalBytes, bytesTransferred, dateTimeStarted)), cancellationToken);

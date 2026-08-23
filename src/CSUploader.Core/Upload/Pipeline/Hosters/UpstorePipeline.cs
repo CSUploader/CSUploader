@@ -78,7 +78,7 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
 
     private readonly Func<string, Task<HttpResponseSnapshot>>? _getSnapshotOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public UpstorePipeline()
     {
@@ -88,7 +88,7 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     /// responses so the scrape/parse logic can be exercised without the network.</summary>
     internal UpstorePipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
         _uploadOverride = uploadOverride;
@@ -99,7 +99,7 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
     internal UpstorePipeline(
         Func<string, HttpResponseSnapshot> getSnapshotOverride,
         Func<string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postFormOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getSnapshotOverride = url => Task.FromResult(getSnapshotOverride(url));
         _postFormOverride = (url, form) => Task.FromResult(postFormOverride(url, form));
@@ -454,16 +454,16 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, actionUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, actionUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             actionUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

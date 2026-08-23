@@ -482,6 +482,18 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 #pragma warning restore CA1822
 
     /// <summary>
+    /// The bucket in force for this package right now: its own when it overrides the global
+    /// setting, else the global one. A property rather than a cached field, because the override
+    /// can be set or cleared while the package is uploading.
+    /// </summary>
+    public Lib.Net.Http.SpeedLimiter SpeedLimiter
+        => SpeedLimitKBps is > 0 ? SpeedLimitScopes.ForPackage(this) : SpeedLimitScopes.ForGlobal(Options.Settings);
+
+    /// <summary>What this package's streams hand to ThrottledStream. Stateless — it holds only a
+    /// resolver — so a new one per access is fine; the BUCKET is what must be shared.</summary>
+    public Lib.Net.Http.SpeedBudget SpeedBudget => new(() => SpeedLimiter);
+
+    /// <summary>
     /// Returns the effective upload speed limit in bytes/second, preferring the per-package
     /// override over the global AppSettings value. Returns null for unlimited.
     /// </summary>

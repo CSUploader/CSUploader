@@ -51,7 +51,7 @@ public sealed class TakeFilePipeline : XFileSharingApiPipeline
         IInteractiveAuthService? authService,
         FileHosterLoginRepository? loginRepository,
         Func<string, IReadOnlyDictionary<string, string>?, Task<string>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
         : base(authService, loginRepository, getOverride, uploadOverride)
     {
     }

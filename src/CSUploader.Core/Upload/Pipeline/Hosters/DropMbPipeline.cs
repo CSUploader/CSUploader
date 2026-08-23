@@ -279,8 +279,8 @@ public sealed class DropMbPipeline : IFileHosterPipeline, ISessionRefreshablePip
                     basePosition: position,
                     totalFileSize: fileSize,
                     dateTimeStarted: started,
+                    ctx.SpeedBudget,
                     headers: Headers(token),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
                     cancellationToken: ctx.Cancellation,
                     method: HttpMethod.Post);
             }

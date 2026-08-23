@@ -296,7 +296,7 @@ public class BuzzheavierPipelineTests
 
         public IReadOnlyDictionary<string, string>? LastHeaders { get; private set; }
 
-        public Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, Func<long?>? bps)
+        public Task<HttpResponseSnapshot> Upload(string filePath, string url, IReadOnlyDictionary<string, string>? headers, SpeedBudget? bps)
         {
             Uploads++;
             LastUrl = url;
@@ -331,7 +331,7 @@ public class BuzzheavierPipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = MakeHandler(),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

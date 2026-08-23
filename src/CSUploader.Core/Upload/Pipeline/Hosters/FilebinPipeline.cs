@@ -51,14 +51,14 @@ public sealed class FilebinPipeline : IFileHosterPipeline
     /// guessing, which is the only thing protecting its contents.</summary>
     private const int BinNameBytes = 13;
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public FilebinPipeline()
     {
     }
 
     /// <summary>Test ctor — stubs the one request this host needs.</summary>
-    internal FilebinPipeline(Func<string, string, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+    internal FilebinPipeline(Func<string, string, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
         => _uploadOverride = uploadOverride;
 
     public string Name => "Filebin";
@@ -116,14 +116,14 @@ public sealed class FilebinPipeline : IFileHosterPipeline
         ctx.Handler.UploadProgress += OnProgress;
 
         Task<HttpResponseSnapshot> uploadTask = _uploadOverride is not null
-            ? _uploadOverride(ctx.FilePath, endpoint, headers, ctx.SpeedLimitProvider)
+            ? _uploadOverride(ctx.FilePath, endpoint, headers, ctx.SpeedBudget)
             : ctx.Handler.UploadFileBodyAsync(
                 HttpMethod.Post,
                 ctx.FilePath,
                 endpoint,
                 "application/octet-stream",
+                ctx.SpeedBudget,
                 headers,
-                ctx.SpeedLimitProvider,
                 ctx.Cancellation);
 
         _ = uploadTask.ContinueWith(

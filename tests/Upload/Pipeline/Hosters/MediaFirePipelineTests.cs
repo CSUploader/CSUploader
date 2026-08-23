@@ -288,7 +288,7 @@ public class MediaFirePipelineTests
         public IReadOnlyDictionary<string, string>? LastUploadHeaders { get; private set; }
 
         /// <summary>Overridable so a test can make the byte upload throw.</summary>
-        public Func<string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
+        public Func<string, IReadOnlyDictionary<string, string>, SpeedBudget?, Task<HttpResponseSnapshot>>? UploadHandler { get; set; }
 
         public MediaFirePipeline Build() => new(Get, PostForm, Upload, Hash);
 
@@ -362,7 +362,7 @@ public class MediaFirePipelineTests
             return Task.FromResult(new HttpResponseSnapshot(404, "unrouted: " + url, []));
         }
 
-        private Task<HttpResponseSnapshot> Upload(string url, IReadOnlyDictionary<string, string> headers, Func<long?>? bps)
+        private Task<HttpResponseSnapshot> Upload(string url, IReadOnlyDictionary<string, string> headers, SpeedBudget? bps)
         {
             SimpleUploads++;
             LastUploadUrl = url;
@@ -414,7 +414,7 @@ public class MediaFirePipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = MakeHandler(),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

@@ -22,16 +22,28 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// that would silently break a naive parser: <c>partSize</c> differs 10× from the published docs, and
 /// <c>size</c> comes back as a JSON STRING.
 /// </summary>
-public class VikingFilePipelineTests
+public class VikingFilePipelineTests : IDisposable
 {
+    private readonly List<string> _tempFiles = [];
+
+    public void Dispose()
+    {
+        foreach (string path in _tempFiles)
+        {
+            File.Delete(path);
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
     private const string PartUrl1 = "https://asia-upload.abc123.r2.cloudflarestorage.com/nwZY81TkzI?uploadId=UP1&partNumber=1&X-Amz-Signature=sig1";
     private const string PartUrl2 = "https://asia-upload.abc123.r2.cloudflarestorage.com/nwZY81TkzI?uploadId=UP1&partNumber=2&X-Amz-Signature=sig2";
 
     // Live shape. NOTE partSize=104857600 (100 MiB) — the published docs say 1073741824 (1 GiB), so
     // this value must come from the response or every multi-part upload is mis-sliced 10x over.
-    private static string InitJson(int parts) => parts == 1
-        ? $$"""{"uploadId":"UP1","key":"nwZY81TkzI","partSize":104857600,"numberParts":1,"urls":["{{PartUrl1}}"]}"""
-        : $$"""{"uploadId":"UP1","key":"nwZY81TkzI","partSize":104857600,"numberParts":2,"urls":["{{PartUrl1}}","{{PartUrl2}}"]}""";
+    private static string InitJson(int parts, long partSize = 104857600) => parts == 1
+        ? $$"""{"uploadId":"UP1","key":"nwZY81TkzI","partSize":{{partSize}},"numberParts":1,"urls":["{{PartUrl1}}"]}"""
+        : $$"""{"uploadId":"UP1","key":"nwZY81TkzI","partSize":{{partSize}},"numberParts":2,"urls":["{{PartUrl1}}","{{PartUrl2}}"]}""";
 
     // Live shape — "size" is a STRING, not a number.
     private const string CompleteJson =
@@ -50,10 +62,10 @@ public class VikingFilePipelineTests
                 return Task.FromResult(new HttpResponseSnapshot(
                     200, url.Contains("complete-upload", StringComparison.Ordinal) ? CompleteJson : InitJson(1), Array.Empty<string>()));
             },
-            putPartOverride: (url, part) =>
+            putPartOverride: (url, part, offset, length, body, report, ct) =>
             {
                 puts.Add(url);
-                return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: $"etag{part}");
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: $"etag{part}"));
             });
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
@@ -90,16 +102,16 @@ public class VikingFilePipelineTests
             {
                 posts.Add((url, new Dictionary<string, string>(form, StringComparer.Ordinal)));
                 return Task.FromResult(new HttpResponseSnapshot(
-                    200, url.Contains("complete-upload", StringComparison.Ordinal) ? CompleteJson : InitJson(2), Array.Empty<string>()));
+                    200, url.Contains("complete-upload", StringComparison.Ordinal) ? CompleteJson : InitJson(2, partSize: 4096), Array.Empty<string>()));
             },
-            putPartOverride: (url, part) =>
+            putPartOverride: (url, part, offset, length, body, report, ct) =>
             {
                 puts.Add(url);
-                return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: $"etag{part}");
+                return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: $"etag{part}"));
             });
 
         // 150 MiB over a 100 MiB part size → two parts.
-        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(150L * 1024 * 1024), CancellationToken.None));
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(8192), CancellationToken.None));
 
         Assert.Single(events.OfType<TransferCompleted>());
         Assert.Equal([PartUrl1, PartUrl2], puts);
@@ -123,7 +135,7 @@ public class VikingFilePipelineTests
                 postedUrls.Add(url);
                 return Task.FromResult(new HttpResponseSnapshot(200, InitJson(1), Array.Empty<string>()));
             },
-            putPartOverride: (_, _) => new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>()));
+            putPartOverride: (_, _, _, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
 
@@ -141,7 +153,7 @@ public class VikingFilePipelineTests
                 postedUrls.Add(url);
                 return Task.FromResult(new HttpResponseSnapshot(200, InitJson(1), Array.Empty<string>()));
             },
-            putPartOverride: (_, _) => new HttpResponseSnapshot(403, "<Error>AccessDenied</Error>", Array.Empty<string>()));
+            putPartOverride: (_, _, _, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(403, "<Error>AccessDenied</Error>", Array.Empty<string>())));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
 
@@ -156,7 +168,7 @@ public class VikingFilePipelineTests
         List<string> puts = [];
         VikingFilePipeline pipeline = new(
             postFormOverride: (_, _) => Task.FromResult(new HttpResponseSnapshot(500, "server error", Array.Empty<string>())),
-            putPartOverride: (url, _) => { puts.Add(url); return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: "e"); });
+            putPartOverride: (url, _, _, _, _, _, _) => { puts.Add(url); return Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), ETag: "e")); });
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(4096), CancellationToken.None));
 
@@ -236,10 +248,29 @@ public class VikingFilePipelineTests
         return events;
     }
 
-    private static AttemptContext MakeContext(long fileSize) => new()
+    /// <summary>
+    /// Writes a REAL patterned file. The pipeline now opens a FileSliceReader unconditionally — the
+    /// seam receives the actual slice, which is what lets a test verify each part reads its own
+    /// bytes rather than merely that the pipeline computed an offset.
+    /// </summary>
+    private AttemptContext MakeContext(long fileSize)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"csu-vf-{Guid.NewGuid():N}.bin");
+        byte[] content = new byte[fileSize];
+        for (int i = 0; i < content.Length; i++)
+        {
+            content[i] = (byte)(i % 251);
+        }
+
+        File.WriteAllBytes(path, content);
+        _tempFiles.Add(path);
+        return MakeContextForPath(path, fileSize);
+    }
+
+    private static AttemptContext MakeContextForPath(string path, long fileSize) => new()
     {
         AttemptId = Guid.NewGuid(),
-        FilePath = Path.Combine(Path.GetTempPath(), "csuploader-vikingfile-nonexistent.bin"),
+        FilePath = path,
         FileName = "1mb.bin",
         FileSize = fileSize,
         HosterName = "VikingFile",
@@ -247,7 +278,7 @@ public class VikingFilePipelineTests
         Proxy = ProxyChoice.Direct,
         Handler = new HttpHandler(new HttpClient(), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled),
         Logger = Mock.Of<IAppLogger>(),
-        SpeedLimitProvider = () => null,
+        SpeedBudget = SpeedBudget.Unlimited,
         Cancellation = default,
     };
 }

@@ -111,7 +111,7 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
     // Test seams — null in production (use the real handler). Route by URL in tests.
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, IReadOnlyDictionary<string, string>, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
     private readonly Func<string, CancellationToken, Task<string>>? _computeHashOverride;
 
     public MediaFirePipeline()
@@ -124,7 +124,7 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
     internal MediaFirePipeline(
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
         Func<string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> postFormOverride,
-        Func<string, IReadOnlyDictionary<string, string>, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride,
+        Func<string, IReadOnlyDictionary<string, string>, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride,
         Func<string, CancellationToken, Task<string>> computeHashOverride)
     {
         _getOverride = getOverride;
@@ -726,7 +726,7 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(url, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(url, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadFileBodyAsync(
@@ -734,8 +734,8 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
             ctx.FilePath,
             url,
             contentType: "application/octet-stream",
+            ctx.SpeedBudget,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

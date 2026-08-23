@@ -277,9 +277,9 @@ public sealed class GigaFilePipeline : IFileHosterPipeline
                     // Their own uploader posts the slice as an unnamed Blob, which browsers send as
                     // filename="blob"; the real name travels in the `name` field above.
                     filePartName: "blob",
+                    ctx.SpeedBudget,
                     extraFields: fields,
                     headers: BrowserHeaders(jar),
-                    getBytesPerSecond: ctx.SpeedLimitProvider,
                     cancellationToken: ctx.Cancellation);
             }
 

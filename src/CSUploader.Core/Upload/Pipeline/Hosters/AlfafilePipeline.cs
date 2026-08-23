@@ -42,7 +42,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
         = new();
 
     private readonly Func<string, Task<string>>? _httpOverride;
-    private readonly Func<string, string, Func<long?>?, Task>? _uploadOverride;
+    private readonly Func<string, string, SpeedBudget?, Task>? _uploadOverride;
 
     /// <summary>Production ctor — uses <see cref="AttemptContext.Handler"/> for HTTP.</summary>
     public AlfafilePipeline()
@@ -56,7 +56,7 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
     }
 
     /// <summary>Test ctor — substitutes both GET and multipart upload behaviour.</summary>
-    internal AlfafilePipeline(Func<string, string> getOverride, Func<string, string, Func<long?>?, Task> uploadOverride)
+    internal AlfafilePipeline(Func<string, string> getOverride, Func<string, string, SpeedBudget?, Task> uploadOverride)
     {
         _httpOverride = url => Task.FromResult(getOverride(url));
         _uploadOverride = uploadOverride;
@@ -571,8 +571,8 @@ public sealed class AlfafilePipeline : IFileHosterPipeline
 
     private Task UploadBytesAsync(AttemptContext ctx, string uploadUrl)
         => _uploadOverride is not null
-            ? _uploadOverride(ctx.FilePath, uploadUrl, ctx.SpeedLimitProvider)
-            : ctx.Handler.UploadFileAsync(ctx.FilePath, uploadUrl, ctx.SpeedLimitProvider, ctx.Cancellation);
+            ? _uploadOverride(ctx.FilePath, uploadUrl, ctx.SpeedBudget)
+            : ctx.Handler.UploadFileAsync(ctx.FilePath, uploadUrl, ctx.SpeedBudget, ctx.Cancellation);
 
     private async Task<(string?, string?)> GetUploadInfoAsync(AttemptContext ctx, AlfafileAuthState auth, string uploadId)
     {

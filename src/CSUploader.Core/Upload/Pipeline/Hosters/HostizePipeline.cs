@@ -60,7 +60,7 @@ public sealed class HostizePipeline : IFileHosterPipeline
     private const long MaxFileSizeBytes = 20L * 1000 * 1000 * 1000;
 
     private readonly Func<string, string, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, int, long, Task<HttpResponseSnapshot>>? _putPartOverride;
+    private readonly PutPartHandler? _putPartOverride;
 
     public HostizePipeline()
     {
@@ -69,7 +69,7 @@ public sealed class HostizePipeline : IFileHosterPipeline
     /// <summary>Test ctor — stubs the two JSON calls and the presigned part PUTs.</summary>
     internal HostizePipeline(
         Func<string, string, Task<HttpResponseSnapshot>> postJsonOverride,
-        Func<string, int, long, Task<HttpResponseSnapshot>> putPartOverride)
+        PutPartHandler putPartOverride)
     {
         _postJsonOverride = postJsonOverride;
         _putPartOverride = putPartOverride;
@@ -186,14 +186,23 @@ public sealed class HostizePipeline : IFileHosterPipeline
     }
 
     /// <summary>What one upload needs, all of it from the ticket call. <c>PartSize</c> is read from
-    /// the response and never assumed — the same rule VikingFile's docs earned the hard way.</summary>
-    internal readonly record struct UploadTicket(string ShareId, long PartSize, IReadOnlyList<string> PartUrls);
+    /// the response and never assumed — the same rule VikingFile's docs earned the hard way.
+    /// <para>
+    /// Parts keep the server's OWN <c>partNumber</c> rather than their array index. The two happen
+    /// to agree today, but the offset a part covers is derived from its number, so silently
+    /// renumbering them would mis-slice the file if Hostize ever returned them out of order.
+    /// </para>
+    /// </summary>
+    internal readonly record struct UploadTicket(string ShareId, long PartSize, IReadOnlyList<(int PartNumber, string Url)> Parts);
 
     private async Task<(UploadTicket? Ticket, string? Error)> RequestAsync(AttemptContext ctx)
     {
+        // The site's own uploader sends "concurrency":4. Omitting it was correct only while these
+        // went up one at a time; claiming a number we do not honour would be the lie, not sending it.
         string json = JsonSerializer.Serialize(new
         {
             files = new[] { new { name = ctx.FileName, size = ctx.FileSize } },
+            concurrency = ctx.MaxParallelParts,
         });
 
         HttpResponseSnapshot response;
@@ -239,13 +248,25 @@ public sealed class HostizePipeline : IFileHosterPipeline
             JsonElement ticket = tickets[0];
             long partSize = ticket.TryGetProperty("partSize", out JsonElement ps) && ps.TryGetInt64(out long size) ? size : 0;
 
-            List<string> urls = [];
+            List<(int PartNumber, string Url)> urls = [];
             if (ticket.TryGetProperty("partUrls", out JsonElement parts) && parts.ValueKind == JsonValueKind.Array)
             {
-                urls.AddRange(parts.EnumerateArray()
-                    .Select(p => p.TryGetProperty("url", out JsonElement u) ? u.GetString() : null)
-                    .Where(u => !string.IsNullOrEmpty(u))
-                    .Select(u => u!));
+                int index = 0;
+                foreach (JsonElement part in parts.EnumerateArray())
+                {
+                    index++;
+                    if (part.TryGetProperty("url", out JsonElement u) && u.GetString() is { Length: > 0 } url)
+                    {
+                        // The ticket carries an explicit partNumber. Falling back to array position
+                        // when it is missing INVENTS one, which turns a malformed ticket into a
+                        // plausible-looking duplicate — so a missing number is left as 0 and the
+                        // validation below rejects the whole ticket.
+                        int number = part.TryGetProperty("partNumber", out JsonElement pn) && pn.TryGetInt32(out int parsed)
+                            ? parsed
+                            : 0;
+                        urls.Add((number, url));
+                    }
+                }
             }
 
             // A ticket with no parts, or a zero part size, would slice the file into nothing.
@@ -259,40 +280,85 @@ public sealed class HostizePipeline : IFileHosterPipeline
         }
     }
 
-    /// <summary>PUTs each presigned part. Returns null on success, else which part was refused.</summary>
+    /// <summary>
+    /// PUTs each presigned part, up to <see cref="AttemptContext.MaxParallelParts"/> at once.
+    /// Returns null on success, else which part was refused.
+    /// <para>
+    /// Unlike the other presigned hosts, no ETags are collected — <c>complete</c> takes only the
+    /// share id and the server finalises the multipart itself. The parts are still checked for a
+    /// success status, because a silently dropped part surfaces as a truncated file.
+    /// </para>
+    /// </summary>
     private async Task<string?> PutPartsAsync(AttemptContext ctx, UploadTicket ticket)
     {
         long total = ctx.FileSize;
         DateTime started = DateTime.Now;
 
-        await using FileStream? file = _putPartOverride is null
-            ? new FileStream(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true)
-            : null;
-
-        for (int i = 0; i < ticket.PartUrls.Count; i++)
+        // Validate the ticket against the file before sending a byte: too few parts uploads a prefix
+        // and still calls complete, publishing a truncated share that looks like a success.
+        long expectedParts = Math.Max(1, ((total - 1) / ticket.PartSize) + 1);
+        if (ticket.Parts.Count != expectedParts)
         {
-            int partNumber = i + 1;
-            long basePos = i * ticket.PartSize;
-            long len = Math.Min(ticket.PartSize, total - basePos);
-
-            // A transport fault is left to THROW so the shared retry layer sees it raw: nothing is
-            // published until complete, so a retry from a fresh ticket orphans an unfinished
-            // multipart and nothing more.
-            HttpResponseSnapshot response = _putPartOverride is not null
-                ? await _putPartOverride(ticket.PartUrls[i], partNumber, len)
-                : await ctx.Handler.PutChunkAsync(
-                    ticket.PartUrls[i], new ChunkSliceStream(file!, len), len, basePos, total, started,
-                    headers: null, ctx.SpeedLimitProvider, ctx.Cancellation);
-
-            if (response.StatusCode is < 200 or >= 300)
-            {
-                return $"Hostize storage rejected part {partNumber.ToString(CultureInfo.InvariantCulture)}"
-                    + $"/{ticket.PartUrls.Count.ToString(CultureInfo.InvariantCulture)} "
-                    + $"(HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)}): {Snippet(response.Body)}";
-            }
+            return $"Hostize returned {ticket.Parts.Count.ToString(CultureInfo.InvariantCulture)} part URL(s) "
+                + $"for a {total.ToString(CultureInfo.InvariantCulture)}-byte file at "
+                + $"{ticket.PartSize.ToString(CultureInfo.InvariantCulture)} bytes per part, where "
+                + $"{expectedParts.ToString(CultureInfo.InvariantCulture)} were expected.";
         }
 
-        return null;
+        // The COUNT being right is not enough. A ticket numbered [1, 1, 3] has the right size, sends
+        // part 1's bytes to two different presigned URLs and never sends part 2 at all — and because
+        // complete takes only the share id, the server would publish that corruption without a
+        // word. The numbers must be exactly 1..n, each once.
+        HashSet<int> numbers = [.. ticket.Parts.Select(p => p.PartNumber)];
+        if (numbers.Count != ticket.Parts.Count || numbers.Any(n => n < 1 || n > expectedParts))
+        {
+            return "Hostize's ticket carried a malformed part map ("
+                + string.Join(", ", ticket.Parts.Select(p => p.PartNumber.ToString(CultureInfo.InvariantCulture)))
+                + $"); {expectedParts.ToString(CultureInfo.InvariantCulture)} parts numbered 1.."
+                + $"{expectedParts.ToString(CultureInfo.InvariantCulture)} were expected.";
+        }
+
+        using FileSliceReader source = new(ctx.FilePath);
+        PartProgressAggregator progress = new(
+            ticket.Parts.Count,
+            fileTotal => ctx.Handler.RaiseUploadProgress(new OperationProgressEventArgs(total, fileTotal, started)));
+
+        // A transport fault is left to THROW so the shared retry layer sees it raw: nothing is
+        // published until complete, so a retry from a fresh ticket orphans an unfinished multipart
+        // and nothing more.
+        PartResult[] results = await ParallelPartUploader.RunAsync(
+            ticket.Parts.Count,
+            ctx.MaxParallelParts,
+            async (i, ct) =>
+            {
+                (int partNumber, string url) = ticket.Parts[i];
+
+                // Offset from the part's OWN number, not its array index.
+                long basePos = (partNumber - 1) * ticket.PartSize;
+                long len = Math.Min(ticket.PartSize, total - basePos);
+                Stream body = source.OpenSlice(basePos, len);
+
+                HttpResponseSnapshot response = _putPartOverride is not null
+                    ? await _putPartOverride(url, partNumber, basePos, len, body, bytes => progress.Report(i, bytes), ct)
+                    : await ctx.Handler.PutChunkAsync(
+                        url, body, len, basePos, total, started, ctx.SpeedBudget,
+                        headers: null, ct, method: null,
+                        reportPartProgress: bytes => progress.Report(i, bytes));
+
+                return response.StatusCode is < 200 or >= 300
+                    ? new PartResult(
+                        partNumber,
+                        null,
+                        $"Hostize storage rejected part {partNumber.ToString(CultureInfo.InvariantCulture)}"
+                        + $"/{ticket.Parts.Count.ToString(CultureInfo.InvariantCulture)} "
+                        + $"(HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)}): {Snippet(response.Body)}")
+
+                    // No ETag to keep: the server finalises on its own.
+                    : new PartResult(partNumber, null, null);
+            },
+            ctx.Cancellation);
+
+        return Array.Find(results, r => r.Error is not null) is { Error: not null } failed ? failed.Error : null;
     }
 
     /// <summary>Publishes the share. Unlike the other presigned hosts here this takes no ETags — the
@@ -375,4 +441,13 @@ public sealed class HostizePipeline : IFileHosterPipeline
             AccountType.Free,
             "Hostize's upload API needs a Pro subscription — use the built-in Anonymous option in the upload wizard."));
     }
+
+    /// <summary>
+    /// Parts are order-independent here — server-issued presigned S3 part URLs — so they may be sent
+    /// concurrently. Measured against live VikingFile on 2026-08-23: degree 8 reached 2.57x degree
+    /// 1 and had not plateaued, so these hosts throttle per connection. Declared EXPLICITLY rather
+    /// than relying on the interface default, which is not callable as a concrete-class member.
+    /// The user's MaxParallelPartsPerFile setting caps this.
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 8;
 }

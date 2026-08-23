@@ -65,7 +65,7 @@ public sealed class QuAxPipeline : IFileHosterPipeline
         "zip", "rar", "7z", "tar", "gz", "pdf", "txt",
     };
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public QuAxPipeline()
     {
@@ -73,7 +73,7 @@ public sealed class QuAxPipeline : IFileHosterPipeline
 
     /// <summary>Test ctor — stubs the multipart upload so the orchestration runs without the network.</summary>
     internal QuAxPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _uploadOverride = uploadOverride;
     }
@@ -267,16 +267,16 @@ public sealed class QuAxPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, UploadUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, UploadUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "files[]",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 }

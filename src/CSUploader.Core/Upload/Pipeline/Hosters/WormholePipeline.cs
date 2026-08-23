@@ -421,7 +421,7 @@ public sealed class WormholePipeline : IFileHosterPipeline
         ctx.Handler.UploadProgress += OnProgress;
         try
         {
-            return await ctx.Handler.UploadBytesAsync(HttpMethod.Post, url, blob, "application/octet-stream", headers, ctx.SpeedLimitProvider, ctx.Cancellation);
+            return await ctx.Handler.UploadBytesAsync(HttpMethod.Post, url, blob, "application/octet-stream", ctx.SpeedBudget, headers, ctx.Cancellation);
         }
         finally
         {

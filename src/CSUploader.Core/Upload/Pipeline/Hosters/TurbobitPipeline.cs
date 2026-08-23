@@ -119,7 +119,7 @@ public sealed class TurbobitPipeline : IFileHosterPipeline
 
     private readonly IInteractiveAuthService? _authService;
     private readonly Func<string, string, Task<HttpResponseSnapshot>>? _postJsonOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public TurbobitPipeline(IInteractiveAuthService? authService = null)
     {
@@ -129,7 +129,7 @@ public sealed class TurbobitPipeline : IFileHosterPipeline
     /// <summary>Test ctor — drives discovery and the upload from canned responses.</summary>
     internal TurbobitPipeline(
         Func<string, string, Task<HttpResponseSnapshot>> postJsonOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _postJsonOverride = postJsonOverride;
         _uploadOverride = uploadOverride;
@@ -351,16 +351,16 @@ public sealed class TurbobitPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, uploadUrl, extraFields, headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "Filedata",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 

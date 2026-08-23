@@ -36,7 +36,7 @@ public sealed class TempShPipeline : IFileHosterPipeline
     /// conservative reading — a binary 4 GiB would be 7% larger than what it says it takes.</summary>
     private const long MaxFileSizeBytes = 4L * 1000 * 1000 * 1000;
 
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public TempShPipeline()
     {
@@ -44,7 +44,7 @@ public sealed class TempShPipeline : IFileHosterPipeline
 
     /// <summary>Test ctor — stubs the multipart upload so the orchestration runs without the network.</summary>
     internal TempShPipeline(
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _uploadOverride = uploadOverride;
     }
@@ -179,16 +179,16 @@ public sealed class TempShPipeline : IFileHosterPipeline
 
         if (_uploadOverride is not null)
         {
-            return await _uploadOverride(ctx.FilePath, UploadUrl, new Dictionary<string, string>(StringComparer.Ordinal), headers, ctx.SpeedLimitProvider);
+            return await _uploadOverride(ctx.FilePath, UploadUrl, new Dictionary<string, string>(StringComparer.Ordinal), headers, ctx.SpeedBudget);
         }
 
         return await ctx.Handler.UploadMultipartAsync(
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: new Dictionary<string, string>(StringComparer.Ordinal),
             headers: headers,
-            getBytesPerSecond: ctx.SpeedLimitProvider,
             cancellationToken: ctx.Cancellation);
     }
 }

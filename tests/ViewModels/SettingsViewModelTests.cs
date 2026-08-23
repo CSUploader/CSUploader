@@ -168,6 +168,31 @@ public class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task EditingMaxParallelPartsPerFile_AutoPersistsToDatabase()
+    {
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        vm.MaxParallelPartsPerFile = 6;
+
+        Assert.Equal("6", await WaitForSettingValueAsync(SettingKey.MaxParallelPartsPerFile));
+        Assert.Equal(6, _appSettings.MaxParallelPartsPerFile);
+    }
+
+    [Fact]
+    public async Task LoadAsync_RestoresAPersistedMaxParallelPartsPerFile()
+    {
+        // The other half of the round trip. Persisting without reloading would silently reset the
+        // user's choice on every restart.
+        await _settingRepo.UpsertAsync(SettingKey.MaxParallelPartsPerFile, "7");
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.Equal(7, vm.MaxParallelPartsPerFile);
+    }
+
+    [Fact]
     public async Task EditingGridFontFamily_AutoPersistsToDatabase()
     {
         SettingsViewModel vm = CreateVm();

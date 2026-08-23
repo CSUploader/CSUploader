@@ -450,6 +450,14 @@
                    Text="{Binding MaxConcurrentUploadJobs, UpdateSourceTrigger=LostFocus}" Classes="setting-input" HorizontalContentAlignment="Right" />
         </Grid>
 
+        <Grid Classes="setting-row" ColumnDefinitions="*,360">
+          <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxParallelParts}" Classes="setting-label"
+                     ToolTip.Tip="{loc:Loc Settings_Upload_MaxParallelPartsTip}" />
+          <TextBox Grid.Column="1" HorizontalAlignment="Stretch"
+                   Text="{Binding MaxParallelPartsPerFile, UpdateSourceTrigger=LostFocus}" Classes="setting-input"
+                   HorizontalContentAlignment="Right" />
+        </Grid>
+
         <Grid Classes="setting-row" ColumnDefinitions="*,Auto,252">
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_MaxPerHoster}" Classes="setting-label" />
           <CheckBox Grid.Column="1" IsChecked="{Binding MaxUploadsPerHostEnabled}" VerticalAlignment="Center" Margin="0,0,8,0" />

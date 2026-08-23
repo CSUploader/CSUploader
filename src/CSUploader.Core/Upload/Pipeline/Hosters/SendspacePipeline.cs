@@ -80,7 +80,7 @@ public sealed class SendspacePipeline : IFileHosterPipeline
         @"uploadprocerr\.html\?e=(?<code>\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
-    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>>? _uploadOverride;
+    private readonly Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>>? _uploadOverride;
 
     public SendspacePipeline()
     {
@@ -89,7 +89,7 @@ public sealed class SendspacePipeline : IFileHosterPipeline
     /// <summary>Test ctor — drives the homepage scrape and the upload from canned responses.</summary>
     internal SendspacePipeline(
         Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> getOverride,
-        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, Func<long?>?, Task<HttpResponseSnapshot>> uploadOverride)
+        Func<string, string, IReadOnlyDictionary<string, string>, IReadOnlyDictionary<string, string>?, SpeedBudget?, Task<HttpResponseSnapshot>> uploadOverride)
     {
         _getOverride = getOverride;
         _uploadOverride = uploadOverride;
@@ -414,14 +414,14 @@ public sealed class SendspacePipeline : IFileHosterPipeline
         Dictionary<string, string> fields = BuildFields(ticket);
 
         return _uploadOverride is not null
-            ? await _uploadOverride(ctx.FilePath, ticket.ActionUrl, fields, UploadHeaders(), ctx.SpeedLimitProvider)
+            ? await _uploadOverride(ctx.FilePath, ticket.ActionUrl, fields, UploadHeaders(), ctx.SpeedBudget)
             : await ctx.Handler.UploadMultipartAsync(
                 ctx.FilePath,
                 ticket.ActionUrl,
                 fileFieldName: FileFieldName,
+                ctx.SpeedBudget,
                 extraFields: fields,
                 headers: UploadHeaders(),
-                getBytesPerSecond: ctx.SpeedLimitProvider,
                 cancellationToken: ctx.Cancellation);
     }
 }

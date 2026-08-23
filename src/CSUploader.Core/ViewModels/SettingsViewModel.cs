@@ -76,6 +76,9 @@ public partial class SettingsViewModel(
     public partial int MaxUploadsPerHost { get; set; } = AppSettings.DefaultMaxUploadsPerHost;
 
     [ObservableProperty]
+    public partial int MaxParallelPartsPerFile { get; set; } = AppSettings.DefaultMaxParallelPartsPerFile;
+
+    [ObservableProperty]
     public partial RemoveFinishedUploadsMode RemoveFinishedUploads { get; set; } = AppSettings.DefaultRemoveFinishedUploads;
 
     [ObservableProperty]
@@ -290,6 +293,14 @@ public partial class SettingsViewModel(
                     MaxUploadsPerHostEnabled = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
 
+                case var k when k == SettingKey.MaxParallelPartsPerFile:
+                    if (int.TryParse(setting.Value, out int parallelParts))
+                    {
+                        MaxParallelPartsPerFile = parallelParts;
+                    }
+
+                    break;
+
                 case var k when k == SettingKey.MaxUploadsPerHost:
                     if (int.TryParse(setting.Value, out int perHost))
                     {
@@ -428,6 +439,7 @@ public partial class SettingsViewModel(
         _settings.MaxConcurrentUploadJobs = MaxConcurrentUploadJobs;
         _settings.MaxUploadsPerHostEnabled = MaxUploadsPerHostEnabled;
         _settings.MaxUploadsPerHost = MaxUploadsPerHost;
+        _settings.MaxParallelPartsPerFile = MaxParallelPartsPerFile;
         _settings.RemoveFinishedUploads = RemoveFinishedUploads;
         _settings.GridFontFamily = GridFontFamily;
         _settings.GridFontSize = GridFontSize;
@@ -515,6 +527,20 @@ public partial class SettingsViewModel(
         _settings.MaxUploadsPerHostEnabled = value;
         _ = AutoSaveAsync(SettingKey.MaxUploadsPerHostEnabled, value ? "true" : "false");
         uploadScheduler?.Reschedule();
+    }
+
+    partial void OnMaxParallelPartsPerFileChanged(int value)
+    {
+        if (_suppressAutoSave)
+        {
+            return;
+        }
+
+        _settings.MaxParallelPartsPerFile = value;
+        _ = AutoSaveAsync(SettingKey.MaxParallelPartsPerFile, value.ToString(CultureInfo.InvariantCulture));
+
+        // No Reschedule(): this bounds parallelism WITHIN a file, which each attempt resolves when
+        // it starts. Unlike the per-host cap it does not change which files the scheduler launches.
     }
 
     partial void OnMaxUploadsPerHostChanged(int value)

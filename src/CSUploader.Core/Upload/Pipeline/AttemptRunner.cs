@@ -109,7 +109,14 @@ public sealed class AttemptRunner(IFileHosterRegistry registry, IProxySource pro
             Proxy = proxy,
             Handler = handler,
             Logger = inputs.Logger,
-            SpeedLimitProvider = inputs.SpeedLimitProvider,
+            SpeedBudget = inputs.SpeedBudget,
+
+            // Resolved HERE, not in BuildAttemptInputs, because this is the first point that has
+            // both halves: the user's ceiling arrives on the inputs, and the pipeline — which knows
+            // whether its protocol tolerates concurrent parts at all — was just selected above.
+            MaxParallelParts = PartParallelism.Effective(
+                pipeline.MaxParallelPartsFor(inputs.Credentials),
+                inputs.MaxParallelPartsCeiling),
             Cancellation = ct,
         };
 
