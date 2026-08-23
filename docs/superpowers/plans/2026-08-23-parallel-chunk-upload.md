@@ -1408,6 +1408,6 @@ broader protection than it is.
 
 ## Remaining known risks
 
-1. Degree 8 across 5 concurrent files is 40 in-flight part bodies. The default ceiling of 4 keeps it to 20; confirm `PutChunkAsync`'s buffer sizes make that acceptable before raising it.
+1. ~~Degree 8 across 5 concurrent files is 40 in-flight part bodies. The default ceiling of 4 keeps it to 20; confirm `PutChunkAsync`'s buffer sizes make that acceptable before raising it.~~ **Checked.** Nothing buffers a part: every converted pipeline streams from a `FileSliceReader` slice. The per-request cost is `ProgressStreamContent`'s 80 KiB copy buffer, so 40 in-flight parts is ~3 MB, and UploadNow's MD5 pre-pass adds one more 80 KiB buffer per part while it runs. Memory is not what caps the degree here.
 2. The Task 0 probe measured raw PUTs, not the full pipeline. Task 8 Step 6 is what confirms the gain survives hashing, throttling and progress reporting.
 3. `OperationProgressEventArgs.cs:132` computes `DateTimeFinish` before the new `TimeRemaining` is assigned — a pre-existing bug Codex spotted, unrelated to this work but visible in the same code path.
