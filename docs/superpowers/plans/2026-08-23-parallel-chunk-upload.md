@@ -1343,6 +1343,43 @@ r1 claimed "nothing is committed until complete-multipart". That is too strong: 
 | #4 a global rename had corrupted a changelog row into `X → X` | Left-hand side restored to the former name. |
 | #5 "deterministic first fault" survived in the architecture blurb, a task heading and a commit message | All three now say "lowest-index primary failure". The one remaining instance is a changelog row quoting the old phrase, which is correct. |
 
+---
+
+### Task 9 (LAST): close the seam-join gap with a fakeable transport
+
+**Deferred deliberately — do this after Tasks 1-8.** Raised by Codex reviewing the shared-budget
+work and carried here because the same shape recurs in every conversion.
+
+**The gap.** Several tests claim to prove a join and actually stop one layer short:
+
+- `MegaWebSocketUploaderThrottleTests` drives `SendChunkThrottledAsync` directly. **Deleting its
+  production call in `UploadAsync` leaves every one of them green**, so a future edit could go back
+  to a raw `ws.SendAsync` and no test would notice.
+- `HttpHandlerSpeedBudgetTests` constructs synthetic budgets rather than ones that came from a
+  scope, and `SpeedLimiterScopeTests` stops at `BuildAttemptInputs`. Between them, a regression in
+  `AttemptRunner`'s forwarding or in any pipeline's optional-budget argument still passes both
+  suites.
+- The same will be true of Tasks 5-6: a converted pipeline that stops calling
+  `ParallelPartUploader` would keep its unit tests.
+
+**Why it is last.** Closing it properly means introducing a seam for the transport — an interface
+over the `ClientWebSocket` for MEGA, and something equivalent for the part PUTs — so a test can
+drive `UploadAsync` and a converted pipeline end to end against a fake. That is a refactor of code
+the feature is otherwise only lightly touching, and doing it first would mean rewriting the seam
+twice.
+
+- [ ] **Step 1:** Introduce a minimal transport interface for MEGA (`SendAsync`/`ReceiveAsync`) with
+  the real `ClientWebSocket` behind it, and a fake in tests.
+- [ ] **Step 2:** Write a test that drives `MegaWebSocketUploader.UploadAsync` itself and asserts the
+  pacing — it must FAIL if the `SendChunkThrottledAsync` call is replaced by a raw send.
+- [ ] **Step 3:** Do the equivalent for one converted part-upload pipeline: a test that fails if the
+  pipeline stops routing through `ParallelPartUploader`.
+- [ ] **Step 4:** Make the budget non-optional wherever a caller could silently omit it — an optional
+  budget is how MEGA and TransferIt went unthrottled and how the `HttpHandler` join went untested.
+- [ ] **Step 5:** Commit — `test: pin the transport joins the unit tests cannot reach`
+
+---
+
 ## What changed in r8
 
 | r7 finding | Resolution |
