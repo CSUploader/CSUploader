@@ -71,6 +71,13 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
     public event EventHandler<OperationProgressEventArgs>? UploadProgress;
 
+    /// <summary>
+    /// Raises <see cref="UploadProgress"/> on this handler's behalf. Exists for the parallel
+    /// part-upload path, where a <c>PartProgressAggregator</c> outside this class owns the
+    /// file-level figure — an event cannot be raised from outside the type that declares it.
+    /// </summary>
+    internal void RaiseUploadProgress(OperationProgressEventArgs args) => UploadProgress?.Invoke(this, args);
+
     public event EventHandler<ProtocolUploadFinishedEventArgs>? UploadFinished;
 
     protected HttpClient HttpClient { get; } = httpclient;
@@ -814,7 +821,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         IReadOnlyDictionary<string, string>? headers = null,
         SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default,
-        HttpMethod? method = null)
+        HttpMethod? method = null,
+        Action<long>? reportPartProgress = null)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
 
@@ -838,10 +846,22 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 : chunkData;
             progressContent = new(
                 chunkStream,
-                // Per-chunk → file-cumulative progress so the UI sees one monotonic stream.
-                (_, bytesInThisChunk) => UploadProgress?.Invoke(
-                    this,
-                    new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted)),
+                (_, bytesInThisChunk) =>
+                {
+                    if (reportPartProgress is null)
+                    {
+                        // Sequential: per-chunk → file-cumulative, so the UI sees one monotonic stream.
+                        UploadProgress?.Invoke(
+                            this,
+                            new OperationProgressEventArgs(totalFileSize, basePosition + bytesInThisChunk, dateTimeStarted));
+                        return;
+                    }
+
+                    // Parallel: basePosition + bytes is meaningless out of order, so the caller's
+                    // aggregator sums across parts and raises the event itself. Raising here as well
+                    // would interleave a per-part figure with the file-wide ones.
+                    reportPartProgress(bytesInThisChunk);
+                },
                 cancellationToken);
             progressContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
