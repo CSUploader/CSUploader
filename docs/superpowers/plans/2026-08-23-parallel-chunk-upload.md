@@ -85,7 +85,7 @@ public sealed class FileSliceReader : IDisposable
 
 **Why an anchor handle (r1's #13).** r1 opened and closed a `FileStream` per part. Between waves — and at degree 1 always — there would be no open handle at all, letting another process replace the file mid-transfer and yielding a multipart assembled from two different versions. Today VikingFile holds one sharing lock across the whole loop (`:252`) and that property must survive. `FileSliceReader` holds one handle open for the transfer and serves each slice through `RandomAccess`, which is offset-addressed and needs no shared position.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact]
@@ -135,9 +135,9 @@ public void FileLength_IsTheWholeFile_WhileASliceLengthIsItsOwn()
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails** — type does not exist.
+- [x] **Step 2: Run to verify it fails** — type does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```csharp
 /// <summary>
@@ -271,8 +271,8 @@ public void Read_UsesTheFileOffset_NotTheBufferOffset()
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes.**
-- [ ] **Step 5: Commit** — `feat(net): independent slice readers over one anchored file handle`
+- [x] **Step 4: Run to verify it passes.**
+- [x] **Step 5: Commit** — `feat(net): independent slice readers over one anchored file handle`
 
 ---
 
@@ -290,7 +290,7 @@ public void Read_UsesTheFileOffset_NotTheBufferOffset()
 
 **There is no `ResetPart`.** An earlier revision had one, to handle UploadNow retrying a part internally (`WithStorageRetryAsync`, `:204`). It was wrong: subtracting a retried part's contribution makes the published total FALL, which is exactly what this class exists to prevent. Each part instead keeps a **high-water mark**, so a retry plateaus the total until the resent part passes its previous position.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact]
@@ -382,9 +382,9 @@ public void APublisherThatThrows_DoesNotFailTheUpload_OrStallTheQueue()
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails.**
+- [x] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```csharp
 /// <summary>
@@ -482,8 +482,8 @@ public sealed class PartProgressAggregator(int partCount, Action<long> publish)
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes.**
-- [ ] **Step 5: Commit** — `feat(upload): serialize part progress into one monotonic total`
+- [x] **Step 4: Run to verify it passes.**
+- [x] **Step 5: Commit** — `feat(upload): serialize part progress into one monotonic total`
 
 ---
 
@@ -514,7 +514,7 @@ public readonly record struct PartResult(int PartNumber, string? ETag, string? E
 
 *The surfaced failure must be deterministic.* `Task.WhenAll` throws one fault and discards the rest, and `AttemptRunner.cs:214` decides retryability from the exception it sees — so which failure wins can silently suppress a valid retry. Record BOTH shapes — an error `PartResult` and a thrown fault — into one slot, select by **lowest part index** (not by which thread reached the lock first, which is scheduler-dependent), capture thrown faults with `ExceptionDispatchInfo`, and never let a throwing cancellation callback replace the record.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact]
@@ -698,9 +698,9 @@ public async Task RunAsync_WhenTheCallerCancels_AndNoPartFailed_Throws()
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails.**
+- [x] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```csharp
 public static class ParallelPartUploader
@@ -833,8 +833,8 @@ public static class ParallelPartUploader
 public readonly record struct PartResult(int PartNumber, string? ETag, string? Error);
 ```
 
-- [ ] **Step 4: Run to verify it passes.**
-- [ ] **Step 5: Commit** — `feat(upload): a bounded-concurrency runner with a lowest-index primary failure`
+- [x] **Step 4: Run to verify it passes.**
+- [x] **Step 5: Commit** — `feat(upload): a bounded-concurrency runner with a lowest-index primary failure`
 
 ---
 
@@ -857,7 +857,7 @@ public readonly record struct PartResult(int PartNumber, string? ETag, string? E
 
 *There is no `AttemptContext.Settings`* (verified: it ends at `SpeedBudget` and `Cancellation`). `BuildAttemptInputs` has no registry either, so it carries only the user's CEILING; `AttemptRunner`, which holds the selected pipeline, resolves the effective degree onto the context. Also note the real hoster name is **`"Storage.to"`** (`StorageToPipeline.cs:113`), not `"storage.to"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```csharp
 [Fact]
@@ -904,9 +904,9 @@ public void AttemptRunner_CombinesTheHostersDeclarationWithTheCeiling()
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails.**
+- [x] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```csharp
 // IFileHosterPipeline.cs
@@ -980,8 +980,8 @@ Settings persistence and UI follow the existing patterns exactly: a new `Setting
 case in `SettingsViewModel.cs:269`'s load/apply switch, and a `NumericUpDown` beside its neighbours
 in `SettingsView.axaml:447` with a new localized label in **all six** `.resx` files.
 
-- [ ] **Step 4: Run to verify it passes, plus both full suites.**
-- [ ] **Step 5: Commit** — `feat(upload): hosters declare part parallelism, capped by a user setting`
+- [x] **Step 4: Run to verify it passes, plus both full suites.**
+- [x] **Step 5: Commit** — `feat(upload): hosters declare part parallelism, capped by a user setting`
 
 ---
 
@@ -1042,7 +1042,7 @@ else
 }
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 **Fixture sizes.** These use a **small patterned file** (4 x 4 KiB = 16 KiB) with `init.PartSize`
 stubbed to 4096, not a 400 MB file. The old fixtures pointed at a path that does not exist on disk,
@@ -1156,9 +1156,9 @@ public async Task AtDegreeOne_BehavesExactlyAsBefore_StoppingOnTheFirstRejectedP
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails.**
+- [x] **Step 2: Run to verify it fails.**
 
-- [ ] **Step 3: Convert the loop**
+- [x] **Step 3: Convert the loop**
 
 Replace the shared `await using FileStream? fs` and the sequential `for` with one `FileSliceReader`
 held for the whole transfer plus the runner:
@@ -1210,8 +1210,8 @@ raise it from outside the class. Add an internal `RaiseUploadProgress(OperationP
 method to `HttpHandler` for this purpose. Verify the event's declaration before implementing — if it
 is already invoked from a helper, reuse that instead of adding a second path.
 
-- [ ] **Step 4: Run both suites.**
-- [ ] **Step 5: Commit** — `feat(vikingfile): a file's parts upload in parallel`
+- [x] **Step 4: Run both suites.**
+- [x] **Step 5: Commit** — `feat(vikingfile): a file's parts upload in parallel`
 
 ---
 
@@ -1241,7 +1241,7 @@ Each repeats Task 5's shape, with these **per-host differences that are not opti
 **storage.to** (`StorageToPipeline.cs:276`)
 - Same shape as VikingFile. **Disabled** (`ServiceRegistration.cs:350`), so it cannot be verified live; convert for consistency and say so in the commit message. Its local `Func<long?>? getBytesPerSecond` parameter at `:614` also needs the budget migration.
 
-- [ ] Steps 1-5 per hoster, in the order Hostize → DataNodes → UploadNow → storage.to (simplest first, UploadNow last as the riskiest).
+- [x] Steps 1-5 per hoster, in the order Hostize → DataNodes → UploadNow → storage.to (simplest first, UploadNow last as the riskiest).
 
 ---
 
@@ -1263,6 +1263,10 @@ r1 claimed "nothing is committed until complete-multipart". That is too strong: 
 ---
 
 ### Task 8: Verify against the real hosts
+
+> **Not started — needs an explicit go-ahead.** Every step below uploads real files to a live
+> third-party service under someone's account or anonymous quota. That is not something to do on my
+> own initiative, so it is the one task left open.
 
 - [ ] **Step 1:** VikingFile — upload a large file, download it, compare hashes.
 - [ ] **Step 2:** Hostize — same.
