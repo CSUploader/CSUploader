@@ -47,7 +47,8 @@ public sealed class SpeedSampleBuffer
     /// </summary>
     public void Clear()
     {
-        Array.Clear(_ring);
+        // The ring's contents are deliberately NOT wiped: every reader is bounded by _count, so a
+        // stale value is unreachable, and clearing it would be a line that cannot be observed.
         _count = 0;
         _next = 0;
     }
