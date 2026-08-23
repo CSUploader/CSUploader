@@ -219,6 +219,10 @@ public class DataNodesParallelChunksTests : IDisposable
     // QUOTED: the pair appears inside a string value, not as structure.
     [InlineData("""{"error":"upstream said 'status':'OK'","result":"FAIL"}""")]
 
+    // DUPLICATE key. JSON allows it and TryGetProperty answers with the LAST one, so a lookup
+    // reads this as an acceptance - the regex's hole again, one level down.
+    [InlineData("""{"status":"FAIL","status":"OK"}""")]
+
     // Not JSON at all. An unparseable body is not an acceptance.
     [InlineData("<html>502 Bad Gateway</html>")]
     [InlineData("")]

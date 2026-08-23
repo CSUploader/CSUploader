@@ -21,18 +21,22 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// The properties EVERY converted pipeline must hold, asserted once per hoster rather than trusted
 /// to have survived four copy-and-paste conversions.
 /// <para>
-/// Per-hoster suites cover each protocol's own quirks. What they miss is the shared contract: a
-/// conversion that forgets to aggregate progress, publishes an absolute <c>basePosition + bytes</c>,
-/// slices the wrong region, or never routes through <c>ParallelPartUploader</c> at all would keep
-/// every one of them green.
+/// Per-hoster suites cover each protocol's own quirks, and three of them (VikingFile, Hostize,
+/// DataNodes) already read and compare their part bodies. What no per-hoster suite covers is the
+/// shared contract, asserted here for all five in one place: that progress is AGGREGATED rather than
+/// published as an absolute <c>basePosition + bytes</c>, and that the work actually routes through
+/// <c>ParallelPartUploader</c>. The storage.to and UploadNow cases additionally compare bytes,
+/// because those two suites did not.
 /// </para>
 /// <para>
 /// <b>What these do NOT prove.</b> Every case injects a part override, so the real
 /// <c>HttpHandler.PutChunkAsync</c> branch is bypassed — deleting <c>reportPartProgress:</c> from a
 /// pipeline's PRODUCTION call would still leave them green. They pin the seam-to-aggregator path,
 /// not the transport join. VikingFile has a separate real-handler test
-/// (<c>ThroughTheRealHandler_ProgressIsAggregated</c>); the other four are the deferred Task 9 gap
-/// in the plan, and this comment exists so nobody reads these as covering it.
+/// (<c>ThroughTheRealHandler_ProgressIsAggregated</c>); the other four are uncovered. Task 9 in the
+/// plan promises a fakeable transport for ONE converted pipeline, not all four - so even once it
+/// lands, three of these transports stay unproven. This comment exists so nobody reads the class as
+/// covering them.
 /// </para>
 /// </summary>
 public class ConvertedPipelineContractTests : IDisposable
@@ -49,13 +53,7 @@ public class ConvertedPipelineContractTests : IDisposable
         Directory.CreateDirectory(_dir);
         _file = Path.Combine(_dir, "probe.bin");
 
-        byte[] content = new byte[FileBytes];
-        for (int i = 0; i < content.Length; i++)
-        {
-            content[i] = (byte)(i % 251);
-        }
-
-        File.WriteAllBytes(_file, content);
+        File.WriteAllBytes(_file, Content);
     }
 
     public void Dispose()
@@ -121,10 +119,54 @@ public class ConvertedPipelineContractTests : IDisposable
         return (handler, published, sync);
     }
 
-    private static byte Pattern(int index) => (byte)(index % 251);
+    /// <summary>
+    /// The probe file's bytes, and deliberately APERIODIC. An <c>index % 251</c> pattern repeats
+    /// every 251 bytes, so a part that opened its slice 251 bytes early or late would compare EQUAL
+    /// to the correct one - the wrong-offset bug these assertions exist to catch would pass. xorshift32
+    /// has a period of 2^32-1, which is longer than any file this suite writes.
+    /// </summary>
+    private static readonly byte[] Content = BuildContent();
 
-    private static byte[] Expected(int from, int count)
-        => [.. Enumerable.Range(from, count).Select(i => Pattern(i))];
+    private static byte[] BuildContent()
+    {
+        byte[] bytes = new byte[FileBytes];
+        uint state = 0x9E3779B9; // any fixed seed - what matters is that it is FIXED
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            bytes[i] = (byte)state;
+        }
+
+        return bytes;
+    }
+
+    private static byte[] Expected(int from, int count) => Content.AsSpan(from, count).ToArray();
+
+    /// <summary>
+    /// Waits until the NEXT part has finished reading, so this one reads out of ascending order.
+    /// <para>
+    /// BOUNDED, deliberately. The chained gates need every part to hold a runner slot at the same
+    /// time, so a regression that drops the effective degree below the part count would otherwise
+    /// hang the suite instead of failing it - and a test that hangs on the bug it exists to catch is
+    /// worth less than no test at all.
+    /// </para>
+    /// </summary>
+    private static async Task AwaitSuccessorAsync(TaskCompletionSource[] released, int index, CancellationToken ct)
+    {
+        try
+        {
+            await released[index].Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        }
+        catch (TimeoutException)
+        {
+            throw new InvalidOperationException(
+                $"part {index.ToString(CultureInfo.InvariantCulture)} never released its predecessor: "
+                + "the parts are not all in flight at once, so the reverse-order read this assertion "
+                + "depends on cannot happen.");
+        }
+    }
 
     private static async Task<byte[]> ReadAllAsync(Stream stream)
     {
@@ -280,7 +322,7 @@ public class ConvertedPipelineContractTests : IDisposable
                         peak = Math.Max(peak, ++running);
                     }
 
-                    await released[partNumber].Task.WaitAsync(ct);
+                    await AwaitSuccessorAsync(released, partNumber, ct);
                     try
                     {
                         bodies[partNumber] = await ReadAllAsync(body);

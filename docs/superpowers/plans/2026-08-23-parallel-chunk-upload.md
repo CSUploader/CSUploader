@@ -1251,10 +1251,14 @@ Each repeats Task 5's shape, with these **per-host differences that are not opti
 
 r1 claimed "nothing is committed until complete-multipart". That is too strong: successfully uploaded S3/R2 parts persist under an incomplete multipart upload, and **none of these pipelines has an abort path**. Every outer retry starts a fresh multipart and leaves another orphan. UploadNow additionally creates folder and file metadata *before* transferring bytes (`:235`).
 
-- [ ] **Step 1:** Add a best-effort abort where the protocol offers one, invoked when the runner reports a failure.
-- [ ] **Step 2:** Use a **separate bounded cleanup token**, not the already-cancelled sibling token, or the abort itself will be cancelled before it is sent.
-- [ ] **Step 3:** Never let an abort failure replace the original error — log and move on.
-- [ ] **Step 4:** Commit — `fix(upload): abort an abandoned multipart instead of orphaning its parts`
+**Only UploadNow qualifies.** "Where the protocol offers one" turned out to mean one host of the five. UploadNow signs its own storage requests through the host's signer service, so S3's `AbortMultipartUpload` (`DELETE {object}?uploadId=`) is available to us. VikingFile, Hostize and storage.to are handed presigned **part** URLs plus a complete endpoint and nothing else — there is no abort URL and no credential to mint one, so their orphans are the host's to collect. DataNodes is not multipart at all. Recorded here rather than left implied, so nobody later reads four unchanged pipelines as an oversight.
+
+- [x] **Step 1:** Best-effort abort in a `finally` around the transfer, so it covers all four ways out that leave the multipart open: a refused part, a refused assembly, a raw transport fault, and cancellation. Skipped once the assembly is confirmed — the upload id no longer exists then.
+- [x] **Step 2:** Its own `CancellationTokenSource(5s)`. The usual reason to be here is that `ctx.Cancellation` is already cancelled; signing or sending on that token would cancel the cleanup before it left the machine. Mutation-verified: swapping in `ctx.Cancellation` fails `ACancelledUpload_StillSendsTheAbort`.
+- [x] **Step 3:** Catch-all around the whole cleanup, cancellation included, because it runs in a `finally` and an escape would replace the error the user needs. 404 is treated as success (already gone). Mutation-verified by `AnAbortThatFails_LeavesTheRealErrorIntact`.
+- [x] **Step 4:** Committed.
+
+**Not addressed:** UploadNow creates folder and file metadata *before* transferring bytes, so a failed upload also leaves a phantom file record. No delete endpoint for it appears in the 2026-08-08 capture, and guessing one is how a cleanup path ends up firing DELETEs at the wrong resource.
 
 ---
 

@@ -377,9 +377,32 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
         try
         {
             using JsonDocument document = JsonDocument.Parse(body);
-            return document.RootElement.ValueKind == JsonValueKind.Object
-                && document.RootElement.TryGetProperty("status", out JsonElement status)
-                && status.ValueKind == JsonValueKind.String
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            // Enumerated rather than looked up. JSON permits a duplicate key and TryGetProperty
+            // answers with the LAST one, so {"status":"FAIL","status":"OK"} would be read as an
+            // acceptance - the same shape of hole the regex had, one level down. Exactly one
+            // status, or this is not an answer we understand.
+            JsonElement? only = null;
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                if (!property.NameEquals("status"))
+                {
+                    continue;
+                }
+
+                if (only is not null)
+                {
+                    return false;
+                }
+
+                only = property.Value;
+            }
+
+            return only is { ValueKind: JsonValueKind.String } status
                 && string.Equals(status.GetString(), "OK", StringComparison.OrdinalIgnoreCase);
         }
         catch (JsonException)

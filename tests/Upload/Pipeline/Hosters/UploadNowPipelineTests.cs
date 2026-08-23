@@ -403,6 +403,41 @@ public class UploadNowPipelineTests : IDisposable
         Assert.Equal(1, peak);
     }
 
+    /// <summary>
+    /// Cancelling during the guest sign-up must reach the runner AS cancellation. Swallowed into an
+    /// <see cref="AttemptFailed"/> it becomes terminal — the scheduler marks the upload Failed, stops
+    /// retrying it, and the user who pressed Cancel is told something went wrong instead.
+    /// <para>The sign-up is the FIRST network call the pipeline makes, so it is also the widest
+    /// window in which a cancel can land before any bytes move.</para>
+    /// </summary>
+    [Fact]
+    public async Task CancellingDuringGuestSignUp_IsReportedAsCancellation_NotAsAFailure()
+    {
+        using CancellationTokenSource cts = new();
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) =>
+            {
+                if (url.Contains("signUp", StringComparison.Ordinal))
+                {
+                    cts.Cancel();
+                    throw new OperationCanceledException(cts.Token);
+                }
+
+                return Task.FromResult(Reply(url, body, headers));
+            },
+            partOverride: (url, _, _, _, _, _, _) =>
+                Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"e\"")));
+
+        AttemptContext ctx = MakeContext() with { Cancellation = cts.Token };
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (UploadEvent _ in pipeline.RunAsync(ctx, cts.Token))
+            {
+            }
+        });
+    }
+
     private static HttpResponseSnapshot Reply(string url, string? body, IReadOnlyDictionary<string, string>? headers)
     {
         _ = body;
