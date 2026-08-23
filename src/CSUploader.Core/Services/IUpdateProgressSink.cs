@@ -3,6 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using CSUploader.Lib.Update;
+
 namespace CSUploader.Services;
 
 /// <summary>
@@ -25,7 +27,12 @@ public interface IUpdateProgressSink
 
     void SetStatus(string status);
 
-    void Report(int percent);
+    /// <summary>
+    /// Pumps the bar and the figures beside it. Carries more than a percentage because the surface
+    /// shows more than a bar — see <see cref="UpdateDownloadProgress"/> for what is measured and
+    /// what is merely derived.
+    /// </summary>
+    void Report(UpdateDownloadProgress progress);
 
     void Close();
 }

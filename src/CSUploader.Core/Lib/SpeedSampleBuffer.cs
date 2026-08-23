@@ -40,6 +40,18 @@ public sealed class SpeedSampleBuffer
         }
     }
 
+    /// <summary>
+    /// Drops every retained sample, as if newly constructed. For a series that has restarted and
+    /// whose earlier samples now describe something else — averaging across that seam would report a
+    /// rate that was never true of either side.
+    /// </summary>
+    public void Clear()
+    {
+        Array.Clear(_ring);
+        _count = 0;
+        _next = 0;
+    }
+
     /// <summary>A fresh array of the retained samples, oldest first (length == <see cref="Count"/>).</summary>
     public double[] Snapshot()
     {

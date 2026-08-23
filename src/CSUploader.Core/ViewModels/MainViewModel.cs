@@ -214,7 +214,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _updateProgressSink.Open();
 
-        Progress<int> progress = new(_updateProgressSink.Report);
+        // The updater reports a percentage and nothing else, so the bytes, the rate and the time
+        // remaining are all derived here. Progress<T> captures this thread's synchronization
+        // context, which is the UI thread's, so every Report lands back on it - which is both what
+        // the sink requires and what lets UpdateDownloadStats stay free of locking.
+        UpdateDownloadStats stats = new(_availableUpdate.DownloadBytes);
+        Progress<int> progress = new(percent => _updateProgressSink.Report(stats.Report(percent)));
         try
         {
             _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));

@@ -785,6 +785,10 @@ UpdateProgress_StatusDownloading_Format = 업데이트 v{0} 다운로드 중… 
 UpdateProgress_StatusRestarting    = 다시 시작하는 중…
 UpdateProgress_StatusFailed_Format = 업데이트 실패: {0}                                      # {0} = exception.Message
 UpdateProgress_PercentInitial      = 0%
+UpdateProgress_BytesFormat         = {0} of {1}                                             # {0} = received, {1} = total, both pre-formatted sizes
+UpdateProgress_SpeedAndLeft_Format = {0}/s · {1} left                                       # {0} = rate, {1} = duration; reorder freely
+UpdateProgress_SpeedOnly_Format    = {0}/s                                                  # {0} = rate; shown before a time can be estimated
+UpdateProgress_LeftOnly_Format     = {1} left                                               # {1} = duration; shown when the size is unknown, so {0} is deliberately unused
 ```
 
 ### ProxyText dialog

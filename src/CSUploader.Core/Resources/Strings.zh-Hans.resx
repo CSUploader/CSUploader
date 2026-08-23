@@ -1708,6 +1708,18 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="UpdateProgress_PercentInitial" xml:space="preserve">
     <value>0%</value>
   </data>
+  <data name="UpdateProgress_BytesFormat" xml:space="preserve">
+    <value>{0} of {1}</value>
+  </data>
+  <data name="UpdateProgress_SpeedAndLeft_Format" xml:space="preserve">
+    <value>{0}/s · {1} left</value>
+  </data>
+  <data name="UpdateProgress_SpeedOnly_Format" xml:space="preserve">
+    <value>{0}/s</value>
+  </data>
+  <data name="UpdateProgress_LeftOnly_Format" xml:space="preserve">
+    <value>{1} left</value>
+  </data>
   <data name="ProxyText_WindowTitle" xml:space="preserve">
     <value>代理</value>
   </data>

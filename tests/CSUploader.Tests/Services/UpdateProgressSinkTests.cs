@@ -6,6 +6,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using CSUploader.Lib.Update;
 using CSUploader.Services;
 using CSUploader.Views;
 
@@ -81,11 +82,101 @@ public class UpdateProgressSinkTests
         try
         {
             sink.Open();
-            sink.Report(42);
+            sink.Report(UpdateDownloadProgress.AtPercent(42));
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(42d, sink.CurrentWindow!.Progress.Value);
             Assert.Equal("42%", sink.CurrentWindow.PercentText.Text);
+
+            // AtPercent carries no size and no rate, which is the shape of the first tick of every
+            // real download. Both figures stay EMPTY rather than showing a zero, because "0 B/s"
+            // reads as a stalled download rather than an unmeasured one.
+            Assert.Equal(string.Empty, sink.CurrentWindow.BytesText.Text);
+            Assert.Equal(string.Empty, sink.CurrentWindow.StatsText.Text);
+        }
+        finally
+        {
+            sink.Close();
+        }
+    }
+
+    /// <summary>
+    /// The row the whole feature exists for. Everything in it is derived from a percentage, so the
+    /// test drives the same struct the real pump produces and reads what the window renders.
+    /// </summary>
+    [AvaloniaFact]
+    public void Report_WithBytesAndRate_RendersTheStatsRow()
+    {
+        var sink = new AvaloniaUpdateProgressSink();
+        try
+        {
+            sink.Open();
+            sink.Report(new UpdateDownloadProgress(
+                Percent: 35,
+                BytesReceived: 26_214_400,   // 25 MiB
+                TotalBytes: 74_760_192,      // 71.3 MiB
+                BytesPerSecond: 3_250_585,   // 3.1 MiB/s
+                Remaining: TimeSpan.FromSeconds(15)));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("25 MiB of 71.3 MiB", sink.CurrentWindow!.BytesText.Text);
+            Assert.Equal("3.1 MiB/s · 15s left", sink.CurrentWindow.StatsText.Text);
+        }
+        finally
+        {
+            sink.Close();
+        }
+    }
+
+    /// <summary>
+    /// A download whose size could not be worked out. The rate needs a size and the countdown does
+    /// not, so the user still gets a countdown instead of a bar and nothing else — which is the
+    /// reason the estimate is derived from percentages rather than bytes.
+    /// </summary>
+    [AvaloniaFact]
+    public void Report_WithNoKnownSize_StillShowsTheCountdown()
+    {
+        var sink = new AvaloniaUpdateProgressSink();
+        try
+        {
+            sink.Open();
+            sink.Report(new UpdateDownloadProgress(
+                Percent: 35,
+                BytesReceived: 0,
+                TotalBytes: 0,
+                BytesPerSecond: 0,
+                Remaining: TimeSpan.FromSeconds(90)));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(string.Empty, sink.CurrentWindow!.BytesText.Text);
+            Assert.Equal("01m:30s left", sink.CurrentWindow.StatsText.Text);
+        }
+        finally
+        {
+            sink.Close();
+        }
+    }
+
+    /// <summary>
+    /// A long download must not wrap at a day — the hours are the TOTAL count, the same bug the
+    /// uploads toolbar's duration formatter records having had.
+    /// </summary>
+    [AvaloniaFact]
+    public void Report_WithALongRemaining_CountsTotalHours()
+    {
+        var sink = new AvaloniaUpdateProgressSink();
+        try
+        {
+            sink.Open();
+            sink.Report(new UpdateDownloadProgress(
+                Percent: 1,
+                BytesReceived: 0,
+                TotalBytes: 0,
+                BytesPerSecond: 0,
+                Remaining: TimeSpan.FromHours(30) + TimeSpan.FromMinutes(3) + TimeSpan.FromSeconds(20)));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("30h:03m:20s left", sink.CurrentWindow!.StatsText.Text);
         }
         finally
         {
@@ -104,9 +195,9 @@ public class UpdateProgressSinkTests
             // ever closing it — the never-Close contract (the caller only ever Opens).
             sink.Open();
             sink.SetStatus("Downloading update v1.2.3…");
-            sink.Report(40);
-            sink.Report(80);
-            sink.Report(100);
+            sink.Report(UpdateDownloadProgress.AtPercent(40));
+            sink.Report(UpdateDownloadProgress.AtPercent(80));
+            sink.Report(UpdateDownloadProgress.AtPercent(100));
             sink.SetStatus("Restarting to apply update…");
             Dispatcher.UIThread.RunJobs();
 
@@ -129,7 +220,7 @@ public class UpdateProgressSinkTests
 
         // No window yet → the null-conditional forwards are no-ops, not NREs (WPF parity: the WPF sink's
         // _window?.SetProgress). Nothing to close.
-        sink.Report(50);
+        sink.Report(UpdateDownloadProgress.AtPercent(50));
         sink.SetStatus("ignored");
 
         Assert.Null(sink.CurrentWindow);

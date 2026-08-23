@@ -48,13 +48,34 @@ public sealed class UpdateService : IUpdateService
             }
 
             string version = info.TargetFullRelease.Version.ToString();
-            return UpdateCheckResult.Available(new UpdateAvailableInfo(version, info));
+            return UpdateCheckResult.Available(new UpdateAvailableInfo(version, info, EstimateDownloadBytes(info)));
         }
         catch (Exception ex)
         {
             _logger.Log(this, LogType.Error, $"Update check failed: {ex.Message}");
             return UpdateCheckResult.Failed(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// What the download is expected to move. Velopack applies deltas when they exist and falls back
+    /// to the full package on error, so the delta total is the likely answer and the full size is
+    /// the fallback — this cannot know which it will be, and a fallback makes the estimate small.
+    /// <para>
+    /// This is also the only place in the app allowed to read Velopack's types: the whole point of
+    /// <see cref="UpdateAvailableInfo.Payload"/> being an <c>object</c> is that the size gets out
+    /// without the dependency coming with it.
+    /// </para>
+    /// </summary>
+    internal static long EstimateDownloadBytes(UpdateInfo info)
+    {
+        long deltas = 0;
+        foreach (VelopackAsset delta in info.DeltasToTarget ?? [])
+        {
+            deltas += delta.Size;
+        }
+
+        return deltas > 0 ? deltas : Math.Max(0, info.TargetFullRelease?.Size ?? 0);
     }
 
     public async Task DownloadAsync(UpdateAvailableInfo info, IProgress<int>? progress, CancellationToken cancellationToken = default)

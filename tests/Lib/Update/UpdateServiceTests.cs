@@ -40,4 +40,50 @@ public class UpdateServiceTests
 
         Assert.Equal(UpdateCheckStatus.NotInstalled, result.Status);
     }
+
+    private static VelopackAsset Asset(long size, VelopackAssetType type) => new()
+    {
+        FileName = $"CSUploader-{size}-{type}.nupkg",
+        Size = size,
+        Type = type,
+    };
+
+    /// <summary>
+    /// What the byte readout in the update window counts against. Velopack applies deltas when it
+    /// has them, so the delta total is what will actually move — using the full package's size
+    /// instead would report a download several times larger than the one happening, and the rate
+    /// with it.
+    /// </summary>
+    [Fact]
+    public void EstimateDownloadBytes_PrefersTheDeltasVelopackWillActuallyFetch()
+    {
+        UpdateInfo info = new(
+            Asset(90_000_000, VelopackAssetType.Full),
+            isDowngrade: false,
+            null,
+            [Asset(3_000_000, VelopackAssetType.Delta), Asset(1_500_000, VelopackAssetType.Delta)]);
+
+        Assert.Equal(4_500_000, UpdateService.EstimateDownloadBytes(info));
+    }
+
+    /// <summary>With no deltas there is only the full package, which is then exactly right.</summary>
+    [Fact]
+    public void EstimateDownloadBytes_FallsBackToTheFullPackage()
+    {
+        UpdateInfo info = new(Asset(90_000_000, VelopackAssetType.Full), isDowngrade: false, null, []);
+
+        Assert.Equal(90_000_000, UpdateService.EstimateDownloadBytes(info));
+    }
+
+    /// <summary>
+    /// A release that advertises no size at all. Zero means "unknown" downstream, which hides the
+    /// byte readout rather than showing a download of nothing.
+    /// </summary>
+    [Fact]
+    public void EstimateDownloadBytes_WithNothingToGoOn_IsZero()
+    {
+        UpdateInfo info = new(Asset(0, VelopackAssetType.Full), isDowngrade: false, null, []);
+
+        Assert.Equal(0, UpdateService.EstimateDownloadBytes(info));
+    }
 }
