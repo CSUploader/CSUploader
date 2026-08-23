@@ -712,6 +712,12 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Settings_Upload_MaxPerHoster" xml:space="preserve">
     <value>ファイルホスターごとの同時アップロード最大数</value>
   </data>
+  <data name="Settings_Upload_MaxParallelParts" xml:space="preserve">
+    <value>ファイルあたりの並列パート数の上限</value>
+  </data>
+  <data name="Settings_Upload_MaxParallelPartsTip" xml:space="preserve">
+    <value>パートを順不同で送信できるプロトコルのホスターにのみ適用されます。従量制または不安定な接続では小さくしてください。</value>
+  </data>
   <data name="Settings_Upload_RemoveFinished" xml:space="preserve">
     <value>完了したアップロードを削除</value>
   </data>

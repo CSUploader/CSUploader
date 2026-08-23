@@ -375,4 +375,13 @@ public sealed class HostizePipeline : IFileHosterPipeline
             AccountType.Free,
             "Hostize's upload API needs a Pro subscription — use the built-in Anonymous option in the upload wizard."));
     }
+
+    /// <summary>
+    /// Parts are order-independent here — server-issued presigned S3 part URLs — so they may be sent
+    /// concurrently. Measured against live VikingFile on 2026-08-23: degree 8 reached 2.57x degree
+    /// 1 and had not plateaued, so these hosts throttle per connection. Declared EXPLICITLY rather
+    /// than relying on the interface default, which is not callable as a concrete-class member.
+    /// The user's MaxParallelPartsPerFile setting caps this.
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 8;
 }

@@ -385,4 +385,13 @@ public sealed class VikingFilePipeline : IFileHosterPipeline
         const int Max = 200;
         return trimmed.Length > Max ? trimmed[..Max] + "…" : trimmed;
     }
+
+    /// <summary>
+    /// Parts are order-independent here — server-issued presigned R2 part URLs — so they may be sent
+    /// concurrently. Measured against live VikingFile on 2026-08-23: degree 8 reached 2.57x degree
+    /// 1 and had not plateaued, so these hosts throttle per connection. Declared EXPLICITLY rather
+    /// than relying on the interface default, which is not callable as a concrete-class member.
+    /// The user's MaxParallelPartsPerFile setting caps this.
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 8;
 }

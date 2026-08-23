@@ -15,6 +15,8 @@ public static class SettingKey
 
     public static string MaxUploadsPerHost { get; } = "maxUploadsPerHost";
 
+    public static string MaxParallelPartsPerFile { get; } = "maxParallelPartsPerFile";
+
     public static string RemoveFinishedUploads { get; } = "removeFinishedUploads";
 
     public static string GridFontFamily { get; } = "gridFontFamily";

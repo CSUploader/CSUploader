@@ -483,6 +483,8 @@ public class PackageFile : INotifyPropertyChanged
         Credentials = FileHosterLogin,
         Logger = logger,
         SpeedBudget = SpeedBudget,
+        MaxParallelPartsCeiling = Package.Options.Settings?.MaxParallelPartsPerFile
+            ?? AppSettings.DefaultMaxParallelPartsPerFile,
     };
 
     private void ResetProgressValues()

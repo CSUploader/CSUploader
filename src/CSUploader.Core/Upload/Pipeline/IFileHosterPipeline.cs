@@ -75,6 +75,23 @@ public interface IFileHosterPipeline
     public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => null;
 
     /// <summary>
+    /// How many of ONE file's parts may be sent at once. Defaults to 1 — sequential, exactly as
+    /// every hoster behaved before this existed.
+    /// <para>
+    /// Override it ONLY where the protocol makes parts genuinely order-independent: server-issued
+    /// presigned per-part URLs, per-part request signing on demand, or an explicit byte offset per
+    /// chunk (DataNodes' <c>X-Seek-To</c>, whose own source notes the server "doesn't rely on
+    /// arrival order"). An append-only chunk endpoint, or GigaFile's cookie-chained chunks, would
+    /// corrupt the upload — the default is the safe answer and must stay the default.
+    /// </para>
+    /// <para>
+    /// The user's <c>MaxParallelPartsPerFile</c> setting caps whatever is returned here; see
+    /// <see cref="PartParallelism.Effective"/>.
+    /// </para>
+    /// </summary>
+    public int MaxParallelPartsFor(Dal.FileHosterLoginDto credentials) => 1;
+
+    /// <summary>
     /// True when the hoster accepts uploads with no account/login. The upload wizard offers
     /// such hosters a built-in "Anonymous" option that needs no Accounts/Settings entry — the
     /// runner passes a blank <see cref="Dal.FileHosterLoginDto"/> (no username) and the

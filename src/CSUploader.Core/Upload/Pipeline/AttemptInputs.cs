@@ -24,4 +24,15 @@ public sealed record AttemptInputs
     public required FileHosterLoginDto Credentials { get; init; }
     public required IAppLogger Logger { get; init; }
     public required SpeedBudget SpeedBudget { get; init; }
+
+    /// <summary>
+    /// The user's ceiling on concurrent parts within one file. Only the ceiling: this is built by
+    /// <c>PackageFile.BuildAttemptInputs</c>, which has no access to the pipeline registry and so
+    /// cannot know what the hoster declares. <c>AttemptRunner</c> combines the two.
+    /// <para>
+    /// Defaulted to 1, not <c>required</c> — many tests construct these directly, and 1 is also the
+    /// safe value.
+    /// </para>
+    /// </summary>
+    public int MaxParallelPartsCeiling { get; init; } = 1;
 }
