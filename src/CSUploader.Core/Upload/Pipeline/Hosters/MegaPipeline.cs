@@ -113,7 +113,7 @@ public sealed class MegaPipeline : IFileHosterPipeline, IStorageRefreshablePipel
 
         Task<(byte[] Token, List<uint[]> Macs)> uploadTask = _uploadFunc is not null
             ? _uploadFunc(pool, ctx, ulKey, Progress, ctx.Cancellation)
-            : MegaWebSocketUploader.UploadAsync(pool.Host, pool.Uri, ctx.FilePath, ulKey, fileno: 1, ctx.FileSize, Progress, ctx.Cancellation);
+            : MegaWebSocketUploader.UploadAsync(pool.Host, pool.Uri, ctx.FilePath, ulKey, fileno: 1, ctx.FileSize, Progress, ctx.SpeedBudget, ctx.Cancellation);
 
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),

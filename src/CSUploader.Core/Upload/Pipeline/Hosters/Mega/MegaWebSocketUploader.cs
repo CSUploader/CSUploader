@@ -6,6 +6,8 @@
 using System.Buffers.Binary;
 using System.Net.WebSockets;
 
+using CSUploader.Lib.Net.Http;
+
 namespace CSUploader.Upload.Pipeline.Hosters.Mega;
 
 /// <summary>Server message types on the MEGA upload WebSocket (from bdl4.js).</summary>
@@ -96,6 +98,7 @@ internal static class MegaWebSocketUploader
         uint fileno,
         long size,
         Action<long, long>? progress,
+        SpeedBudget? speedBudget,
         CancellationToken ct)
     {
         using ClientWebSocket ws = new();
@@ -224,6 +227,13 @@ internal static class MegaWebSocketUploader
                 macsByOffset[pos] = mac;
 
                 byte[] header = BuildChunkHeader(fileno, pos, chunkLen, cipher);
+
+                // Charge the shared budget for everything about to go on the wire. This path never
+                // touches HttpHandler or ThrottledStream — it reads the file itself and writes
+                // ciphertext straight to a WebSocket — so without this MEGA and TransferIt ignore
+                // the user's speed limit entirely while every other hoster obeys it.
+                await ChargeAsync(speedBudget, header.Length + cipher.Length, cts.Token).ConfigureAwait(false);
+
                 await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
                 if (cipher.Length > 0)
                 {
@@ -298,5 +308,30 @@ internal static class MegaWebSocketUploader
         }
 
         return data;
+    }
+
+    /// <summary>
+    /// Takes <paramref name="bytes"/> from the shared budget, waiting as needed, before those bytes
+    /// are written to the socket. Loops because a grant may be partial — the bucket hands out what
+    /// it can currently afford.
+    /// <para>
+    /// Nothing is refunded: unlike a stream read, which may come up short, every byte charged here
+    /// is one the caller is about to send. An unlimited budget returns the whole request on the
+    /// first pass without taking a lock.
+    /// </para>
+    /// </summary>
+    internal static async Task ChargeAsync(SpeedBudget? speedBudget, int bytes, CancellationToken ct)
+    {
+        if (speedBudget is null || bytes <= 0)
+        {
+            return;
+        }
+
+        int remaining = bytes;
+        while (remaining > 0)
+        {
+            SpeedReservation reservation = await speedBudget.AcquireAsync(remaining, ct).ConfigureAwait(false);
+            remaining -= reservation.Bytes;
+        }
     }
 }
