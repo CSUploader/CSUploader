@@ -30,18 +30,18 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// </para>
 /// <para>
 /// Note what "aggregated" and "overlapping" are: observable PROPERTIES, not evidence that any
-/// particular helper was called. A hand-rolled <c>Task.WhenAll</c> that aggregated correctly would
-/// satisfy every case here, and for the three progress-only hosters so would a sequential loop.
-/// Nothing in this class pins <c>ParallelPartUploader</c> itself.
+/// particular helper was called. A hand-rolled concurrent scheduler around the same correct workers
+/// would satisfy every case here, and for the three progress-only hosters so would a sequential
+/// loop. Nothing in this class pins <c>ParallelPartUploader</c> itself.
 /// </para>
 /// <para>
 /// <b>What these do NOT prove.</b> Every case injects a part override, so the real
 /// <c>HttpHandler.PutChunkAsync</c> branch is bypassed — deleting <c>reportPartProgress:</c> from a
 /// pipeline's PRODUCTION call would still leave them green. They pin the seam-to-aggregator path,
 /// not the transport join. VikingFile has a separate real-handler test
-/// (<c>ThroughTheRealHandler_ProgressIsAggregated</c>); the other four are uncovered. Task 9 in the
-/// plan promises a fakeable transport for ONE converted pipeline, not all four - so even once it
-/// lands, three of these transports stay unproven. This comment exists so nobody reads the class as
+/// (<c>ThroughTheRealHandler_ProgressIsAggregated</c>); the other four are uncovered. Task 9 has
+/// LANDED and strengthened that same VikingFile test rather than adding a second hoster, so the
+/// other four transports remain unproven today. This comment exists so nobody reads the class as
 /// covering them.
 /// </para>
 /// </summary>
@@ -168,8 +168,8 @@ public class ConvertedPipelineContractTests : IDisposable
         catch (TimeoutException)
         {
             throw new InvalidOperationException(
-                $"part {index.ToString(CultureInfo.InvariantCulture)} never finished reading, so its "
-                + "predecessor is still waiting: the parts are not all in flight at once, so the "
+                $"part {index.ToString(CultureInfo.InvariantCulture)} never finished reading, so the "
+                + "part before it is still waiting: they are not all in flight at once, and the "
                 + "reverse-order read this assertion depends on cannot happen.");
         }
     }

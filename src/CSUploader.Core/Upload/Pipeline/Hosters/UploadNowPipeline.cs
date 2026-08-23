@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
@@ -462,8 +463,10 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// S3's AbortMultipartUpload - <c>DELETE {object}?uploadId=...</c>. Without it every part that
     /// landed before the failure stays on the host's storage under the abandoned id, and since the
     /// runner retries the whole attempt from a fresh initiate, a file that fails four times leaves
-    /// four sets of parts behind. Nothing ever collects them: an incomplete multipart is invisible
-    /// to the account's file list and to the site's own UI, so only the bucket owner pays for it.
+    /// four sets of parts behind. This app has no other way to reach them: an incomplete multipart
+    /// is invisible to the account's file list and to the site's own UI. Whether the bucket carries
+    /// a server-side lifecycle rule that expires them is not something a client can see, which is
+    /// reason to send the abort rather than reason to skip it.
     /// </summary>
     /// <remarks>
     /// <para>It runs on its OWN bounded token. The usual reason to be here is that
@@ -528,7 +531,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         {
             // Deliberately catch-all, cancellation included: this is best-effort cleanup running in
             // a finally, and an exception escaping here would replace the failure the user needs.
-            LogAbandoned(ctx, ex.Message);
+            // The exception itself, not ex.Message - Message is VIRTUAL, so reading it here would
+            // put an unguarded call between the catch and the guard that is supposed to cover it.
+            LogAbandoned(ctx, ex);
         }
     }
 
@@ -538,6 +543,21 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// in <see cref="AbortAsync"/>, out of the <c>finally</c>, and replace the upload's real error -
     /// the exact outcome the catch exists to prevent, arriving through the reporting of it.
     /// </summary>
+    private static void LogAbandoned(AttemptContext ctx, Exception ex)
+    {
+        string why;
+        try
+        {
+            why = ex.Message;
+        }
+        catch (Exception)
+        {
+            why = ex.GetType().Name;
+        }
+
+        LogAbandoned(ctx, why);
+    }
+
     private static void LogAbandoned(AttemptContext ctx, string? why)
     {
         try
@@ -651,13 +671,44 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                     HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation)
                     .ConfigureAwait(false), ctx.Cancellation).ConfigureAwait(false);
 
-        // R2, like S3, can report a failure inside a 200 on this call — so the body is checked too.
-        if (response.StatusCode is < 200 or >= 300 || response.Body.Contains("<Error>", StringComparison.OrdinalIgnoreCase))
+        // R2, like S3, can report a failure inside a 200 on this call, so the status is not the
+        // answer. The body was matched against the literal "<Error>", which a namespaced
+        // <Error xmlns="http://s3.amazonaws.com/doc/2006-03-01/"> walks straight past - and this is
+        // the call that decides whether the file gets published. It is parsed now, and only the
+        // documented success root is a success.
+        if (response.StatusCode is < 200 or >= 300 || !LooksAssembled(response.Body))
         {
             return $"UploadNow's storage wouldn't assemble the file (HTTP {response.StatusCode}): {Snippet(response.Body)}";
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether the storage's completion reply says the object was assembled.
+    /// <para>
+    /// Only <c>CompleteMultipartUploadResult</c> counts, matched on the LOCAL name so a namespaced
+    /// document still reads. Anything else - an <c>Error</c> document inside a 200, an empty body, a
+    /// proxy's HTML - is not an assembly. Erring strict costs a wasted retry, because the upload id
+    /// is consumed by a completion that really did commit and the retry starts a fresh multipart.
+    /// Erring lenient publishes a file that was never assembled.
+    /// </para>
+    /// </summary>
+    private static bool LooksAssembled(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return false;
+        }
+
+        try
+        {
+            return XDocument.Parse(body).Root?.Name.LocalName is "CompleteMultipartUploadResult";
+        }
+        catch (System.Xml.XmlException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

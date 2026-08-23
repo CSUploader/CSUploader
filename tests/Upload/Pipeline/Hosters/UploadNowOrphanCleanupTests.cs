@@ -20,7 +20,7 @@ namespace CSUploader.Tests.Upload.Pipeline.Hosters;
 /// <summary>
 /// What happens to the parts already on the storage when an UploadNow multipart is abandoned.
 /// <para>
-/// Nothing collects them on its own. An incomplete multipart is invisible to the account's file list
+/// This app has no other cleanup path. An incomplete multipart is invisible to the account's file list
 /// and to the site's own UI, and the runner retries the whole attempt from a fresh initiate — so a
 /// file that fails all four attempts leaves four sets of parts behind, billed to whoever owns the
 /// bucket. UploadNow is the only one of the five converted hosters that CAN be cleaned up: it signs
@@ -178,6 +178,32 @@ public class UploadNowOrphanCleanupTests : IDisposable
     }
 
     /// <summary>
+    /// The completion reply decides whether the file is PUBLISHED, so a failure hidden in a 200 has
+    /// to be found. A literal <c>&lt;Error&gt;</c> match walks straight past the namespaced form S3
+    /// and R2 actually send, and past an empty body - both of which then look like an assembly.
+    /// </summary>
+    [Theory]
+    [InlineData("""<?xml version="1.0" encoding="UTF-8"?><Error xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Code>InternalError</Code></Error>""")]
+    [InlineData("""<Error><Code>NoSuchUpload</Code></Error>""")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("<html><body>502 Bad Gateway</body></html>")]
+    [InlineData("""<?xml version="1.0"?><SomethingElse/>""")]
+    public async Task ACompletionThatIsNotAnAssembly_FailsAndAborts(string body)
+    {
+        UploadNowPipeline pipeline = Pipeline(
+            api: (method, url) => method == HttpMethod.Post && url.Contains("uploadId=", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, body, Array.Empty<string>())
+                : null);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(), CancellationToken.None));
+
+        Assert.Empty(events.OfType<TransferCompleted>());
+        Assert.Single(events.OfType<AttemptFailed>());
+        Assert.NotNull(Abort);
+    }
+
+    /// <summary>
     /// The other direction. After a successful assembly the object EXISTS and there is no upload id
     /// left to abort — a cleanup that fired unconditionally would put a pointless signed round trip
     /// on the end of every upload the app ever makes.
@@ -301,6 +327,29 @@ public class UploadNowOrphanCleanupTests : IDisposable
 
         AttemptFailed failed = Assert.Single(events.OfType<AttemptFailed>());
         Assert.Contains("refused part 2", failed.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The narrowest escape route left. <see cref="Exception.Message"/> is virtual, so reading it to
+    /// build the log line is itself a call that can throw - and read outside the guard, it would
+    /// propagate out of the catch, out of the <c>finally</c>, and replace the real error.
+    /// </summary>
+    [Fact]
+    public async Task AnAbortWhoseExceptionCannotEvenBeDescribed_LeavesTheRealErrorIntact()
+    {
+        UploadNowPipeline pipeline = Pipeline(
+            part: number => number == 2 ? Refused(number) : Accepted(number),
+            api: (method, url) => method == HttpMethod.Delete ? throw new UndescribableException() : null);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(), CancellationToken.None));
+
+        AttemptFailed failed = Assert.Single(events.OfType<AttemptFailed>());
+        Assert.Contains("refused part 2", failed.Reason, StringComparison.Ordinal);
+    }
+
+    private sealed class UndescribableException : Exception
+    {
+        public override string Message => throw new InvalidOperationException("even the message throws");
     }
 
     /// <summary>

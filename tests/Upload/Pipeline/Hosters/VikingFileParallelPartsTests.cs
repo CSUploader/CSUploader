@@ -337,23 +337,16 @@ public class VikingFileParallelPartsTests : IDisposable
     }
 
     /// <summary>
-    /// Reads the whole request body and answers 200 with the right ETag, so the production part PUT
-    /// genuinely streams its slice and raises progress.
-    /// <para>
-    /// It deliberately delays in REVERSE part order. Without that the parts complete almost
-    /// instantly and often happen to finish in order — under which absolute per-part progress is
-    /// monotonic too, so the test would pass against the very bug it exists to catch. Forcing part 4
-    /// to finish first is what makes the two modes distinguishable.
-    /// </para>
-    /// </summary>
-    /// <summary>
     /// Stands in for R2 at the bottom of the REAL <see cref="HttpHandler.PutChunkAsync"/> — the one
-    /// layer the part overrides skip. It keeps the bytes rather than dropping them, and watches how
-    /// many requests are in flight, so a test above it can check the production transport carries
-    /// each part's own region and carries them at the same time.
-    /// <para>The delay is longest for the FIRST part, so the parts finish in reverse. Under
-    /// ascending completion a per-part absolute figure happens to look monotonic too, which is how
-    /// an earlier version of this test passed against the bug it exists to catch.</para>
+    /// layer the part overrides skip. It answers 200 with the right ETag, KEEPS the bytes rather
+    /// than dropping them, and watches how many requests are in flight, so a test above it can check
+    /// that the production transport carries each part's own region and carries them at once.
+    /// <para>
+    /// The delay is longest for the FIRST part, so the parts finish in REVERSE. Without that they
+    /// complete almost instantly and often happen to finish in order — under which an absolute
+    /// per-part figure looks monotonic too, and the test passes against the very bug it exists to
+    /// catch. Forcing part 4 to finish first is what makes the two modes distinguishable.
+    /// </para>
     /// </summary>
     private sealed class DrainingHandler : HttpMessageHandler
     {
