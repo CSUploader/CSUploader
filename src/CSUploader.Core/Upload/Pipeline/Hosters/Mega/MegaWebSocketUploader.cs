@@ -39,8 +39,24 @@ internal readonly record struct MegaWsMessage(MegaWsMsgType Type, long Pos, byte
 /// </summary>
 internal static class MegaWebSocketUploader
 {
-    /// <summary>Abort the upload if the server sends nothing (no ack, no COMPLETE) for this long.
-    /// Resets on every server message, so it only trips on a genuinely stalled/dead connection.</summary>
+    /// <summary>
+    /// Abort the upload when NOTHING is moving for this long — neither a server message inbound nor
+    /// a fragment outbound.
+    /// <para>
+    /// Two clocks, not one. Throttling makes a legitimate send slow: at 8 KiB/s a 1 MiB chunk takes
+    /// over two minutes, during which the server has nothing to acknowledge yet, so a receive-only
+    /// watchdog would kill a perfectly healthy upload. But letting outbound progress alone reset the
+    /// clock would let a server that accepts bytes and stops acknowledging them keep the upload
+    /// alive forever. Requiring BOTH to be stale is the compromise.
+    /// </para>
+    /// <para>
+    /// What this does not catch: a receiver that is dead while the sender keeps draining. In
+    /// practice TCP flow control ends that — once the peer stops reading, the send window fills and
+    /// <c>SendAsync</c> stops completing, which stalls the outbound clock too. A tighter rule would
+    /// track the oldest unacknowledged chunk separately; that is protocol bookkeeping beyond the
+    /// scope of the throttling change and is deliberately not attempted here.
+    /// </para>
+    /// </summary>
     private const int IdleTimeoutMs = 120_000;
 
     /// <summary>Builds the 20-byte chunk header: fileno, pos, length (all little-endian) and the
@@ -117,7 +133,8 @@ internal static class MegaWebSocketUploader
         Exception? fault = null;
         HashSet<long> ackedPos = [];
         long ackedBytes = 0;
-        long lastActivity = Environment.TickCount64;
+        long lastActivity = Environment.TickCount64;      // a server message arrived
+        long lastOutboundProgress = Environment.TickCount64; // a fragment went out
         bool idle = false;
 
         // A single 'stop' signal for both loops: the user's token, a receive-loop fault (the loop's
@@ -201,7 +218,10 @@ internal static class MegaWebSocketUploader
                 while (!cts.IsCancellationRequested)
                 {
                     await Task.Delay(5000, cts.Token).ConfigureAwait(false);
-                    if (Environment.TickCount64 - Volatile.Read(ref lastActivity) > IdleTimeoutMs)
+                    long now = Environment.TickCount64;
+                    bool nothingReceived = now - Volatile.Read(ref lastActivity) > IdleTimeoutMs;
+                    bool nothingSent = now - Volatile.Read(ref lastOutboundProgress) > IdleTimeoutMs;
+                    if (nothingReceived && nothingSent)
                     {
                         idle = true;
                         await cts.CancelAsync().ConfigureAwait(false);
@@ -228,7 +248,7 @@ internal static class MegaWebSocketUploader
 
                 byte[] header = BuildChunkHeader(fileno, pos, chunkLen, cipher);
                 await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
-                Volatile.Write(ref lastActivity, Environment.TickCount64);
+                Volatile.Write(ref lastOutboundProgress, Environment.TickCount64);
 
                 // This path never touches HttpHandler or ThrottledStream — it reads the file itself
                 // and writes ciphertext straight to a WebSocket — so without this MEGA and
@@ -239,7 +259,7 @@ internal static class MegaWebSocketUploader
                     (segment, endOfMessage, token) => ws.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, token),
                     cipher,
                     speedBudget,
-                    () => Volatile.Write(ref lastActivity, Environment.TickCount64),
+                    () => Volatile.Write(ref lastOutboundProgress, Environment.TickCount64),
                     cts.Token).ConfigureAwait(false);
             }
         }

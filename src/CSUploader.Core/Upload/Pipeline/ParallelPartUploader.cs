@@ -34,13 +34,21 @@ public static class ParallelPartUploader
         {
             for (int i = 0; i < partCount; i++)
             {
+                // Checked explicitly rather than left to the callback. The parallel branch enforces
+                // caller cancellation itself, so without this the effective DEGREE would change the
+                // cancellation semantics — a callback that ignores its token, or cancels just before
+                // returning successfully, would behave differently at 1 than at 4.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 results[i] = await uploadPart(i, cancellationToken).ConfigureAwait(false);
                 if (results[i].Error is not null)
                 {
-                    break;
+                    // An actual failure still wins over cancellation: it is the more useful cause.
+                    return results;
                 }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return results;
         }
 
@@ -98,12 +106,15 @@ public static class ParallelPartUploader
                     RecordFailure(index, fault: null);
                 }
             }
-            catch (OperationCanceledException ex) when (ex.CancellationToken == linked.Token)
+            catch (OperationCanceledException ex) when (linked.IsCancellationRequested && ex.CancellationToken == linked.Token)
             {
-                // Swallow ONLY a cancellation that our own linked token caused. Matching on the
-                // exception's token distinguishes "we cancelled this" from "this timed out on its
-                // own": an OCE carrying CancellationToken.None is a real fault, and AttemptRunner
-                // treats it as one. Pure caller cancellation is handled by the final
+                // Swallow ONLY a cancellation that our own linked token actually caused. BOTH
+                // conditions are needed. Matching the exception's token distinguishes "we cancelled
+                // this" from "this timed out on its own" — an OCE carrying CancellationToken.None is
+                // a real fault, and AttemptRunner treats it as one. Also requiring the token to be
+                // genuinely cancelled stops a callback that throws `new OperationCanceledException(ct)`
+                // of its own accord from being mistaken for our cancellation and silently leaving a
+                // default PartResult in the array. Pure caller cancellation is handled by the final
                 // ThrowIfCancellationRequested below.
             }
             catch (Exception ex)

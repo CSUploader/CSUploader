@@ -224,6 +224,52 @@ public class ParallelPartUploaderTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenAPartThrowsAnUncancelledOce_TreatsItAsAFault()
+    {
+        // A callback throwing `new OperationCanceledException(ct)` WITHOUT the token being cancelled
+        // is not our cancellation — it is that part failing. Matching on token identity alone would
+        // swallow it and leave a default PartResult in the array, so the upload would "succeed"
+        // with a missing ETag.
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ParallelPartUploader.RunAsync(4, 2,
+            (i, ct) => i == 0
+                ? throw new OperationCanceledException(ct)
+                : Task.FromResult(new PartResult(i + 1, "etag", null)),
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RunAsync_AtDegreeOne_HonoursCallerCancellation_LikeTheParallelPath()
+    {
+        // Changing the effective degree must not change cancellation semantics. This callback
+        // deliberately ignores its token, exactly as a sloppy pipeline might.
+        using CancellationTokenSource cts = new();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ParallelPartUploader.RunAsync(4, 1,
+            (i, ct) => Task.FromResult(new PartResult(i + 1, "etag", null)), cts.Token));
+    }
+
+    [Fact]
+    public async Task RunAsync_AtDegreeOne_WhenAPartFailsAndTheCallerCancels_ReportsTheFailure()
+    {
+        // An actual failure is the more useful cause, so it wins over cancellation here too.
+        using CancellationTokenSource cts = new();
+
+        PartResult[] results = await ParallelPartUploader.RunAsync(4, 1, (i, ct) =>
+        {
+            if (i == 0)
+            {
+                cts.Cancel();
+                return Task.FromResult(new PartResult(1, null, "rejected"));
+            }
+
+            return Task.FromResult(new PartResult(i + 1, "etag", null));
+        }, cts.Token);
+
+        Assert.Equal("rejected", results[0].Error);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenTheCallerCancels_AndNoPartFailed_Throws()
     {
         using CancellationTokenSource cts = new();
