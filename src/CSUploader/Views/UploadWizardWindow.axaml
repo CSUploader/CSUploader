@@ -530,7 +530,7 @@
                               SelectedItem="{Binding SelectedAccount}"
                               DisplayMemberBinding="{Binding DisplayName, DataType=dal:FileHosterLoginDto}"
                               VerticalAlignment="Center" HorizontalAlignment="Stretch"
-                              Margin="0,2,8,2" Padding="8,2" FontSize="12"
+                              Margin="0,2,0,2" Padding="8,2" FontSize="12"
                               BorderBrush="{DynamicResource InputFieldBorderBrush}"
                               BorderThickness="1"
                               CornerRadius="2"

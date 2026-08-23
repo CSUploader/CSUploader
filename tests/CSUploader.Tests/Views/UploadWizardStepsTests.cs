@@ -450,6 +450,41 @@ public class UploadWizardStepsTests
         }
     }
 
+    // ── Step 1: the account dropdown fills its column, on BOTH edges ──
+
+    [AvaloniaFact]
+    public void HostersGrid_AccountDropdown_FillsTheFullColumnWidth()
+    {
+        // Reported by a user: the dropdown visibly stops short of the Account column's right edge.
+        // It carried Margin="0,2,8,2" — flush on the left, 8px inset on the right — so a BORDERED
+        // control read as not spanning its column. Asserting the rendered geometry (not the margin)
+        // pins the symptom the user actually sees, and on both edges: an inset on either side of a
+        // control that is meant to fill the cell is the same bug.
+        using VmHarness harness = new();
+        FileHosterSelectionViewModel hoster = new("Catbox", [], supportsAnonymous: true);
+        harness.Vm.Hosters.FileHosters.Add(hoster);
+        harness.Vm.CurrentStep = 1;
+
+        (Window window, UploadWizardWindow wizard) = Show(harness.Vm);
+        try
+        {
+            ComboBox combo = RowFor(wizard.fileHostersGrid, hoster)
+                .GetVisualDescendants().OfType<ComboBox>().First();
+
+            // The DataTemplate's Grid is the cell's content area: whatever width it got from the
+            // column is exactly what a stretched child is entitled to.
+            Control content = Assert.IsAssignableFrom<Control>(combo.GetVisualParent());
+
+            Assert.True(combo.Bounds.Width > 0, "the dropdown should have been laid out");
+            Assert.Equal(content.Bounds.Left, combo.Bounds.Left);
+            Assert.Equal(content.Bounds.Right, combo.Bounds.Right);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Step 1: hoster columns resize like every other grid's; the control strips don't ──
 
     [AvaloniaFact]
