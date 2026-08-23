@@ -209,7 +209,7 @@ public class MainViewModelUpdateTests : IDisposable
     public async Task InstallUpdateCommand_FeedsTheAdvertisedSizeIntoTheProgress()
     {
         const long Advertised = 71_303_168;
-        UpdateAvailableInfo info = new("9.9.9", new object(), Advertised);
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Full(Advertised));
         Mock<IUpdateService> updater = new();
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater

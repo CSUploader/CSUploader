@@ -9,20 +9,15 @@ namespace CSUploader.Lib.Update;
 /// VM-facing summary of an available update. Wraps Velopack's <c>UpdateInfo</c> so the
 /// rest of the app doesn't take a hard dependency on Velopack types.
 /// </summary>
-public sealed class UpdateAvailableInfo(string newVersion, object payload, long downloadBytes = 0)
+public sealed class UpdateAvailableInfo(string newVersion, object payload, UpdateDownloadPlan? downloadPlan = null)
 {
     public string NewVersion { get; } = newVersion;
 
     /// <summary>
-    /// Roughly how many bytes the download will move, or 0 if it could not be worked out.
-    /// <para>
-    /// An ESTIMATE, and unavoidably so. The updater applies delta packages when it can and falls
-    /// back to the full one on error, without saying which it did — so this is the delta total when
-    /// deltas exist and the full package otherwise, and a fallback makes it wrong. Fine for a
-    /// progress readout; not a figure to make a decision on.
-    /// </para>
+    /// What the download will fetch and how its percentage maps onto bytes. Never null; an update
+    /// whose size could not be worked out carries <see cref="UpdateDownloadPlan.Unknown"/>.
     /// </summary>
-    public long DownloadBytes { get; } = downloadBytes;
+    public UpdateDownloadPlan DownloadPlan { get; } = downloadPlan ?? UpdateDownloadPlan.Unknown;
 
     /// <summary>
     /// Opaque payload — the underlying <c>Velopack.UpdateInfo</c>. Passed back to

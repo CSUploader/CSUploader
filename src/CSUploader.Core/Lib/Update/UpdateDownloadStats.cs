@@ -10,9 +10,10 @@ namespace CSUploader.Lib.Update;
 /// remaining.
 /// <para>
 /// Velopack reports an <c>int</c> from 0 to 100 and nothing else — no byte counts, no totals — so
-/// every figure here is derived. Bytes come from the percentage against the size the release
-/// advertised, which means they advance in whole-percent steps: on a 70 MB update that is a 700 kB
-/// jump per tick, and the rate has to be measured across those steps rather than continuously.
+/// every figure here is derived. Bytes come from <see cref="UpdateDownloadPlan"/>, which knows how
+/// that percentage maps onto the packages being fetched; they advance in whole-percent steps, so on
+/// a 70 MB update that is a 700 kB jump per tick and the rate has to be measured across those steps
+/// rather than continuously.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -31,28 +32,31 @@ namespace CSUploader.Lib.Update;
 public sealed class UpdateDownloadStats
 {
     /// <summary>
-    /// How many per-step rates are averaged. Velopack emits at most 101 ticks for a whole download,
-    /// so a long window would spend most of a short update still filling up; eight is enough to
-    /// stop the readout flickering between adjacent percent steps without lagging a real change.
+    /// How many CHANGED-percentage samples the rate is measured across. Velopack emits at most a
+    /// hundred of those for a whole download — fewer on the full path, which rounds to even
+    /// percentages — so a long window would spend most of a short update still filling up; eight is
+    /// enough to stop the readout flickering between adjacent steps without lagging a real change.
     /// </summary>
     private const int SampleWindow = 8;
 
     private readonly TimeProvider _clock;
-    private readonly SpeedSampleBuffer _byteRates = new(SampleWindow);
-    private readonly SpeedSampleBuffer _percentRates = new(SampleWindow);
+    private readonly SpeedSampleBuffer _steps = new(SampleWindow);
+    private readonly SpeedSampleBuffer _bytes = new(SampleWindow);
+    private readonly SpeedSampleBuffer _seconds = new(SampleWindow);
 
-    private long _totalBytes;
+    private UpdateDownloadPlan _plan;
     private int _lastPercent = -1;
     private long _lastTimestamp;
 
-    /// <param name="totalBytes">
-    /// The expected download size, or 0 if it is unknown. See <see cref="UpdateDownloadProgress"/>
-    /// for why this is only ever an estimate.
+    /// <param name="plan">
+    /// What the download will fetch, and how its percentage maps onto bytes. Pass
+    /// <see cref="UpdateDownloadPlan.Unknown"/> when the size is not known — the countdown still
+    /// works, only the byte figures go away.
     /// </param>
     /// <param name="clock">Injected so the tests can advance time without spending it.</param>
-    public UpdateDownloadStats(long totalBytes, TimeProvider? clock = null)
+    public UpdateDownloadStats(UpdateDownloadPlan? plan = null, TimeProvider? clock = null)
     {
-        _totalBytes = Math.Max(0, totalBytes);
+        _plan = plan ?? UpdateDownloadPlan.Unknown;
         _clock = clock ?? TimeProvider.System;
     }
 
@@ -64,11 +68,10 @@ public sealed class UpdateDownloadStats
 
         if (percent < _lastPercent)
         {
-            // The updater went BACKWARDS. That is what a delta download failing and restarting as
-            // the full package looks like, so the rates measured against the old package are now
-            // measuring the wrong thing, and the size estimate is wrong too. Start over rather than
-            // average across the seam - and drop the total, because a fallback is precisely the case
-            // where the advertised delta size no longer describes what is being fetched.
+            // The updater went BACKWARDS. Rates measured against the old package are now measuring
+            // the wrong thing, and so is the plan - a fallback is precisely the case where what was
+            // planned stops describing what is being fetched. Start over rather than average across
+            // the seam.
             Restart();
         }
 
@@ -84,21 +87,19 @@ public sealed class UpdateDownloadStats
 
         if (percent == _lastPercent)
         {
-            // Velopack repeats values. Folding a zero-progress interval in would drag the average
-            // toward zero for a download that is moving perfectly well.
+            // Velopack repeats values. Folding a zero-progress interval in would drag the rate
+            // toward zero for a download that is moving perfectly well - and the timestamp is left
+            // ALONE, so the next real change is measured across the whole interval it took rather
+            // than only since the last duplicate.
             return Snapshot(percent);
         }
 
         double seconds = _clock.GetElapsedTime(_lastTimestamp, now).TotalSeconds;
         if (seconds > 0)
         {
-            int steps = percent - _lastPercent;
-            _percentRates.Add(steps / seconds);
-
-            if (_totalBytes > 0)
-            {
-                _byteRates.Add(steps / 100.0 * _totalBytes / seconds);
-            }
+            _steps.Add(percent - _lastPercent);
+            _bytes.Add(Math.Max(0, _plan.BytesAt(percent) - _plan.BytesAt(_lastPercent)));
+            _seconds.Add(seconds);
         }
 
         _lastPercent = percent;
@@ -108,39 +109,47 @@ public sealed class UpdateDownloadStats
 
     private void Restart()
     {
-        _byteRates.Clear();
-        _percentRates.Clear();
-        _totalBytes = 0;
+        _steps.Clear();
+        _bytes.Clear();
+        _seconds.Clear();
+        _plan = UpdateDownloadPlan.Unknown;
         _lastPercent = -1;
     }
 
     private UpdateDownloadProgress Snapshot(int percent)
     {
-        long received = _totalBytes > 0 ? (long)(percent / 100.0 * _totalBytes) : 0;
-        long rate = _totalBytes > 0 ? (long)Mean(_byteRates) : 0;
+        long received = _plan.BytesAt(percent);
 
-        double percentPerSecond = Mean(_percentRates);
+        // Totals over the window, not a mean of per-interval rates. The samples are spaced by
+        // PROGRESS, not by time, so averaging their rates weights a 0.1 s step the same as a 10 s
+        // one: seven fast percents and one slow one would report roughly the fast rate while the
+        // window as a whole crawled. Dividing the sums is the window's actual throughput.
+        double seconds = Total(_seconds);
+        long rate = seconds > 0 && _plan.IsKnown ? (long)Math.Min(long.MaxValue, Total(_bytes) / seconds) : 0;
+
+        double percentPerSecond = seconds > 0 ? Total(_steps) / seconds : 0;
         TimeSpan? remaining = percentPerSecond > 0 && percent < 100
-            ? TimeSpan.FromSeconds((100 - percent) / percentPerSecond)
+            ? TimeSpan.FromSeconds(Math.Min((100 - percent) / percentPerSecond, MaxRemainingSeconds))
             : null;
 
-        return new UpdateDownloadProgress(percent, received, _totalBytes, rate, remaining);
+        return new UpdateDownloadProgress(percent, received, _plan.TotalBytes, rate, remaining);
     }
 
-    private static double Mean(SpeedSampleBuffer samples)
-    {
-        double[] values = samples.Snapshot();
-        if (values.Length == 0)
-        {
-            return 0;
-        }
+    /// <summary>
+    /// A day. Past this the figure is noise rather than information — a single sample taken across
+    /// a laptop's sleep can imply centuries, and <see cref="TimeSpan.FromSeconds"/> throws outright
+    /// past its own range.
+    /// </summary>
+    private const double MaxRemainingSeconds = 24 * 60 * 60;
 
+    private static double Total(SpeedSampleBuffer samples)
+    {
         double total = 0;
-        foreach (double value in values)
+        foreach (double value in samples.Snapshot())
         {
             total += value;
         }
 
-        return total / values.Length;
+        return total;
     }
 }

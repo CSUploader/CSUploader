@@ -88,9 +88,10 @@ public class UpdateProgressSinkTests
             Assert.Equal(42d, sink.CurrentWindow!.Progress.Value);
             Assert.Equal("42%", sink.CurrentWindow.PercentText.Text);
 
-            // AtPercent carries no size and no rate, which is the shape of the first tick of every
-            // real download. Both figures stay EMPTY rather than showing a zero, because "0 B/s"
-            // reads as a stalled download rather than an unmeasured one.
+            // AtPercent carries neither a size nor a rate. With no size there is nothing to count
+            // bytes against, and the rate is empty rather than "0 B/s", which reads as a stalled
+            // download rather than an unmeasured one. A KNOWN size does show its bytes at 0% - see
+            // Report_AtZeroPercentWithAKnownSize_ShowsTheSizeButNoRate.
             Assert.Equal(string.Empty, sink.CurrentWindow.BytesText.Text);
             Assert.Equal(string.Empty, sink.CurrentWindow.StatsText.Text);
         }
@@ -150,6 +151,58 @@ public class UpdateProgressSinkTests
 
             Assert.Equal(string.Empty, sink.CurrentWindow!.BytesText.Text);
             Assert.Equal("01m:30s left", sink.CurrentWindow.StatsText.Text);
+        }
+        finally
+        {
+            sink.Close();
+        }
+    }
+
+    /// <summary>
+    /// A rate but no countdown — the shape at 100%, where there is nothing left to wait for but the
+    /// rate that was just measured is still worth showing. Without its own arm this renders empty.
+    /// </summary>
+    [AvaloniaFact]
+    public void Report_WithARateButNoCountdown_StillShowsTheRate()
+    {
+        var sink = new AvaloniaUpdateProgressSink();
+        try
+        {
+            sink.Open();
+            sink.Report(new UpdateDownloadProgress(
+                Percent: 100,
+                BytesReceived: 74_760_192,
+                TotalBytes: 74_760_192,
+                BytesPerSecond: 3_250_585,
+                Remaining: null));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("3.1 MiB/s", sink.CurrentWindow!.StatsText.Text);
+            Assert.Equal("71.3 MiB of 71.3 MiB", sink.CurrentWindow.BytesText.Text);
+        }
+        finally
+        {
+            sink.Close();
+        }
+    }
+
+    /// <summary>
+    /// A known size at 0%. The BYTES appear immediately — knowing the download is 68 MiB is useful
+    /// before a single one arrives — while the rate stays empty, because a "0 B/s" that sits there
+    /// for the first second reads as a stalled download rather than an unmeasured one.
+    /// </summary>
+    [AvaloniaFact]
+    public void Report_AtZeroPercentWithAKnownSize_ShowsTheSizeButNoRate()
+    {
+        var sink = new AvaloniaUpdateProgressSink();
+        try
+        {
+            sink.Open();
+            sink.Report(new UpdateDownloadProgress(0, 0, 74_760_192, 0, null));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("0 B of 71.3 MiB", sink.CurrentWindow!.BytesText.Text);
+            Assert.Equal(string.Empty, sink.CurrentWindow.StatsText.Text);
         }
         finally
         {

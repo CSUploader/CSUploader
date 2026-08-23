@@ -23,7 +23,7 @@ public class UpdateDownloadStatsTests
     private static (UpdateDownloadStats Stats, ManualTimeProvider Clock) Build(long totalBytes = TenMegabytes)
     {
         ManualTimeProvider clock = new();
-        return (new UpdateDownloadStats(totalBytes, clock), clock);
+        return (new UpdateDownloadStats(UpdateDownloadPlan.Full(totalBytes), clock), clock);
     }
 
     [Fact]
@@ -112,6 +112,58 @@ public class UpdateDownloadStatsTests
         Assert.Equal(afterOneStep, stats.Report(10).BytesPerSecond);
     }
 
+    /// <summary>
+    /// The other half of the duplicate rule. Not folding duplicates in is only half right — the
+    /// timestamp has to survive them too, or the next real change is measured from the last
+    /// duplicate instead of from the last actual progress, and every rate comes out too high.
+    /// </summary>
+    [Fact]
+    public void ADuplicateRun_DoesNotShortenTheIntervalThatFollowsIt()
+    {
+        (UpdateDownloadStats stats, ManualTimeProvider clock) = Build();
+
+        stats.Report(0);
+        for (int i = 0; i < 3; i++)
+        {
+            clock.Advance(TimeSpan.FromSeconds(1));
+            stats.Report(0); // the same percentage, three seconds of it
+        }
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        UpdateDownloadProgress p = stats.Report(20);
+
+        // 20% across the whole four seconds, not across the last one.
+        Assert.Equal(TenMegabytes / 20, p.BytesPerSecond);
+        Assert.Equal(TimeSpan.FromSeconds(16), p.Remaining);
+    }
+
+    /// <summary>
+    /// Why the window sums rather than averaging per-step rates. Progress-spaced samples are not
+    /// time-spaced: seven quick percents and one slow one average to something close to the quick
+    /// rate, while the window as a whole crawled. The sum is the throughput that actually happened.
+    /// </summary>
+    [Fact]
+    public void OneSlowStepAmongFastOnes_DragsTheRateDownAsItShould()
+    {
+        (UpdateDownloadStats stats, ManualTimeProvider clock) = Build();
+
+        stats.Report(0);
+        int percent = 0;
+        for (int i = 0; i < 7; i++)
+        {
+            percent += 1;
+            clock.Advance(TimeSpan.FromMilliseconds(100));
+            stats.Report(percent);
+        }
+
+        percent += 1;
+        clock.Advance(TimeSpan.FromSeconds(10));
+        UpdateDownloadProgress p = stats.Report(percent);
+
+        // 8% across 10.7 s is 0.75%/s. A mean of the per-step rates would say about 8.8%/s.
+        Assert.InRange(p.BytesPerSecond, TenMegabytes * 0.006, TenMegabytes * 0.009);
+    }
+
     [Fact]
     public void TimeRemaining_ComesFromThePercentageRate()
     {
@@ -141,8 +193,8 @@ public class UpdateDownloadStatsTests
     public void AWrongTotal_DoesNotDistortTimeRemaining()
     {
         ManualTimeProvider clock = new();
-        UpdateDownloadStats honest = new(TenMegabytes, clock);
-        UpdateDownloadStats wrong = new(TenMegabytes * 37, clock);
+        UpdateDownloadStats honest = new(UpdateDownloadPlan.Full(TenMegabytes), clock);
+        UpdateDownloadStats wrong = new(UpdateDownloadPlan.Full(TenMegabytes * 37), clock);
 
         honest.Report(0);
         wrong.Report(0);

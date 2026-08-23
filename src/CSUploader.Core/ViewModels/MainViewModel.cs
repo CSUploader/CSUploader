@@ -218,7 +218,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // remaining are all derived here. Progress<T> captures this thread's synchronization
         // context, which is the UI thread's, so every Report lands back on it - which is both what
         // the sink requires and what lets UpdateDownloadStats stay free of locking.
-        UpdateDownloadStats stats = new(_availableUpdate.DownloadBytes);
+        UpdateDownloadStats stats = new(_availableUpdate.DownloadPlan);
         Progress<int> progress = new(percent => _updateProgressSink.Report(stats.Report(percent)));
         try
         {
