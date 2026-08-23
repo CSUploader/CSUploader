@@ -711,6 +711,11 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// is worst. The character cap is ~100x the real reply and only bounds a hostile one.
     /// </para>
     /// </summary>
+    /// <summary>About a hundred times the real reply — a completion result carries a bucket, a key
+    /// bounded by S3's 1024 bytes, and an ETag. It bounds a hostile reply, not a legitimate one, and
+    /// a test pins that so raising it is a deliberate act.</summary>
+    private const int MaxCompletionCharacters = 64 * 1024;
+
     private static bool LooksAssembled(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
@@ -722,8 +727,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         {
             DtdProcessing = DtdProcessing.Prohibit,
             XmlResolver = null,
-            CloseInput = true,
-            MaxCharactersInDocument = 64 * 1024,
+            MaxCharactersInDocument = MaxCompletionCharacters,
         };
 
         try

@@ -218,6 +218,31 @@ public class UploadNowOrphanCleanupTests : IDisposable
     }
 
     /// <summary>
+    /// The character cap, pinned so that raising it is a deliberate act rather than a side effect.
+    /// The root is right and the document is well-formed — only its size disqualifies it.
+    /// </summary>
+    [Fact]
+    public async Task ACompletionLargerThanTheCap_IsNotAnAssembly()
+    {
+        string huge = "<CompleteMultipartUploadResult><Key>"
+            + new string('k', 96 * 1024)
+            + "</Key></CompleteMultipartUploadResult>";
+
+        UploadNowPipeline pipeline = Pipeline(
+            api: (method, url) => method == HttpMethod.Post && url.Contains("uploadId=", StringComparison.Ordinal)
+                ? new HttpResponseSnapshot(200, huge, Array.Empty<string>())
+                : null);
+
+        List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(Context(), CancellationToken.None));
+
+        Assert.Empty(events.OfType<TransferCompleted>());
+        Assert.Contains(
+            "wouldn't assemble the file",
+            Assert.Single(events.OfType<AttemptFailed>()).Reason,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The other direction. After a successful assembly the object EXISTS and there is no upload id
     /// left to abort — a cleanup that fired unconditionally would put a pointless signed round trip
     /// on the end of every upload the app ever makes.
