@@ -100,7 +100,7 @@ public class VikingFileParallelPartsTests : IDisposable
         Cancellation = CancellationToken.None,
     };
 
-    private VikingFilePipeline Pipeline(PutPartHandler putPart, List<string>? posts = null) => new(
+    private static VikingFilePipeline Pipeline(PutPartHandler putPart, List<string>? posts = null) => new(
         postFormOverride: (url, _) =>
         {
             posts?.Add(url);

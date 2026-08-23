@@ -81,7 +81,12 @@ public class ThrottledStreamRefundTests
         ManualTimeProvider clock = new();
         (ThrottledStream stream, SpeedLimiter limiter) = Build(new ThrowingStream(), clock);
 
+        // CA2022 warns about trusting a read's length; there is no length to trust here, because the
+        // call is required to throw. Reading through ReadExactlyAsync instead would loop over
+        // ReadAsync and change the very accounting under test.
+#pragma warning disable CA2022 // the read throws, so it never returns a count to check
         await Assert.ThrowsAsync<IOException>(async () => await stream.ReadAsync(new byte[8192]));
+#pragma warning restore CA2022
 
         Assert.Equal(10_000, Remaining(limiter));
     }
@@ -93,8 +98,10 @@ public class ThrottledStreamRefundTests
         (ThrottledStream stream, SpeedLimiter limiter) = Build(new BlockingStream(), clock);
         using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(100));
 
+#pragma warning disable CA2022 // as above: cancelled, so there is no count to check
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             async () => await stream.ReadAsync(new byte[8192], cts.Token));
+#pragma warning restore CA2022
 
         Assert.Equal(10_000, Remaining(limiter));
     }

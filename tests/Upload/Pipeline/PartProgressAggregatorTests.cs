@@ -144,9 +144,17 @@ public class PartProgressAggregatorTests
         // wait below would time out.
         Task second = Task.Run(() => aggregator.Report(1, 5));
 
-        Assert.True(
-            second.Wait(TimeSpan.FromSeconds(2)),
-            "a second thread's Report blocked behind the publisher — the lock is held across publication");
+        try
+        {
+            // Awaited rather than blocked on: the assertion is the same - did the second Report
+            // finish while the publisher is still inside its callback? - but a test that blocks its
+            // own thread to find out can deadlock on a synchronization context that has one.
+            await second.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch (TimeoutException)
+        {
+            Assert.Fail("a second thread's Report blocked behind the publisher — the lock is held across publication");
+        }
 
         releasePublisher.Set();
         await first;

@@ -64,7 +64,7 @@ public class DataNodesParallelChunksTests : IDisposable
         {"links":{"download_link":"https://datanodes.to/abc123/release.r00","delete_link":"https://datanodes.to/abc123/release.r00?killcode=k1ll","html_code":"<a href=x>y</a>"}}
         """;
 
-    private DataNodesPipeline Pipeline(
+    private static DataNodesPipeline Pipeline(
         Func<string, IReadOnlyDictionary<string, string>, long, Stream, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> chunk)
         => new(
             postFormOverride: (url, form) => Task.FromResult(form["op"] switch
