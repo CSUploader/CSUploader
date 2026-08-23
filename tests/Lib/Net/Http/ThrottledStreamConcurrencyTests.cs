@@ -24,8 +24,8 @@ public class ThrottledStreamConcurrencyTests
 
     /// <summary>
     /// A user who sets 100 KB/s expects the machine to send 100 KB/s. With four files in flight the
-    /// aggregate should still be 100 KB/s, so 800 KB total should take ~8 s. If each stream instead
-    /// gets its own 100 KB/s, all four finish their 200 KB in ~2 s — a 4x overshoot of the limit.
+    /// aggregate should still be 100 KB/s, so 200 KB total should take ~2 s. If each stream instead
+    /// gets its own 100 KB/s, all four finish their 50 KB in ~0.5 s — a 4x overshoot of the limit.
     /// </summary>
     [Fact]
     public async Task ConcurrentStreams_ShareTheLimit_RatherThanEachGettingItInFull()

@@ -20,6 +20,10 @@ EXCLUDE = {
     'ThrottledStreamConcurrencyTests.cs',
 }
 
+# Ordered. The first group renames the plumbing; the SECOND group retypes `Func<long?>` nested
+# inside composite delegate types (the ~97 test-override signatures), which the first cannot match
+# because the name does not follow the type there. The real migration needed both passes; a script
+# with only the first leaves 73 files uncompilable.
 SUBS = [
     (r'getBytesPerSecond:\s*ctx\.SpeedLimitProvider', 'speedBudget: ctx.SpeedBudget'),
     (r'ctx\.SpeedLimitProvider', 'ctx.SpeedBudget'),
@@ -28,6 +32,11 @@ SUBS = [
     (r'Func<long\?>\?\s+getBytesPerSecond', 'SpeedBudget? speedBudget'),
     (r'Func<long\?>\s+getBytesPerSecond', 'SpeedBudget speedBudget'),
     (r'getBytesPerSecond', 'speedBudget'),
+
+    # Second pass: the plumbing properties, then composite delegate types.
+    (r'public required Func<long\?> SpeedBudget', 'public required SpeedBudget SpeedBudget'),
+    (r'Func<long\?>\?', 'SpeedBudget?'),
+    (r'Func<long\?>', 'SpeedBudget'),
 ]
 
 changed = 0
