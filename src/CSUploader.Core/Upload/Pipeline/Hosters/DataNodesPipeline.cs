@@ -60,7 +60,15 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
     private const long MaxFileSizeBytes = 3L * 1024 * 1024 * 1024;
 
     /// <summary>8 MiB. Its own uploader uses 1 MiB, which is far too many requests for this app's files.</summary>
-    private const int ChunkSizeBytes = 8 * 1024 * 1024;
+    private const int DefaultChunkSizeBytes = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// Bytes per chunk. Overridable only through the test constructor: the parts now read REAL
+    /// slices of the file, so a test that wants multi-chunk behaviour would otherwise have to write
+    /// a genuine 16 MB file for every case. Production always uses
+    /// <see cref="DefaultChunkSizeBytes"/>.
+    /// </summary>
+    private readonly int _chunkSizeBytes = DefaultChunkSizeBytes;
 
     /// <summary>What the login 302 issues the <c>xfss</c> cookie for: <c>Max-Age=2592000</c>.</summary>
     private const int SessionLifetimeDays = 30;
@@ -81,7 +89,10 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postFormOverride;
-    private readonly Func<string, IReadOnlyDictionary<string, string>, long, Task<HttpResponseSnapshot>>? _chunkOverride;
+    /// <summary>Test seam. Carries the headers (X-Seek-To is the whole point of this host), the
+    /// body, and a progress reporter — the last two so a test can prove each chunk reads its own
+    /// region and that progress is aggregated rather than absolute.</summary>
+    private readonly Func<string, IReadOnlyDictionary<string, string>, long, Stream, Action<long>, CancellationToken, Task<HttpResponseSnapshot>>? _chunkOverride;
     private readonly Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _getOverride;
 
     public DataNodesPipeline()
@@ -91,12 +102,14 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
     /// <summary>Test ctor — stubs the form POSTs, the chunk PUTs and the page GETs.</summary>
     internal DataNodesPipeline(
         Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> postFormOverride,
-        Func<string, IReadOnlyDictionary<string, string>, long, Task<HttpResponseSnapshot>> chunkOverride,
-        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? getOverride = null)
+        Func<string, IReadOnlyDictionary<string, string>, long, Stream, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> chunkOverride,
+        Func<string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? getOverride = null,
+        int chunkSizeBytes = DefaultChunkSizeBytes)
     {
         _postFormOverride = postFormOverride;
         _chunkOverride = chunkOverride;
         _getOverride = getOverride;
+        _chunkSizeBytes = chunkSizeBytes;
     }
 
     public string Name => "DataNodes";
@@ -273,55 +286,84 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
         _ = sessionId;
 
         long fileSize = ctx.FileSize;
-        int totalChunks = fileSize <= ChunkSizeBytes ? 1 : (int)((fileSize + ChunkSizeBytes - 1) / ChunkSizeBytes);
+        int totalChunks = fileSize <= _chunkSizeBytes ? 1 : (int)((fileSize + _chunkSizeBytes - 1) / _chunkSizeBytes);
         DateTime started = DateTime.Now;
         string endpoint = node + "/put_chunk_mt.cgi";
 
-        await using FileStream file = new(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true);
-        long position = 0;
+        using FileSliceReader source = new(ctx.FilePath);
+        PartProgressAggregator progress = new(
+            totalChunks,
+            fileTotal => ctx.Handler.RaiseUploadProgress(new OperationProgressEventArgs(fileSize, fileTotal, started)));
 
-        for (int index = 0; index < totalChunks; index++)
-        {
-            long thisChunk = Math.Min(ChunkSizeBytes, fileSize - position);
-
-            // X-Seek-To is what makes this the "mt" variant: the chunk says where it belongs, so the
-            // server doesn't rely on arrival order.
-            Dictionary<string, string> headers = BrowserHeaders();
-            headers["X-Upload-SID"] = sid;
-            headers["X-Seek-To"] = position.ToString(CultureInfo.InvariantCulture);
-
-            HttpResponseSnapshot response;
-            if (_chunkOverride is not null)
+        PartResult[] results = await ParallelPartUploader.RunAsync(
+            totalChunks,
+            ctx.MaxParallelParts,
+            async (index, ct) =>
             {
-                response = await _chunkOverride(endpoint, headers, thisChunk);
-            }
-            else
-            {
-                file.Position = position;
-                response = await ctx.Handler.PutChunkAsync(
-                    endpoint,
-                    new ChunkSliceStream(file, thisChunk),
-                    thisChunk,
-                    basePosition: position,
-                    totalFileSize: fileSize,
-                    dateTimeStarted: started,
-                    headers: headers,
-                    speedBudget: ctx.SpeedBudget,
-                    cancellationToken: ctx.Cancellation);
-            }
+                long position = (long)index * _chunkSizeBytes;
+                long thisChunk = Math.Min(_chunkSizeBytes, fileSize - position);
 
-            if (response.StatusCode is < 200 or >= 300)
-            {
-                return $"DataNodes rejected chunk {(index + 1).ToString(CultureInfo.InvariantCulture)}"
-                    + $"/{totalChunks.ToString(CultureInfo.InvariantCulture)} "
-                    + $"(HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)}): {Snippet(response.Body)}";
-            }
+                // X-Seek-To is what makes this the "mt" variant: the chunk says where it belongs, so
+                // the server does not rely on arrival order — which is exactly what lets these go up
+                // together. The host's own uploader sends up to ten at once.
+                Dictionary<string, string> headers = BrowserHeaders();
+                headers["X-Upload-SID"] = sid;
+                headers["X-Seek-To"] = position.ToString(CultureInfo.InvariantCulture);
 
-            position += thisChunk;
-        }
+                Stream body = source.OpenSlice(position, thisChunk);
 
-        return null;
+                HttpResponseSnapshot response = _chunkOverride is not null
+                    ? await _chunkOverride(endpoint, headers, thisChunk, body, bytes => progress.Report(index, bytes), ct)
+                    : await ctx.Handler.PutChunkAsync(
+                        endpoint,
+                        body,
+                        thisChunk,
+                        basePosition: position,
+                        totalFileSize: fileSize,
+                        dateTimeStarted: started,
+                        headers: headers,
+                        speedBudget: ctx.SpeedBudget,
+                        cancellationToken: ct,
+                        method: null,
+                        reportPartProgress: bytes => progress.Report(index, bytes));
+
+                if (response.StatusCode is < 200 or >= 300)
+                {
+                    return new PartResult(
+                        index + 1,
+                        null,
+                        $"DataNodes rejected chunk {(index + 1).ToString(CultureInfo.InvariantCulture)}"
+                        + $"/{totalChunks.ToString(CultureInfo.InvariantCulture)} "
+                        + $"(HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)}): {Snippet(response.Body)}");
+                }
+
+                // A 2xx is not enough. The documented success body is {"status":"OK"}, and this host
+                // can answer 200 with an error envelope — under parallelism a silently-rejected
+                // chunk becomes a truncated file rather than an obvious failure.
+                if (!LooksAccepted(response.Body))
+                {
+                    return new PartResult(
+                        index + 1,
+                        null,
+                        $"DataNodes did not accept chunk {(index + 1).ToString(CultureInfo.InvariantCulture)}"
+                        + $"/{totalChunks.ToString(CultureInfo.InvariantCulture)}: {Snippet(response.Body)}");
+                }
+
+                return new PartResult(index + 1, null, null);
+            },
+            ctx.Cancellation);
+
+        return Array.Find(results, r => r.Error is not null) is { Error: not null } failed ? failed.Error : null;
     }
+
+    /// <summary>
+    /// The documented per-chunk success is <c>{"status":"OK"}</c>. Checked as a substring rather
+    /// than parsed: the host has been seen to pad the envelope, and an over-strict parse here would
+    /// fail uploads that actually worked.
+    /// </summary>
+    private static bool LooksAccepted(string body)
+        => body.Contains("\"status\"", StringComparison.OrdinalIgnoreCase)
+            && body.Contains("OK", StringComparison.OrdinalIgnoreCase);
 
     private async Task<(string? Link, string? DeleteLink, string? Error)> ImportFileAsync(
         AttemptContext ctx, string node, string sid, string sessionId)

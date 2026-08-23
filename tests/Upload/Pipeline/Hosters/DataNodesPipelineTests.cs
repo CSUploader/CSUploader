@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.IO;
+using System.Globalization;
 using System.Net.Http;
 using CSUploader.Dal;
 using CSUploader.Lib;
@@ -322,7 +323,7 @@ public class DataNodesPipelineTests : IDisposable
                 posts.Add((url, form));
                 return Task.FromResult(new HttpResponseSnapshot(302, string.Empty, ["xfss=s3ss10nva1ue0001; path=/"], "https://datanodes.to/"));
             },
-            (_, _, _) => throw new InvalidOperationException("no chunks in a sign-in"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks in a sign-in"),
             (url, _) => Task.FromResult(new HttpResponseSnapshot(200, url.EndsWith("/login", StringComparison.Ordinal) ? LoginPageHtml : AccountPageHtml, [])));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync("csuprobe", "pw", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -352,7 +353,7 @@ public class DataNodesPipelineTests : IDisposable
         // nothing else to read.
         DataNodesPipeline pipeline = new(
             (_, _) => Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, [])),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (_, _) => Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, [])));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync("csuprobe", "wrong", null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -368,7 +369,7 @@ public class DataNodesPipelineTests : IDisposable
     {
         DataNodesPipeline pipeline = new(
             (_, _) => throw new InvalidOperationException("must not post"),
-            (_, _, _) => throw new InvalidOperationException("must not chunk"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("must not chunk"),
             (_, _) => throw new InvalidOperationException("must not get"));
 
         AccountCheckResult result = await pipeline.CheckAccountAsync(user, password, null, MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -383,7 +384,7 @@ public class DataNodesPipelineTests : IDisposable
         // A cookie that is already worthless has to fail here, not at the first upload.
         DataNodesPipeline pipeline = new(
             (_, _) => Task.FromResult(new HttpResponseSnapshot(302, string.Empty, ["xfss=s3ss10nva1ue0001; path=/"], "https://datanodes.to/")),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (url, _) => Task.FromResult(url.EndsWith("/login", StringComparison.Ordinal)
                 ? new HttpResponseSnapshot(200, LoginPageHtml, [])
                 : new HttpResponseSnapshot(302, string.Empty, [], "https://datanodes.to/login.html")));
@@ -401,7 +402,7 @@ public class DataNodesPipelineTests : IDisposable
         // sign-in away.
         DataNodesPipeline pipeline = new(
             (_, _) => Task.FromResult(new HttpResponseSnapshot(302, string.Empty, ["xfss=s3ss10nva1ue0001; path=/"], "https://datanodes.to/")),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (url, _) => url.EndsWith("/login", StringComparison.Ordinal)
                 ? Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, []))
                 : throw new HttpRequestException("connection reset"));
@@ -421,7 +422,7 @@ public class DataNodesPipelineTests : IDisposable
         List<IReadOnlyDictionary<string, string>> gets = [];
         DataNodesPipeline pipeline = new(
             (_, _) => throw new InvalidOperationException("a refresh must not need the password"),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (_, headers) =>
             {
                 gets.Add(headers);
@@ -447,7 +448,7 @@ public class DataNodesPipelineTests : IDisposable
     {
         DataNodesPipeline pipeline = new(
             (_, _) => throw new InvalidOperationException("no posts"),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (_, _) => Task.FromResult(new HttpResponseSnapshot(302, string.Empty, [], "https://datanodes.to/login.html")));
 
         AccountCheckResult result = await pipeline.RefreshAccountAsync(null, "expired", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -461,7 +462,7 @@ public class DataNodesPipelineTests : IDisposable
     {
         DataNodesPipeline pipeline = new(
             (_, _) => throw new InvalidOperationException("no posts"),
-            (_, _, _) => throw new InvalidOperationException("no chunks"),
+            (_, _, _, _, _, _) => throw new InvalidOperationException("no chunks"),
             (_, _) => throw new HttpRequestException("no such host"));
 
         AccountCheckResult result = await pipeline.RefreshAccountAsync(null, "s3ss10nva1ue0001", MakeHandler(), ProxyChoice.Direct, CancellationToken.None);
@@ -545,13 +546,17 @@ public class DataNodesPipelineTests : IDisposable
         // A single-chunk upload cannot show this: the offsets, the short final chunk and the shared
         // SID are the whole of the multi-chunk protocol.
         Recorder recorder = new(AnonymousFinaliseJson);
-        const long Size = (8 * 1024 * 1024 * 2L) + 4096;   // two full 8 MiB chunks and a remainder
+        const long Size = (Recorder.ChunkSizeBytes * 2L) + 512;   // two full chunks and a remainder
 
         await DrainAsync(recorder.Pipeline.RunAsync(MakeContext(recorder, anonymous: true, fileSize: Size), CancellationToken.None));
 
         Assert.Equal(3, recorder.ChunkHeaders.Count);
-        Assert.Equal(["0", "8388608", "16777216"], recorder.ChunkHeaders.Select(h => h["X-Seek-To"]).ToArray());
-        Assert.Equal([8388608L, 8388608L, 4096L], recorder.ChunkLengths);
+        Assert.Equal(
+            ["0", Recorder.ChunkSizeBytes.ToString(CultureInfo.InvariantCulture), (Recorder.ChunkSizeBytes * 2).ToString(CultureInfo.InvariantCulture)],
+            recorder.ChunkHeaders.Select(h => h["X-Seek-To"]).OrderBy(v => long.Parse(v, CultureInfo.InvariantCulture)).ToArray());
+        Assert.Equal(
+            [Recorder.ChunkSizeBytes, Recorder.ChunkSizeBytes, 512L],
+            recorder.ChunkLengths.OrderByDescending(v => v).ToArray());
         Assert.Single(recorder.ChunkHeaders.Select(h => h["X-Upload-SID"]).Distinct());
 
         // No cookie belongs on the node: this host issues none, and the session travels in the
@@ -565,7 +570,7 @@ public class DataNodesPipelineTests : IDisposable
         Recorder recorder = new(AnonymousFinaliseJson) { FailChunkAtIndex = 1 };
 
         List<UploadEvent> events = await DrainAsync(
-            recorder.Pipeline.RunAsync(MakeContext(recorder, anonymous: true, fileSize: (8 * 1024 * 1024 * 2L) + 4096), CancellationToken.None));
+            recorder.Pipeline.RunAsync(MakeContext(recorder, anonymous: true, fileSize: (Recorder.ChunkSizeBytes * 2L) + 512), CancellationToken.None));
 
         Assert.Contains("chunk 2/3", Assert.IsType<AttemptFailed>(events[^1]).Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Single(recorder.Posts);   // the node lookup only — nothing was finalised
@@ -600,12 +605,26 @@ public class DataNodesPipelineTests : IDisposable
     {
         // The cap is inclusive — the host's own uploader accepts a file of exactly :max-size — so an
         // off-by-one here would silently skip files the server would have taken.
+        //
+        // Asserted as a GATE rather than a transfer: the pipeline reads real slices now, and no test
+        // can stage three real gigabytes to prove a comparison. The rejection message is what the
+        // gate emits, so its ABSENCE at exactly the cap is the off-by-one check.
         Recorder recorder = new(AnonymousFinaliseJson);
 
-        List<UploadEvent> events = await DrainAsync(
-            recorder.Pipeline.RunAsync(MakeContext(recorder, anonymous: true, fileSize: 3L * 1024 * 1024 * 1024), CancellationToken.None));
+        // Only the FIRST event: the gate rejects before anything else happens, so this settles the
+        // comparison without the run having to proceed into an upload nobody can stage.
+        UploadEvent? first = null;
+        await foreach (UploadEvent e in recorder.Pipeline.RunAsync(
+            MakeContext(recorder, anonymous: true, fileSize: 3L * 1024 * 1024 * 1024), CancellationToken.None))
+        {
+            first = e;
+            break;
+        }
 
-        Assert.IsType<TransferCompleted>(events[^1]);
+        Assert.NotNull(first);
+        Assert.False(
+            first is AttemptFailed failed && failed.Reason.Contains("per-file limit", StringComparison.Ordinal),
+            "a file of exactly the cap was rejected — the comparison is off by one");
     }
 
     [Fact]
@@ -648,12 +667,23 @@ public class DataNodesPipelineTests : IDisposable
 
     private AttemptContext MakeContext(Recorder recorder, bool anonymous, long fileSize = 4096, string? sessionCookie = null)
     {
-        // The pipeline opens the file itself before the chunk stub takes over, so this has to exist.
-        string path = Path.Combine(_tempDir, "release.r00");
-        if (!File.Exists(path))
+        // The pipeline opens the file and reads REAL slices of it before the chunk stub takes over,
+        // so the bytes on disk have to match the declared size — a test that lies about it now gets
+        // an out-of-range slice rather than silently reading nothing.
+        //
+        // Except for the cap-rejection cases, which declare gigabytes deliberately and never reach
+        // the upload: allocating those for real would exhaust memory to prove a size check.
+        string path = Path.Combine(_tempDir, $"release-{Guid.NewGuid():N}.r00");
+        const long MaxRealBytes = 1024 * 1024;
+        long realBytes = fileSize <= MaxRealBytes ? fileSize : 0;
+
+        byte[] content = new byte[realBytes];
+        for (int i = 0; i < content.Length; i++)
         {
-            File.WriteAllBytes(path, new byte[4096]);
+            content[i] = (byte)(i % 251);
         }
+
+        File.WriteAllBytes(path, content);
 
         return new AttemptContext
         {
@@ -684,10 +714,14 @@ public class DataNodesPipelineTests : IDisposable
     {
         private readonly string _finaliseJson;
 
+        /// <summary>A small chunk so a test can declare a size it can actually write to disk;
+        /// production uses 8 MiB.</summary>
+        internal const int ChunkSizeBytes = 2048;
+
         public Recorder(string finaliseJson)
         {
             _finaliseJson = finaliseJson;
-            Pipeline = new DataNodesPipeline(PostAsync, ChunkAsync, GetAsync);
+            Pipeline = new DataNodesPipeline(PostAsync, ChunkAsync, GetAsync, ChunkSizeBytes);
         }
 
         public DataNodesPipeline Pipeline { get; }
@@ -724,7 +758,7 @@ public class DataNodesPipelineTests : IDisposable
             return Task.FromResult(new HttpResponseSnapshot(200, LoginPageHtml, []));
         }
 
-        private Task<HttpResponseSnapshot> ChunkAsync(string url, IReadOnlyDictionary<string, string> headers, long length)
+        private Task<HttpResponseSnapshot> ChunkAsync(string url, IReadOnlyDictionary<string, string> headers, long length, Stream body, Action<long> report, CancellationToken ct)
         {
             Assert.Equal("https://node42.datanodes.to/cgi-bin/put_chunk_mt.cgi", url);
             ChunkHeaders.Add(headers);
