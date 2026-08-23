@@ -384,8 +384,8 @@ public partial class GalleryWindow : Window
             CultureInfo.CurrentCulture,
             Localizer.Instance["UpdateProgress_StatusDownloading_Format"],
             "1.2.3"));
-        // Self-consistent numbers, so the shot shows the row as it really renders: 42% of a 71.3 MiB
-        // update at 3.1 MiB/s leaves 43.4 MiB, which is the 13 s.
+        // Self-consistent numbers, so the shot shows the row as it really renders: 42% of a 68 MiB
+        // update at 3.1 MiB/s leaves 39.4 MiB, which is the 12 s.
         const long Total = 71_303_168;   // 68 MiB
         const long Rate = 3_250_585;     // 3.1 MiB/s
         _updateProgressSink.Report(new CSUploader.Lib.Update.UpdateDownloadProgress(
