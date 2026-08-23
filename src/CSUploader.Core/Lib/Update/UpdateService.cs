@@ -41,14 +41,7 @@ public sealed class UpdateService : IUpdateService
 
         try
         {
-            UpdateInfo? info = await _manager.CheckForUpdatesAsync().ConfigureAwait(false);
-            if (info is null)
-            {
-                return UpdateCheckResult.UpToDate;
-            }
-
-            string version = info.TargetFullRelease.Version.ToString();
-            return UpdateCheckResult.Available(new UpdateAvailableInfo(version, info, PlanDownload(info)));
+            return Describe(await _manager.CheckForUpdatesAsync().ConfigureAwait(false));
         }
         catch (Exception ex)
         {
@@ -56,6 +49,22 @@ public sealed class UpdateService : IUpdateService
             return UpdateCheckResult.Failed(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Turns what the updater found into what the rest of the app sees.
+    /// <para>
+    /// Split out of <see cref="CheckAsync"/> so it can be tested: <c>UpdateManager</c> is concrete
+    /// and needs an installed Velopack layout, so the surrounding method cannot be driven from a
+    /// test at all. This is the join where an update's DOWNLOAD PLAN is attached, and without a seam
+    /// here that attachment is unreachable — passing <see cref="UpdateDownloadPlan.Unknown"/> would
+    /// leave every test green and quietly remove the byte readout from the update window.
+    /// </para>
+    /// </summary>
+    internal static UpdateCheckResult Describe(UpdateInfo? info)
+        => info is null
+            ? UpdateCheckResult.UpToDate
+            : UpdateCheckResult.Available(new UpdateAvailableInfo(
+                info.TargetFullRelease.Version.ToString(), info, PlanDownload(info)));
 
     /// <summary>
     /// Whether a size can be counted against the reported percentage, by asking the question

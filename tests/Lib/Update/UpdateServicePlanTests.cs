@@ -14,19 +14,23 @@ namespace CSUploader.Tests.Lib.Update;
 /// <b>These pin an assumption about someone else's code</b>, so it is worth being exact about what
 /// rides on it. Velopack decides between deltas and the full package by rules that are not in its
 /// public API; <see cref="UpdateService.PlanDownload"/> asks the same question, because the
-/// percentage is a byte fraction on one path and not on the other. Getting the answer wrong SHOWS or
-/// HIDES the byte readout — it cannot produce a wrong figure, because the delta path has no figure
-/// to get wrong. The rules were read from <c>UpdateManager.DownloadUpdatesAsync</c> in Velopack
-/// 1.2.0, and nothing here can detect a future version changing them; that limit is real, and it is
-/// why the failure mode was kept this mild.
+/// percentage is a byte fraction on one path and not on the other.
+/// </para>
+/// <para>
+/// The two ways of being wrong are not symmetrical. Answering "delta" for what is really a full
+/// download only hides a readout. Answering "full" for what is really deltas feeds the full
+/// package's size into an aggregate delta percentage and puts a WRONG number on screen — so the
+/// conditions below are the conservative ones. The rules were read from
+/// <c>UpdateManager.DownloadUpdatesAsync</c> in Velopack 1.2.0, and nothing here can detect a future
+/// version loosening one of them; that limit is real and unguarded.
 /// </para>
 /// </summary>
 public class UpdateServicePlanTests
 {
-    /// <summary><c>Version</c> is left unset: the plan does not depend on delta order.</summary>
     private static VelopackAsset Asset(long size, VelopackAssetType type, string version) => new()
     {
         FileName = $"CSUploader-{version}-{type}.nupkg",
+        Version = SemanticVersion.Parse($"1.0.{version}"),
         Size = size,
         Type = type,
     };
@@ -187,4 +191,35 @@ public class UpdateServicePlanTests
 
         Assert.False(plan.IsKnown);
     }
+
+    /// <summary>
+    /// The join. Everything else here calls <see cref="UpdateService.PlanDownload"/> directly, so
+    /// the plan reaching the info the app actually receives is a separate fact — and one that
+    /// nothing could reach until <c>Describe</c> was split out of <c>CheckAsync</c>, which needs an
+    /// installed Velopack layout to run at all.
+    /// </summary>
+    [Fact]
+    public void Describe_AttachesThePlanToTheInfoTheAppReceives()
+    {
+        UpdateCheckResult result = UpdateService.Describe(Info(Full(90_000_000), Full(80_000_000)));
+
+        Assert.Equal(UpdateCheckStatus.Available, result.Status);
+        Assert.NotNull(result.Info);
+        Assert.Equal(90_000_000, result.Info!.DownloadPlan.TotalBytes);
+    }
+
+    /// <summary>An eligible delta set reaches the app as no size, not as a missing update.</summary>
+    [Fact]
+    public void Describe_CarriesTheDeltaPathsAbsenceOfASize()
+    {
+        UpdateCheckResult result = UpdateService.Describe(
+            Info(Full(90_000_000), Full(80_000_000), Delta(1_000_000, "1")));
+
+        Assert.Equal(UpdateCheckStatus.Available, result.Status);
+        Assert.False(result.Info!.DownloadPlan.IsKnown);
+    }
+
+    [Fact]
+    public void Describe_WithNothingFound_IsUpToDate()
+        => Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.Describe(null).Status);
 }
