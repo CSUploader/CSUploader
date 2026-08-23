@@ -86,7 +86,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     private Identity? _identity;
 
     private readonly Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _apiOverride;
-    private readonly Func<string, long, long, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _partOverride;
+    /// <summary>Test seam. Takes a body FACTORY rather than a body, because the storage retry
+    /// re-invokes the part delegate and a consumed slice would send EOF on the second attempt.</summary>
+    private readonly Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>>? _partOverride;
 
     public UploadNowPipeline()
     {
@@ -96,7 +98,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     /// without the network.</summary>
     internal UploadNowPipeline(
         Func<HttpMethod, string, string?, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>> apiOverride,
-        Func<string, long, long, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>> partOverride)
+        Func<string, long, long, IReadOnlyDictionary<string, string>, Func<Stream>, Action<long>, CancellationToken, Task<HttpResponseSnapshot>> partOverride)
     {
         _apiOverride = apiOverride;
         _partOverride = partOverride;
@@ -204,7 +206,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
     private static async Task<HttpResponseSnapshot> WithStorageRetryAsync(
         AttemptContext ctx,
         string what,
-        Func<Task<HttpResponseSnapshot>> attempt)
+        Func<Task<HttpResponseSnapshot>> attempt,
+        CancellationToken ct)
     {
         HttpResponseSnapshot response = await attempt().ConfigureAwait(false);
         for (int i = 2; i <= StorageAttempts && response.StatusCode >= 500; i++)
@@ -215,7 +218,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 $"UploadNow: storage answered HTTP {response.StatusCode.ToString(CultureInfo.InvariantCulture)} to {what}; "
                 + $"retrying ({i.ToString(CultureInfo.InvariantCulture)}/{StorageAttempts.ToString(CultureInfo.InvariantCulture)}).");
 
-            await Task.Delay(TimeSpan.FromSeconds(i), ctx.Cancellation).ConfigureAwait(false);
+            // The WORKER's token: a sibling's failure must stop this retry loop too.
+            await Task.Delay(TimeSpan.FromSeconds(i), ct).ConfigureAwait(false);
             response = await attempt().ConfigureAwait(false);
         }
 
@@ -282,91 +286,129 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         List<string> etags = [];
         DateTime started = DateTime.Now;
 
-        await using FileStream file = new(ctx.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        long position = 0;
-        int partNumber = 1;
+        using FileSliceReader source = new(ctx.FilePath);
 
-        while (position < ctx.FileSize)
-        {
-            long length = Math.Min(PartSizeBytes, ctx.FileSize - position);
+        // Ceiling division, and at least one part. Integer division alone drops the final partial
+        // part, silently uploading a truncated object that still completes.
+        int totalParts = ctx.FileSize <= 0
+            ? 0
+            : (int)(((ctx.FileSize - 1) / PartSizeBytes) + 1);
 
-            // Content-MD5 is signed, so it has to be known before the part is sent — hence a read pass
-            // over the slice ahead of the upload pass. Cheap next to the transfer itself.
-            string contentMd5 = await ComputeMd5Async(file, position, length, ctx.Cancellation);
+        PartProgressAggregator progress = new(
+            Math.Max(1, totalParts),
+            fileTotal => ctx.Handler.RaiseUploadProgress(
+                new OperationProgressEventArgs(ctx.FileSize, fileTotal, started)));
 
-            string query = $"partNumber={partNumber.ToString(CultureInfo.InvariantCulture)}&uploadId={Uri.EscapeDataString(uploadId)}";
-            long partOffset = position;
-            string? partSignError = null;
-            int number = partNumber;
+        string?[] partEtags = new string?[totalParts];
 
-            HttpResponseSnapshot part = await WithStorageRetryAsync(
-                ctx,
-                $"part {number.ToString(CultureInfo.InvariantCulture)}",
-                async () =>
+        PartResult[] results = await ParallelPartUploader.RunAsync(
+            totalParts,
+            ctx.MaxParallelParts,
+            async (index, ct) =>
+            {
+                int number = index + 1;
+                long partOffset = (long)index * PartSizeBytes;
+                long length = Math.Min(PartSizeBytes, ctx.FileSize - partOffset);
+
+                // Content-MD5 is signed, so it has to be known before the part is sent — hence a read
+                // pass over the slice ahead of the upload pass. Its OWN slice: the pre-pass and the
+                // upload pass used to share one FileStream and move its position between them.
+                string contentMd5 = await ComputeMd5Async(source.OpenSlice(partOffset, length), length, ct);
+
+                string query = $"partNumber={number.ToString(CultureInfo.InvariantCulture)}&uploadId={Uri.EscapeDataString(uploadId)}";
+                string? partSignError = null;
+
+                HttpResponseSnapshot part = await WithStorageRetryAsync(
+                    ctx,
+                    $"part {number.ToString(CultureInfo.InvariantCulture)}",
+                    async () =>
+                    {
+                        string datetime = Timestamp();
+                        Dictionary<string, string> signed = new(StringComparer.Ordinal)
+                        {
+                            ["content-md5"] = contentMd5,
+                            ["host"] = new Uri(upload.ObjectUrl).Host,
+                            ["x-amz-date"] = datetime,
+                        };
+
+                        (string? auth, partSignError) = await AuthorizeAsync(
+                            ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime).ConfigureAwait(false);
+                        if (auth is null)
+                        {
+                            return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
+                        }
+
+                        Dictionary<string, string> headers = new(StringComparer.Ordinal)
+                        {
+                            ["Authorization"] = auth,
+                            ["x-amz-date"] = datetime,
+                            ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
+                            ["Content-MD5"] = contentMd5,
+                        };
+
+                        // A FRESH slice per attempt: this delegate is re-invoked by the retry loop,
+                        // and a consumed one would send EOF the second time round.
+                        if (_partOverride is not null)
+                        {
+                            return await _partOverride(
+                                $"{upload.ObjectUrl}?{query}",
+                                partOffset,
+                                length,
+                                headers,
+                                () => source.OpenSlice(partOffset, length),
+                                bytes => progress.Report(index, bytes),
+                                ct).ConfigureAwait(false);
+                        }
+
+                        return await ctx.Handler.PutChunkAsync(
+                            $"{upload.ObjectUrl}?{query}",
+                            source.OpenSlice(partOffset, length),
+                            length,
+                            basePosition: partOffset,
+                            totalFileSize: ctx.FileSize,
+                            dateTimeStarted: started,
+                            headers: headers,
+                            speedBudget: ctx.SpeedBudget,
+                            cancellationToken: ct,
+                            method: null,
+                            reportPartProgress: bytes => progress.Report(index, bytes)).ConfigureAwait(false);
+                    },
+                    ct).ConfigureAwait(false);
+
+                if (partSignError is not null)
                 {
-                    string datetime = Timestamp();
-                    Dictionary<string, string> signed = new(StringComparer.Ordinal)
-                    {
-                        ["content-md5"] = contentMd5,
-                        ["host"] = new Uri(upload.ObjectUrl).Host,
-                        ["x-amz-date"] = datetime,
-                    };
+                    return new PartResult(number, null, partSignError);
+                }
 
-                    (string? auth, partSignError) = await AuthorizeAsync(
-                        ctx, upload, "PUT", upload.ObjectUrl, query, signed, "UNSIGNED-PAYLOAD", datetime).ConfigureAwait(false);
-                    if (auth is null)
-                    {
-                        return new HttpResponseSnapshot(0, string.Empty, Array.Empty<string>());
-                    }
+                if (part.StatusCode is < 200 or >= 300)
+                {
+                    return new PartResult(
+                        number,
+                        null,
+                        $"UploadNow's storage refused part {number.ToString(CultureInfo.InvariantCulture)} "
+                        + $"(HTTP {part.StatusCode}): {Snippet(part.Body)}");
+                }
 
-                    Dictionary<string, string> headers = new(StringComparer.Ordinal)
-                    {
-                        ["Authorization"] = auth,
-                        ["x-amz-date"] = datetime,
-                        ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD",
-                        ["Content-MD5"] = contentMd5,
-                    };
+                if (part.ETag is not { Length: > 0 } etag)
+                {
+                    return new PartResult(
+                        number,
+                        null,
+                        $"UploadNow's storage returned no ETag for part {number.ToString(CultureInfo.InvariantCulture)}, "
+                        + "so the upload cannot be completed.");
+                }
 
-                    if (_partOverride is not null)
-                    {
-                        return await _partOverride($"{upload.ObjectUrl}?{query}", partOffset, length, headers).ConfigureAwait(false);
-                    }
+                partEtags[index] = etag.Trim('"');
+                return new PartResult(number, partEtags[index], null);
+            },
+            ctx.Cancellation);
 
-                    // Rewound per attempt: a retry has to re-send the same slice from the start.
-                    file.Position = partOffset;
-                    return await ctx.Handler.PutChunkAsync(
-                        $"{upload.ObjectUrl}?{query}",
-                        new ChunkSliceStream(file, length),
-                        length,
-                        basePosition: partOffset,
-                        totalFileSize: ctx.FileSize,
-                        dateTimeStarted: started,
-                        headers: headers,
-                        speedBudget: ctx.SpeedBudget,
-                        cancellationToken: ctx.Cancellation).ConfigureAwait(false);
-                }).ConfigureAwait(false);
-
-            if (partSignError is not null)
-            {
-                return partSignError;
-            }
-
-            if (part.StatusCode is < 200 or >= 300)
-            {
-                return $"UploadNow's storage refused part {partNumber.ToString(CultureInfo.InvariantCulture)} "
-                       + $"(HTTP {part.StatusCode}): {Snippet(part.Body)}";
-            }
-
-            if (part.ETag is not { Length: > 0 } etag)
-            {
-                return $"UploadNow's storage returned no ETag for part {partNumber.ToString(CultureInfo.InvariantCulture)}, "
-                       + "so the upload cannot be completed.";
-            }
-
-            etags.Add(etag.Trim('"'));
-            position += length;
-            partNumber++;
+        if (Array.Find(results, r => r.Error is not null) is { Error: not null } failed)
+        {
+            return failed.Error;
         }
+
+        etags.AddRange(partEtags.Select(e => e!));
 
         return await CompleteAsync(ctx, upload, uploadId, etags);
     }
@@ -404,7 +446,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 : await ctx.Handler.UploadBytesAsync(
                     HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, headers, cancellationToken: ctx.Cancellation)
                     .ConfigureAwait(false);
-        }).ConfigureAwait(false);
+        }, ctx.Cancellation).ConfigureAwait(false);
 
         if (signError is not null)
         {
@@ -465,7 +507,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?{query}", Encoding.UTF8.GetString(body), headers).ConfigureAwait(false)
                 : await ctx.Handler.UploadBytesAsync(
                     HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, headers, cancellationToken: ctx.Cancellation)
-                    .ConfigureAwait(false)).ConfigureAwait(false);
+                    .ConfigureAwait(false), ctx.Cancellation).ConfigureAwait(false);
 
         // R2, like S3, can report a failure inside a 200 on this call — so the body is checked too.
         if (response.StatusCode is < 200 or >= 300 || response.Body.Contains("<Error>", StringComparison.OrdinalIgnoreCase))
@@ -656,9 +698,14 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
 
     internal static string Sha256Hex(byte[] data) => Convert.ToHexStringLower(SHA256.HashData(data));
 
-    private static async Task<string> ComputeMd5Async(FileStream file, long offset, long length, CancellationToken ct)
+    /// <summary>
+    /// Hashes one slice. Takes a Stream it OWNS rather than repositioning a shared FileStream: the
+    /// MD5 pre-pass and the upload pass used to share one handle and move its position between them,
+    /// which two concurrent parts would corrupt.
+    /// </summary>
+    private static async Task<string> ComputeMd5Async(Stream slice, long length, CancellationToken ct)
     {
-        file.Position = offset;
+        using Stream file = slice;
         using MD5 md5 = MD5.Create();
         byte[] buffer = new byte[81920];
         long remaining = length;

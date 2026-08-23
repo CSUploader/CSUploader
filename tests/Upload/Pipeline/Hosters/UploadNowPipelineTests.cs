@@ -34,7 +34,16 @@ public class UploadNowPipelineTests : IDisposable
     private const string InitiateXml = """<?xml version="1.0" encoding="UTF-8"?><InitiateMultipartUploadResult><UploadId>UP-1</UploadId></InitiateMultipartUploadResult>""";
     private const string CompleteXml = """<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUploadResult><ETag>&quot;abc-1&quot;</ETag></CompleteMultipartUploadResult>""";
 
-    public UploadNowPipelineTests() => File.WriteAllBytes(_file, new byte[2048]);
+    public UploadNowPipelineTests()
+    {
+        byte[] content = new byte[2048];
+        for (int i = 0; i < content.Length; i++)
+        {
+            content[i] = (byte)(i % 251);
+        }
+
+        File.WriteAllBytes(_file, content);
+    }
 
     public void Dispose()
     {
@@ -52,7 +61,7 @@ public class UploadNowPipelineTests : IDisposable
                 calls.Add($"{method} {Trim(url)}");
                 return Task.FromResult(Reply(url, body, headers));
             },
-            partOverride: (url, _, _, headers) =>
+            partOverride: (url, _, _, headers, _, _, _) =>
             {
                 calls.Add("PUT part");
                 Assert.StartsWith("AWS4-HMAC-SHA256 Credential=2f488bd324502ec2/", headers["Authorization"], StringComparison.Ordinal);
@@ -102,7 +111,7 @@ public class UploadNowPipelineTests : IDisposable
 
                 return Task.FromResult(Reply(url, body, headers));
             },
-            partOverride: (_, _, _, _) => Task.FromResult(
+            partOverride: (_, _, _, _, _, _, _) => Task.FromResult(
                 new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag-1\"")));
 
         await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
@@ -134,7 +143,7 @@ public class UploadNowPipelineTests : IDisposable
 
                 return Task.FromResult(Reply(url, body, headers));
             },
-            partOverride: (_, _, _, _) => Task.FromResult(
+            partOverride: (_, _, _, _, _, _, _) => Task.FromResult(
                 new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag-1\"")));
 
         await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
@@ -153,7 +162,7 @@ public class UploadNowPipelineTests : IDisposable
                 url.Contains("uploadId=", StringComparison.Ordinal) && !url.Contains("partNumber", StringComparison.Ordinal)
                     ? new HttpResponseSnapshot(200, "<Error><Code>InvalidPart</Code></Error>", Array.Empty<string>())
                     : Reply(url, body, headers)),
-            partOverride: (_, _, _, _) => Task.FromResult(
+            partOverride: (_, _, _, _, _, _, _) => Task.FromResult(
                 new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag-1\"")));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
@@ -169,7 +178,7 @@ public class UploadNowPipelineTests : IDisposable
         // would produce a file the host assembles wrongly or refuses — better to stop here and say why.
         UploadNowPipeline pipeline = new(
             apiOverride: (method, url, body, headers) => Task.FromResult(Reply(url, body, headers)),
-            partOverride: (_, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
+            partOverride: (_, _, _, _, _, _, _) => Task.FromResult(new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>())));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
@@ -205,7 +214,7 @@ public class UploadNowPipelineTests : IDisposable
 
                 return Task.FromResult(Reply(url, body, headers));
             },
-            partOverride: (_, _, _, _) => Task.FromResult(
+            partOverride: (_, _, _, _, _, _, _) => Task.FromResult(
                 new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag-1\"")));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
@@ -236,7 +245,7 @@ public class UploadNowPipelineTests : IDisposable
                 calls++;
                 return Task.FromResult(new HttpResponseSnapshot(500, "<Error><Code>InternalError</Code></Error>", Array.Empty<string>()));
             },
-            partOverride: (_, _, _, _) => throw new InvalidOperationException("must not upload a part"));
+            partOverride: (_, _, _, _, _, _, _) => throw new InvalidOperationException("must not upload a part"));
 
         List<UploadEvent> events = await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
 
@@ -276,6 +285,124 @@ public class UploadNowPipelineTests : IDisposable
     }
 
     /// <summary>Answers each stage with the shape the live host uses.</summary>
+    // ── parallel parts ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The part count is a ceiling division and never zero for a non-empty file. Plain integer
+    /// division drops the final PARTIAL part, so the upload completes having silently transmitted a
+    /// truncated object — the worst shape of failure this conversion could introduce.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(4096, 1)]
+    [InlineData(64L * 1024 * 1024, 1)]              // exactly one part, not two
+    [InlineData((64L * 1024 * 1024) + 1, 2)]        // the +1 is a whole extra part
+    [InlineData((64L * 1024 * 1024 * 2) + 4096, 3)] // two full parts and a remainder
+    public void TheExpectedPartCount_IsACeilingDivision(long fileSize, int expected)
+    {
+        const long PartSize = 64L * 1024 * 1024;
+
+        int actual = fileSize <= 0 ? 0 : (int)(((fileSize - 1) / PartSize) + 1);
+
+        Assert.Equal(expected, actual);
+    }
+
+    /// <summary>
+    /// <c>WithStorageRetryAsync</c> re-invokes the part delegate on a 5xx, so its body must be
+    /// re-openable. A consumed slice sends EOF on the second attempt — the retry "succeeds" having
+    /// transmitted nothing, and the assembled object is silently short. Hence a body FACTORY rather
+    /// than a body.
+    /// </summary>
+    [Fact]
+    public async Task ARetriedPart_SendsItsBytesAgain_NotEof()
+    {
+        List<long> bodyLengths = [];
+        int attempts = 0;
+
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) => Task.FromResult(Reply(url, body, headers)),
+            partOverride: async (url, offset, length, headers, openBody, report, ct) =>
+            {
+                int attempt = ++attempts;
+
+                using Stream part = openBody();
+                using MemoryStream sink = new();
+                await part.CopyToAsync(sink, ct);
+                bodyLengths.Add(sink.Length);
+
+                return attempt == 1
+                    ? new HttpResponseSnapshot(503, "slow down", Array.Empty<string>())
+                    : new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag\"");
+            });
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        // BOTH attempts carried the real bytes. Without a fresh slice the second would be zero.
+        Assert.Equal(2, bodyLengths.Count);
+        Assert.All(bodyLengths, length => Assert.Equal(2048, length));
+    }
+
+    /// <summary>
+    /// The MD5 pre-pass and the upload pass used to share the one <c>FileStream</c>, moving its
+    /// position between them. Each part now hashes and sends its OWN slice, so the signed
+    /// Content-MD5 must still match the bytes that go on the wire.
+    /// </summary>
+    [Fact]
+    public async Task EachPart_HashesTheSameBytesItSends()
+    {
+        string? signedMd5 = null;
+        byte[]? sent = null;
+
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) => Task.FromResult(Reply(url, body, headers)),
+            partOverride: async (url, offset, length, headers, openBody, report, ct) =>
+            {
+                signedMd5 = headers["Content-MD5"];
+
+                using Stream part = openBody();
+                using MemoryStream sink = new();
+                await part.CopyToAsync(sink, ct);
+                sent = sink.ToArray();
+
+                return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag\"");
+            });
+
+        await DrainAsync(pipeline.RunAsync(MakeContext(), CancellationToken.None));
+
+        Assert.NotNull(sent);
+        Assert.Equal(signedMd5, Convert.ToBase64String(System.Security.Cryptography.MD5.HashData(sent!)));
+    }
+
+    [Fact]
+    public async Task AtDegreeOne_SendsPartsOneAtATime()
+    {
+        int running = 0;
+        int peak = 0;
+        Lock sync = new();
+
+        UploadNowPipeline pipeline = new(
+            apiOverride: (method, url, body, headers) => Task.FromResult(Reply(url, body, headers)),
+            partOverride: async (url, offset, length, headers, openBody, report, ct) =>
+            {
+                lock (sync)
+                {
+                    peak = Math.Max(peak, ++running);
+                }
+
+                await Task.Delay(10, ct);
+                lock (sync)
+                {
+                    running--;
+                }
+
+                return new HttpResponseSnapshot(200, string.Empty, Array.Empty<string>(), null, "\"etag\"");
+            });
+
+        await DrainAsync(pipeline.RunAsync(MakeContext() with { MaxParallelParts = 1 }, CancellationToken.None));
+
+        Assert.Equal(1, peak);
+    }
+
     private static HttpResponseSnapshot Reply(string url, string? body, IReadOnlyDictionary<string, string>? headers)
     {
         _ = body;

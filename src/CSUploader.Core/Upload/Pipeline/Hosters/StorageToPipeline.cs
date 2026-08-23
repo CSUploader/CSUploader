@@ -88,7 +88,7 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     private readonly Func<string, IReadOnlyDictionary<string, string>?, Task<HttpResponseSnapshot>>? _getOverride;
     private readonly Func<string, string, IReadOnlyDictionary<string, string>, Task<HttpResponseSnapshot>>? _postJsonOverride;
     private readonly Func<string, string, string, Action<long, long>, SpeedBudget?, Task<HttpResponseSnapshot>>? _putOverride;
-    private readonly Func<string, int, HttpResponseSnapshot>? _putPartOverride;
+    private readonly PutPartHandler? _putPartOverride;
 
     public StorageToPipeline()
     {
@@ -97,12 +97,13 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
     /// <summary>Test ctor — drives the homepage GET, the JSON API POSTs, the single R2 PUT and (optionally)
     /// the multipart part PUTs from canned responses so the bootstrap/init/transfer/complete/confirm
     /// orchestration runs without the network. The single-PUT override is handed the progress callback so a
-    /// test can exercise the TransferProgress bridge; the part override receives (url, partNumber).</summary>
+    /// test can exercise the TransferProgress bridge; the part override is a <see cref="PutPartHandler"/>,
+    /// so it carries the body and a progress reporter as well as the addressing.</summary>
     internal StorageToPipeline(
         Func<string, HttpResponseSnapshot> getOverride,
         Func<string, string, IReadOnlyDictionary<string, string>, HttpResponseSnapshot> postJsonOverride,
         Func<string, string, string, Action<long, long>, HttpResponseSnapshot> putOverride,
-        Func<string, int, HttpResponseSnapshot>? putPartOverride = null)
+        PutPartHandler? putPartOverride = null)
     {
         _getOverride = (url, _) => Task.FromResult(getOverride(url));
         _postJsonOverride = (url, body, headers) => Task.FromResult(postJsonOverride(url, body, headers));
@@ -272,33 +273,61 @@ public sealed partial class StorageToPipeline : IFileHosterPipeline
         ctx.Handler.UploadProgress += OnProgress;
         try
         {
-            await using FileStream? fs = _putPartOverride is null ? new FileStream(ctx.FilePath, FileMode.Open, FileAccess.Read) : null;
-            for (int i = 0; i < init.PartUrls.Count; i++)
+            // Validate the server's part map against the file before sending a byte: too few URLs
+            // uploads a prefix and still calls complete-multipart, publishing a truncated object.
+            long expectedParts = Math.Max(1, ((total - 1) / init.PartSize) + 1);
+            if (init.PartUrls.Count != expectedParts)
             {
-                int partNumber = i + 1;
-                long basePos = (long)i * init.PartSize;
-                long len = Math.Min(init.PartSize, total - basePos);
+                return (false,
+                    $"storage.to returned {init.PartUrls.Count} part URL(s) for a {total}-byte file at "
+                    + $"{init.PartSize} bytes per part, where {expectedParts} were expected.");
+            }
 
-                // A part-PUT transport fault (or cancellation) is left to THROW — like the single path it
-                // propagates raw to the retry layer, which re-runs from a fresh init-batch. Safe because
-                // nothing is committed until complete-multipart + confirm-batch below.
-                HttpResponseSnapshot resp = _putPartOverride is not null
-                    ? _putPartOverride(init.PartUrls[i], partNumber)
-                    : await ctx.Handler.PutChunkAsync(
-                        init.PartUrls[i], new ChunkSliceStream(fs!, len), len, basePos, total, started,
-                        headers: null, ctx.SpeedBudget, ctx.Cancellation);
+            using FileSliceReader source = new(ctx.FilePath);
+            PartProgressAggregator partProgress = new(
+                init.PartUrls.Count,
+                fileTotal => ctx.Handler.RaiseUploadProgress(new OperationProgressEventArgs(total, fileTotal, started)));
 
-                if (resp.StatusCode is < 200 or >= 300)
+            // A part-PUT transport fault (or cancellation) is left to THROW — like the single path it
+            // propagates raw to the retry layer, which re-runs from a fresh init-batch. Safe because
+            // nothing is PUBLISHED until complete-multipart + confirm-batch below.
+            PartResult[] results = await ParallelPartUploader.RunAsync(
+                init.PartUrls.Count,
+                ctx.MaxParallelParts,
+                async (i, ct) =>
                 {
-                    return (false, $"storage.to R2 part {partNumber} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}");
-                }
+                    int partNumber = i + 1;
+                    long basePos = (long)i * init.PartSize;
+                    long len = Math.Min(init.PartSize, total - basePos);
+                    Stream body = source.OpenSlice(basePos, len);
 
-                if (string.IsNullOrEmpty(resp.ETag))
-                {
-                    return (false, $"storage.to R2 part {partNumber} returned no ETag");
-                }
+                    HttpResponseSnapshot resp = _putPartOverride is not null
+                        ? await _putPartOverride(
+                            init.PartUrls[i], partNumber, basePos, len, body, bytes => partProgress.Report(i, bytes), ct)
+                        : await ctx.Handler.PutChunkAsync(
+                            init.PartUrls[i], body, len, basePos, total, started,
+                            headers: null, ctx.SpeedBudget, ct, method: null,
+                            reportPartProgress: bytes => partProgress.Report(i, bytes));
 
-                parts[i] = (partNumber, resp.ETag);
+                    if (resp.StatusCode is < 200 or >= 300)
+                    {
+                        return new PartResult(partNumber, null, $"storage.to R2 part {partNumber} rejected (HTTP {resp.StatusCode}): {Snippet(resp.Body)}");
+                    }
+
+                    return string.IsNullOrEmpty(resp.ETag)
+                        ? new PartResult(partNumber, null, $"storage.to R2 part {partNumber} returned no ETag")
+                        : new PartResult(partNumber, resp.ETag, null);
+                },
+                ctx.Cancellation);
+
+            if (Array.Find(results, r => r.Error is not null) is { Error: not null } failed)
+            {
+                return (false, failed.Error);
+            }
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                parts[i] = (results[i].PartNumber, results[i].ETag!);
             }
         }
         finally
