@@ -9,8 +9,9 @@ namespace CSUploader.Lib.Update;
 /// What the updater is going to download, when that can be said at all.
 /// <para>
 /// There are two answers and no third. Either one package is being fetched whole, in which case the
-/// reported percentage IS its byte fraction and a size can be counted against it — or the updater is
-/// applying deltas, in which case no byte figure can honestly be derived and this says so.
+/// reported percentage tracks its byte fraction and a size can be counted against it — or the
+/// updater is applying deltas, in which case no byte figure can honestly be derived and this says
+/// so.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -46,8 +47,14 @@ public sealed class UpdateDownloadPlan
     public long TotalBytes { get; }
 
     /// <summary>
-    /// One package, fetched whole. Velopack passes that download's own progress straight through, so
-    /// the percentage really is the byte fraction.
+    /// One package, fetched whole — the percentage is that download's own, so bytes follow from it
+    /// by proportion.
+    /// <para>
+    /// Close, not exact. Velopack's source reports only every few points and then rounds to the
+    /// nearest even percentage before passing it on, so a figure derived from it can sit about a
+    /// percent from the truth and the last percent can arrive after the bar reads 100. That is a
+    /// rounding error on a progress readout, not a wrong answer about which package is moving.
+    /// </para>
     /// </summary>
     public static UpdateDownloadPlan Full(long bytes) => bytes > 0 ? new(bytes) : Unknown;
 

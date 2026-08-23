@@ -11,14 +11,14 @@ namespace CSUploader.Lib.Update;
 /// </summary>
 /// <param name="Percent">0-100, exactly as the updater reported it.</param>
 /// <param name="BytesReceived">
-/// Derived from <paramref name="Percent"/> through <see cref="UpdateDownloadPlan"/>, so it advances
-/// in steps of one percent rather than continuously — and NOT by simple proportion, because the
-/// percentage is not a byte fraction on the delta path. Zero when the total is unknown.
+/// A proportion of <paramref name="TotalBytes"/> taken from <paramref name="Percent"/>, so it moves
+/// in visible steps rather than continuously and is accurate to roughly a percentage point. Zero
+/// when the total is unknown — which includes every delta download, where the percentage is not a
+/// byte fraction at all; see <see cref="UpdateDownloadPlan"/>.
 /// </param>
 /// <param name="TotalBytes">
-/// The expected download size, or 0 when it could not be determined. Chosen by mirroring the
-/// updater's own delta-eligibility rules, so it is right about which package will be fetched — but
-/// still an estimate, because a delta attempt that FAILS falls back to the full package mid-flight.
+/// The download's size, or 0 when no size can honestly be counted against the percentage. Not a
+/// guess: it is present only when the updater's own rules say one whole package is being fetched.
 /// </param>
 /// <param name="BytesPerSecond">
 /// A smoothed rate, or 0 before enough has arrived to measure one. Zero whenever

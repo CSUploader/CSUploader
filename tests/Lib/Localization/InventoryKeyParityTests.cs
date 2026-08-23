@@ -141,12 +141,28 @@ public class InventoryKeyParityTests
             + ". Add them there (the English text is fine for an untranslated string) and regenerate "
             + "that culture's resx with scripts/md-to-resx.py.");
 
-        // ...and the backlog must not outlive the debt: a key translated everywhere should leave
-        // the list, or the gate quietly stops watching it.
+        // The gate has to run in BOTH directions, or a key removed from English but left in the
+        // translations goes unnoticed and each culture keeps shipping a string nothing renders.
+        string[] orphaned = [.. translated.Except(english).Order()];
+        Assert.True(
+            orphaned.Length == 0,
+            $"i18n-inventory.{culture}.md has {orphaned.Length} key(s) the English inventory does not: "
+            + string.Join(", ", orphaned.Take(20)) + ". Remove them, or restore them to English.");
+
+        // ...and the backlog must not outlive the debt. One culture having the key is enough: the
+        // entry claims it is missing EVERYWHERE, so a single counter-example makes it false, and a
+        // false entry silently stops the gate watching that key in the cultures still lacking it.
         string[] stale = [.. UntranslatedBacklog.Intersect(translated).Order()];
         Assert.True(
             stale.Length == 0,
-            $"{stale.Length} key(s) are listed as untranslated but present in {culture}: "
+            $"{stale.Length} backlog key(s) are present in {culture}: "
             + string.Join(", ", stale.Take(20)) + ". Remove them from UntranslatedBacklog.");
+
+        // A backlog entry English itself has dropped is watching nothing at all.
+        string[] vanished = [.. UntranslatedBacklog.Except(english).Order()];
+        Assert.True(
+            vanished.Length == 0,
+            $"{vanished.Length} backlog key(s) no longer exist in English: "
+            + string.Join(", ", vanished.Take(20)) + ". Remove them from UntranslatedBacklog.");
     }
 }

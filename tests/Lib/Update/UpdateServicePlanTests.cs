@@ -164,4 +164,27 @@ public class UpdateServicePlanTests
 
         Assert.False(plan.IsKnown);
     }
+
+    /// <summary>
+    /// The case that actually pins the overflow guard rather than passing by luck.
+    /// <para>
+    /// Two <see cref="long.MaxValue"/> deltas wrap to -2, which still looks "small enough" and lands
+    /// on the delta path — so an unguarded sum reaches the same answer for the wrong reason. A THIRD
+    /// wraps back to a huge positive, which looks "too large", and an unguarded sum would then
+    /// announce a 90 MB full download that Velopack will never perform: its own Sum throws on this
+    /// metadata, outside the delta-fallback handler, so nothing is fetched at all.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void WhenTheDeltaSizesWrapBackAroundToLookPlausible_NoSizeIsClaimed()
+    {
+        UpdateDownloadPlan plan = UpdateService.PlanDownload(Info(
+            Full(90_000_000),
+            Full(80_000_000),
+            Delta(long.MaxValue, "1"),
+            Delta(long.MaxValue, "2"),
+            Delta(long.MaxValue, "3")));
+
+        Assert.False(plan.IsKnown);
+    }
 }

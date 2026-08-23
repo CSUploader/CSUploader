@@ -237,17 +237,23 @@ public class UpdateDownloadStatsTests
     }
 
     /// <summary>
-    /// Going backwards is what a delta download failing and restarting as the full package looks
-    /// like. Averaging across that seam reports a rate that was never true of either side, and the
-    /// delta's advertised size no longer describes what is being fetched — so both are dropped.
+    /// A download that restarts — Velopack's downloader retries against a lowercased URL after
+    /// partial progress — sends the percentage backwards. The rates measured across that seam
+    /// describe neither attempt, so they go.
+    /// <para>
+    /// The SIZE stays. A retry fetches the same package it was already fetching, and dropping the
+    /// plan would hide the byte readout for the rest of a download that is proceeding perfectly
+    /// well. An earlier version dropped it, on the theory that a backwards step meant a fallback
+    /// from deltas to the full package; that theory was wrong, and this is the test that says so.
+    /// </para>
     /// </summary>
     [Fact]
-    public void APercentageThatGoesBackwards_RestartsTheMeasurement()
+    public void ARestartedDownload_ClearsTheRatesButKeepsTheSize()
     {
         (UpdateDownloadStats stats, ManualTimeProvider clock) = Build();
 
         stats.Report(0);
-        clock.Advance(TimeSpan.FromMilliseconds(50)); // the delta: small, so very fast
+        clock.Advance(TimeSpan.FromMilliseconds(50));
         stats.Report(90);
 
         clock.Advance(TimeSpan.FromSeconds(1));
@@ -255,10 +261,13 @@ public class UpdateDownloadStatsTests
 
         Assert.Equal(5, afterRestart.Percent);
         Assert.Equal(0, afterRestart.BytesPerSecond);
-        Assert.Equal(0, afterRestart.TotalBytes);
         Assert.Null(afterRestart.Remaining);
 
-        // ...and it measures the NEW download from here, not from the old baseline: 10% in that
+        // The size survives, and so does the count against it.
+        Assert.Equal(TenMegabytes, afterRestart.TotalBytes);
+        Assert.Equal(TenMegabytes / 20, afterRestart.BytesReceived);
+
+        // ...and it measures the NEW attempt from here, not from the old baseline: 10% in that
         // second, 85% still to go.
         clock.Advance(TimeSpan.FromSeconds(1));
         Assert.Equal(TimeSpan.FromSeconds(8.5), stats.Report(15).Remaining);

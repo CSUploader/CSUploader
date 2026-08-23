@@ -44,7 +44,7 @@ public sealed class UpdateDownloadStats
     private readonly SpeedSampleBuffer _bytes = new(SampleWindow);
     private readonly SpeedSampleBuffer _seconds = new(SampleWindow);
 
-    private UpdateDownloadPlan _plan;
+    private readonly UpdateDownloadPlan _plan;
     private int _lastPercent = -1;
     private long _lastTimestamp;
 
@@ -68,10 +68,14 @@ public sealed class UpdateDownloadStats
 
         if (percent < _lastPercent)
         {
-            // The updater went BACKWARDS. Rates measured against the old package are now measuring
-            // the wrong thing, and so is the plan - a fallback is precisely the case where what was
-            // planned stops describing what is being fetched. Start over rather than average across
-            // the seam.
+            // The updater went BACKWARDS, which happens when a download restarts - Velopack's own
+            // downloader retries against a lowercased URL after partial progress. The rates
+            // measured across the seam describe neither attempt, so they go; the PLAN stays,
+            // because a retry fetches the same package it was already fetching.
+            //
+            // This is deliberately not a fallback detector. It was written as one and that was
+            // wrong: Velopack can abandon deltas before reporting any progress and simply start
+            // the full download at 2%, with nothing ever going backwards.
             Restart();
         }
 
@@ -112,7 +116,6 @@ public sealed class UpdateDownloadStats
         _steps.Clear();
         _bytes.Clear();
         _seconds.Clear();
-        _plan = UpdateDownloadPlan.Unknown;
         _lastPercent = -1;
     }
 
