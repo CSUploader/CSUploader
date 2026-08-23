@@ -226,4 +226,37 @@ public class HosterUploadSummaryTests
         s.Files.First(f => !f.Included && f.Size == 200).Included = true;
         Assert.Equal(1, s.SpaceUncheckedCount);
     }
+    /// <summary>
+    /// The summary header's "max X per file" suffix quotes the hoster's DECLARED cap, so it must
+    /// read in whichever base that cap is round in — the same rule the wizard's "Max file size"
+    /// column follows. DropMB's 512,000,000 is the "512 MB" its own config states; a forced-binary
+    /// render made the summary bar say "488.28 MiB" while the hoster page said "512 MB" for the
+    /// very same number.
+    /// </summary>
+    [Theory]
+    [InlineData(512_000_000, "512 MB")] // DropMB's share.maxSize
+    [InlineData(5_000_000_000, "5 GB")] // 1Fichier's guest cap
+    [InlineData(53_687_091_200, "50 GiB")] // DropMeFiles — binary-round caps keep reading binary
+    public void MaxFileSizeDisplay_QuotesTheCapInItsRoundUnit(long cap, string expected)
+    {
+        HosterUploadSummary s = new("DropMB", "user", [Item("a", 10)], availableBytes: null, maxFileSize: cap);
+
+        Assert.Contains(expected, s.MaxFileSizeDisplay, StringComparison.Ordinal);
+        Assert.DoesNotContain("488.28", s.IncludedSummary, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Lockstep with the hoster page: the summary bar and the step-2 "Max file size" column quote
+    /// the SAME cap, so they must never render it two different ways. This is the assertion that
+    /// catches the next surface someone adds without the roundness rule.
+    /// </summary>
+    [Fact]
+    public void MaxFileSizeDisplay_MatchesTheHosterColumnForTheSameCap()
+    {
+        const long Cap = 512_000_000;
+        FileHosterSelectionViewModel column = new("DropMB", [], maxFileSizeResolver: _ => Cap);
+        HosterUploadSummary s = new("DropMB", "user", [Item("a", 10)], availableBytes: null, maxFileSize: Cap);
+
+        Assert.Contains(column.MaxFileSizeDisplay, s.MaxFileSizeDisplay, StringComparison.Ordinal);
+    }
 }

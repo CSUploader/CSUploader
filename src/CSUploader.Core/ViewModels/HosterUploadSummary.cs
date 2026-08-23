@@ -176,7 +176,11 @@ public sealed partial class HosterUploadSummary : ObservableObject
     public string CapacityError => IsOverCapacity ? Localizer.Instance["Wizard_Summary_OverCapacityHint"] : string.Empty;
 
     /// <summary>Pre-formatted "  •  max X per file" suffix for the summary header, or empty when the
-    /// hoster declares no cap.</summary>
+    /// hoster declares no cap. The cap is DECLARED, not measured, so it renders in whichever base it
+    /// is round in — the same rule as the step-2 "Max file size" column and the oversize warning, and
+    /// for the same reason: DropMB's 512,000,000 is the "512 MB" its own config states, not the
+    /// arithmetically-identical "488.28 MiB". The measured figures above (included bytes, free space)
+    /// stay binary; they are nobody's advertised number.</summary>
     public string MaxFileSizeDisplay
     {
         get
@@ -186,7 +190,7 @@ public sealed partial class HosterUploadSummary : ObservableObject
                 return string.Empty;
             }
 
-            string size = ByteUnit.FromBytes(bytes, ByteBase.Binary).ToFriendlyString();
+            string size = ByteUnit.FromBytesPreferRoundUnit(bytes).ToFriendlyString();
             return "  •  " + string.Format(
                 CultureInfo.CurrentCulture,
                 Localizer.Instance["Wizard_Summary_MaxFileSize_Format"],
