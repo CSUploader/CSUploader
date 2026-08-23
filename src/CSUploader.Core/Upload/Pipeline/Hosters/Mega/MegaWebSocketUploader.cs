@@ -106,6 +106,9 @@ internal static class MegaWebSocketUploader
     /// token plus the per-chunk MACs ordered by offset (for <c>condense_macs</c>). Progress reports
     /// acked bytes. <paramref name="fileno"/> must be unique within the MEGA session.
     /// </summary>
+    /// <param name="socketFactory">Test seam. Null in production, where a real
+    /// <see cref="MegaClientWebSocket"/> is used — see <see cref="IMegaSocket"/> for why the seam is
+    /// here at all.</param>
     public static async Task<(byte[] Token, List<uint[]> Macs)> UploadAsync(
         string host,
         string uri,
@@ -115,9 +118,10 @@ internal static class MegaWebSocketUploader
         long size,
         Action<long, long>? progress,
         SpeedBudget speedBudget,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<IMegaSocket>? socketFactory = null)
     {
-        using ClientWebSocket ws = new();
+        using IMegaSocket ws = socketFactory?.Invoke() ?? new MegaClientWebSocket();
         await ws.ConnectAsync(new Uri($"wss://{host}/{uri}"), ct).ConfigureAwait(false);
 
         (List<(long Offset, int Length)> chunks, bool needEmptyTail) = MegaCrypto.IterChunks(size);
@@ -154,7 +158,7 @@ internal static class MegaWebSocketUploader
                     WebSocketReceiveResult r;
                     do
                     {
-                        r = await ws.ReceiveAsync(buf, cts.Token).ConfigureAwait(false);
+                        r = await ws.ReceiveAsync(new ArraySegment<byte>(buf), cts.Token).ConfigureAwait(false);
                         if (r.MessageType == WebSocketMessageType.Close)
                         {
                             return;
@@ -247,7 +251,7 @@ internal static class MegaWebSocketUploader
                 macsByOffset[pos] = mac;
 
                 byte[] header = BuildChunkHeader(fileno, pos, chunkLen, cipher);
-                await ws.SendAsync(header, WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
+                await ws.SendAsync(new ArraySegment<byte>(header), WebSocketMessageType.Binary, endOfMessage: true, cts.Token).ConfigureAwait(false);
                 Volatile.Write(ref lastOutboundProgress, Environment.TickCount64);
 
                 // This path never touches HttpHandler or ThrottledStream — it reads the file itself

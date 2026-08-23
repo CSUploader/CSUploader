@@ -605,9 +605,9 @@ public sealed partial class ExtMatrixPipeline : IFileHosterPipeline
             ctx.FilePath,
             ApiUploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

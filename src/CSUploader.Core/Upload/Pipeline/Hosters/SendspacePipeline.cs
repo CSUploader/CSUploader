@@ -419,9 +419,9 @@ public sealed class SendspacePipeline : IFileHosterPipeline
                 ctx.FilePath,
                 ticket.ActionUrl,
                 fileFieldName: FileFieldName,
+                ctx.SpeedBudget,
                 extraFields: fields,
                 headers: UploadHeaders(),
-                speedBudget: ctx.SpeedBudget,
                 cancellationToken: ctx.Cancellation);
     }
 }

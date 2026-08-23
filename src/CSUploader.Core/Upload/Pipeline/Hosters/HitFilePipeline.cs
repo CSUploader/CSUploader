@@ -747,9 +747,9 @@ public sealed partial class HitFilePipeline : IFileHosterPipeline, ISessionRefre
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "Filedata",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

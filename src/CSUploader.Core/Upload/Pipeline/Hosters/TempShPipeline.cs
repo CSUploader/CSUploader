@@ -186,9 +186,9 @@ public sealed class TempShPipeline : IFileHosterPipeline
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: new Dictionary<string, string>(StringComparer.Ordinal),
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

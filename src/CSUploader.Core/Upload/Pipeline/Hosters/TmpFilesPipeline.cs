@@ -218,9 +218,9 @@ public sealed class TmpFilesPipeline : IFileHosterPipeline
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

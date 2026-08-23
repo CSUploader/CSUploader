@@ -151,7 +151,7 @@ public sealed class FileCatPipeline : IFileHosterPipeline, ISessionRefreshablePi
         // answers 403 "Access denied", measured.
         Task<HttpResponseSnapshot> uploadTask = _uploadOverride is not null
             ? _uploadOverride(ctx.FilePath, node, NodeHeaders(session), ctx.SpeedBudget)
-            : ctx.Handler.UploadMultipartAsync(ctx.FilePath, node, "file", null, NodeHeaders(session), ctx.SpeedBudget, ctx.Cancellation);
+            : ctx.Handler.UploadMultipartAsync(ctx.FilePath, node, "file", ctx.SpeedBudget, null, NodeHeaders(session), ctx.Cancellation);
 
         _ = uploadTask.ContinueWith(
             _ => progressChannel.Writer.Complete(),

@@ -217,9 +217,9 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
             ctx.FilePath,
             ApiUrl,
             fileFieldName: "fileToUpload",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

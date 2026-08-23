@@ -396,9 +396,9 @@ public sealed class NitroFlarePipeline : IFileHosterPipeline
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "files[]",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

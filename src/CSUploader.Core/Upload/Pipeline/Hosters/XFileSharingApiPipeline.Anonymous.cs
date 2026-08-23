@@ -292,9 +292,9 @@ public abstract partial class XFileSharingApiPipeline
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: fields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

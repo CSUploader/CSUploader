@@ -42,21 +42,32 @@ public class VikingFileParallelPartsTests : IDisposable
 
     public VikingFileParallelPartsTests()
     {
-        byte[] content = new byte[FileBytes];
-        for (int i = 0; i < content.Length; i++)
-        {
-            content[i] = Pattern(i);
-        }
-
-        File.WriteAllBytes(_path, content);
+        File.WriteAllBytes(_path, Content);
     }
 
-    /// <summary>251 is prime, so no two 4 KiB regions share a byte pattern — which is what lets a
-    /// wrongly-sliced part be detected rather than merely suspected.</summary>
-    private static byte Pattern(int index) => (byte)(index % 251);
+    /// <summary>
+    /// The file's bytes, and deliberately APERIODIC. An <c>index % 251</c> pattern repeats every 251
+    /// bytes, so a slice taken 251 bytes off compares EQUAL to the correct one and the wrong-offset
+    /// bug goes undetected. xorshift32's period is 2^32-1, well past anything written here.
+    /// </summary>
+    private static readonly byte[] Content = BuildContent();
 
-    private static byte[] Expected(int from, int count)
-        => [.. Enumerable.Range(from, count).Select(i => Pattern(i))];
+    private static byte[] BuildContent()
+    {
+        byte[] bytes = new byte[FileBytes];
+        uint state = 0x9E3779B9; // any fixed seed - what matters is that it is FIXED
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            bytes[i] = (byte)state;
+        }
+
+        return bytes;
+    }
+
+    private static byte[] Expected(int from, int count) => Content.AsSpan(from, count).ToArray();
 
     public void Dispose()
     {
@@ -255,8 +266,9 @@ public class VikingFileParallelPartsTests : IDisposable
     {
         List<long> published = [];
         Lock sync = new();
+        DrainingHandler transport = new();
         using HttpHandler handler = new(
-            new HttpClient(new DrainingHandler()), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
+            new HttpClient(transport), Mock.Of<IAppLogger>(), null, MockServerConfig.Disabled);
         handler.UploadProgress += (_, e) =>
         {
             lock (sync)
@@ -282,6 +294,17 @@ public class VikingFileParallelPartsTests : IDisposable
         Assert.Equal(published.OrderBy(x => x), published);
         Assert.Equal(FileBytes, published[^1]);
         Assert.All(published, value => Assert.InRange(value, 1, FileBytes));
+
+        // Through the real transport, not a seam: the parts overlapped in flight, and each request
+        // body carried its OWN region of the file. A pipeline that stopped calling
+        // ParallelPartUploader keeps its aggregation but loses the first; a shared or wrongly
+        // offset slice keeps both and loses the second.
+        Assert.True(transport.Peak > 1, "the real transport saw the parts one at a time");
+        Assert.Equal(Parts, transport.Bodies.Count);
+        for (int part = 1; part <= Parts; part++)
+        {
+            Assert.Equal(Expected((part - 1) * PartSize, PartSize), transport.Bodies[part]);
+        }
     }
 
     [Fact]
@@ -323,24 +346,57 @@ public class VikingFileParallelPartsTests : IDisposable
     /// to finish first is what makes the two modes distinguishable.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Stands in for R2 at the bottom of the REAL <see cref="HttpHandler.PutChunkAsync"/> — the one
+    /// layer the part overrides skip. It keeps the bytes rather than dropping them, and watches how
+    /// many requests are in flight, so a test above it can check the production transport carries
+    /// each part's own region and carries them at the same time.
+    /// <para>The delay is longest for the FIRST part, so the parts finish in reverse. Under
+    /// ascending completion a per-part absolute figure happens to look monotonic too, which is how
+    /// an earlier version of this test passed against the bug it exists to catch.</para>
+    /// </summary>
     private sealed class DrainingHandler : HttpMessageHandler
     {
+        private readonly Lock _sync = new();
+        private int _running;
+
+        public ConcurrentDictionary<int, byte[]> Bodies { get; } = new();
+
+        public int Peak { get; private set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             int partNumber = int.Parse(
                 request.RequestUri!.Query.Split("partNumber=")[1],
                 CultureInfo.InvariantCulture);
 
-            await Task.Delay((Parts - partNumber + 1) * 30, cancellationToken);
-
-            if (request.Content is not null)
+            lock (_sync)
             {
-                await request.Content.CopyToAsync(Stream.Null, cancellationToken);
+                Peak = Math.Max(Peak, ++_running);
             }
 
-            HttpResponseMessage response = new(System.Net.HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
-            response.Headers.TryAddWithoutValidation("ETag", $"\"etag-{partNumber}\"");
-            return response;
+            try
+            {
+                await Task.Delay((Parts - partNumber + 1) * 30, cancellationToken);
+
+                if (request.Content is not null)
+                {
+                    using MemoryStream sink = new();
+                    await request.Content.CopyToAsync(sink, cancellationToken);
+                    Bodies[partNumber] = sink.ToArray();
+                }
+
+                HttpResponseMessage response = new(System.Net.HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
+                response.Headers.TryAddWithoutValidation("ETag", $"\"etag-{partNumber}\"");
+                return response;
+            }
+            finally
+            {
+                lock (_sync)
+                {
+                    _running--;
+                }
+            }
         }
     }
 

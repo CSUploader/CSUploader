@@ -446,9 +446,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string fileFieldName,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? extraFields = null,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -481,7 +481,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             }
 
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = speedBudget is not null
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using Stream disposeFileStream = fileStream;
@@ -577,10 +577,10 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
-        => UploadFileBodyAsync(HttpMethod.Put, filePath, endpoint, contentType, headers, speedBudget, cancellationToken);
+        => UploadFileBodyAsync(HttpMethod.Put, filePath, endpoint, contentType, speedBudget, headers, cancellationToken);
 
     /// <summary>
     /// Streams a file as the raw request body via an arbitrary <paramref name="method"/> — the
@@ -597,8 +597,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string filePath,
         string endpoint,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -621,7 +621,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         try
         {
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = speedBudget is not null
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using Stream disposeFileStream = fileStream;
@@ -705,8 +705,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         string url,
         byte[] body,
         string contentType,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
@@ -725,7 +725,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         try
         {
             MemoryStream rawStream = new(body, 0, body.Length, writable: false);
-            Stream bodyStream = speedBudget is not null ? new ThrottledStream(rawStream, speedBudget) : rawStream;
+            Stream bodyStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited) ? new ThrottledStream(rawStream, speedBudget) : rawStream;
             using Stream disposeBodyStream = bodyStream;
             progressContent = new(
                 bodyStream,
@@ -818,8 +818,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default,
         HttpMethod? method = null,
         Action<long>? reportPartProgress = null)
@@ -841,7 +841,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
 
         try
         {
-            Stream chunkStream = speedBudget is not null
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             progressContent = new(
@@ -968,9 +968,9 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         DateTime dateTimeStarted,
         string fileFieldName,
         string filePartName,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? extraFields = null,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -995,7 +995,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 }
             }
 
-            Stream chunkStream = speedBudget is not null
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             ProgressStreamContent chunkPart = new(
@@ -1065,8 +1065,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -1085,7 +1085,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
             MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
             AddBareStringPart(multipartContent, "sid", sid);
 
-            Stream chunkStream = speedBudget is not null
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             ProgressStreamContent chunkPart = new(
@@ -1186,8 +1186,8 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         long basePosition,
         long totalFileSize,
         DateTime dateTimeStarted,
+        SpeedBudget speedBudget,
         IReadOnlyDictionary<string, string>? headers = null,
-        SpeedBudget? speedBudget = null,
         CancellationToken cancellationToken = default)
     {
         endpoint = MaybeRewriteToMockServer(endpoint);
@@ -1213,7 +1213,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
                 AddBareStringPart(multipartContent, field.Key, field.Value);
             }
 
-            Stream chunkStream = speedBudget is not null
+            Stream chunkStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(chunkData, speedBudget)
                 : chunkData;
             chunkPart = new(
@@ -1304,7 +1304,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         return [];
     }
 
-    public async Task UploadFileAsync(string filePath, string endpoint, SpeedBudget? speedBudget = null, CancellationToken cancellationToken = default)
+    public async Task UploadFileAsync(string filePath, string endpoint, SpeedBudget speedBudget, CancellationToken cancellationToken = default)
     {
         DateTime dateTimeStarted = DateTime.Now;
 
@@ -1323,7 +1323,7 @@ public class HttpHandler(HttpClient httpclient, IAppLogger logger, string? proxy
         {
             using MultipartFormDataContent multipartContent = BuildBrowserShapedMultipart(out string _);
             FileStream rawStream = new(filePath, FileMode.Open, FileAccess.Read);
-            Stream fileStream = speedBudget is not null
+            Stream fileStream = !ReferenceEquals(speedBudget, SpeedBudget.Unlimited)
                 ? new ThrottledStream(rawStream, speedBudget)
                 : rawStream;
             using var disposeFileStream = fileStream;

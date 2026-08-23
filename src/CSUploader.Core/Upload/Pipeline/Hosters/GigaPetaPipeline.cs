@@ -297,9 +297,9 @@ public sealed partial class GigaPetaPipeline : IFileHosterPipeline
             ctx.FilePath,
             endpoint,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

@@ -160,9 +160,9 @@ public abstract partial class XFileSharingApiPipeline
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: BuildClassicExtraFields(ctx, sessId),
             headers: BrowserClassicHeaders(),
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
 
     /// <summary>
@@ -256,8 +256,8 @@ public abstract partial class XFileSharingApiPipeline
                     basePosition: position,
                     totalFileSize: fileSize,
                     dateTimeStarted: started,
+                    ctx.SpeedBudget,
                     headers: headers,
-                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
             }
             catch when (chunkIndex == 0)

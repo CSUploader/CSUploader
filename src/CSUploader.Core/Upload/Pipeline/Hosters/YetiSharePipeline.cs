@@ -1001,9 +1001,9 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                     ctx.FilePath,
                     ticket.UploadUrl,
                     fileFieldName: FileFieldName,
+                    ctx.SpeedBudget,
                     extraFields: fields,
                     headers: NodeHeaders(session, ticket.UploadUrl),
-                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
         }
 
@@ -1047,8 +1047,8 @@ public abstract class YetiSharePipeline : IFileHosterPipeline, ISessionRefreshab
                 basePosition: basePos,
                 totalFileSize: total,
                 dateTimeStarted: started,
+                ctx.SpeedBudget,
                 headers: headers,
-                speedBudget: ctx.SpeedBudget,
                 cancellationToken: ctx.Cancellation);
 
             // An explicit per-file error means the node has given up; sending the rest wastes the

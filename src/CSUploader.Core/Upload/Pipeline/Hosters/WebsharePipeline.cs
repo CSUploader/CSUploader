@@ -372,9 +372,9 @@ public sealed class WebsharePipeline : IFileHosterPipeline
                     ctx.FilePath,
                     node,
                     fileFieldName: FileFieldName,
+                    ctx.SpeedBudget,
                     extraFields: BuildFields(ctx, 0, null),
                     headers: NodeHeaders(),
-                    speedBudget: ctx.SpeedBudget,
                     cancellationToken: ctx.Cancellation);
 
             return ParseUploadResponse(single);
@@ -427,8 +427,8 @@ public sealed class WebsharePipeline : IFileHosterPipeline
                         basePosition: offset,
                         totalFileSize: total,
                         dateTimeStarted: started,
+                        ctx.SpeedBudget,
                         headers: NodeHeaders(),
-                        speedBudget: ctx.SpeedBudget,
                         cancellationToken: ctx.Cancellation);
                 }
 

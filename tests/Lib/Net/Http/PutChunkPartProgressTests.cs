@@ -52,8 +52,8 @@ public class PutChunkPartProgressTests
                 BasePosition,
                 TotalFileSize,
                 DateTime.Now,
+                SpeedBudget.Unlimited,
                 headers: null,
-                speedBudget: null,
                 CancellationToken.None,
                 method: null,
                 reportPartProgress: reported.Add);
@@ -84,8 +84,8 @@ public class PutChunkPartProgressTests
                 BasePosition,
                 TotalFileSize,
                 DateTime.Now,
+                SpeedBudget.Unlimited,
                 headers: null,
-                speedBudget: null,
                 CancellationToken.None,
                 method: null,
                 reportPartProgress: _ => { });
@@ -110,8 +110,8 @@ public class PutChunkPartProgressTests
                 BasePosition,
                 TotalFileSize,
                 DateTime.Now,
+                SpeedBudget.Unlimited,
                 headers: null,
-                speedBudget: null,
                 CancellationToken.None);
         }
 

@@ -494,8 +494,8 @@ public abstract class XfsProAnonymousPipeline : IFileHosterPipeline
                         basePos,
                         total,
                         started,
-                        chunkHeaders,
                         ctx.SpeedBudget,
+                        chunkHeaders,
                         ctx.Cancellation);
 
                 if (ValidateChunkResponse(resp, i, Name) is { } chunkError)

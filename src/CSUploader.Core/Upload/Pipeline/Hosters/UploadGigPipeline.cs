@@ -333,8 +333,8 @@ public sealed class UploadGigPipeline : IFileHosterPipeline
             ctx.FilePath,
             actionUrl,
             contentType: "application/octet-stream",
+            ctx.SpeedBudget,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

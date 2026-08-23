@@ -641,9 +641,9 @@ public sealed class UploadEePipeline : IFileHosterPipeline
             ctx.FilePath,
             url,
             fileFieldName: "upfile_0",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: BrowserHeaders(cookies),
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

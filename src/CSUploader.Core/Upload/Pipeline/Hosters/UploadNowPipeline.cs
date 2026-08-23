@@ -398,8 +398,8 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                             basePosition: partOffset,
                             totalFileSize: ctx.FileSize,
                             dateTimeStarted: started,
+                            ctx.SpeedBudget,
                             headers: headers,
-                            speedBudget: ctx.SpeedBudget,
                             cancellationToken: ct,
                             method: null,
                             reportPartProgress: bytes => progress.Report(index, bytes)).ConfigureAwait(false);
@@ -564,7 +564,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
                 ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?uploads", null, headers).ConfigureAwait(false)
                 // No Content-Type, exactly as the browser's CreateMultipartUpload sends it.
                 : await ctx.Handler.UploadBytesAsync(
-                    HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, headers, cancellationToken: ctx.Cancellation)
+                    HttpMethod.Post, $"{upload.ObjectUrl}?uploads", [], string.Empty, SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation)
                     .ConfigureAwait(false);
         }, ctx.Cancellation).ConfigureAwait(false);
 
@@ -626,7 +626,7 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
             _apiOverride is not null
                 ? await _apiOverride(HttpMethod.Post, $"{upload.ObjectUrl}?{query}", Encoding.UTF8.GetString(body), headers).ConfigureAwait(false)
                 : await ctx.Handler.UploadBytesAsync(
-                    HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, headers, cancellationToken: ctx.Cancellation)
+                    HttpMethod.Post, $"{upload.ObjectUrl}?{query}", body, ContentType, SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation)
                     .ConfigureAwait(false), ctx.Cancellation).ConfigureAwait(false);
 
         // R2, like S3, can report a failure inside a 200 on this call — so the body is checked too.
@@ -778,7 +778,9 @@ public sealed class UploadNowPipeline : IFileHosterPipeline
         }
 
         byte[] body = Encoding.UTF8.GetBytes(json ?? string.Empty);
-        return ctx.Handler.UploadBytesAsync(method, url, body, "application/json", headers, cancellationToken: ctx.Cancellation);
+        // Unlimited, deliberately: this is the site's JSON API, not the file. Throttling an
+        // 80-byte control request would only make an upload slower to START.
+        return ctx.Handler.UploadBytesAsync(method, url, body, "application/json", SpeedBudget.Unlimited, headers, cancellationToken: ctx.Cancellation);
     }
 
     /// <summary>Reads the file id and the bucket configuration out of the declare-file reply. Internal

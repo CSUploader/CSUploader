@@ -1372,15 +1372,30 @@ drive `UploadAsync` and a converted pipeline end to end against a fake. That is 
 the feature is otherwise only lightly touching, and doing it first would mean rewriting the seam
 twice.
 
-- [ ] **Step 1:** Introduce a minimal transport interface for MEGA (`SendAsync`/`ReceiveAsync`) with
-  the real `ClientWebSocket` behind it, and a fake in tests.
-- [ ] **Step 2:** Write a test that drives `MegaWebSocketUploader.UploadAsync` itself and asserts the
-  pacing — it must FAIL if the `SendChunkThrottledAsync` call is replaced by a raw send.
-- [ ] **Step 3:** Do the equivalent for one converted part-upload pipeline: a test that fails if the
-  pipeline stops routing through `ParallelPartUploader`.
-- [ ] **Step 4:** Make the budget non-optional wherever a caller could silently omit it — an optional
-  budget is how MEGA and TransferIt went unthrottled and how the `HttpHandler` join went untested.
-- [ ] **Step 5:** Commit — `test: pin the transport joins the unit tests cannot reach`
+- [x] **Step 1:** `IMegaSocket` (`ConnectAsync`/`SendAsync`/`ReceiveAsync`) with `MegaClientWebSocket`
+  behind it in production and a `FakeMegaSocket` in tests. `UploadAsync` takes an optional
+  `socketFactory`, null everywhere but the tests.
+- [x] **Step 2:** `MegaUploadTransportJoinTests` drives `UploadAsync` end to end. Mutation-verified:
+  replacing the `SendChunkThrottledAsync` call with a raw whole-chunk send fails it while all six
+  `MegaWebSocketUploaderThrottleTests` stay green — which is the whole point of the step.
+- [x] **Step 3:** `VikingFileParallelPartsTests.ThroughTheRealHandler_*` now watches the real
+  transport rather than draining it: peak concurrency, and each request body compared against its
+  own region of the file. Mutation-verified twice — pinning the degree to 1 fails the first
+  assertion, and slicing every part from offset 0 fails the second. Its fixture was `index % 251`,
+  which repeats; it is xorshift32 now, for the reason Codex gave for the contract suite.
+- [x] **Step 4:** `speedBudget` is a required parameter on all nine byte-carrying `HttpHandler`
+  methods. It sat after `headers`/`extraFields`, which are optional, so making it required meant
+  moving it ahead of them; the compiler then found all 78 call sites. Three carried no file bytes
+  (UploadNow's CreateMultipartUpload, its completion envelope, and its JSON API) and now say
+  `SpeedBudget.Unlimited` out loud. Inside the handler the `speedBudget is not null` branch became
+  `!ReferenceEquals(speedBudget, SpeedBudget.Unlimited)` — same behaviour, one fewer way to be
+  silently unthrottled. It also surfaced a nullable `SpeedBudget?` on storage.to's private `PutAsync`.
+- [x] **Step 5:** Committed.
+
+**What Step 4 would NOT have caught:** MEGA and transfer.it never called `HttpHandler` at all — they
+wrote to a raw `ClientWebSocket`. A required parameter cannot catch a path that bypasses the
+parameter. Steps 1-2 are what pin that one, and this note is here so the step is not remembered as
+broader protection than it is.
 
 ---
 

@@ -341,8 +341,8 @@ public sealed class HostizePipeline : IFileHosterPipeline
                 HttpResponseSnapshot response = _putPartOverride is not null
                     ? await _putPartOverride(url, partNumber, basePos, len, body, bytes => progress.Report(i, bytes), ct)
                     : await ctx.Handler.PutChunkAsync(
-                        url, body, len, basePos, total, started,
-                        headers: null, ctx.SpeedBudget, ct, method: null,
+                        url, body, len, basePos, total, started, ctx.SpeedBudget,
+                        headers: null, ct, method: null,
                         reportPartProgress: bytes => progress.Report(i, bytes));
 
                 return response.StatusCode is < 200 or >= 300

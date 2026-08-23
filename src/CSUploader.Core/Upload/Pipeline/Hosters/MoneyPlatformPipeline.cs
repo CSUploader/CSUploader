@@ -731,9 +731,9 @@ public abstract class MoneyPlatformPipeline : IFileHosterPipeline, IStorageRefre
                 ctx.FilePath,
                 endpoint.Url,
                 fileFieldName: "file",
+                ctx.SpeedBudget,
                 extraFields: fields,
                 headers: headers,
-                speedBudget: ctx.SpeedBudget,
                 cancellationToken: ctx.Cancellation);
     }
 

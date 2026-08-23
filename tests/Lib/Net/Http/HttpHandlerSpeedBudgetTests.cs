@@ -98,7 +98,7 @@ public class HttpHandlerSpeedBudgetTests : IDisposable
         using HttpHandler handler = new(client, Mock.Of<IAppLogger>(), proxyDescription: null, MockServerConfig.Disabled);
 
         HttpResponseSnapshot response = await handler.UploadMultipartAsync(
-            _path, "https://example.invalid/upload", "file");
+            _path, "https://example.invalid/upload", "file", SpeedBudget.Unlimited);
 
         Assert.Equal(200, response.StatusCode);
     }

@@ -321,8 +321,8 @@ public sealed class DataNodesPipeline : IFileHosterPipeline, ISessionRefreshable
                         basePosition: position,
                         totalFileSize: fileSize,
                         dateTimeStarted: started,
+                        ctx.SpeedBudget,
                         headers: headers,
-                        speedBudget: ctx.SpeedBudget,
                         cancellationToken: ct,
                         method: null,
                         reportPartProgress: bytes => progress.Report(index, bytes));

@@ -734,8 +734,8 @@ public sealed partial class MediaFirePipeline : IFileHosterPipeline, IStorageRef
             ctx.FilePath,
             url,
             contentType: "application/octet-stream",
+            ctx.SpeedBudget,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

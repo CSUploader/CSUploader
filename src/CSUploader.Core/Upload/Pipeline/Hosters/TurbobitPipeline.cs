@@ -358,9 +358,9 @@ public sealed class TurbobitPipeline : IFileHosterPipeline
             ctx.FilePath,
             uploadUrl,
             fileFieldName: "Filedata",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

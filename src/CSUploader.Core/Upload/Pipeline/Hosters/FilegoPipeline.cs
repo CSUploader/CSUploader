@@ -291,8 +291,8 @@ public sealed class FilegoPipeline : IFileHosterPipeline
                 ctx.FilePath,
                 endpoint,
                 "application/octet-stream",
-                headers,
                 ctx.SpeedBudget,
+                headers,
                 ctx.Cancellation);
     }
 

@@ -283,8 +283,8 @@ public sealed class BuzzheavierPipeline : IFileHosterPipeline
             ctx.FilePath,
             url,
             contentType: MimeTypeGuesser.Guess(ctx.FilePath),
+            ctx.SpeedBudget,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

@@ -494,9 +494,9 @@ public sealed class IcerBoxPipeline : IFileHosterPipeline, IStorageRefreshablePi
             ctx.FilePath,
             endpoint,
             fileFieldName: FileFieldName,
+            ctx.SpeedBudget,
             extraFields: _noExtraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

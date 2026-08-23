@@ -392,9 +392,9 @@ public sealed partial class OneFichierPipeline : IFileHosterPipeline
             ctx.FilePath,
             actionUrl,
             fileFieldName: "file[]",
+            ctx.SpeedBudget,
             extraFields: new Dictionary<string, string>(StringComparer.Ordinal),
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

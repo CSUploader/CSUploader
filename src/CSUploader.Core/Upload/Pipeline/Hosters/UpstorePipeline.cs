@@ -461,9 +461,9 @@ public sealed partial class UpstorePipeline : IFileHosterPipeline, IStorageRefre
             ctx.FilePath,
             actionUrl,
             fileFieldName: "file",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

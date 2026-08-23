@@ -274,9 +274,9 @@ public sealed class QuAxPipeline : IFileHosterPipeline
             ctx.FilePath,
             UploadUrl,
             fileFieldName: "files[]",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 }

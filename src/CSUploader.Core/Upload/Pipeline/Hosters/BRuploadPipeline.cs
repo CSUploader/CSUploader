@@ -594,9 +594,9 @@ public sealed partial class BRuploadPipeline : IFileHosterPipeline
             ctx.FilePath,
             auth.UploadActionUrl,
             fileFieldName: "file_0",
+            ctx.SpeedBudget,
             extraFields: extraFields,
             headers: uploadHeaders,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 

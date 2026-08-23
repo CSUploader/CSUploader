@@ -122,8 +122,8 @@ public sealed class FilebinPipeline : IFileHosterPipeline
                 ctx.FilePath,
                 endpoint,
                 "application/octet-stream",
-                headers,
                 ctx.SpeedBudget,
+                headers,
                 ctx.Cancellation);
 
         _ = uploadTask.ContinueWith(

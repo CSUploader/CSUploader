@@ -361,7 +361,7 @@ public sealed class DepositFilesPipeline : IFileHosterPipeline, ISessionRefresha
         return _uploadOverride is not null
             ? _uploadOverride(ctx.FilePath, node, fields)
             : ctx.Handler.UploadMultipartAsync(
-                ctx.FilePath, node, "files", fields, headers, ctx.SpeedBudget, ctx.Cancellation);
+                ctx.FilePath, node, "files", ctx.SpeedBudget, fields, headers, ctx.Cancellation);
     }
 
     /// <summary>Reads the upload reply — the share link and the delete link. Internal for testing.</summary>

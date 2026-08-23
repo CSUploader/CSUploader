@@ -312,7 +312,7 @@ public sealed class EmloadPipeline : IFileHosterPipeline, ISessionRefreshablePip
         return _uploadOverride is not null
             ? _uploadOverride(ctx.FilePath, node.Uri, fields)
             : ctx.Handler.UploadMultipartAsync(
-                ctx.FilePath, node.Uri, "file", fields, headers, ctx.SpeedBudget, ctx.Cancellation);
+                ctx.FilePath, node.Uri, "file", ctx.SpeedBudget, fields, headers, ctx.Cancellation);
     }
 
     /// <summary>

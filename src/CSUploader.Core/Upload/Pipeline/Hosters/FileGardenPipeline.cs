@@ -396,8 +396,8 @@ public sealed class FileGardenPipeline : IFileHosterPipeline
             ctx.FilePath,
             url,
             contentType: "application/octet-stream",
+            ctx.SpeedBudget,
             headers: headers,
-            speedBudget: ctx.SpeedBudget,
             cancellationToken: ctx.Cancellation);
     }
 
