@@ -398,8 +398,8 @@ public partial class SettingsViewModel(
                     // A value that parses, or nothing. StartupUpdatePreference - which decides
                     // whether the splash appears at all, before this runs - treats an unrecognised
                     // value as "unknown" and falls back to the default. Mapping it to false here
-                    // would leave the two disagreeing: the splash would appear while Settings and
-                    // the prompt both said the feature was off, and nothing would ever repair it.
+                    // would leave the two disagreeing: the splash would appear on every launch
+                    // while Settings said the feature was off, and nothing would ever repair it.
                     // The SAME parser the pre-window read uses, not an equivalent one:
                     // bool.TryParse accepts " false " and that one does not, which would recreate
                     // the very disagreement sharing it exists to prevent.

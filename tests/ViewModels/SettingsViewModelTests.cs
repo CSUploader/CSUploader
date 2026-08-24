@@ -1037,9 +1037,9 @@ public class SettingsViewModelTests : IDisposable
         Assert.False(_appSettings.CheckForUpdatesAtStartup);
     }
 
-    /// <summary>The default is on: an install nobody has configured still offers its updates.</summary>
+    /// <summary>The default is on: an install nobody has configured still looks for its updates.</summary>
     [Fact]
-    public void CheckForUpdatesAtStartup_DefaultsToAsking()
+    public void CheckForUpdatesAtStartup_DefaultsToOn()
         => Assert.True(CreateVm().CheckForUpdatesAtStartup);
 
     /// <summary>
@@ -1047,9 +1047,9 @@ public class SettingsViewModelTests : IDisposable
     /// <para>
     /// <c>StartupUpdatePreference</c> decides whether the splash appears at all, before this runs,
     /// and treats an unrecognised value as unknown — falling back to the default, which is on.
-    /// Mapping it to false here would leave the two disagreeing: the splash appears while Settings
-    /// and the prompt both report the feature off, and because the hydrated value matches what the
-    /// user then sees, nothing ever repairs it.
+    /// Mapping it to false here would leave the two disagreeing: the splash appears on every launch
+    /// while Settings reports the feature off, and because the hydrated value matches what the user
+    /// then sees, nothing ever repairs it.
     /// </para>
     /// </summary>
     [Theory]

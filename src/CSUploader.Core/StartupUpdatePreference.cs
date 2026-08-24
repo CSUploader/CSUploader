@@ -34,11 +34,12 @@ public static class StartupUpdatePreference
     /// </summary>
     /// <remarks>
     /// <b>Shared with settings hydration deliberately.</b> This decision is made twice — here,
-    /// before any window exists, and again when <c>SettingsViewModel</c> hydrates — and the two
-    /// disagreeing is not a cosmetic problem: the splash would appear while Settings and the prompt
-    /// both reported the feature off, and because the hydrated value matches what the user is shown,
-    /// nothing would ever repair it. Two parsers that merely look equivalent can drift on a detail
-    /// like whitespace, so there is one.
+    /// before any window exists, and again when <c>SettingsViewModel</c> hydrates. The two
+    /// disagreeing costs a user who turned startup checks off a splash and a request they did not
+    /// want, on every launch, with Settings showing the feature as off and nothing ever repairing
+    /// it. It can no longer cost them a PROMPT — the gated path re-reads the hydrated value before
+    /// asking or installing — but two parsers that merely look equivalent can drift on a detail like
+    /// whitespace, so there is one.
     /// </remarks>
     public static bool? Parse(string? value)
     {
@@ -56,7 +57,7 @@ public static class StartupUpdatePreference
     /// <remarks>
     /// Null is deliberately distinct from <see langword="false"/>. A first run, an un-migrated
     /// database or a locked file all mean "we do not know", and the caller treats not knowing as
-    /// the default — which is to ask. Returning false on a read failure would silently disable a
+    /// the default — which is to check. Returning false on a read failure would silently disable a
     /// feature the user never turned off.
     /// </remarks>
     public static bool? ReadCheckForUpdatesAtStartup(IDbContextFactory<CSUploaderDbContext> factory)

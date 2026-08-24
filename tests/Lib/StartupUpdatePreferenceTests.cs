@@ -65,7 +65,7 @@ public class StartupUpdatePreferenceTests : IDisposable
 
     /// <summary>
     /// Nothing stored is NOT the same as "off". A first run has no row, and the caller treats not
-    /// knowing as the default — which is to ask. Returning false here would silently disable a
+    /// knowing as the default — which is to check. Returning false here would silently disable a
     /// feature nobody turned off.
     /// </summary>
     [Fact]
