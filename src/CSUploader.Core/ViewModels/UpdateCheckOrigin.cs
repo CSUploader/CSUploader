@@ -26,8 +26,9 @@ public enum UpdateCheckOrigin
     /// gated case there is nowhere to put a toast — the splash is on screen and the real window does
     /// not exist yet, so it would be orphaned or hidden behind it. In the ungated case the user
     /// specifically chose not to be interrupted at startup, and a failure notice is an interruption.
-    /// The user finds out the ordinary way — the menu item stays disabled — and the periodic poll,
-    /// which does surface failures, takes over.
+    /// Nothing is lost: a failure leaves whatever was already known intact — including a previously
+    /// found update, which stays offered — and the periodic poll, which does surface failures, takes
+    /// over.
     /// </para>
     /// </summary>
     Startup,

@@ -163,8 +163,9 @@ public class MainViewModelUpdateTests : IDisposable
 
     /// <summary>
     /// A loose build's "there is a newer version" is NOT an offer to install it. Nothing can be
-    /// installed without a Velopack layout, so arming the command would put a button on screen whose
-    /// only reachable outcome is <c>NotInstalledException</c>.
+    /// installed without a Velopack layout, so arming the command would put a button on screen that
+    /// returns without doing anything — the install path's own IsInstalled guard sees to that, which
+    /// is exactly why the button must not be there to press.
     /// </summary>
     [Fact]
     public async Task AnUpdateThatCannotBeInstalledArmsNothing()
@@ -443,7 +444,7 @@ public class MainViewModelUpdateTests : IDisposable
     }
 
     [Fact]
-    public async Task WhenThereIsNoUpdate_ItReleasesTheWindowAndAsksNothing()
+    public async Task WhenThereIsNoUpdate_ItReleasesTheWindowAndActsOnNothing()
     {
         FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
         MainViewModel vm = GateVm(UpdateCheckResult.UpToDate, prompt, out StartupGate gate);
@@ -456,9 +457,10 @@ public class MainViewModelUpdateTests : IDisposable
         Assert.Equal(0, prompt.Shown);
     }
 
-    /// <summary>A failed check is not a reason to interrupt anyone: no prompt, window still released.</summary>
+    /// <summary>A failed check is not a reason to interrupt anyone: nothing acted on, window still
+    /// released.</summary>
     [Fact]
-    public async Task WhenTheCheckFails_ItReleasesTheWindowAndAsksNothing()
+    public async Task WhenTheCheckFails_ItReleasesTheWindowAndActsOnNothing()
     {
         FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
         MainViewModel vm = GateVm(UpdateCheckResult.Failed("offline"), prompt, out StartupGate gate);
@@ -473,11 +475,12 @@ public class MainViewModelUpdateTests : IDisposable
 
     /// <summary>
     /// The deadline stops GATING, not the check. A slow answer must not hold the main window back —
-    /// and having missed its window it must not interrupt later either, because by then the user is
-    /// working.
+    /// and having missed its window it must not act later either, because by then the user is
+    /// working. Auto-install is armed here deliberately: without it this test could only ever prove
+    /// that no PROMPT appeared, which is the cheaper half of the guarantee.
     /// </summary>
     [Fact]
-    public async Task WhenTheCheckOutlastsTheDeadline_TheWindowIsReleasedAndNothingIsAsked()
+    public async Task WhenTheCheckOutlastsTheDeadline_TheWindowIsReleasedAndNothingIsActedOn()
     {
         UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -490,8 +493,11 @@ public class MainViewModelUpdateTests : IDisposable
                 return UpdateCheckResult.Available(info);
             });
 
+        updater.Setup(u => u.IsInstalled).Returns(true);
+
         FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
         MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        vm.SettingsViewModel.AutoInstallUpdatesAtStartup = true;
         StartupGate gate = new(TimeSpan.FromMilliseconds(50), default);
         vm.StartupGate = gate;
 
@@ -504,6 +510,10 @@ public class MainViewModelUpdateTests : IDisposable
         await gating.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Equal(0, prompt.Shown);
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
 
         // ...and the abandoned check still publishes, so the menu item lights up.
         release.SetResult();
@@ -539,14 +549,22 @@ public class MainViewModelUpdateTests : IDisposable
 
     /// <summary>
     /// The splash being closed is terminal. Initialisation stops rather than waiting for a swap that
-    /// will never come, and asks nothing of a user who has quit.
+    /// will never come, and does nothing further to a user who has quit — asks nothing, and installs
+    /// nothing, which is why auto-install is armed here rather than left at its default.
     /// </summary>
     [Fact]
     public async Task WhenTheSplashIsAbandoned_TheGateStopsRatherThanWaiting()
     {
         UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
-        MainViewModel vm = GateVm(UpdateCheckResult.Available(info), prompt, out StartupGate gate);
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        vm.SettingsViewModel.AutoInstallUpdatesAtStartup = true;
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        vm.StartupGate = gate;
 
         Task gating = vm.RunStartupGateAsync();
         await gate.MainWindowMayShow;
@@ -554,6 +572,10 @@ public class MainViewModelUpdateTests : IDisposable
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gating);
         Assert.Equal(0, prompt.Shown);
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
     }
 
     /// <summary>

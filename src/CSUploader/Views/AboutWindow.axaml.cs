@@ -18,8 +18,9 @@ namespace CSUploader.Views;
 /// the MainWindow menu (Phase 6/7); the gallery button is its only opener until then.
 /// </summary>
 /// <remarks>
-/// The version line comes from <see cref="AppVersion"/>, the same resolver the updater compares
-/// against. It used to read <c>GetExecutingAssembly().GetName().Version</c>, which is pinned to a
+/// The version line comes from <see cref="AppVersion"/>, the same value the update prompt shows as
+/// "you have" and the same one a loose build compares against the release feed. (An INSTALLED build's
+/// comparison is Velopack's own, against its locator's package version, not this.) It used to read <c>GetExecutingAssembly().GetName().Version</c>, which is pinned to a
 /// literal in the head's csproj and therefore does NOT follow release.yml's <c>-p:Version=</c> — so a
 /// shipped 1.6.0 would have gone on introducing itself as 1.5.0.0 here while the update prompt next
 /// to it said 1.6.0.

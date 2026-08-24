@@ -384,7 +384,8 @@
                     IsChecked="{Binding ShowCompletionToasts}" VerticalAlignment="Center" />
         </Grid>
 
-        <!-- Off means the app opens straight away: no splash, nothing asked before it appears. It
+        <!-- Off means the app opens straight away: no splash, and nothing asked OR installed before
+             it appears - which is also why the box below is only meaningful while this one is on. It
              does NOT mean no check - a quiet one runs just after the window appears, so an installed
              build still reports an update in the title bar and Help -> Install Update still installs
              it. This hides the interruption, not the feature; the six-hourly poll is unaffected. -->

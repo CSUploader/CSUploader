@@ -24,9 +24,12 @@ namespace CSUploader.Tests.Lib.Update;
 /// failing on any offline machine and rate-limiting CI.
 /// </para>
 /// <para>
-/// The installed branch wraps the concrete (non-mockable) Velopack <c>UpdateManager</c> and cannot be
-/// driven from here at all; it is exercised through the <c>MainViewModel</c> contract with a mocked
-/// <c>IUpdateService</c> (MainViewModelUpdateTests).
+/// The installed branch wraps the concrete (non-mockable) Velopack <c>UpdateManager</c> and is NOT
+/// covered anywhere: it needs a real Velopack layout, which a test process does not have.
+/// <c>UpdateServicePlanTests</c> covers the transformation extracted out of it (<c>Describe</c> /
+/// <c>PlanDownload</c>), and <c>MainViewModelUpdateTests</c> covers what the view model does with a
+/// result — but neither drives the manager call itself, and saying otherwise would overstate what is
+/// tested.
 /// </para>
 /// </summary>
 public class UpdateServiceTests

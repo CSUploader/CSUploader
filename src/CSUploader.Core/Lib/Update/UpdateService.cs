@@ -62,9 +62,12 @@ public sealed class UpdateService : IUpdateService
     /// <para>
     /// It cannot: <c>CheckForUpdatesAsync</c> opens with <c>EnsureInstalled()</c>, which throws
     /// <c>NotInstalledException</c> without a Velopack layout — so a loose build has to go to the
-    /// source directly. The two arguments that are dropped are the ones only an install can supply
-    /// (a staged-user id, and the local package a delta would build on); neither affects WHICH
-    /// release is newest, which is the only question being asked here.
+    /// source directly. Three of the arguments the manager would pass come from the install and are
+    /// dropped here: the app id, the staged-user id, and the local package a delta would build on.
+    /// That is safe against THIS source at THIS version and not in general — <c>GitBase</c> in
+    /// Velopack 1.2.0 ignores all three, deriving the feed purely from the channel. A source that
+    /// used them (staged rollouts, per-id feeds) would answer differently here than it does for an
+    /// installed build.
     /// </para>
     /// </summary>
     /// <remarks>

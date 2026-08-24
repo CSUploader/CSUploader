@@ -282,7 +282,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             case UpdateCheckStatus.AvailableNotInstallable:
                 // Cleared exactly as UpToDate is, which looks wrong and is not: a newer release does
                 // exist, but nothing in this process can install it, so leaving the install command
-                // armed would offer a button whose only possible outcome is an exception.
+                // armed would offer a button that cannot do the thing it names - it returns without
+                // acting, on the IsInstalled guard, which is a worse answer than not offering.
                 //
                 // The clearing happens BEFORE the log, not after. Logger.Log raises OnLogOutput
                 // inline, so a subscriber that throws would otherwise abandon this case halfway and
@@ -512,7 +513,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // The splash was closed. Terminal: there is no window to show and nothing to ask.
+            // The splash was closed. Terminal: there is no window to show, and nothing to ask or
+            // install - closing the splash gives up on this launch's update entirely.
             releaseWindow = false;
             throw;
         }
@@ -720,7 +722,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // === the startup gate ===================================================================
         // Everything above is what the gate needs: a database, hydrated settings, the persisted
-        // language so the prompt speaks it. Everything below can happen with the main window
+        // language so any prompt speaks it. Everything below can happen with the main window
         // already on screen - and the gate's DECISION has to happen before it does, because
         // LoadPersistedPackagesAsync can auto-start uploads and installing restarts the process,
         // whether the user pressed "Update now" or auto-install never asked them.
