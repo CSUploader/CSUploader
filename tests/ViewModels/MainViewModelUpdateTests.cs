@@ -234,6 +234,187 @@ public class MainViewModelUpdateTests : IDisposable
     }
 
 
+
+    private sealed class FakePrompt(StartupUpdatePromptResult answer) : IStartupUpdatePrompt
+    {
+        public int Shown { get; private set; }
+
+        public bool AskedWith { get; private set; }
+
+        public Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool askAtStartup)
+        {
+            Shown++;
+            AskedWith = askAtStartup;
+            return Task.FromResult(answer);
+        }
+    }
+
+    private MainViewModel GateVm(UpdateCheckResult result, FakePrompt prompt, out StartupGate gate)
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(result);
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        gate = new StartupGate(TimeSpan.FromSeconds(5), default);
+        vm.StartupGate = gate;
+        return vm;
+    }
+
+    /// <summary>
+    /// The ordinary find: the gate releases the main window, waits for the head to confirm the swap,
+    /// and only THEN asks. Asking earlier would own the prompt to a splash that is about to close,
+    /// taking the prompt with it.
+    /// </summary>
+    [Fact]
+    public async Task WhenAnUpdateIsFound_ItAsksAfterTheMainWindowIsUp()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = GateVm(UpdateCheckResult.Available(info), prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+
+        Assert.Equal(0, prompt.Shown); // not yet: the window it belongs to does not exist
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal(1, prompt.Shown);
+    }
+
+    [Fact]
+    public async Task WhenThereIsNoUpdate_ItReleasesTheWindowAndAsksNothing()
+    {
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = GateVm(UpdateCheckResult.UpToDate, prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal(0, prompt.Shown);
+    }
+
+    /// <summary>A failed check is not a reason to interrupt anyone: no prompt, window still released.</summary>
+    [Fact]
+    public async Task WhenTheCheckFails_ItReleasesTheWindowAndAsksNothing()
+    {
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = GateVm(UpdateCheckResult.Failed("offline"), prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal(0, prompt.Shown);
+    }
+
+    /// <summary>
+    /// The deadline stops GATING, not the check. A slow answer must not hold the main window back —
+    /// and having missed its window it must not interrupt later either, because by then the user is
+    /// working.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheCheckOutlastsTheDeadline_TheWindowIsReleasedAndNothingIsAsked()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Mock<IUpdateService> updater = new();
+        updater
+            .Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await release.Task;
+                return UpdateCheckResult.Available(info);
+            });
+
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        StartupGate gate = new(TimeSpan.FromMilliseconds(50), default);
+        vm.StartupGate = gate;
+
+        Task gating = vm.RunStartupGateAsync();
+
+        // Bounded: without a deadline the gate waits on the check forever, and a test that HANGS
+        // says less than one that fails.
+        await gate.MainWindowMayShow.WaitAsync(TimeSpan.FromSeconds(10));
+        gate.MarkMainWindowReady();
+        await gating.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(0, prompt.Shown);
+
+        // ...and the abandoned check still publishes, so the menu item lights up.
+        release.SetResult();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        Assert.True(vm.IsUpdateAvailable);
+    }
+
+    /// <summary>
+    /// A service that throws must not be the reason the app never appears.
+    /// <para>
+    /// What carries this is the check pipeline NORMALISING the exception into a failed result, not
+    /// the gate's own catch — which is unreachable for exactly that reason, and which this test
+    /// therefore does not cover.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task WhenTheServiceThrows_TheWindowIsStillReleased()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("boom"));
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        vm.StartupGate = gate;
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow.WaitAsync(TimeSpan.FromSeconds(10));
+        gate.MarkMainWindowReady();
+        await gating.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(0, prompt.Shown);
+    }
+
+    /// <summary>
+    /// The splash being closed is terminal. Initialisation stops rather than waiting for a swap that
+    /// will never come, and asks nothing of a user who has quit.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheSplashIsAbandoned_TheGateStopsRatherThanWaiting()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = GateVm(UpdateCheckResult.Available(info), prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.Abandon();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gating);
+        Assert.Equal(0, prompt.Shown);
+    }
+
+    /// <summary>
+    /// Unticking the box is persisted, and persisted BEFORE any install begins: Velopack exits the
+    /// process, so a write left in flight is a write that never happened.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheUserUnticksTheBox_ThePreferenceIsSaved()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, false));
+        MainViewModel vm = GateVm(UpdateCheckResult.Available(info), prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.True(prompt.AskedWith); // it opened showing the current preference
+        Assert.False(vm.SettingsViewModel.AskToUpdateAtStartup);
+    }
+
     /// <summary>
     /// The re-entrancy the cached task has to survive, reproduced rather than reasoned about.
     /// <para>
@@ -621,7 +802,8 @@ public class MainViewModelUpdateTests : IDisposable
         IUpdateProgressSink? sink = null,
         Mock<IToastNotificationService>? toast = null,
         IAppLogger? logger = null,
-        CSUploader.Services.IUiDispatcher? dispatcher = null)
+        CSUploader.Services.IUiDispatcher? dispatcher = null,
+        IStartupUpdatePrompt? prompt = null)
     {
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
@@ -630,7 +812,8 @@ public class MainViewModelUpdateTests : IDisposable
             sink ?? Mock.Of<IUpdateProgressSink>(),
             (toast ?? new Mock<IToastNotificationService>()).Object,
             logger,
-            dispatcher);
+            dispatcher,
+            prompt);
         MainViewModel vm = new(scoped);
         _vms.Add(vm); // disposed at teardown (MainViewModel is IDisposable — Phase 9 ledger fix c).
         return vm;
@@ -641,9 +824,15 @@ public class MainViewModelUpdateTests : IDisposable
         IUpdateProgressSink sink,
         IToastNotificationService toast,
         IAppLogger? logger = null,
-        CSUploader.Services.IUiDispatcher? dispatcher = null)
+        CSUploader.Services.IUiDispatcher? dispatcher = null,
+        IStartupUpdatePrompt? prompt = null)
     {
         ServiceCollection sc = new();
+        if (prompt is not null)
+        {
+            sc.AddSingleton(prompt);
+        }
+
 
         // The fixture's logger is Mock.Of<IAppLogger>(), whose Log is a no-op and whose OnLogOutput
         // therefore never fires. One test needs a REAL logger, because the behaviour it pins is

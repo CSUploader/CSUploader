@@ -174,6 +174,13 @@ public partial class App : Application
                         await viewModel.InitializeAsync();
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    // The app is closing - the splash was dismissed, or the main window went away
+                    // while the remainder was still loading. That is a shutdown, not a failure, and
+                    // reporting it would put an error dialog in front of someone who just quit.
+                    return;
+                }
                 catch (Exception ex)
                 {
                     // Startup hydration (DB init, settings/proxies/packages load) failed. Surface it
@@ -223,7 +230,32 @@ public partial class App : Application
 #endif
             };
 
-            desktop.MainWindow = mainWindow;
+            // === startup gate =================================================================
+            // Whether to hold the main window back behind an update check. Ordered so the excluded
+            // modes cost nothing: the dev flags short-circuit before the updater is consulted and
+            // before the database is touched.
+            //
+            // IsInstalled is what excludes loose builds and `dotnet run` - they have no Velopack
+            // layout, so a check there would be an instant no-op behind a splash that flashed for a
+            // frame. --agent and --gallery are separate: an INSTALLED build launched with them is
+            // still installed, and the bridge/gallery flows must not grow a window they never had.
+            bool gateStartup =
+                !isAgent
+#if DEBUG && WINDOWS
+                && !gallery
+#endif
+                && _serviceProvider.GetRequiredService<Lib.Update.IUpdateService>().IsInstalled
+                && StartupUpdatePreference.ReadAskToUpdateAtStartup(
+                    _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) != false;
+
+            if (gateStartup)
+            {
+                StartSplashGatedStartup(desktop, mainWindow);
+            }
+            else
+            {
+                desktop.MainWindow = mainWindow;
+            }
 
 #if AVA_BRIDGE
             // Debug-only, opt-in (Directory.Build.local.props present) agent dev-loop bridge.
@@ -242,10 +274,120 @@ public partial class App : Application
 
             // Mirror App.OnExit: dispose the provider (and its IDisposable singletons — tray icon,
             // DbContext factory) when the app exits.
-            desktop.Exit += (_, _) => _serviceProvider?.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                // Skipped while the startup pipeline is still running. Disposing the provider under
+                // an in-flight EF call throws ObjectDisposedException on a continuation nothing is
+                // left to observe, and the process is going away anyway - the OS reclaims what this
+                // would have released. Reached when the splash is closed before the swap, or the
+                // main window is closed while the post-gate remainder is still loading.
+                if (_startupPipeline is { IsCompleted: false })
+                {
+                    _serviceProvider?.GetService<IAppLogger>()?.Log(
+                        this, LogType.Status, "Exiting while startup is still running; leaving the service provider to the process.");
+                    return;
+                }
+
+                _serviceProvider?.Dispose();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>How long the splash may hold the main window back before startup carries on without
+    /// the answer. Long enough for one HTTP round trip on a slow link; short enough not to read as a
+    /// hang on a broken one.</summary>
+    private static readonly TimeSpan StartupCheckDeadline = TimeSpan.FromSeconds(5);
+
+    private Task? _startupPipeline;
+
+    /// <summary>
+    /// Shows the splash as the application's MainWindow, runs initialisation behind it, and swaps in
+    /// the real window when initialisation says it may.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The splash IS the MainWindow until the swap, which is what keeps
+    /// <see cref="ShutdownMode.OnMainWindowClose"/> working the whole way through: Avalonia decides
+    /// shutdown by comparing the closing window against the CURRENT MainWindow, so closing the
+    /// splash before the swap exits the app — which is what closing a splash should do — and closing
+    /// it after the swap does nothing, because by then it is not the main window any more.
+    /// </para>
+    /// <para>
+    /// It cannot be done inline in <c>OnFrameworkInitializationCompleted</c>: that method is
+    /// synchronous, and Avalonia shows <c>MainWindow</c> and starts pumping only after it returns.
+    /// So the sequence hangs off the splash's own <c>Opened</c>.
+    /// </para>
+    /// </remarks>
+    private void StartSplashGatedStartup(IClassicDesktopStyleApplicationLifetime desktop, Views.MainWindow mainWindow)
+    {
+        Views.SplashWindow splash = new();
+        CancellationTokenSource startupAborted = new();
+        ViewModels.StartupGate gate = new(StartupCheckDeadline, startupAborted.Token);
+        bool transitioning = false;
+
+        if (mainWindow.DataContext is MainViewModel viewModel)
+        {
+            viewModel.StartupGate = gate;
+        }
+
+        // A user closing the splash before the swap is TERMINAL. It is still the main window, so
+        // Avalonia is already shutting down; all this has to do is stop initialisation waiting for a
+        // transition that will never come, and stop itself trying to make one.
+        splash.Closing += (_, _) =>
+        {
+            if (transitioning)
+            {
+                return;
+            }
+
+            startupAborted.Cancel();
+            gate.Abandon();
+        };
+
+        splash.Opened += async (_, _) =>
+        {
+            try
+            {
+                _startupPipeline = viewModelOrNull(mainWindow)?.InitializeAsync() ?? Task.CompletedTask;
+                await gate.MainWindowMayShow.WaitAsync(startupAborted.Token);
+
+                transitioning = true;
+                desktop.MainWindow = mainWindow;
+                mainWindow.Show();
+                splash.Close();
+                gate.MarkMainWindowReady();
+            }
+            catch (OperationCanceledException)
+            {
+                // The splash was closed. Nothing to show, nothing to report.
+            }
+            catch (Exception ex)
+            {
+                // The transition itself failed - Show() threw, say. Leaving the lifetime pointing at
+                // an invisible window would be a process with no UI and no way to quit, so this
+                // gives up loudly rather than quietly.
+                _serviceProvider?.GetService<IAppLogger>()?.Log(
+                    this, LogType.Error, $"Startup transition failed: {ex}");
+                startupAborted.Cancel();
+                gate.Abandon();
+                desktop.Shutdown(1);
+            }
+        };
+
+        // Closed, not Closing: Closing is cancellable and fires for close-to-tray, which must NOT
+        // cancel initialisation. By the time Closed runs the window is really going away, and the
+        // post-gate remainder - proxies, packages, history - has nothing left to load them for.
+        mainWindow.Closed += (_, _) =>
+        {
+            startupAborted.Cancel();
+            gate.Abandon();
+        };
+
+        desktop.MainWindow = splash;
+
+        static MainViewModel? viewModelOrNull(Views.MainWindow window) => window.DataContext as MainViewModel;
     }
 
     // internal so the Avalonia head's DI smoke test can build the same provider this composes at

@@ -392,6 +392,118 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Set by the head before initialisation starts when startup is GATED: the splash is up, the
+    /// real main window is not, and this view model owes the head a signal when it may swap.
+    /// </summary>
+    /// <remarks>
+    /// Null on the ungated path, which is every loose build, every <c>--agent</c> or
+    /// <c>--gallery</c> run, and any install whose owner turned the preference off. Nothing below
+    /// runs in that case and startup is byte-for-byte what it was.
+    /// </remarks>
+    public StartupGate? StartupGate { get; set; }
+
+    private bool _startupGateRan;
+
+    /// <summary>
+    /// Runs the startup check behind a deadline, hands the head its cue to show the real window,
+    /// then asks the user about any update that was found.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The deadline stops GATING; it does not cancel. Velopack 1.2.0 offers no way to cancel a
+    /// check, so the request outlives it — and because checks are single flight, its result still
+    /// publishes through the normal path and still lights up Help → Install Update. What a late
+    /// result must never do is raise a prompt, which is why the prompt is inside the deadline.
+    /// </para>
+    /// <para>
+    /// Every path signals the gate, including the failing ones, because the head is waiting on it
+    /// and a startup that never showed a window is worse than one that showed it too early.
+    /// </para>
+    /// </remarks>
+    internal async Task RunStartupGateAsync()
+    {
+        if (StartupGate is not { } gate)
+        {
+            return;
+        }
+
+        _startupGateRan = true;
+        UpdateCheckResult? result = null;
+
+        try
+        {
+            Task<UpdateCheckResult> check = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+            try
+            {
+                result = await check.WaitAsync(gate.Deadline, gate.CancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                // Still running. It keeps going and still publishes; it simply no longer holds the
+                // main window hostage, and it has forfeited its chance to interrupt with a prompt.
+                _logger.Log(this, LogType.Status, "Update check is taking too long; continuing startup without it.");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The splash was closed. Terminal: there is no window to show and nothing to ask.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Unreachable today, and kept anyway: CheckForUpdatesAsync normalises everything its
+            // service and collaborators can throw into a Failed result, so nothing arrives here -
+            // no test can distinguish this block from its absence, and none pretends to. It stays
+            // because the cost of being wrong about that is an app that never appears at all.
+            _logger.Log(this, LogType.Error, $"Startup update check failed: {ex.Message}");
+        }
+
+        // Not in a finally, deliberately. Every path that reaches here should release - and the one
+        // path that does NOT reach here is the cancellation rethrow above, where the head has
+        // already abandoned the transition and releasing would be telling it to show a window it
+        // has decided not to show.
+        gate.ReleaseMainWindow();
+
+        await gate.MainWindowReady.WaitAsync(gate.CancellationToken);
+        gate.CancellationToken.ThrowIfCancellationRequested();
+
+        if (result?.Status != UpdateCheckStatus.Available || result.Info is null)
+        {
+            return;
+        }
+
+        await PromptForUpdateAsync(result.Info);
+    }
+
+    private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
+    {
+        Services.IStartupUpdatePrompt? prompt = _services.GetService<Services.IStartupUpdatePrompt>();
+        if (prompt is null)
+        {
+            return;
+        }
+
+        Services.StartupUpdatePromptResult answer = await prompt.ShowAsync(
+            info.NewVersion,
+            _updateService.CurrentVersion,
+            SettingsViewModel.AskToUpdateAtStartup);
+
+        if (answer.AskAtStartup != SettingsViewModel.AskToUpdateAtStartup)
+        {
+            // AWAITED, and before the install. "Update now" hands over to an updater that exits the
+            // process, so a fire-and-forget write here can lose the preference just expressed.
+            await SettingsViewModel.SetAskToUpdateAtStartupAsync(answer.AskAtStartup);
+        }
+
+        if (answer.UpdateNow)
+        {
+            // Awaited so package loading stays paused until it returns - which, on the success path,
+            // it never does: Velopack restarts the process from inside.
+            await InstallUpdateCommand.ExecuteAsync(null);
+        }
+    }
+
     private async Task InitializeCoreAsync()
     {
         FirstRun.InitializeDatabase(_services, _logger);
@@ -484,6 +596,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         await SettingsViewModel.LoadAsync();
+
+        // === the startup gate ===================================================================
+        // Everything above is what the gate needs: a database, hydrated settings, the persisted
+        // language so the prompt speaks it. Everything below can happen with the main window
+        // already on screen - and the PROMPT has to happen before it does, because
+        // LoadPersistedPackagesAsync can auto-start uploads and "Update now" restarts the process.
+        await RunStartupGateAsync();
+        // The app may have been closed while the gate was up, or while this remainder runs. Loading
+        // packages then would schedule uploads for a window that is going away.
+        StartupGate?.CancellationToken.ThrowIfCancellationRequested();
+
         // Load proxies before persisted packages so any auto-resumed uploads pick from
         // the user's configured proxy list.
         await _services.GetRequiredService<Lib.Net.ProxyManager>().ReloadAsync();
@@ -491,9 +614,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _services.GetRequiredService<PackageManager>().LoadPersistedPackagesAsync();
         await UploadedViewModel.LoadAsync();
 
-        // First update check happens shortly after startup (the timer fires every 6h
-        // thereafter). Fire-and-forget — a network failure shouldn't block init.
-        _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        // The ungated path's check. When the gate ran, it already did this - and awaited it - so a
+        // second one here would be a duplicate request the user never asked for.
+        if (!_startupGateRan)
+        {
+            // Fire-and-forget: a network failure must not block init.
+            _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        }
     }
 
     partial void OnIsDarkModeChanged(bool value)
