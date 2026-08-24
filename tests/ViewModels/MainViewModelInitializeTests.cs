@@ -34,6 +34,7 @@ public class MainViewModelInitializeTests : IDisposable
     private readonly ServiceProvider _services;
     private readonly CultureInfo _originalCulture;
     private readonly Mock<IUpdateService> _updater;
+    private readonly Mock<IToastNotificationService> _toasts;
 
     public MainViewModelInitializeTests()
     {
@@ -66,13 +67,14 @@ public class MainViewModelInitializeTests : IDisposable
         sc.AddSingleton(Mock.Of<IDialogService>());
         sc.AddSingleton(Mock.Of<IAccountVerifier>());
         sc.AddSingleton(Mock.Of<IClipboardService>());
-        sc.AddSingleton(Mock.Of<IToastNotificationService>());
+        _toasts = new Mock<IToastNotificationService>();
+        sc.AddSingleton(_toasts.Object);
         sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
 
-        // The ctor resolves these. CheckAsync is stubbed to UpToDate so that IF anything called it, it
-        // would be a silent no-op rather than noise in the observed counts - but nothing should:
-        // initialization no longer checks for updates, only the startup gate does. Kept as a field so
-        // InitializeAsync_DoesNotCheckForUpdates can hold that to account.
+        // The ctor resolves these. CheckAsync is stubbed to UpToDate so that when something DOES call
+        // it, it is a silent no-op rather than noise in the observed counts. Kept as a field because
+        // whether initialization checks at all is a behaviour in its own right - see the
+        // InitializeAsync_*CheckAfterStartup / *ChecksNothing pair below.
         _updater = new Mock<IUpdateService>();
         _updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         sc.AddSingleton(_updater.Object);
@@ -164,5 +166,26 @@ public class MainViewModelInitializeTests : IDisposable
         await vm.InitializeAsync();
 
         _updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>
+    /// A quiet startup check that FAILS says nothing. This is what pins the origin to
+    /// <c>Startup</c>: the same call reported as <c>Periodic</c> would raise a failure toast, and
+    /// raising one here would interrupt the very user who asked not to be interrupted at startup.
+    /// </summary>
+    [Fact]
+    public async Task InitializeAsync_WhenTheQuietCheckFails_SaysNothing()
+    {
+        _updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UpdateCheckResult.Failed("no network"));
+
+        using MainViewModel vm = new(_services) { CheckForUpdatesAfterStartup = true };
+
+        await vm.InitializeAsync();
+
+        _updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _toasts.Verify(
+            t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
     }
 }
