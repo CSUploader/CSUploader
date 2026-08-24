@@ -38,6 +38,27 @@ public static class StartupUpdatePreference
     /// the default — which is to ask. Returning false on a read failure would silently disable a
     /// feature the user never turned off.
     /// </remarks>
+    /// <summary>
+    /// Interprets a stored value, or answers null for one that is not recognisably a boolean.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shared with settings hydration deliberately.</b> This decision is made twice — here,
+    /// before any window exists, and again when <c>SettingsViewModel</c> hydrates — and the two
+    /// disagreeing is not a cosmetic problem: the splash would appear while Settings and the prompt
+    /// both reported the feature off, and because the hydrated value matches what the user is shown,
+    /// nothing would ever repair it. Two parsers that merely look equivalent can drift on a detail
+    /// like whitespace, so there is one.
+    /// </remarks>
+    public static bool? Parse(string? value)
+    {
+        if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ? false : null;
+    }
+
     public static bool? ReadAskToUpdateAtStartup(IDbContextFactory<CSUploaderDbContext> factory)
     {
         try
@@ -50,15 +71,7 @@ public static class StartupUpdatePreference
                 .Select(s => s.Value)
                 .FirstOrDefault();
 
-            // Anything that is not recognisably a boolean is "we do not know" too, for exactly the
-            // reason a missing row is: the caller turns not knowing into the default, and answering
-            // false here would silently disable a feature nobody turned off.
-            if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ? false : null;
+            return Parse(value);
         }
         catch (Exception)
         {

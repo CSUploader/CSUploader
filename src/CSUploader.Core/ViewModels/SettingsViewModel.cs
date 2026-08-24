@@ -397,7 +397,10 @@ public partial class SettingsViewModel(
                     // value as "unknown" and falls back to the default. Mapping it to false here
                     // would leave the two disagreeing: the splash would appear while Settings and
                     // the prompt both said the feature was off, and nothing would ever repair it.
-                    if (bool.TryParse(setting.Value, out bool askAtStartup))
+                    // The SAME parser the pre-window read uses, not an equivalent one:
+                    // bool.TryParse accepts " false " and that one does not, which would recreate
+                    // the very disagreement sharing it exists to prevent.
+                    if (StartupUpdatePreference.Parse(setting.Value) is { } askAtStartup)
                     {
                         AskToUpdateAtStartup = askAtStartup;
                     }

@@ -95,6 +95,7 @@ public class StartupUpdatePreferenceTests : IDisposable
     [InlineData("")]
     [InlineData("yes")]
     [InlineData("1")]
+    [InlineData(" false ")]
     [InlineData("  true  ")]
     public void AnUnparseableValue_IsUnknownRatherThanOff(string stored)
         => Assert.Null(StartupUpdatePreference.ReadAskToUpdateAtStartup(Store(stored)));

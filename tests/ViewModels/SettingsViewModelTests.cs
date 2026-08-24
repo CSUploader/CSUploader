@@ -1055,6 +1055,8 @@ public class SettingsViewModelTests : IDisposable
     [Theory]
     [InlineData("")]
     [InlineData("yes")]
+    [InlineData(" false ")]
+    [InlineData(" true ")]
     [InlineData("1")]
     public async Task ACorruptStartupPreference_LeavesTheDefaultRatherThanReadingAsOff(string stored)
     {
