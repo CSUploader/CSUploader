@@ -204,6 +204,9 @@ Vui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuố
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>Không thể kiểm tra bản cập nhật: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>Kiểm tra cập nhật thất bại</value>
   </data>

@@ -99,7 +99,7 @@ public class MainViewModelUpdateTests : IDisposable
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         MainViewModel vm = CreateVm(updater.Object);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         Assert.False(vm.IsUpdateAvailable);
         Assert.Null(vm.AvailableVersion);
@@ -115,7 +115,7 @@ public class MainViewModelUpdateTests : IDisposable
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         Assert.True(vm.IsUpdateAvailable);
         Assert.Equal("2.3.4", vm.AvailableVersion);
@@ -132,7 +132,7 @@ public class MainViewModelUpdateTests : IDisposable
         MainViewModel vm = CreateVm(updater.Object);
 
         // Should swallow the exception and just leave the VM in the no-update state.
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
         Assert.False(vm.IsUpdateAvailable);
     }
 
@@ -143,7 +143,7 @@ public class MainViewModelUpdateTests : IDisposable
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
         MainViewModel vm = CreateVm(updater.Object);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         Assert.False(vm.InstallUpdateCommand.CanExecute(null));
     }
@@ -156,7 +156,7 @@ public class MainViewModelUpdateTests : IDisposable
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         MainViewModel vm = CreateVm(updater.Object);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         Assert.True(vm.InstallUpdateCommand.CanExecute(null));
     }
@@ -178,7 +178,7 @@ public class MainViewModelUpdateTests : IDisposable
         FakeUpdateProgressSink sink = new();
         MainViewModel vm = CreateVm(updater.Object, sink);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
         await vm.InstallUpdateCommand.ExecuteAsync(null);
 
         // The window is shown once, entirely through the sink — the VM no longer touches any Window.
@@ -224,13 +224,234 @@ public class MainViewModelUpdateTests : IDisposable
         FakeUpdateProgressSink sink = new();
         MainViewModel vm = CreateVm(updater.Object, sink);
 
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
         await vm.InstallUpdateCommand.ExecuteAsync(null);
         Assert.True(sink.WaitForAnyReport(TimeSpan.FromSeconds(5)));
 
         UpdateDownloadProgress last = await sink.WaitForPercentAsync(50, TimeSpan.FromSeconds(5));
         Assert.Equal(Advertised, last.TotalBytes);
         Assert.Equal(Advertised / 2, last.BytesReceived);
+    }
+
+
+    /// <summary>
+    /// The re-entrancy the cached task has to survive, reproduced rather than reasoned about.
+    /// <para>
+    /// Initialization runs <c>FirstRun.InitializeDatabase</c> before its first await, and that logs
+    /// — synchronously, to subscribers that run synchronously. So a subscriber can call back into
+    /// <c>InitializeAsync</c> while the first call has not returned. If the cached task were
+    /// published only after the work was under way, that re-entrant caller would find the field
+    /// null and start a SECOND initialization. Not merely twice, either: that one logs too, so it
+    /// re-enters again, and the recursion does not terminate — restoring the bug makes this test
+    /// abort the whole test host rather than fail. Publishing the task before any work begins is
+    /// what closes it, and a lock cannot: it is re-entrant on the calling thread.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task InitializeAsync_ReEnteredFromItsOwnLogging_StillRunsOnce()
+    {
+        Logger realLogger = new();
+        MainViewModel vm = CreateVm(Mock.Of<IUpdateService>(), new FakeUpdateProgressSink(), logger: realLogger);
+
+        Task? reentrant = null;
+        void OnLog(object? sender, LogEvent e) => reentrant ??= vm.InitializeAsync();
+
+        realLogger.OnLogOutput += OnLog;
+        try
+        {
+            Task outer = vm.InitializeAsync();
+            await Record.ExceptionAsync(() => outer); // the partial fixture faults it; that is fine
+
+            Assert.NotNull(reentrant);
+            Assert.Same(outer, reentrant);
+        }
+        finally
+        {
+            realLogger.OnLogOutput -= OnLog;
+        }
+    }
+
+    /// <summary>
+    /// The guard used to be a bool set before the first await, so a SECOND caller returned
+    /// immediately while the first was still loading — reporting "initialised" for a database that
+    /// was not there yet. It went unnoticed while only <c>MainWindow.Opened</c> called it; the
+    /// startup gate adds a second caller, and this is the test that says they share one task.
+    /// </summary>
+    [Fact]
+    public async Task InitializeAsync_OverlappingCallers_ShareOneTask()
+    {
+        MainViewModel vm = CreateVm(Mock.Of<IUpdateService>(), new FakeUpdateProgressSink());
+
+        Task first = vm.InitializeAsync();
+        Task second = vm.InitializeAsync();
+
+        // Reference identity, not merely "both completed": two DISTINCT tasks that each ran the body
+        // would also both complete, and would have double-loaded everything on the way.
+        Assert.Same(first, second);
+        Assert.Same(first, vm.InitializeAsync());
+
+        // ...and every caller observes the SAME outcome. This fixture's provider is deliberately
+        // partial, so the body faults - which is the more interesting half to pin: a second caller
+        // must see the first's failure rather than a silent success, which is exactly what the old
+        // bool guard did.
+        Exception? firstOutcome = await Record.ExceptionAsync(() => first);
+        Exception? secondOutcome = await Record.ExceptionAsync(() => second);
+        Assert.NotNull(firstOutcome); // otherwise Assert.Same(null, null) would pass vacuously
+        Assert.Same(firstOutcome, secondOutcome);
+    }
+
+    /// <summary>
+    /// A startup check must not raise the background toast. The splash is on screen and the main
+    /// window does not exist yet, so the toast would be orphaned or hidden behind it — and the user
+    /// finds out the ordinary way, by the menu item staying disabled.
+    /// </summary>
+    [Fact]
+    public async Task AFailedStartupCheck_IsSilent()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("offline"));
+        Mock<IToastNotificationService> toasts = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    /// <summary>...while the six-hourly poll still surfaces one, which is the behaviour that existed
+    /// before the startup origin was added and must not have been broken by adding it.</summary>
+    [Fact]
+    public async Task AFailedPeriodicCheck_StillRaisesTheToast()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("offline"));
+        Mock<IToastNotificationService> toasts = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>
+    /// The check pipeline has the same synchronous re-entrancy hole initialization had, and for the
+    /// same reason: publishing an available update LOGS, synchronously, to subscribers that run
+    /// synchronously. With a mocked service and an inline dispatcher the whole check can complete
+    /// before <c>RunCheckAsync</c> returns — so assigning its result to the in-flight field would
+    /// publish too late, and a subscriber calling back in would start another check, and another.
+    /// </summary>
+    [Fact]
+    public async Task CheckForUpdatesAsync_ReEnteredFromItsOwnLogging_StillRunsOnce()
+    {
+        Logger realLogger = new();
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), logger: realLogger);
+
+        Task<UpdateCheckResult>? reentrant = null;
+        void OnLog(object? sender, LogEvent e) => reentrant ??= vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+
+        realLogger.OnLogOutput += OnLog;
+        try
+        {
+            Task<UpdateCheckResult> outer = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+            await outer;
+
+            Assert.NotNull(reentrant);
+            Assert.Same(outer, reentrant);
+            updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+        finally
+        {
+            realLogger.OnLogOutput -= OnLog;
+        }
+    }
+
+    /// <summary>
+    /// A shared check reports as visibly as the LOUDEST participant asked for. A periodic poll that
+    /// joins a silent startup check must still get its toast — otherwise a startup check that
+    /// happens to be in flight silences the poll that was supposed to tell the user.
+    /// </summary>
+    [Fact]
+    public async Task APeriodicCheckJoiningASilentStartupOne_StillGetsItsToast()
+    {
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Mock<IUpdateService> updater = new();
+        updater
+            .Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await release.Task;
+                return UpdateCheckResult.Failed("offline");
+            });
+
+        Mock<IToastNotificationService> toasts = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts);
+
+        Task<UpdateCheckResult> startup = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        Task<UpdateCheckResult> periodic = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        release.SetResult();
+        await Task.WhenAll(startup, periodic);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>
+    /// A caller arriving while a check is running JOINS it instead of queueing behind it. That is
+    /// what keeps a user pressing Check for Updates from waiting out a startup check that has
+    /// already outlived its deadline — Velopack offers no way to cancel one, so queueing would mean
+    /// the dialog hangs for as long as the abandoned request takes.
+    /// </summary>
+    [Fact]
+    public async Task ASecondCheckDuringOne_JoinsItRatherThanQueueing()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        Mock<IUpdateService> updater = new();
+        updater
+            .Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                Interlocked.Increment(ref calls);
+                await release.Task;
+                return UpdateCheckResult.Available(info);
+            });
+
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink());
+
+        Task<UpdateCheckResult> startup = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        Task<UpdateCheckResult> user = vm.CheckForUpdatesAsync(UpdateCheckOrigin.User);
+
+        // The same task, not two: the second caller is not merely served eventually, it is served by
+        // the first caller's work. Queueing would give two distinct tasks and two network calls.
+        Assert.Same(startup, user);
+
+        release.SetResult();
+        await Task.WhenAll(startup, user);
+
+        Assert.Equal(1, Volatile.Read(ref calls));
+        Assert.True(vm.IsUpdateAvailable);
+    }
+
+    /// <summary>...and once it has finished, the next caller starts a fresh one rather than being
+    /// handed the stale completed task forever.</summary>
+    [Fact]
+    public async Task AfterACheckCompletes_TheNextCallerStartsAFreshOne()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink());
+
+        Task<UpdateCheckResult> first = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        await first;
+        Task<UpdateCheckResult> second = vm.CheckForUpdatesAsync(UpdateCheckOrigin.User);
+        await second;
+
+        Assert.NotSame(first, second);
+        updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -241,8 +462,8 @@ public class MainViewModelUpdateTests : IDisposable
         Mock<IToastNotificationService> toast = new();
         MainViewModel vm = CreateVm(updater.Object, toast: toast);
 
-        await vm.CheckForUpdatesAsync(); // background
-        await vm.CheckForUpdatesAsync(); // still failing → debounced, no second toast
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic); // background
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic); // still failing → debounced, no second toast
 
         toast.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         Assert.False(vm.IsUpdateAvailable);
@@ -256,11 +477,11 @@ public class MainViewModelUpdateTests : IDisposable
         MainViewModel vm = CreateVm(updater.Object, toast: toast);
 
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("down"));
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
-        await vm.CheckForUpdatesAsync(); // success re-arms
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic); // success re-arms
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("down again"));
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         toast.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Exactly(2));
     }
@@ -273,7 +494,7 @@ public class MainViewModelUpdateTests : IDisposable
         Mock<IToastNotificationService> toast = new();
         MainViewModel vm = CreateVm(updater.Object, toast: toast);
 
-        UpdateCheckResult result = await vm.CheckForUpdatesAsync(userInitiated: true);
+        UpdateCheckResult result = await vm.CheckForUpdatesAsync(UpdateCheckOrigin.User);
 
         Assert.Equal(UpdateCheckStatus.Failed, result.Status);
         Assert.Equal("boom", result.FailureReason);
@@ -288,31 +509,44 @@ public class MainViewModelUpdateTests : IDisposable
         MainViewModel vm = CreateVm(updater.Object);
 
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("blip"));
-        await vm.CheckForUpdatesAsync();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
 
         Assert.True(vm.IsUpdateAvailable); // a transient failure must not hide a known update
         Assert.Equal("2.3.4", vm.AvailableVersion);
     }
 
-    private MainViewModel CreateVm(IUpdateService updater, IUpdateProgressSink? sink = null, Mock<IToastNotificationService>? toast = null)
+    private MainViewModel CreateVm(
+        IUpdateService updater,
+        IUpdateProgressSink? sink = null,
+        Mock<IToastNotificationService>? toast = null,
+        IAppLogger? logger = null)
     {
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
         ServiceProvider scoped = BuildScopedProvider(
             updater,
             sink ?? Mock.Of<IUpdateProgressSink>(),
-            (toast ?? new Mock<IToastNotificationService>()).Object);
+            (toast ?? new Mock<IToastNotificationService>()).Object,
+            logger);
         MainViewModel vm = new(scoped);
         _vms.Add(vm); // disposed at teardown (MainViewModel is IDisposable — Phase 9 ledger fix c).
         return vm;
     }
 
-    private ServiceProvider BuildScopedProvider(IUpdateService updater, IUpdateProgressSink sink, IToastNotificationService toast)
+    private ServiceProvider BuildScopedProvider(
+        IUpdateService updater,
+        IUpdateProgressSink sink,
+        IToastNotificationService toast,
+        IAppLogger? logger = null)
     {
         ServiceCollection sc = new();
-        sc.AddSingleton(_services.GetRequiredService<IAppLogger>());
+
+        // The fixture's logger is Mock.Of<IAppLogger>(), whose Log is a no-op and whose OnLogOutput
+        // therefore never fires. One test needs a REAL logger, because the behaviour it pins is
+        // re-entrancy THROUGH a synchronous log callback.
+        sc.AddSingleton(logger ?? _services.GetRequiredService<IAppLogger>());
         sc.AddSingleton(_services.GetRequiredService<AppSettings>());
         sc.AddSingleton(_services.GetRequiredService<IDbContextFactory<CSUploaderDbContext>>());
         sc.AddSingleton(_services.GetRequiredService<SettingRepository>());

@@ -151,9 +151,10 @@ public partial class App : Application
             // now-loaded AppSettings. Same awaited/fire-and-forget shape (async void event handler).
             //
             // ONE-SHOT: WPF's Loaded fires once, but Avalonia re-raises Opened on EVERY Hide()->Show()
-            // (Phase 7 close-to-tray makes hide->show reachable). MainViewModel.InitializeAsync is NOT
-            // idempotent — re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling
-            // and open a second --gallery window — so this guard runs the body exactly once. It also
+            // (Phase 7 close-to-tray makes hide->show reachable). The HYDRATION is not idempotent —
+            // re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling and open a
+            // second --gallery window — but InitializeAsync now caches its task, so calling it again is
+            // safe. This guard remains for the POST-init work below, which has no such cache. It also
             // deliberately skips the post-init UpdateVisibility / --gallery re-runs on a
             // tray restore (WPF never re-ran those either).
             bool hydrated = false;

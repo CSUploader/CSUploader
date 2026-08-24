@@ -204,6 +204,9 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>업데이트를 확인할 수 없습니다: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>업데이트 확인 실패</value>
   </data>

@@ -204,6 +204,9 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>Hindi ma-check ang mga update: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>Nabigo ang pag-check ng update</value>
   </data>

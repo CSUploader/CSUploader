@@ -204,6 +204,9 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>无法检查更新：{0}</value>
   </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>更新检查失败</value>
   </data>

@@ -195,11 +195,30 @@ public partial class MainWindow : Window
         Close();
     }
 
+    /// <summary>How long Help → Check for Updates waits for an answer before saying it is still
+    /// working. Generous for a single HTTP round trip, short enough not to read as a hang.</summary>
+    private static readonly TimeSpan ManualCheckPatience = TimeSpan.FromSeconds(20);
+
     private async void MenuCheckForUpdates_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm)
         {
-            UpdateCheckResult result = await vm.CheckForUpdatesAsync(userInitiated: true);
+            // Bounded, because checks are single flight: pressing this while the startup check is
+            // still running JOINS that check rather than starting a second one, and the startup
+            // check has no cancellation - Velopack 1.2.0 offers none - so it can outlive its own
+            // deadline by a long way. Joining is still the right model (one network call, one
+            // answer); what must not happen is this menu item hanging for the remainder of a request
+            // the user never asked for. The check keeps running and still publishes its result.
+            UpdateCheckResult result;
+            try
+            {
+                result = await vm.CheckForUpdatesAsync(UpdateCheckOrigin.User).WaitAsync(ManualCheckPatience);
+            }
+            catch (TimeoutException)
+            {
+                result = UpdateCheckResult.Failed(Localizer.Instance["Main_CheckForUpdates_StillRunning"]);
+            }
+
             string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
             switch (result.Status)
             {

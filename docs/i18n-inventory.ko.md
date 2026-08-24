@@ -88,6 +88,7 @@ Main_CheckForUpdates_DialogTitle  = 업데이트 확인
 Main_CheckForUpdates_AlreadyLatest = 최신 버전을 사용 중입니다.
 Main_CheckForUpdates_Available_Format = 업데이트 사용 가능: v{0}.\n\n도움말 → 업데이트 설치를 통해 다운로드하고 설치하세요.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 업데이트를 확인할 수 없습니다: {0}
+Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = 업데이트 확인 실패
 Update_CheckFailed_ToastBody = CSUploader가 업데이트를 확인하지 못했습니다. 나중에 다시 시도합니다.
 ```

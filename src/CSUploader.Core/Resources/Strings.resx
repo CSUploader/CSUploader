@@ -225,6 +225,9 @@ Use Help → Install Update to download and install.</value>
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>Couldn't check for updates: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>Update check failed</value>
   </data>

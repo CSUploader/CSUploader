@@ -27,10 +27,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly Services.IToastNotificationService _toastService;
     private readonly Services.IUiTimer _updateTimer;
     private readonly PropertyChangedEventHandler _localizerChanged;
+    private readonly Lock _checkGate = new();
+    private Task<UpdateCheckResult>? _inFlightCheck;
+    private UpdateCheckOrigin _inFlightOrigin;
+
     private UpdateAvailableInfo? _availableUpdate;
     private bool _backgroundCheckFailing;
     private bool _suppressDarkModePersist;
-    private bool _initialized;
+    private readonly Lock _initializeGate = new();
+    private Task? _initializeTask;
     private bool _disposed;
 
     /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so Uploads is 0 and Uploaded is 1.</summary>
@@ -127,18 +132,83 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // The tick discards the task (fire-and-forget) — harmonized with the startup check in
         // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (both its awaits —
         // the check and the dispatcher apply — are wrapped in try/catch).
-        _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync());
+        _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
         _updateTimer.Start();
     }
 
     /// <summary>
-    /// Polls for a newer release. Safe to call from any thread; publishes onto the UI dispatcher.
-    /// A background failure (<paramref name="userInitiated"/> == false) shows a debounced toast —
-    /// once per failure episode, re-armed after the next successful check — so a chronically
-    /// offline machine isn't nagged every poll. A user-initiated check shows nothing here; the
-    /// caller renders the returned <see cref="UpdateCheckResult"/>.
+    /// Runs an update check and publishes its result. This is the ONLY place update state is
+    /// written, so a startup check, the six-hourly poll and a user pressing Check for Updates cannot
+    /// each own a different idea of what version is available.
     /// </summary>
-    public async Task<UpdateCheckResult> CheckForUpdatesAsync(bool userInitiated = false)
+    /// <remarks>
+    /// <para>
+    /// <b>Single flight.</b> A caller arriving while a check is already running JOINS it rather than
+    /// queueing behind it. That is what stops the startup check - which outlives its own deadline,
+    /// because Velopack 1.2.0 offers no way to cancel one - from blocking a user who presses Check
+    /// for Updates a moment later. They get the in-flight answer, which is as current as the one a
+    /// second network round trip would have produced, and the app makes one call instead of two.
+    /// </para>
+    /// <para>
+    /// It also removes the ordering problem rather than managing it: only one check publishes at a
+    /// time and the next cannot start until it has, so no result can overwrite a newer one and no
+    /// generation stamp is needed to prevent it.
+    /// </para>
+    /// <para>
+    /// A joiner does NOT change how the running check reports failure - the originator's
+    /// <see cref="UpdateCheckOrigin"/> governs that. A user joining a silent startup check still
+    /// sees the outcome, because the menu handler renders the returned result itself.
+    /// </para>
+    /// </remarks>
+    public Task<UpdateCheckResult> CheckForUpdatesAsync(UpdateCheckOrigin origin)
+    {
+        TaskCompletionSource<UpdateCheckResult> started;
+        lock (_checkGate)
+        {
+            if (_inFlightCheck is { IsCompleted: false })
+            {
+                // A joiner can make the running check LOUDER but never quieter - see
+                // EffectiveOrigin. Upgraded under the lock, read under the lock at publication.
+                _inFlightOrigin = MoreVisible(_inFlightOrigin, origin);
+                return _inFlightCheck;
+            }
+
+            // Published before RunCheckAsync can run a line, for the same reason InitializeAsync
+            // publishes before FirstRun: the body reaches collaborator code - ApplyCheckResult logs
+            // synchronously for an available update - and a log subscriber calling back in here
+            // would otherwise find this null and start a second check. Assigning the result of
+            // RunCheckAsync(...) cannot do that, because the assignment happens only once the method
+            // has already returned, and a synchronously-completing check returns after logging.
+            started = new TaskCompletionSource<UpdateCheckResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _inFlightCheck = started.Task;
+            _inFlightOrigin = origin;
+        }
+
+        _ = CompleteCheckAsync(started);
+        return started.Task;
+    }
+
+    private async Task CompleteCheckAsync(TaskCompletionSource<UpdateCheckResult> started)
+    {
+        try
+        {
+            started.TrySetResult(await RunCheckAsync());
+        }
+        catch (Exception ex)
+        {
+            started.TrySetException(ex);
+        }
+    }
+
+    /// <summary>
+    /// Which of two origins reports more visibly. A check that several callers share must not be
+    /// quieter than the loudest of them asked for: a user who joins a silent startup check still
+    /// gets their dialog, and a periodic poll joining one still gets its toast.
+    /// </summary>
+    private static UpdateCheckOrigin MoreVisible(UpdateCheckOrigin a, UpdateCheckOrigin b)
+        => (UpdateCheckOrigin)Math.Max((int)a, (int)b);
+
+    private async Task<UpdateCheckResult> RunCheckAsync()
     {
         UpdateCheckResult result;
         try
@@ -152,9 +222,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
             result = UpdateCheckResult.Failed(ex.Message);
         }
 
+        UpdateCheckOrigin origin;
+        lock (_checkGate)
+        {
+            // Read under the lock so a joiner that arrived while the network call was running is
+            // accounted for, and one arriving after this point cannot change what was published.
+            origin = _inFlightOrigin;
+        }
+
         try
         {
-            await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, userInitiated));
+            await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, origin));
         }
         catch (Exception ex)
         {
@@ -166,7 +244,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return result;
     }
 
-    private void ApplyCheckResult(UpdateCheckResult result, bool userInitiated)
+    private void ApplyCheckResult(UpdateCheckResult result, UpdateCheckOrigin origin)
     {
         switch (result.Status)
         {
@@ -189,8 +267,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
             case UpdateCheckStatus.Failed:
                 // A transient failure must NOT hide a previously-known available update, so leave
                 // IsUpdateAvailable/_availableUpdate as they are. Surface a background failure once
-                // per episode; a user-initiated failure is rendered by the caller from the result.
-                if (!userInitiated && !_backgroundCheckFailing)
+                // per episode; a user-initiated failure is rendered by the caller from the result,
+                // and a STARTUP failure is silent - the splash is on screen and the main window does
+                // not exist yet, so a toast would be orphaned or hidden behind it.
+                if (origin == UpdateCheckOrigin.Periodic && !_backgroundCheckFailing)
                 {
                     _backgroundCheckFailing = true;
                     _toastService.ShowInfo(
@@ -251,21 +331,62 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public LogsViewModel LogsViewModel { get; }
 
-    public async Task InitializeAsync()
+    /// <summary>
+    /// Runs startup hydration exactly once, and returns the SAME task to every caller.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It loads persisted packages, hydrates and wires log persistence, and restores the theme —
+    /// none of it safe to run twice — and the Avalonia head re-raises <c>Window.Opened</c> on every
+    /// tray restore, so it needs a guard.
+    /// </para>
+    /// <para>
+    /// The guard is a cached TASK rather than a bool. A bool made a second caller return
+    /// IMMEDIATELY while the first was still working, so it reported "initialised" for a database
+    /// that was not loaded yet — harmless while only one caller existed, and not harmless now that
+    /// the splash starts this and <c>MainWindow.Opened</c> also awaits it. Every caller now awaits
+    /// the same work and observes the same fault.
+    /// </para>
+    /// </remarks>
+    public Task InitializeAsync()
     {
-        // Idempotency guard (Phase 9 ledger fix b): InitializeAsync loads persisted packages, hydrates and
-        // wires log persistence, and restores theme — none of it safe to run twice (it would double-load
-        // packages and re-hydrate the Logs tab). The Avalonia head re-raises Window.Opened on every tray
-        // restore (App.axaml.cs one-shots the outer call too); guarding here makes the VM safe for any
-        // caller/head. The flag is set BEFORE the first await — FirstRun is synchronous, so on the single UI
-        // thread a re-entrant call short-circuits before any body work. WPF's Loaded fires once: unchanged.
-        if (_initialized)
+        TaskCompletionSource started;
+        lock (_initializeGate)
         {
-            return;
+            if (_initializeTask is not null)
+            {
+                return _initializeTask;
+            }
+
+            // Published BEFORE any work begins, not after InitializeCoreAsync returns its task. An
+            // async method runs synchronously to its first incomplete await, and the first thing
+            // this one does is FirstRun.InitializeDatabase - which LOGS, synchronously, to
+            // subscribers that run synchronously. A subscriber calling back in here would have
+            // found the field still null and started a second initialisation. The lock is no help
+            // against that: it is re-entrant on the calling thread.
+            started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _initializeTask = started.Task;
         }
 
-        _initialized = true;
+        _ = CompleteInitializeAsync(started);
+        return started.Task;
+    }
 
+    private async Task CompleteInitializeAsync(TaskCompletionSource started)
+    {
+        try
+        {
+            await InitializeCoreAsync();
+            started.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            started.TrySetException(ex);
+        }
+    }
+
+    private async Task InitializeCoreAsync()
+    {
         FirstRun.InitializeDatabase(_services, _logger);
 
         // Hydrate the Logs tab from the persisted store BEFORE wiring the persistence
@@ -365,7 +486,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // First update check happens shortly after startup (the timer fires every 6h
         // thereafter). Fire-and-forget — a network failure shouldn't block init.
-        _ = CheckForUpdatesAsync();
+        _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
     }
 
     partial void OnIsDarkModeChanged(bool value)
