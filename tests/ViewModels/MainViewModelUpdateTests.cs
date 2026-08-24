@@ -401,10 +401,12 @@ public class MainViewModelUpdateTests : IDisposable
 
         Assert.True(vm.IsUpdateAvailable); // reported, just not acted on
     }
+
     /// <summary>
-    /// The two halves of the split setting. "Check for updates at startup" decides that there IS an
-    /// answer by the time the window opens; "install updates automatically at startup" decides what
-    /// happens to it. On, the update installs and no prompt is ever constructed. Off, the user is
+    /// The two halves of the split setting. "Check for updates at startup" decides that the check
+    /// runs in front of the window rather than behind it - an answer by the time it opens if one
+    /// arrives inside the deadline; "install updates automatically at startup" decides what happens
+    /// to that answer. On, the update installs and no prompt is ever constructed. Off, the user is
     /// asked and nothing installs itself behind them.
     /// </summary>
     /// <remarks>
@@ -641,9 +643,11 @@ public class MainViewModelUpdateTests : IDisposable
     }
 
     /// <summary>
-    /// A startup check must not raise the background toast. The splash is on screen and the main
-    /// window does not exist yet, so the toast would be orphaned or hidden behind it — and the user
-    /// finds out the ordinary way, by the menu item staying disabled.
+    /// A startup check must not raise the background toast, whichever of the two startup checks it
+    /// is. Behind the splash there is nowhere to put one - the real window does not exist yet, so it
+    /// would be orphaned or hidden. In the quiet post-startup case the window does exist, and the
+    /// reason holds anyway: that user asked not to be interrupted at startup. Either way they find
+    /// out the ordinary way, by the menu item staying disabled.
     /// </summary>
     [Fact]
     public async Task AFailedStartupCheck_IsSilent()

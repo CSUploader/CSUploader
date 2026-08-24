@@ -239,20 +239,21 @@ public partial class App : Application
             // Whether to hold the main window back behind an update check. Ordered so the excluded
             // modes short-circuit before the database is touched.
             //
-            // Every ordinary launch is gated, INSTALLED OR NOT. A loose build cannot install what it
-            // finds, but it can still answer the question the splash is asking - "are we on the
-            // latest version?" - because UpdateService goes to the release feed directly when there
-            // is no Velopack layout to ask through. What a loose build must never do is OFFER the
-            // install, and that is kept out by the answer having a status of its own rather than by
-            // anything here (see UpdateCheckStatus.AvailableNotInstallable).
+            // Gating does not depend on being INSTALLED. A loose build cannot install what it finds,
+            // but it can still answer the question the splash is asking - "are we on the latest
+            // version?" - because UpdateService goes to the release feed directly when there is no
+            // Velopack layout to ask through. What a loose build must never do is OFFER the install,
+            // and that is kept out by the answer having a status of its own rather than by anything
+            // here (see UpdateCheckStatus.AvailableNotInstallable).
             //
             // Two decisions, not one, and they are NOT the same question:
             //   1. does the check happen in front of the window (splash + prompt), or behind it?
             //   2. does it happen at all?
             //
             // The preference answers (1). Turning it off moves the check behind startup - the app
-            // opens straight away and the title bar reports any update once the quiet check lands -
-            // rather than cancelling it. Only the dev flags answer (2) with "no": --agent and
+            // opens straight away, and on an installed build the title bar reports any update once
+            // the quiet check lands - rather than cancelling it. Only the dev flags answer (2) with
+            // "no": --agent and
             // --gallery must neither grow a window the AvaDevBridge screenshot loop and the dev
             // gallery never had, nor make a request on their behalf.
             bool devFlagRun = isAgent;

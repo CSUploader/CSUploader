@@ -197,8 +197,8 @@ public class MainViewModelInitializeTests : IDisposable
     /// The settings UI greys the auto-install box out rather than hiding it, and deliberately keeps
     /// its stored value so turning the check back on restores the choice. That means this pairing is
     /// reachable and persists - a user can genuinely be sitting on it. What must not follow is a
-    /// restart they never agreed to, from a box they can no longer see. Auto-install belongs to the
-    /// GATED check; the quiet one only ever reports.
+    /// restart they never agreed to, decided by a box they can no longer reach. Auto-install belongs
+    /// to the GATED check; the quiet one only ever reports.
     /// <para>
     /// The preference is written to the store rather than assigned on the view model, because
     /// InitializeAsync hydrates settings on its way through - an assignment here would be overwritten

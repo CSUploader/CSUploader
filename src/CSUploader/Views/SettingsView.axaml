@@ -385,9 +385,9 @@
         </Grid>
 
         <!-- Off means the app opens straight away: no splash, nothing asked before it appears. It
-             does NOT mean no check - a quiet one runs just after the window appears, so the title bar
-             still reports an update and Help -> Install Update still installs it. This hides the
-             interruption, not the feature; the six-hourly poll is unaffected either way. -->
+             does NOT mean no check - a quiet one runs just after the window appears, so an installed
+             build still reports an update in the title bar and Help -> Install Update still installs
+             it. This hides the interruption, not the feature; the six-hourly poll is unaffected. -->
         <Grid Classes="setting-row">
           <CheckBox Content="{loc:Loc Settings_General_CheckForUpdatesAtStartup}"
                     IsChecked="{Binding CheckForUpdatesAtStartup}" VerticalAlignment="Center" />

@@ -19,11 +19,16 @@
     CS8509 — "the switch expression does not handle all possible values of its input type" — is an
     ERROR here, not a warning.
 
-    Warnings are not errors in this repo, so a non-exhaustive switch expression would build, ship, and
-    silently fall through at runtime. That is the wrong trade for this particular diagnostic: the
-    places that switch over a closed enum (an update-check status, an upload state) are exactly the
-    places where a member added later must be routed deliberately, and the failure mode is not a
-    crash but a confidently wrong answer given to the user.
+    Warnings are not errors in this repo, so a non-exhaustive switch expression would build and ship,
+    and then throw at whatever moment the unhandled member first turns up. That is the wrong trade
+    here: the places that switch over a closed enum (an update-check status, an upload state) are
+    exactly the places where a member added later must be routed deliberately, and a compile error is
+    the cheapest possible moment to find that out.
+
+    Note what this does NOT protect against - the alternative it replaced. A switch STATEMENT with a
+    default arm compiles clean, never throws, and answers the new member with whatever the default
+    said, which for the Help menu was "you are on the latest version". Silent and wrong beats loud
+    and late; the expression form plus this promotion is what rules out both.
 
     Deliberately narrow. This promotes ONE diagnostic rather than turning on TreatWarningsAsErrors,
     which would make every future analyser release a build break.

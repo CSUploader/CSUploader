@@ -59,9 +59,9 @@ public class AppSettings
     /// </summary>
     /// <remarks>
     /// Off is not "do not check". The app opens straight away and a quiet check follows once the
-    /// window is up, so the title bar still reports an update and Help → Install Update still
-    /// installs it; the six-hourly poll is unaffected either way. What off buys is the absence of the
-    /// splash and of anything asking a question before the app opens.
+    /// window is up, so an installed build still reports an update in the title bar and Help →
+    /// Install Update still installs it; the six-hourly poll is unaffected either way. What off buys
+    /// is the absence of the splash and of anything asking a question before the app opens.
     /// </remarks>
     public static bool DefaultCheckForUpdatesAtStartup { get; } = true;
 

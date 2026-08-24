@@ -561,8 +561,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <remarks>
     /// Only ever reached from the gated path, which is what keeps "install automatically at startup"
     /// honest — the quiet post-startup check cannot land here, so someone who turned the startup
-    /// check off never gets an unannounced restart out of a setting they left switched on and
-    /// stopped being able to see.
+    /// check off never gets an unannounced restart out of a setting they left switched on behind a
+    /// greyed-out box.
     /// </remarks>
     private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
     {
@@ -732,9 +732,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await UploadedViewModel.LoadAsync();
 
         // The unGATED check: no splash, no prompt, nothing in the user's way - the window is already
-        // up by the time this runs. It is what "check for updates at startup" being OFF buys:
-        // the check moves behind startup rather than disappearing, so the title bar still reports an
-        // update without startup ever having waited on one.
+        // up by the time this runs. It is what "check for updates at startup" being OFF buys: the
+        // check moves behind startup rather than disappearing, so an INSTALLED build still reports an
+        // update in the title bar without startup ever having waited on one. A loose build reports
+        // AvailableNotInstallable, which deliberately leaves the title alone - there is nothing it
+        // could offer to do about it.
         //
         // Driven by an explicit flag rather than by "no gate was set", because those are not the
         // same question. --agent and --gallery also arrive here without a gate, and they must make
