@@ -509,16 +509,19 @@ public class MainViewModelUpdateTests : IDisposable
         gate.MarkMainWindowReady();
         await gating.WaitAsync(TimeSpan.FromSeconds(10));
 
+        // ...and the abandoned check still publishes, so the menu item lights up.
+        release.SetResult();
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        Assert.True(vm.IsUpdateAvailable);
+
+        // Asserted HERE, after the late result has landed and published - not before it, where they
+        // would have been asserting about a check that had not answered yet and could not have
+        // installed anything whatever the code did.
         Assert.Equal(0, prompt.Shown);
         updater.Verify(
             u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
             Times.Never);
         updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
-
-        // ...and the abandoned check still publishes, so the menu item lights up.
-        release.SetResult();
-        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
-        Assert.True(vm.IsUpdateAvailable);
     }
 
     /// <summary>
@@ -668,8 +671,8 @@ public class MainViewModelUpdateTests : IDisposable
     /// A startup check must not raise the background toast, whichever of the two startup checks it
     /// is. Behind the splash there is nowhere to put one - the real window does not exist yet, so it
     /// would be orphaned or hidden. In the quiet post-startup case the window does exist, and the
-    /// reason holds anyway: that user asked not to be interrupted at startup. Either way they find
-    /// out the ordinary way, by the menu item staying disabled.
+    /// reason holds anyway: that user asked not to be interrupted at startup. Either way nothing is
+    /// lost - a failure leaves whatever was already known intact - and the periodic poll reports.
     /// </summary>
     [Fact]
     public async Task AFailedStartupCheck_IsSilent()

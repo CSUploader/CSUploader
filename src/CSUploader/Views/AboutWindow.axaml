@@ -4,8 +4,9 @@
 <!-- About box (port of the WPF src/Views/AboutWindow.xaml). Logo + app name/version, a description,
      four labelled fields, and a clickable GitHub link. No IDialogService member — the production opener
      is the MainWindow menu (Phase 6/7); the gallery button is its only opener until then. The version
-     line is filled in from AppVersion in the code-behind — the same resolver the updater compares
-     against, so About and the update prompt cannot disagree about what is running. -->
+     line is filled in from AppVersion in the code-behind — the same value the update prompt shows as
+     "you have", so the two cannot disagree about what is running. (An installed build's own update
+     comparison is Velopack's, against its locator's package version, not this.) -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:CSUploader.Lib.Localization"

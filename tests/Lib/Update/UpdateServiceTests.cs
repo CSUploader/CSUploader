@@ -24,8 +24,10 @@ namespace CSUploader.Tests.Lib.Update;
 /// failing on any offline machine and rate-limiting CI.
 /// </para>
 /// <para>
-/// The installed branch wraps the concrete (non-mockable) Velopack <c>UpdateManager</c> and is NOT
-/// covered anywhere: it needs a real Velopack layout, which a test process does not have.
+/// The installed branch is NOT covered anywhere, and the reason is this code rather than Velopack's.
+/// Velopack 1.2.0 is perfectly testable here — <c>TestVelopackLocator</c>, locator injection on
+/// <c>UpdateManager</c>, and a virtual <c>CheckForUpdatesAsync</c> are all available. What is missing
+/// is a seam: <c>UpdateService</c> constructs its own manager and exposes no way to hand one in.
 /// <c>UpdateServicePlanTests</c> covers the transformation extracted out of it (<c>Describe</c> /
 /// <c>PlanDownload</c>), and <c>MainViewModelUpdateTests</c> covers what the view model does with a
 /// result — but neither drives the manager call itself, and saying otherwise would overstate what is
