@@ -205,8 +205,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // would reach the dispatcher's unhandled hook. RunCheckAsync already converts the
             // service's own failures; this covers what its collaborators can throw - a log
             // subscriber, say, which the real Logger invokes without isolation.
-            _logger.Log(this, LogType.Error, $"Update check pipeline failed: {ex.Message}");
+            //
+            // COMPLETED FIRST, logged second. The thing that threw is most likely that same log
+            // subscriber, and if it throws again on the way out, an uncompleted task here would
+            // leave _inFlightCheck permanently incomplete - every later check would join a shared
+            // task that never finishes, and update checking would be dead for the session.
             started.TrySetResult(UpdateCheckResult.Failed(ex.Message));
+            SafeLog(LogType.Error, $"Update check pipeline failed: {ex.Message}");
         }
     }
 

@@ -52,6 +52,30 @@ public sealed class StartupGate
     public void MarkMainWindowReady() => _mainWindowReady.TrySetResult();
 
     /// <summary>
+    /// Waits until it is time to swap in the real window, and says whether it still should be.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The return value is the point. Awaiting a cancellable wait is not enough: once either task
+    /// has completed, the wait is over and a cancellation arriving before the continuation runs
+    /// cannot retroactively undo it. Without a second look at the token, a user who closes the
+    /// splash in that window gets a main window shown for an app that has already decided to quit.
+    /// </para>
+    /// <para>
+    /// It waits on the initialisation task as well as the gate, because initialisation can fail
+    /// before it ever reaches the gate — and then nothing would ever release, and the splash would
+    /// sit there forever.
+    /// </para>
+    /// </remarks>
+    /// <returns><see langword="true"/> to transition; <see langword="false"/> if startup was
+    /// abandoned while waiting.</returns>
+    public async Task<bool> WaitToShowMainWindowAsync(Task initialization)
+    {
+        await Task.WhenAny(initialization, MainWindowMayShow).WaitAsync(CancellationToken);
+        return !CancellationToken.IsCancellationRequested;
+    }
+
+    /// <summary>
     /// Called by the head when the transition cannot happen — the splash was closed, or showing the
     /// real window threw. Without it initialisation would wait for a swap that will never come.
     /// </summary>

@@ -392,7 +392,16 @@ public partial class SettingsViewModel(
                     break;
 
                 case var k when k == SettingKey.AskToUpdateAtStartup:
-                    AskToUpdateAtStartup = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    // A value that parses, or nothing. StartupUpdatePreference - which decides
+                    // whether the splash appears at all, before this runs - treats an unrecognised
+                    // value as "unknown" and falls back to the default. Mapping it to false here
+                    // would leave the two disagreeing: the splash would appear while Settings and
+                    // the prompt both said the feature was off, and nothing would ever repair it.
+                    if (bool.TryParse(setting.Value, out bool askAtStartup))
+                    {
+                        AskToUpdateAtStartup = askAtStartup;
+                    }
+
                     break;
 
                 case var k when k == SettingKey.ShowCompletionToasts:

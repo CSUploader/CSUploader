@@ -1041,4 +1041,42 @@ public class SettingsViewModelTests : IDisposable
     [Fact]
     public void AskToUpdateAtStartup_DefaultsToAsking()
         => Assert.True(CreateVm().AskToUpdateAtStartup);
+
+    /// <summary>
+    /// Hydration and the early reader must agree about a value that is neither "true" nor "false".
+    /// <para>
+    /// <c>StartupUpdatePreference</c> decides whether the splash appears at all, before this runs,
+    /// and treats an unrecognised value as unknown — falling back to the default, which is on.
+    /// Mapping it to false here would leave the two disagreeing: the splash appears while Settings
+    /// and the prompt both report the feature off, and because the hydrated value matches what the
+    /// user then sees, nothing ever repairs it.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("yes")]
+    [InlineData("1")]
+    public async Task ACorruptStartupPreference_LeavesTheDefaultRatherThanReadingAsOff(string stored)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.AskToUpdateAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.True(vm.AskToUpdateAtStartup);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("True", true)]
+    public async Task AValidStartupPreference_IsHydrated(string stored, bool expected)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.AskToUpdateAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.Equal(expected, vm.AskToUpdateAtStartup);
+    }
 }

@@ -357,13 +357,13 @@ public partial class App : Application
             {
                 _startupPipeline = viewModelOrNull(mainWindow)?.InitializeAsync() ?? Task.CompletedTask;
 
-                // EITHER signal, not just the gate's. Initialisation can fail before it ever
-                // reaches the gate - a database that will not open, settings that will not load -
-                // and then nothing would ever release the window and the splash would sit there
-                // forever. Waiting on the pipeline too means a pre-gate failure still transitions;
-                // MainWindow.Opened then awaits the same cached task, observes the fault, and
-                // reports it through the startup-error path that already exists.
-                await Task.WhenAny(_startupPipeline, gate.MainWindowMayShow).WaitAsync(startupAborted.Token);
+                if (!await gate.WaitToShowMainWindowAsync(_startupPipeline))
+                {
+                    // Abandoned while waiting - the splash was closed after the wait completed but
+                    // before this continuation ran. Showing the window now would put one on screen
+                    // for an app that has already decided to quit.
+                    return;
+                }
 
                 transitioning = true;
                 desktop.MainWindow = mainWindow;
@@ -423,7 +423,7 @@ public partial class App : Application
         // UI services (Avalonia implementations of Core interfaces)
         services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
         services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();
-        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow shown once at startup  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow, shown once at startup  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();

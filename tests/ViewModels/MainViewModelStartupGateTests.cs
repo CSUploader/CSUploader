@@ -68,4 +68,61 @@ public class StartupGateTests
 
         Assert.True(gate.MainWindowReady.IsCompletedSuccessfully);
     }
+
+    /// <summary>
+    /// The race the return value exists for. Once either task completes the wait is OVER, and a
+    /// cancellation arriving before the continuation runs cannot retroactively undo it — so a user
+    /// who closes the splash in that window would otherwise get a main window shown for an app that
+    /// has already decided to quit.
+    /// </summary>
+    [Fact]
+    public async Task WaitToShowMainWindow_SaysNo_WhenAbandonedAfterTheWaitCompleted()
+    {
+        using CancellationTokenSource cts = new();
+        StartupGate gate = new(TimeSpan.FromSeconds(5), cts.Token);
+
+        gate.ReleaseMainWindow();   // the wait is now satisfied...
+        cts.Cancel();               // ...and only then does the user close the splash
+
+        Assert.False(await gate.WaitToShowMainWindowAsync(Task.CompletedTask));
+    }
+
+    [Fact]
+    public async Task WaitToShowMainWindow_SaysYes_WhenTheGateReleasesNormally()
+    {
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        gate.ReleaseMainWindow();
+
+        Assert.True(await gate.WaitToShowMainWindowAsync(Task.CompletedTask));
+    }
+
+    /// <summary>
+    /// Initialisation failing before it reaches the gate still ends the wait — otherwise nothing
+    /// ever releases and the splash sits there forever. The fault is left for the caller that owns
+    /// the task to observe; this only decides whether to show a window.
+    /// </summary>
+    [Fact]
+    public async Task WaitToShowMainWindow_SaysYes_WhenInitialisationFailsBeforeTheGate()
+    {
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        Task faulted = Task.FromException(new InvalidOperationException("no database"));
+
+        // Bounded: without the initialisation arm this waits forever, and a hanging test says less
+        // than a failing one.
+        Assert.True(await gate.WaitToShowMainWindowAsync(faulted).WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.False(gate.MainWindowMayShow.IsCompleted); // it was never released; the fault ended it
+    }
+
+    /// <summary>Cancelled while genuinely waiting, rather than after: that is a throw, not a false.</summary>
+    [Fact]
+    public async Task WaitToShowMainWindow_Throws_WhenAbandonedDuringTheWait()
+    {
+        using CancellationTokenSource cts = new();
+        StartupGate gate = new(TimeSpan.FromSeconds(5), cts.Token);
+
+        Task<bool> waiting = gate.WaitToShowMainWindowAsync(new TaskCompletionSource().Task);
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
+    }
 }
