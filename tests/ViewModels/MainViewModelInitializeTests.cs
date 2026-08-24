@@ -125,21 +125,41 @@ public class MainViewModelInitializeTests : IDisposable
     }
 
     /// <summary>
-    /// Initialization does NOT check for updates. The startup gate is the only thing that does.
+    /// With "check for updates before opening" off, the check still happens — just behind startup,
+    /// where it cannot hold the window back or interrupt anyone.
     /// </summary>
     /// <remarks>
-    /// There used to be a fire-and-forget check here, for the case where no gate was set. Every way of
-    /// reaching it is now a case that must not check: <c>--agent</c> and <c>--gallery</c>, which would
-    /// put network traffic into the bridge and gallery flows, and an owner who turned "check for
-    /// updates when CSUploader starts" off, for whom it did the exact thing the setting promises it
-    /// does not. That was survivable only while a non-installed check returned instantly without a
-    /// request; it stopped being survivable when the check started reaching GitHub.
+    /// The origin is <c>Startup</c> rather than <c>Periodic</c>, and that is load-bearing: only
+    /// <c>Periodic</c> owes a failure toast. Reporting this one as periodic would put an error
+    /// notification in front of the very user who asked not to be interrupted at startup.
     /// </remarks>
     [Fact]
-    public async Task InitializeAsync_DoesNotCheckForUpdates()
+    public async Task InitializeAsync_WhenAskedToCheckAfterStartup_ChecksQuietly()
+    {
+        using MainViewModel vm = new(_services) { CheckForUpdatesAfterStartup = true };
+        Assert.Null(vm.StartupGate); // ungated: no splash held anything back
+
+        await vm.InitializeAsync();
+
+        // Fire-and-forget, but CheckForUpdatesAsync reaches the service before its first await, so
+        // the call has already been made by the time InitializeAsync returns.
+        _updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Without that flag, initialization checks nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// This is <c>--agent</c> and <c>--gallery</c>: ungated like the case above, but not a user who
+    /// wants updates - a screenshot loop and a control gallery, which must make no request on
+    /// anyone's behalf. The check used to be driven by "no gate was set", which cannot tell those two
+    /// apart from an owner who merely turned the splash off, so it fired for all three.
+    /// </remarks>
+    [Fact]
+    public async Task InitializeAsync_WithoutThatFlag_ChecksNothing()
     {
         using MainViewModel vm = new(_services);
-        Assert.Null(vm.StartupGate); // the ungated shape - the one that used to check
+        Assert.False(vm.CheckForUpdatesAfterStartup); // the default: opt IN, never out
 
         await vm.InitializeAsync();
 

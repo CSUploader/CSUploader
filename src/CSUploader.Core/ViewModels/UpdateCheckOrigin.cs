@@ -18,9 +18,17 @@ namespace CSUploader.ViewModels;
 public enum UpdateCheckOrigin
 {
     /// <summary>
-    /// The check that gates startup. SILENT on failure: the splash is on screen and the main window
-    /// does not exist yet, so a toast would either be orphaned or land behind the splash. The user
-    /// finds out the ordinary way — the menu item stays disabled — and the periodic poll takes over.
+    /// A check the app started on its own at launch — either the one that gates startup behind the
+    /// splash, or the quiet one that runs just after the window opens when the owner has turned
+    /// "check for updates before opening" off.
+    /// <para>
+    /// SILENT on failure either way, for one reason that covers both: nobody asked for it. In the
+    /// gated case there is nowhere to put a toast — the splash is on screen and the real window does
+    /// not exist yet, so it would be orphaned or hidden behind it. In the ungated case the user
+    /// specifically chose not to be interrupted at startup, and a failure notice is an interruption.
+    /// The user finds out the ordinary way — the menu item stays disabled — and the periodic poll,
+    /// which does surface failures, takes over.
+    /// </para>
     /// </summary>
     Startup,
 

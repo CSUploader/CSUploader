@@ -290,10 +290,10 @@ Settings_General_CloseAction_Exit        = 退出应用
 Settings_General_Notifications_Title  = 通知
 Settings_General_Notifications_Desc   = 上传完成时在右下角显示弹出通知。
 Settings_General_ShowCompletionToasts = 上传完成时显示弹出通知
-Settings_General_AskToUpdateAtStartup = Check for updates when CSUploader starts, and ask before installing
+Settings_General_AskToUpdateAtStartup = Check for updates before opening, and ask before installing
 UpdatePrompt_WindowTitle          = Update available
 UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
-UpdatePrompt_AskAtStartup         = Check for updates when CSUploader starts
+UpdatePrompt_AskAtStartup         = Check for updates before opening
 UpdatePrompt_BtnUpdateNow         = Update now
 UpdatePrompt_BtnLater             = Later
 Splash_Status_CheckingForUpdates  = Checking for updates…

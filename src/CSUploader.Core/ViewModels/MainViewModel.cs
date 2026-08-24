@@ -434,10 +434,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     /// <remarks>
     /// Null for <c>--agent</c>, <c>--gallery</c>, and any owner who turned the preference off.
-    /// Nothing below runs in that case — and since the gate is what performs the startup check,
-    /// null here means no startup check happens at all, which is what those three cases want.
+    /// Nothing below runs in that case; whether a check happens anyway is
+    /// <see cref="CheckForUpdatesAfterStartup"/>'s business, not this one's.
     /// </remarks>
     public StartupGate? StartupGate { get; set; }
+
+    /// <summary>
+    /// Set by the head when startup is NOT gated but an update check is still wanted — quietly,
+    /// after the window is already up, instead of in front of it.
+    /// </summary>
+    /// <remarks>
+    /// This is the OFF position of "check for updates before opening". Off moves the check behind
+    /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
+    /// <c>--gallery</c>, which are not user preferences and must make no requests at all.
+    /// <para>
+    /// The head sets at most one of this and <see cref="StartupGate"/>. Setting both would not
+    /// double the traffic — checks are single-flight, so the second joins the first — but it would
+    /// mean the head had lost track of which startup it was running.
+    /// </para>
+    /// </remarks>
+    public bool CheckForUpdatesAfterStartup { get; set; }
 
     /// <summary>
     /// Runs the startup check behind a deadline, hands the head its cue to show the real window,
@@ -672,19 +688,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _services.GetRequiredService<PackageManager>().LoadPersistedPackagesAsync();
         await UploadedViewModel.LoadAsync();
 
-        // NO startup check here. There used to be one, for the case where no gate was set, and it
-        // has become wrong on every path that reaches it.
+        // The unGATED check: no splash, no prompt, nothing in the user's way - the window is already
+        // up by the time this runs. It is what "check for updates before opening" being OFF buys:
+        // the check moves behind startup rather than disappearing, so the title bar still reports an
+        // update without startup ever having waited on one.
         //
-        // The gate now runs for every ordinary launch, installed or not, so the only ways to arrive
-        // here without one are --agent, --gallery, and an owner who turned "check for updates when
-        // CSUploader starts" OFF. A check for the first two puts network traffic in the bridge and
-        // gallery flows; a check for the third does the exact thing the setting says it does not.
-        // That third case was survivable while the loose-build check was an instant no-op, and
-        // stopped being survivable when it started reaching GitHub.
-        //
-        // Nothing is lost by leaving: the six-hourly timer starts in the constructor regardless, so
-        // an opted-out install still learns about updates - just not at startup, which is precisely
-        // what it asked for.
+        // Driven by an explicit flag rather than by "no gate was set", because those are not the
+        // same question. --agent and --gallery also arrive here without a gate, and they must make
+        // no request at all - a screenshot loop is not a user who wants to know about updates.
+        if (CheckForUpdatesAfterStartup)
+        {
+            // Fire-and-forget: a network failure must not block init.
+            _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        }
     }
 
     partial void OnIsDarkModeChanged(bool value)

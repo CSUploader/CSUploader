@@ -246,16 +246,24 @@ public partial class App : Application
             // install, and that is kept out by the answer having a status of its own rather than by
             // anything here (see UpdateCheckStatus.AvailableNotInstallable).
             //
-            // --agent and --gallery stay out, so the AvaDevBridge screenshot loop and the dev
-            // gallery do not grow a window they never had. Since the gate is also what performs the
-            // startup check, staying out means those two do not check at all - which is what they
-            // want, now that checking means a real request. Same for an owner who turned the
-            // preference off: the setting says "when CSUploader starts", and this is that.
-            bool gateStartup =
-                !isAgent
+            // Two decisions, not one, and they are NOT the same question:
+            //   1. does the check happen in front of the window (splash + prompt), or behind it?
+            //   2. does it happen at all?
+            //
+            // The preference answers (1). Turning it off moves the check behind startup - the app
+            // opens straight away and the title bar reports any update once the quiet check lands -
+            // rather than cancelling it. Only the dev flags answer (2) with "no": --agent and
+            // --gallery must neither grow a window the AvaDevBridge screenshot loop and the dev
+            // gallery never had, nor make a request on their behalf.
+            bool devFlagRun = isAgent;
 #if DEBUG && WINDOWS
-                && !gallery
+            devFlagRun = devFlagRun || gallery;
 #endif
+
+            // && order matters: a dev-flag run must not touch the database to answer a question
+            // whose answer it does not use.
+            bool gateStartup =
+                !devFlagRun
                 && StartupUpdatePreference.ReadAskToUpdateAtStartup(
                     _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) != false;
 
@@ -265,6 +273,13 @@ public partial class App : Application
             }
             else
             {
+                // Reaching here means devFlagRun OR the preference is off. So !devFlagRun is exactly
+                // "the owner turned it off" - the one ungated case that still wants a check.
+                if (mainWindow.DataContext is MainViewModel ungatedViewModel)
+                {
+                    ungatedViewModel.CheckForUpdatesAfterStartup = !devFlagRun;
+                }
+
                 desktop.MainWindow = mainWindow;
             }
 

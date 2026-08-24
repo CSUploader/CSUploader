@@ -651,7 +651,7 @@ Hindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag
     <value>Magpakita ng popup na abiso kapag tapos na ang pag-upload</value>
   </data>
   <data name="Settings_General_AskToUpdateAtStartup" xml:space="preserve">
-    <value>Check for updates when CSUploader starts, and ask before installing</value>
+    <value>Check for updates before opening, and ask before installing</value>
   </data>
   <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
     <value>Update available</value>
@@ -660,7 +660,7 @@ Hindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
   <data name="UpdatePrompt_AskAtStartup" xml:space="preserve">
-    <value>Check for updates when CSUploader starts</value>
+    <value>Check for updates before opening</value>
   </data>
   <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
     <value>Update now</value>
