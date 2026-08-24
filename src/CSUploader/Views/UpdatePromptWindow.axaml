@@ -1,0 +1,44 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- "An update is available - install it now?", shown once at startup, owned by the real main window.
+     It cannot reuse IDialogService.ShowOptOutConfirmationAsync: a suppressed opt-out there returns
+     TRUE silently, which for this question would mean updating forever without asking. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.UpdatePromptWindow"
+        Title="{loc:Loc UpdatePrompt_WindowTitle}"
+        Width="440" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="/Assets/icon.ico">
+  <StackPanel Margin="20">
+    <TextBlock x:Name="MessageText"
+               TextWrapping="Wrap"
+               FontSize="13"
+               Margin="0,0,0,16" />
+
+    <CheckBox x:Name="AskAtStartupCheck"
+              Content="{loc:Loc UpdatePrompt_AskAtStartup}"
+              AutomationProperties.Name="{loc:Loc UpdatePrompt_AskAtStartup}"
+              Margin="0,0,0,16" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <!-- Later is IsCancel, so Escape maps to it - and it carries the checkbox as it stands rather
+           than a default, because unticking the box and pressing Later must be honoured. -->
+      <Button x:Name="LaterButton"
+              Content="{loc:Loc UpdatePrompt_BtnLater}"
+              IsCancel="True"
+              MinWidth="100" />
+      <Button x:Name="UpdateNowButton"
+              Content="{loc:Loc UpdatePrompt_BtnUpdateNow}"
+              IsDefault="True"
+              Classes="accent"
+              MinWidth="100" />
+    </StackPanel>
+  </StackPanel>
+</Window>
