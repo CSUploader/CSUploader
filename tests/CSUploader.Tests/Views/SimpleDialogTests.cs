@@ -372,7 +372,10 @@ public class SimpleDialogTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(dlg.IsVisible);
-            Assert.False(string.IsNullOrWhiteSpace(dlg.VersionText.Text)); // version line rendered (1.0.0 in Phase 4)
+            // Version line rendered. Deliberately not asserting WHICH version: it comes from
+            // AppVersion, which reads the entry assembly - and under a test host that is the test
+            // host, not CSUploader. Pinning a number here would be pinning vstest's.
+            Assert.False(string.IsNullOrWhiteSpace(dlg.VersionText.Text));
 
             Click(dlg.OkButton); // WPF's OK had NO handler; the port adds an explicit Close() (rule 7 gotcha)
             Dispatcher.UIThread.RunJobs();
