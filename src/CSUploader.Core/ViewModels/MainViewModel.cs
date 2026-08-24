@@ -555,8 +555,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Decides what to do about an update the STARTUP check found: install it, or ask.
+    /// </summary>
+    /// <remarks>
+    /// Only ever reached from the gated path, which is what keeps "install automatically at startup"
+    /// honest — the quiet post-startup check cannot land here, so someone who turned the startup
+    /// check off never gets an unannounced restart out of a setting they left switched on and
+    /// stopped being able to see.
+    /// </remarks>
     private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
     {
+        if (SettingsViewModel.AutoInstallUpdatesAtStartup)
+        {
+            // No prompt, by request. The progress window still appears - this is "without being
+            // asked", not "without being told", and a restart that arrives with no explanation is a
+            // crash as far as anyone watching can tell.
+            _logger.Log(this, LogType.Status, $"Installing update v{info.NewVersion} automatically at startup.");
+            await InstallUpdateCommand.ExecuteAsync(null);
+            return;
+        }
+
         Services.IStartupUpdatePrompt? prompt = _services.GetService<Services.IStartupUpdatePrompt>();
         if (prompt is null)
         {
@@ -566,13 +585,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Services.StartupUpdatePromptResult answer = await prompt.ShowAsync(
             info.NewVersion,
             _updateService.CurrentVersion,
-            SettingsViewModel.AskToUpdateAtStartup);
+            SettingsViewModel.CheckForUpdatesAtStartup);
 
-        if (answer.AskAtStartup != SettingsViewModel.AskToUpdateAtStartup)
+        if (answer.CheckAtStartup != SettingsViewModel.CheckForUpdatesAtStartup)
         {
             // AWAITED, and before the install. "Update now" hands over to an updater that exits the
             // process, so a fire-and-forget write here can lose the preference just expressed.
-            await SettingsViewModel.SetAskToUpdateAtStartupAsync(answer.AskAtStartup);
+            await SettingsViewModel.SetCheckForUpdatesAtStartupAsync(answer.CheckAtStartup);
         }
 
         if (answer.UpdateNow)

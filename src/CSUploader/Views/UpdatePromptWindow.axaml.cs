@@ -32,7 +32,7 @@ public partial class UpdatePromptWindow : Window
             if (!_submitted)
             {
                 _submitted = true;
-                Result = new StartupUpdatePromptResult(false, AskAtStartupCheck.IsChecked == true);
+                Result = new StartupUpdatePromptResult(false, CheckAtStartupBox.IsChecked == true);
             }
         };
 
@@ -44,14 +44,14 @@ public partial class UpdatePromptWindow : Window
     /// <summary>The answer. Set exactly once, whichever route the window closes by.</summary>
     public StartupUpdatePromptResult Result { get; private set; }
 
-    public void SetVersions(string newVersion, string currentVersion, bool askAtStartup)
+    public void SetVersions(string newVersion, string currentVersion, bool checkAtStartup)
     {
         MessageText.Text = string.Format(
             CultureInfo.CurrentCulture,
             Localizer.Instance["UpdatePrompt_Message_Format"],
             newVersion,
             currentVersion);
-        AskAtStartupCheck.IsChecked = askAtStartup;
+        CheckAtStartupBox.IsChecked = checkAtStartup;
     }
 
     private void Submit(bool updateNow)
@@ -64,7 +64,7 @@ public partial class UpdatePromptWindow : Window
         }
 
         _submitted = true;
-        Result = new StartupUpdatePromptResult(updateNow, AskAtStartupCheck.IsChecked == true);
+        Result = new StartupUpdatePromptResult(updateNow, CheckAtStartupBox.IsChecked == true);
         UpdateNowButton.IsEnabled = false;
         LaterButton.IsEnabled = false;
         Close();

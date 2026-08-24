@@ -650,8 +650,11 @@
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>アップロード完了時にポップアップ通知を表示</value>
   </data>
-  <data name="Settings_General_AskToUpdateAtStartup" xml:space="preserve">
-    <value>Check for updates before opening, and ask before installing</value>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>起動時に更新を確認する</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>起動時に更新を自動的にインストールする</value>
   </data>
   <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
     <value>Update available</value>
@@ -659,8 +662,8 @@
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
-  <data name="UpdatePrompt_AskAtStartup" xml:space="preserve">
-    <value>Check for updates before opening</value>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>起動時に更新を確認する</value>
   </data>
   <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
     <value>Update now</value>

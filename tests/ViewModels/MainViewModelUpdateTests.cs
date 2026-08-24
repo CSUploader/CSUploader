@@ -315,10 +315,10 @@ public class MainViewModelUpdateTests : IDisposable
 
         public bool AskedWith { get; private set; }
 
-        public Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool askAtStartup)
+        public Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup)
         {
             Shown++;
-            AskedWith = askAtStartup;
+            AskedWith = checkAtStartup;
             return Task.FromResult(answer);
         }
     }
@@ -353,6 +353,45 @@ public class MainViewModelUpdateTests : IDisposable
         await gating;
 
         Assert.Equal(1, prompt.Shown);
+    }
+
+    /// <summary>
+    /// The two halves of the split setting. "Check for updates at startup" decides that there IS an
+    /// answer by the time the window opens; "install updates automatically at startup" decides what
+    /// happens to it. On, the update installs and no prompt is ever constructed. Off, the user is
+    /// asked and nothing installs itself behind them.
+    /// </summary>
+    /// <remarks>
+    /// Asserted as one theory rather than two tests because the risk is not either branch in
+    /// isolation — it is the flag being ignored, which looks identical to whichever branch was
+    /// hard-coded. Only running both ways can tell that apart.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AutoInstallDecidesWhetherTheStartupUpdateAsksFirst(bool autoInstall)
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true)); // "Later", if asked at all
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+        vm.SettingsViewModel.AutoInstallUpdatesAtStartup = autoInstall;
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        vm.StartupGate = gate;
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal(autoInstall ? 0 : 1, prompt.Shown);
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            autoInstall ? Times.Once() : Times.Never());
+        updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), autoInstall ? Times.Once() : Times.Never());
     }
 
     [Fact]
@@ -486,7 +525,7 @@ public class MainViewModelUpdateTests : IDisposable
         await gating;
 
         Assert.True(prompt.AskedWith); // it opened showing the current preference
-        Assert.False(vm.SettingsViewModel.AskToUpdateAtStartup);
+        Assert.False(vm.SettingsViewModel.CheckForUpdatesAtStartup);
     }
 
     /// <summary>

@@ -48,7 +48,7 @@ public class StartupUpdatePreferenceTests : IDisposable
         ctx.Database.EnsureCreated();
         if (persisted is not null)
         {
-            ctx.Settings.Add(new SettingDbm { Key = SettingKey.AskToUpdateAtStartup, Value = persisted });
+            ctx.Settings.Add(new SettingDbm { Key = SettingKey.CheckForUpdatesAtStartup, Value = persisted });
             ctx.SaveChanges();
         }
 
@@ -61,7 +61,7 @@ public class StartupUpdatePreferenceTests : IDisposable
     [InlineData("True", true)]
     [InlineData("FALSE", false)]
     public void APersistedPreference_IsRead(string stored, bool expected)
-        => Assert.Equal(expected, StartupUpdatePreference.ReadAskToUpdateAtStartup(Store(stored)));
+        => Assert.Equal(expected, StartupUpdatePreference.ReadCheckForUpdatesAtStartup(Store(stored)));
 
     /// <summary>
     /// Nothing stored is NOT the same as "off". A first run has no row, and the caller treats not
@@ -70,7 +70,7 @@ public class StartupUpdatePreferenceTests : IDisposable
     /// </summary>
     [Fact]
     public void WithNothingStored_TheAnswerIsUnknownRatherThanFalse()
-        => Assert.Null(StartupUpdatePreference.ReadAskToUpdateAtStartup(Store(null)));
+        => Assert.Null(StartupUpdatePreference.ReadCheckForUpdatesAtStartup(Store(null)));
 
     /// <summary>
     /// The store being unreadable must not stop the app starting. This is the first-run and
@@ -82,7 +82,7 @@ public class StartupUpdatePreferenceTests : IDisposable
         using SqliteConnection closed = new("Data Source=:memory:");
 
         // Never opened, so there is no schema and every query against it throws.
-        Assert.Null(StartupUpdatePreference.ReadAskToUpdateAtStartup(new Factory(closed)));
+        Assert.Null(StartupUpdatePreference.ReadCheckForUpdatesAtStartup(new Factory(closed)));
     }
 
     /// <summary>
@@ -98,5 +98,5 @@ public class StartupUpdatePreferenceTests : IDisposable
     [InlineData(" false ")]
     [InlineData("  true  ")]
     public void AnUnparseableValue_IsUnknownRatherThanOff(string stored)
-        => Assert.Null(StartupUpdatePreference.ReadAskToUpdateAtStartup(Store(stored)));
+        => Assert.Null(StartupUpdatePreference.ReadCheckForUpdatesAtStartup(Store(stored)));
 }

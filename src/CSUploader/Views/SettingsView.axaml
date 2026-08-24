@@ -384,13 +384,26 @@
                     IsChecked="{Binding ShowCompletionToasts}" VerticalAlignment="Center" />
         </Grid>
 
-        <!-- Off means the app opens straight away: no splash, no prompt. It does NOT mean no check -
-             a quiet one runs just after the window appears, so the title bar still reports an update
-             and Help -> Install Update still installs it. This hides the interruption, not the
-             feature; the six-hourly poll is unaffected either way. -->
+        <!-- Off means the app opens straight away: no splash, nothing asked before it appears. It
+             does NOT mean no check - a quiet one runs just after the window appears, so the title bar
+             still reports an update and Help -> Install Update still installs it. This hides the
+             interruption, not the feature; the six-hourly poll is unaffected either way. -->
         <Grid Classes="setting-row">
-          <CheckBox Content="{loc:Loc Settings_General_AskToUpdateAtStartup}"
-                    IsChecked="{Binding AskToUpdateAtStartup}" VerticalAlignment="Center" />
+          <CheckBox Content="{loc:Loc Settings_General_CheckForUpdatesAtStartup}"
+                    IsChecked="{Binding CheckForUpdatesAtStartup}" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- What to DO with what that check finds - a separate question, so a separate box. Bound
+             IsEnabled rather than IsVisible: a row that vanishes takes its own explanation with it,
+             and someone who unticked the box above should still be able to see what they have
+             switched off. Indented one step to show it belongs to the row above; the stored value
+             survives being greyed out, because turning the check back on should restore the choice
+             the user last made rather than silently reset it. -->
+        <Grid Classes="setting-row" Margin="60,0,0,2">
+          <CheckBox Content="{loc:Loc Settings_General_AutoInstallUpdatesAtStartup}"
+                    IsChecked="{Binding AutoInstallUpdatesAtStartup}"
+                    IsEnabled="{Binding CheckForUpdatesAtStartup}"
+                    VerticalAlignment="Center" />
         </Grid>
 
         <!-- Confirmation prompts -->

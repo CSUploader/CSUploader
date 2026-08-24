@@ -19,10 +19,10 @@ namespace CSUploader.Services;
 /// </remarks>
 public sealed class AvaloniaStartupUpdatePrompt : IStartupUpdatePrompt
 {
-    public async Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool askAtStartup)
+    public async Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup)
     {
         UpdatePromptWindow window = new();
-        window.SetVersions(newVersion, currentVersion, askAtStartup);
+        window.SetVersions(newVersion, currentVersion, checkAtStartup);
 
         Window? owner = DialogOwnerResolver.ResolveVisibleMainOnly();
         if (owner is null)

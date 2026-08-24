@@ -59,7 +59,7 @@ public static class StartupUpdatePreference
     /// the default — which is to ask. Returning false on a read failure would silently disable a
     /// feature the user never turned off.
     /// </remarks>
-    public static bool? ReadAskToUpdateAtStartup(IDbContextFactory<CSUploaderDbContext> factory)
+    public static bool? ReadCheckForUpdatesAtStartup(IDbContextFactory<CSUploaderDbContext> factory)
     {
         try
         {
@@ -67,7 +67,7 @@ public static class StartupUpdatePreference
 
             string? value = ctx.Settings
                 .AsNoTracking()
-                .Where(s => s.Key == SettingKey.AskToUpdateAtStartup)
+                .Where(s => s.Key == SettingKey.CheckForUpdatesAtStartup)
                 .Select(s => s.Value)
                 .FirstOrDefault();
 

@@ -177,7 +177,10 @@ public partial class SettingsViewModel(
     public partial bool ShowCompletionToasts { get; set; } = AppSettings.DefaultShowCompletionToasts;
 
     [ObservableProperty]
-    public partial bool AskToUpdateAtStartup { get; set; } = AppSettings.DefaultAskToUpdateAtStartup;
+    public partial bool CheckForUpdatesAtStartup { get; set; } = AppSettings.DefaultCheckForUpdatesAtStartup;
+
+    [ObservableProperty]
+    public partial bool AutoInstallUpdatesAtStartup { get; set; } = AppSettings.DefaultAutoInstallUpdatesAtStartup;
 
     // ── Developer settings ──
 
@@ -391,7 +394,7 @@ public partial class SettingsViewModel(
 
                     break;
 
-                case var k when k == SettingKey.AskToUpdateAtStartup:
+                case var k when k == SettingKey.CheckForUpdatesAtStartup:
                     // A value that parses, or nothing. StartupUpdatePreference - which decides
                     // whether the splash appears at all, before this runs - treats an unrecognised
                     // value as "unknown" and falls back to the default. Mapping it to false here
@@ -400,9 +403,21 @@ public partial class SettingsViewModel(
                     // The SAME parser the pre-window read uses, not an equivalent one:
                     // bool.TryParse accepts " false " and that one does not, which would recreate
                     // the very disagreement sharing it exists to prevent.
-                    if (StartupUpdatePreference.Parse(setting.Value) is { } askAtStartup)
+                    if (StartupUpdatePreference.Parse(setting.Value) is { } checkAtStartup)
                     {
-                        AskToUpdateAtStartup = askAtStartup;
+                        CheckForUpdatesAtStartup = checkAtStartup;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.AutoInstallUpdatesAtStartup:
+                    // The same parser, though nothing reads this one before the window exists, so
+                    // there is no second reader to disagree with. Shared anyway, because an
+                    // unrecognised value ought to mean the same thing wherever it is stored: fall
+                    // back to the default rather than guess.
+                    if (StartupUpdatePreference.Parse(setting.Value) is { } autoInstall)
+                    {
+                        AutoInstallUpdatesAtStartup = autoInstall;
                     }
 
                     break;
@@ -469,7 +484,8 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
-        _settings.AskToUpdateAtStartup = AskToUpdateAtStartup;
+        _settings.CheckForUpdatesAtStartup = CheckForUpdatesAtStartup;
+        _settings.AutoInstallUpdatesAtStartup = AutoInstallUpdatesAtStartup;
         _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
         _settings.DefaultUploadDirectory = DefaultUploadDirectory;
 
@@ -667,12 +683,20 @@ public partial class SettingsViewModel(
         _ = AutoSaveAsync(SettingKey.WizardHosterAccountFilter, value.ToString());
     }
 
-    partial void OnAskToUpdateAtStartupChanged(bool value)
+    partial void OnCheckForUpdatesAtStartupChanged(bool value)
     {
         if (_suppressAutoSave)
             return;
-        _settings.AskToUpdateAtStartup = value;
-        _ = AutoSaveAsync(SettingKey.AskToUpdateAtStartup, value ? "true" : "false");
+        _settings.CheckForUpdatesAtStartup = value;
+        _ = AutoSaveAsync(SettingKey.CheckForUpdatesAtStartup, value ? "true" : "false");
+    }
+
+    partial void OnAutoInstallUpdatesAtStartupChanged(bool value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.AutoInstallUpdatesAtStartup = value;
+        _ = AutoSaveAsync(SettingKey.AutoInstallUpdatesAtStartup, value ? "true" : "false");
     }
 
     /// <summary>
@@ -685,21 +709,21 @@ public partial class SettingsViewModel(
     /// just expressed. This is the same single write through the same path — the setter's own
     /// auto-save is suppressed so it does not become two.
     /// </remarks>
-    public async Task SetAskToUpdateAtStartupAsync(bool value, CancellationToken cancellationToken = default)
+    public async Task SetCheckForUpdatesAtStartupAsync(bool value, CancellationToken cancellationToken = default)
     {
         bool previous = _suppressAutoSave;
         _suppressAutoSave = true;
         try
         {
-            AskToUpdateAtStartup = value;
-            _settings.AskToUpdateAtStartup = value;
+            CheckForUpdatesAtStartup = value;
+            _settings.CheckForUpdatesAtStartup = value;
         }
         finally
         {
             _suppressAutoSave = previous;
         }
 
-        await SaveSettingAsync(SettingKey.AskToUpdateAtStartup, value ? "true" : "false", cancellationToken);
+        await SaveSettingAsync(SettingKey.CheckForUpdatesAtStartup, value ? "true" : "false", cancellationToken);
     }
 
     partial void OnShowCompletionToastsChanged(bool value)

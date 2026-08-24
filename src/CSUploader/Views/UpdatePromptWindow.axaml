@@ -22,9 +22,9 @@
                FontSize="13"
                Margin="0,0,0,16" />
 
-    <CheckBox x:Name="AskAtStartupCheck"
-              Content="{loc:Loc UpdatePrompt_AskAtStartup}"
-              AutomationProperties.Name="{loc:Loc UpdatePrompt_AskAtStartup}"
+    <CheckBox x:Name="CheckAtStartupBox"
+              Content="{loc:Loc UpdatePrompt_CheckAtStartup}"
+              AutomationProperties.Name="{loc:Loc UpdatePrompt_CheckAtStartup}"
               Margin="0,0,0,16" />
 
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">

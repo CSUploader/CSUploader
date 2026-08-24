@@ -264,7 +264,7 @@ public partial class App : Application
             // whose answer it does not use.
             bool gateStartup =
                 !devFlagRun
-                && StartupUpdatePreference.ReadAskToUpdateAtStartup(
+                && StartupUpdatePreference.ReadCheckForUpdatesAtStartup(
                     _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) != false;
 
             if (gateStartup)

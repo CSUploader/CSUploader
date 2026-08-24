@@ -12,12 +12,12 @@ namespace CSUploader.Services;
 /// Whether to install it now. False covers every other way out — Later, Escape, Alt+F4, closing the
 /// window — because none of those is consent to restart the app.
 /// </param>
-/// <param name="AskAtStartup">
+/// <param name="CheckAtStartup">
 /// The checkbox as it stood when the window closed, whichever button was used. It is a preference,
 /// not a consequence of the choice: unticking it and pressing Later has to be honoured, and an
 /// opt-out dialog that only persists on the affirmative would drop exactly that.
 /// </param>
-public readonly record struct StartupUpdatePromptResult(bool UpdateNow, bool AskAtStartup);
+public readonly record struct StartupUpdatePromptResult(bool UpdateNow, bool CheckAtStartup);
 
 /// <summary>
 /// Asks whether to install an update found during startup. Implemented by the head, because the
@@ -30,5 +30,5 @@ public readonly record struct StartupUpdatePromptResult(bool UpdateNow, bool Ask
 /// </remarks>
 public interface IStartupUpdatePrompt
 {
-    Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool askAtStartup);
+    Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup);
 }

@@ -650,8 +650,11 @@ Bản dựng này chưa được cài đặt nên không thể tự cập nhật
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>Hiển thị thông báo bật lên khi tải lên hoàn tất</value>
   </data>
-  <data name="Settings_General_AskToUpdateAtStartup" xml:space="preserve">
-    <value>Check for updates before opening, and ask before installing</value>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>Kiểm tra cập nhật khi khởi động</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>Tự động cài đặt bản cập nhật khi khởi động</value>
   </data>
   <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
     <value>Update available</value>
@@ -659,8 +662,8 @@ Bản dựng này chưa được cài đặt nên không thể tự cập nhật
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
-  <data name="UpdatePrompt_AskAtStartup" xml:space="preserve">
-    <value>Check for updates before opening</value>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>Kiểm tra cập nhật khi khởi động</value>
   </data>
   <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
     <value>Update now</value>

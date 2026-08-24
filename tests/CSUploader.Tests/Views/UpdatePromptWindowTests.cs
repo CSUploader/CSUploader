@@ -18,10 +18,10 @@ namespace CSUploader.Tests.Avalonia.Views;
 /// </summary>
 public class UpdatePromptWindowTests
 {
-    private static UpdatePromptWindow Build(bool askAtStartup = true)
+    private static UpdatePromptWindow Build(bool checkAtStartup = true)
     {
         UpdatePromptWindow window = new();
-        window.SetVersions("1.6.0", "1.5.0", askAtStartup);
+        window.SetVersions("1.6.0", "1.5.0", checkAtStartup);
         return window;
     }
 
@@ -33,12 +33,12 @@ public class UpdatePromptWindowTests
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            window.AskAtStartupCheck.IsChecked = false;
+            window.CheckAtStartupBox.IsChecked = false;
             Click(window.UpdateNowButton);
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.Result.UpdateNow);
-            Assert.False(window.Result.AskAtStartup);
+            Assert.False(window.Result.CheckAtStartup);
         }
         finally
         {
@@ -58,7 +58,7 @@ public class UpdatePromptWindowTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.Result.UpdateNow);
-            Assert.True(window.Result.AskAtStartup);
+            Assert.True(window.Result.CheckAtStartup);
         }
         finally
         {
@@ -79,12 +79,12 @@ public class UpdatePromptWindowTests
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            window.AskAtStartupCheck.IsChecked = false;
+            window.CheckAtStartupBox.IsChecked = false;
             Click(window.LaterButton);
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.Result.UpdateNow);
-            Assert.False(window.Result.AskAtStartup);
+            Assert.False(window.Result.CheckAtStartup);
         }
         finally
         {
@@ -105,18 +105,18 @@ public class UpdatePromptWindowTests
     [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
-    public void ClosingWithoutAnswering_IsLaterAndKeepsTheCheckbox(bool askAtStartup)
+    public void ClosingWithoutAnswering_IsLaterAndKeepsTheCheckbox(bool checkAtStartup)
     {
         UpdatePromptWindow window = Build();
         window.Show();
         Dispatcher.UIThread.RunJobs();
-        window.AskAtStartupCheck.IsChecked = askAtStartup;
+        window.CheckAtStartupBox.IsChecked = checkAtStartup;
 
         window.Close();
         Dispatcher.UIThread.RunJobs();
 
         Assert.False(window.Result.UpdateNow);
-        Assert.Equal(askAtStartup, window.Result.AskAtStartup);
+        Assert.Equal(checkAtStartup, window.Result.CheckAtStartup);
     }
 
     /// <summary>
@@ -158,19 +158,19 @@ public class UpdatePromptWindowTests
     [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
-    public void Escape_IsLater(bool askAtStartup)
+    public void Escape_IsLater(bool checkAtStartup)
     {
         UpdatePromptWindow window = Build();
         try
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            window.AskAtStartupCheck.IsChecked = askAtStartup;
+            window.CheckAtStartupBox.IsChecked = checkAtStartup;
             Press(window, Key.Escape, PhysicalKey.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.Result.UpdateNow);
-            Assert.Equal(askAtStartup, window.Result.AskAtStartup);
+            Assert.Equal(checkAtStartup, window.Result.CheckAtStartup);
         }
         finally
         {
