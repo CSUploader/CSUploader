@@ -4,6 +4,54 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-24
+
+Uploads use every connection a host allows, at the speed you actually asked for: five hosters send a
+file's parts in parallel, and the speed limit — which was multiplying itself across concurrent
+uploads — became a single shared budget. See
+[docs/release-notes/v1.5.0.md](docs/release-notes/v1.5.0.md) for the full notes.
+
+### Added
+
+- **Parallel part uploads** for VikingFile, Hostize, DataNodes, UploadNow and storage.to. A benchmark
+  against VikingFile settled that this was worth doing first: it throttles per connection, so eight
+  parts ran 2.57x faster than one and had not plateaued there. **Settings → Upload → Max parallel
+  parts per file** caps it, default 4; set it to 1 for exactly the previous behaviour. The cap is per
+  file, so five concurrent files at 4 means up to 20 connections. Hosters declare their own support
+  rather than the app assuming, since a host that throttles per account gains nothing.
+- **The update window shows bytes, speed and time remaining** under its progress bar. When the update
+  is applied as a delta there are no byte figures, only the bar, the percentage and the countdown —
+  the updater reports one percentage for an operation that downloads several deltas concurrently and
+  then patches, so the same percentage can mean many different byte totals and none can be recovered.
+  Full downloads show everything.
+
+### Fixed
+
+- **The speed limit applied per hoster instead of per upload.** Four chunks in flight each received
+  the full budget, so a 1 MB/s cap uploaded at 4 MB/s — measured at 394 kB/s against a configured
+  100 kB/s. It is one shared token bucket per scope now, accruing continuously rather than in fixed
+  windows. Per-package and per-file overrides may still exceed the global limit, as before.
+- **MEGA and transfer.it ignored the speed limit entirely**, because they write ciphertext straight to
+  a WebSocket and never reach the layer that throttles every other hoster. They are paced in fragments
+  now: charging a whole 1 MiB chunk up front would wait ten seconds at 100 kB/s and then burst a
+  megabyte, and at low limits the wait alone outlasted the idle watchdog and cancelled healthy
+  uploads.
+- **A failed multipart upload left its parts on the host's storage indefinitely**, and every retry
+  abandoned another set. An incomplete multipart is invisible to the account's file list and to the
+  site's own UI, so nothing ever collected them. UploadNow is the only one of the five that exposes an
+  abort, and now sends it — on its own bounded timeout, since the usual reason to be here is that the
+  upload was cancelled.
+- **UploadNow could report a failed upload as a finished one.** Its storage returns errors inside an
+  HTTP 200, and the check matched a literal `<Error>` while the real responses are namespaced. A
+  truncated or empty response did the same. A file could be presented as online that was never
+  assembled.
+- **DataNodes could finalise a file with a missing chunk**, because its acceptance check looked for
+  `"status"` and `"OK"` anywhere in the response — so `{"status":"NOT OK"}` counted as success.
+- **The wizard's Account dropdown stopped short of its column's right edge.** Reported on Linux,
+  reproduced on Windows: an 8px right inset quietly defeated the stretch it was meant to have.
+- **The wizard summary bar quoted size caps in different units from the row above it** — DropMB read
+  500 MB in its row and 476.84 MiB in the bar, for the same cap.
+
 ## [1.4.5] - 2026-08-22
 
 The upload wizard remembers how you work: filter the hoster list by upload mode, and point the file
