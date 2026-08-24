@@ -134,9 +134,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // The tick discards the task (fire-and-forget); CheckForUpdatesAsync cannot return a faulted
         // task (both its awaits — the check and the dispatcher apply — are wrapped in try/catch).
         //
-        // Started unconditionally, including for an owner who turned the STARTUP check off. That
-        // setting says "when CSUploader starts", and this is the six-hourly poll — leaving it running
-        // is what makes opting out of the startup check cost the user nothing but the splash.
+        // Started unconditionally. "Check for updates before opening" decides where the STARTUP
+        // check happens, not whether polling continues — so this runs either way, and is the reason
+        // turning that setting off costs the user nothing but the splash and the prompt.
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
         _updateTimer.Start();
     }
@@ -301,8 +301,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 // A transient failure must NOT hide a previously-known available update, so leave
                 // IsUpdateAvailable/_availableUpdate as they are. Surface a background failure once
                 // per episode; a user-initiated failure is rendered by the caller from the result,
-                // and a STARTUP failure is silent - the splash is on screen and the main window does
-                // not exist yet, so a toast would be orphaned or hidden behind it.
+                // and a STARTUP failure is silent because nobody asked for it - see
+                // UpdateCheckOrigin.Startup, which now covers both the gated check (no window to
+                // toast onto yet) and the quiet one (a user who chose not to be interrupted).
                 if (toastOwed && !_backgroundCheckFailing)
                 {
                     _backgroundCheckFailing = true;
@@ -448,9 +449,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
     /// <c>--gallery</c>, which are not user preferences and must make no requests at all.
     /// <para>
-    /// The head sets at most one of this and <see cref="StartupGate"/>. Setting both would not
-    /// double the traffic — checks are single-flight, so the second joins the first — but it would
-    /// mean the head had lost track of which startup it was running.
+    /// The head sets at most one of this and <see cref="StartupGate"/>, and setting both really
+    /// would mean two requests. Single flight coalesces checks that OVERLAP, and these cannot: the
+    /// gate runs early in initialization and is awaited, so it has already finished by the time the
+    /// branch below is reached. Nothing here defends against that — the head's two startup paths are
+    /// mutually exclusive, and that is where it has to stay true.
     /// </para>
     /// </remarks>
     public bool CheckForUpdatesAfterStartup { get; set; }

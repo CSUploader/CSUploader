@@ -54,10 +54,15 @@ public class AppSettings
     public static bool DefaultShowCompletionToasts { get; } = true;
 
     /// <summary>
-    /// Whether starting the app checks for an update behind a splash and offers to install one it
-    /// finds. Off means neither: the app opens straight away, the six-hourly poll still runs, and
-    /// Help → Install Update is still how an update gets installed.
+    /// Whether the startup update check happens IN FRONT of the main window — behind a splash, with
+    /// an offer to install what it finds — or behind it.
     /// </summary>
+    /// <remarks>
+    /// Off is not "do not check". The app opens straight away and a quiet check follows once the
+    /// window is up, so the title bar still reports an update and Help → Install Update still
+    /// installs it; the six-hourly poll is unaffected either way. What off buys is the absence of the
+    /// splash and the prompt.
+    /// </remarks>
     public static bool DefaultAskToUpdateAtStartup { get; } = true;
 
     /// <summary>Show every hoster — the wizard's list is a catalogue, and pre-filtering it by
