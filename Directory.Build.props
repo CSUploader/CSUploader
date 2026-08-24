@@ -27,8 +27,9 @@
 
     Note what this does NOT protect against - the alternative it replaced. A switch STATEMENT with a
     default arm compiles clean, never throws, and answers the new member with whatever the default
-    said, which for the Help menu was "you are on the latest version". Silent and wrong beats loud
-    and late; the expression form plus this promotion is what rules out both.
+    said, which for the Help menu was "you are on the latest version". The expression form trades
+    silent-and-wrong for loud-and-late; promoting CS8509 moves the failure to compile time, which
+    rules out both.
 
     Deliberately narrow. This promotes ONE diagnostic rather than turning on TreatWarningsAsErrors,
     which would make every future analyser release a build break.

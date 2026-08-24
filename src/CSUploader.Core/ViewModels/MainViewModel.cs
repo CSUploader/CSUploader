@@ -134,9 +134,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // The tick discards the task (fire-and-forget); CheckForUpdatesAsync cannot return a faulted
         // task (both its awaits — the check and the dispatcher apply — are wrapped in try/catch).
         //
-        // Started unconditionally. "Check for updates at startup" decides where the STARTUP
-        // check happens, not whether polling continues — so this runs either way, and is the reason
-        // turning that setting off costs the user nothing but the splash and the prompt.
+        // Started unconditionally, --agent and --gallery included: this setting decides where the
+        // STARTUP check happens, not whether polling continues. It is why turning that setting off
+        // costs nothing but the splash and whatever the gated check would have done with what it
+        // found - and why "no requests" claims elsewhere are about LAUNCH-triggered requests only.
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
         _updateTimer.Start();
     }
@@ -447,7 +448,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// <remarks>
     /// This is the OFF position of "check for updates at startup". Off moves the check behind
     /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
-    /// <c>--gallery</c>, which are not user preferences and must make no requests at all.
+    /// <c>--gallery</c>, which are not user preferences and must make no launch-triggered request
+    /// at all. (The six-hourly poll still starts for them; only startup is silenced.)
     /// <para>
     /// The head sets at most one of this and <see cref="StartupGate"/>, and nothing here enforces
     /// it. Setting both is not reliably harmless, and not reliably harmful either: single flight
@@ -462,14 +464,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Runs the startup check behind a deadline, hands the head its cue to show the real window,
-    /// then asks the user about any update that was found.
+    /// then decides what to do about any update it found — install it, ask about it, or nothing.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The deadline stops GATING; it does not cancel. Velopack 1.2.0 offers no way to cancel a
     /// check, so the request outlives it — and because checks are single flight, its result still
-    /// publishes through the normal path and still lights up Help → Install Update. What a late
-    /// result must never do is raise a prompt, which is why the prompt is inside the deadline.
+    /// publishes through the normal path, lighting up Help → Install Update if what it found can
+    /// actually be installed. What a late result must never do is ACT: no prompt, and no automatic
+    /// install either, which is why both live inside the deadline.
     /// </para>
     /// <para>
     /// Every path signals the gate, including the failing ones, because the head is waiting on it
@@ -502,7 +505,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             catch (TimeoutException)
             {
                 // Still running. It keeps going and still publishes; it simply no longer holds the
-                // main window hostage, and it has forfeited its chance to interrupt with a prompt.
+                // main window hostage, and it has forfeited its chance to act on what it finds -
+                // neither a prompt nor an automatic install can follow a result that arrives late.
                 SafeLog(LogType.Status, "Update check is taking too long; continuing startup without it.");
             }
         }
@@ -535,7 +539,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await PromptForUpdateAsync(result.Info);
+        await ResolveStartupUpdateAsync(result.Info);
     }
 
     /// <summary>
@@ -556,7 +560,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Decides what to do about an update the STARTUP check found: install it, or ask.
+    /// Decides what to do about an update the STARTUP check found: nothing, install it, or ask.
     /// </summary>
     /// <remarks>
     /// Only ever reached from the gated path, which is what keeps "install automatically at startup"
@@ -564,7 +568,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// check off never gets an unannounced restart out of a setting they left switched on behind a
     /// greyed-out box.
     /// </remarks>
-    private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
+    private async Task ResolveStartupUpdateAsync(UpdateAvailableInfo info)
     {
         // The HYDRATED parent setting, re-checked here even though the head already decided to gate.
         // Those two decisions read the store at different moments and can disagree:
@@ -717,8 +721,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // === the startup gate ===================================================================
         // Everything above is what the gate needs: a database, hydrated settings, the persisted
         // language so the prompt speaks it. Everything below can happen with the main window
-        // already on screen - and the PROMPT has to happen before it does, because
-        // LoadPersistedPackagesAsync can auto-start uploads and "Update now" restarts the process.
+        // already on screen - and the gate's DECISION has to happen before it does, because
+        // LoadPersistedPackagesAsync can auto-start uploads and installing restarts the process,
+        // whether the user pressed "Update now" or auto-install never asked them.
         await RunStartupGateAsync();
         // The app may have been closed while the gate was up, or while this remainder runs. Loading
         // packages then would schedule uploads for a window that is going away.
@@ -739,8 +744,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // could offer to do about it.
         //
         // Driven by an explicit flag rather than by "no gate was set", because those are not the
-        // same question. --agent and --gallery also arrive here without a gate, and they must make
-        // no request at all - a screenshot loop is not a user who wants to know about updates.
+        // same question. --agent and --gallery also arrive here without a gate, and nothing at
+        // LAUNCH may make a request for them - a screenshot loop is not a user who wants to know
+        // about updates. (The six-hourly poll is a separate matter and still starts.)
         if (CheckForUpdatesAfterStartup)
         {
             // Fire-and-forget: a network failure must not block init.

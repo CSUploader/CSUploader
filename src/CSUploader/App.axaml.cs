@@ -247,15 +247,16 @@ public partial class App : Application
             // here (see UpdateCheckStatus.AvailableNotInstallable).
             //
             // Two decisions, not one, and they are NOT the same question:
-            //   1. does the check happen in front of the window (splash + prompt), or behind it?
+            //   1. does the check happen in front of the window - behind a splash, free to act on
+            //      what it finds by asking or installing - or quietly behind it?
             //   2. does it happen at all?
             //
             // The preference answers (1). Turning it off moves the check behind startup - the app
             // opens straight away, and on an installed build the title bar reports any update once
             // the quiet check lands - rather than cancelling it. Only the dev flags answer (2) with
-            // "no": --agent and
-            // --gallery must neither grow a window the AvaDevBridge screenshot loop and the dev
-            // gallery never had, nor make a request on their behalf.
+            // "no": --agent and --gallery must neither grow a window the AvaDevBridge screenshot
+            // loop and the dev gallery never had, nor make a LAUNCH-triggered request on their
+            // behalf. The six-hourly poll still starts for them; only startup is silenced.
             bool devFlagRun = isAgent;
 #if DEBUG && WINDOWS
             devFlagRun = devFlagRun || gallery;

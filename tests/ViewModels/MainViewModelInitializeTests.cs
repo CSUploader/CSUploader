@@ -153,8 +153,9 @@ public class MainViewModelInitializeTests : IDisposable
     /// </summary>
     /// <remarks>
     /// This is <c>--agent</c> and <c>--gallery</c>: ungated like the case above, but not a user who
-    /// wants updates - a screenshot loop and a control gallery, which must make no request on
-    /// anyone's behalf. The check used to be driven by "no gate was set", which cannot tell those two
+    /// wants updates - a screenshot loop and a control gallery, which must make no LAUNCH-triggered
+    /// request on anyone's behalf. (The six-hourly poll still starts for them; only startup is
+    /// silenced.) The check used to be driven by "no gate was set", which cannot tell those two
     /// apart from an owner who merely turned the splash off, so it fired for all three.
     /// </remarks>
     [Fact]

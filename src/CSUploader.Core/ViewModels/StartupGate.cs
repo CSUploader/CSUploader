@@ -10,10 +10,10 @@ namespace CSUploader.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One signal is not enough. Initialisation must not open the update prompt until the real main
-/// window exists to own it — and announcing "you may swap now" says nothing about whether the swap
-/// has happened. So there are two: initialisation releases the head, waits for the head to confirm,
-/// and only then asks anything.
+/// One signal is not enough. Initialisation must not act on an update until the real main window
+/// exists to own what follows — the prompt, or the progress window of an automatic install — and
+/// announcing "you may swap now" says nothing about whether the swap has happened. So there are two:
+/// initialisation releases the head, waits for the head to confirm, and only then acts.
 /// </para>
 /// <para>
 /// Both use <see cref="TaskCreationOptions.RunContinuationsAsynchronously"/> so neither side runs

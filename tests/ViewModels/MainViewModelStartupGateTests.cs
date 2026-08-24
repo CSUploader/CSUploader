@@ -11,7 +11,8 @@ namespace CSUploader.Tests.ViewModels;
 
 /// <summary>
 /// The startup gate: the handshake that lets a splash hold the main window back while an update
-/// check runs, and asks about anything it finds before uploads can auto-start.
+/// check runs, and settles what to do about anything it finds - ask, or install without asking -
+/// before uploads can auto-start.
 /// </summary>
 public class StartupGateTests
 {
