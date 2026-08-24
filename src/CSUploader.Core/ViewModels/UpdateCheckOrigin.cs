@@ -20,7 +20,7 @@ public enum UpdateCheckOrigin
     /// <summary>
     /// A check the app started on its own at launch — either the one that gates startup behind the
     /// splash, or the quiet one that runs just after the window opens when the owner has turned
-    /// "check for updates before opening" off.
+    /// "check for updates at startup" off.
     /// <para>
     /// SILENT on failure either way, for one reason that covers both: nobody asked for it. In the
     /// gated case there is nowhere to put a toast — the splash is on screen and the real window does

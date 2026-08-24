@@ -134,7 +134,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // The tick discards the task (fire-and-forget); CheckForUpdatesAsync cannot return a faulted
         // task (both its awaits — the check and the dispatcher apply — are wrapped in try/catch).
         //
-        // Started unconditionally. "Check for updates before opening" decides where the STARTUP
+        // Started unconditionally. "Check for updates at startup" decides where the STARTUP
         // check happens, not whether polling continues — so this runs either way, and is the reason
         // turning that setting off costs the user nothing but the splash and the prompt.
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
@@ -445,7 +445,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// after the window is already up, instead of in front of it.
     /// </summary>
     /// <remarks>
-    /// This is the OFF position of "check for updates before opening". Off moves the check behind
+    /// This is the OFF position of "check for updates at startup". Off moves the check behind
     /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
     /// <c>--gallery</c>, which are not user preferences and must make no requests at all.
     /// <para>
@@ -566,6 +566,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// </remarks>
     private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
     {
+        // The HYDRATED parent setting, re-checked here even though the head already decided to gate.
+        // Those two decisions read the store at different moments and can disagree:
+        // StartupUpdatePreference answers "unknown" for a database it could not read - locked by
+        // another process, mid-migration - and the head treats unknown as "gate", which is right for
+        // showing a splash and wrong as authority for installing anything. By the time this runs the
+        // real value has been loaded, and it may say the owner turned startup checks off.
+        //
+        // Getting this wrong is not a cosmetic mismatch. It is someone who opted out of startup
+        // checks, left auto-install switched on underneath the greyed-out box, and gets an
+        // unannounced restart because a transient file lock outvoted them.
+        if (!SettingsViewModel.CheckForUpdatesAtStartup)
+        {
+            _logger.Log(
+                this,
+                LogType.Status,
+                $"Update v{info.NewVersion} found at startup, but startup checks are turned off; leaving it to the menu.");
+            return;
+        }
+
         if (SettingsViewModel.AutoInstallUpdatesAtStartup)
         {
             // No prompt, by request. The progress window still appears - this is "without being
@@ -713,7 +732,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await UploadedViewModel.LoadAsync();
 
         // The unGATED check: no splash, no prompt, nothing in the user's way - the window is already
-        // up by the time this runs. It is what "check for updates before opening" being OFF buys:
+        // up by the time this runs. It is what "check for updates at startup" being OFF buys:
         // the check moves behind startup rather than disappearing, so the title bar still reports an
         // update without startup ever having waited on one.
         //

@@ -356,6 +356,52 @@ public class MainViewModelUpdateTests : IDisposable
     }
 
     /// <summary>
+    /// A gated startup that turns out to be opted OUT installs nothing and asks nothing.
+    /// </summary>
+    /// <remarks>
+    /// The head and this code read the preference at different moments and can disagree.
+    /// StartupUpdatePreference answers "unknown" for a database it could not read - locked by another
+    /// process, mid-migration - and the head treats unknown as "gate", which is the right default for
+    /// showing a splash and no authority at all for installing something. By the time the gate
+    /// finishes, hydration has loaded the real value, and it can say the owner turned startup checks
+    /// off while auto-install sits switched on underneath a greyed-out box.
+    /// <para>
+    /// Without the re-check that pairing means an unannounced restart, decided by a transient file
+    /// lock rather than by the user. The update is still published - the title bar reports it - it is
+    /// only the acting on it that stops.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task AGatedStartupThatIsActuallyOptedOut_NeitherAsksNorInstalls()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        FakePrompt prompt = new(new StartupUpdatePromptResult(true, true)); // would say "Update now"
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), prompt: prompt);
+
+        // The disagreement: the head gated (it had to guess), hydration says otherwise.
+        vm.SettingsViewModel.CheckForUpdatesAtStartup = false;
+        vm.SettingsViewModel.AutoInstallUpdatesAtStartup = true;
+        StartupGate gate = new(TimeSpan.FromSeconds(5), default);
+        vm.StartupGate = gate;
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal(0, prompt.Shown);
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
+
+        Assert.True(vm.IsUpdateAvailable); // reported, just not acted on
+    }
+    /// <summary>
     /// The two halves of the split setting. "Check for updates at startup" decides that there IS an
     /// answer by the time the window opens; "install updates automatically at startup" decides what
     /// happens to it. On, the update installs and no prompt is ever constructed. Off, the user is

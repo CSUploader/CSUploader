@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CSUploader;
 
 /// <summary>
-/// Reads the "ask about updates when the app starts" preference early enough to decide <b>whether
+/// Reads the "check for updates at startup" preference early enough to decide <b>whether
 /// to show a splash at all</b>, which is before any window exists.
 /// <para>
 /// It cannot come from <see cref="AppSettings"/>: that object holds nothing but defaults until

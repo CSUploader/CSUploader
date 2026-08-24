@@ -74,9 +74,11 @@ public class AppSettings
     /// who launched CSUploader and got a restart they never agreed to. Off keeps the existing
     /// behaviour: the update is offered and the user decides.
     /// <para>
-    /// Only meaningful while <see cref="DefaultCheckForUpdatesAtStartup"/> is on, since it describes
-    /// what to do with what THAT check finds. The quiet post-startup check never auto-installs — it
-    /// exists precisely for people who did not want startup touched.
+    /// Only meaningful while <see cref="CheckForUpdatesAtStartup"/> is on, since it describes what to
+    /// do with what THAT check finds. The quiet post-startup check never auto-installs — it exists
+    /// precisely for people who did not want startup touched — and the gated path re-reads the
+    /// hydrated parent setting before acting, so a stale "on" cannot install behind an owner who
+    /// turned startup checks off.
     /// </para>
     /// </remarks>
     public static bool DefaultAutoInstallUpdatesAtStartup { get; } = false;

@@ -127,7 +127,7 @@ public class MainViewModelInitializeTests : IDisposable
     }
 
     /// <summary>
-    /// With "check for updates before opening" off, the check still happens — just behind startup,
+    /// With "check for updates at startup" off, the check still happens — just behind startup,
     /// where it cannot hold the window back or interrupt anyone.
     /// </summary>
     /// <remarks>
@@ -187,5 +187,46 @@ public class MainViewModelInitializeTests : IDisposable
         _toasts.Verify(
             t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()),
             Times.Never);
+    }
+
+    /// <summary>
+    /// The dangerous combination: "install updates automatically at startup" left switched ON while
+    /// "check for updates at startup" is OFF. Nothing installs itself.
+    /// </summary>
+    /// <remarks>
+    /// The settings UI greys the auto-install box out rather than hiding it, and deliberately keeps
+    /// its stored value so turning the check back on restores the choice. That means this pairing is
+    /// reachable and persists - a user can genuinely be sitting on it. What must not follow is a
+    /// restart they never agreed to, from a box they can no longer see. Auto-install belongs to the
+    /// GATED check; the quiet one only ever reports.
+    /// <para>
+    /// The preference is written to the store rather than assigned on the view model, because
+    /// InitializeAsync hydrates settings on its way through - an assignment here would be overwritten
+    /// by the default before the check ever completed, and the test would pass without meaning it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task TheQuietCheckNeverAutoInstalls()
+    {
+        await _services.GetRequiredService<SettingRepository>()
+            .UpsertAsync(SettingKey.AutoInstallUpdatesAtStartup, "true");
+        await _services.GetRequiredService<SettingRepository>()
+            .UpsertAsync(SettingKey.CheckForUpdatesAtStartup, "false");
+
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        _updater.Setup(u => u.IsInstalled).Returns(true);
+        _updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UpdateCheckResult.Available(info));
+
+        using MainViewModel vm = new(_services) { CheckForUpdatesAfterStartup = true };
+
+        await vm.InitializeAsync();
+
+        Assert.True(vm.SettingsViewModel.AutoInstallUpdatesAtStartup); // the setting really is on
+        Assert.True(vm.IsUpdateAvailable);                            // and the check really found one
+        _updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
     }
 }
