@@ -449,11 +449,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
     /// <c>--gallery</c>, which are not user preferences and must make no requests at all.
     /// <para>
-    /// The head sets at most one of this and <see cref="StartupGate"/>, and setting both really
-    /// would mean two requests. Single flight coalesces checks that OVERLAP, and these cannot: the
-    /// gate runs early in initialization and is awaited, so it has already finished by the time the
-    /// branch below is reached. Nothing here defends against that — the head's two startup paths are
-    /// mutually exclusive, and that is where it has to stay true.
+    /// The head sets at most one of this and <see cref="StartupGate"/>, and nothing here enforces
+    /// it. Setting both is not reliably harmless, and not reliably harmful either: single flight
+    /// coalesces checks that OVERLAP, and whether these two would is a race. The gate awaits its
+    /// check under a deadline but lets a slow one carry on past it, so by the time the branch below
+    /// runs, that check is either still in flight — and this joins it — or finished, and this starts
+    /// a second request. The head's two startup paths being mutually exclusive is the only thing
+    /// that makes the answer reliably "one", so that is where it has to stay true.
     /// </para>
     /// </remarks>
     public bool CheckForUpdatesAfterStartup { get; set; }
