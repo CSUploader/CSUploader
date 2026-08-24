@@ -44,7 +44,8 @@ public sealed class StartupGate
     /// <summary>Completes when the head has shown the real main window and closed the splash.</summary>
     public Task MainWindowReady => _mainWindowReady.Task;
 
-    /// <summary>Called by initialisation, from a <c>finally</c>, so the head can never be stranded.</summary>
+    /// <summary>Called by initialisation from a cancellation-aware <c>finally</c>, so the head is
+    /// stranded by nothing except a deliberate abandon.</summary>
     public void ReleaseMainWindow() => _mainWindowMayShow.TrySetResult();
 
     /// <summary>Called by the head once the real main window is up and the splash is gone.</summary>

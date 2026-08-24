@@ -171,7 +171,12 @@ public partial class App : Application
                 {
                     if (mainWindow.DataContext is MainViewModel viewModel)
                     {
-                        await viewModel.InitializeAsync();
+                        // Recorded on BOTH paths. The gated one assigns this before awaiting; the
+                        // ungated one has to do it here, or --agent, --gallery, loose builds and
+                        // preference-disabled runs reach Exit with it still null and dispose the
+                        // provider under an in-flight EF call - the exact case the guard exists for.
+                        _startupPipeline ??= viewModel.InitializeAsync();
+                        await _startupPipeline;
                     }
                 }
                 catch (OperationCanceledException)
@@ -351,7 +356,14 @@ public partial class App : Application
             try
             {
                 _startupPipeline = viewModelOrNull(mainWindow)?.InitializeAsync() ?? Task.CompletedTask;
-                await gate.MainWindowMayShow.WaitAsync(startupAborted.Token);
+
+                // EITHER signal, not just the gate's. Initialisation can fail before it ever
+                // reaches the gate - a database that will not open, settings that will not load -
+                // and then nothing would ever release the window and the splash would sit there
+                // forever. Waiting on the pipeline too means a pre-gate failure still transitions;
+                // MainWindow.Opened then awaits the same cached task, observes the fault, and
+                // reports it through the startup-error path that already exists.
+                await Task.WhenAny(_startupPipeline, gate.MainWindowMayShow).WaitAsync(startupAborted.Token);
 
                 transitioning = true;
                 desktop.MainWindow = mainWindow;
@@ -368,10 +380,21 @@ public partial class App : Application
                 // The transition itself failed - Show() threw, say. Leaving the lifetime pointing at
                 // an invisible window would be a process with no UI and no way to quit, so this
                 // gives up loudly rather than quietly.
-                _serviceProvider?.GetService<IAppLogger>()?.Log(
-                    this, LogType.Error, $"Startup transition failed: {ex}");
+                //
+                // Recovery FIRST, logging second: the logger raises its event inline, so a throwing
+                // subscriber would otherwise take the shutdown with it.
                 startupAborted.Cancel();
                 gate.Abandon();
+                try
+                {
+                    _serviceProvider?.GetService<IAppLogger>()?.Log(
+                        this, LogType.Error, $"Startup transition failed: {ex}");
+                }
+                catch (Exception)
+                {
+                    // Nothing left to report it to.
+                }
+
                 desktop.Shutdown(1);
             }
         };
@@ -400,7 +423,7 @@ public partial class App : Application
         // UI services (Avalonia implementations of Core interfaces)
         services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
         services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();
-        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow shown once at startup  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();

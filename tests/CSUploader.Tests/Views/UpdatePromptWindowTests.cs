@@ -150,21 +150,27 @@ public class UpdatePromptWindowTests
     /// <summary>
     /// Escape is Later. It routes through IsCancel, which raises the button's Click — the same path
     /// the button itself takes, so the checkbox comes with it.
+    /// <para>
+    /// Both states again: expecting only <c>(false, false)</c> is the struct's own default, so a
+    /// single unticked case would pass against an Escape that did nothing at all.
+    /// </para>
     /// </summary>
-    [AvaloniaFact]
-    public void Escape_IsLater()
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Escape_IsLater(bool askAtStartup)
     {
         UpdatePromptWindow window = Build();
         try
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            window.AskAtStartupCheck.IsChecked = false;
+            window.AskAtStartupCheck.IsChecked = askAtStartup;
             Press(window, Key.Escape, PhysicalKey.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.Result.UpdateNow);
-            Assert.False(window.Result.AskAtStartup);
+            Assert.Equal(askAtStartup, window.Result.AskAtStartup);
         }
         finally
         {

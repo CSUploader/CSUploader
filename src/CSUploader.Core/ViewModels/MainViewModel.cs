@@ -431,6 +431,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _startupGateRan = true;
         UpdateCheckResult? result = null;
 
+        // A finally, but a cancellation-aware one. The window must be released however this ends -
+        // and LOGGING can throw, because the real logger invokes its subscribers inline without
+        // isolation, so a release that came after a log statement would be a release that a bad
+        // subscriber could skip. The one case that must NOT release is cancellation: the head has
+        // already abandoned the transition, and releasing would be telling it to show a window it
+        // has decided not to show.
+        bool releaseWindow = true;
         try
         {
             Task<UpdateCheckResult> check = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
@@ -442,28 +449,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
             {
                 // Still running. It keeps going and still publishes; it simply no longer holds the
                 // main window hostage, and it has forfeited its chance to interrupt with a prompt.
-                _logger.Log(this, LogType.Status, "Update check is taking too long; continuing startup without it.");
+                SafeLog(LogType.Status, "Update check is taking too long; continuing startup without it.");
             }
         }
         catch (OperationCanceledException)
         {
             // The splash was closed. Terminal: there is no window to show and nothing to ask.
+            releaseWindow = false;
             throw;
         }
         catch (Exception ex)
         {
-            // Unreachable today, and kept anyway: CheckForUpdatesAsync normalises everything its
-            // service and collaborators can throw into a Failed result, so nothing arrives here -
-            // no test can distinguish this block from its absence, and none pretends to. It stays
-            // because the cost of being wrong about that is an app that never appears at all.
-            _logger.Log(this, LogType.Error, $"Startup update check failed: {ex.Message}");
+            // Defensive. CheckForUpdatesAsync normalises what its service and collaborators throw,
+            // so nothing is expected here and no test distinguishes this block from its absence -
+            // it stays because the cost of being wrong about that is an app that never appears.
+            SafeLog(LogType.Error, $"Startup update check failed: {ex.Message}");
         }
-
-        // Not in a finally, deliberately. Every path that reaches here should release - and the one
-        // path that does NOT reach here is the cancellation rethrow above, where the head has
-        // already abandoned the transition and releasing would be telling it to show a window it
-        // has decided not to show.
-        gate.ReleaseMainWindow();
+        finally
+        {
+            if (releaseWindow)
+            {
+                gate.ReleaseMainWindow();
+            }
+        }
 
         await gate.MainWindowReady.WaitAsync(gate.CancellationToken);
         gate.CancellationToken.ThrowIfCancellationRequested();
@@ -474,6 +482,23 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         await PromptForUpdateAsync(result.Info);
+    }
+
+    /// <summary>
+    /// Logs without being able to break the thing it is reporting on. <c>Logger.Log</c> raises
+    /// <c>OnLogOutput</c> inline, so a throwing subscriber would otherwise propagate out of a
+    /// recovery path and defeat the recovery.
+    /// </summary>
+    private void SafeLog(LogType type, string message)
+    {
+        try
+        {
+            _logger.Log(this, type, message);
+        }
+        catch (Exception)
+        {
+            // Nowhere left to report it: the log IS the reporting channel.
+        }
     }
 
     private async Task PromptForUpdateAsync(UpdateAvailableInfo info)
