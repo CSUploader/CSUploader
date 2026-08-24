@@ -35,10 +35,11 @@ public static class StartupUpdatePreference
     /// <remarks>
     /// <b>Shared with settings hydration deliberately.</b> This decision is made twice — here,
     /// before any window exists, and again when <c>SettingsViewModel</c> hydrates. The two
-    /// disagreeing costs a user who turned startup checks off a splash and a request they did not
-    /// want, on every launch, with Settings showing the feature as off and nothing ever repairing
-    /// it. It can no longer cost them a PROMPT — the gated path re-reads the hydrated value before
-    /// asking or installing — but two parsers that merely look equivalent can drift on a detail like
+    /// disagreeing costs a user who turned startup checks off a splash, and the request moved in
+    /// FRONT of the window instead of quietly behind it — on every launch, with Settings showing the
+    /// feature as off and nothing ever repairing it. Not an extra request: off still checks, just
+    /// later. And no longer a PROMPT either, since the gated path re-reads the hydrated value before
+    /// asking or installing. But two parsers that merely look equivalent can drift on a detail like
     /// whitespace, so there is one.
     /// </remarks>
     public static bool? Parse(string? value)

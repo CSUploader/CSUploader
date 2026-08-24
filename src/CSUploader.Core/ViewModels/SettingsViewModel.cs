@@ -700,7 +700,7 @@ public partial class SettingsViewModel(
     }
 
     /// <summary>
-    /// Sets the startup-prompt preference and WAITS for it to reach the database.
+    /// Sets the startup-check preference and WAITS for it to reach the database.
     /// </summary>
     /// <remarks>
     /// The property setter above auto-saves fire-and-forget, which is right for a user ticking a

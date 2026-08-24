@@ -1086,9 +1086,10 @@ public class SettingsViewModelTests : IDisposable
     /// Auto-install defaults OFF, and this is the one default worth a test of its own.
     /// </summary>
     /// <remarks>
-    /// Its neighbour defaults on because being asked costs a click. This one hands the process to
-    /// Velopack, which replaces the app and restarts it — so defaulting it wrong means someone opens
-    /// CSUploader and gets a restart they never agreed to. Opt-in, permanently.
+    /// Its neighbour decides WHEN the check runs, and defaults on because the worst it costs is a
+    /// moment of startup. This one decides whether what that check finds installs itself — it hands
+    /// the process to Velopack, which replaces the app and restarts it — so defaulting it wrong
+    /// means someone opens CSUploader and gets a restart they never agreed to. Opt-in, permanently.
     /// </remarks>
     [Fact]
     public void AutoInstallUpdatesAtStartup_DefaultsToOff()
