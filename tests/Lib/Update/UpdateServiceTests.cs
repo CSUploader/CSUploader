@@ -142,7 +142,7 @@ public class UpdateServiceTests
     /// announce an update on every check, for ever, on any host where the version cannot be read.
     /// </summary>
     [Theory]
-    [InlineData(UpdateService.UnknownVersion)]
+    [InlineData(AppVersion.Unknown)]
     [InlineData("not-a-version")]
     [InlineData("")]
     public void AnUnreadableCurrentVersionFailsTheCheckInsteadOfFindingAnUpdate(string currentVersion)

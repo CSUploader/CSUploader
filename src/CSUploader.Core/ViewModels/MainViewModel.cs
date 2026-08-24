@@ -131,9 +131,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
         // so this stays a no-op there just as the old Application.Current guard did.
-        // The tick discards the task (fire-and-forget) — harmonized with the startup check in
-        // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (both its awaits —
-        // the check and the dispatcher apply — are wrapped in try/catch).
+        // The tick discards the task (fire-and-forget); CheckForUpdatesAsync cannot return a faulted
+        // task (both its awaits — the check and the dispatcher apply — are wrapped in try/catch).
+        //
+        // Started unconditionally, including for an owner who turned the STARTUP check off. That
+        // setting says "when CSUploader starts", and this is the six-hourly poll — leaving it running
+        // is what makes opting out of the startup check cost the user nothing but the splash.
         _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
         _updateTimer.Start();
     }
@@ -430,13 +433,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// real main window is not, and this view model owes the head a signal when it may swap.
     /// </summary>
     /// <remarks>
-    /// Null on the ungated path, which is every loose build, every <c>--agent</c> or
-    /// <c>--gallery</c> run, and any install whose owner turned the preference off. Nothing below
-    /// runs in that case and startup is byte-for-byte what it was.
+    /// Null for <c>--agent</c>, <c>--gallery</c>, and any owner who turned the preference off.
+    /// Nothing below runs in that case — and since the gate is what performs the startup check,
+    /// null here means no startup check happens at all, which is what those three cases want.
     /// </remarks>
     public StartupGate? StartupGate { get; set; }
-
-    private bool _startupGateRan;
 
     /// <summary>
     /// Runs the startup check behind a deadline, hands the head its cue to show the real window,
@@ -461,7 +462,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _startupGateRan = true;
         UpdateCheckResult? result = null;
 
         // A finally, but a cancellation-aware one. The window must be released however this ends -
@@ -672,13 +672,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _services.GetRequiredService<PackageManager>().LoadPersistedPackagesAsync();
         await UploadedViewModel.LoadAsync();
 
-        // The ungated path's check. When the gate ran, it already did this - and awaited it - so a
-        // second one here would be a duplicate request the user never asked for.
-        if (!_startupGateRan)
-        {
-            // Fire-and-forget: a network failure must not block init.
-            _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
-        }
+        // NO startup check here. There used to be one, for the case where no gate was set, and it
+        // has become wrong on every path that reaches it.
+        //
+        // The gate now runs for every ordinary launch, installed or not, so the only ways to arrive
+        // here without one are --agent, --gallery, and an owner who turned "check for updates when
+        // CSUploader starts" OFF. A check for the first two puts network traffic in the bridge and
+        // gallery flows; a check for the third does the exact thing the setting says it does not.
+        // That third case was survivable while the loose-build check was an instant no-op, and
+        // stopped being survivable when it started reaching GitHub.
+        //
+        // Nothing is lost by leaving: the six-hourly timer starts in the constructor regardless, so
+        // an opted-out install still learns about updates - just not at startup, which is precisely
+        // what it asked for.
     }
 
     partial void OnIsDarkModeChanged(bool value)

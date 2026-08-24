@@ -33,6 +33,7 @@ public class MainViewModelInitializeTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _services;
     private readonly CultureInfo _originalCulture;
+    private readonly Mock<IUpdateService> _updater;
 
     public MainViewModelInitializeTests()
     {
@@ -68,11 +69,13 @@ public class MainViewModelInitializeTests : IDisposable
         sc.AddSingleton(Mock.Of<IToastNotificationService>());
         sc.AddSingleton<IUiDispatcher, InlineUiDispatcher>();
 
-        // The ctor resolves these; CheckAsync returns UpToDate so the fire-and-forget startup update check
-        // stays a silent no-op (no log, no state change) and can't add noise to the observed counts.
-        Mock<IUpdateService> updater = new();
-        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
-        sc.AddSingleton(updater.Object);
+        // The ctor resolves these. CheckAsync is stubbed to UpToDate so that IF anything called it, it
+        // would be a silent no-op rather than noise in the observed counts - but nothing should:
+        // initialization no longer checks for updates, only the startup gate does. Kept as a field so
+        // InitializeAsync_DoesNotCheckForUpdates can hold that to account.
+        _updater = new Mock<IUpdateService>();
+        _updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.UpToDate);
+        sc.AddSingleton(_updater.Object);
         sc.AddSingleton(Mock.Of<IUpdateProgressSink>());
 
         sc.AddSingleton<UploadsViewModel>();
@@ -119,5 +122,27 @@ public class MainViewModelInitializeTests : IDisposable
         await vm.InitializeAsync(); // second call must be a genuine no-op (idempotency guard).
 
         Assert.Equal(afterFirst, vm.LogsViewModel.StatusLogs.Count);
+    }
+
+    /// <summary>
+    /// Initialization does NOT check for updates. The startup gate is the only thing that does.
+    /// </summary>
+    /// <remarks>
+    /// There used to be a fire-and-forget check here, for the case where no gate was set. Every way of
+    /// reaching it is now a case that must not check: <c>--agent</c> and <c>--gallery</c>, which would
+    /// put network traffic into the bridge and gallery flows, and an owner who turned "check for
+    /// updates when CSUploader starts" off, for whom it did the exact thing the setting promises it
+    /// does not. That was survivable only while a non-installed check returned instantly without a
+    /// request; it stopped being survivable when the check started reaching GitHub.
+    /// </remarks>
+    [Fact]
+    public async Task InitializeAsync_DoesNotCheckForUpdates()
+    {
+        using MainViewModel vm = new(_services);
+        Assert.Null(vm.StartupGate); // the ungated shape - the one that used to check
+
+        await vm.InitializeAsync();
+
+        _updater.Verify(u => u.CheckAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

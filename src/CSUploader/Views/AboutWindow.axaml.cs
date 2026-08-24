@@ -5,10 +5,10 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using CSUploader.Lib;
 using CSUploader.Lib.Localization;
 
 namespace CSUploader.Views;
@@ -18,10 +18,11 @@ namespace CSUploader.Views;
 /// the MainWindow menu (Phase 6/7); the gallery button is its only opener until then.
 /// </summary>
 /// <remarks>
-/// The version line resolves <see cref="Assembly.GetExecutingAssembly"/>'s version, which is the
-/// assembly default <c>1.0.0</c> on the Avalonia head (its csproj declares no Version, unlike the WPF
-/// csproj). Accepted, noted Phase 4 divergence: About has no production opener until Phase 6/7, and real
-/// version alignment belongs to the Phase 9 Velopack cutover.
+/// The version line comes from <see cref="AppVersion"/>, the same resolver the updater compares
+/// against. It used to read <c>GetExecutingAssembly().GetName().Version</c>, which is pinned to a
+/// literal in the head's csproj and therefore does NOT follow release.yml's <c>-p:Version=</c> — so a
+/// shipped 1.6.0 would have gone on introducing itself as 1.5.0.0 here while the update prompt next
+/// to it said 1.6.0.
 /// </remarks>
 public partial class AboutWindow : Window
 {
@@ -29,8 +30,7 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
 
-        string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
-        VersionText.Text = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["About_Version_Format"], version);
+        VersionText.Text = string.Format(CultureInfo.CurrentCulture, Localizer.Instance["About_Version_Format"], AppVersion.Current);
     }
 
     // OK closes the window. The WPF button was IsCancel+IsDefault with NO handler (WPF's IsCancel

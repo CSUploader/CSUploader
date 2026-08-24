@@ -3,7 +3,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Reflection;
 using Velopack;
 using Velopack.Logging;
 using Velopack.Sources;
@@ -14,19 +13,12 @@ public sealed class UpdateService : IUpdateService
 {
     private const string GitHubRepoUrl = "https://github.com/CSUploader/CSUploader";
 
-    /// <summary>
-    /// What <see cref="ResolveCurrentVersion"/> answers when the running assembly carries no version
-    /// it can read. Treated as "unknown" rather than as a real version — see
-    /// <see cref="DescribeWithoutInstall"/> for why that distinction has to be kept.
-    /// </summary>
-    internal const string UnknownVersion = "0.0.0";
-
     private readonly UpdateManager _manager;
     private readonly IUpdateSource _source;
     private readonly IAppLogger _logger;
 
     public UpdateService(IAppLogger logger)
-        : this(logger, new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false), ResolveCurrentVersion())
+        : this(logger, new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false), AppVersion.Current)
     {
     }
 
@@ -89,7 +81,11 @@ public sealed class UpdateService : IUpdateService
             appId: null,
             channel: VelopackRuntimeInfo.SystemOs.GetOsShortName()).ConfigureAwait(false);
 
-        return feed.Assets ?? [];
+        // Returned as-is. Assets is non-nullable and Velopack initialises it to an empty array, so
+        // a null here means a source violating its own contract - and coercing that to an empty
+        // array would report "up to date", turning malformed input into a confident wrong answer.
+        // Left to throw instead, which CheckAsync turns into Failed.
+        return feed.Assets;
     }
 
     /// <summary>
@@ -97,14 +93,14 @@ public sealed class UpdateService : IUpdateService
     /// </summary>
     /// <remarks>
     /// <b>An unreadable current version is a failed check, not an available update.</b> Every
-    /// published release is above <see cref="UnknownVersion"/>, so treating "we don't know what we
+    /// published release is above <see cref="AppVersion.Unknown"/>, so treating "we don't know what we
     /// are" as a real version would report an update every single time, for ever, on any host where
     /// the version cannot be read. Answering <see cref="UpdateCheckStatus.Failed"/> says the true
     /// thing: the comparison could not be made.
     /// </remarks>
     internal static UpdateCheckResult DescribeWithoutInstall(VelopackAsset[] assets, string currentVersion)
     {
-        if (currentVersion == UnknownVersion || !SemanticVersion.TryParse(currentVersion, out SemanticVersion? current))
+        if (currentVersion == AppVersion.Unknown || !SemanticVersion.TryParse(currentVersion, out SemanticVersion? current))
         {
             return UpdateCheckResult.Failed($"Cannot compare releases: the running version ('{currentVersion}') could not be read.");
         }
@@ -116,31 +112,6 @@ public sealed class UpdateService : IUpdateService
         return latest is not null && latest.Version > current
             ? UpdateCheckResult.AvailableNotInstallable(latest.Version.ToString())
             : UpdateCheckResult.UpToDate;
-    }
-
-    /// <summary>
-    /// The running app's version, for display and for the non-installed comparison.
-    /// </summary>
-    /// <remarks>
-    /// Read from <c>AssemblyInformationalVersion</c>, NOT <c>GetName().Version</c>. The head's csproj
-    /// pins <c>AssemblyVersion</c> to a literal, so release.yml's <c>-p:Version=</c> does not reach
-    /// it and <c>GetName().Version</c> reports whatever was last checked in — which would make a
-    /// shipped 1.6.0 call itself 1.5.0. <c>InformationalVersion</c> is derived from <c>Version</c>,
-    /// so it follows the tag. Its <c>+&lt;sha&gt;</c> source-revision suffix is not part of the
-    /// semantic version and is trimmed.
-    /// </remarks>
-    private static string ResolveCurrentVersion()
-    {
-        Assembly assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-
-        string? informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrWhiteSpace(informational))
-        {
-            int plus = informational.IndexOf('+', StringComparison.Ordinal);
-            return plus >= 0 ? informational[..plus] : informational;
-        }
-
-        return assembly.GetName().Version?.ToString(3) ?? UnknownVersion;
     }
 
     /// <summary>

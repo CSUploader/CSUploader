@@ -172,7 +172,7 @@ public partial class App : Application
                     if (mainWindow.DataContext is MainViewModel viewModel)
                     {
                         // Recorded on BOTH paths. The gated one assigns this before awaiting; the
-                        // ungated one has to do it here, or --agent, --gallery, loose builds and
+                        // ungated one has to do it here, or --agent, --gallery and
                         // preference-disabled runs reach Exit with it still null and dispose the
                         // provider under an in-flight EF call - the exact case the guard exists for.
                         _startupPipeline ??= viewModel.InitializeAsync();
@@ -246,10 +246,11 @@ public partial class App : Application
             // install, and that is kept out by the answer having a status of its own rather than by
             // anything here (see UpdateCheckStatus.AvailableNotInstallable).
             //
-            // --agent and --gallery stay out, not because a check there is cheap but because the
-            // AvaDevBridge screenshot loop and the dev gallery must not grow a window they never
-            // had. That exempts them from the SPLASH only: both still fire the ungated background
-            // check in InitializeCoreAsync, which since this change does reach the network.
+            // --agent and --gallery stay out, so the AvaDevBridge screenshot loop and the dev
+            // gallery do not grow a window they never had. Since the gate is also what performs the
+            // startup check, staying out means those two do not check at all - which is what they
+            // want, now that checking means a real request. Same for an owner who turned the
+            // preference off: the setting says "when CSUploader starts", and this is that.
             bool gateStartup =
                 !isAgent
 #if DEBUG && WINDOWS
