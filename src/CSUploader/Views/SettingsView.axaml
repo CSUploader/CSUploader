@@ -384,6 +384,14 @@
                     IsChecked="{Binding ShowCompletionToasts}" VerticalAlignment="Center" />
         </Grid>
 
+        <!-- Off means the app opens straight away: no splash, no prompt. The six-hourly poll still
+             runs and Help -> Install Update is still how an update gets installed, so this hides the
+             interruption rather than the feature. -->
+        <Grid Classes="setting-row">
+          <CheckBox Content="{loc:Loc Settings_General_AskToUpdateAtStartup}"
+                    IsChecked="{Binding AskToUpdateAtStartup}" VerticalAlignment="Center" />
+        </Grid>
+
         <!-- Confirmation prompts -->
         <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
           <PathIcon Data="{StaticResource SettingsConfirmationGeometry}"

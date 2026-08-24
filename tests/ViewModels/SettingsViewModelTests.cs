@@ -912,4 +912,133 @@ public class SettingsViewModelTests : IDisposable
         Assert.Equal("Wrong password", after.StatusMessage);
         Assert.False(vm.IsCheckingAccount);
     }
+
+    /// <summary>
+    /// A gate over the real repository, so a test can hold a write open and watch whether its caller
+    /// waits — and count writes, so "exactly one" is checkable rather than assumed.
+    /// <para>
+    /// It overrides the INHERITED <c>InsertAsync</c>/<c>UpdateAsync</c> rather than
+    /// <c>UpsertAsync</c>, which is not virtual. That is the better seam anyway: the real
+    /// <c>UpsertAsync</c> still runs, so its find-then-insert-or-update logic is exercised instead
+    /// of replaced.
+    /// </para>
+    /// </summary>
+    private sealed class GatedSettingRepository(
+        Microsoft.EntityFrameworkCore.IDbContextFactory<CSUploader.Dal.CSUploaderDbContext> factory)
+        : SettingRepository(factory)
+    {
+        private int _writes;
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Writes => Volatile.Read(ref _writes);
+
+        public override async Task<int> InsertAsync(SettingDto dto, CancellationToken cancellationToken = default)
+        {
+            await GateAsync(dto.Key);
+            return await base.InsertAsync(dto, cancellationToken);
+        }
+
+        public override async Task<int> UpdateAsync(SettingDto dto, CancellationToken cancellationToken = default)
+        {
+            await GateAsync(dto.Key);
+            return await base.UpdateAsync(dto, cancellationToken);
+        }
+
+        private async Task GateAsync(string key)
+        {
+            if (key != SettingKey.AskToUpdateAtStartup)
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref _writes);
+            Entered.TrySetResult();
+            await Release.Task;
+        }
+    }
+
+    /// <summary>
+    /// The preference must reach the store BEFORE the caller continues, because the caller's next
+    /// move is handing control to Velopack — which exits the process. The property setter's
+    /// auto-save is fire-and-forget, which is right for a user ticking a box in Settings and would
+    /// lose this one.
+    /// <para>
+    /// Gated rather than timed: an unawaited write still lands quickly against in-memory SQLite, so
+    /// a test that merely reads the value back afterwards passes either way. Holding the write open
+    /// is what distinguishes them.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task SetAskToUpdateAtStartupAsync_DoesNotReturnUntilTheWriteLands()
+    {
+        GatedSettingRepository gated = new(_factory);
+        SettingsViewModel vm = new(
+            gated,
+            CreateAccountVm(),
+            _appSettings,
+            Mock.Of<IDialogService>(),
+            Mock.Of<IAppLogger>());
+
+        Task saving = vm.SetAskToUpdateAtStartupAsync(false);
+        await gated.Entered.Task;
+
+        Assert.False(saving.IsCompleted, "it returned before the write it is supposed to wait for");
+
+        gated.Release.SetResult();
+        await saving;
+
+        // Exactly one write, not the setter's fire-and-forget save AND an awaited one. Two would not
+        // merely be wasteful: they race each other on the way out of the process.
+        Assert.Equal(1, gated.Writes);
+
+        SettingsViewModel reloaded = CreateVm();
+        await reloaded.LoadAsync();
+        Assert.False(reloaded.AskToUpdateAtStartup);
+    }
+
+    /// <summary>
+    /// ...and the ordinary path still persists. Deleting the property's auto-save hook would leave
+    /// every other test here green while the Settings checkbox silently stopped saving.
+    /// </summary>
+    [Fact]
+    public async Task TickingTheSettingsCheckbox_PersistsToo()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        vm.AskToUpdateAtStartup = false;
+
+        // The setter's save is fire-and-forget by design, so give it a moment to land.
+        SettingsViewModel reloaded = CreateVm();
+        for (int i = 0; i < 50 && reloaded.AskToUpdateAtStartup; i++)
+        {
+            await Task.Delay(20);
+            reloaded = CreateVm();
+            await reloaded.LoadAsync();
+        }
+
+        Assert.False(reloaded.AskToUpdateAtStartup);
+    }
+
+    /// <summary>
+    /// ...and exactly one write, not the setter's fire-and-forget save plus an awaited one. A second
+    /// write is not merely wasteful here: it races the first on the way out of the process.
+    /// </summary>
+    [Fact]
+    public async Task SetAskToUpdateAtStartupAsync_UpdatesTheVmAndTheSharedSettings()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        await vm.SetAskToUpdateAtStartupAsync(false);
+
+        Assert.False(vm.AskToUpdateAtStartup);
+        Assert.False(_appSettings.AskToUpdateAtStartup);
+    }
+
+    /// <summary>The default is on: an install nobody has configured still offers its updates.</summary>
+    [Fact]
+    public void AskToUpdateAtStartup_DefaultsToAsking()
+        => Assert.True(CreateVm().AskToUpdateAtStartup);
 }

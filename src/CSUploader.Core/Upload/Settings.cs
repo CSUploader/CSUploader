@@ -53,6 +53,13 @@ public class AppSettings
 
     public static bool DefaultShowCompletionToasts { get; } = true;
 
+    /// <summary>
+    /// Whether starting the app checks for an update behind a splash and offers to install one it
+    /// finds. Off means neither: the app opens straight away, the six-hourly poll still runs, and
+    /// Help → Install Update is still how an update gets installed.
+    /// </summary>
+    public static bool DefaultAskToUpdateAtStartup { get; } = true;
+
     /// <summary>Show every hoster — the wizard's list is a catalogue, and pre-filtering it by
     /// default would hide destinations from someone who never asked to.</summary>
     public static HosterAccountFilter DefaultWizardHosterAccountFilter { get; } = HosterAccountFilter.Both;
@@ -214,6 +221,8 @@ public class AppSettings
     /// completions are silent (still visible in the Uploaded tab and Logs).
     /// </summary>
     public bool ShowCompletionToasts { get; set; } = DefaultShowCompletionToasts;
+
+    public bool AskToUpdateAtStartup { get; set; } = DefaultAskToUpdateAtStartup;
 
     /// <summary>
     /// When true, the upload pipeline's <see cref="HttpClient"/> instances

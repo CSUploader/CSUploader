@@ -176,6 +176,9 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool ShowCompletionToasts { get; set; } = AppSettings.DefaultShowCompletionToasts;
 
+    [ObservableProperty]
+    public partial bool AskToUpdateAtStartup { get; set; } = AppSettings.DefaultAskToUpdateAtStartup;
+
     // ── Developer settings ──
 
     [ObservableProperty]
@@ -388,6 +391,10 @@ public partial class SettingsViewModel(
 
                     break;
 
+                case var k when k == SettingKey.AskToUpdateAtStartup:
+                    AskToUpdateAtStartup = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+
                 case var k when k == SettingKey.ShowCompletionToasts:
                     ShowCompletionToasts = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
@@ -450,6 +457,7 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
+        _settings.AskToUpdateAtStartup = AskToUpdateAtStartup;
         _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
         _settings.DefaultUploadDirectory = DefaultUploadDirectory;
 
@@ -645,6 +653,41 @@ public partial class SettingsViewModel(
             return;
         _settings.WizardHosterAccountFilter = value;
         _ = AutoSaveAsync(SettingKey.WizardHosterAccountFilter, value.ToString());
+    }
+
+    partial void OnAskToUpdateAtStartupChanged(bool value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.AskToUpdateAtStartup = value;
+        _ = AutoSaveAsync(SettingKey.AskToUpdateAtStartup, value ? "true" : "false");
+    }
+
+    /// <summary>
+    /// Sets the startup-prompt preference and WAITS for it to reach the database.
+    /// </summary>
+    /// <remarks>
+    /// The property setter above auto-saves fire-and-forget, which is right for a user ticking a
+    /// box in Settings and wrong for the startup prompt: choosing "Update now" hands straight over
+    /// to Velopack, which exits the process, so an unawaited write can lose the preference the user
+    /// just expressed. This is the same single write through the same path — the setter's own
+    /// auto-save is suppressed so it does not become two.
+    /// </remarks>
+    public async Task SetAskToUpdateAtStartupAsync(bool value, CancellationToken cancellationToken = default)
+    {
+        bool previous = _suppressAutoSave;
+        _suppressAutoSave = true;
+        try
+        {
+            AskToUpdateAtStartup = value;
+            _settings.AskToUpdateAtStartup = value;
+        }
+        finally
+        {
+            _suppressAutoSave = previous;
+        }
+
+        await SaveSettingAsync(SettingKey.AskToUpdateAtStartup, value ? "true" : "false", cancellationToken);
     }
 
     partial void OnShowCompletionToastsChanged(bool value)

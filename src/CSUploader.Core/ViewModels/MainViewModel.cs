@@ -29,7 +29,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly PropertyChangedEventHandler _localizerChanged;
     private readonly Lock _checkGate = new();
     private Task<UpdateCheckResult>? _inFlightCheck;
-    private UpdateCheckOrigin _inFlightOrigin;
+    /// <summary>Whether any participant in the running check was the six-hourly poll, which is the
+    /// only origin that owes a toast on failure.</summary>
+    private bool _periodicAwaitingReport;
 
     private UpdateAvailableInfo? _availableUpdate;
     private bool _backgroundCheckFailing;
@@ -155,9 +157,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// generation stamp is needed to prevent it.
     /// </para>
     /// <para>
-    /// A joiner does NOT change how the running check reports failure - the originator's
-    /// <see cref="UpdateCheckOrigin"/> governs that. A user joining a silent startup check still
-    /// sees the outcome, because the menu handler renders the returned result itself.
+    /// A joiner's reporting obligation is ADDED to the running check's rather than ranked against
+    /// it. Only the six-hourly poll owes a toast, so a poll joining a silent startup check still
+    /// gets one and a user joining a poll does not take one away; the user's own answer is the
+    /// returned result, which the menu handler renders itself.
     /// </para>
     /// </remarks>
     public Task<UpdateCheckResult> CheckForUpdatesAsync(UpdateCheckOrigin origin)
@@ -167,9 +170,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             if (_inFlightCheck is { IsCompleted: false })
             {
-                // A joiner can make the running check LOUDER but never quieter - see
-                // EffectiveOrigin. Upgraded under the lock, read under the lock at publication.
-                _inFlightOrigin = MoreVisible(_inFlightOrigin, origin);
+                // Reporting obligations ACCUMULATE; they do not rank. A user joining a periodic
+                // check must not cancel the poll's toast, and a poll joining a user's check must
+                // not add a toast to a dialog the user is already reading.
+                _periodicAwaitingReport |= origin == UpdateCheckOrigin.Periodic;
                 return _inFlightCheck;
             }
 
@@ -181,7 +185,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             // has already returned, and a synchronously-completing check returns after logging.
             started = new TaskCompletionSource<UpdateCheckResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             _inFlightCheck = started.Task;
-            _inFlightOrigin = origin;
+            _periodicAwaitingReport = origin == UpdateCheckOrigin.Periodic;
         }
 
         _ = CompleteCheckAsync(started);
@@ -196,17 +200,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            started.TrySetException(ex);
+            // Normalised, not propagated. Every caller of this is either fire-and-forget from a
+            // timer or an async void event handler, so a faulted task has nowhere to be observed and
+            // would reach the dispatcher's unhandled hook. RunCheckAsync already converts the
+            // service's own failures; this covers what its collaborators can throw - a log
+            // subscriber, say, which the real Logger invokes without isolation.
+            _logger.Log(this, LogType.Error, $"Update check pipeline failed: {ex.Message}");
+            started.TrySetResult(UpdateCheckResult.Failed(ex.Message));
         }
     }
-
-    /// <summary>
-    /// Which of two origins reports more visibly. A check that several callers share must not be
-    /// quieter than the loudest of them asked for: a user who joins a silent startup check still
-    /// gets their dialog, and a periodic poll joining one still gets its toast.
-    /// </summary>
-    private static UpdateCheckOrigin MoreVisible(UpdateCheckOrigin a, UpdateCheckOrigin b)
-        => (UpdateCheckOrigin)Math.Max((int)a, (int)b);
 
     private async Task<UpdateCheckResult> RunCheckAsync()
     {
@@ -222,17 +224,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
             result = UpdateCheckResult.Failed(ex.Message);
         }
 
-        UpdateCheckOrigin origin;
-        lock (_checkGate)
-        {
-            // Read under the lock so a joiner that arrived while the network call was running is
-            // accounted for, and one arriving after this point cannot change what was published.
-            origin = _inFlightOrigin;
-        }
-
         try
         {
-            await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, origin));
+            await _uiDispatcher.InvokeAsync(() =>
+            {
+                bool toastOwed;
+                lock (_checkGate)
+                {
+                    // Read HERE, not before the dispatcher hop. A joiner can arrive during that hop
+                    // - the shared task is still incomplete - and a snapshot taken earlier would
+                    // have dropped the toast it was owed.
+                    toastOwed = _periodicAwaitingReport;
+                    _periodicAwaitingReport = false;
+                }
+
+                ApplyCheckResult(result, toastOwed);
+            });
         }
         catch (Exception ex)
         {
@@ -244,7 +251,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return result;
     }
 
-    private void ApplyCheckResult(UpdateCheckResult result, UpdateCheckOrigin origin)
+    private void ApplyCheckResult(UpdateCheckResult result, bool toastOwed)
     {
         switch (result.Status)
         {
@@ -270,7 +277,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 // per episode; a user-initiated failure is rendered by the caller from the result,
                 // and a STARTUP failure is silent - the splash is on screen and the main window does
                 // not exist yet, so a toast would be orphaned or hidden behind it.
-                if (origin == UpdateCheckOrigin.Periodic && !_backgroundCheckFailing)
+                if (toastOwed && !_backgroundCheckFailing)
                 {
                     _backgroundCheckFailing = true;
                     _toastService.ShowInfo(

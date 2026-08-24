@@ -288,6 +288,13 @@ Settings_General_CloseAction_Exit        = アプリケーションを終了
 Settings_General_Notifications_Title  = 通知
 Settings_General_Notifications_Desc   = アップロード完了時に画面右下にポップアップを表示します。
 Settings_General_ShowCompletionToasts = アップロード完了時にポップアップ通知を表示
+Settings_General_AskToUpdateAtStartup = Check for updates when CSUploader starts, and ask before installing
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_AskAtStartup         = Check for updates when CSUploader starts
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = 確認プロンプト
 Settings_General_ConfirmationPrompts_Desc  = チェックを入れると操作前に再度確認します。チェックを外すと、その操作の確認が省略されます。

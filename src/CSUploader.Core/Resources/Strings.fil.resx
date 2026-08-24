@@ -645,6 +645,27 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>Magpakita ng popup na abiso kapag tapos na ang pag-upload</value>
   </data>
+  <data name="Settings_General_AskToUpdateAtStartup" xml:space="preserve">
+    <value>Check for updates when CSUploader starts, and ask before installing</value>
+  </data>
+  <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdatePrompt_Message_Format" xml:space="preserve">
+    <value>CSUploader v{0} is available. You have v{1}.</value>
+  </data>
+  <data name="UpdatePrompt_AskAtStartup" xml:space="preserve">
+    <value>Check for updates when CSUploader starts</value>
+  </data>
+  <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="UpdatePrompt_BtnLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Splash_Status_CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates…</value>
+  </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>Confirmation Prompts</value>
   </data>

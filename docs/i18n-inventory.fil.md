@@ -289,6 +289,13 @@ Settings_General_CloseAction_Exit        = Lumabas sa application
 Settings_General_Notifications_Title  = Mga Abiso
 Settings_General_Notifications_Desc   = Lalabas na popup sa kanang-ibaba kapag tapos na ang pag-upload.
 Settings_General_ShowCompletionToasts = Magpakita ng popup na abiso kapag tapos na ang pag-upload
+Settings_General_AskToUpdateAtStartup = Check for updates when CSUploader starts, and ask before installing
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_AskAtStartup         = Check for updates when CSUploader starts
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = Confirmation Prompts
 Settings_General_ConfirmationPrompts_Desc  = I-tick ang isang prompt para magtanong ulit bago ang aksyon. I-untick para hindi na magpakita ng confirmation para sa aksyong iyon.

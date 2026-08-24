@@ -369,9 +369,9 @@ public class MainViewModelUpdateTests : IDisposable
     }
 
     /// <summary>
-    /// A shared check reports as visibly as the LOUDEST participant asked for. A periodic poll that
-    /// joins a silent startup check must still get its toast — otherwise a startup check that
-    /// happens to be in flight silences the poll that was supposed to tell the user.
+    /// Reporting obligations accumulate. A periodic poll joining a silent startup check must still
+    /// get its toast, or a startup check that happens to be in flight silences the poll that was
+    /// supposed to tell the user.
     /// </summary>
     [Fact]
     public async Task APeriodicCheckJoiningASilentStartupOne_StillGetsItsToast()
@@ -395,6 +395,105 @@ public class MainViewModelUpdateTests : IDisposable
         await Task.WhenAll(startup, periodic);
 
         toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>
+    /// Holds <c>InvokeAsync</c> open so a test can stand between the network result and its
+    /// publication. <c>DeferredUiDispatcher</c> defers <c>Post</c> and runs <c>InvokeAsync</c>
+    /// inline, and the update pipeline publishes through the latter.
+    /// </summary>
+    private sealed class GatedInvokeDispatcher : CSUploader.Services.IUiDispatcher
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Entered => _entered.Task;
+
+        public void Release() => _release.TrySetResult();
+
+        public void Post(Action action) => action();
+
+        public async Task InvokeAsync(Action action)
+        {
+            _entered.TrySetResult();
+            await _release.Task;
+            action();
+        }
+
+        public CSUploader.Services.IUiTimer CreateTimer(TimeSpan interval, Action onTick)
+            => new InlineUiDispatcher.TestTimer(onTick);
+    }
+
+    /// <summary>
+    /// The boundary the earlier snapshot-before-publication got wrong. A poll can join AFTER the
+    /// network call has returned but BEFORE the result reaches the UI thread — the shared task is
+    /// still incomplete, so joining is legal — and a reporting decision taken before that hop would
+    /// have dropped the toast it was owed.
+    /// </summary>
+    [Fact]
+    public async Task APeriodicCheckJoiningDuringPublication_StillGetsItsToast()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("offline"));
+        Mock<IToastNotificationService> toasts = new();
+
+        GatedInvokeDispatcher dispatcher = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts, dispatcher: dispatcher);
+
+        Task<UpdateCheckResult> startup = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        await dispatcher.Entered; // the network call is done; publication has not run
+
+        Task<UpdateCheckResult> periodic = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        dispatcher.Release();
+        await Task.WhenAll(startup, periodic);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>
+    /// The other direction, which a visibility RANKING got backwards: a user joining a periodic
+    /// check must not cancel the poll's toast. The user gets their answer from the returned result;
+    /// the poll's promise is separate and still owed.
+    /// </summary>
+    [Fact]
+    public async Task AUserCheckJoiningAPeriodicOne_DoesNotCancelItsToast()
+    {
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Mock<IUpdateService> updater = new();
+        updater
+            .Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await release.Task;
+                return UpdateCheckResult.Failed("offline");
+            });
+
+        Mock<IToastNotificationService> toasts = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts);
+
+        Task<UpdateCheckResult> periodic = vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        Task<UpdateCheckResult> user = vm.CheckForUpdatesAsync(UpdateCheckOrigin.User);
+        release.SetResult();
+        await Task.WhenAll(periodic, user);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+    }
+
+    /// <summary>
+    /// A user check on its own stays quiet: the menu renders the outcome, and a toast as well would
+    /// be a second answer to one question.
+    /// </summary>
+    [Fact]
+    public async Task AFailedUserCheck_RaisesNoToast()
+    {
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Failed("offline"));
+        Mock<IToastNotificationService> toasts = new();
+        MainViewModel vm = CreateVm(updater.Object, new FakeUpdateProgressSink(), toasts);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.User);
+
+        toasts.Verify(t => t.ShowInfo(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     /// <summary>
@@ -521,7 +620,8 @@ public class MainViewModelUpdateTests : IDisposable
         IUpdateService updater,
         IUpdateProgressSink? sink = null,
         Mock<IToastNotificationService>? toast = null,
-        IAppLogger? logger = null)
+        IAppLogger? logger = null,
+        CSUploader.Services.IUiDispatcher? dispatcher = null)
     {
         // Re-register the update service for this test. The service provider was built
         // without one, so we wrap it in a small composite that overrides that single key.
@@ -529,7 +629,8 @@ public class MainViewModelUpdateTests : IDisposable
             updater,
             sink ?? Mock.Of<IUpdateProgressSink>(),
             (toast ?? new Mock<IToastNotificationService>()).Object,
-            logger);
+            logger,
+            dispatcher);
         MainViewModel vm = new(scoped);
         _vms.Add(vm); // disposed at teardown (MainViewModel is IDisposable — Phase 9 ledger fix c).
         return vm;
@@ -539,7 +640,8 @@ public class MainViewModelUpdateTests : IDisposable
         IUpdateService updater,
         IUpdateProgressSink sink,
         IToastNotificationService toast,
-        IAppLogger? logger = null)
+        IAppLogger? logger = null,
+        CSUploader.Services.IUiDispatcher? dispatcher = null)
     {
         ServiceCollection sc = new();
 
@@ -559,7 +661,7 @@ public class MainViewModelUpdateTests : IDisposable
         sc.AddSingleton(_services.GetRequiredService<ProxyManager>());
         sc.AddSingleton(_services.GetRequiredService<IDialogService>());
         sc.AddSingleton(_services.GetRequiredService<IAccountVerifier>());
-        sc.AddSingleton(_services.GetRequiredService<IUiDispatcher>());
+        sc.AddSingleton(dispatcher ?? _services.GetRequiredService<IUiDispatcher>());
         sc.AddSingleton(_services.GetRequiredService<UploadsViewModel>());
         sc.AddSingleton(_services.GetRequiredService<UploadedViewModel>());
         sc.AddSingleton(_services.GetRequiredService<SettingsViewModel>());
