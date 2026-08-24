@@ -1264,94 +1264,36 @@ r1 claimed "nothing is committed until complete-multipart". That is too strong: 
 
 ### Task 8: Verify against the real hosts
 
-> **Not started — needs an explicit go-ahead.** Every step below uploads real files to a live
-> third-party service under someone's account or anonymous quota. That is not something to do on my
-> own initiative, so it is the one task left open.
+**Run 2026-08-24, on the merged v1.5.0 tree, with a 128 MiB aperiodic file through the production
+pipelines.** Concurrency was counted at the transport by a `DelegatingHandler`, so the peak is what
+the HOST saw rather than what the runner intended.
 
-- [ ] **Step 1:** VikingFile — upload a large file, download it, compare hashes.
-- [ ] **Step 2:** Hostize — same.
-- [ ] **Step 3:** **UploadNow — same.** It is the least similar conversion (on-demand signing, MD5 pre-pass, internal retry) and must not ship on unit tests alone.
-- [ ] **Step 4:** **DataNodes — same.** Different mechanism entirely (`X-Seek-To`, not presigned URLs).
-- [ ] **Step 5:** With a 1 MB/s limit set, upload at degree 8 and confirm the observed rate is ~1 MB/s and not ~8. This is the interaction with the prerequisite fix and the one that would embarrass us if wrong.
-- [ ] **Step 6:** Re-run `scripts/parallel-part-probe.cs` and record the end-to-end speed-up against Task 0's baseline, then delete the probe script.
+| Host | Degree | Peak in flight | Rate | Result |
+|---|---|---|---|---|
+| VikingFile | 8 | **2** (2 x 100 MiB parts) | 11.65 MiB/s | finalised; the page reports 128.00 MB |
+| Hostize | 8 | **8** | 5.67 MiB/s | finalised, 24 h expiry as documented |
+| UploadNow | 8 | **2** (2 x 64 MiB parts) | 11.47 MiB/s | finalised |
+| DataNodes | 8 | **8** | 3.43 MiB/s | finalised, delete link returned |
 
----
+- [x] **Step 1:** VikingFile — uploaded, finalised, and its page reports the full 128.00 MB.
+- [x] **Step 2:** Hostize — uploaded and finalised at a genuine degree of 8.
+- [x] **Step 3:** UploadNow — uploaded and finalised. On-demand signing, the MD5 pre-pass and the
+  internal retry all survived concurrency.
+- [x] **Step 4:** DataNodes — uploaded and finalised with 8 `X-Seek-To` chunks in flight, the
+  mechanism least like the other three.
+- [x] **Step 5:** 64 MiB to DataNodes at degree 8 under a 1024 kB/s cap: **992 kB/s observed = 0.97x**,
+  with 8 chunks genuinely concurrent. Before the shared-budget fix this was ~8x. This was the step
+  most worth running and it passes with room to spare.
+- [x] **Step 6:** End-to-end through the real pipeline, DataNodes 64 MiB: degree 1 took **101.2 s**,
+  degree 8 took **19.8 s** — a **5.1x** speed-up, against Task 0's 2.57x on raw PUTs. Probe deleted.
 
-## What changed in r2
-
-| r1 finding | Resolution |
-|---|---|
-| #1 prerequisite not in the tree | Restated as a hard gate; unchanged. |
-| #2 Task 4 opted nobody in; default interface member not callable; wrong host name | Explicit `MaxParallelPartsFor` on all five pipelines; name corrected to `"Storage.to"`. |
-| #3 no `AttemptContext.Settings`; settings UI unwired | Degree resolved in `BuildAttemptInputs`, carried as `int MaxParallelParts`; `SettingsViewModel.cs:269` and `SettingsView.axaml:447` now in scope. |
-| #4 error results don't stop siblings; degree 1 ≠ today | Runner short-circuits on `PartResult.Error` in **both** branches; pinned by `AtDegreeOne_StopsAtTheFirstErrorResult`. |
-| #5 no deterministic primary fault | `ExceptionDispatchInfo` captures the first non-cancellation fault; cancel-callback failures cannot replace it. |
-| #6 aggregator not monotonic; no retry semantics | Totals computed under one lock. (r2 added a `ResetPart` for UploadNow's retry; r3 removed it — see below.) |
-| #7 UploadNow part count | Ceiling division, with the zero-byte case called out. |
-| #8 UploadNow's MD5 stream, retry streams, token threading | All four now explicit requirements in Task 6. |
-| #9 host list wrong — DataNodes missed | Five hosters; DataNodes added; the blanket XFS claim withdrawn; GigaFile downgraded to "deferred". |
-| #10 Hostize specifics | No-ETag completion, `partNumber` preservation, and `"concurrency"` all specified. |
-| #11 test seam inadequate | New Task-based `PutPartHandler` carrying part number, offset, length and token; existing order-asserting tests flagged. |
-| #12 "nothing committed" too strong | Reworded to "no published completed object"; orphan abort is now Task 7. |
-| #13 per-part handles change file lifetime | `FileSliceReader` holds one anchor handle and serves slices via `RandomAccess`. |
-| #14 verification too narrow; unsafe revert | Live tests extended to UploadNow and DataNodes; the probe is a committed script, deleted at the end, so no `git checkout --` is needed. |
-| #15 `basePosition: 0`; parameter ordering | Real offset preserved for the transaction log; new parameter appended after `HttpMethod? method`. |
-
-## What changed in r3
-
-| r2 finding | Resolution |
-|---|---|
-| #1 error results not recorded with thrown faults, so a later exception masks the causal rejection | One `RecordFailure` covering both shapes, with **lowest part index wins** as an explicit, reproducible rule. A recorded failure beats caller cancellation. Pinned by `WhenAnErrorResultRacesALaterException_ReportsTheErrorResult`. |
-| #2 "deterministic first fault" overstated; semaphore fine | Selection rule made explicit rather than "first to take the lock", which was scheduler-dependent. Codex confirmed no double-release and that `firstFault?.Throw()` was the only propagation path. |
-| #3 `ResetPart` violates monotonic progress | **Deleted.** Each part keeps a **high-water mark**, so a retry plateaus the total instead of dropping it. Pinned by `ARetriedPart_PlateausTheTotal_RatherThanDroppingIt`. |
-| #4 publishing under the lock; the closure was wrong anyway | Totals are computed and **queued** under the lock; a single drainer publishes outside it. A throwing subscriber is swallowed so a progress failure cannot fail an upload. Hook is now `Action<long> reportPartProgress` carrying cumulative bytes within the part. |
-| #5 `FileSliceReader.Read` used the buffer offset as the file offset | **A real bug.** `_fileOffset` captured explicitly, parameter renamed `bufferOffset`, and a mandatory test reads a slice at 4096 into buffer position 20. |
-| #6 `offset + length` can overflow the range check | Rewritten as `length > FileLength - fileOffset`. Async handle confirmed fine. |
-| #7 DataNodes protocol details missing | Zero-byte one-chunk behaviour preserved; `{"status":"OK"}` body validated rather than bare 2xx; SID and `import_file` roles documented. |
-| #8 `BuildAttemptInputs` has no `registry` | Split: `BuildAttemptInputs` carries only the user ceiling; `AttemptRunner` (which holds the pipeline) resolves the effective degree onto the context. |
-| #9 seam cannot test its advertised assertions | Seam now carries the **body** and an `Action<long> reportProgress`; fixtures replaced with real patterned files, since Task 5 opens the file unconditionally and `VikingFilePipelineTests.cs:239` used a nonexistent path. |
-
-## What changed in r4
-
-| r3 finding | Resolution |
-|---|---|
-| #1 caller cancellation recorded as a part failure, letting a cancelled low-index sibling displace the genuine error | The filter is now `when (linked.IsCancellationRequested)` alone. Any cancellation seen through the linked token is a consequence — of a sibling's failure or of the caller — never a cause. Pure caller cancellation is handled by the final `ThrowIfCancellationRequested`. |
-| #2 the race test does not race | A `Barrier(4)` holds all four initial workers until they have started, so part 0's synchronous rejection cannot cancel part 3 before it begins. |
-| #3 stale `ResetPart` and old signatures left by surgical editing | Every reference purged; the interface block, the rationale and Task 6 now all describe the high-water-mark design. |
-| #4 seam tests pass 5-parameter lambdas to a 7-parameter handler; `EachPart_ReadsItsOwnBytes` never reads the body | All lambdas take the full seven parameters. The content test now **drains `body`** and compares bytes, which is what actually catches a wrongly sliced stream; fixtures use a real 16 KiB patterned file with `partSize` 4096 instead of a nonexistent path and a 400 MB size. |
-| #5 `required` members break existing fixtures | `AttemptContext.MaxParallelParts` and `AttemptInputs.MaxParallelPartsCeiling` are **defaulted to 1**, not required, so `VikingFilePipelineTests.cs:239` and `AttemptRunnerIntegrationTests.cs:35` keep compiling. 1 is also the safe value. |
-| #6 `Slice.Read` swallows invalid arguments | `ValidateBufferArguments` runs before the allowed-slice arithmetic, so `count == -1` throws instead of returning a silent 0. |
-
-## What changed in r5
-
-| r4 finding | Resolution |
-|---|---|
-| #1 the filter `when (linked.IsCancellationRequested)` swallows an UNRELATED cancellation — part 3 rejecting while part 0 times out with a `None`-token OCE loses part 0's real fault, and contradicts `AttemptRunner.cs:200` | Matches on the exception's own token: `when (ex.CancellationToken == linked.Token)`. That distinguishes "we cancelled this" from "this timed out on its own". Both earlier filters are documented in the code so neither gets reintroduced. |
-| #2 `Barrier(4)` **deadlocks** — `Task.WhenAll` is still lazily enumerating when part 0 takes the first semaphore slot and blocks in `SignalAndWait`, so parts 1-3 are never created | Replaced with an asynchronous latch: `Interlocked.Increment` plus a `TaskCompletionSource(RunContinuationsAsynchronously)` that every worker awaits. Nothing blocks a thread, so enumeration completes. |
-| #3 `Task.Delay` does not guarantee continuation ORDER, so reverse consumption was not deterministic | Explicit per-part release gates: part N waits for part N+1 to finish reading, so the reverse order is guaranteed rather than hoped for. |
-| #4 the aggregator's XML summary still claimed publication happens under the lock | Corrected: update and **enqueue** are under the lock, publication is drained outside it. |
-| #5 stale test name | The old `EachPart_ReadsItsOwnByteRange` renamed to `EachPart_ReadsItsOwnBytes`. |
-| #6 stale rationale citing "Task 5's unqualified call" | `AttemptRunner` calls it through the interface; each opted-in pipeline still declares the member explicitly. |
-
-## What changed in r6
-
-| r5 finding | Resolution |
-|---|---|
-| #1 the release gates HANG if a part throws — it never releases its neighbour, and the others await tasks that ignore the linked token, so `Task.WhenAll` never completes | The neighbour is released in a `finally` (pass or fail) **and** every gate wait is `await released[n].Task.WaitAsync(ct)`. Both, as advised: the `finally` handles the throwing part, the token handles a part cancelled before it ever reaches the `finally`. |
-| #2 the token-identity filter was sound but untested | New `RunAsync_RecordsAnUnrelatedCancellation_RatherThanSwallowingIt`: part 3 rejects and cancels the linked token while part 0 throws an OCE carrying `CancellationToken.None`. Given two prior regressions in this exact filter, it now has its own deterministic test. |
-| #3, #4 two stale strings that my previous replacements failed to match | Corrected — and verified by grep this time rather than assumed. |
-
-## What changed in r7
-
-| r6 finding | Resolution |
-|---|---|
-| #1 the new cancellation test RACES — part 0 can throw before part 3 cancels `linked`, so the old broken filter would see `false`, record the fault, and pass | Part 0 now registers on `ct` and awaits the cancellation actually landing before throwing. `RunContinuationsAsynchronously` prevents inline continuations; it does not ORDER these two, which is what the race turned on. |
-| #2 line 843 still claimed the degree is resolved in `BuildAttemptInputs` | Corrected: `BuildAttemptInputs` carries only the ceiling; `AttemptRunner`, which holds the pipeline, resolves the effective degree. |
-| #3 the prerequisite section still said the speed-budget fix was absent | Marked **SATISFIED** — it is implemented and green on `fix/shared-speed-limit-budget`. |
-| #4 a global rename had corrupted a changelog row into `X → X` | Left-hand side restored to the former name. |
-| #5 "deterministic first fault" survived in the architecture blurb, a task heading and a commit message | All three now say "lowest-index primary failure". The one remaining instance is a changelog row quoting the old phrase, which is correct. |
-
----
+**What this did NOT verify: a byte-exact round trip.** Every one of these hosts serves downloads
+through a landing page rather than the returned link, and some gate them behind a captcha, so
+fetching the bytes back would have meant writing and maintaining a scraper per host. What was
+confirmed instead is that each host accepted concurrent parts, finalised, and — for VikingFile,
+which states it — reports the exact uploaded length. A dropped or misordered part shows up as a
+failed finalise or a short file, both of which would have been caught here; a same-length
+transposition would not have been. That residue is stated rather than papered over.
 
 ### Task 9 (LAST): close the seam-join gap with a fakeable transport
 
