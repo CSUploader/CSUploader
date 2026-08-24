@@ -947,7 +947,7 @@ public class SettingsViewModelTests : IDisposable
             return await base.UpdateAsync(dto, cancellationToken);
         }
 
-        private async Task GateAsync(string key)
+        private async Task GateAsync(string? key)
         {
             if (key != SettingKey.AskToUpdateAtStartup)
             {

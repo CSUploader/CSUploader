@@ -30,15 +30,6 @@ namespace CSUploader;
 public static class StartupUpdatePreference
 {
     /// <summary>
-    /// The saved preference, or null when none is stored or the store cannot be read.
-    /// </summary>
-    /// <remarks>
-    /// Null is deliberately distinct from <see langword="false"/>. A first run, an un-migrated
-    /// database or a locked file all mean "we do not know", and the caller treats not knowing as
-    /// the default — which is to ask. Returning false on a read failure would silently disable a
-    /// feature the user never turned off.
-    /// </remarks>
-    /// <summary>
     /// Interprets a stored value, or answers null for one that is not recognisably a boolean.
     /// </summary>
     /// <remarks>
@@ -59,6 +50,15 @@ public static class StartupUpdatePreference
         return string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ? false : null;
     }
 
+    /// <summary>
+    /// The saved preference, or null when none is stored or the store cannot be read.
+    /// </summary>
+    /// <remarks>
+    /// Null is deliberately distinct from <see langword="false"/>. A first run, an un-migrated
+    /// database or a locked file all mean "we do not know", and the caller treats not knowing as
+    /// the default — which is to ask. Returning false on a read failure would silently disable a
+    /// feature the user never turned off.
+    /// </remarks>
     public static bool? ReadAskToUpdateAtStartup(IDbContextFactory<CSUploaderDbContext> factory)
     {
         try

@@ -422,8 +422,8 @@ public partial class App : Application
 
         // UI services (Avalonia implementations of Core interfaces)
         services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
-        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();
-        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow, shown once at startup  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();   // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow, shown once at startup
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();
