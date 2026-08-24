@@ -88,6 +88,7 @@ Main_CheckForUpdates_DialogTitle  = 检查更新
 Main_CheckForUpdates_AlreadyLatest = 您当前已是最新版本。
 Main_CheckForUpdates_Available_Format = 有可用更新：v{0}。\n\n请使用 帮助 → 安装更新 来下载并安装。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 无法检查更新：{0}
+Main_CheckForUpdates_NotInstallable_Format = 有可用更新：v{0}。\n\n此版本未安装，无法自动更新。请从发布页面下载新版本。   # {0} = available semver
 Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = 更新检查失败
 Update_CheckFailed_ToastBody = CSUploader 无法检查更新，稍后将重试。

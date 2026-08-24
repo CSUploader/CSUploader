@@ -204,6 +204,11 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>无法检查更新：{0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>有可用更新：v{0}。
+
+此版本未安装，无法自动更新。请从发布页面下载新版本。</value>
+  </data>
   <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
     <value>A check that started earlier is still running. Try again in a moment.</value>
   </data>

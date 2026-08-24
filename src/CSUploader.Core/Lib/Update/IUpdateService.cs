@@ -18,14 +18,21 @@ public interface IUpdateService
 
     /// <summary>
     /// Gets a value indicating whether the app was launched from a Velopack-installed
-    /// location. False during <c>dotnet run</c> or when running the loose build output —
-    /// in which case <see cref="ApplyAndRestart"/> is a no-op.
+    /// location. False during <c>dotnet run</c> or when running the loose build output.
+    /// <para>
+    /// When false, <see cref="DownloadAsync"/> and <see cref="ApplyAndRestart"/> are not no-ops —
+    /// they THROW. Velopack's <c>DownloadUpdatesAsync</c> opens with <c>EnsureInstalled</c>, so
+    /// there is no safe way to call the install path without a package layout around the process.
+    /// <see cref="CheckAsync"/> still works: it reads the release feed directly and reports
+    /// <see cref="UpdateCheckStatus.AvailableNotInstallable"/> rather than an installable update.
+    /// </para>
     /// </summary>
     public bool IsInstalled { get; }
 
     /// <summary>
     /// Polls the GitHub Releases endpoint. Returns an explicit outcome so callers can tell
-    /// "up to date" from "check failed" (network, auth, 404) from "not installed".
+    /// "up to date" from "check failed" (network, auth, 404) from "there is one, but this build
+    /// cannot install it".
     /// </summary>
     public Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default);
 

@@ -95,6 +95,7 @@ Main_CheckForUpdates_DialogTitle  = Check for Updates
 Main_CheckForUpdates_AlreadyLatest = You're on the latest version.
 Main_CheckForUpdates_Available_Format = Update available: v{0}.\n\nUse Help → Install Update to download and install.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Couldn't check for updates: {0}
+Main_CheckForUpdates_NotInstallable_Format = Update available: v{0}.\n\nThis build isn't installed, so it can't update itself. Download the new version from the releases page.   # {0} = available semver
 Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = Update check failed
 Update_CheckFailed_ToastBody = CSUploader couldn't check for updates. It'll try again later.

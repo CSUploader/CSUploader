@@ -87,6 +87,7 @@ Main_CheckForUpdates_DialogTitle  = 更新を確認
 Main_CheckForUpdates_AlreadyLatest = 最新バージョンを使用中です。
 Main_CheckForUpdates_Available_Format = 更新があります: v{0}。\n\nダウンロードとインストールには ヘルプ → 更新をインストール を使用してください。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 更新を確認できませんでした: {0}
+Main_CheckForUpdates_NotInstallable_Format = 更新があります: v{0}。\n\nこのビルドはインストールされていないため、自動で更新できません。リリースページから新しいバージョンをダウンロードしてください。   # {0} = available semver
 Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = 更新の確認に失敗しました
 Update_CheckFailed_ToastBody = CSUploader は更新を確認できませんでした。後でもう一度試します。

@@ -88,6 +88,7 @@ Main_CheckForUpdates_DialogTitle  = Mag-check ng Updates
 Main_CheckForUpdates_AlreadyLatest = Nasa pinakabagong version ka na.
 Main_CheckForUpdates_Available_Format = May available na update: v{0}.\n\nGamitin ang Help → Install Update para i-download at i-install.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Hindi ma-check ang mga update: {0}
+Main_CheckForUpdates_NotInstallable_Format = May available na update: v{0}.\n\nHindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag-isa. I-download ang bagong bersyon mula sa releases page.   # {0} = available semver
 Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = Nabigo ang pag-check ng update
 Update_CheckFailed_ToastBody = Hindi ma-check ng CSUploader ang mga update. Susubukan ulit mamaya.

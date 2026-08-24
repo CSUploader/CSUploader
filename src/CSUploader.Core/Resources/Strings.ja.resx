@@ -204,6 +204,11 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>更新を確認できませんでした: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>更新があります: v{0}。
+
+このビルドはインストールされていないため、自動で更新できません。リリースページから新しいバージョンをダウンロードしてください。</value>
+  </data>
   <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
     <value>A check that started earlier is still running. Try again in a moment.</value>
   </data>

@@ -161,11 +161,84 @@ public class MainViewModelUpdateTests : IDisposable
         Assert.True(vm.InstallUpdateCommand.CanExecute(null));
     }
 
+    /// <summary>
+    /// A loose build's "there is a newer version" is NOT an offer to install it. Nothing can be
+    /// installed without a Velopack layout, so arming the command would put a button on screen whose
+    /// only reachable outcome is <c>NotInstalledException</c>.
+    /// </summary>
+    [Fact]
+    public async Task AnUpdateThatCannotBeInstalledArmsNothing()
+    {
+        Mock<IUpdateService> updater = new();
+        updater
+            .Setup(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UpdateCheckResult.AvailableNotInstallable("9.9.9"));
+        MainViewModel vm = CreateVm(updater.Object);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+
+        Assert.False(vm.IsUpdateAvailable);
+        Assert.Null(vm.AvailableVersion);
+        Assert.False(vm.InstallUpdateCommand.CanExecute(null));
+    }
+
+    /// <summary>
+    /// The clearing has to reach the private payload, not just the flags. <c>ExecuteAsync</c> runs
+    /// the command body whether or not <c>CanExecute</c> agrees, so a stale <c>_availableUpdate</c>
+    /// left behind by an earlier installable check would still be installable by that route.
+    /// </summary>
+    [Fact]
+    public async Task AnUninstallableCheckDisarmsAnInstallableOneBeforeIt()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
+        updater
+            .SetupSequence(u => u.CheckAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UpdateCheckResult.Available(info))
+            .ReturnsAsync(UpdateCheckResult.AvailableNotInstallable("9.9.9"));
+        MainViewModel vm = CreateVm(updater.Object);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        await vm.InstallUpdateCommand.ExecuteAsync(null);
+
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), Times.Never);
+    }
+
+    /// <summary>
+    /// The second half of the same guard, reached the other way round: an update that IS installable
+    /// in principle, in a process that turns out not to be installed. Velopack's download opens with
+    /// <c>EnsureInstalled</c>, so going ahead would open a progress window purely to show a throw.
+    /// </summary>
+    [Fact]
+    public async Task InstallingIsRefusedWhenTheProcessIsNotInstalled()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
+        Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(false);
+        updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
+        FakeUpdateProgressSink sink = new();
+        MainViewModel vm = CreateVm(updater.Object, sink);
+
+        await vm.CheckForUpdatesAsync(UpdateCheckOrigin.Periodic);
+        await vm.InstallUpdateCommand.ExecuteAsync(null);
+
+        updater.Verify(
+            u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        Assert.Equal(0, sink.OpenCount);
+    }
+
     [Fact]
     public async Task InstallUpdateCommand_DrivesUpdateProgressSink()
     {
         UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown);
         Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater
             .Setup(u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()))
@@ -211,6 +284,7 @@ public class MainViewModelUpdateTests : IDisposable
         const long Advertised = 71_303_168;
         UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Full(Advertised));
         Mock<IUpdateService> updater = new();
+        updater.Setup(u => u.IsInstalled).Returns(true);
         updater.Setup(u => u.CheckAsync(It.IsAny<CancellationToken>())).ReturnsAsync(UpdateCheckResult.Available(info));
         updater
             .Setup(u => u.DownloadAsync(It.IsAny<UpdateAvailableInfo>(), It.IsAny<IProgress<int>>(), It.IsAny<CancellationToken>()))

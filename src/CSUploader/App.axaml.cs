@@ -237,19 +237,24 @@ public partial class App : Application
 
             // === startup gate =================================================================
             // Whether to hold the main window back behind an update check. Ordered so the excluded
-            // modes cost nothing: the dev flags short-circuit before the updater is consulted and
-            // before the database is touched.
+            // modes short-circuit before the database is touched.
             //
-            // IsInstalled is what excludes loose builds and `dotnet run` - they have no Velopack
-            // layout, so a check there would be an instant no-op behind a splash that flashed for a
-            // frame. --agent and --gallery are separate: an INSTALLED build launched with them is
-            // still installed, and the bridge/gallery flows must not grow a window they never had.
+            // Every ordinary launch is gated, INSTALLED OR NOT. A loose build cannot install what it
+            // finds, but it can still answer the question the splash is asking - "are we on the
+            // latest version?" - because UpdateService goes to the release feed directly when there
+            // is no Velopack layout to ask through. What a loose build must never do is OFFER the
+            // install, and that is kept out by the answer having a status of its own rather than by
+            // anything here (see UpdateCheckStatus.AvailableNotInstallable).
+            //
+            // --agent and --gallery stay out, not because a check there is cheap but because the
+            // AvaDevBridge screenshot loop and the dev gallery must not grow a window they never
+            // had. That exempts them from the SPLASH only: both still fire the ungated background
+            // check in InitializeCoreAsync, which since this change does reach the network.
             bool gateStartup =
                 !isAgent
 #if DEBUG && WINDOWS
                 && !gallery
 #endif
-                && _serviceProvider.GetRequiredService<Lib.Update.IUpdateService>().IsInstalled
                 && StartupUpdatePreference.ReadAskToUpdateAtStartup(
                     _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) != false;
 

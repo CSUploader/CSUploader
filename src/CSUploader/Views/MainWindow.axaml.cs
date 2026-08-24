@@ -220,23 +220,41 @@ public partial class MainWindow : Window
             }
 
             string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
-            switch (result.Status)
+
+            // A switch EXPRESSION, not the statement this used to be, and the difference is the
+            // point. The old form ended in `default:` = "you're on the latest version", so every
+            // status it had not been taught about was answered with the one sentence that is worst
+            // if wrong - AvailableNotInstallable means a newer release exists, and would have been
+            // reported as being up to date. An expression with no discard arm makes the next status
+            // a build failure here instead (CS8509).
+            //
+            // CS8524 is the other half of that diagnostic - a value cast from an int that matches no
+            // member - and is suppressed rather than answered. Adding a `_` arm to satisfy it would
+            // also satisfy CS8509, which is the one being relied on; the guard would be gone and the
+            // silent-wrong-answer would be back.
+#pragma warning disable CS8524
+            (bool isError, string body) = result.Status switch
             {
-                case UpdateCheckStatus.Available:
-                    await MessageBoxWindow.ShowInformationAsync(
-                        this,
-                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], result.Info!.NewVersion),
-                        title);
-                    break;
-                case UpdateCheckStatus.Failed:
-                    await MessageBoxWindow.ShowErrorAsync(
-                        this,
-                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Failed_Format"], result.FailureReason),
-                        title);
-                    break;
-                default: // UpToDate / NotInstalled
-                    await MessageBoxWindow.ShowInformationAsync(this, Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"], title);
-                    break;
+                UpdateCheckStatus.Available => (
+                    false,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], result.Info!.NewVersion)),
+                UpdateCheckStatus.AvailableNotInstallable => (
+                    false,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_NotInstallable_Format"], result.NewVersion)),
+                UpdateCheckStatus.Failed => (
+                    true,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Failed_Format"], result.FailureReason)),
+                UpdateCheckStatus.UpToDate => (false, Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"]),
+            };
+#pragma warning restore CS8524
+
+            if (isError)
+            {
+                await MessageBoxWindow.ShowErrorAsync(this, body, title);
+            }
+            else
+            {
+                await MessageBoxWindow.ShowInformationAsync(this, body, title);
             }
         }
     }

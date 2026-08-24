@@ -269,11 +269,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 break;
 
             case UpdateCheckStatus.UpToDate:
-            case UpdateCheckStatus.NotInstalled:
                 _availableUpdate = null;
                 IsUpdateAvailable = false;
                 AvailableVersion = null;
                 _backgroundCheckFailing = false;
+                break;
+
+            case UpdateCheckStatus.AvailableNotInstallable:
+                // Cleared exactly as UpToDate is, which looks wrong and is not: a newer release does
+                // exist, but nothing in this process can install it, so leaving the install command
+                // armed would offer a button whose only possible outcome is an exception.
+                //
+                // The clearing happens BEFORE the log, not after. Logger.Log raises OnLogOutput
+                // inline, so a subscriber that throws would otherwise abandon this case halfway and
+                // leave a stale _availableUpdate armed behind it. It also counts as a SUCCESSFUL
+                // check, so it re-arms the periodic failure toast the same way the others do.
+                _availableUpdate = null;
+                IsUpdateAvailable = false;
+                AvailableVersion = null;
+                _backgroundCheckFailing = false;
+                _logger.Log(
+                    this,
+                    LogType.Status,
+                    $"Update available: v{result.NewVersion} (current v{_updateService.CurrentVersion}) — not installable, this build has no Velopack layout.");
                 break;
 
             case UpdateCheckStatus.Failed:
@@ -299,7 +317,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
     private async Task InstallUpdateAsync()
     {
-        if (_availableUpdate is null)
+        // Snapshotted once rather than read from the field at each use below. CanExecute is not a
+        // gate a caller has to pass - ExecuteAsync runs the body regardless - and a check completing
+        // while the download is awaited can clear or replace _availableUpdate underneath it, which
+        // would hand ApplyAndRestart a different update than the one that was just downloaded.
+        UpdateAvailableInfo? update = _availableUpdate;
+
+        // IsInstalled is the belt to CanExecute's braces. AvailableNotInstallable already leaves
+        // _availableUpdate null, so this is unreachable by any route the app takes today; it stays
+        // because the cost of a future route reaching it is Velopack's DownloadUpdatesAsync throwing
+        // NotInstalledException into a progress window the user opened on purpose.
+        if (update is null || !_updateService.IsInstalled)
         {
             return;
         }
@@ -310,15 +338,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // remaining are all derived here. Progress<T> captures this thread's synchronization
         // context, which is the UI thread's, so every Report lands back on it - which is both what
         // the sink requires and what lets UpdateDownloadStats stay free of locking.
-        UpdateDownloadStats stats = new(_availableUpdate.DownloadPlan);
+        UpdateDownloadStats stats = new(update.DownloadPlan);
         Progress<int> progress = new(percent => _updateProgressSink.Report(stats.Report(percent)));
         try
         {
-            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));
-            await _updateService.DownloadAsync(_availableUpdate, progress).ConfigureAwait(true);
+            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], update.NewVersion));
+            await _updateService.DownloadAsync(update, progress).ConfigureAwait(true);
 
             _updateProgressSink.SetStatus(Localizer.Instance["UpdateProgress_StatusRestarting"]);
-            _updateService.ApplyAndRestart(_availableUpdate);
+            _updateService.ApplyAndRestart(update);
         }
         catch (Exception ex)
         {

@@ -5,6 +5,7 @@
 
 using System.Reflection;
 using Velopack;
+using Velopack.Logging;
 using Velopack.Sources;
 
 namespace CSUploader.Lib.Update;
@@ -13,18 +14,33 @@ public sealed class UpdateService : IUpdateService
 {
     private const string GitHubRepoUrl = "https://github.com/CSUploader/CSUploader";
 
+    /// <summary>
+    /// What <see cref="ResolveCurrentVersion"/> answers when the running assembly carries no version
+    /// it can read. Treated as "unknown" rather than as a real version — see
+    /// <see cref="DescribeWithoutInstall"/> for why that distinction has to be kept.
+    /// </summary>
+    internal const string UnknownVersion = "0.0.0";
+
     private readonly UpdateManager _manager;
+    private readonly IUpdateSource _source;
     private readonly IAppLogger _logger;
 
     public UpdateService(IAppLogger logger)
+        : this(logger, new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false), ResolveCurrentVersion())
+    {
+    }
+
+    /// <summary>
+    /// Test seam. The source and the version are the only two inputs the non-installed check has,
+    /// and both must be substitutable: a test process is never installed, so without this the
+    /// no-install branch below would put a live GitHub request in the unit-test suite.
+    /// </summary>
+    internal UpdateService(IAppLogger logger, IUpdateSource source, string currentVersion)
     {
         _logger = logger;
-        GithubSource source = new(GitHubRepoUrl, accessToken: null, prerelease: false);
+        _source = source;
         _manager = new UpdateManager(source);
-
-        Version? asmVersion = Assembly.GetEntryAssembly()?.GetName().Version
-                              ?? Assembly.GetExecutingAssembly().GetName().Version;
-        CurrentVersion = asmVersion?.ToString(3) ?? "0.0.0";
+        CurrentVersion = currentVersion;
     }
 
     public string CurrentVersion { get; }
@@ -33,14 +49,13 @@ public sealed class UpdateService : IUpdateService
 
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
-        if (!_manager.IsInstalled)
-        {
-            // Loose builds and `dotnet run` don't have a Velopack package layout to update.
-            return UpdateCheckResult.NotInstalled;
-        }
-
         try
         {
+            if (!_manager.IsInstalled)
+            {
+                return DescribeWithoutInstall(await ReadFeedAsync().ConfigureAwait(false), CurrentVersion);
+            }
+
             return Describe(await _manager.CheckForUpdatesAsync().ConfigureAwait(false));
         }
         catch (Exception ex)
@@ -48,6 +63,84 @@ public sealed class UpdateService : IUpdateService
             _logger.Log(this, LogType.Error, $"Update check failed: {ex.Message}");
             return UpdateCheckResult.Failed(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Asks the release source what it has, the way <c>UpdateManager</c> would if it could.
+    /// <para>
+    /// It cannot: <c>CheckForUpdatesAsync</c> opens with <c>EnsureInstalled()</c>, which throws
+    /// <c>NotInstalledException</c> without a Velopack layout — so a loose build has to go to the
+    /// source directly. The two arguments that are dropped are the ones only an install can supply
+    /// (a staged-user id, and the local package a delta would build on); neither affects WHICH
+    /// release is newest, which is the only question being asked here.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// <c>channel</c> is passed explicitly rather than as null. Velopack's own signature declares it
+    /// non-nullable and then falls back to this same expression internally, so null happens to work
+    /// in 1.2.0 — but relying on that is relying on an implementation detail contradicting the
+    /// declared contract. This is what <c>UpdateManager.DefaultChannel</c> resolves to for a
+    /// non-installed locator, so it is the same request.
+    /// </remarks>
+    private async Task<VelopackAsset[]> ReadFeedAsync()
+    {
+        VelopackAssetFeed feed = await _source.GetReleaseFeed(
+            NullVelopackLogger.Instance,
+            appId: null,
+            channel: VelopackRuntimeInfo.SystemOs.GetOsShortName()).ConfigureAwait(false);
+
+        return feed.Assets ?? [];
+    }
+
+    /// <summary>
+    /// Turns the raw release feed into an outcome for a build that cannot install what it finds.
+    /// </summary>
+    /// <remarks>
+    /// <b>An unreadable current version is a failed check, not an available update.</b> Every
+    /// published release is above <see cref="UnknownVersion"/>, so treating "we don't know what we
+    /// are" as a real version would report an update every single time, for ever, on any host where
+    /// the version cannot be read. Answering <see cref="UpdateCheckStatus.Failed"/> says the true
+    /// thing: the comparison could not be made.
+    /// </remarks>
+    internal static UpdateCheckResult DescribeWithoutInstall(VelopackAsset[] assets, string currentVersion)
+    {
+        if (currentVersion == UnknownVersion || !SemanticVersion.TryParse(currentVersion, out SemanticVersion? current))
+        {
+            return UpdateCheckResult.Failed($"Cannot compare releases: the running version ('{currentVersion}') could not be read.");
+        }
+
+        VelopackAsset? latest = assets
+            .Where(a => a.Type == VelopackAssetType.Full)
+            .MaxBy(a => a.Version);
+
+        return latest is not null && latest.Version > current
+            ? UpdateCheckResult.AvailableNotInstallable(latest.Version.ToString())
+            : UpdateCheckResult.UpToDate;
+    }
+
+    /// <summary>
+    /// The running app's version, for display and for the non-installed comparison.
+    /// </summary>
+    /// <remarks>
+    /// Read from <c>AssemblyInformationalVersion</c>, NOT <c>GetName().Version</c>. The head's csproj
+    /// pins <c>AssemblyVersion</c> to a literal, so release.yml's <c>-p:Version=</c> does not reach
+    /// it and <c>GetName().Version</c> reports whatever was last checked in — which would make a
+    /// shipped 1.6.0 call itself 1.5.0. <c>InformationalVersion</c> is derived from <c>Version</c>,
+    /// so it follows the tag. Its <c>+&lt;sha&gt;</c> source-revision suffix is not part of the
+    /// semantic version and is trimmed.
+    /// </remarks>
+    private static string ResolveCurrentVersion()
+    {
+        Assembly assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+
+        string? informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            int plus = informational.IndexOf('+', StringComparison.Ordinal);
+            return plus >= 0 ? informational[..plus] : informational;
+        }
+
+        return assembly.GetName().Version?.ToString(3) ?? UnknownVersion;
     }
 
     /// <summary>

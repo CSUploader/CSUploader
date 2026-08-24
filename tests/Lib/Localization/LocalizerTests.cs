@@ -132,4 +132,34 @@ public class LocalizerTests : IDisposable
     public void PickSupportedLanguage_UnknownSaved_FallsThroughToOSCulture() =>
         // Saved value isn't in SupportedLanguages → treat like blank.
         Assert.Equal("ja", Localizer.PickSupportedLanguage(saved: "xx-YY", osCulture: new CultureInfo("ja-JP")));
+
+    /// <summary>
+    /// The "an update exists but this build cannot install it" line, in every language that ships.
+    /// </summary>
+    /// <remarks>
+    /// Two ways this particular string fails without anything going red: a typo in the literal at
+    /// the call site resolves to the key itself (see
+    /// <see cref="Indexer_ReturnsKey_WhenKeyDoesNotExist"/>) and would be shown to the user verbatim;
+    /// and a translation that loses <c>{0}</c> formats into a sentence announcing an update without
+    /// saying which one. Neither is a compile error, and the inventory gates check that the key is
+    /// PRESENT in all six files, not that what it holds is usable.
+    /// </remarks>
+    [Theory]
+    [InlineData("en")]
+    [InlineData("ja")]
+    [InlineData("ko")]
+    [InlineData("zh-Hans")]
+    [InlineData("vi")]
+    [InlineData("fil")]
+    public void NotInstallableUpdateLine_ResolvesAndKeepsItsPlaceholder(string culture)
+    {
+        const string Key = "Main_CheckForUpdates_NotInstallable_Format";
+        Localizer.Instance.Culture = new CultureInfo(culture);
+
+        string value = Localizer.Instance[Key];
+
+        Assert.NotEqual(Key, value);
+        Assert.Contains("{0}", value, StringComparison.Ordinal);
+        Assert.Contains("9.9.9", string.Format(CultureInfo.InvariantCulture, value, "9.9.9"), StringComparison.Ordinal);
+    }
 }
