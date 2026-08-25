@@ -139,6 +139,27 @@
   <data name="Common_Context_OpenUrl" xml:space="preserve">
     <value>Open URL</value>
   </data>
+  <data name="Common_CopyLinks" xml:space="preserve">
+    <value>링크 복사</value>
+  </data>
+  <data name="Common_CopyLinks_ByFilePlain" xml:space="preserve">
+    <value>파일별 (일반 텍스트)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileBBCode" xml:space="preserve">
+    <value>파일별 (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileMarkdown" xml:space="preserve">
+    <value>파일별 (Markdown)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterPlain" xml:space="preserve">
+    <value>호스터별 (일반 텍스트)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterBBCode" xml:space="preserve">
+    <value>호스터별 (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterMarkdown" xml:space="preserve">
+    <value>호스터별 (Markdown)</value>
+  </data>
   <data name="Main_Title" xml:space="preserve">
     <value>CSUploader</value>
   </data>
@@ -210,7 +231,7 @@
 이 빌드는 설치되지 않았으므로 스스로 업데이트할 수 없습니다. 릴리스 페이지에서 새 버전을 다운로드하세요.</value>
   </data>
   <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
-    <value>A check that started earlier is still running. Try again in a moment.</value>
+    <value>이전에 시작된 확인이 아직 실행 중입니다. 잠시 후 다시 시도하세요.</value>
   </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>업데이트 확인 실패</value>
@@ -257,11 +278,17 @@
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>속도 제한 설정…</value>
   </data>
+  <data name="Uploads_Context_RenamePackage" xml:space="preserve">
+    <value>패키지 이름 바꾸기...</value>
+  </data>
   <data name="Uploads_Context_Move" xml:space="preserve">
     <value>이동</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>제거</value>
+  </data>
+  <data name="Uploads_Context_RemoveAllCompleted" xml:space="preserve">
+    <value>완료된 항목 모두 제거</value>
   </data>
   <data name="Uploads_Move_Up10" xml:space="preserve">
     <value>위로 10</value>
@@ -319,6 +346,9 @@
   </data>
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>완료됨</value>
+  </data>
+  <data name="Uploads_Col_Started" xml:space="preserve">
+    <value>시작됨</value>
   </data>
   <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
     <value>예약 시각</value>
@@ -380,6 +410,12 @@
   <data name="Uploads_Overview_Eta" xml:space="preserve">
     <value>남은 시간</value>
   </data>
+  <data name="Uploads_Overview_Elapsed" xml:space="preserve">
+    <value>경과 시간</value>
+  </data>
+  <data name="Uploads_Overview_FinishAt" xml:space="preserve">
+    <value>완료 예정</value>
+  </data>
   <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
     <value>실행 중인 업로드</value>
   </data>
@@ -415,6 +451,12 @@
   </data>
   <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
     <value>남은 시간:</value>
+  </data>
+  <data name="Uploads_Overview_ElapsedLabel" xml:space="preserve">
+    <value>경과 시간:</value>
+  </data>
+  <data name="Uploads_Overview_FinishAtLabel" xml:space="preserve">
+    <value>완료 예정:</value>
   </data>
   <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
     <value>실행 중인 업로드:</value>
@@ -500,6 +542,9 @@
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>패키지 {0}개와 파일 {1}개(총 {2}개 항목)를 제거하시겠습니까?</value>
   </data>
+  <data name="Uploads_RemoveCompleted_Format" xml:space="preserve">
+    <value>완료된 파일 {0}개를 업로드 목록에서 제거하시겠습니까?</value>
+  </data>
   <data name="Uploads_Reset_Title" xml:space="preserve">
     <value>재설정</value>
   </data>
@@ -508,6 +553,9 @@
   </data>
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>'{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.</value>
+  </data>
+  <data name="Uploads_Reset_Multi_Format" xml:space="preserve">
+    <value>선택한 {0}개 항목을 재설정하시겠습니까? {1}개는 이미 업로드가 완료되었습니다 — 재설정하면 다시 해시하고 다시 업로드합니다.</value>
   </data>
   <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
     <value>다시 업로드</value>
@@ -538,6 +586,9 @@
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>완료됨</value>
+  </data>
+  <data name="Uploaded_Col_Started" xml:space="preserve">
+    <value>시작됨</value>
   </data>
   <data name="Uploaded_Col_URL" xml:space="preserve">
     <value>URL</value>
@@ -1191,6 +1242,21 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>스레드</value>
   </data>
+  <data name="Logs_Col_Url" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Logs_Col_Proxy" xml:space="preserve">
+    <value>프록시</value>
+  </data>
+  <data name="Logs_Col_Method" xml:space="preserve">
+    <value>메서드</value>
+  </data>
+  <data name="Logs_ResetColumns_Title" xml:space="preserve">
+    <value>열 재설정</value>
+  </data>
+  <data name="Logs_ResetColumns_Message" xml:space="preserve">
+    <value>로그 열을 기본값으로 되돌리시겠습니까? 설정한 표시/숨김과 순서가 초기화됩니다.</value>
+  </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>기록 탭에서 파일 {0}개를 숨겼습니다</value>
   </data>
@@ -1223,6 +1289,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
     <value>파일당 최대 {0}</value>
+  </data>
+  <data name="Wizard_Summary_SelectedOfFree_Format" xml:space="preserve">
+    <value>남은 {1} 중 {0} 선택됨</value>
+  </data>
+  <data name="Wizard_Summary_OverCapacityHint" xml:space="preserve">
+    <value>사용 가능한 공간을 초과했습니다 — 계속하려면 파일 선택을 해제하세요.</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNotice_Format" xml:space="preserve">
+    <value>사용 가능한 공간에 맞추기 위해 파일 {0}개의 선택을 해제했습니다.</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNoticeWithFree_Format" xml:space="preserve">
+    <value>사용 가능한 공간에 맞추기 위해 파일 {0}개의 선택을 해제했습니다({1} 남음).</value>
+  </data>
+  <data name="Wizard_Summary_CheckingSpace" xml:space="preserve">
+    <value>사용 가능한 공간 확인 중…</value>
+  </data>
+  <data name="Wizard_Summary_FilesSelected_Format" xml:space="preserve">
+    <value>파일 {1}개 중 {0}개 선택됨</value>
+  </data>
+  <data name="Wizard_Summary_ToUpload_Format" xml:space="preserve">
+    <value>업로드할 용량 {0}</value>
+  </data>
+  <data name="Wizard_Summary_TotalFooter_Format" xml:space="preserve">
+    <value>합계: 파일 {0}개 • 업로드 {1}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 파일</value>
@@ -1512,6 +1602,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>업로드 / 기록 탭의 열을 기본값으로 재설정</value>
   </data>
+  <data name="Confirm_RemoveCompletedUploads" xml:space="preserve">
+    <value>업로드 탭에서 완료된 업로드를 모두 제거</value>
+  </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>CSUploader 정보</value>
   </data>
@@ -1608,6 +1701,39 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>사용자 이름과 비밀번호를 모두 입력해 주십시오.</value>
   </data>
+  <data name="EditAccount_OrLabel" xml:space="preserve">
+    <value>— 또는 —</value>
+  </data>
+  <data name="EditAccount_ApiKeyLabel" xml:space="preserve">
+    <value>API 키:</value>
+  </data>
+  <data name="EditAccount_SignInLabel" xml:space="preserve">
+    <value>계정:</value>
+  </data>
+  <data name="EditAccount_SignInButton" xml:space="preserve">
+    <value>로그인…</value>
+  </data>
+  <data name="EditAccount_SignIn_InProgress" xml:space="preserve">
+    <value>로그인 화면을 여는 중…</value>
+  </data>
+  <data name="EditAccount_SignIn_Success" xml:space="preserve">
+    <value>✓ 로그인됨</value>
+  </data>
+  <data name="EditAccount_SignIn_SuccessAs_Format" xml:space="preserve">
+    <value>✓ {0}(으)로 로그인됨</value>
+  </data>
+  <data name="EditAccount_SignIn_Failed_Format" xml:space="preserve">
+    <value>✗ {0}</value>
+  </data>
+  <data name="EditAccount_SignIn_FailedGeneric" xml:space="preserve">
+    <value>로그인에 실패했습니다.</value>
+  </data>
+  <data name="EditAccount_SignIn_Unavailable" xml:space="preserve">
+    <value>현재 상황에서는 로그인을 사용할 수 없습니다.</value>
+  </data>
+  <data name="EditAccount_Validation_RequireLoginOrApiKey" xml:space="preserve">
+    <value>로그인을 클릭하여 인증하거나 API 키를 붙여넣으세요.</value>
+  </data>
   <data name="EditProxy_AddTitle" xml:space="preserve">
     <value>프록시 추가</value>
   </data>
@@ -1643,6 +1769,33 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
     <value>실패: {0}</value>
+  </data>
+  <data name="WebViewLogin_WindowTitle" xml:space="preserve">
+    <value>로그인</value>
+  </data>
+  <data name="WebViewLogin_Header_Format" xml:space="preserve">
+    <value>{0}에 로그인</value>
+  </data>
+  <data name="WebViewLogin_Instructions" xml:space="preserve">
+    <value>아래 브라우저에서 로그인(캡차가 있으면 캡차 포함)을 완료하세요. 세션이 확보되면 이 창은 자동으로 닫힙니다.</value>
+  </data>
+  <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
+    <value>브라우저를 초기화하는 중...</value>
+  </data>
+  <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
+    <value>{0} 불러오는 중...</value>
+  </data>
+  <data name="WebViewLogin_Status_CookieReadFailed_Format" xml:space="preserve">
+    <value>쿠키를 읽지 못했습니다: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
+    <value>WebView2 브라우저를 초기화할 수 없습니다. WebView2 런타임이 설치되어 있지 않을 수 있습니다. 자세한 내용: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
+    <value>로그인에서 지원되지 않는 프록시</value>
+  </data>
+  <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
+    <value>로그인 브라우저는 사용자 이름과 비밀번호가 필요한 SOCKS 프록시({0})를 사용할 수 없습니다. 자격 증명이 없는 SOCKS 프록시나 HTTP/HTTPS 프록시를 사용하세요.</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP 트랜잭션 세부 정보</value>

@@ -53,6 +53,13 @@ Common_Preparing                  = 准备中…
 Common_Unknown                    = 未知
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks = 复制链接
+Common_CopyLinks_ByFilePlain = 按文件（纯文本）
+Common_CopyLinks_ByFileBBCode = 按文件（BBCode）
+Common_CopyLinks_ByFileMarkdown = 按文件（Markdown）
+Common_CopyLinks_ByHosterPlain = 按托管商（纯文本）
+Common_CopyLinks_ByHosterBBCode = 按托管商（BBCode）
+Common_CopyLinks_ByHosterMarkdown = 按托管商（Markdown）
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -89,7 +96,7 @@ Main_CheckForUpdates_AlreadyLatest = 您当前已是最新版本。
 Main_CheckForUpdates_Available_Format = 有可用更新：v{0}。\n\n请使用 帮助 → 安装更新 来下载并安装。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 无法检查更新：{0}
 Main_CheckForUpdates_NotInstallable_Format = 有可用更新：v{0}。\n\n此版本未安装，无法自动更新。请从发布页面下载新版本。   # {0} = available semver
-Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
+Main_CheckForUpdates_StillRunning = 之前开始的检查仍在进行中。请稍后再试。
 Update_CheckFailed_ToastTitle = 更新检查失败
 Update_CheckFailed_ToastBody = CSUploader 无法检查更新，稍后将重试。
 ```
@@ -115,8 +122,10 @@ Uploads_Context_SkipUpload        = 跳过上传
 Uploads_Context_Reset             = 重置
 Uploads_Context_OpenSourceDir     = 打开源目录
 Uploads_Context_SetSpeedLimit     = 设置速度限制…
+Uploads_Context_RenamePackage = 重命名包...
 Uploads_Context_Move              = 移动
 Uploads_Context_Remove            = 移除
+Uploads_Context_RemoveAllCompleted = 移除所有已完成
 Uploads_Move_Up10                 = 上移 10
 Uploads_Move_Up1                  = 上移 1
 Uploads_Move_Down1                = 下移 1
@@ -137,6 +146,7 @@ Uploads_Col_Progress              = 进度
 Uploads_Col_Path                  = 路径
 Uploads_Col_Added                 = 添加时间
 Uploads_Col_Finished              = 完成时间
+Uploads_Col_Started = 开始时间
 Uploads_Col_ScheduledAt           = 计划开始时间
 Uploads_Col_Duration              = 已用时间
 Uploads_Col_Order                 = 顺序
@@ -160,6 +170,8 @@ Uploads_Overview_Uploadspeed      = 上传速度
 Uploads_Overview_BytesLoaded      = 已传字节
 Uploads_Overview_RemainingBytes   = 剩余字节
 Uploads_Overview_Eta              = 剩余时间
+Uploads_Overview_Elapsed = 已用时间
+Uploads_Overview_FinishAt = 预计完成
 Uploads_Overview_RunningUploads   = 运行中的上传
 Uploads_Overview_OpenConnections  = 打开的连接
 Uploads_Overview_FinishedLinks    = 已完成链接
@@ -175,6 +187,8 @@ Uploads_Overview_UploadspeedLabel     = 上传速度：
 Uploads_Overview_BytesLoadedLabel     = 已传字节：
 Uploads_Overview_RemainingBytesLabel  = 剩余字节：
 Uploads_Overview_EtaLabel             = 剩余时间：
+Uploads_Overview_ElapsedLabel = 已用时间：
+Uploads_Overview_FinishAtLabel = 预计完成：
 Uploads_Overview_RunningUploadsLabel  = 运行中的上传：
 Uploads_Overview_OpenConnectionsLabel = 打开的连接：
 Uploads_Overview_FinishedLinksLabel   = 已完成链接：
@@ -212,11 +226,13 @@ Uploads_Remove_Generic            = 是否移除此项？
 Uploads_Remove_PackagesOnly_Format     = 是否移除 {0} 个包（共 {1} 个文件）？                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = 是否从上传列表中移除 {0} 个文件？                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = 是否移除 {0} 个包和 {1} 个文件（共 {2} 项）？      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format = 是否从上传列表中移除全部 {0} 个已完成的文件？   # {0} = completed file count
 
 # Reset confirmation prompts
 Uploads_Reset_Title                  = 重置
 Uploads_Reset_Package_Format         = 是否重置包 '{0}'？这将重新哈希并重新上传该包中 {1} 个已完成的文件。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = 是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。  # {0} = file name
+Uploads_Reset_Multi_Format = 是否重置选中的 {0} 个项目？其中 {1} 个已成功上传 — 重置后将重新哈希并重新上传。
 Uploads_ForceStart_Reupload_Title    = 重新上传
 Uploads_ForceStart_Reupload_Format   = 重新上传 {0} 个已完成的文件？它们之前已成功上传 — 强制开始将再次上传它们。  # {0} = completed file count
 ```
@@ -235,6 +251,7 @@ Uploaded_Col_Size                 = 大小
 Uploaded_Col_Hoster               = 文件托管商
 Uploaded_Col_Account              = 账户
 Uploaded_Col_Finished             = 完成时间
+Uploaded_Col_Started = 开始时间
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = 哈希
 
@@ -534,6 +551,11 @@ Logs_Col_Function                  = 函数
 Logs_Col_Line                      = 行号
 Logs_Col_Message                   = 消息
 Logs_Col_Thread                    = 线程
+Logs_Col_Url = URL
+Logs_Col_Proxy = 代理
+Logs_Col_Method = 方法
+Logs_ResetColumns_Title = 重置列
+Logs_ResetColumns_Message = 是否将日志列重置为默认值？这将清除您设置的显示/隐藏和排列顺序。
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -556,6 +578,14 @@ Wizard_Summary_Desc               = 查看将上传到每个托管商的内容�
 Wizard_Summary_FileCount_Suffix   = 个文件
 Wizard_Summary_OrphanWarning_Suffix= 个文件无法上传到任何托管商：
 Wizard_Summary_MaxFileSize_Format = 每个文件最多 {0}
+Wizard_Summary_SelectedOfFree_Format = 已选 {0}（可用 {1}）   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
+Wizard_Summary_OverCapacityHint = 超出可用空间 — 请取消勾选部分文件以继续。
+Wizard_Summary_AutoFitNotice_Format = 为适应可用空间，已取消勾选 {0} 个文件。   # {0} = count of auto-unchecked files
+Wizard_Summary_AutoFitNoticeWithFree_Format = 为适应可用空间，已取消勾选 {0} 个文件（剩余 {1}）。   # {0} = count, {1} = free space (formatted units); used when a single quota hoster drove the unchecking
+Wizard_Summary_CheckingSpace = 正在检查可用空间…   # per-hoster indicator while a live storage refresh is in flight
+Wizard_Summary_FilesSelected_Format = 已选择 {0}/{1} 个文件   # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format = 待上传 {0}   # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
+Wizard_Summary_TotalFooter_Format = 总计：{0} 个文件 • 待上传 {1}   # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. 文件
 
 
@@ -674,6 +704,7 @@ Confirm_RemoveFileHosterAccount    = 移除文件托管商账户
 Confirm_RemoveProxy                = 从连接管理器移除代理
 Confirm_ResetCompletedUpload       = 重置已完成的上传（重新哈希并重新上传）
 Confirm_ResetColumns               = 将"上传中"/"历史"标签页的列重置为默认设置
+Confirm_RemoveCompletedUploads = 从“上传中”标签页移除所有已完成的上传
 ```
 
 ---
@@ -730,6 +761,17 @@ EditAccount_AccountEnabled         = 账户已启用
 EditAccount_BtnSave                = 保存
 EditAccount_BtnCancel              = 取消
 EditAccount_Validation_RequireUsernameAndPassword = 请输入用户名和密码。
+EditAccount_OrLabel = — 或 —   # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel = API 密钥：
+EditAccount_SignInLabel = 账户：
+EditAccount_SignInButton = 登录…   # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress = 正在打开登录窗口…
+EditAccount_SignIn_Success = ✓ 已登录
+EditAccount_SignIn_SuccessAs_Format = ✓ 已以 {0} 的身份登录
+EditAccount_SignIn_Failed_Format = ✗ {0}
+EditAccount_SignIn_FailedGeneric = 登录失败。
+EditAccount_SignIn_Unavailable = 当前环境下无法登录。
+EditAccount_Validation_RequireLoginOrApiKey = 点击“登录”进行认证，或粘贴 API 密钥。
 
 EditProxy_AddTitle                 = 添加代理
 EditProxy_EditTitle                = 编辑代理
@@ -743,6 +785,15 @@ EditProxy_Status_Testing           = 正在测试…
 EditProxy_Status_OkLatency_Format  = 正常 {0}ms（响应异常）
 EditProxy_Status_OkLatencyIp_Format = 正常 {0}ms（{1}）
 EditProxy_Status_Failed_Format     = 失败：{0}
+WebViewLogin_WindowTitle = 登录
+WebViewLogin_Header_Format = 登录 {0}   # {0} = hoster name
+WebViewLogin_Instructions = 请在下方浏览器中完成登录（包括验证码）。会话捕获成功后，此窗口将自动关闭。
+WebViewLogin_Status_Initializing = 正在初始化浏览器...
+WebViewLogin_Status_Loading_Format = 正在加载 {0}...   # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = 读取 Cookie 失败：{0}   # {0} = error detail
+WebViewLogin_Error_InitFailed_Format = 无法初始化 WebView2 浏览器。可能未安装 WebView2 运行时。详细信息：{0}
+WebViewLogin_Error_UnsupportedProxy_Title = 登录不支持此代理
+WebViewLogin_Error_SocksAuthUnsupported_Format = 登录浏览器无法使用需要用户名和密码的 SOCKS 代理（{0}）。请使用无需凭据的 SOCKS 代理，或改用 HTTP/HTTPS 代理。
 ```
 
 ### HttpDetails window

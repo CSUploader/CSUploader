@@ -139,6 +139,27 @@
   <data name="Common_Context_OpenUrl" xml:space="preserve">
     <value>Open URL</value>
   </data>
+  <data name="Common_CopyLinks" xml:space="preserve">
+    <value>リンクをコピー</value>
+  </data>
+  <data name="Common_CopyLinks_ByFilePlain" xml:space="preserve">
+    <value>ファイル別 (プレーン)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileBBCode" xml:space="preserve">
+    <value>ファイル別 (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileMarkdown" xml:space="preserve">
+    <value>ファイル別 (Markdown)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterPlain" xml:space="preserve">
+    <value>ホスター別 (プレーン)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterBBCode" xml:space="preserve">
+    <value>ホスター別 (BBCode)</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterMarkdown" xml:space="preserve">
+    <value>ホスター別 (Markdown)</value>
+  </data>
   <data name="Main_Title" xml:space="preserve">
     <value>CSUploader</value>
   </data>
@@ -210,7 +231,7 @@
 このビルドはインストールされていないため、自動で更新できません。リリースページから新しいバージョンをダウンロードしてください。</value>
   </data>
   <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
-    <value>A check that started earlier is still running. Try again in a moment.</value>
+    <value>先に開始された確認がまだ実行中です。しばらくしてからもう一度お試しください。</value>
   </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>更新の確認に失敗しました</value>
@@ -257,11 +278,17 @@
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>速度制限を設定…</value>
   </data>
+  <data name="Uploads_Context_RenamePackage" xml:space="preserve">
+    <value>パッケージ名を変更...</value>
+  </data>
   <data name="Uploads_Context_Move" xml:space="preserve">
     <value>移動</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>削除</value>
+  </data>
+  <data name="Uploads_Context_RemoveAllCompleted" xml:space="preserve">
+    <value>完了したものをすべて削除</value>
   </data>
   <data name="Uploads_Move_Up10" xml:space="preserve">
     <value>上へ10</value>
@@ -319,6 +346,9 @@
   </data>
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>完了日時</value>
+  </data>
+  <data name="Uploads_Col_Started" xml:space="preserve">
+    <value>開始日時</value>
   </data>
   <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
     <value>開始予定日時</value>
@@ -380,6 +410,12 @@
   <data name="Uploads_Overview_Eta" xml:space="preserve">
     <value>残り時間</value>
   </data>
+  <data name="Uploads_Overview_Elapsed" xml:space="preserve">
+    <value>経過時間</value>
+  </data>
+  <data name="Uploads_Overview_FinishAt" xml:space="preserve">
+    <value>完了予定</value>
+  </data>
   <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
     <value>実行中のアップロード</value>
   </data>
@@ -415,6 +451,12 @@
   </data>
   <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
     <value>残り時間:</value>
+  </data>
+  <data name="Uploads_Overview_ElapsedLabel" xml:space="preserve">
+    <value>経過時間:</value>
+  </data>
+  <data name="Uploads_Overview_FinishAtLabel" xml:space="preserve">
+    <value>完了予定:</value>
   </data>
   <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
     <value>実行中のアップロード:</value>
@@ -500,6 +542,9 @@
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>パッケージを {0} 個とファイルを {1} 個 (合計 {2} 項目) 削除しますか?</value>
   </data>
+  <data name="Uploads_RemoveCompleted_Format" xml:space="preserve">
+    <value>完了した {0} 件のファイルをアップロードリストから削除しますか?</value>
+  </data>
   <data name="Uploads_Reset_Title" xml:space="preserve">
     <value>リセット</value>
   </data>
@@ -508,6 +553,9 @@
   </data>
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>'{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。</value>
+  </data>
+  <data name="Uploads_Reset_Multi_Format" xml:space="preserve">
+    <value>選択した {0} 件をリセットしますか? {1} 件はすでにアップロード済みです — リセットすると再ハッシュ・再アップロードされます。</value>
   </data>
   <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
     <value>再アップロード</value>
@@ -538,6 +586,9 @@
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>完了日時</value>
+  </data>
+  <data name="Uploaded_Col_Started" xml:space="preserve">
+    <value>開始日時</value>
   </data>
   <data name="Uploaded_Col_URL" xml:space="preserve">
     <value>URL</value>
@@ -1191,6 +1242,21 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>スレッド</value>
   </data>
+  <data name="Logs_Col_Url" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Logs_Col_Proxy" xml:space="preserve">
+    <value>プロキシ</value>
+  </data>
+  <data name="Logs_Col_Method" xml:space="preserve">
+    <value>メソッド</value>
+  </data>
+  <data name="Logs_ResetColumns_Title" xml:space="preserve">
+    <value>カラムをリセット</value>
+  </data>
+  <data name="Logs_ResetColumns_Message" xml:space="preserve">
+    <value>ログのカラムを既定に戻しますか? 設定した表示/非表示や並び順はクリアされます。</value>
+  </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>履歴タブから {0} 個のファイルを非表示にしました</value>
   </data>
@@ -1223,6 +1289,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
     <value>1ファイルあたり最大 {0}</value>
+  </data>
+  <data name="Wizard_Summary_SelectedOfFree_Format" xml:space="preserve">
+    <value>空き {1} のうち {0} を選択</value>
+  </data>
+  <data name="Wizard_Summary_OverCapacityHint" xml:space="preserve">
+    <value>空き容量を超えています — 続行するにはファイルのチェックを外してください。</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNotice_Format" xml:space="preserve">
+    <value>空き容量に収めるため {0} 件のファイルのチェックを外しました。</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNoticeWithFree_Format" xml:space="preserve">
+    <value>空き容量に収めるため {0} 件のファイルのチェックを外しました（空き {1}）。</value>
+  </data>
+  <data name="Wizard_Summary_CheckingSpace" xml:space="preserve">
+    <value>空き容量を確認しています…</value>
+  </data>
+  <data name="Wizard_Summary_FilesSelected_Format" xml:space="preserve">
+    <value>{1} 件中 {0} 件のファイルを選択</value>
+  </data>
+  <data name="Wizard_Summary_ToUpload_Format" xml:space="preserve">
+    <value>アップロード予定 {0}</value>
+  </data>
+  <data name="Wizard_Summary_TotalFooter_Format" xml:space="preserve">
+    <value>合計: {0} 件 • アップロード {1}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. ファイル</value>
@@ -1512,6 +1602,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>アップロード / 履歴タブの列を既定値にリセット</value>
   </data>
+  <data name="Confirm_RemoveCompletedUploads" xml:space="preserve">
+    <value>アップロードタブから完了したアップロードをすべて削除する</value>
+  </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>CSUploader について</value>
   </data>
@@ -1608,6 +1701,39 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>ユーザー名とパスワードの両方を入力してください。</value>
   </data>
+  <data name="EditAccount_OrLabel" xml:space="preserve">
+    <value>— または —</value>
+  </data>
+  <data name="EditAccount_ApiKeyLabel" xml:space="preserve">
+    <value>APIキー:</value>
+  </data>
+  <data name="EditAccount_SignInLabel" xml:space="preserve">
+    <value>アカウント:</value>
+  </data>
+  <data name="EditAccount_SignInButton" xml:space="preserve">
+    <value>サインイン…</value>
+  </data>
+  <data name="EditAccount_SignIn_InProgress" xml:space="preserve">
+    <value>サインイン画面を開いています…</value>
+  </data>
+  <data name="EditAccount_SignIn_Success" xml:space="preserve">
+    <value>✓ サインインしました</value>
+  </data>
+  <data name="EditAccount_SignIn_SuccessAs_Format" xml:space="preserve">
+    <value>✓ {0} としてサインインしました</value>
+  </data>
+  <data name="EditAccount_SignIn_Failed_Format" xml:space="preserve">
+    <value>✗ {0}</value>
+  </data>
+  <data name="EditAccount_SignIn_FailedGeneric" xml:space="preserve">
+    <value>サインインに失敗しました。</value>
+  </data>
+  <data name="EditAccount_SignIn_Unavailable" xml:space="preserve">
+    <value>この状況ではサインインを利用できません。</value>
+  </data>
+  <data name="EditAccount_Validation_RequireLoginOrApiKey" xml:space="preserve">
+    <value>「サインイン」をクリックして認証するか、APIキーを貼り付けてください。</value>
+  </data>
   <data name="EditProxy_AddTitle" xml:space="preserve">
     <value>プロキシを追加</value>
   </data>
@@ -1643,6 +1769,33 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
     <value>失敗: {0}</value>
+  </data>
+  <data name="WebViewLogin_WindowTitle" xml:space="preserve">
+    <value>サインイン</value>
+  </data>
+  <data name="WebViewLogin_Header_Format" xml:space="preserve">
+    <value>{0} にサインイン</value>
+  </data>
+  <data name="WebViewLogin_Instructions" xml:space="preserve">
+    <value>下のブラウザーでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。</value>
+  </data>
+  <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
+    <value>ブラウザーを初期化しています...</value>
+  </data>
+  <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
+    <value>{0} を読み込んでいます...</value>
+  </data>
+  <data name="WebViewLogin_Status_CookieReadFailed_Format" xml:space="preserve">
+    <value>Cookie の読み取りに失敗しました: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
+    <value>WebView2 ブラウザーを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}</value>
+  </data>
+  <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
+    <value>サインインに対応していないプロキシ</value>
+  </data>
+  <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
+    <value>サインイン用ブラウザーは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP トランザクションの詳細</value>

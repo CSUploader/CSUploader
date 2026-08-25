@@ -9,84 +9,40 @@ using System.Text.RegularExpressions;
 namespace CSUploader.Tests.Lib.Localization;
 
 /// <summary>
-/// The translated inventories and the English one hold the same set of keys.
+/// The translated inventories and the English one hold the same keys, and each translation is
+/// substitutable for its English value.
 /// <para>
 /// <c>md-to-resx.py --check</c> gates each file against its OWN regeneration, so a key added to
 /// <c>i18n-inventory.md</c> and forgotten in the other five passes every existing gate — and the
 /// missing string surfaces as a raw key in the UI for those five languages, at runtime, in a build
 /// nobody flagged. This is the gate that compares them to each other.
 /// </para>
+/// <para>
+/// STRICT, with no allowlist. There used to be an <c>UntranslatedBacklog</c> set naming 51 keys
+/// that predated the gate; they have been translated and the mechanism is deliberately gone rather
+/// than left empty, because an empty escape hatch is one edit away from being an escape hatch
+/// again. If a future change truly must ship a key untranslated, the English text in the translated
+/// file satisfies this gate — that is the pressure valve, and it keeps the string rendering.
+/// </para>
 /// </summary>
 public class InventoryKeyParityTests
 {
-    private static readonly Regex Entry = new(@"^(?<key>[A-Za-z_][A-Za-z0-9_]*)\s*=", RegexOptions.Multiline);
+    private static readonly Regex Entry = new(@"^(?<key>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?<value>.*)$");
 
-    /// <summary>
-    /// Keys that were already English-only when this gate was written, all five languages alike.
-    /// They are not broken — <c>ResourceManager</c> falls back to the neutral resource, so they
-    /// render in English rather than as raw keys — but they are untranslated, and listing them is
-    /// what lets the gate catch the NEXT one without first requiring 51 translations.
-    /// <para>Shrink this list; never add to it.</para>
-    /// </summary>
-    private static readonly HashSet<string> UntranslatedBacklog =
-    [
-        "Common_CopyLinks",
-        "Common_CopyLinks_ByFileBBCode",
-        "Common_CopyLinks_ByFileMarkdown",
-        "Common_CopyLinks_ByFilePlain",
-        "Common_CopyLinks_ByHosterBBCode",
-        "Common_CopyLinks_ByHosterMarkdown",
-        "Common_CopyLinks_ByHosterPlain",
-        "Confirm_RemoveCompletedUploads",
-        "EditAccount_ApiKeyLabel",
-        "EditAccount_OrLabel",
-        "EditAccount_SignInButton",
-        "EditAccount_SignInLabel",
-        "EditAccount_SignIn_FailedGeneric",
-        "EditAccount_SignIn_Failed_Format",
-        "EditAccount_SignIn_InProgress",
-        "EditAccount_SignIn_Success",
-        "EditAccount_SignIn_SuccessAs_Format",
-        "EditAccount_SignIn_Unavailable",
-        "EditAccount_Validation_RequireLoginOrApiKey",
-        "Logs_Col_Method",
-        "Logs_Col_Proxy",
-        "Logs_Col_Url",
-        "Logs_ResetColumns_Message",
-        "Logs_ResetColumns_Title",
-        "Uploaded_Col_Started",
-        "Uploads_Col_Started",
-        "Uploads_Context_RemoveAllCompleted",
-        "Uploads_Context_RenamePackage",
-        "Uploads_Overview_Elapsed",
-        "Uploads_Overview_ElapsedLabel",
-        "Uploads_Overview_FinishAt",
-        "Uploads_Overview_FinishAtLabel",
-        "Uploads_RemoveCompleted_Format",
-        "Uploads_Reset_Multi_Format",
-        "WebViewLogin_Error_InitFailed_Format",
-        "WebViewLogin_Error_SocksAuthUnsupported_Format",
-        "WebViewLogin_Error_UnsupportedProxy_Title",
-        "WebViewLogin_Header_Format",
-        "WebViewLogin_Instructions",
-        "WebViewLogin_Status_CookieReadFailed_Format",
-        "WebViewLogin_Status_Initializing",
-        "WebViewLogin_Status_Loading_Format",
-        "WebViewLogin_WindowTitle",
-        "Wizard_Summary_AutoFitNoticeWithFree_Format",
-        "Wizard_Summary_AutoFitNotice_Format",
-        "Wizard_Summary_CheckingSpace",
-        "Wizard_Summary_FilesSelected_Format",
-        "Wizard_Summary_OverCapacityHint",
-        "Wizard_Summary_SelectedOfFree_Format",
-        "Wizard_Summary_ToUpload_Format",
-        "Wizard_Summary_TotalFooter_Format",
-    ];
+    /// <summary>The generator's own comment rule (md-to-resx.py INLINE_COMMENT_RE), mirrored
+    /// exactly: an audit that strips comments differently audits values the app never renders —
+    /// and the comments repeat the placeholders ("# {0} = file count"), so a looser rule
+    /// double-counts them.</summary>
+    private static readonly Regex InlineComment = new(@"\s+#\s.*$");
+
+    private static readonly Regex Placeholder = new(@"\{\d+\}");
+
+    public static readonly TheoryData<string> TranslatedCultures = ["zh-Hans", "ja", "ko", "vi", "fil"];
 
     private static string InventoryDirectory()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "docs")))
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "docs", "i18n-inventory.md")))
         {
             dir = dir.Parent;
         }
@@ -95,14 +51,14 @@ public class InventoryKeyParityTests
         return Path.Combine(dir!.FullName, "docs");
     }
 
-    /// <summary>Keys inside the fenced blocks — the only lines the generator reads.</summary>
-    private static HashSet<string> KeysOf(string path)
+    /// <summary>Key → rendered value inside the fenced blocks — the only lines the generator
+    /// reads, stripped the way the generator strips them.</summary>
+    private static Dictionary<string, string> EntriesOf(string path)
     {
-        string text = File.ReadAllText(path);
-        HashSet<string> keys = [];
+        Dictionary<string, string> entries = [];
         bool inFence = false;
 
-        foreach (string line in text.Split('\n'))
+        foreach (string line in File.ReadAllText(path).Split('\n'))
         {
             if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
             {
@@ -110,30 +66,26 @@ public class InventoryKeyParityTests
                 continue;
             }
 
-            if (inFence && Entry.Match(line) is { Success: true } m)
+            if (inFence && Entry.Match(line.TrimEnd('\r')) is { Success: true } m)
             {
-                keys.Add(m.Groups["key"].Value);
+                entries[m.Groups["key"].Value] = InlineComment.Replace(m.Groups["value"].Value.TrimEnd(), string.Empty).TrimEnd();
             }
         }
 
-        return keys;
+        return entries;
     }
 
     [Theory]
-    [InlineData("zh-Hans")]
-    [InlineData("ja")]
-    [InlineData("ko")]
-    [InlineData("vi")]
-    [InlineData("fil")]
+    [MemberData(nameof(TranslatedCultures))]
     public void EveryTranslatedInventory_HoldsTheSameKeysAsEnglish(string culture)
     {
         string docs = InventoryDirectory();
-        HashSet<string> english = KeysOf(Path.Combine(docs, "i18n-inventory.md"));
-        HashSet<string> translated = KeysOf(Path.Combine(docs, $"i18n-inventory.{culture}.md"));
+        HashSet<string> english = [.. EntriesOf(Path.Combine(docs, "i18n-inventory.md")).Keys];
+        HashSet<string> translated = [.. EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md")).Keys];
 
         Assert.NotEmpty(english);
 
-        string[] missing = [.. english.Except(translated).Except(UntranslatedBacklog).Order()];
+        string[] missing = [.. english.Except(translated).Order()];
         Assert.True(
             missing.Length == 0,
             $"i18n-inventory.{culture}.md is missing {missing.Length} key(s) the English inventory has: "
@@ -148,21 +100,62 @@ public class InventoryKeyParityTests
             orphaned.Length == 0,
             $"i18n-inventory.{culture}.md has {orphaned.Length} key(s) the English inventory does not: "
             + string.Join(", ", orphaned.Take(20)) + ". Remove them, or restore them to English.");
+    }
 
-        // ...and the backlog must not outlive the debt. One culture having the key is enough: the
-        // entry claims it is missing EVERYWHERE, so a single counter-example makes it false, and a
-        // false entry silently stops the gate watching that key in the cultures still lacking it.
-        string[] stale = [.. UntranslatedBacklog.Intersect(translated).Order()];
-        Assert.True(
-            stale.Length == 0,
-            $"{stale.Length} backlog key(s) are present in {culture}: "
-            + string.Join(", ", stale.Take(20)) + ". Remove them from UntranslatedBacklog.");
+    /// <summary>
+    /// A translation must be SUBSTITUTABLE for its English value: the same format placeholders, the
+    /// same number of literal <c>\n</c> line breaks.
+    /// </summary>
+    /// <remarks>
+    /// Key presence cannot catch either failure. A translation that loses <c>{1}</c> renders a
+    /// sentence with a hole in it; one that gains <c>{2}</c> makes <c>string.Format</c> THROW at
+    /// the call site, at runtime, only in that language — the worst possible place to find out. A
+    /// multiset comparison, not a set: "{0} of {0}" and "{0}" both reduce to the same set, and only
+    /// one of them repeats the value the way the English string promises. Reordering placeholders
+    /// is fine and languages genuinely need it.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(TranslatedCultures))]
+    public void EveryTranslation_KeepsItsPlaceholdersAndLineBreaks(string culture)
+    {
+        string docs = InventoryDirectory();
+        Dictionary<string, string> english = EntriesOf(Path.Combine(docs, "i18n-inventory.md"));
+        Dictionary<string, string> translated = EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md"));
 
-        // A backlog entry English itself has dropped is watching nothing at all.
-        string[] vanished = [.. UntranslatedBacklog.Except(english).Order()];
+        List<string> broken = [];
+        foreach ((string key, string en) in english)
+        {
+            if (!translated.TryGetValue(key, out string? value))
+            {
+                continue; // key parity is the other test's finding; one defect, one failure
+            }
+
+            string[] want = [.. Placeholder.Matches(en).Select(m => m.Value).Order()];
+            string[] got = [.. Placeholder.Matches(value).Select(m => m.Value).Order()];
+            if (!want.SequenceEqual(got))
+            {
+                broken.Add($"{key}: placeholders [{string.Join(" ", want)}] vs [{string.Join(" ", got)}]");
+            }
+            else if (CountOf(en, "\\n") != CountOf(value, "\\n"))
+            {
+                broken.Add($"{key}: {CountOf(en, "\\n")} literal \\n vs {CountOf(value, "\\n")}");
+            }
+        }
+
         Assert.True(
-            vanished.Length == 0,
-            $"{vanished.Length} backlog key(s) no longer exist in English: "
-            + string.Join(", ", vanished.Take(20)) + ". Remove them from UntranslatedBacklog.");
+            broken.Count == 0,
+            $"i18n-inventory.{culture}.md has {broken.Count} value(s) not substitutable for English: "
+            + string.Join("; ", broken.Take(10)));
+    }
+
+    private static int CountOf(string haystack, string needle)
+    {
+        int count = 0;
+        for (int i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0; i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
     }
 }
