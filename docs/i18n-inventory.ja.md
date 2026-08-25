@@ -264,6 +264,8 @@ Uploaded_Context_ExportJson       = JSON にエクスポート…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = 列をリセット
 Uploaded_ResetColumns_Message     = 履歴タブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。
+Uploaded_FilterLabel              = 検索
+Uploaded_FilterTip                = ファイル名、パッケージ名、ホスター、URL で絞り込み
 
 # Remove confirmation
 Uploaded_Remove_Title             = 削除

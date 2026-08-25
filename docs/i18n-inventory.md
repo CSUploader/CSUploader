@@ -266,6 +266,8 @@ Uploaded_Context_ExportJson       = Export to JSON…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = Reset columns
 Uploaded_ResetColumns_Message     = Reset the History tab columns to their defaults? This clears any custom show/hide and ordering you've set.
+Uploaded_FilterLabel              = Search
+Uploaded_FilterTip                = Filter by file, package, hoster or URL
 
 # Remove confirmation
 Uploaded_Remove_Title             = Remove

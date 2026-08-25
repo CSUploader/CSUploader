@@ -91,6 +91,7 @@ public partial class UploadedView : UserControl
         if (_vm is not null)
         {
             _vm.Files.CollectionChanged -= OnFilesChanged;
+            _vm.SearchInvalidated -= OnSearchInvalidated;
         }
 
         _view = null;
@@ -108,9 +109,56 @@ public partial class UploadedView : UserControl
         // view on every LoadAsync reload permanently orphaned one subscriber per reload on the long-lived
         // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both.
         _view = BuildGroupedView(_vm.Files);
+
+        // The DURABLE view carries the search: the VM owns the text and the predicate, this view
+        // applies it, and Files reloads flow through it filtered with no re-wiring. Same shape as
+        // UploadsView's filter bar.
+        _view.Filter = _vm.MatchesSearch;
         FilesGrid.ItemsSource = _view;
         _vm.Files.CollectionChanged += OnFilesChanged;
+        _vm.SearchInvalidated += OnSearchInvalidated;
         WireDeleteKeyBinding(_vm);
+    }
+
+    /// <summary>
+    /// Re-runs the durable view's filter for an edited search, with two decisions made rather than
+    /// left to whatever the DataGrid does with a Reset:
+    /// <para>
+    /// Groups land EXPANDED — a search exists to reveal its matches, and a hit hidden under a
+    /// group a user collapsed ten minutes ago is a search that looks broken. And a selected row
+    /// that survives the filter stays selected (the Reset would otherwise drop it); one that is
+    /// filtered out lets the selection clear, because keeping an invisible selection alive is how
+    /// a later Delete keypress removes something the user cannot see.
+    /// </para>
+    /// </summary>
+    private void OnSearchInvalidated(object? sender, EventArgs e)
+    {
+        if (_view is null || _vm is null)
+        {
+            return;
+        }
+
+        object? selected = FilesGrid.SelectedItem;
+        _view.Refresh();
+        ExpandAllGroups();
+
+        // Explicit both ways, because the DataGrid's own Reset handling is neither: it can move
+        // the selection to whichever row happens to survive nearby, which reads as the app
+        // choosing a file the user never picked.
+        FilesGrid.SelectedItem = selected is not null && _vm.MatchesSearch(selected) ? selected : null;
+    }
+
+    private void ExpandAllGroups()
+    {
+        if (_view?.Groups is null)
+        {
+            return;
+        }
+
+        foreach (DataGridCollectionViewGroup group in _view.Groups.OfType<DataGridCollectionViewGroup>())
+        {
+            FilesGrid.ExpandRowGroup(group, expandAllSubgroups: true);
+        }
     }
 
     // LoadAsync reloads by clearing then re-adding on the SAME Files collection. The durable grouped view
@@ -122,15 +170,12 @@ public partial class UploadedView : UserControl
     // minting a new view (the old rebuild here was the leak).
     private void OnFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action != NotifyCollectionChangedAction.Reset || _view?.Groups is null)
+        if (e.Action != NotifyCollectionChangedAction.Reset)
         {
             return;
         }
 
-        foreach (DataGridCollectionViewGroup group in _view.Groups.OfType<DataGridCollectionViewGroup>())
-        {
-            FilesGrid.ExpandRowGroup(group, expandAllSubgroups: true);
-        }
+        ExpandAllGroups();
     }
 
     private void WireDeleteKeyBinding(UploadedViewModel vm)

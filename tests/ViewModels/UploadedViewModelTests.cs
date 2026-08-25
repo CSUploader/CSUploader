@@ -320,6 +320,80 @@ public class UploadedViewModelTests : IDisposable
         clipboard.Verify(c => c.SetTextAsync(It.IsAny<string>()), Times.Once);
     }
 
+    // ── Search: the predicate the History tab's grouped view applies ──
+
+    private static UploadedFileRow SearchRow() => new()
+    {
+        FileName = "Holiday-Photos.zip",
+        PackageName = "Summer 2026",
+        FileHosterName = "VikingFile",
+        FileUrl = "https://viking.example/f/abc123",
+    };
+
+    [Theory]
+    [InlineData("holiday", true)]        // file name, case-insensitively
+    [InlineData("PHOTOS.ZIP", true)]
+    [InlineData("summer", true)]         // package name — a match keeps the whole group's promise
+    [InlineData("viking", true)]         // hoster
+    [InlineData("abc123", true)]         // URL only
+    [InlineData("  holiday  ", true)]    // the needle is trimmed
+    [InlineData("winter", false)]
+    public void MatchesSearch_MatchesEveryFieldAUserRemembers(string search, bool expected)
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SearchText = search;
+
+        Assert.Equal(expected, vm.MatchesSearch(SearchRow()));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void MatchesSearch_BlankSearch_MatchesEverything(string search)
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SearchText = search;
+
+        Assert.True(vm.MatchesSearch(SearchRow()));
+        Assert.True(vm.MatchesSearch(new object())); // even a non-row: a blank search filters nothing
+    }
+
+    [Fact]
+    public void MatchesSearch_NullUrl_IsSafeAndJustDoesNotMatch()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SearchText = "abc123";
+        UploadedFileRow row = SearchRow();
+        row.FileUrl = null;
+
+        Assert.False(vm.MatchesSearch(row));
+    }
+
+    [Fact]
+    public void MatchesSearch_ANonRowItem_NeverMatchesAnActiveSearch()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        vm.SearchText = "anything";
+
+        Assert.False(vm.MatchesSearch(new object()));
+    }
+
+    /// <summary>Editing the text is the only site where the result can change, so it is the one
+    /// site that must tell the head to re-filter.</summary>
+    [Fact]
+    public void EditingSearchText_RaisesSearchInvalidated()
+    {
+        UploadedViewModel vm = CreateVm(Mock.Of<IDialogService>());
+        int raised = 0;
+        vm.SearchInvalidated += (_, _) => raised++;
+
+        vm.SearchText = "a";
+        vm.SearchText = "ab";
+        vm.SearchText = "ab"; // unchanged — the generated setter does not re-raise
+
+        Assert.Equal(2, raised);
+    }
+
     private UploadedViewModel CreateVm(IDialogService dialogService) =>
         new(_packageRepo, _fileRepo, _packageManager, dialogService, Mock.Of<IAppLogger>(), new InlineUiDispatcher(), Mock.Of<IClipboardService>());
 

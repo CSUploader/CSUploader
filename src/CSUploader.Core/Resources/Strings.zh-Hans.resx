@@ -620,6 +620,12 @@
   <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
     <value>是否将"历史"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。</value>
   </data>
+  <data name="Uploaded_FilterLabel" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="Uploaded_FilterTip" xml:space="preserve">
+    <value>按文件、包、托管商或 URL 筛选</value>
+  </data>
   <data name="Uploaded_Remove_Title" xml:space="preserve">
     <value>移除</value>
   </data>

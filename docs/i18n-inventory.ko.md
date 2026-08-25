@@ -265,6 +265,8 @@ Uploaded_Context_ExportJson       = JSON으로 내보내기…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = 열 재설정
 Uploaded_ResetColumns_Message     = 기록 탭의 열을 기본값으로 재설정하시겠습니까? 사용자 지정한 표시/숨김 및 순서가 모두 지워집니다.
+Uploaded_FilterLabel              = 검색
+Uploaded_FilterTip                = 파일, 패키지, 호스터 또는 URL로 필터링
 
 # Remove confirmation
 Uploaded_Remove_Title             = 제거

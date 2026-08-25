@@ -620,6 +620,12 @@ This build isn't installed, so it can't update itself. Download the new version 
   <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
     <value>Reset the History tab columns to their defaults? This clears any custom show/hide and ordering you've set.</value>
   </data>
+  <data name="Uploaded_FilterLabel" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Uploaded_FilterTip" xml:space="preserve">
+    <value>Filter by file, package, hoster or URL</value>
+  </data>
   <data name="Uploaded_Remove_Title" xml:space="preserve">
     <value>Remove</value>
   </data>

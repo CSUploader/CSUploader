@@ -458,6 +458,110 @@ public class UploadedViewTests
         }
     }
 
+    // ── Search bar: the VM's predicate on the DURABLE grouped view ──
+
+    [AvaloniaFact]
+    public void Search_FiltersTheGroupedView_AndAReloadStaysFiltered()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            object viewInstance = grid.ItemsSource!;
+
+            harness.Vm.SearchText = "photos";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, RealizedRowCount(grid)); // only the photos package's rows
+            Assert.Equal(1, ((DataGridCollectionView)grid.ItemsSource!).Groups!.Count);
+
+            // LoadAsync's shape — clear then re-add on the same collection — flows through the
+            // durable view's filter with no re-wiring, so an active search survives a reload.
+            harness.Vm.Files.Clear();
+            foreach (UploadedFileRow row in FixtureRows())
+            {
+                harness.Vm.Files.Add(row);
+            }
+
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, RealizedRowCount(grid));
+
+            harness.Vm.SearchText = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(7, RealizedRowCount(grid));
+
+            // The durable view stayed durable: same instance through search, reload and clear.
+            Assert.Same(viewInstance, grid.ItemsSource);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// The pinned decision: a search-refresh lands with every group EXPANDED, a collapsed group
+    /// included. A search exists to reveal its matches, and a hit hidden under a group collapsed
+    /// ten minutes ago is a search that looks broken.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_RefreshLandsExpanded_EvenAfterACollapse()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            var firstGroup = (DataGridCollectionViewGroup)((DataGridCollectionView)grid.ItemsSource!).Groups![0];
+            grid.CollapseRowGroup(firstGroup, collapseAllSubgroups: false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(4, RealizedRowCount(grid));
+
+            harness.Vm.SearchText = "Fake pack"; // matches every package
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(7, RealizedRowCount(grid));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Selection across a re-filter: a surviving row stays selected (the view's Reset would
+    /// otherwise drop it); a filtered-out row lets the selection clear, because an invisible
+    /// selection is what a later Delete keypress removes without the user seeing it.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsASurvivingSelection_AndDropsAFilteredOne()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow photosRow = harness.Vm.Files.First(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase));
+            grid.SelectedItem = photosRow;
+            Dispatcher.UIThread.RunJobs();
+
+            harness.Vm.SearchText = "photos";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(photosRow, grid.SelectedItem);
+
+            harness.Vm.SearchText = "documents";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(grid.SelectedItem);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── helpers ──
 
     private static int RealizedRowCount(DataGrid grid)

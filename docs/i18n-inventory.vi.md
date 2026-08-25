@@ -273,6 +273,8 @@ Uploaded_Context_ExportJson       = Xuất ra JSON…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = Đặt lại các cột
 Uploaded_ResetColumns_Message     = Đặt lại các cột của thẻ Lịch sử về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.
+Uploaded_FilterLabel              = Tìm kiếm
+Uploaded_FilterTip                = Lọc theo tệp, gói, nhà lưu trữ hoặc URL
 
 # Remove confirmation
 Uploaded_Remove_Title             = Xóa

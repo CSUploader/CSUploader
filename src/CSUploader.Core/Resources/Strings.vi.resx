@@ -620,6 +620,12 @@ Bản dựng này chưa được cài đặt nên không thể tự cập nhật
   <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
     <value>Đặt lại các cột của thẻ Lịch sử về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.</value>
   </data>
+  <data name="Uploaded_FilterLabel" xml:space="preserve">
+    <value>Tìm kiếm</value>
+  </data>
+  <data name="Uploaded_FilterTip" xml:space="preserve">
+    <value>Lọc theo tệp, gói, nhà lưu trữ hoặc URL</value>
+  </data>
   <data name="Uploaded_Remove_Title" xml:space="preserve">
     <value>Xóa</value>
   </data>
