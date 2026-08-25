@@ -707,6 +707,46 @@ public class UploadedViewTests
         }
     }
     /// <summary>
+    /// The membership gate's would-be case, pinned as far as this Avalonia allows. On 11.3.13,
+    /// assigning SelectedItem to a row the active filter hides reportedly leaves SelectedItems
+    /// empty with SelectedItem holding the absent row - the state the gate exists for. On the
+    /// 11.3.18 in use, the same assignment yields NULL (asserted below, so an upgrade that
+    /// changes the answer fails here and points straight at the gate's rationale). Either way,
+    /// a search revealing the row afterwards must not select it - nothing was ever selected.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_DoesNotResurrectAFilteredOutSelectedItemAssignment()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            grid.SelectedItems.Clear();
+            UploadedFileRow photosRow = harness.Vm.Files.First(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase));
+
+            harness.Vm.SearchText = "documents"; // hides every photos row
+            Dispatcher.UIThread.RunJobs();
+
+            grid.SelectedItem = photosRow; // assign a row the view does not currently contain
+            Dispatcher.UIThread.RunJobs();
+
+            // 11.3.18's answer to the assignment, pinned: rejected outright.
+            Assert.Empty(grid.SelectedItems);
+            Assert.Null(grid.SelectedItem);
+
+            harness.Vm.SearchText = "photos"; // reveals the row again
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(grid.SelectedItems); // revealed, not resurrected
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+    /// <summary>
     /// A DataContext bounce (away and back to the same VM) must REUSE that VM's view. The ctor of
     /// DataGridCollectionView subscribes to Files.CollectionChanged and offers no detach, so minting
     /// a fresh view per return would leave the abandoned one processing every later mutation - the
