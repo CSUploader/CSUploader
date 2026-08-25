@@ -121,16 +121,25 @@ public class OperationProgressEventArgs : EventArgs
     /// <summary>
     /// Calculates the value of the remaining properties.
     /// </summary>
+    /// <remarks>
+    /// One clock read, and <see cref="TimeRemaining"/> before <see cref="DateTimeFinish"/>. It used
+    /// to be the other way round, which read as a one-tick-stale estimate and was worse: production
+    /// constructs a fresh instance per progress event, so the "previous" TimeRemaining was always
+    /// the field's zero default and DateTimeFinish was always plain <c>DateTime.Now</c>. Nothing in
+    /// the app consumed it — the Upload Overview derives its own finish time — which is how it
+    /// stayed wrong without a symptom; this makes the value safe for the first caller that does.
+    /// </remarks>
     protected void Calculate()
     {
         if (BytesProcessed > 0)
         {
+            DateTime now = DateTime.Now;
             BytesRemaining = Size - BytesProcessed;
             Progress = (100.0 / Size) * BytesProcessed;
-            TimeElapsed = DateTime.Now - DateTimeStarted;
+            TimeElapsed = now - DateTimeStarted;
             Speed = TimeElapsed.Ticks > 0 ? (long)(BytesProcessed / TimeElapsed.TotalSeconds) : 0;
-            DateTimeFinish = DateTime.Now.Add(TimeRemaining);
-            TimeRemaining = TimeSpan.FromSeconds(BytesProcessed > 0 ? TimeElapsed.TotalSeconds / BytesProcessed * BytesRemaining : 0);
+            TimeRemaining = TimeSpan.FromSeconds(TimeElapsed.TotalSeconds / BytesProcessed * BytesRemaining);
+            DateTimeFinish = now.Add(TimeRemaining);
         }
     }
 }
