@@ -236,4 +236,32 @@ public class UpdateServicePlanTests
     [Fact]
     public void Describe_WithNothingFound_IsUpToDate()
         => Assert.Equal(UpdateCheckStatus.UpToDate, UpdateService.Describe(null).Status);
+
+    /// <summary>
+    /// The other attachment Describe makes: the release notes vpk embedded in the package reach
+    /// the info the prompt receives, and a package with none (everything packed before CI passed
+    /// --releaseNotes) reaches it as null rather than as an empty what's-new section.
+    /// </summary>
+    [Fact]
+    public void Describe_CarriesTheEmbeddedReleaseNotes()
+    {
+        UpdateInfo info = Info(Full(90_000_000), Full(80_000_000));
+        info.TargetFullRelease.NotesMarkdown = "## What's new\n- something";
+
+        UpdateCheckResult result = UpdateService.Describe(info);
+
+        Assert.Equal("## What's new\n- something", result.Info!.ReleaseNotesMarkdown);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Describe_MapsBlankNotesToNull(string? notes)
+    {
+        UpdateInfo info = Info(Full(90_000_000), Full(80_000_000));
+        info.TargetFullRelease.NotesMarkdown = notes!;
+
+        Assert.Null(UpdateService.Describe(info).Info!.ReleaseNotesMarkdown);
+    }
 }

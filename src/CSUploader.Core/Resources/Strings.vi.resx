@@ -719,6 +719,9 @@ Bản dựng này chưa được cài đặt nên không thể tự cập nhật
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
+  <data name="UpdatePrompt_WhatsNew" xml:space="preserve">
+    <value>Có gì mới</value>
+  </data>
   <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
     <value>Kiểm tra cập nhật khi khởi động</value>
   </data>

@@ -62,6 +62,18 @@ jobs:
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version 1.2.0
 
+      # The notes file is REQUIRED, not best-effort: --releaseNotes below embeds it in the package,
+      # which is where the in-app update prompt's "What's new" reads from (the GitHub release BODY is
+      # invisible to Velopack — its GithubRelease model has no body field). Failing here, before
+      # anything is published, beats shipping a release whose prompt has nothing to say.
+      - name: Require the release-notes file
+        shell: pwsh
+        run: |
+          $notesFile = "docs/release-notes/${{ github.ref_name }}.md"
+          if (-not (Test-Path $notesFile) -or [string]::IsNullOrWhiteSpace((Get-Content $notesFile -Raw))) {
+            throw "Missing or blank $notesFile - the update prompt's What's-new section is embedded from it at pack time. Write it (see docs/release-notes/ for the shape) and re-tag."
+          }
+
       - name: Velopack pack
         run: |
           vpk pack `
@@ -69,7 +81,24 @@ jobs:
             --packVersion ${{ steps.version.outputs.version }} `
             --packDir publish `
             --mainExe CSUploader.exe `
+            --releaseNotes docs/release-notes/${{ github.ref_name }}.md `
             --outputDir releases
+
+      # The whole reason --releaseNotes is passed: a feed whose notesMarkdown is blank means the
+      # embedding silently stopped working, and the first person to find out would be a user whose
+      # prompt went quiet.
+      - name: Assert the feed carries the notes
+        shell: pwsh
+        run: |
+          # Parsed, not regexed: a regex cannot tell "  " or "\n" from real notes, and wrongly
+          # rejects notes that open with a quote. (Two regex drafts each had a hole - wrong-case
+          # key, then . matching the closing quote of a blank value - which is the lesson.)
+          $feed = Get-Content releases/releases.win.json -Raw | ConvertFrom-Json
+          foreach ($asset in $feed.Assets) {
+            if ([string]::IsNullOrWhiteSpace($asset.NotesMarkdown)) {
+              throw "releases.win.json asset $($asset.FileName) has blank NotesMarkdown - the --releaseNotes embedding broke."
+            }
+          }
 
       - name: Create GitHub Release + upload Windows assets
         env:
@@ -77,20 +106,12 @@ jobs:
         shell: pwsh
         run: |
           $assets = Get-ChildItem releases | ForEach-Object { $_.FullName }
-          # Hand-written changelog at docs/release-notes/<tag>.md wins when present;
-          # otherwise fall back to auto-generated notes built from PR titles.
-          $notesFile = "docs/release-notes/${{ github.ref_name }}.md"
-          if (Test-Path $notesFile) {
-            gh release create "${{ github.ref_name }}" $assets `
-              --repo "${{ github.repository }}" `
-              --title "${{ github.ref_name }}" `
-              --notes-file $notesFile
-          } else {
-            gh release create "${{ github.ref_name }}" $assets `
-              --repo "${{ github.repository }}" `
-              --title "${{ github.ref_name }}" `
-              --generate-notes
-          }
+          # Unconditional: the required-file gate above already failed the run if the hand-written
+          # notes file is absent, so the old --generate-notes fallback was unreachable dead weight.
+          gh release create "${{ github.ref_name }}" $assets `
+            --repo "${{ github.repository }}" `
+            --title "${{ github.ref_name }}" `
+            --notes-file "docs/release-notes/${{ github.ref_name }}.md"
 
   # The Linux job runs AFTER the Windows job (needs:) so the GitHub Release already exists —
   # this job only UPLOADS its assets to it. Tests are the Windows job's gate; here we publish
@@ -152,8 +173,21 @@ jobs:
             --mainExe CSUploader \
             --packTitle CSUploader \
             --packAuthors CSUploader \
+            --releaseNotes docs/release-notes/${{ github.ref_name }}.md \
             --outputDir releases-linux \
             -y
+
+      # Same guard as the Windows job: a blank notesMarkdown means the embedding silently broke.
+      - name: Assert the feed carries the notes
+        run: |
+          # Parsed, not regexed - see the Windows job's guard for why.
+          python3 - <<'CHECK'
+          import json, sys
+          feed = json.load(open("releases-linux/releases.linux.json"))
+          for asset in feed["Assets"]:
+              if not (asset.get("NotesMarkdown") or "").strip():
+                  sys.exit(f"releases.linux.json asset {asset['FileName']} has blank NotesMarkdown - the --releaseNotes embedding broke.")
+          CHECK
 
       - name: Upload Linux assets to the release
         env:

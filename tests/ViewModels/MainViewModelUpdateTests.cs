@@ -316,10 +316,13 @@ public class MainViewModelUpdateTests : IDisposable
 
         public bool AskedWith { get; private set; }
 
-        public Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup)
+        public string? NotesSeen { get; private set; }
+
+        public Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup, string? releaseNotesMarkdown)
         {
             Shown++;
             AskedWith = checkAtStartup;
+            NotesSeen = releaseNotesMarkdown;
             return Task.FromResult(answer);
         }
     }
@@ -443,6 +446,24 @@ public class MainViewModelUpdateTests : IDisposable
         updater.Verify(u => u.ApplyAndRestart(It.IsAny<UpdateAvailableInfo>()), autoInstall ? Times.Once() : Times.Never());
     }
 
+    /// <summary>
+    /// The notes ride the whole pipeline: what the check's info carries is what the prompt is
+    /// handed, verbatim - rendering is the window's job, deciding is not the messenger's.
+    /// </summary>
+    [Fact]
+    public async Task TheGateHandsTheReleaseNotesToThePrompt()
+    {
+        UpdateAvailableInfo info = new("9.9.9", new object(), UpdateDownloadPlan.Unknown, "## What changed");
+        FakePrompt prompt = new(new StartupUpdatePromptResult(false, true));
+        MainViewModel vm = GateVm(UpdateCheckResult.Available(info), prompt, out StartupGate gate);
+
+        Task gating = vm.RunStartupGateAsync();
+        await gate.MainWindowMayShow;
+        gate.MarkMainWindowReady();
+        await gating;
+
+        Assert.Equal("## What changed", prompt.NotesSeen);
+    }
     [Fact]
     public async Task WhenThereIsNoUpdate_ItReleasesTheWindowAndActsOnNothing()
     {

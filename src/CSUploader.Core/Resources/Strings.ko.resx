@@ -719,6 +719,9 @@
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
+  <data name="UpdatePrompt_WhatsNew" xml:space="preserve">
+    <value>새로운 기능</value>
+  </data>
   <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
     <value>시작할 때 업데이트 확인</value>
   </data>

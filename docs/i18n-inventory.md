@@ -314,6 +314,7 @@ Settings_General_CheckForUpdatesAtStartup = Check for updates at startup
 Settings_General_AutoInstallUpdatesAtStartup = Install updates automatically at startup
 UpdatePrompt_WindowTitle          = Update available
 UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_WhatsNew             = What's new
 UpdatePrompt_CheckAtStartup         = Check for updates at startup
 UpdatePrompt_BtnUpdateNow         = Update now
 UpdatePrompt_BtnLater             = Later

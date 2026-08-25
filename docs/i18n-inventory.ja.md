@@ -312,6 +312,7 @@ Settings_General_CheckForUpdatesAtStartup = 起動時に更新を確認する
 Settings_General_AutoInstallUpdatesAtStartup = 起動時に更新を自動的にインストールする
 UpdatePrompt_WindowTitle          = Update available
 UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_WhatsNew             = 新機能
 UpdatePrompt_CheckAtStartup         = 起動時に更新を確認する
 UpdatePrompt_BtnUpdateNow         = Update now
 UpdatePrompt_BtnLater             = Later

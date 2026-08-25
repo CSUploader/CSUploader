@@ -610,7 +610,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Services.StartupUpdatePromptResult answer = await prompt.ShowAsync(
             info.NewVersion,
             _updateService.CurrentVersion,
-            SettingsViewModel.CheckForUpdatesAtStartup);
+            SettingsViewModel.CheckForUpdatesAtStartup,
+            info.ReleaseNotesMarkdown);
 
         if (answer.CheckAtStartup != SettingsViewModel.CheckForUpdatesAtStartup)
         {

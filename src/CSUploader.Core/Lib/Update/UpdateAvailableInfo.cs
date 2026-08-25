@@ -9,9 +9,17 @@ namespace CSUploader.Lib.Update;
 /// VM-facing summary of an available update. Wraps Velopack's <c>UpdateInfo</c> so the
 /// rest of the app doesn't take a hard dependency on Velopack types.
 /// </summary>
-public sealed class UpdateAvailableInfo(string newVersion, object payload, UpdateDownloadPlan downloadPlan)
+public sealed class UpdateAvailableInfo(string newVersion, object payload, UpdateDownloadPlan downloadPlan, string? releaseNotesMarkdown = null)
 {
     public string NewVersion { get; } = newVersion;
+
+    /// <summary>
+    /// The release's notes as Markdown, or null when the package carries none. Optional where
+    /// <see cref="DownloadPlan"/> is required, deliberately: a missing plan silently loses a
+    /// readout, while missing notes just collapse the prompt's "what's new" section — absent, not
+    /// wrong. Packages built before CI passed <c>--releaseNotes</c> to vpk have none.
+    /// </summary>
+    public string? ReleaseNotesMarkdown { get; } = string.IsNullOrWhiteSpace(releaseNotesMarkdown) ? null : releaseNotesMarkdown;
 
     /// <summary>
     /// Whether a size can be counted against the download's percentage, and if so which. Required
