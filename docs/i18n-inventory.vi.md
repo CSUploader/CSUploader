@@ -240,7 +240,7 @@ Uploads_RemoveCompleted_Format = Xóa tất cả {0} tệp đã hoàn tất kh�
 Uploads_Reset_Title                  = Đặt lại
 Uploads_Reset_Package_Format         = Đặt lại gói '{0}'? Việc này sẽ băm lại và tải lên lại {1} tệp đã hoàn tất trong gói.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = Đặt lại '{0}'? Tệp này đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.  # {0} = file name
-Uploads_Reset_Multi_Format = Đặt lại {0} mục đã chọn? {1} mục đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.
+Uploads_Reset_Multi_Format = Đặt lại {0} mục đã chọn? {1} mục đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = Tải lên lại
 Uploads_ForceStart_Reupload_Format   = Tải lên lại {0} tệp đã hoàn tất? Chúng đã tải lên thành công — buộc bắt đầu sẽ tải chúng lên lần nữa.  # {0} = completed file count
 ```
@@ -332,12 +332,12 @@ Settings_General_Database_Desc             = CSUploader lưu lịch sử tải l
 Settings_General_Database_BtnClear         = Xóa
 Settings_General_Database_ConfirmTitle     = Xóa cơ sở dữ liệu
 Settings_General_Database_ConfirmMessage   = Xóa vĩnh viễn các bản ghi tải lên đã bị ẩn khỏi cả hai tab?\n\nCác lượt tải lên đang hoạt động và hiển thị sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.
-Settings_General_Database_Status_Cleared_Format    = Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.
+Settings_General_Database_Status_Cleared_Format    = Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = Không có dòng ẩn nào để xóa.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -349,7 +349,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = Tải lên hoàn tất
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Gói tải lên hoàn tất
-Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}
+Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -511,7 +511,7 @@ Settings_Accounts_Btn_Refresh      = Làm mới tất cả
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Xóa tài khoản
 Settings_Accounts_Remove_Message_Format    = Xóa tài khoản '{0}' của {1}?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?
+Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -529,8 +529,8 @@ Settings_Accounts_Status_RefreshSummary_Format = Đã làm mới {0} tài khoả
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Đã làm mới {0} tài khoản. {1} được cập nhật. {2} cần đăng nhập — bật chúng lên để đăng nhập lại.
 Settings_Accounts_Status_AccountDisabled_Format = Đã tắt tài khoản '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Đã bật tài khoản '{0}'.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= Đã bật {0} tài khoản.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Đã bật {0} tài khoản.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -562,8 +562,8 @@ Logs_Col_Thread                    = Luồng
 Logs_Col_Url = URL
 Logs_Col_Proxy = Proxy
 Logs_Col_Method = Phương thức
-Logs_ResetColumns_Title = Đặt lại cột
-Logs_ResetColumns_Message = Đặt lại các cột của Nhật ký về mặc định? Các tùy chỉnh ẩn/hiện và thứ tự bạn đã đặt sẽ bị xóa.
+Logs_ResetColumns_Title = Đặt lại các cột
+Logs_ResetColumns_Message = Đặt lại các cột của thẻ Nhật ký về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -585,7 +585,7 @@ Wizard_Summary_Title              = Tóm tắt tải lên
 Wizard_Summary_Desc               = Xem lại nội dung sẽ được tải lên mỗi nhà lưu trữ. Bỏ qua các nhà lưu trữ không có tập tin đủ điều kiện.
 Wizard_Summary_FileCount_Suffix   = tập tin
 Wizard_Summary_OrphanWarning_Suffix= tập tin sẽ không được tải lên bất kỳ nhà lưu trữ nào:
-Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin
+Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin   # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Summary_SelectedOfFree_Format = Đã chọn {0} trên {1} trống   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint = Vượt quá dung lượng trống — hãy bỏ chọn bớt tệp để tiếp tục.
 Wizard_Summary_AutoFitNotice_Format = Đã bỏ chọn {0} tệp để vừa với dung lượng còn trống.   # {0} = count of auto-unchecked files
@@ -664,8 +664,8 @@ Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này s�
 Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Tên các tệp sau chứa ký tự mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Các tệp sau có phần mở rộng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.
+Wizard_Hoster_AccountDisabled_Format = {0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.
 
@@ -712,7 +712,7 @@ Confirm_RemoveFileHosterAccount    = Xóa một tài khoản nhà lưu trữ t�
 Confirm_RemoveProxy                = Xóa một proxy khỏi Trình quản lý kết nối
 Confirm_ResetCompletedUpload       = Đặt lại một lần tải lên đã hoàn tất (băm lại và tải lên lại)
 Confirm_ResetColumns               = Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử
-Confirm_RemoveCompletedUploads = Xóa tất cả mục tải lên đã hoàn tất khỏi tab Đang tải lên
+Confirm_RemoveCompletedUploads = Xóa tất cả mục tải lên đã hoàn tất khỏi thẻ Đang tải lên
 ```
 
 ---

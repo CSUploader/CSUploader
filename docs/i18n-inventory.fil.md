@@ -232,7 +232,7 @@ Uploads_RemoveCompleted_Format = Tanggalin ang lahat ng {0} natapos na file mula
 Uploads_Reset_Title                  = I-reset
 Uploads_Reset_Package_Format         = I-reset ang package na '{0}'? Mag-re-rehash at muling i-aupload ang {1} natapos na file(s) sa package na ito.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.  # {0} = file name
-Uploads_Reset_Multi_Format = I-reset ang {0} napiling item? {1} ang matagumpay nang na-upload — kapag ni-reset, iha-hash at ia-upload ulit ang mga ito.
+Uploads_Reset_Multi_Format = I-reset ang {0} napiling item? {1} ang matagumpay nang na-upload — kapag ni-reset, iha-hash at ia-upload ulit ang mga ito.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = I-upload muli
 Uploads_ForceStart_Reupload_Format   = I-upload muli ang {0} na natapos nang file? Matagumpay na na-upload ang mga ito — muli silang ia-upload ng force start.  # {0} = completed file count
 ```
@@ -324,12 +324,12 @@ Settings_General_Database_Desc             = Iniimbak ng CSUploader ang upload h
 Settings_General_Database_BtnClear         = Clear
 Settings_General_Database_ConfirmTitle     = I-clear ang database
 Settings_General_Database_ConfirmMessage   = Permanenteng tanggalin ang upload records na nakatago sa parehong tab?\n\nHindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.
-Settings_General_Database_Status_Cleared_Format    = Na-clear ang {0} file row at {1} package row mula sa database.
+Settings_General_Database_Status_Cleared_Format    = Na-clear ang {0} file row at {1} package row mula sa database.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = Walang nakatagong rows na ic-clear.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -341,7 +341,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = Tapos na ang pag-upload
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Tapos na ang package
-Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}
+Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -503,7 +503,7 @@ Settings_Accounts_Btn_Refresh      = I-refresh lahat
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Tanggalin ang Account
 Settings_Accounts_Remove_Message_Format    = Tanggalin ang account na '{0}' para sa {1}?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= Tanggalin ang {0} napiling account?
+Settings_Accounts_Remove_MessageBulk_Format= Tanggalin ang {0} napiling account?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -521,8 +521,8 @@ Settings_Accounts_Status_RefreshSummary_Format = Na-refresh ang {0} accounts. {1
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Na-refresh ang {0} account. {1} ang na-update. {2} ang kailangang mag-sign in — i-enable ang mga ito upang mag-sign in muli.
 Settings_Accounts_Status_AccountDisabled_Format = Naka-disable ang account na '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Naka-enable ang account na '{0}'.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= Naka-enable ang {0} accounts.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Naka-enable ang {0} accounts.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -555,7 +555,7 @@ Logs_Col_Url = URL
 Logs_Col_Proxy = Proxy
 Logs_Col_Method = Method
 Logs_ResetColumns_Title = I-reset ang mga column
-Logs_ResetColumns_Message = I-reset ang mga column ng Logs sa default? Mabubura ang mga custom na show/hide at pagkakasunod-sunod na itinakda mo.
+Logs_ResetColumns_Message = I-reset ang mga column ng Logs tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -577,7 +577,7 @@ Wizard_Summary_Title              = Buod ng Upload
 Wizard_Summary_Desc               = Suriin kung ano ang mai-upload sa bawat hoster. Ang mga hoster na walang kwalipikadong file ay tinatanggal.
 Wizard_Summary_FileCount_Suffix   = na file
 Wizard_Summary_OrphanWarning_Suffix= na file ay hindi mai-upload sa anumang hoster:
-Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file
+Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file   # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Summary_SelectedOfFree_Format = {0} ang napili sa {1} na libre   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint = Lampas sa available na espasyo — mag-alis ng pagkakapili ng mga file para magpatuloy.
 Wizard_Summary_AutoFitNotice_Format = {0} file ang tinanggal sa pagkakapili para magkasya sa available na espasyo.   # {0} = count of auto-unchecked files
@@ -656,8 +656,8 @@ Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na 
 Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Naglalaman ng mga karakter na hindi tinatanggap ng hoster na ito ang mga sumusunod na pangalan ng file at hindi mai-upload:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Ang mga sumusunod na file ay may extension na hindi tinatanggap ng hoster na ito at hindi mai-upload:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.
+Wizard_Hoster_AccountDisabled_Format = {0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.
 

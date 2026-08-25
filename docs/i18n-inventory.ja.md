@@ -231,7 +231,7 @@ Uploads_RemoveCompleted_Format = 完了した {0} 件のファイルをアップ
 Uploads_Reset_Title                  = リセット
 Uploads_Reset_Package_Format         = パッケージ '{0}' をリセットしますか? このパッケージ内の完了済みファイル {1} 個が再ハッシュ・再アップロードされます。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。  # {0} = file name
-Uploads_Reset_Multi_Format = 選択した {0} 件をリセットしますか? {1} 件はすでにアップロード済みです — リセットすると再ハッシュ・再アップロードされます。
+Uploads_Reset_Multi_Format = 選択した {0} 件をリセットしますか? {1} 件はすでにアップロード済みです — リセットすると再ハッシュ・再アップロードされます。   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = 再アップロード
 Uploads_ForceStart_Reupload_Format   = 完了済みの {0} 個のファイルを再アップロードしますか? 正常にアップロード済みですが、強制開始でもう一度アップロードします。  # {0} = completed file count
 ```
@@ -323,12 +323,12 @@ Settings_General_Database_Desc             = CSUploader はアップロード履
 Settings_General_Database_BtnClear         = クリア
 Settings_General_Database_ConfirmTitle     = データベースをクリア
 Settings_General_Database_ConfirmMessage   = 両方のタブで非表示になっているアップロード記録を完全に削除しますか？\n\n進行中および表示中のアップロードには影響しません。この操作は取り消せません。
-Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。
+Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = クリアできる非表示の行はありません。
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -340,7 +340,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = アップロード完了
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = パッケージのアップロード完了
-Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}
+Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -502,7 +502,7 @@ Settings_Accounts_Btn_Refresh      = すべて更新
 # Account remove / validation
 Settings_Accounts_Remove_Title             = アカウントを削除
 Settings_Accounts_Remove_Message_Format    = {1} のアカウント「{0}」を削除しますか?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?
+Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -520,8 +520,8 @@ Settings_Accounts_Status_RefreshSummary_Format = {0} 個のアカウントを更
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0} 件のアカウントを更新しました。{1} 件を変更。{2} 件はサインインが必要です — 有効にすると再サインインします。
 Settings_Accounts_Status_AccountDisabled_Format = アカウント「{0}」を無効化しました。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = アカウント「{0}」を有効化しました。                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。
-Settings_Accounts_Status_AccountsBulkEnabled_Format= {0} 件のアカウントを有効化しました。
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0} 件のアカウントを有効化しました。   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -553,8 +553,8 @@ Logs_Col_Thread                    = スレッド
 Logs_Col_Url = URL
 Logs_Col_Proxy = プロキシ
 Logs_Col_Method = メソッド
-Logs_ResetColumns_Title = カラムをリセット
-Logs_ResetColumns_Message = ログのカラムを既定に戻しますか? 設定した表示/非表示や並び順はクリアされます。
+Logs_ResetColumns_Title = 列をリセット
+Logs_ResetColumns_Message = ログタブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -576,7 +576,7 @@ Wizard_Summary_Title              = アップロードサマリー
 Wizard_Summary_Desc               = 各ホスターへアップロードされる内容を確認します。対象ファイルがないホスターは除外されます。
 Wizard_Summary_FileCount_Suffix   = ファイル
 Wizard_Summary_OrphanWarning_Suffix= 件のファイルはどのホスターにもアップロードされません:
-Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}
+Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}   # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Summary_SelectedOfFree_Format = 空き {1} のうち {0} を選択   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint = 空き容量を超えています — 続行するにはファイルのチェックを外してください。
 Wizard_Summary_AutoFitNotice_Format = 空き容量に収めるため {0} 件のファイルのチェックを外しました。   # {0} = count of auto-unchecked files
@@ -655,8 +655,8 @@ Wizard_Hoster_LimitsHeader         = このホスターの制限を超過しま�
 Wizard_Hoster_FileTooLarge_Format  = {0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 以下のファイル名にはこのホスターが受け付けない文字が含まれているためアップロードされません:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: 以下のファイルはこのホスターが受け付けない拡張子のためアップロードされません:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: アカウント「{1}」は無効なため、ここには何もアップロードされません。
-Wizard_Hoster_AccountCheckFailed_Format = {0}: アカウント「{1}」の前回のチェックに失敗したため、ここには何もアップロードされません。設定 → アカウントで再度確認してください。
+Wizard_Hoster_AccountDisabled_Format = {0}: アカウント「{1}」は無効なため、ここには何もアップロードされません。   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: アカウント「{1}」の前回のチェックに失敗したため、ここには何もアップロードされません。設定 → アカウントで再度確認してください。   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} 個のファイルが選択されていますが、パッケージあたりの上限は {2} 個です。
 
@@ -785,13 +785,13 @@ EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
 EditProxy_Status_Failed_Format     = 失敗: {0}
 WebViewLogin_WindowTitle = サインイン
 WebViewLogin_Header_Format = {0} にサインイン   # {0} = hoster name
-WebViewLogin_Instructions = 下のブラウザーでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。
-WebViewLogin_Status_Initializing = ブラウザーを初期化しています...
+WebViewLogin_Instructions = 下のブラウザでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。
+WebViewLogin_Status_Initializing = ブラウザを初期化しています...
 WebViewLogin_Status_Loading_Format = {0} を読み込んでいます...   # {0} = URL
 WebViewLogin_Status_CookieReadFailed_Format = Cookie の読み取りに失敗しました: {0}   # {0} = error detail
-WebViewLogin_Error_InitFailed_Format = WebView2 ブラウザーを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}
+WebViewLogin_Error_InitFailed_Format = WebView2 ブラウザを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}
 WebViewLogin_Error_UnsupportedProxy_Title = サインインに対応していないプロキシ
-WebViewLogin_Error_SocksAuthUnsupported_Format = サインイン用ブラウザーは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。
+WebViewLogin_Error_SocksAuthUnsupported_Format = サインイン用ブラウザは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。
 ```
 
 ### HttpDetails ウィンドウ

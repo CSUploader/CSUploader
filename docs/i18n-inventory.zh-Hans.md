@@ -232,7 +232,7 @@ Uploads_RemoveCompleted_Format = 是否从上传列表中移除全部 {0} 个已
 Uploads_Reset_Title                  = 重置
 Uploads_Reset_Package_Format         = 是否重置包 '{0}'？这将重新哈希并重新上传该包中 {1} 个已完成的文件。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = 是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。  # {0} = file name
-Uploads_Reset_Multi_Format = 是否重置选中的 {0} 个项目？其中 {1} 个已成功上传 — 重置后将重新哈希并重新上传。
+Uploads_Reset_Multi_Format = 是否重置选中的 {0} 个项目？其中 {1} 个已成功上传 — 重置后将重新哈希并重新上传。   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = 重新上传
 Uploads_ForceStart_Reupload_Format   = 重新上传 {0} 个已完成的文件？它们之前已成功上传 — 强制开始将再次上传它们。  # {0} = completed file count
 ```
@@ -324,12 +324,12 @@ Settings_General_Database_Desc             = CSUploader 将您的上传历史记
 Settings_General_Database_BtnClear         = 清除
 Settings_General_Database_ConfirmTitle     = 清除数据库
 Settings_General_Database_ConfirmMessage   = 永久删除已从两个标签页中隐藏的上传记录吗？\n\n活动中和可见的上传不会受影响。此操作不可撤销。
-Settings_General_Database_Status_Cleared_Format    = 已从数据库中清除 {0} 个文件行和 {1} 个包行。
+Settings_General_Database_Status_Cleared_Format    = 已从数据库中清除 {0} 个文件行和 {1} 个包行。   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = 没有可清除的隐藏数据行。
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -341,7 +341,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = 上传完成
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = 包上传完成
-Toast_PackageCompleted_Body  = 已上传 {0} / {1} 个文件 — {2}
+Toast_PackageCompleted_Body  = 已上传 {0} / {1} 个文件 — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -503,7 +503,7 @@ Settings_Accounts_Btn_Refresh      = 全部刷新
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 移除账户
 Settings_Accounts_Remove_Message_Format    = 是否移除 {1} 的账户"{0}"？                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= 是否移除 {0} 个所选账户？
+Settings_Accounts_Remove_MessageBulk_Format= 是否移除 {0} 个所选账户？   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -521,8 +521,8 @@ Settings_Accounts_Status_RefreshSummary_Format = 已刷新 {0} 个账户，{1} �
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = 已刷新 {0} 个账户，更新 {1} 个。{2} 个需要登录 — 启用它们即可重新登录。
 Settings_Accounts_Status_AccountDisabled_Format = 账户"{0}"已禁用。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 账户"{0}"已启用。                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= 已禁用 {0} 个账户。
-Settings_Accounts_Status_AccountsBulkEnabled_Format= 已启用 {0} 个账户。
+Settings_Accounts_Status_AccountsBulkDisabled_Format= 已禁用 {0} 个账户。   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= 已启用 {0} 个账户。   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = 正常
@@ -555,7 +555,7 @@ Logs_Col_Url = URL
 Logs_Col_Proxy = 代理
 Logs_Col_Method = 方法
 Logs_ResetColumns_Title = 重置列
-Logs_ResetColumns_Message = 是否将日志列重置为默认值？这将清除您设置的显示/隐藏和排列顺序。
+Logs_ResetColumns_Message = 是否将"日志"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -577,7 +577,7 @@ Wizard_Summary_Title              = 上传摘要
 Wizard_Summary_Desc               = 查看将上传到每个托管商的内容。无可上传文件的托管商将被忽略。
 Wizard_Summary_FileCount_Suffix   = 个文件
 Wizard_Summary_OrphanWarning_Suffix= 个文件无法上传到任何托管商：
-Wizard_Summary_MaxFileSize_Format = 每个文件最多 {0}
+Wizard_Summary_MaxFileSize_Format = 每个文件最多 {0}   # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Summary_SelectedOfFree_Format = 已选 {0}（可用 {1}）   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint = 超出可用空间 — 请取消勾选部分文件以继续。
 Wizard_Summary_AutoFitNotice_Format = 为适应可用空间，已取消勾选 {0} 个文件。   # {0} = count of auto-unchecked files
@@ -656,8 +656,8 @@ Wizard_Hoster_LimitsHeader         = 该托管商的限制将被超出：
 Wizard_Hoster_FileTooLarge_Format  = {0}：以下文件超过单文件 {1} 上限，将不会上传：\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}：以下文件名包含此托管商不接受的字符，将不会上传：\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}：以下文件的扩展名不被此托管商接受，将不会上传：\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}：账户“{1}”已关闭，因此不会向此托管商上传任何文件。
-Wizard_Hoster_AccountCheckFailed_Format = {0}：账户“{1}”上次检查失败，因此不会向此托管商上传任何文件。请在“设置 → 账户”中重新检查。
+Wizard_Hoster_AccountDisabled_Format = {0}：账户“{1}”已关闭，因此不会向此托管商上传任何文件。   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}：账户“{1}”上次检查失败，因此不会向此托管商上传任何文件。请在“设置 → 账户”中重新检查。   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}：已选 {1} 个文件，但每包上限为 {2} 个。
 

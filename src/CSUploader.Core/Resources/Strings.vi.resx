@@ -1252,10 +1252,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Phương thức</value>
   </data>
   <data name="Logs_ResetColumns_Title" xml:space="preserve">
-    <value>Đặt lại cột</value>
+    <value>Đặt lại các cột</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>Đặt lại các cột của Nhật ký về mặc định? Các tùy chỉnh ẩn/hiện và thứ tự bạn đã đặt sẽ bị xóa.</value>
+    <value>Đặt lại các cột của thẻ Nhật ký về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>Đã ẩn {0} tệp khỏi thẻ Lịch sử</value>
@@ -1603,7 +1603,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử</value>
   </data>
   <data name="Confirm_RemoveCompletedUploads" xml:space="preserve">
-    <value>Xóa tất cả mục tải lên đã hoàn tất khỏi tab Đang tải lên</value>
+    <value>Xóa tất cả mục tải lên đã hoàn tất khỏi thẻ Đang tải lên</value>
   </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>Giới thiệu CSUploader</value>

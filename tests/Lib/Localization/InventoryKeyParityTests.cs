@@ -35,8 +35,6 @@ public class InventoryKeyParityTests
     /// double-counts them.</summary>
     private static readonly Regex InlineComment = new(@"\s+#\s.*$");
 
-    private static readonly Regex Placeholder = new(@"\{\d+\}");
-
     public static readonly TheoryData<string> TranslatedCultures = ["zh-Hans", "ja", "ko", "vi", "fil"];
 
     private static string InventoryDirectory()
@@ -52,10 +50,13 @@ public class InventoryKeyParityTests
     }
 
     /// <summary>Key → rendered value inside the fenced blocks — the only lines the generator
-    /// reads, stripped the way the generator strips them.</summary>
-    private static Dictionary<string, string> EntriesOf(string path)
+    /// reads, stripped the way the generator strips them, FIRST occurrence winning the way the
+    /// generator's does. Duplicates are reported, not merged: keep-last here while the generator
+    /// keeps first would let a broken first value hide behind a clean duplicate and still ship.</summary>
+    private static (Dictionary<string, string> Entries, List<string> Duplicates) EntriesOf(string path)
     {
         Dictionary<string, string> entries = [];
+        List<string> duplicates = [];
         bool inFence = false;
 
         foreach (string line in File.ReadAllText(path).Split('\n'))
@@ -68,11 +69,112 @@ public class InventoryKeyParityTests
 
             if (inFence && Entry.Match(line.TrimEnd('\r')) is { Success: true } m)
             {
-                entries[m.Groups["key"].Value] = InlineComment.Replace(m.Groups["value"].Value.TrimEnd(), string.Empty).TrimEnd();
+                string key = m.Groups["key"].Value;
+                string value = InlineComment.Replace(m.Groups["value"].Value.TrimEnd(), string.Empty).TrimEnd();
+                if (!entries.TryAdd(key, value))
+                {
+                    duplicates.Add(key);
+                }
             }
         }
 
-        return entries;
+        return (entries, duplicates);
+    }
+
+    /// <summary>
+    /// The argument indexes a composite format string consumes, or an error when it is not one.
+    /// </summary>
+    /// <remarks>
+    /// A regex over <c>{0}</c> cannot tell <c>{0}</c> from <c>{{0}}</c> (a rendered literal) or
+    /// from <c>{0} {</c> (which makes <c>string.Format</c> THROW), and misses that <c>{0:N2}</c>
+    /// consumes index 0. This walks the string the way the runtime's parser does: <c>{{</c> and
+    /// <c>}}</c> are literals, an item is index, optional <c>,alignment</c>, optional
+    /// <c>:format</c>, closing brace. One simplification, noted rather than hidden: a format spec
+    /// is taken to end at the first <c>}</c>, so a spec containing an escaped brace would be
+    /// flagged malformed here — flagged, which fails loudly and gets a human, not mis-counted.
+    /// </remarks>
+    private static (List<int> Indexes, string? Error) ScanFormat(string value)
+    {
+        List<int> indexes = [];
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            if (c == '}')
+            {
+                if (i + 1 < value.Length && value[i + 1] == '}')
+                {
+                    i++;
+                    continue;
+                }
+
+                return (indexes, $"stray '}}' at {i}");
+            }
+
+            if (c != '{')
+            {
+                continue;
+            }
+
+            if (i + 1 < value.Length && value[i + 1] == '{')
+            {
+                i++;
+                continue;
+            }
+
+            int digitsStart = i + 1;
+            int j = digitsStart;
+            while (j < value.Length && char.IsAsciiDigit(value[j]))
+            {
+                j++;
+            }
+
+            if (j == digitsStart)
+            {
+                return (indexes, $"'{{' at {i} opens no argument index");
+            }
+
+            int digitsEnd = j;
+
+            if (j < value.Length && value[j] == ',')
+            {
+                j++;
+                if (j < value.Length && value[j] == '-')
+                {
+                    j++;
+                }
+
+                int alignStart = j;
+                while (j < value.Length && char.IsAsciiDigit(value[j]))
+                {
+                    j++;
+                }
+
+                if (j == alignStart)
+                {
+                    return (indexes, $"malformed alignment in the item at {i}");
+                }
+            }
+
+            if (j < value.Length && value[j] == ':')
+            {
+                j++;
+                while (j < value.Length && value[j] != '}')
+                {
+                    j++;
+                }
+            }
+
+            if (j >= value.Length || value[j] != '}')
+            {
+                return (indexes, $"unclosed format item at {i}");
+            }
+
+            indexes.Add(int.Parse(value[digitsStart..digitsEnd], System.Globalization.CultureInfo.InvariantCulture));
+            i = j;
+        }
+
+        indexes.Sort();
+        return (indexes, null);
     }
 
     [Theory]
@@ -80,10 +182,22 @@ public class InventoryKeyParityTests
     public void EveryTranslatedInventory_HoldsTheSameKeysAsEnglish(string culture)
     {
         string docs = InventoryDirectory();
-        HashSet<string> english = [.. EntriesOf(Path.Combine(docs, "i18n-inventory.md")).Keys];
-        HashSet<string> translated = [.. EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md")).Keys];
+        (Dictionary<string, string> englishEntries, List<string> englishDupes) = EntriesOf(Path.Combine(docs, "i18n-inventory.md"));
+        (Dictionary<string, string> translatedEntries, List<string> translatedDupes) = EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md"));
+        HashSet<string> english = [.. englishEntries.Keys];
+        HashSet<string> translated = [.. translatedEntries.Keys];
 
         Assert.NotEmpty(english);
+
+        // A duplicated key is a defect in its own right: the generator keeps the first occurrence
+        // and merely warns to stderr, where nobody is looking, and the second value silently never
+        // ships. Rejected outright rather than mirrored.
+        Assert.True(
+            englishDupes.Count == 0,
+            $"i18n-inventory.md defines {englishDupes.Count} key(s) more than once: " + string.Join(", ", englishDupes.Take(20)));
+        Assert.True(
+            translatedDupes.Count == 0,
+            $"i18n-inventory.{culture}.md defines {translatedDupes.Count} key(s) more than once: " + string.Join(", ", translatedDupes.Take(20)));
 
         string[] missing = [.. english.Except(translated).Order()];
         Assert.True(
@@ -119,8 +233,8 @@ public class InventoryKeyParityTests
     public void EveryTranslation_KeepsItsPlaceholdersAndLineBreaks(string culture)
     {
         string docs = InventoryDirectory();
-        Dictionary<string, string> english = EntriesOf(Path.Combine(docs, "i18n-inventory.md"));
-        Dictionary<string, string> translated = EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md"));
+        Dictionary<string, string> english = EntriesOf(Path.Combine(docs, "i18n-inventory.md")).Entries;
+        Dictionary<string, string> translated = EntriesOf(Path.Combine(docs, $"i18n-inventory.{culture}.md")).Entries;
 
         List<string> broken = [];
         foreach ((string key, string en) in english)
@@ -130,11 +244,19 @@ public class InventoryKeyParityTests
                 continue; // key parity is the other test's finding; one defect, one failure
             }
 
-            string[] want = [.. Placeholder.Matches(en).Select(m => m.Value).Order()];
-            string[] got = [.. Placeholder.Matches(value).Select(m => m.Value).Order()];
-            if (!want.SequenceEqual(got))
+            (List<int> want, string? enError) = ScanFormat(en);
+            (List<int> got, string? valueError) = ScanFormat(value);
+            if (enError is not null)
             {
-                broken.Add($"{key}: placeholders [{string.Join(" ", want)}] vs [{string.Join(" ", got)}]");
+                broken.Add($"{key}: the ENGLISH value is not a valid format string ({enError})");
+            }
+            else if (valueError is not null)
+            {
+                broken.Add($"{key}: not a valid format string ({valueError}) — string.Format would throw at runtime");
+            }
+            else if (!want.SequenceEqual(got))
+            {
+                broken.Add($"{key}: consumes argument indexes [{string.Join(" ", got)}], English consumes [{string.Join(" ", want)}]");
             }
             else if (CountOf(en, "\\n") != CountOf(value, "\\n"))
             {

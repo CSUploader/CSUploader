@@ -1252,10 +1252,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>メソッド</value>
   </data>
   <data name="Logs_ResetColumns_Title" xml:space="preserve">
-    <value>カラムをリセット</value>
+    <value>列をリセット</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>ログのカラムを既定に戻しますか? 設定した表示/非表示や並び順はクリアされます。</value>
+    <value>ログタブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>履歴タブから {0} 個のファイルを非表示にしました</value>
@@ -1777,10 +1777,10 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>{0} にサインイン</value>
   </data>
   <data name="WebViewLogin_Instructions" xml:space="preserve">
-    <value>下のブラウザーでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。</value>
+    <value>下のブラウザでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。</value>
   </data>
   <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
-    <value>ブラウザーを初期化しています...</value>
+    <value>ブラウザを初期化しています...</value>
   </data>
   <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
     <value>{0} を読み込んでいます...</value>
@@ -1789,13 +1789,13 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>Cookie の読み取りに失敗しました: {0}</value>
   </data>
   <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
-    <value>WebView2 ブラウザーを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}</value>
+    <value>WebView2 ブラウザを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}</value>
   </data>
   <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
     <value>サインインに対応していないプロキシ</value>
   </data>
   <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
-    <value>サインイン用ブラウザーは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。</value>
+    <value>サインイン用ブラウザは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP トランザクションの詳細</value>

@@ -1255,7 +1255,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>I-reset ang mga column</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>I-reset ang mga column ng Logs sa default? Mabubura ang mga custom na show/hide at pagkakasunod-sunod na itinakda mo.</value>
+    <value>I-reset ang mga column ng Logs tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>Itinago ang {0} file(s) sa History tab</value>

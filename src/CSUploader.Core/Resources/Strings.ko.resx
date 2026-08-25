@@ -1255,7 +1255,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>열 재설정</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>로그 열을 기본값으로 되돌리시겠습니까? 설정한 표시/숨김과 순서가 초기화됩니다.</value>
+    <value>로그 탭의 열을 기본값으로 재설정하시겠습니까? 사용자 지정한 표시/숨김 및 순서가 모두 지워집니다.</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>기록 탭에서 파일 {0}개를 숨겼습니다</value>

@@ -232,7 +232,7 @@ Uploads_RemoveCompleted_Format = 완료된 파일 {0}개를 업로드 목록에�
 Uploads_Reset_Title                  = 재설정
 Uploads_Reset_Package_Format         = 패키지 '{0}'을(를) 재설정하시겠습니까? 이 패키지의 완료된 파일 {1}개를 다시 해시하고 업로드합니다.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.  # {0} = file name
-Uploads_Reset_Multi_Format = 선택한 {0}개 항목을 재설정하시겠습니까? {1}개는 이미 업로드가 완료되었습니다 — 재설정하면 다시 해시하고 다시 업로드합니다.
+Uploads_Reset_Multi_Format = 선택한 {0}개 항목을 재설정하시겠습니까? {1}개는 이미 업로드가 완료되었습니다 — 재설정하면 다시 해시하고 다시 업로드합니다.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = 다시 업로드
 Uploads_ForceStart_Reupload_Format   = 이미 완료된 파일 {0}개를 다시 업로드할까요? 정상적으로 업로드되었지만 강제 시작으로 다시 업로드합니다.  # {0} = completed file count
 ```
@@ -324,12 +324,12 @@ Settings_General_Database_Desc             = CSUploader는 업로드 기록(패�
 Settings_General_Database_BtnClear         = 지우기
 Settings_General_Database_ConfirmTitle     = 데이터베이스 지우기
 Settings_General_Database_ConfirmMessage   = 두 탭 모두에서 숨겨진 업로드 기록을 영구적으로 삭제하시겠습니까?\n\n활성 및 표시 중인 업로드는 영향을 받지 않습니다. 이 작업은 되돌릴 수 없습니다.
-Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.
+Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = 지울 숨겨진 행이 없습니다.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -341,7 +341,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = 업로드 완료
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = 패키지 업로드 완료
-Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}
+Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -503,7 +503,7 @@ Settings_Accounts_Btn_Refresh      = 모두 새로 고침
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 계정 제거
 Settings_Accounts_Remove_Message_Format    = {1}의 계정 '{0}'을(를) 제거하시겠습니까?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?
+Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -521,8 +521,8 @@ Settings_Accounts_Status_RefreshSummary_Format = 계정 {0}개를 새로 고쳤�
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0}개 계정을 새로 고쳤습니다. {1}개 변경됨. {2}개는 로그인이 필요합니다 — 활성화하면 다시 로그인합니다.
 Settings_Accounts_Status_AccountDisabled_Format = 계정 '{0}'이(가) 비활성화되었습니다.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 계정 '{0}'이(가) 활성화되었습니다.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= {0}개의 계정이 활성화되었습니다.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0}개의 계정이 활성화되었습니다.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = 정상
@@ -555,7 +555,7 @@ Logs_Col_Url = URL
 Logs_Col_Proxy = 프록시
 Logs_Col_Method = 메서드
 Logs_ResetColumns_Title = 열 재설정
-Logs_ResetColumns_Message = 로그 열을 기본값으로 되돌리시겠습니까? 설정한 표시/숨김과 순서가 초기화됩니다.
+Logs_ResetColumns_Message = 로그 탭의 열을 기본값으로 재설정하시겠습니까? 사용자 지정한 표시/숨김 및 순서가 모두 지워집니다.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -577,7 +577,7 @@ Wizard_Summary_Title              = 업로드 요약
 Wizard_Summary_Desc               = 각 호스터에 업로드될 내용을 확인하세요. 적합한 파일이 없는 호스터는 제외됩니다.
 Wizard_Summary_FileCount_Suffix   = 개 파일
 Wizard_Summary_OrphanWarning_Suffix= 개 파일은 어떤 호스터에도 업로드되지 않습니다:
-Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}
+Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}   # {0} = formatted byte unit (e.g. "250 MiB")
 Wizard_Summary_SelectedOfFree_Format = 남은 {1} 중 {0} 선택됨   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
 Wizard_Summary_OverCapacityHint = 사용 가능한 공간을 초과했습니다 — 계속하려면 파일 선택을 해제하세요.
 Wizard_Summary_AutoFitNotice_Format = 사용 가능한 공간에 맞추기 위해 파일 {0}개의 선택을 해제했습니다.   # {0} = count of auto-unchecked files
@@ -656,8 +656,8 @@ Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: 다음 파일은 이 호스터가 허용하지 않는 확장자여서 업로드되지 않습니다:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: 계정 "{1}"이(가) 꺼져 있어 이 호스터에는 아무것도 업로드되지 않습니다.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: 계정 "{1}"의 마지막 확인에 실패하여 이 호스터에는 아무것도 업로드되지 않습니다. 설정 → 계정에서 다시 확인하세요.
+Wizard_Hoster_AccountDisabled_Format = {0}: 계정 "{1}"이(가) 꺼져 있어 이 호스터에는 아무것도 업로드되지 않습니다.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: 계정 "{1}"의 마지막 확인에 실패하여 이 호스터에는 아무것도 업로드되지 않습니다. 설정 → 계정에서 다시 확인하세요.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.
 

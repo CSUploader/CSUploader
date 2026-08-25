@@ -1255,7 +1255,7 @@ The Logs tab will also be emptied. This cannot be undone.</value>
     <value>重置列</value>
   </data>
   <data name="Logs_ResetColumns_Message" xml:space="preserve">
-    <value>是否将日志列重置为默认值？这将清除您设置的显示/隐藏和排列顺序。</value>
+    <value>是否将"日志"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。</value>
   </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>已从"历史"标签页隐藏 {0} 个文件</value>
