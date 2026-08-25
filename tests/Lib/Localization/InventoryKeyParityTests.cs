@@ -84,14 +84,19 @@ public class InventoryKeyParityTests
     /// <summary>
     /// The argument indexes a composite format string consumes, or an error when it is not one.
     /// </summary>
+    /// <summary>The runtime's own ceiling on an argument index or an alignment width; at or past
+    /// it, <c>string.Format</c> throws.</summary>
+    private const int RuntimeIndexAndWidthLimit = 1_000_000;
+
     /// <remarks>
     /// A regex over <c>{0}</c> cannot tell <c>{0}</c> from <c>{{0}}</c> (a rendered literal) or
     /// from <c>{0} {</c> (which makes <c>string.Format</c> THROW), and misses that <c>{0:N2}</c>
-    /// consumes index 0. This walks the string the way the runtime's parser does: <c>{{</c> and
-    /// <c>}}</c> are literals, an item is index, optional <c>,alignment</c>, optional
-    /// <c>:format</c>, closing brace. One simplification, noted rather than hidden: a format spec
-    /// is taken to end at the first <c>}</c>, so a spec containing an escaped brace would be
-    /// flagged malformed here — flagged, which fails loudly and gets a human, not mis-counted.
+    /// consumes index 0. This walks the string the way the .NET 10 parser does: <c>{{</c> and
+    /// <c>}}</c> are literals; an item is an index (no leading whitespace), optional whitespace,
+    /// optional <c>,alignment</c> with whitespace allowed around it, optional <c>:format</c> whose
+    /// spec runs to the closing brace and may not itself contain <c>{</c> (the runtime throws on
+    /// one — there is no escaping inside a spec); index and alignment respect the runtime's
+    /// 1,000,000 limit.
     /// </remarks>
     private static (List<int> Indexes, string? Error) ScanFormat(string value)
     {
@@ -133,11 +138,25 @@ public class InventoryKeyParityTests
                 return (indexes, $"'{{' at {i} opens no argument index");
             }
 
-            int digitsEnd = j;
+            int index = int.Parse(value[digitsStart..j], System.Globalization.CultureInfo.InvariantCulture);
+            if (index >= RuntimeIndexAndWidthLimit)
+            {
+                return (indexes, $"argument index {index} at {i} exceeds the runtime's limit");
+            }
+
+            while (j < value.Length && value[j] == ' ')
+            {
+                j++;
+            }
 
             if (j < value.Length && value[j] == ',')
             {
                 j++;
+                while (j < value.Length && value[j] == ' ')
+                {
+                    j++;
+                }
+
                 if (j < value.Length && value[j] == '-')
                 {
                     j++;
@@ -153,6 +172,16 @@ public class InventoryKeyParityTests
                 {
                     return (indexes, $"malformed alignment in the item at {i}");
                 }
+
+                if (int.Parse(value[alignStart..j], System.Globalization.CultureInfo.InvariantCulture) >= RuntimeIndexAndWidthLimit)
+                {
+                    return (indexes, $"alignment width in the item at {i} exceeds the runtime's limit");
+                }
+
+                while (j < value.Length && value[j] == ' ')
+                {
+                    j++;
+                }
             }
 
             if (j < value.Length && value[j] == ':')
@@ -160,6 +189,11 @@ public class InventoryKeyParityTests
                 j++;
                 while (j < value.Length && value[j] != '}')
                 {
+                    if (value[j] == '{')
+                    {
+                        return (indexes, $"'{{' inside the format specifier of the item at {i} — the runtime throws; there is no escaping inside a spec");
+                    }
+
                     j++;
                 }
             }
@@ -169,7 +203,7 @@ public class InventoryKeyParityTests
                 return (indexes, $"unclosed format item at {i}");
             }
 
-            indexes.Add(int.Parse(value[digitsStart..digitsEnd], System.Globalization.CultureInfo.InvariantCulture));
+            indexes.Add(index);
             i = j;
         }
 
