@@ -32,6 +32,7 @@
       <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="3"
               Background="{DynamicResource SurfaceAltBrush}">
         <ScrollViewer x:Name="NotesScroll" Focusable="True" MaxHeight="240"
+                      AutomationProperties.Name="{loc:Loc UpdatePrompt_WhatsNew}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <TextBlock x:Name="NotesText"

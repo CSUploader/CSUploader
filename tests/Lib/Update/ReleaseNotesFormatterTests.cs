@@ -69,7 +69,7 @@ public class ReleaseNotesFormatterTests
     [Theory]
     [InlineData("## C#", "C#")]
     [InlineData("## Heading ##", "Heading")]
-    [InlineData("  ### Indented heading", "Indented heading")]  // up to 3 spaces is still a heading
+    [InlineData("   ### Indented heading", "Indented heading")]  // exactly 3 spaces - the boundary the spec allows
     public void Headings_KeepTheirSharpsAndSurviveIndentation(string markdown, string expected)
         => Assert.Equal(expected, ReleaseNotesFormatter.ToPlainText(markdown));
 
