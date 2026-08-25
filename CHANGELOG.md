@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The update prompt shows what's new.** When an update is found at startup, the prompt includes
+  the release's notes in a scrollable section — the same notes the GitHub release shows — so
+  "Update now or later?" is an informed question. Updates released before v1.6.0 carry no notes,
+  so the section first appears when a v1.6.0 user is offered the release after it.
+- **The History tab has a search bar.** Type to filter by file name, package name, hoster or URL —
+  case-insensitive, and searching a package name keeps the whole package visible. Groups expand so
+  matches are never hidden under a collapsed package, and an active search stays applied when the
+  list reloads.
+- **Every language now says every string.** The 51 strings that still showed English in Japanese,
+  Korean, Simplified Chinese, Vietnamese and Filipino — the copy-links menu, the account sign-in
+  flow, the browser sign-in window, the Logs columns and the upload wizard's summary page — are
+  translated.
 - **CSUploader checks for updates before it opens.** A small splash says "Checking for updates…"
   while it does, and anything it finds is offered before the main window appears — deliberately
   before queued uploads can auto-start, so choosing to update never interrupts a transfer already
