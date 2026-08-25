@@ -148,11 +148,12 @@ public partial class UploadedView : UserControl
             return;
         }
 
-        // Primary counts only if it is in the SNAPSHOT. On this grid every observed state keeps
-        // SelectedItem inside SelectedItems (a freshly shown grid arrives with row 0 genuinely
-        // selected, and Clear() nulls both), so the gate is defensive - but the cost of the
-        // assumption breaking is this handler SELECTING a row the user never picked, purely
-        // because their search matched it, and that is not a risk worth one skipped Contains.
+        // Primary counts only if it is in the SNAPSHOT. Whether SelectedItem can sit outside
+        // SelectedItems is VERSION-DEPENDENT: 11.3.13 reportedly leaves an absent row there when
+        // one is assigned under an active filter; the 11.3.18 in use rejects that assignment
+        // (pinned by Search_DoesNotResurrectAFilteredOutSelectedItemAssignment). The gate stays
+        // because the cost of the invariant breaking on some future version is this handler
+        // SELECTING a row the user never picked, purely because their search matched it.
         object[] selected = [.. FilesGrid.SelectedItems.Cast<object>()];
         object? primary = FilesGrid.SelectedItem is { } current && selected.Contains(current) ? current : null;
         _view.Refresh();
