@@ -719,6 +719,9 @@ This build isn't installed, so it can't update itself. Download the new version 
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
+  <data name="UpdatePrompt_WhatsNew" xml:space="preserve">
+    <value>What's new</value>
+  </data>
   <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
     <value>Check for updates at startup</value>
   </data>

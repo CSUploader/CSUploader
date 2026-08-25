@@ -44,7 +44,7 @@ public partial class UpdatePromptWindow : Window
     /// <summary>The answer. Set exactly once, whichever route the window closes by.</summary>
     public StartupUpdatePromptResult Result { get; private set; }
 
-    public void SetVersions(string newVersion, string currentVersion, bool checkAtStartup)
+    public void SetVersions(string newVersion, string currentVersion, bool checkAtStartup, string? releaseNotesMarkdown = null)
     {
         MessageText.Text = string.Format(
             CultureInfo.CurrentCulture,
@@ -52,6 +52,13 @@ public partial class UpdatePromptWindow : Window
             newVersion,
             currentVersion);
         CheckAtStartupBox.IsChecked = checkAtStartup;
+
+        // Rendered to plain text here, absent entirely when there is nothing to show: packages
+        // built before CI embedded notes carry none, and a header over an empty box would read as
+        // a bug rather than an absence.
+        string? notes = CSUploader.Lib.Update.ReleaseNotesFormatter.ToPlainText(releaseNotesMarkdown);
+        NotesSection.IsVisible = notes is not null;
+        NotesText.Text = notes ?? string.Empty;
     }
 
     private void Submit(bool updateNow)

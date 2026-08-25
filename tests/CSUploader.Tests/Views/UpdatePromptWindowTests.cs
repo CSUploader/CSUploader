@@ -25,6 +25,50 @@ public class UpdatePromptWindowTests
         return window;
     }
 
+    /// <summary>
+    /// The what's-new section renders the package's embedded notes as plain text, and is absent
+    /// ENTIRELY - header included - when the package carries none: every package built before CI
+    /// embedded notes has none, and a header over an empty box reads as a bug.
+    /// </summary>
+    [AvaloniaFact]
+    public void WhatsNew_ShowsPlainTextNotes_AndIsAbsentWithoutThem()
+    {
+        UpdatePromptWindow window = new();
+        window.SetVersions("1.6.0", "1.5.0", checkAtStartup: true, releaseNotesMarkdown: "## Highlights\n\n**Bold** thing happened.");
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.NotesSection.IsVisible);
+            Assert.Equal("Highlights" + "\n\n" + "Bold thing happened.", window.NotesText.Text); // rendered, not raw markdown
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   \n  ")]
+    public void WhatsNew_AbsentForBlankNotes_HoweverTheyAreBlank(string? notes)
+    {
+        UpdatePromptWindow window = new();
+        window.SetVersions("1.6.0", "1.5.0", checkAtStartup: true, releaseNotesMarkdown: notes);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.NotesSection.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
     [AvaloniaFact]
     public void UpdateNow_ReturnsUpdateNowAndTheCheckboxAsItStands()
     {

@@ -131,7 +131,12 @@ public sealed class UpdateService : IUpdateService
         => info is null
             ? UpdateCheckResult.UpToDate
             : UpdateCheckResult.Available(new UpdateAvailableInfo(
-                info.TargetFullRelease.Version.ToString(), info, PlanDownload(info)));
+                info.TargetFullRelease.Version.ToString(),
+                info,
+                PlanDownload(info),
+                // Present only in packages built after CI began passing --releaseNotes to vpk;
+                // UpdateAvailableInfo maps blank to null so the prompt has one test to make.
+                info.TargetFullRelease.NotesMarkdown));
 
     /// <summary>
     /// Whether a size can be counted against the reported percentage, by asking the question

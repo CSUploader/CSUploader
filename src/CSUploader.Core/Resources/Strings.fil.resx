@@ -719,6 +719,9 @@ Hindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag
   <data name="UpdatePrompt_Message_Format" xml:space="preserve">
     <value>CSUploader v{0} is available. You have v{1}.</value>
   </data>
+  <data name="UpdatePrompt_WhatsNew" xml:space="preserve">
+    <value>Ano ang bago</value>
+  </data>
   <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
     <value>Mag-check ng updates sa startup</value>
   </data>

@@ -30,5 +30,11 @@ public readonly record struct StartupUpdatePromptResult(bool UpdateNow, bool Che
 /// </remarks>
 public interface IStartupUpdatePrompt
 {
-    Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup);
+    /// <param name="newVersion">The version the check found.</param>
+    /// <param name="currentVersion">The running version, for the "you have" line.</param>
+    /// <param name="checkAtStartup">The stored preference, shown as the checkbox's initial state.</param>
+    /// <param name="releaseNotesMarkdown">The release's notes as Markdown, or null when the package
+    /// carries none — in which case the prompt shows no "what's new" section at all rather than an
+    /// empty one.</param>
+    Task<StartupUpdatePromptResult> ShowAsync(string newVersion, string currentVersion, bool checkAtStartup, string? releaseNotesMarkdown);
 }

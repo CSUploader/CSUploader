@@ -62,6 +62,18 @@ jobs:
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version 1.2.0
 
+      # The notes file is REQUIRED, not best-effort: --releaseNotes below embeds it in the package,
+      # which is where the in-app update prompt's "What's new" reads from (the GitHub release BODY is
+      # invisible to Velopack — its GithubRelease model has no body field). Failing here, before
+      # anything is published, beats shipping a release whose prompt has nothing to say.
+      - name: Require the release-notes file
+        shell: pwsh
+        run: |
+          $notesFile = "docs/release-notes/${{ github.ref_name }}.md"
+          if (-not (Test-Path $notesFile)) {
+            throw "Missing $notesFile - the update prompt's What's-new section is embedded from it at pack time. Write it (see docs/release-notes/ for the shape) and re-tag."
+          }
+
       - name: Velopack pack
         run: |
           vpk pack `
@@ -69,7 +81,21 @@ jobs:
             --packVersion ${{ steps.version.outputs.version }} `
             --packDir publish `
             --mainExe CSUploader.exe `
+            --releaseNotes docs/release-notes/${{ github.ref_name }}.md `
             --outputDir releases
+
+      # The whole reason --releaseNotes is passed: a feed whose notesMarkdown is blank means the
+      # embedding silently stopped working, and the first person to find out would be a user whose
+      # prompt went quiet. jq-free so it needs nothing installed.
+      - name: Assert the feed carries the notes
+        shell: pwsh
+        run: |
+          $feed = Get-Content releases/releases.win.json -Raw
+          # [^"]{2}: two non-quote chars, so a BLANK value ("") fails - a bare ".." also matches the
+          # closing quote itself, which is how the first draft of this guard passed on empty notes.
+          if ($feed -notmatch '"NotesMarkdown"\s*:\s*"[^"]{2}') {
+            throw "releases.win.json has no non-blank NotesMarkdown - the --releaseNotes embedding broke."
+          }
 
       - name: Create GitHub Release + upload Windows assets
         env:
@@ -152,8 +178,18 @@ jobs:
             --mainExe CSUploader \
             --packTitle CSUploader \
             --packAuthors CSUploader \
+            --releaseNotes docs/release-notes/${{ github.ref_name }}.md \
             --outputDir releases-linux \
             -y
+
+      # Same guard as the Windows job: a blank notesMarkdown means the embedding silently broke.
+      - name: Assert the feed carries the notes
+        run: |
+          # PascalCase: the feed's key is NotesMarkdown, and grep is case-sensitive - the first
+          # draft used lowercase and would have failed every release. [^"]{2} for the same reason
+          # as the Windows guard: a bare .. matches the closing quote of a blank value.
+          grep -Eq '"NotesMarkdown"[[:space:]]*:[[:space:]]*"[^"]{2}' releases-linux/releases.linux.json \
+            || { echo 'releases.linux.json has no non-blank NotesMarkdown - the --releaseNotes embedding broke.' >&2; exit 1; }
 
       - name: Upload Linux assets to the release
         env:

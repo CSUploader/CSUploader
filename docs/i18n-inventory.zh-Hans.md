@@ -313,6 +313,7 @@ Settings_General_CheckForUpdatesAtStartup = 启动时检查更新
 Settings_General_AutoInstallUpdatesAtStartup = 启动时自动安装更新
 UpdatePrompt_WindowTitle          = Update available
 UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_WhatsNew             = 更新内容
 UpdatePrompt_CheckAtStartup         = 启动时检查更新
 UpdatePrompt_BtnUpdateNow         = Update now
 UpdatePrompt_BtnLater             = Later

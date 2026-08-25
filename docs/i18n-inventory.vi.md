@@ -321,6 +321,7 @@ Settings_General_CheckForUpdatesAtStartup = Kiểm tra cập nhật khi khởi �
 Settings_General_AutoInstallUpdatesAtStartup = Tự động cài đặt bản cập nhật khi khởi động
 UpdatePrompt_WindowTitle          = Update available
 UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_WhatsNew             = Có gì mới
 UpdatePrompt_CheckAtStartup         = Kiểm tra cập nhật khi khởi động
 UpdatePrompt_BtnUpdateNow         = Update now
 UpdatePrompt_BtnLater             = Later
