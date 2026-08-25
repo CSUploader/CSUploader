@@ -26,7 +26,7 @@ History tab learned to search, and every language now says every string. See
   flow, the browser sign-in window, the Logs columns and the upload wizard's summary page — are
   translated.
 - **CSUploader checks for updates before it opens.** A small splash says "Checking for updates…"
-  while it does, and anything it finds is offered before the main window appears — deliberately
+  while it does, and anything it finds within the splash's five-second patience is offered — deliberately
   before queued uploads can auto-start, so choosing to update never interrupts a transfer already
   running. Two settings under **Settings → General** decide how it behaves. *Check for updates at
   startup* (default on) decides whether the check happens in front of the window or quietly behind
@@ -511,6 +511,8 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.6.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.6.0
+[1.5.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.5.0
 [1.4.5]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.5
 [1.4.4]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.4
 [1.4.3]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.3
