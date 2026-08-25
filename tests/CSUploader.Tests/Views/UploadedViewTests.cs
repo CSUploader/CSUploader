@@ -474,7 +474,7 @@ public class UploadedViewTests
             harness.Vm.SearchText = "photos";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(3, RealizedRowCount(grid)); // only the photos package's rows
-            Assert.Equal(1, ((DataGridCollectionView)grid.ItemsSource!).Groups!.Count);
+            Assert.Single(((DataGridCollectionView)grid.ItemsSource!).Groups!);
 
             // LoadAsync's shape — clear then re-add on the same collection — flows through the
             // durable view's filter with no re-wiring, so an active search survives a reload.
