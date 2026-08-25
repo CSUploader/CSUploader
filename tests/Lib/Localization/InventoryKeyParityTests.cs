@@ -81,13 +81,15 @@ public class InventoryKeyParityTests
         return (entries, duplicates);
     }
 
+    /// <summary>The runtime's own ceiling on an argument index or an alignment width; at or past
+    /// it, <c>string.Format</c> throws at PARSE time. Probed against .NET 10 ({0,9999999} formats,
+    /// {0,10000000} throws) rather than remembered — a first probe put this at one million, which
+    /// turned out to be an argument-count failure wearing a parser's clothes.</summary>
+    private const int RuntimeIndexAndWidthLimit = 10_000_000;
+
     /// <summary>
     /// The argument indexes a composite format string consumes, or an error when it is not one.
     /// </summary>
-    /// <summary>The runtime's own ceiling on an argument index or an alignment width; at or past
-    /// it, <c>string.Format</c> throws.</summary>
-    private const int RuntimeIndexAndWidthLimit = 1_000_000;
-
     /// <remarks>
     /// A regex over <c>{0}</c> cannot tell <c>{0}</c> from <c>{{0}}</c> (a rendered literal) or
     /// from <c>{0} {</c> (which makes <c>string.Format</c> THROW), and misses that <c>{0:N2}</c>
@@ -96,7 +98,7 @@ public class InventoryKeyParityTests
     /// optional <c>,alignment</c> with whitespace allowed around it, optional <c>:format</c> whose
     /// spec runs to the closing brace and may not itself contain <c>{</c> (the runtime throws on
     /// one — there is no escaping inside a spec); index and alignment respect the runtime's
-    /// 1,000,000 limit.
+    /// ten-million limit.
     /// </remarks>
     private static (List<int> Indexes, string? Error) ScanFormat(string value)
     {
