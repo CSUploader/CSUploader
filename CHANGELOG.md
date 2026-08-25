@@ -4,7 +4,12 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-08-26
+
+CSUploader looks for updates before it opens and asks before installing them, with a setting for
+each half of that; from the next release on, the prompt also shows what an update contains. The
+History tab learned to search, and every language now says every string. See
+[docs/release-notes/v1.6.0.md](docs/release-notes/v1.6.0.md) for the full notes.
 
 ### Added
 
