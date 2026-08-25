@@ -61,6 +61,13 @@ Common_Preparing                  = Đang chuẩn bị…
 Common_Unknown                    = không xác định
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks = Sao chép liên kết
+Common_CopyLinks_ByFilePlain = Theo tệp (văn bản thuần)
+Common_CopyLinks_ByFileBBCode = Theo tệp (BBCode)
+Common_CopyLinks_ByFileMarkdown = Theo tệp (Markdown)
+Common_CopyLinks_ByHosterPlain = Theo nhà lưu trữ (văn bản thuần)
+Common_CopyLinks_ByHosterBBCode = Theo nhà lưu trữ (BBCode)
+Common_CopyLinks_ByHosterMarkdown = Theo nhà lưu trữ (Markdown)
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -97,7 +104,7 @@ Main_CheckForUpdates_AlreadyLatest = Bạn đang dùng phiên bản mới nhất
 Main_CheckForUpdates_Available_Format = Có bản cập nhật: v{0}.\n\nVui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuống và cài đặt.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Không thể kiểm tra bản cập nhật: {0}
 Main_CheckForUpdates_NotInstallable_Format = Có bản cập nhật: v{0}.\n\nBản dựng này chưa được cài đặt nên không thể tự cập nhật. Vui lòng tải phiên bản mới từ trang phát hành.   # {0} = available semver
-Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
+Main_CheckForUpdates_StillRunning = Lần kiểm tra trước đó vẫn đang chạy. Vui lòng thử lại sau giây lát.
 Update_CheckFailed_ToastTitle = Kiểm tra cập nhật thất bại
 Update_CheckFailed_ToastBody = CSUploader không thể kiểm tra bản cập nhật. Sẽ thử lại sau.
 ```
@@ -123,8 +130,10 @@ Uploads_Context_SkipUpload        = Bỏ qua tải lên
 Uploads_Context_Reset             = Đặt lại
 Uploads_Context_OpenSourceDir     = Mở thư mục nguồn
 Uploads_Context_SetSpeedLimit     = Đặt giới hạn tốc độ...
+Uploads_Context_RenamePackage = Đổi tên gói...
 Uploads_Context_Move              = Di chuyển
 Uploads_Context_Remove            = Xóa
+Uploads_Context_RemoveAllCompleted = Xóa tất cả đã hoàn tất
 Uploads_Move_Up10                 = Lên 10
 Uploads_Move_Up1                  = Lên 1
 Uploads_Move_Down1                = Xuống 1
@@ -145,6 +154,7 @@ Uploads_Col_Progress              = Tiến độ
 Uploads_Col_Path                  = Đường dẫn
 Uploads_Col_Added                 = Đã thêm
 Uploads_Col_Finished              = Đã hoàn tất
+Uploads_Col_Started = Đã bắt đầu
 Uploads_Col_ScheduledAt           = Lên lịch lúc
 Uploads_Col_Duration              = Đã trôi qua
 Uploads_Col_Order                 = Thứ tự
@@ -168,6 +178,8 @@ Uploads_Overview_Uploadspeed      = Tốc độ tải lên
 Uploads_Overview_BytesLoaded      = Byte đã tải
 Uploads_Overview_RemainingBytes   = Byte còn lại
 Uploads_Overview_Eta              = ETA
+Uploads_Overview_Elapsed = Đã trôi qua
+Uploads_Overview_FinishAt = Hoàn tất lúc
 Uploads_Overview_RunningUploads   = Lượt tải lên đang chạy
 Uploads_Overview_OpenConnections  = Kết nối đang mở
 Uploads_Overview_FinishedLinks    = Liên kết đã hoàn tất
@@ -183,6 +195,8 @@ Uploads_Overview_UploadspeedLabel     = Tốc độ tải lên:
 Uploads_Overview_BytesLoadedLabel     = Byte đã tải:
 Uploads_Overview_RemainingBytesLabel  = Byte còn lại:
 Uploads_Overview_EtaLabel             = ETA:
+Uploads_Overview_ElapsedLabel = Đã trôi qua:
+Uploads_Overview_FinishAtLabel = Hoàn tất lúc:
 Uploads_Overview_RunningUploadsLabel  = Lượt tải lên đang chạy:
 Uploads_Overview_OpenConnectionsLabel = Kết nối đang mở:
 Uploads_Overview_FinishedLinksLabel   = Liên kết đã hoàn tất:
@@ -220,11 +234,13 @@ Uploads_Remove_Generic            = Xóa mục này?
 Uploads_Remove_PackagesOnly_Format     = Xóa {0} gói ({1} tệp)?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Xóa {0} tệp khỏi danh sách tải lên?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Xóa {0} gói và {1} tệp (tổng {2} mục)?      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format = Xóa tất cả {0} tệp đã hoàn tất khỏi danh sách tải lên?   # {0} = completed file count
 
 # Reset confirmation prompts
 Uploads_Reset_Title                  = Đặt lại
 Uploads_Reset_Package_Format         = Đặt lại gói '{0}'? Việc này sẽ băm lại và tải lên lại {1} tệp đã hoàn tất trong gói.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = Đặt lại '{0}'? Tệp này đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.  # {0} = file name
+Uploads_Reset_Multi_Format = Đặt lại {0} mục đã chọn? {1} mục đã tải lên thành công — đặt lại sẽ băm lại và tải lên lại.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = Tải lên lại
 Uploads_ForceStart_Reupload_Format   = Tải lên lại {0} tệp đã hoàn tất? Chúng đã tải lên thành công — buộc bắt đầu sẽ tải chúng lên lần nữa.  # {0} = completed file count
 ```
@@ -243,6 +259,7 @@ Uploaded_Col_Size                 = Kích thước
 Uploaded_Col_Hoster               = Nhà lưu trữ
 Uploaded_Col_Account              = Tài khoản
 Uploaded_Col_Finished             = Đã hoàn tất
+Uploaded_Col_Started = Đã bắt đầu
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = Hash
 
@@ -315,12 +332,12 @@ Settings_General_Database_Desc             = CSUploader lưu lịch sử tải l
 Settings_General_Database_BtnClear         = Xóa
 Settings_General_Database_ConfirmTitle     = Xóa cơ sở dữ liệu
 Settings_General_Database_ConfirmMessage   = Xóa vĩnh viễn các bản ghi tải lên đã bị ẩn khỏi cả hai tab?\n\nCác lượt tải lên đang hoạt động và hiển thị sẽ không bị ảnh hưởng. Hành động này không thể hoàn tác.
-Settings_General_Database_Status_Cleared_Format    = Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.
+Settings_General_Database_Status_Cleared_Format    = Đã xóa {0} dòng tệp và {1} dòng gói khỏi cơ sở dữ liệu.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = Không có dòng ẩn nào để xóa.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -332,7 +349,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = Tải lên hoàn tất
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Gói tải lên hoàn tất
-Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}
+Toast_PackageCompleted_Body  = Đã tải lên {0} trên {1} tệp — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -494,7 +511,7 @@ Settings_Accounts_Btn_Refresh      = Làm mới tất cả
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Xóa tài khoản
 Settings_Accounts_Remove_Message_Format    = Xóa tài khoản '{0}' của {1}?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?
+Settings_Accounts_Remove_MessageBulk_Format= Xóa {0} tài khoản đã chọn?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -512,8 +529,8 @@ Settings_Accounts_Status_RefreshSummary_Format = Đã làm mới {0} tài khoả
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Đã làm mới {0} tài khoản. {1} được cập nhật. {2} cần đăng nhập — bật chúng lên để đăng nhập lại.
 Settings_Accounts_Status_AccountDisabled_Format = Đã tắt tài khoản '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Đã bật tài khoản '{0}'.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= Đã bật {0} tài khoản.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Đã tắt {0} tài khoản.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Đã bật {0} tài khoản.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -542,6 +559,11 @@ Logs_Col_Function                  = Hàm
 Logs_Col_Line                      = Dòng
 Logs_Col_Message                   = Thông điệp
 Logs_Col_Thread                    = Luồng
+Logs_Col_Url = URL
+Logs_Col_Proxy = Proxy
+Logs_Col_Method = Phương thức
+Logs_ResetColumns_Title = Đặt lại các cột
+Logs_ResetColumns_Message = Đặt lại các cột của thẻ Nhật ký về mặc định? Thao tác này sẽ xóa mọi thiết lập hiện/ẩn và sắp xếp tùy chỉnh của bạn.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -563,7 +585,15 @@ Wizard_Summary_Title              = Tóm tắt tải lên
 Wizard_Summary_Desc               = Xem lại nội dung sẽ được tải lên mỗi nhà lưu trữ. Bỏ qua các nhà lưu trữ không có tập tin đủ điều kiện.
 Wizard_Summary_FileCount_Suffix   = tập tin
 Wizard_Summary_OrphanWarning_Suffix= tập tin sẽ không được tải lên bất kỳ nhà lưu trữ nào:
-Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin
+Wizard_Summary_MaxFileSize_Format = tối đa {0} mỗi tập tin   # {0} = formatted byte unit (e.g. "250 MiB")
+Wizard_Summary_SelectedOfFree_Format = Đã chọn {0} trên {1} trống   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
+Wizard_Summary_OverCapacityHint = Vượt quá dung lượng trống — hãy bỏ chọn bớt tệp để tiếp tục.
+Wizard_Summary_AutoFitNotice_Format = Đã bỏ chọn {0} tệp để vừa với dung lượng còn trống.   # {0} = count of auto-unchecked files
+Wizard_Summary_AutoFitNoticeWithFree_Format = Đã bỏ chọn {0} tệp để vừa với dung lượng còn trống ({1} trống).   # {0} = count, {1} = free space (formatted units); used when a single quota hoster drove the unchecking
+Wizard_Summary_CheckingSpace = đang kiểm tra dung lượng trống…   # per-hoster indicator while a live storage refresh is in flight
+Wizard_Summary_FilesSelected_Format = Đã chọn {0} trong {1} tệp   # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format = {0} sẽ tải lên   # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
+Wizard_Summary_TotalFooter_Format = Tổng: {0} tệp • {1} sẽ tải lên   # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. Tệp
 
 
@@ -634,8 +664,8 @@ Wizard_Hoster_LimitsHeader         = Giới hạn của nhà lưu trữ này s�
 Wizard_Hoster_FileTooLarge_Format  = {0}: Các tệp sau vượt quá giới hạn mỗi tệp {1} và sẽ không được tải lên:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Tên các tệp sau chứa ký tự mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Các tệp sau có phần mở rộng mà nhà lưu trữ này không chấp nhận và sẽ không được tải lên:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.
+Wizard_Hoster_AccountDisabled_Format = {0}: Tài khoản "{1}" đã tắt nên sẽ không có tệp nào được tải lên nhà lưu trữ này.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Lần kiểm tra gần nhất của tài khoản "{1}" đã thất bại nên sẽ không có tệp nào được tải lên nhà lưu trữ này — hãy kiểm tra lại trong Cài đặt → Tài khoản.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: đã chọn {1} tệp nhưng giới hạn mỗi gói là {2}.
 
@@ -682,6 +712,7 @@ Confirm_RemoveFileHosterAccount    = Xóa một tài khoản nhà lưu trữ t�
 Confirm_RemoveProxy                = Xóa một proxy khỏi Trình quản lý kết nối
 Confirm_ResetCompletedUpload       = Đặt lại một lần tải lên đã hoàn tất (băm lại và tải lên lại)
 Confirm_ResetColumns               = Đặt lại các cột về mặc định trên thẻ Đang tải lên / Lịch sử
+Confirm_RemoveCompletedUploads = Xóa tất cả mục tải lên đã hoàn tất khỏi thẻ Đang tải lên
 ```
 
 ---
@@ -738,6 +769,17 @@ EditAccount_AccountEnabled         = Tài khoản đã bật
 EditAccount_BtnSave                = Lưu
 EditAccount_BtnCancel              = Hủy
 EditAccount_Validation_RequireUsernameAndPassword = Vui lòng nhập cả tên đăng nhập và mật khẩu.
+EditAccount_OrLabel = — hoặc —   # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel = Khóa API:
+EditAccount_SignInLabel = Tài khoản:
+EditAccount_SignInButton = Đăng nhập…   # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress = Đang mở màn hình đăng nhập…
+EditAccount_SignIn_Success = ✓ Đã đăng nhập
+EditAccount_SignIn_SuccessAs_Format = ✓ Đã đăng nhập với tên {0}
+EditAccount_SignIn_Failed_Format = ✗ {0}
+EditAccount_SignIn_FailedGeneric = Đăng nhập không thành công.
+EditAccount_SignIn_Unavailable = Không thể đăng nhập trong ngữ cảnh này.
+EditAccount_Validation_RequireLoginOrApiKey = Nhấp Đăng nhập để xác thực, hoặc dán khóa API.
 
 EditProxy_AddTitle                 = Thêm proxy
 EditProxy_EditTitle                = Chỉnh sửa proxy
@@ -751,6 +793,15 @@ EditProxy_Status_Testing           = Đang kiểm tra…
 EditProxy_Status_OkLatency_Format  = OK {0}ms (phản hồi bất thường)
 EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
 EditProxy_Status_Failed_Format     = Thất bại: {0}
+WebViewLogin_WindowTitle = Đăng nhập
+WebViewLogin_Header_Format = Đăng nhập vào {0}   # {0} = hoster name
+WebViewLogin_Instructions = Hoàn tất đăng nhập (bao gồm cả captcha nếu có) trong trình duyệt bên dưới. Cửa sổ này sẽ tự đóng khi phiên đăng nhập được ghi nhận.
+WebViewLogin_Status_Initializing = Đang khởi tạo trình duyệt...
+WebViewLogin_Status_Loading_Format = Đang tải {0}...   # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = Không đọc được cookie: {0}   # {0} = error detail
+WebViewLogin_Error_InitFailed_Format = Không thể khởi tạo trình duyệt WebView2. Có thể chưa cài đặt WebView2 runtime. Chi tiết: {0}
+WebViewLogin_Error_UnsupportedProxy_Title = Proxy không được hỗ trợ khi đăng nhập
+WebViewLogin_Error_SocksAuthUnsupported_Format = Trình duyệt đăng nhập không thể dùng proxy SOCKS yêu cầu tên người dùng và mật khẩu ({0}). Hãy dùng proxy SOCKS không cần thông tin đăng nhập, hoặc dùng proxy HTTP/HTTPS.
 ```
 
 ### HttpDetails window

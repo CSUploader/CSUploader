@@ -53,6 +53,13 @@ Common_Preparing                  = Naghahanda…
 Common_Unknown                    = hindi alam
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks = Kopyahin ang mga Link
+Common_CopyLinks_ByFilePlain = Bawat File (Plain)
+Common_CopyLinks_ByFileBBCode = Bawat File (BBCode)
+Common_CopyLinks_ByFileMarkdown = Bawat File (Markdown)
+Common_CopyLinks_ByHosterPlain = Bawat Hoster (Plain)
+Common_CopyLinks_ByHosterBBCode = Bawat Hoster (BBCode)
+Common_CopyLinks_ByHosterMarkdown = Bawat Hoster (Markdown)
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -89,7 +96,7 @@ Main_CheckForUpdates_AlreadyLatest = Nasa pinakabagong version ka na.
 Main_CheckForUpdates_Available_Format = May available na update: v{0}.\n\nGamitin ang Help → Install Update para i-download at i-install.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Hindi ma-check ang mga update: {0}
 Main_CheckForUpdates_NotInstallable_Format = May available na update: v{0}.\n\nHindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag-isa. I-download ang bagong bersyon mula sa releases page.   # {0} = available semver
-Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
+Main_CheckForUpdates_StillRunning = Tumatakbo pa rin ang naunang pag-check. Subukan ulit maya-maya.
 Update_CheckFailed_ToastTitle = Nabigo ang pag-check ng update
 Update_CheckFailed_ToastBody = Hindi ma-check ng CSUploader ang mga update. Susubukan ulit mamaya.
 ```
@@ -115,8 +122,10 @@ Uploads_Context_SkipUpload        = Laktawan ang Upload
 Uploads_Context_Reset             = I-reset
 Uploads_Context_OpenSourceDir     = Buksan ang Source Directory
 Uploads_Context_SetSpeedLimit     = Itakda ang Speed Limit...
+Uploads_Context_RenamePackage = Palitan ang Pangalan ng Package...
 Uploads_Context_Move              = Ilipat
 Uploads_Context_Remove            = Tanggalin
+Uploads_Context_RemoveAllCompleted = Tanggalin ang Lahat ng Tapos
 Uploads_Move_Up10                 = Pataas 10
 Uploads_Move_Up1                  = Pataas 1
 Uploads_Move_Down1                = Pababa 1
@@ -137,6 +146,7 @@ Uploads_Col_Progress              = Progreso
 Uploads_Col_Path                  = Path
 Uploads_Col_Added                 = Idinagdag
 Uploads_Col_Finished              = Tapos
+Uploads_Col_Started = Nagsimula
 Uploads_Col_ScheduledAt           = Naka-iskedyul sa
 Uploads_Col_Duration              = Lumipas
 Uploads_Col_Order                 = Pagkakasunod
@@ -160,6 +170,8 @@ Uploads_Overview_Uploadspeed      = Bilis ng Upload
 Uploads_Overview_BytesLoaded      = Bytes na-load
 Uploads_Overview_RemainingBytes   = Natitirang Bytes
 Uploads_Overview_Eta              = ETA
+Uploads_Overview_Elapsed = Nakalipas
+Uploads_Overview_FinishAt = Matatapos sa
 Uploads_Overview_RunningUploads   = Tumatakbong Uploads
 Uploads_Overview_OpenConnections  = Bukas na Connections
 Uploads_Overview_FinishedLinks    = Tapos na Link(s)
@@ -175,6 +187,8 @@ Uploads_Overview_UploadspeedLabel     = Bilis ng Upload:
 Uploads_Overview_BytesLoadedLabel     = Bytes na-load:
 Uploads_Overview_RemainingBytesLabel  = Natitirang Bytes:
 Uploads_Overview_EtaLabel             = ETA:
+Uploads_Overview_ElapsedLabel = Nakalipas:
+Uploads_Overview_FinishAtLabel = Matatapos sa:
 Uploads_Overview_RunningUploadsLabel  = Tumatakbong Uploads:
 Uploads_Overview_OpenConnectionsLabel = Bukas na Connections:
 Uploads_Overview_FinishedLinksLabel   = Tapos na Link(s):
@@ -212,11 +226,13 @@ Uploads_Remove_Generic            = Tanggalin ang item na ito?
 Uploads_Remove_PackagesOnly_Format     = Tanggalin ang {0} package(s) ({1} file(s))?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = Tanggalin ang {0} file(s) sa upload list?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = Tanggalin ang {0} package(s) at {1} file(s) ({2} item(s) lahat)?      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format = Tanggalin ang lahat ng {0} natapos na file mula sa listahan ng upload?   # {0} = completed file count
 
 # Reset confirmation prompts
 Uploads_Reset_Title                  = I-reset
 Uploads_Reset_Package_Format         = I-reset ang package na '{0}'? Mag-re-rehash at muling i-aupload ang {1} natapos na file(s) sa package na ito.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = I-reset ang '{0}'? Tapos na itong na-upload — ang pag-reset ay magre-rehash at muling mag-uupload nito.  # {0} = file name
+Uploads_Reset_Multi_Format = I-reset ang {0} napiling item? {1} ang matagumpay nang na-upload — kapag ni-reset, iha-hash at ia-upload ulit ang mga ito.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = I-upload muli
 Uploads_ForceStart_Reupload_Format   = I-upload muli ang {0} na natapos nang file? Matagumpay na na-upload ang mga ito — muli silang ia-upload ng force start.  # {0} = completed file count
 ```
@@ -235,6 +251,7 @@ Uploaded_Col_Size                 = Laki
 Uploaded_Col_Hoster               = Hoster
 Uploaded_Col_Account              = Account
 Uploaded_Col_Finished             = Tapos
+Uploaded_Col_Started = Nagsimula
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = Hash
 
@@ -307,12 +324,12 @@ Settings_General_Database_Desc             = Iniimbak ng CSUploader ang upload h
 Settings_General_Database_BtnClear         = Clear
 Settings_General_Database_ConfirmTitle     = I-clear ang database
 Settings_General_Database_ConfirmMessage   = Permanenteng tanggalin ang upload records na nakatago sa parehong tab?\n\nHindi maaapektuhan ang aktibo at nakikitang uploads. Hindi na ito maibabalik.
-Settings_General_Database_Status_Cleared_Format    = Na-clear ang {0} file row at {1} package row mula sa database.
+Settings_General_Database_Status_Cleared_Format    = Na-clear ang {0} file row at {1} package row mula sa database.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = Walang nakatagong rows na ic-clear.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -324,7 +341,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = Tapos na ang pag-upload
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = Tapos na ang package
-Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}
+Toast_PackageCompleted_Body  = {0} sa {1} na file ang na-upload — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -486,7 +503,7 @@ Settings_Accounts_Btn_Refresh      = I-refresh lahat
 # Account remove / validation
 Settings_Accounts_Remove_Title             = Tanggalin ang Account
 Settings_Accounts_Remove_Message_Format    = Tanggalin ang account na '{0}' para sa {1}?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= Tanggalin ang {0} napiling account?
+Settings_Accounts_Remove_MessageBulk_Format= Tanggalin ang {0} napiling account?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -504,8 +521,8 @@ Settings_Accounts_Status_RefreshSummary_Format = Na-refresh ang {0} accounts. {1
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = Na-refresh ang {0} account. {1} ang na-update. {2} ang kailangang mag-sign in — i-enable ang mga ito upang mag-sign in muli.
 Settings_Accounts_Status_AccountDisabled_Format = Naka-disable ang account na '{0}'.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = Naka-enable ang account na '{0}'.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= Naka-enable ang {0} accounts.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= Naka-disable ang {0} accounts.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= Naka-enable ang {0} accounts.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -534,6 +551,11 @@ Logs_Col_Function                  = Function
 Logs_Col_Line                      = Line
 Logs_Col_Message                   = Message
 Logs_Col_Thread                    = Thread
+Logs_Col_Url = URL
+Logs_Col_Proxy = Proxy
+Logs_Col_Method = Method
+Logs_ResetColumns_Title = I-reset ang mga column
+Logs_ResetColumns_Message = I-reset ang mga column ng Logs tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -555,7 +577,15 @@ Wizard_Summary_Title              = Buod ng Upload
 Wizard_Summary_Desc               = Suriin kung ano ang mai-upload sa bawat hoster. Ang mga hoster na walang kwalipikadong file ay tinatanggal.
 Wizard_Summary_FileCount_Suffix   = na file
 Wizard_Summary_OrphanWarning_Suffix= na file ay hindi mai-upload sa anumang hoster:
-Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file
+Wizard_Summary_MaxFileSize_Format = hanggang {0} bawat file   # {0} = formatted byte unit (e.g. "250 MiB")
+Wizard_Summary_SelectedOfFree_Format = {0} ang napili sa {1} na libre   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
+Wizard_Summary_OverCapacityHint = Lampas sa available na espasyo — mag-alis ng pagkakapili ng mga file para magpatuloy.
+Wizard_Summary_AutoFitNotice_Format = {0} file ang tinanggal sa pagkakapili para magkasya sa available na espasyo.   # {0} = count of auto-unchecked files
+Wizard_Summary_AutoFitNoticeWithFree_Format = {0} file ang tinanggal sa pagkakapili para magkasya sa available na espasyo ({1} ang natitira).   # {0} = count, {1} = free space (formatted units); used when a single quota hoster drove the unchecking
+Wizard_Summary_CheckingSpace = sinusuri ang available na espasyo…   # per-hoster indicator while a live storage refresh is in flight
+Wizard_Summary_FilesSelected_Format = {0} sa {1} file ang napili   # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format = {0} ang ia-upload   # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
+Wizard_Summary_TotalFooter_Format = Kabuuan: {0} file • {1} ang ia-upload   # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. Mga File
 
 
@@ -626,8 +656,8 @@ Wizard_Hoster_LimitsHeader         = Lalampasan ang mga limitasyon ng hoster na 
 Wizard_Hoster_FileTooLarge_Format  = {0}: Lalampas sa limitasyon na {1} kada file ang mga sumusunod na file at hindi mai-upload:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: Naglalaman ng mga karakter na hindi tinatanggap ng hoster na ito ang mga sumusunod na pangalan ng file at hindi mai-upload:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: Ang mga sumusunod na file ay may extension na hindi tinatanggap ng hoster na ito at hindi mai-upload:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.
+Wizard_Hoster_AccountDisabled_Format = {0}: Naka-off ang account na "{1}", kaya walang mai-a-upload dito.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: Nabigo ang huling pagsusuri sa account na "{1}", kaya walang mai-a-upload dito — suriin itong muli sa Settings → Accounts.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} file ang napili, ngunit ang limitasyon kada package ay {2}.
 
@@ -674,6 +704,7 @@ Confirm_RemoveFileHosterAccount    = Tanggalin ang isang file hoster account
 Confirm_RemoveProxy                = Tanggalin ang isang proxy sa Connection Manager
 Confirm_ResetCompletedUpload       = I-reset ang tapos na upload (i-rehash at muling i-upload)
 Confirm_ResetColumns               = I-reset ang mga column sa default sa Uploads / History tab
+Confirm_RemoveCompletedUploads = Tanggalin ang lahat ng natapos na upload mula sa Uploads tab
 ```
 
 ---
@@ -730,6 +761,17 @@ EditAccount_AccountEnabled         = Naka-enable ang account
 EditAccount_BtnSave                = I-save
 EditAccount_BtnCancel              = Kanselahin
 EditAccount_Validation_RequireUsernameAndPassword = Mangyaring ipasok ang username at password.
+EditAccount_OrLabel = — o kaya —   # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel = API Key:
+EditAccount_SignInLabel = Account:
+EditAccount_SignInButton = Mag-sign in…   # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress = Binubuksan ang sign-in…
+EditAccount_SignIn_Success = ✓ Naka-sign in
+EditAccount_SignIn_SuccessAs_Format = ✓ Naka-sign in bilang {0}
+EditAccount_SignIn_Failed_Format = ✗ {0}
+EditAccount_SignIn_FailedGeneric = Hindi matagumpay ang pag-sign in.
+EditAccount_SignIn_Unavailable = Hindi available ang pag-sign in sa kontekstong ito.
+EditAccount_Validation_RequireLoginOrApiKey = I-click ang Mag-sign in para mag-authenticate, o i-paste ang API key.
 
 EditProxy_AddTitle                 = Magdagdag ng Proxy
 EditProxy_EditTitle                = I-edit ang Proxy
@@ -743,6 +785,15 @@ EditProxy_Status_Testing           = Sinusubukan…
 EditProxy_Status_OkLatency_Format  = OK {0}ms (hindi inaasahang tugon)
 EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
 EditProxy_Status_Failed_Format     = Nabigo: {0}
+WebViewLogin_WindowTitle = Mag-sign in
+WebViewLogin_Header_Format = Mag-sign in sa {0}   # {0} = hoster name
+WebViewLogin_Instructions = Kumpletuhin ang pag-sign in (kasama ang captcha kung mayroon) sa browser sa ibaba. Awtomatikong magsasara ang window na ito kapag nakuha na ang session mo.
+WebViewLogin_Status_Initializing = Ini-initialize ang browser...
+WebViewLogin_Status_Loading_Format = Nilo-load ang {0}...   # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = Hindi mabasa ang cookie: {0}   # {0} = error detail
+WebViewLogin_Error_InitFailed_Format = Hindi ma-initialize ang WebView2 browser. Maaaring hindi naka-install ang WebView2 runtime. Detalye: {0}
+WebViewLogin_Error_UnsupportedProxy_Title = Hindi suportado ang proxy para sa pag-sign in
+WebViewLogin_Error_SocksAuthUnsupported_Format = Hindi magagamit ng sign-in browser ang SOCKS proxy na nangangailangan ng username at password ({0}). Gumamit ng SOCKS proxy na walang credentials, o HTTP/HTTPS proxy.
 ```
 
 ### HttpDetails window

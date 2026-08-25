@@ -139,6 +139,27 @@
   <data name="Common_Context_OpenUrl" xml:space="preserve">
     <value>Open URL</value>
   </data>
+  <data name="Common_CopyLinks" xml:space="preserve">
+    <value>复制链接</value>
+  </data>
+  <data name="Common_CopyLinks_ByFilePlain" xml:space="preserve">
+    <value>按文件（纯文本）</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileBBCode" xml:space="preserve">
+    <value>按文件（BBCode）</value>
+  </data>
+  <data name="Common_CopyLinks_ByFileMarkdown" xml:space="preserve">
+    <value>按文件（Markdown）</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterPlain" xml:space="preserve">
+    <value>按托管商（纯文本）</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterBBCode" xml:space="preserve">
+    <value>按托管商（BBCode）</value>
+  </data>
+  <data name="Common_CopyLinks_ByHosterMarkdown" xml:space="preserve">
+    <value>按托管商（Markdown）</value>
+  </data>
   <data name="Main_Title" xml:space="preserve">
     <value>CSUploader</value>
   </data>
@@ -210,7 +231,7 @@
 此版本未安装，无法自动更新。请从发布页面下载新版本。</value>
   </data>
   <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
-    <value>A check that started earlier is still running. Try again in a moment.</value>
+    <value>之前开始的检查仍在进行中。请稍后再试。</value>
   </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>更新检查失败</value>
@@ -257,11 +278,17 @@
   <data name="Uploads_Context_SetSpeedLimit" xml:space="preserve">
     <value>设置速度限制…</value>
   </data>
+  <data name="Uploads_Context_RenamePackage" xml:space="preserve">
+    <value>重命名包...</value>
+  </data>
   <data name="Uploads_Context_Move" xml:space="preserve">
     <value>移动</value>
   </data>
   <data name="Uploads_Context_Remove" xml:space="preserve">
     <value>移除</value>
+  </data>
+  <data name="Uploads_Context_RemoveAllCompleted" xml:space="preserve">
+    <value>移除所有已完成</value>
   </data>
   <data name="Uploads_Move_Up10" xml:space="preserve">
     <value>上移 10</value>
@@ -319,6 +346,9 @@
   </data>
   <data name="Uploads_Col_Finished" xml:space="preserve">
     <value>完成时间</value>
+  </data>
+  <data name="Uploads_Col_Started" xml:space="preserve">
+    <value>开始时间</value>
   </data>
   <data name="Uploads_Col_ScheduledAt" xml:space="preserve">
     <value>计划开始时间</value>
@@ -380,6 +410,12 @@
   <data name="Uploads_Overview_Eta" xml:space="preserve">
     <value>剩余时间</value>
   </data>
+  <data name="Uploads_Overview_Elapsed" xml:space="preserve">
+    <value>已用时间</value>
+  </data>
+  <data name="Uploads_Overview_FinishAt" xml:space="preserve">
+    <value>预计完成</value>
+  </data>
   <data name="Uploads_Overview_RunningUploads" xml:space="preserve">
     <value>运行中的上传</value>
   </data>
@@ -415,6 +451,12 @@
   </data>
   <data name="Uploads_Overview_EtaLabel" xml:space="preserve">
     <value>剩余时间：</value>
+  </data>
+  <data name="Uploads_Overview_ElapsedLabel" xml:space="preserve">
+    <value>已用时间：</value>
+  </data>
+  <data name="Uploads_Overview_FinishAtLabel" xml:space="preserve">
+    <value>预计完成：</value>
   </data>
   <data name="Uploads_Overview_RunningUploadsLabel" xml:space="preserve">
     <value>运行中的上传：</value>
@@ -500,6 +542,9 @@
   <data name="Uploads_Remove_PackagesAndFiles_Format" xml:space="preserve">
     <value>是否移除 {0} 个包和 {1} 个文件（共 {2} 项）？</value>
   </data>
+  <data name="Uploads_RemoveCompleted_Format" xml:space="preserve">
+    <value>是否从上传列表中移除全部 {0} 个已完成的文件？</value>
+  </data>
   <data name="Uploads_Reset_Title" xml:space="preserve">
     <value>重置</value>
   </data>
@@ -508,6 +553,9 @@
   </data>
   <data name="Uploads_Reset_File_Format" xml:space="preserve">
     <value>是否重置 '{0}'？该文件已成功上传 — 重置将重新哈希并重新上传。</value>
+  </data>
+  <data name="Uploads_Reset_Multi_Format" xml:space="preserve">
+    <value>是否重置选中的 {0} 个项目？其中 {1} 个已成功上传 — 重置后将重新哈希并重新上传。</value>
   </data>
   <data name="Uploads_ForceStart_Reupload_Title" xml:space="preserve">
     <value>重新上传</value>
@@ -538,6 +586,9 @@
   </data>
   <data name="Uploaded_Col_Finished" xml:space="preserve">
     <value>完成时间</value>
+  </data>
+  <data name="Uploaded_Col_Started" xml:space="preserve">
+    <value>开始时间</value>
   </data>
   <data name="Uploaded_Col_URL" xml:space="preserve">
     <value>URL</value>
@@ -1191,6 +1242,21 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Logs_Col_Thread" xml:space="preserve">
     <value>线程</value>
   </data>
+  <data name="Logs_Col_Url" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Logs_Col_Proxy" xml:space="preserve">
+    <value>代理</value>
+  </data>
+  <data name="Logs_Col_Method" xml:space="preserve">
+    <value>方法</value>
+  </data>
+  <data name="Logs_ResetColumns_Title" xml:space="preserve">
+    <value>重置列</value>
+  </data>
+  <data name="Logs_ResetColumns_Message" xml:space="preserve">
+    <value>是否将"日志"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。</value>
+  </data>
   <data name="Logs_Status_HiddenFiles_Format" xml:space="preserve">
     <value>已从"历史"标签页隐藏 {0} 个文件</value>
   </data>
@@ -1223,6 +1289,30 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="Wizard_Summary_MaxFileSize_Format" xml:space="preserve">
     <value>每个文件最多 {0}</value>
+  </data>
+  <data name="Wizard_Summary_SelectedOfFree_Format" xml:space="preserve">
+    <value>已选 {0}（可用 {1}）</value>
+  </data>
+  <data name="Wizard_Summary_OverCapacityHint" xml:space="preserve">
+    <value>超出可用空间 — 请取消勾选部分文件以继续。</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNotice_Format" xml:space="preserve">
+    <value>为适应可用空间，已取消勾选 {0} 个文件。</value>
+  </data>
+  <data name="Wizard_Summary_AutoFitNoticeWithFree_Format" xml:space="preserve">
+    <value>为适应可用空间，已取消勾选 {0} 个文件（剩余 {1}）。</value>
+  </data>
+  <data name="Wizard_Summary_CheckingSpace" xml:space="preserve">
+    <value>正在检查可用空间…</value>
+  </data>
+  <data name="Wizard_Summary_FilesSelected_Format" xml:space="preserve">
+    <value>已选择 {0}/{1} 个文件</value>
+  </data>
+  <data name="Wizard_Summary_ToUpload_Format" xml:space="preserve">
+    <value>待上传 {0}</value>
+  </data>
+  <data name="Wizard_Summary_TotalFooter_Format" xml:space="preserve">
+    <value>总计：{0} 个文件 • 待上传 {1}</value>
   </data>
   <data name="Wizard_Step_FilesSource" xml:space="preserve">
     <value>1. 文件</value>
@@ -1512,6 +1602,9 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="Confirm_ResetColumns" xml:space="preserve">
     <value>将"上传中"/"历史"标签页的列重置为默认设置</value>
   </data>
+  <data name="Confirm_RemoveCompletedUploads" xml:space="preserve">
+    <value>从“上传中”标签页移除所有已完成的上传</value>
+  </data>
   <data name="About_WindowTitle" xml:space="preserve">
     <value>关于 CSUploader</value>
   </data>
@@ -1608,6 +1701,39 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   <data name="EditAccount_Validation_RequireUsernameAndPassword" xml:space="preserve">
     <value>请输入用户名和密码。</value>
   </data>
+  <data name="EditAccount_OrLabel" xml:space="preserve">
+    <value>— 或 —</value>
+  </data>
+  <data name="EditAccount_ApiKeyLabel" xml:space="preserve">
+    <value>API 密钥：</value>
+  </data>
+  <data name="EditAccount_SignInLabel" xml:space="preserve">
+    <value>账户：</value>
+  </data>
+  <data name="EditAccount_SignInButton" xml:space="preserve">
+    <value>登录…</value>
+  </data>
+  <data name="EditAccount_SignIn_InProgress" xml:space="preserve">
+    <value>正在打开登录窗口…</value>
+  </data>
+  <data name="EditAccount_SignIn_Success" xml:space="preserve">
+    <value>✓ 已登录</value>
+  </data>
+  <data name="EditAccount_SignIn_SuccessAs_Format" xml:space="preserve">
+    <value>✓ 已以 {0} 的身份登录</value>
+  </data>
+  <data name="EditAccount_SignIn_Failed_Format" xml:space="preserve">
+    <value>✗ {0}</value>
+  </data>
+  <data name="EditAccount_SignIn_FailedGeneric" xml:space="preserve">
+    <value>登录失败。</value>
+  </data>
+  <data name="EditAccount_SignIn_Unavailable" xml:space="preserve">
+    <value>当前环境下无法登录。</value>
+  </data>
+  <data name="EditAccount_Validation_RequireLoginOrApiKey" xml:space="preserve">
+    <value>点击“登录”进行认证，或粘贴 API 密钥。</value>
+  </data>
   <data name="EditProxy_AddTitle" xml:space="preserve">
     <value>添加代理</value>
   </data>
@@ -1643,6 +1769,33 @@ The Logs tab will also be emptied. This cannot be undone.</value>
   </data>
   <data name="EditProxy_Status_Failed_Format" xml:space="preserve">
     <value>失败：{0}</value>
+  </data>
+  <data name="WebViewLogin_WindowTitle" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="WebViewLogin_Header_Format" xml:space="preserve">
+    <value>登录 {0}</value>
+  </data>
+  <data name="WebViewLogin_Instructions" xml:space="preserve">
+    <value>请在下方浏览器中完成登录（包括验证码）。会话捕获成功后，此窗口将自动关闭。</value>
+  </data>
+  <data name="WebViewLogin_Status_Initializing" xml:space="preserve">
+    <value>正在初始化浏览器...</value>
+  </data>
+  <data name="WebViewLogin_Status_Loading_Format" xml:space="preserve">
+    <value>正在加载 {0}...</value>
+  </data>
+  <data name="WebViewLogin_Status_CookieReadFailed_Format" xml:space="preserve">
+    <value>读取 Cookie 失败：{0}</value>
+  </data>
+  <data name="WebViewLogin_Error_InitFailed_Format" xml:space="preserve">
+    <value>无法初始化 WebView2 浏览器。可能未安装 WebView2 运行时。详细信息：{0}</value>
+  </data>
+  <data name="WebViewLogin_Error_UnsupportedProxy_Title" xml:space="preserve">
+    <value>登录不支持此代理</value>
+  </data>
+  <data name="WebViewLogin_Error_SocksAuthUnsupported_Format" xml:space="preserve">
+    <value>登录浏览器无法使用需要用户名和密码的 SOCKS 代理（{0}）。请使用无需凭据的 SOCKS 代理，或改用 HTTP/HTTPS 代理。</value>
   </data>
   <data name="HttpDetails_WindowTitle" xml:space="preserve">
     <value>HTTP 事务详情</value>

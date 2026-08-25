@@ -53,6 +53,13 @@ Common_Preparing                  = 準備中…
 Common_Unknown                    = 不明
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks = リンクをコピー
+Common_CopyLinks_ByFilePlain = ファイル別 (プレーン)
+Common_CopyLinks_ByFileBBCode = ファイル別 (BBCode)
+Common_CopyLinks_ByFileMarkdown = ファイル別 (Markdown)
+Common_CopyLinks_ByHosterPlain = ホスター別 (プレーン)
+Common_CopyLinks_ByHosterBBCode = ホスター別 (BBCode)
+Common_CopyLinks_ByHosterMarkdown = ホスター別 (Markdown)
 ```
 
 `Common_Save` は、設定 → 接続ページの保存ボタン、アカウント編集ダイアログの保存ボタン、
@@ -88,7 +95,7 @@ Main_CheckForUpdates_AlreadyLatest = 最新バージョンを使用中です。
 Main_CheckForUpdates_Available_Format = 更新があります: v{0}。\n\nダウンロードとインストールには ヘルプ → 更新をインストール を使用してください。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 更新を確認できませんでした: {0}
 Main_CheckForUpdates_NotInstallable_Format = 更新があります: v{0}。\n\nこのビルドはインストールされていないため、自動で更新できません。リリースページから新しいバージョンをダウンロードしてください。   # {0} = available semver
-Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
+Main_CheckForUpdates_StillRunning = 先に開始された確認がまだ実行中です。しばらくしてからもう一度お試しください。
 Update_CheckFailed_ToastTitle = 更新の確認に失敗しました
 Update_CheckFailed_ToastBody = CSUploader は更新を確認できませんでした。後でもう一度試します。
 ```
@@ -114,8 +121,10 @@ Uploads_Context_SkipUpload        = アップロードをスキップ
 Uploads_Context_Reset             = リセット
 Uploads_Context_OpenSourceDir     = ソースディレクトリを開く
 Uploads_Context_SetSpeedLimit     = 速度制限を設定…
+Uploads_Context_RenamePackage = パッケージ名を変更...
 Uploads_Context_Move              = 移動
 Uploads_Context_Remove            = 削除
+Uploads_Context_RemoveAllCompleted = 完了したものをすべて削除
 Uploads_Move_Up10                 = 上へ10
 Uploads_Move_Up1                  = 上へ1
 Uploads_Move_Down1                = 下へ1
@@ -136,6 +145,7 @@ Uploads_Col_Progress              = 進捗
 Uploads_Col_Path                  = パス
 Uploads_Col_Added                 = 追加日時
 Uploads_Col_Finished              = 完了日時
+Uploads_Col_Started = 開始日時
 Uploads_Col_ScheduledAt           = 開始予定日時
 Uploads_Col_Duration              = 経過時間
 Uploads_Col_Order                 = 順序
@@ -159,6 +169,8 @@ Uploads_Overview_Uploadspeed      = アップロード速度
 Uploads_Overview_BytesLoaded      = 読み込み済みバイト数
 Uploads_Overview_RemainingBytes   = 残りバイト数
 Uploads_Overview_Eta              = 残り時間
+Uploads_Overview_Elapsed = 経過時間
+Uploads_Overview_FinishAt = 完了予定
 Uploads_Overview_RunningUploads   = 実行中のアップロード
 Uploads_Overview_OpenConnections  = 接続中の接続数
 Uploads_Overview_FinishedLinks    = 完了したリンク
@@ -174,6 +186,8 @@ Uploads_Overview_UploadspeedLabel     = アップロード速度:
 Uploads_Overview_BytesLoadedLabel     = 読み込み済みバイト数:
 Uploads_Overview_RemainingBytesLabel  = 残りバイト数:
 Uploads_Overview_EtaLabel             = 残り時間:
+Uploads_Overview_ElapsedLabel = 経過時間:
+Uploads_Overview_FinishAtLabel = 完了予定:
 Uploads_Overview_RunningUploadsLabel  = 実行中のアップロード:
 Uploads_Overview_OpenConnectionsLabel = 接続中の接続数:
 Uploads_Overview_FinishedLinksLabel   = 完了したリンク:
@@ -211,11 +225,13 @@ Uploads_Remove_Generic            = この項目を削除しますか?
 Uploads_Remove_PackagesOnly_Format     = パッケージを {0} 個 ({1} 個のファイル) 削除しますか?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = アップロードリストから {0} 個のファイルを削除しますか?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = パッケージを {0} 個とファイルを {1} 個 (合計 {2} 項目) 削除しますか?      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format = 完了した {0} 件のファイルをアップロードリストから削除しますか?   # {0} = completed file count
 
 # Reset confirmation prompts
 Uploads_Reset_Title                  = リセット
 Uploads_Reset_Package_Format         = パッケージ '{0}' をリセットしますか? このパッケージ内の完了済みファイル {1} 個が再ハッシュ・再アップロードされます。  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}' をリセットしますか? このファイルはすでにアップロード完了しています — リセットすると再ハッシュおよび再アップロードが行われます。  # {0} = file name
+Uploads_Reset_Multi_Format = 選択した {0} 件をリセットしますか? {1} 件はすでにアップロード済みです — リセットすると再ハッシュ・再アップロードされます。   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = 再アップロード
 Uploads_ForceStart_Reupload_Format   = 完了済みの {0} 個のファイルを再アップロードしますか? 正常にアップロード済みですが、強制開始でもう一度アップロードします。  # {0} = completed file count
 ```
@@ -234,6 +250,7 @@ Uploaded_Col_Size                 = サイズ
 Uploaded_Col_Hoster               = ホスター
 Uploaded_Col_Account              = アカウント
 Uploaded_Col_Finished             = 完了日時
+Uploaded_Col_Started = 開始日時
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = ハッシュ
 
@@ -306,12 +323,12 @@ Settings_General_Database_Desc             = CSUploader はアップロード履
 Settings_General_Database_BtnClear         = クリア
 Settings_General_Database_ConfirmTitle     = データベースをクリア
 Settings_General_Database_ConfirmMessage   = 両方のタブで非表示になっているアップロード記録を完全に削除しますか？\n\n進行中および表示中のアップロードには影響しません。この操作は取り消せません。
-Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。
+Settings_General_Database_Status_Cleared_Format    = データベースからファイル {0} 件、パッケージ {1} 件をクリアしました。   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = クリアできる非表示の行はありません。
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -323,7 +340,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = アップロード完了
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = パッケージのアップロード完了
-Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}
+Toast_PackageCompleted_Body  = {1} 件中 {0} 件のファイルをアップロード — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -485,7 +502,7 @@ Settings_Accounts_Btn_Refresh      = すべて更新
 # Account remove / validation
 Settings_Accounts_Remove_Title             = アカウントを削除
 Settings_Accounts_Remove_Message_Format    = {1} のアカウント「{0}」を削除しますか?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?
+Settings_Accounts_Remove_MessageBulk_Format= 選択した {0} 件のアカウントを削除しますか?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -503,8 +520,8 @@ Settings_Accounts_Status_RefreshSummary_Format = {0} 個のアカウントを更
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0} 件のアカウントを更新しました。{1} 件を変更。{2} 件はサインインが必要です — 有効にすると再サインインします。
 Settings_Accounts_Status_AccountDisabled_Format = アカウント「{0}」を無効化しました。                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = アカウント「{0}」を有効化しました。                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。
-Settings_Accounts_Status_AccountsBulkEnabled_Format= {0} 件のアカウントを有効化しました。
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0} 件のアカウントを無効化しました。   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0} 件のアカウントを有効化しました。   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = OK
@@ -533,6 +550,11 @@ Logs_Col_Function                  = 関数
 Logs_Col_Line                      = 行
 Logs_Col_Message                   = メッセージ
 Logs_Col_Thread                    = スレッド
+Logs_Col_Url = URL
+Logs_Col_Proxy = プロキシ
+Logs_Col_Method = メソッド
+Logs_ResetColumns_Title = 列をリセット
+Logs_ResetColumns_Message = ログタブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -554,7 +576,15 @@ Wizard_Summary_Title              = アップロードサマリー
 Wizard_Summary_Desc               = 各ホスターへアップロードされる内容を確認します。対象ファイルがないホスターは除外されます。
 Wizard_Summary_FileCount_Suffix   = ファイル
 Wizard_Summary_OrphanWarning_Suffix= 件のファイルはどのホスターにもアップロードされません:
-Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}
+Wizard_Summary_MaxFileSize_Format = 1ファイルあたり最大 {0}   # {0} = formatted byte unit (e.g. "250 MiB")
+Wizard_Summary_SelectedOfFree_Format = 空き {1} のうち {0} を選択   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
+Wizard_Summary_OverCapacityHint = 空き容量を超えています — 続行するにはファイルのチェックを外してください。
+Wizard_Summary_AutoFitNotice_Format = 空き容量に収めるため {0} 件のファイルのチェックを外しました。   # {0} = count of auto-unchecked files
+Wizard_Summary_AutoFitNoticeWithFree_Format = 空き容量に収めるため {0} 件のファイルのチェックを外しました（空き {1}）。   # {0} = count, {1} = free space (formatted units); used when a single quota hoster drove the unchecking
+Wizard_Summary_CheckingSpace = 空き容量を確認しています…   # per-hoster indicator while a live storage refresh is in flight
+Wizard_Summary_FilesSelected_Format = {1} 件中 {0} 件のファイルを選択   # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format = アップロード予定 {0}   # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
+Wizard_Summary_TotalFooter_Format = 合計: {0} 件 • アップロード {1}   # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. ファイル
 
 
@@ -625,8 +655,8 @@ Wizard_Hoster_LimitsHeader         = このホスターの制限を超過しま�
 Wizard_Hoster_FileTooLarge_Format  = {0}: 以下のファイルは 1 ファイルあたりの上限 {1} を超えているためアップロードされません:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 以下のファイル名にはこのホスターが受け付けない文字が含まれているためアップロードされません:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: 以下のファイルはこのホスターが受け付けない拡張子のためアップロードされません:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: アカウント「{1}」は無効なため、ここには何もアップロードされません。
-Wizard_Hoster_AccountCheckFailed_Format = {0}: アカウント「{1}」の前回のチェックに失敗したため、ここには何もアップロードされません。設定 → アカウントで再度確認してください。
+Wizard_Hoster_AccountDisabled_Format = {0}: アカウント「{1}」は無効なため、ここには何もアップロードされません。   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: アカウント「{1}」の前回のチェックに失敗したため、ここには何もアップロードされません。設定 → アカウントで再度確認してください。   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1} 個のファイルが選択されていますが、パッケージあたりの上限は {2} 個です。
 
@@ -672,6 +702,7 @@ Confirm_RemoveFileHosterAccount    = ファイルホスターアカウントを�
 Confirm_RemoveProxy                = 接続マネージャーからプロキシを削除
 Confirm_ResetCompletedUpload       = 完了したアップロードをリセット (再ハッシュ・再アップロード)
 Confirm_ResetColumns               = アップロード / 履歴タブの列を既定値にリセット
+Confirm_RemoveCompletedUploads = アップロードタブから完了したアップロードをすべて削除する
 ```
 
 ---
@@ -728,6 +759,17 @@ EditAccount_AccountEnabled         = アカウントを有効化
 EditAccount_BtnSave                = 保存
 EditAccount_BtnCancel              = キャンセル
 EditAccount_Validation_RequireUsernameAndPassword = ユーザー名とパスワードの両方を入力してください。
+EditAccount_OrLabel = — または —   # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel = APIキー:
+EditAccount_SignInLabel = アカウント:
+EditAccount_SignInButton = サインイン…   # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress = サインイン画面を開いています…
+EditAccount_SignIn_Success = ✓ サインインしました
+EditAccount_SignIn_SuccessAs_Format = ✓ {0} としてサインインしました
+EditAccount_SignIn_Failed_Format = ✗ {0}
+EditAccount_SignIn_FailedGeneric = サインインに失敗しました。
+EditAccount_SignIn_Unavailable = この状況ではサインインを利用できません。
+EditAccount_Validation_RequireLoginOrApiKey = 「サインイン」をクリックして認証するか、APIキーを貼り付けてください。
 
 EditProxy_AddTitle                 = プロキシを追加
 EditProxy_EditTitle                = プロキシを編集
@@ -741,6 +783,15 @@ EditProxy_Status_Testing           = テスト中…
 EditProxy_Status_OkLatency_Format  = OK {0}ms (予期しない応答)
 EditProxy_Status_OkLatencyIp_Format = OK {0}ms ({1})
 EditProxy_Status_Failed_Format     = 失敗: {0}
+WebViewLogin_WindowTitle = サインイン
+WebViewLogin_Header_Format = {0} にサインイン   # {0} = hoster name
+WebViewLogin_Instructions = 下のブラウザでサインイン（キャプチャがある場合はそれも）を完了してください。セッションが取得されると、このウィンドウは自動的に閉じます。
+WebViewLogin_Status_Initializing = ブラウザを初期化しています...
+WebViewLogin_Status_Loading_Format = {0} を読み込んでいます...   # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = Cookie の読み取りに失敗しました: {0}   # {0} = error detail
+WebViewLogin_Error_InitFailed_Format = WebView2 ブラウザを初期化できませんでした。WebView2 ランタイムがインストールされていない可能性があります。詳細: {0}
+WebViewLogin_Error_UnsupportedProxy_Title = サインインに対応していないプロキシ
+WebViewLogin_Error_SocksAuthUnsupported_Format = サインイン用ブラウザは、ユーザー名とパスワードを必要とする SOCKS プロキシ ({0}) を使用できません。認証なしの SOCKS プロキシか、HTTP/HTTPS プロキシを使用してください。
 ```
 
 ### HttpDetails ウィンドウ

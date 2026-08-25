@@ -53,6 +53,13 @@ Common_Preparing                  = 준비 중…
 Common_Unknown                    = 알 수 없음
 Common_Context_Copy               = Copy
 Common_Context_OpenUrl            = Open URL
+Common_CopyLinks = 링크 복사
+Common_CopyLinks_ByFilePlain = 파일별 (일반 텍스트)
+Common_CopyLinks_ByFileBBCode = 파일별 (BBCode)
+Common_CopyLinks_ByFileMarkdown = 파일별 (Markdown)
+Common_CopyLinks_ByHosterPlain = 호스터별 (일반 텍스트)
+Common_CopyLinks_ByHosterBBCode = 호스터별 (BBCode)
+Common_CopyLinks_ByHosterMarkdown = 호스터별 (Markdown)
 ```
 
 `Common_Save` is reused by the Settings → Connection page Save button, the Edit Account
@@ -89,7 +96,7 @@ Main_CheckForUpdates_AlreadyLatest = 최신 버전을 사용 중입니다.
 Main_CheckForUpdates_Available_Format = 업데이트 사용 가능: v{0}.\n\n도움말 → 업데이트 설치를 통해 다운로드하고 설치하세요.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 업데이트를 확인할 수 없습니다: {0}
 Main_CheckForUpdates_NotInstallable_Format = 업데이트 사용 가능: v{0}.\n\n이 빌드는 설치되지 않았으므로 스스로 업데이트할 수 없습니다. 릴리스 페이지에서 새 버전을 다운로드하세요.   # {0} = available semver
-Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
+Main_CheckForUpdates_StillRunning = 이전에 시작된 확인이 아직 실행 중입니다. 잠시 후 다시 시도하세요.
 Update_CheckFailed_ToastTitle = 업데이트 확인 실패
 Update_CheckFailed_ToastBody = CSUploader가 업데이트를 확인하지 못했습니다. 나중에 다시 시도합니다.
 ```
@@ -115,8 +122,10 @@ Uploads_Context_SkipUpload        = 업로드 건너뛰기
 Uploads_Context_Reset             = 재설정
 Uploads_Context_OpenSourceDir     = 원본 디렉터리 열기
 Uploads_Context_SetSpeedLimit     = 속도 제한 설정…
+Uploads_Context_RenamePackage = 패키지 이름 바꾸기...
 Uploads_Context_Move              = 이동
 Uploads_Context_Remove            = 제거
+Uploads_Context_RemoveAllCompleted = 완료된 항목 모두 제거
 Uploads_Move_Up10                 = 위로 10
 Uploads_Move_Up1                  = 위로 1
 Uploads_Move_Down1                = 아래로 1
@@ -137,6 +146,7 @@ Uploads_Col_Progress              = 진행률
 Uploads_Col_Path                  = 경로
 Uploads_Col_Added                 = 추가됨
 Uploads_Col_Finished              = 완료됨
+Uploads_Col_Started = 시작됨
 Uploads_Col_ScheduledAt           = 예약 시각
 Uploads_Col_Duration              = 경과 시간
 Uploads_Col_Order                 = 순서
@@ -160,6 +170,8 @@ Uploads_Overview_Uploadspeed      = 업로드 속도
 Uploads_Overview_BytesLoaded      = 처리된 바이트
 Uploads_Overview_RemainingBytes   = 남은 바이트
 Uploads_Overview_Eta              = 남은 시간
+Uploads_Overview_Elapsed = 경과 시간
+Uploads_Overview_FinishAt = 완료 예정
 Uploads_Overview_RunningUploads   = 실행 중인 업로드
 Uploads_Overview_OpenConnections  = 열린 연결
 Uploads_Overview_FinishedLinks    = 완료된 링크
@@ -175,6 +187,8 @@ Uploads_Overview_UploadspeedLabel     = 업로드 속도:
 Uploads_Overview_BytesLoadedLabel     = 처리된 바이트:
 Uploads_Overview_RemainingBytesLabel  = 남은 바이트:
 Uploads_Overview_EtaLabel             = 남은 시간:
+Uploads_Overview_ElapsedLabel = 경과 시간:
+Uploads_Overview_FinishAtLabel = 완료 예정:
 Uploads_Overview_RunningUploadsLabel  = 실행 중인 업로드:
 Uploads_Overview_OpenConnectionsLabel = 열린 연결:
 Uploads_Overview_FinishedLinksLabel   = 완료된 링크:
@@ -212,11 +226,13 @@ Uploads_Remove_Generic            = 이 항목을 제거하시겠습니까?
 Uploads_Remove_PackagesOnly_Format     = 패키지 {0}개(파일 {1}개)를 제거하시겠습니까?                            # {0} = package count, {1} = total file count
 Uploads_Remove_FilesOnly_Format        = 업로드 목록에서 파일 {0}개를 제거하시겠습니까?                       # {0} = file count
 Uploads_Remove_PackagesAndFiles_Format = 패키지 {0}개와 파일 {1}개(총 {2}개 항목)를 제거하시겠습니까?      # {0} = packages, {1} = loose files, {2} = total
+Uploads_RemoveCompleted_Format = 완료된 파일 {0}개를 업로드 목록에서 제거하시겠습니까?   # {0} = completed file count
 
 # Reset confirmation prompts
 Uploads_Reset_Title                  = 재설정
 Uploads_Reset_Package_Format         = 패키지 '{0}'을(를) 재설정하시겠습니까? 이 패키지의 완료된 파일 {1}개를 다시 해시하고 업로드합니다.  # {0} = package name, {1} = completed file count
 Uploads_Reset_File_Format            = '{0}'을(를) 재설정하시겠습니까? 이 파일은 이미 업로드 완료되었으며 — 재설정 시 다시 해시하고 업로드합니다.  # {0} = file name
+Uploads_Reset_Multi_Format = 선택한 {0}개 항목을 재설정하시겠습니까? {1}개는 이미 업로드가 완료되었습니다 — 재설정하면 다시 해시하고 다시 업로드합니다.   # {0} = selected count, {1} = completed count
 Uploads_ForceStart_Reupload_Title    = 다시 업로드
 Uploads_ForceStart_Reupload_Format   = 이미 완료된 파일 {0}개를 다시 업로드할까요? 정상적으로 업로드되었지만 강제 시작으로 다시 업로드합니다.  # {0} = completed file count
 ```
@@ -235,6 +251,7 @@ Uploaded_Col_Size                 = 크기
 Uploaded_Col_Hoster               = 호스터
 Uploaded_Col_Account              = 계정
 Uploaded_Col_Finished             = 완료됨
+Uploaded_Col_Started = 시작됨
 Uploaded_Col_URL                  = URL
 Uploaded_Col_Hash                 = 해시
 
@@ -307,12 +324,12 @@ Settings_General_Database_Desc             = CSUploader는 업로드 기록(패�
 Settings_General_Database_BtnClear         = 지우기
 Settings_General_Database_ConfirmTitle     = 데이터베이스 지우기
 Settings_General_Database_ConfirmMessage   = 두 탭 모두에서 숨겨진 업로드 기록을 영구적으로 삭제하시겠습니까?\n\n활성 및 표시 중인 업로드는 영향을 받지 않습니다. 이 작업은 되돌릴 수 없습니다.
-Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.
+Settings_General_Database_Status_Cleared_Format    = 데이터베이스에서 파일 {0}개와 패키지 {1}개를 지웠습니다.   # {0} = file count, {1} = package count
 Settings_General_Database_Status_NothingToClear    = 지울 숨겨진 행이 없습니다.
 Settings_General_Database_BtnClearLogs              = Clear logs
 Settings_General_Database_ConfirmClearLogsTitle     = Clear log history
 Settings_General_Database_ConfirmClearLogsMessage   = Permanently delete all log entries from the database?\n\nThe Logs tab will also be emptied. This cannot be undone.
-Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.
+Settings_General_Database_LogsCleared_Format        = Cleared {0} log entr(ies) from the database.   # {0} = count
 Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 ```
 
@@ -324,7 +341,7 @@ Settings_General_Database_LogsNothingToClear        = No log entries to clear.
 Toast_FileCompleted_Title    = 업로드 완료
 Toast_FileCompleted_Body     = {0}
 Toast_PackageCompleted_Title = 패키지 업로드 완료
-Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}
+Toast_PackageCompleted_Body  = {1}개 중 {0}개 파일 업로드됨 — {2}   # {0} = succeeded count, {1} = total count, {2} = package name
 ```
 
 ---
@@ -486,7 +503,7 @@ Settings_Accounts_Btn_Refresh      = 모두 새로 고침
 # Account remove / validation
 Settings_Accounts_Remove_Title             = 계정 제거
 Settings_Accounts_Remove_Message_Format    = {1}의 계정 '{0}'을(를) 제거하시겠습니까?                  # {0} = username, {1} = file hoster name
-Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?
+Settings_Accounts_Remove_MessageBulk_Format= 선택한 {0}개의 계정을 제거하시겠습니까?   # {0} = count
 
 
 # CheckAccountStatus inline status messages
@@ -504,8 +521,8 @@ Settings_Accounts_Status_RefreshSummary_Format = 계정 {0}개를 새로 고쳤�
 Settings_Accounts_Status_RefreshSummaryWithSignIn_Format = {0}개 계정을 새로 고쳤습니다. {1}개 변경됨. {2}개는 로그인이 필요합니다 — 활성화하면 다시 로그인합니다.
 Settings_Accounts_Status_AccountDisabled_Format = 계정 '{0}'이(가) 비활성화되었습니다.                    # {0} = username
 Settings_Accounts_Status_AccountEnabled_Format  = 계정 '{0}'이(가) 활성화되었습니다.                     # {0} = username
-Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.
-Settings_Accounts_Status_AccountsBulkEnabled_Format= {0}개의 계정이 활성화되었습니다.
+Settings_Accounts_Status_AccountsBulkDisabled_Format= {0}개의 계정이 비활성화되었습니다.   # {0} = count
+Settings_Accounts_Status_AccountsBulkEnabled_Format= {0}개의 계정이 활성화되었습니다.   # {0} = count
 
 # AccountCheckResult fallback strings (SettingsViewModel)
 Settings_Accounts_DefaultStatus_OK        = 정상
@@ -534,6 +551,11 @@ Logs_Col_Function                  = 함수
 Logs_Col_Line                      = 줄
 Logs_Col_Message                   = 메시지
 Logs_Col_Thread                    = 스레드
+Logs_Col_Url = URL
+Logs_Col_Proxy = 프록시
+Logs_Col_Method = 메서드
+Logs_ResetColumns_Title = 열 재설정
+Logs_ResetColumns_Message = 로그 탭의 열을 기본값으로 재설정하시겠습니까? 사용자 지정한 표시/숨김 및 순서가 모두 지워집니다.
 
 # Status messages logged to the Status tab (UploadedViewModel) — these surface to the
 # user via the Logs tab so they're worth localising.
@@ -555,7 +577,15 @@ Wizard_Summary_Title              = 업로드 요약
 Wizard_Summary_Desc               = 각 호스터에 업로드될 내용을 확인하세요. 적합한 파일이 없는 호스터는 제외됩니다.
 Wizard_Summary_FileCount_Suffix   = 개 파일
 Wizard_Summary_OrphanWarning_Suffix= 개 파일은 어떤 호스터에도 업로드되지 않습니다:
-Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}
+Wizard_Summary_MaxFileSize_Format = 파일당 최대 {0}   # {0} = formatted byte unit (e.g. "250 MiB")
+Wizard_Summary_SelectedOfFree_Format = 남은 {1} 중 {0} 선택됨   # {0} = included bytes, {1} = available bytes (formatted units); per-hoster capacity line
+Wizard_Summary_OverCapacityHint = 사용 가능한 공간을 초과했습니다 — 계속하려면 파일 선택을 해제하세요.
+Wizard_Summary_AutoFitNotice_Format = 사용 가능한 공간에 맞추기 위해 파일 {0}개의 선택을 해제했습니다.   # {0} = count of auto-unchecked files
+Wizard_Summary_AutoFitNoticeWithFree_Format = 사용 가능한 공간에 맞추기 위해 파일 {0}개의 선택을 해제했습니다({1} 남음).   # {0} = count, {1} = free space (formatted units); used when a single quota hoster drove the unchecking
+Wizard_Summary_CheckingSpace = 사용 가능한 공간 확인 중…   # per-hoster indicator while a live storage refresh is in flight
+Wizard_Summary_FilesSelected_Format = 파일 {1}개 중 {0}개 선택됨   # {0} = selected count, {1} = eligible total; header reads e.g. "0 of 54 files selected"
+Wizard_Summary_ToUpload_Format = 업로드할 용량 {0}   # {0} = total size of the selected files (formatted units), e.g. "1.2 GiB to upload"
+Wizard_Summary_TotalFooter_Format = 합계: 파일 {0}개 • 업로드 {1}   # Summary page footer grand total across all hosters: {0} = total upload count (a file sent to two hosters counts twice), {1} = combined size
 Wizard_Step_FilesSource            = 1. 파일
 
 
@@ -626,8 +656,8 @@ Wizard_Hoster_LimitsHeader         = 이 호스터의 제한이 초과됩니다:
 Wizard_Hoster_FileTooLarge_Format  = {0}: 다음 파일은 파일당 {1} 제한을 초과하여 업로드되지 않습니다:\n{2}
 Wizard_Hoster_FileNameRejected_Format = {0}: 다음 파일 이름에는 이 호스터가 허용하지 않는 문자가 포함되어 있어 업로드되지 않습니다:\n{1}
 Wizard_Hoster_FileTypeRejected_Format = {0}: 다음 파일은 이 호스터가 허용하지 않는 확장자여서 업로드되지 않습니다:\n{1}
-Wizard_Hoster_AccountDisabled_Format = {0}: 계정 "{1}"이(가) 꺼져 있어 이 호스터에는 아무것도 업로드되지 않습니다.
-Wizard_Hoster_AccountCheckFailed_Format = {0}: 계정 "{1}"의 마지막 확인에 실패하여 이 호스터에는 아무것도 업로드되지 않습니다. 설정 → 계정에서 다시 확인하세요.
+Wizard_Hoster_AccountDisabled_Format = {0}: 계정 "{1}"이(가) 꺼져 있어 이 호스터에는 아무것도 업로드되지 않습니다.   # {0} = hoster name, {1} = account name
+Wizard_Hoster_AccountCheckFailed_Format = {0}: 계정 "{1}"의 마지막 확인에 실패하여 이 호스터에는 아무것도 업로드되지 않습니다. 설정 → 계정에서 다시 확인하세요.   # {0} = hoster name, {1} = account name
 {1}
 Wizard_Hoster_TooManyFiles_Format  = {0}: {1}개 파일이 선택되었지만 패키지당 제한은 {2}개입니다.
 
@@ -674,6 +704,7 @@ Confirm_RemoveFileHosterAccount    = 파일 호스터 계정 제거
 Confirm_RemoveProxy                = 연결 관리자에서 프록시 제거
 Confirm_ResetCompletedUpload       = 완료된 업로드 재설정(다시 해시 및 업로드)
 Confirm_ResetColumns               = 업로드 / 기록 탭의 열을 기본값으로 재설정
+Confirm_RemoveCompletedUploads = 업로드 탭에서 완료된 업로드를 모두 제거
 ```
 
 ---
@@ -730,6 +761,17 @@ EditAccount_AccountEnabled         = 계정 사용
 EditAccount_BtnSave                = 저장
 EditAccount_BtnCancel              = 취소
 EditAccount_Validation_RequireUsernameAndPassword = 사용자 이름과 비밀번호를 모두 입력해 주십시오.
+EditAccount_OrLabel = — 또는 —   # separator between Sign-in and manual API-key entry (XFileSharing hosters)
+EditAccount_ApiKeyLabel = API 키:
+EditAccount_SignInLabel = 계정:
+EditAccount_SignInButton = 로그인…   # opens the captcha WebView for XFileSharing-API hosters
+EditAccount_SignIn_InProgress = 로그인 화면을 여는 중…
+EditAccount_SignIn_Success = ✓ 로그인됨
+EditAccount_SignIn_SuccessAs_Format = ✓ {0}(으)로 로그인됨
+EditAccount_SignIn_Failed_Format = ✗ {0}
+EditAccount_SignIn_FailedGeneric = 로그인에 실패했습니다.
+EditAccount_SignIn_Unavailable = 현재 상황에서는 로그인을 사용할 수 없습니다.
+EditAccount_Validation_RequireLoginOrApiKey = 로그인을 클릭하여 인증하거나 API 키를 붙여넣으세요.
 
 EditProxy_AddTitle                 = 프록시 추가
 EditProxy_EditTitle                = 프록시 편집
@@ -743,6 +785,15 @@ EditProxy_Status_Testing           = 테스트 중…
 EditProxy_Status_OkLatency_Format  = 정상 {0}ms (예기치 않은 응답)
 EditProxy_Status_OkLatencyIp_Format = 정상 {0}ms ({1})
 EditProxy_Status_Failed_Format     = 실패: {0}
+WebViewLogin_WindowTitle = 로그인
+WebViewLogin_Header_Format = {0}에 로그인   # {0} = hoster name
+WebViewLogin_Instructions = 아래 브라우저에서 로그인(캡차가 있으면 캡차 포함)을 완료하세요. 세션이 확보되면 이 창은 자동으로 닫힙니다.
+WebViewLogin_Status_Initializing = 브라우저를 초기화하는 중...
+WebViewLogin_Status_Loading_Format = {0} 불러오는 중...   # {0} = URL
+WebViewLogin_Status_CookieReadFailed_Format = 쿠키를 읽지 못했습니다: {0}   # {0} = error detail
+WebViewLogin_Error_InitFailed_Format = WebView2 브라우저를 초기화할 수 없습니다. WebView2 런타임이 설치되어 있지 않을 수 있습니다. 자세한 내용: {0}
+WebViewLogin_Error_UnsupportedProxy_Title = 로그인에서 지원되지 않는 프록시
+WebViewLogin_Error_SocksAuthUnsupported_Format = 로그인 브라우저는 사용자 이름과 비밀번호가 필요한 SOCKS 프록시({0})를 사용할 수 없습니다. 자격 증명이 없는 SOCKS 프록시나 HTTP/HTTPS 프록시를 사용하세요.
 ```
 
 ### HttpDetails window
