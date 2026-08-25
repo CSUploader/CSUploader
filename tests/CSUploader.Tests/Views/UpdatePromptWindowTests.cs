@@ -49,6 +49,36 @@ public class UpdatePromptWindowTests
         }
     }
 
+    /// <summary>
+    /// Long notes must be reachable from the keyboard: the ScrollViewer is focusable and Page
+    /// Down moves it. Both halves regress silently - a non-focusable viewer still LOOKS right.
+    /// </summary>
+    [AvaloniaFact]
+    public void WhatsNew_ScrollsFromTheKeyboard()
+    {
+        UpdatePromptWindow window = new();
+        string longNotes = string.Join("\n\n", Enumerable.Range(1, 60).Select(i => $"Paragraph {i} of the notes."));
+        window.SetVersions("1.6.0", "1.5.0", checkAtStartup: true, releaseNotesMarkdown: longNotes);
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.NotesScroll.Focusable);
+            window.NotesScroll.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            double before = window.NotesScroll.Offset.Y;
+            Press(window, Key.PageDown, PhysicalKey.PageDown);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.NotesScroll.Offset.Y > before, $"PageDown did not scroll (offset stayed {before}).");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
     [AvaloniaTheory]
     [InlineData(null)]
     [InlineData("")]

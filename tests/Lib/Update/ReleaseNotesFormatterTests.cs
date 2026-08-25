@@ -62,6 +62,17 @@ public class ReleaseNotesFormatterTests
         Assert.Equal("Highlights\n\nSomething happened.", text);
     }
 
+    /// <summary>
+    /// Markdown's closing-sequence rule: trailing #s strip only after whitespace. This app's own
+    /// notes are the ones most likely to write a heading that ENDS in a sharp.
+    /// </summary>
+    [Theory]
+    [InlineData("## C#", "C#")]
+    [InlineData("## Heading ##", "Heading")]
+    [InlineData("  ### Indented heading", "Indented heading")]  // up to 3 spaces is still a heading
+    public void Headings_KeepTheirSharpsAndSurviveIndentation(string markdown, string expected)
+        => Assert.Equal(expected, ReleaseNotesFormatter.ToPlainText(markdown));
+
     [Theory]
     [InlineData("**bold** and *starred* and _emphasised_", "bold and starred and emphasised")]
     [InlineData("__also bold__ text", "also bold text")]

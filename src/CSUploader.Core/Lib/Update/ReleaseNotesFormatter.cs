@@ -31,7 +31,10 @@ public static partial class ReleaseNotesFormatter
     [GeneratedRegex(@"^(?<indent>\s{0,3})(?<marker>[-*+]|\d{1,3}[.)])\s+(?<text>.*)$")]
     private static partial Regex ListItem();
 
-    [GeneratedRegex(@"^#{1,6}\s+(?<text>.*?)\s*#*\s*$")]
+    // Up to three spaces of indent, as the spec allows (a heading inside a list is still a
+    // heading); the closing #-sequence strips only when whitespace precedes it, so "## C#" keeps
+    // its sharp - this app's own notes are the ones most likely to say C#.
+    [GeneratedRegex(@"^\s{0,3}#{1,6}\s+(?<text>.*?)(?:\s+#+)?\s*$")]
     private static partial Regex Heading();
 
     [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\([^)]*\)")]
