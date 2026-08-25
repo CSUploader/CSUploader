@@ -265,6 +265,8 @@ Uploaded_Context_ExportJson       = 导出为 JSON…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = 重置列
 Uploaded_ResetColumns_Message     = 是否将"历史"标签页的列重置为默认设置？这将清除您自定义的显示/隐藏和排序。
+Uploaded_FilterLabel              = 搜索
+Uploaded_FilterTip                = 按文件、包、托管商或 URL 筛选
 
 # Remove confirmation
 Uploaded_Remove_Title             = 移除

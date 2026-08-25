@@ -162,7 +162,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- Toolbar -->
     <Border Grid.Row="0"
@@ -351,5 +351,24 @@
         </DataGridTemplateColumn>
       </DataGrid.Columns>
     </DataGrid>
+
+    <!-- Row 2: search bar, mirroring the Uploads tab's filter bar. The VM owns the text and the
+         predicate; the code-behind's durable grouped view applies it (see OnSearchInvalidated for
+         the two decisions a refresh makes about groups and selection). -->
+    <Border Grid.Row="2" Background="{DynamicResource SurfaceAltBrush}"
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+            Padding="6,4">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left"
+                   Text="{loc:Loc Uploaded_FilterLabel}"
+                   Width="110" FontSize="11" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,4,0" />
+        <TextBox x:Name="SearchBox"
+                 Text="{Binding SearchText, Mode=TwoWay}" FontSize="11"
+                 VerticalContentAlignment="Center"
+                 ToolTip.Tip="{loc:Loc Uploaded_FilterTip}"
+                 AutomationProperties.Name="{loc:Loc Uploaded_FilterLabel}" />
+      </DockPanel>
+    </Border>
   </Grid>
 </UserControl>

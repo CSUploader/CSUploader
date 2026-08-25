@@ -620,6 +620,12 @@ Hindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag
   <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
     <value>I-reset ang mga column ng History tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.</value>
   </data>
+  <data name="Uploaded_FilterLabel" xml:space="preserve">
+    <value>Maghanap</value>
+  </data>
+  <data name="Uploaded_FilterTip" xml:space="preserve">
+    <value>I-filter ayon sa file, package, hoster o URL</value>
+  </data>
   <data name="Uploaded_Remove_Title" xml:space="preserve">
     <value>Tanggalin</value>
   </data>

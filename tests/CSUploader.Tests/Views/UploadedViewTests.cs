@@ -458,6 +458,324 @@ public class UploadedViewTests
         }
     }
 
+    // ── Search bar: the VM's predicate on the DURABLE grouped view ──
+
+    [AvaloniaFact]
+    public void Search_FiltersTheGroupedView_AndAReloadStaysFiltered()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            object viewInstance = grid.ItemsSource!;
+
+            harness.Vm.SearchText = "photos";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, RealizedRowCount(grid)); // only the photos package's rows
+            Assert.Equal(1, ((DataGridCollectionView)grid.ItemsSource!).Groups!.Count);
+
+            // LoadAsync's shape — clear then re-add on the same collection — flows through the
+            // durable view's filter with no re-wiring, so an active search survives a reload.
+            harness.Vm.Files.Clear();
+            foreach (UploadedFileRow row in FixtureRows())
+            {
+                harness.Vm.Files.Add(row);
+            }
+
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, RealizedRowCount(grid));
+
+            harness.Vm.SearchText = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(7, RealizedRowCount(grid));
+
+            // The durable view stayed durable: same instance through search, reload and clear.
+            Assert.Same(viewInstance, grid.ItemsSource);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// The pinned decision: a search-refresh lands with every group EXPANDED, a collapsed group
+    /// included. A search exists to reveal its matches, and a hit hidden under a group collapsed
+    /// ten minutes ago is a search that looks broken.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_RefreshLandsExpanded_EvenAfterACollapse()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            var firstGroup = (DataGridCollectionViewGroup)((DataGridCollectionView)grid.ItemsSource!).Groups![0];
+            grid.CollapseRowGroup(firstGroup, collapseAllSubgroups: false);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(4, RealizedRowCount(grid));
+
+            harness.Vm.SearchText = "Fake pack"; // matches every package
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(7, RealizedRowCount(grid));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Selection across a re-filter: a surviving row stays selected (the view's Reset would
+    /// otherwise drop it); a filtered-out row lets the selection clear, because an invisible
+    /// selection is what a later Delete keypress removes without the user seeing it.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsASurvivingSelection_AndDropsAFilteredOne()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow photosRow = harness.Vm.Files.First(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase));
+            grid.SelectedItem = photosRow;
+            Dispatcher.UIThread.RunJobs();
+
+            harness.Vm.SearchText = "photos";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(photosRow, grid.SelectedItem);
+
+            harness.Vm.SearchText = "documents";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(grid.SelectedItem);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Through the CONTROL, not the VM: typing into the box must reach the predicate (the TwoWay
+    /// binding is load-bearing), and the box must carry its accessible name. Both would evade the
+    /// suite if every test set SearchText directly.
+    /// </summary>
+    [AvaloniaFact]
+    public void SearchBox_TypingFiltersAndTheBoxCarriesItsAccessibleName()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            view.SearchBox.Text = "photos";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("photos", harness.Vm.SearchText); // the binding pushed control -> VM
+            Assert.Equal(3, RealizedRowCount(view.FilesGrid));
+
+            Assert.Equal(
+                CSUploader.Lib.Localization.Localizer.Instance["Uploaded_FilterLabel"],
+                global::Avalonia.Automation.AutomationProperties.GetName(view.SearchBox));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Extended selection across a re-filter: the surviving SUBSET stays selected. Only snapshotting
+    /// SelectedItem would clear a surviving second row whenever the primary was filtered out.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsEverySurvivingSelectedRow_NotJustThePrimary()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow[] photosRows = [.. harness.Vm.Files.Where(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase)).Take(2)];
+            UploadedFileRow documentsRow = harness.Vm.Files.First(r => r.PackageName.Contains("documents", StringComparison.OrdinalIgnoreCase));
+
+            // TWO survivors and one casualty, the casualty made PRIMARY. SelectedItem mirrors
+            // the grid's CURRENT row: a freshly shown grid already has row 0 current, Clear()
+            // resets it, and the first Add after a Clear sets it - probed, after the review
+            // and two fixes each assumed a different model. Hence the Clear, then the casualty
+            // first. The precondition pins the arrangement so it cannot silently rot into
+            // never testing a casualty primary again.
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(documentsRow);
+            grid.SelectedItems.Add(photosRows[0]);
+            grid.SelectedItems.Add(photosRows[1]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(documentsRow, grid.SelectedItem);
+
+            harness.Vm.SearchText = "photos"; // the PRIMARY drops, both photos rows survive
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(
+                photosRows.OrderBy(r => r.FileName),
+                grid.SelectedItems.Cast<UploadedFileRow>().OrderBy(r => r.FileName));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// A SURVIVING primary stays primary. The rebuild re-adds rows, and the first re-add becomes
+    /// SelectedItem - so re-adding in slot order would silently move the current row (and the
+    /// keyboard range anchor) to whichever survivor sat first, off the row the user made current.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsTheSurvivingPrimaryPrimary()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow[] photosRows = [.. harness.Vm.Files.Where(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase)).Take(2)];
+
+            UploadedFileRow documentsRow = harness.Vm.Files.First(r => r.PackageName.Contains("documents", StringComparison.OrdinalIgnoreCase));
+
+            // photosRows[1] is primary: current follows the first Add after a Clear (probed - see
+            // the sibling test). The rebuild must hand primacy back to it, not to whichever
+            // survivor its loop happens to re-add first.
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(photosRows[1]);
+            grid.SelectedItems.Add(documentsRow);
+            grid.SelectedItems.Add(photosRows[0]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(photosRows[1], grid.SelectedItem);
+
+            harness.Vm.SearchText = "photos"; // documents drops; both photos rows survive
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(photosRows[1], grid.SelectedItem);
+            Assert.Equal(2, grid.SelectedItems.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+    /// <summary>
+    /// A search over an EMPTY selection selects nothing. Two facts this pins, both learned the
+    /// hard way: a freshly shown grid arrives with row 0 GENUINELY SELECTED (asserted below, so
+    /// a version where it stops being true fails here rather than silently changing what the
+    /// other selection tests exercise), and after a Clear a search matching that row must not
+    /// re-select it for the user.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_WithNothingSelected_SelectsNothing()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow rowZero = Assert.IsType<UploadedFileRow>(Assert.Single(grid.SelectedItems.Cast<object>()));
+            Assert.Same(rowZero, grid.SelectedItem); // the fresh grid's row-0 auto-selection
+
+            grid.SelectedItems.Clear();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(grid.SelectedItem); // genuinely empty now
+
+            harness.Vm.SearchText = rowZero.FileName; // a search that MATCHES the cleared row
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(grid.SelectedItems);
+            Assert.Null(grid.SelectedItem);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+    /// <summary>
+    /// The membership gate's would-be case, pinned as far as this Avalonia allows. On 11.3.13,
+    /// assigning SelectedItem to a row the active filter hides reportedly leaves SelectedItems
+    /// empty with SelectedItem holding the absent row - the state the gate exists for. On the
+    /// 11.3.18 in use, the same assignment yields NULL (asserted below, so an upgrade that
+    /// changes the answer fails here and points straight at the gate's rationale). Either way,
+    /// a search revealing the row afterwards must not select it - nothing was ever selected.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_DoesNotResurrectAFilteredOutSelectedItemAssignment()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            grid.SelectedItems.Clear();
+            UploadedFileRow photosRow = harness.Vm.Files.First(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase));
+
+            harness.Vm.SearchText = "documents"; // hides every photos row
+            Dispatcher.UIThread.RunJobs();
+
+            grid.SelectedItem = photosRow; // assign a row the view does not currently contain
+            Dispatcher.UIThread.RunJobs();
+
+            // 11.3.18's answer to the assignment, pinned: rejected outright.
+            Assert.Empty(grid.SelectedItems);
+            Assert.Null(grid.SelectedItem);
+
+            harness.Vm.SearchText = "photos"; // reveals the row again
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(grid.SelectedItems); // revealed, not resurrected
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+    /// <summary>
+    /// A DataContext bounce (away and back to the same VM) must REUSE that VM's view. The ctor of
+    /// DataGridCollectionView subscribes to Files.CollectionChanged and offers no detach, so minting
+    /// a fresh view per return would leave the abandoned one processing every later mutation - the
+    /// reload leak arriving by another door.
+    /// </summary>
+    [AvaloniaFact]
+    public void DataContextBounce_ReusesTheViewAndAddsNoSubscriber()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            object viewBefore = view.FilesGrid.ItemsSource!;
+            int baseline = CollectionChangedSubscriberCount(harness.Vm.Files);
+
+            view.DataContext = null;
+            Dispatcher.UIThread.RunJobs();
+            view.DataContext = harness.Vm;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(viewBefore, view.FilesGrid.ItemsSource);
+            Assert.Equal(baseline, CollectionChangedSubscriberCount(harness.Vm.Files));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
     // ── helpers ──
 
     private static int RealizedRowCount(DataGrid grid)

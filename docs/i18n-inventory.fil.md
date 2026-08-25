@@ -265,6 +265,8 @@ Uploaded_Context_ExportJson       = I-export sa JSON…
 # Reset-columns confirmation
 Uploaded_ResetColumns_Title       = I-reset ang mga column
 Uploaded_ResetColumns_Message     = I-reset ang mga column ng History tab sa default? Ito ay magbubura ng anumang custom show/hide at ordering na itinakda mo.
+Uploaded_FilterLabel              = Maghanap
+Uploaded_FilterTip                = I-filter ayon sa file, package, hoster o URL
 
 # Remove confirmation
 Uploaded_Remove_Title             = Tanggalin

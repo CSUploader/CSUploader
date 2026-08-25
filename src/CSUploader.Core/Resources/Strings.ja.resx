@@ -620,6 +620,12 @@
   <data name="Uploaded_ResetColumns_Message" xml:space="preserve">
     <value>履歴タブの列を既定値にリセットしますか? 設定したカスタムの表示/非表示や並び順がすべてクリアされます。</value>
   </data>
+  <data name="Uploaded_FilterLabel" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="Uploaded_FilterTip" xml:space="preserve">
+    <value>ファイル名、パッケージ名、ホスター、URL で絞り込み</value>
+  </data>
   <data name="Uploaded_Remove_Title" xml:space="preserve">
     <value>削除</value>
   </data>

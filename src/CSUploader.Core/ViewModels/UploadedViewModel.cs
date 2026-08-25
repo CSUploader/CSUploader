@@ -155,6 +155,48 @@ public partial class UploadedViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Search text bound to the filter bar at the bottom of the History tab. Matches file name,
+    /// package name, hoster and URL — everything a user plausibly remembers about an old upload.
+    /// </summary>
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Raised when <see cref="SearchText"/> is edited — the only site where the search result can
+    /// change, since <see cref="Files"/> mutations flow through the head's collection view on their
+    /// own. The head re-evaluates its view's filter in response (the same shape as
+    /// <c>UploadsViewModel.FilterInvalidated</c>, and for the same reason: the ViewModel stays
+    /// framework-free instead of owning a collection view).
+    /// </summary>
+    public event EventHandler? SearchInvalidated;
+
+    /// <summary>
+    /// The search predicate the head assigns to its collection view's filter. Case-insensitive
+    /// contains over file name, package name, hoster name and URL; empty or whitespace search
+    /// matches every row. Matching the PACKAGE name keeps a whole package visible when the search
+    /// names it, which is what its grouped header promises.
+    /// </summary>
+    public bool MatchesSearch(object item)
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            return true;
+        }
+
+        if (item is not UploadedFileRow row)
+        {
+            return false;
+        }
+
+        string needle = SearchText.Trim();
+        return Matches(row.FileName) || Matches(row.PackageName) || Matches(row.FileHosterName) || Matches(row.FileUrl);
+
+        bool Matches(string? haystack) => haystack?.Contains(needle, StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    partial void OnSearchTextChanged(string value) => SearchInvalidated?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
     /// Currently focused row, driven from the DataGrid's SelectedItem so the per-column
     /// "Copy" submenu can locate the value to copy with just the column key as parameter.
     /// </summary>

@@ -36,6 +36,13 @@ public partial class UploadedView : UserControl
     // The grouped view over the current VM's Files, built ONCE per VM and kept for its lifetime (rebuilding
     // it per reload was the leak — see OnDataContextChanged). Also the re-expand source on a Files Reset.
     private DataGridCollectionView? _view;
+
+    // One view PER VM, weakly held: a DataContext bounce (VM A → B → back to A) must reuse A's view,
+    // because DataGridCollectionView's ctor subscribes to the source's CollectionChanged and offers no
+    // detach — minting a fresh view on each return would leave the abandoned one processing every later
+    // Files mutation, the same leak the durable view fixed for reloads, arriving by another door. Weak,
+    // so caching does not become the thing that keeps a dead VM alive.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<UploadedViewModel, DataGridCollectionView> _viewsByVm = [];
     private bool _columnsWired;
     private bool _deleteWired;
 
@@ -91,6 +98,7 @@ public partial class UploadedView : UserControl
         if (_vm is not null)
         {
             _vm.Files.CollectionChanged -= OnFilesChanged;
+            _vm.SearchInvalidated -= OnSearchInvalidated;
         }
 
         _view = null;
@@ -106,11 +114,83 @@ public partial class UploadedView : UserControl
         // Avalonia 11.3.13's DataGridCollectionView subscribes to the source's CollectionChanged in its ctor
         // and never removes that handler (it is not IDisposable), so the first port's habit of minting a fresh
         // view on every LoadAsync reload permanently orphaned one subscriber per reload on the long-lived
-        // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both.
-        _view = BuildGroupedView(_vm.Files);
+        // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both — and the
+        // per-VM cache extends "once" across DataContext bounces, which would otherwise re-mint it.
+        _view = _viewsByVm.GetValue(_vm, static vm => BuildGroupedView(vm.Files));
+
+        // The DURABLE view carries the search: the VM owns the text and the predicate, this view
+        // applies it, and Files reloads flow through it filtered with no re-wiring. Same shape as
+        // UploadsView's filter bar.
+        _view.Filter = _vm.MatchesSearch;
         FilesGrid.ItemsSource = _view;
         _vm.Files.CollectionChanged += OnFilesChanged;
+        _vm.SearchInvalidated += OnSearchInvalidated;
         WireDeleteKeyBinding(_vm);
+    }
+
+    /// <summary>
+    /// Re-runs the durable view's filter for an edited search, with two decisions made rather than
+    /// left to whatever the DataGrid does with a Reset:
+    /// <para>
+    /// Groups land EXPANDED — a search exists to reveal its matches, and a hit hidden under a
+    /// group a user collapsed ten minutes ago is a search that looks broken. And selection is
+    /// EXACTLY the surviving subset of what was selected, with the PRIMARY kept primary when it
+    /// survives. The grid's own Reset handling prunes filtered-out rows but then PROMOTES some
+    /// surviving row to SelectedItem — so without this, the current row (and with it keyboard
+    /// range anchoring) silently jumps to a row the user did not make current; and a filtered-out
+    /// primary must clear only itself, never the survivors beside it.
+    /// </para>
+    /// </summary>
+    private void OnSearchInvalidated(object? sender, EventArgs e)
+    {
+        if (_view is null || _vm is null)
+        {
+            return;
+        }
+
+        // Primary counts only if it is in the SNAPSHOT. Whether SelectedItem can sit outside
+        // SelectedItems is VERSION-DEPENDENT: 11.3.13 reportedly leaves an absent row there when
+        // one is assigned under an active filter; the 11.3.18 in use rejects that assignment
+        // (pinned by Search_DoesNotResurrectAFilteredOutSelectedItemAssignment). The gate stays
+        // because the cost of the invariant breaking on some future version is this handler
+        // SELECTING a row the user never picked, purely because their search matched it.
+        object[] selected = [.. FilesGrid.SelectedItems.Cast<object>()];
+        object? primary = FilesGrid.SelectedItem is { } current && selected.Contains(current) ? current : null;
+        _view.Refresh();
+        ExpandAllGroups();
+
+        // Re-added with the surviving primary FIRST. Probed against this Avalonia rather than
+        // assumed (the review and my first two fixes each guessed differently): SelectedItem
+        // mirrors the grid's CURRENT row — Clear() resets it, the first Add after a Clear sets
+        // it, and later Adds never move it. So after the Clear below, whichever row is re-added
+        // first is the row that ends up current, and that must be the user's primary when it
+        // survives.
+        FilesGrid.SelectedItems.Clear();
+        if (primary is not null && _vm.MatchesSearch(primary))
+        {
+            FilesGrid.SelectedItems.Add(primary);
+        }
+
+        foreach (object item in selected)
+        {
+            if (!ReferenceEquals(item, primary) && _vm.MatchesSearch(item))
+            {
+                FilesGrid.SelectedItems.Add(item);
+            }
+        }
+    }
+
+    private void ExpandAllGroups()
+    {
+        if (_view?.Groups is null)
+        {
+            return;
+        }
+
+        foreach (DataGridCollectionViewGroup group in _view.Groups.OfType<DataGridCollectionViewGroup>())
+        {
+            FilesGrid.ExpandRowGroup(group, expandAllSubgroups: true);
+        }
     }
 
     // LoadAsync reloads by clearing then re-adding on the SAME Files collection. The durable grouped view
@@ -122,15 +202,12 @@ public partial class UploadedView : UserControl
     // minting a new view (the old rebuild here was the leak).
     private void OnFilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action != NotifyCollectionChangedAction.Reset || _view?.Groups is null)
+        if (e.Action != NotifyCollectionChangedAction.Reset)
         {
             return;
         }
 
-        foreach (DataGridCollectionViewGroup group in _view.Groups.OfType<DataGridCollectionViewGroup>())
-        {
-            FilesGrid.ExpandRowGroup(group, expandAllSubgroups: true);
-        }
+        ExpandAllGroups();
     }
 
     private void WireDeleteKeyBinding(UploadedViewModel vm)
