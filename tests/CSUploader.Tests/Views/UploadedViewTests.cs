@@ -673,6 +673,40 @@ public class UploadedViewTests
         }
     }
     /// <summary>
+    /// A search over an EMPTY selection selects nothing. Two facts this pins, both learned the
+    /// hard way: a freshly shown grid arrives with row 0 GENUINELY SELECTED (asserted below, so
+    /// a version where it stops being true fails here rather than silently changing what the
+    /// other selection tests exercise), and after a Clear a search matching that row must not
+    /// re-select it for the user.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_WithNothingSelected_SelectsNothing()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow rowZero = Assert.IsType<UploadedFileRow>(Assert.Single(grid.SelectedItems.Cast<object>()));
+            Assert.Same(rowZero, grid.SelectedItem); // the fresh grid's row-0 auto-selection
+
+            grid.SelectedItems.Clear();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(grid.SelectedItem); // genuinely empty now
+
+            harness.Vm.SearchText = rowZero.FileName; // a search that MATCHES the cleared row
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(grid.SelectedItems);
+            Assert.Null(grid.SelectedItem);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+    /// <summary>
     /// A DataContext bounce (away and back to the same VM) must REUSE that VM's view. The ctor of
     /// DataGridCollectionView subscribes to Files.CollectionChanged and offers no detach, so minting
     /// a fresh view per return would leave the abandoned one processing every later mutation - the

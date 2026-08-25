@@ -148,8 +148,13 @@ public partial class UploadedView : UserControl
             return;
         }
 
-        object? primary = FilesGrid.SelectedItem;
+        // Primary counts only if it is in the SNAPSHOT. On this grid every observed state keeps
+        // SelectedItem inside SelectedItems (a freshly shown grid arrives with row 0 genuinely
+        // selected, and Clear() nulls both), so the gate is defensive - but the cost of the
+        // assumption breaking is this handler SELECTING a row the user never picked, purely
+        // because their search matched it, and that is not a risk worth one skipped Contains.
         object[] selected = [.. FilesGrid.SelectedItems.Cast<object>()];
+        object? primary = FilesGrid.SelectedItem is { } current && selected.Contains(current) ? current : null;
         _view.Refresh();
         ExpandAllGroups();
 
