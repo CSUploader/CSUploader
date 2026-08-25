@@ -134,12 +134,11 @@ public partial class UploadedView : UserControl
     /// <para>
     /// Groups land EXPANDED — a search exists to reveal its matches, and a hit hidden under a
     /// group a user collapsed ten minutes ago is a search that looks broken. And selection is
-    /// EXACTLY the surviving subset of what was selected — the grid uses extended selection, so
-    /// each selected row that survives the filter stays selected, and each filtered-out one drops.
-    /// Nothing invisible stays selected (a later Delete would remove what the user cannot see),
-    /// and nothing gets selected FOR the user — the DataGrid's own Reset handling can move the
-    /// selection to whichever row happens to survive nearby, which reads as the app choosing a
-    /// file that was never picked.
+    /// EXACTLY the surviving subset of what was selected, with the PRIMARY kept primary when it
+    /// survives. The grid's own Reset handling prunes filtered-out rows but then PROMOTES some
+    /// surviving row to SelectedItem — so without this, the current row (and with it keyboard
+    /// range anchoring) silently jumps to a row the user did not make current; and a filtered-out
+    /// primary must clear only itself, never the survivors beside it.
     /// </para>
     /// </summary>
     private void OnSearchInvalidated(object? sender, EventArgs e)
@@ -149,14 +148,26 @@ public partial class UploadedView : UserControl
             return;
         }
 
+        object? primary = FilesGrid.SelectedItem;
         object[] selected = [.. FilesGrid.SelectedItems.Cast<object>()];
         _view.Refresh();
         ExpandAllGroups();
 
+        // Re-added with the surviving primary FIRST. Probed against this Avalonia rather than
+        // assumed (the review and my first two fixes each guessed differently): SelectedItem
+        // mirrors the grid's CURRENT row — Clear() resets it, the first Add after a Clear sets
+        // it, and later Adds never move it. So after the Clear below, whichever row is re-added
+        // first is the row that ends up current, and that must be the user's primary when it
+        // survives.
         FilesGrid.SelectedItems.Clear();
+        if (primary is not null && _vm.MatchesSearch(primary))
+        {
+            FilesGrid.SelectedItems.Add(primary);
+        }
+
         foreach (object item in selected)
         {
-            if (_vm.MatchesSearch(item))
+            if (!ReferenceEquals(item, primary) && _vm.MatchesSearch(item))
             {
                 FilesGrid.SelectedItems.Add(item);
             }

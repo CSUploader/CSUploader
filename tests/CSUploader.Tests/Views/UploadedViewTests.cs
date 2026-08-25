@@ -607,18 +607,20 @@ public class UploadedViewTests
             UploadedFileRow[] photosRows = [.. harness.Vm.Files.Where(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase)).Take(2)];
             UploadedFileRow documentsRow = harness.Vm.Files.First(r => r.PackageName.Contains("documents", StringComparison.OrdinalIgnoreCase));
 
-            // TWO survivors and one casualty, added so the CASUALTY is the primary (SelectedItem
-            // tracks the last addition). This is the arrangement that tells the implementations
-            // apart: a primary-only snapshot sees its one row filtered out and clears the whole
-            // selection, survivors included - two earlier arrangements of this test let that
-            // regression pass because the primary happened to survive and same-value assignment
-            // is a no-op.
+            // TWO survivors and one casualty, the casualty made PRIMARY. SelectedItem mirrors
+            // the grid's CURRENT row: a freshly shown grid already has row 0 current, Clear()
+            // resets it, and the first Add after a Clear sets it - probed, after the review
+            // and two fixes each assumed a different model. Hence the Clear, then the casualty
+            // first. The precondition pins the arrangement so it cannot silently rot into
+            // never testing a casualty primary again.
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(documentsRow);
             grid.SelectedItems.Add(photosRows[0]);
             grid.SelectedItems.Add(photosRows[1]);
-            grid.SelectedItems.Add(documentsRow);
             Dispatcher.UIThread.RunJobs();
+            Assert.Same(documentsRow, grid.SelectedItem);
 
-            harness.Vm.SearchText = "photos"; // documents drops, both photos rows survive
+            harness.Vm.SearchText = "photos"; // the PRIMARY drops, both photos rows survive
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(
@@ -631,6 +633,45 @@ public class UploadedViewTests
         }
     }
 
+    /// <summary>
+    /// A SURVIVING primary stays primary. The rebuild re-adds rows, and the first re-add becomes
+    /// SelectedItem - so re-adding in slot order would silently move the current row (and the
+    /// keyboard range anchor) to whichever survivor sat first, off the row the user made current.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsTheSurvivingPrimaryPrimary()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow[] photosRows = [.. harness.Vm.Files.Where(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase)).Take(2)];
+
+            UploadedFileRow documentsRow = harness.Vm.Files.First(r => r.PackageName.Contains("documents", StringComparison.OrdinalIgnoreCase));
+
+            // photosRows[1] is primary: current follows the first Add after a Clear (probed - see
+            // the sibling test). The rebuild must hand primacy back to it, not to whichever
+            // survivor its loop happens to re-add first.
+            grid.SelectedItems.Clear();
+            grid.SelectedItems.Add(photosRows[1]);
+            grid.SelectedItems.Add(documentsRow);
+            grid.SelectedItems.Add(photosRows[0]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(photosRows[1], grid.SelectedItem);
+
+            harness.Vm.SearchText = "photos"; // documents drops; both photos rows survive
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(photosRows[1], grid.SelectedItem);
+            Assert.Equal(2, grid.SelectedItems.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
     /// <summary>
     /// A DataContext bounce (away and back to the same VM) must REUSE that VM's view. The ctor of
     /// DataGridCollectionView subscribes to Files.CollectionChanged and offers no detach, so minting
