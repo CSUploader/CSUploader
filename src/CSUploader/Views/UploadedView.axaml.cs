@@ -36,6 +36,13 @@ public partial class UploadedView : UserControl
     // The grouped view over the current VM's Files, built ONCE per VM and kept for its lifetime (rebuilding
     // it per reload was the leak — see OnDataContextChanged). Also the re-expand source on a Files Reset.
     private DataGridCollectionView? _view;
+
+    // One view PER VM, weakly held: a DataContext bounce (VM A → B → back to A) must reuse A's view,
+    // because DataGridCollectionView's ctor subscribes to the source's CollectionChanged and offers no
+    // detach — minting a fresh view on each return would leave the abandoned one processing every later
+    // Files mutation, the same leak the durable view fixed for reloads, arriving by another door. Weak,
+    // so caching does not become the thing that keeps a dead VM alive.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<UploadedViewModel, DataGridCollectionView> _viewsByVm = [];
     private bool _columnsWired;
     private bool _deleteWired;
 
@@ -107,8 +114,9 @@ public partial class UploadedView : UserControl
         // Avalonia 11.3.13's DataGridCollectionView subscribes to the source's CollectionChanged in its ctor
         // and never removes that handler (it is not IDisposable), so the first port's habit of minting a fresh
         // view on every LoadAsync reload permanently orphaned one subscriber per reload on the long-lived
-        // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both.
-        _view = BuildGroupedView(_vm.Files);
+        // Files collection — unbounded growth plus an O(N²) regroup. One durable view fixes both — and the
+        // per-VM cache extends "once" across DataContext bounces, which would otherwise re-mint it.
+        _view = _viewsByVm.GetValue(_vm, static vm => BuildGroupedView(vm.Files));
 
         // The DURABLE view carries the search: the VM owns the text and the predicate, this view
         // applies it, and Files reloads flow through it filtered with no re-wiring. Same shape as
@@ -125,10 +133,13 @@ public partial class UploadedView : UserControl
     /// left to whatever the DataGrid does with a Reset:
     /// <para>
     /// Groups land EXPANDED — a search exists to reveal its matches, and a hit hidden under a
-    /// group a user collapsed ten minutes ago is a search that looks broken. And a selected row
-    /// that survives the filter stays selected (the Reset would otherwise drop it); one that is
-    /// filtered out lets the selection clear, because keeping an invisible selection alive is how
-    /// a later Delete keypress removes something the user cannot see.
+    /// group a user collapsed ten minutes ago is a search that looks broken. And selection is
+    /// EXACTLY the surviving subset of what was selected — the grid uses extended selection, so
+    /// each selected row that survives the filter stays selected, and each filtered-out one drops.
+    /// Nothing invisible stays selected (a later Delete would remove what the user cannot see),
+    /// and nothing gets selected FOR the user — the DataGrid's own Reset handling can move the
+    /// selection to whichever row happens to survive nearby, which reads as the app choosing a
+    /// file that was never picked.
     /// </para>
     /// </summary>
     private void OnSearchInvalidated(object? sender, EventArgs e)
@@ -138,14 +149,18 @@ public partial class UploadedView : UserControl
             return;
         }
 
-        object? selected = FilesGrid.SelectedItem;
+        object[] selected = [.. FilesGrid.SelectedItems.Cast<object>()];
         _view.Refresh();
         ExpandAllGroups();
 
-        // Explicit both ways, because the DataGrid's own Reset handling is neither: it can move
-        // the selection to whichever row happens to survive nearby, which reads as the app
-        // choosing a file the user never picked.
-        FilesGrid.SelectedItem = selected is not null && _vm.MatchesSearch(selected) ? selected : null;
+        FilesGrid.SelectedItems.Clear();
+        foreach (object item in selected)
+        {
+            if (_vm.MatchesSearch(item))
+            {
+                FilesGrid.SelectedItems.Add(item);
+            }
+        }
     }
 
     private void ExpandAllGroups()

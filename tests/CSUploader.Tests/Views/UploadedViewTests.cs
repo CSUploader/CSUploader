@@ -562,6 +562,105 @@ public class UploadedViewTests
         }
     }
 
+    /// <summary>
+    /// Through the CONTROL, not the VM: typing into the box must reach the predicate (the TwoWay
+    /// binding is load-bearing), and the box must carry its accessible name. Both would evade the
+    /// suite if every test set SearchText directly.
+    /// </summary>
+    [AvaloniaFact]
+    public void SearchBox_TypingFiltersAndTheBoxCarriesItsAccessibleName()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            view.SearchBox.Text = "photos";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("photos", harness.Vm.SearchText); // the binding pushed control -> VM
+            Assert.Equal(3, RealizedRowCount(view.FilesGrid));
+
+            Assert.Equal(
+                CSUploader.Lib.Localization.Localizer.Instance["Uploaded_FilterLabel"],
+                global::Avalonia.Automation.AutomationProperties.GetName(view.SearchBox));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// Extended selection across a re-filter: the surviving SUBSET stays selected. Only snapshotting
+    /// SelectedItem would clear a surviving second row whenever the primary was filtered out.
+    /// </summary>
+    [AvaloniaFact]
+    public void Search_KeepsEverySurvivingSelectedRow_NotJustThePrimary()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.FilesGrid;
+            UploadedFileRow[] photosRows = [.. harness.Vm.Files.Where(r => r.PackageName.Contains("photos", StringComparison.OrdinalIgnoreCase)).Take(2)];
+            UploadedFileRow documentsRow = harness.Vm.Files.First(r => r.PackageName.Contains("documents", StringComparison.OrdinalIgnoreCase));
+
+            // TWO survivors and one casualty, added so the CASUALTY is the primary (SelectedItem
+            // tracks the last addition). This is the arrangement that tells the implementations
+            // apart: a primary-only snapshot sees its one row filtered out and clears the whole
+            // selection, survivors included - two earlier arrangements of this test let that
+            // regression pass because the primary happened to survive and same-value assignment
+            // is a no-op.
+            grid.SelectedItems.Add(photosRows[0]);
+            grid.SelectedItems.Add(photosRows[1]);
+            grid.SelectedItems.Add(documentsRow);
+            Dispatcher.UIThread.RunJobs();
+
+            harness.Vm.SearchText = "photos"; // documents drops, both photos rows survive
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(
+                photosRows.OrderBy(r => r.FileName),
+                grid.SelectedItems.Cast<UploadedFileRow>().OrderBy(r => r.FileName));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// A DataContext bounce (away and back to the same VM) must REUSE that VM's view. The ctor of
+    /// DataGridCollectionView subscribes to Files.CollectionChanged and offers no detach, so minting
+    /// a fresh view per return would leave the abandoned one processing every later mutation - the
+    /// reload leak arriving by another door.
+    /// </summary>
+    [AvaloniaFact]
+    public void DataContextBounce_ReusesTheViewAndAddsNoSubscriber()
+    {
+        using VmHarness harness = new();
+        SeedFixture(harness.Vm);
+        (Window window, UploadedView view) = Show(harness.Vm);
+        try
+        {
+            object viewBefore = view.FilesGrid.ItemsSource!;
+            int baseline = CollectionChangedSubscriberCount(harness.Vm.Files);
+
+            view.DataContext = null;
+            Dispatcher.UIThread.RunJobs();
+            view.DataContext = harness.Vm;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(viewBefore, view.FilesGrid.ItemsSource);
+            Assert.Equal(baseline, CollectionChangedSubscriberCount(harness.Vm.Files));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
     // ── helpers ──
 
     private static int RealizedRowCount(DataGrid grid)
