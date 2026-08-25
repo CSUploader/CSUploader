@@ -53,6 +53,37 @@ public class AppSettings
 
     public static bool DefaultShowCompletionToasts { get; } = true;
 
+    /// <summary>
+    /// Whether the startup update check happens IN FRONT of the main window — behind a splash — or
+    /// behind it.
+    /// </summary>
+    /// <remarks>
+    /// Off is not "do not check". The app opens straight away and a quiet check follows once the
+    /// window is up, so an installed build still reports an update in the title bar and Help →
+    /// Install Update still installs it; the six-hourly poll is unaffected either way. What off buys
+    /// is the absence of the splash and of anything acting before the app opens — neither a
+    /// question nor an automatic install.
+    /// </remarks>
+    public static bool DefaultCheckForUpdatesAtStartup { get; } = true;
+
+    /// <summary>
+    /// Whether an update found by the startup check installs itself without asking.
+    /// </summary>
+    /// <remarks>
+    /// <b>Default OFF, and deliberately the timid one.</b> Installing hands over to Velopack, which
+    /// replaces the app and restarts the process — so the cost of defaulting this wrong is a user
+    /// who launched CSUploader and got a restart they never agreed to. Off keeps the existing
+    /// behaviour: the update is offered and the user decides.
+    /// <para>
+    /// Only meaningful while <see cref="CheckForUpdatesAtStartup"/> is on, since it describes what to
+    /// do with what THAT check finds. The quiet post-startup check never auto-installs — it exists
+    /// precisely for people who did not want startup touched — and the gated path re-reads the
+    /// hydrated parent setting before acting, so a stale "on" cannot install behind an owner who
+    /// turned startup checks off.
+    /// </para>
+    /// </remarks>
+    public static bool DefaultAutoInstallUpdatesAtStartup { get; } = false;
+
     /// <summary>Show every hoster — the wizard's list is a catalogue, and pre-filtering it by
     /// default would hide destinations from someone who never asked to.</summary>
     public static HosterAccountFilter DefaultWizardHosterAccountFilter { get; } = HosterAccountFilter.Both;
@@ -214,6 +245,10 @@ public class AppSettings
     /// completions are silent (still visible in the Uploaded tab and Logs).
     /// </summary>
     public bool ShowCompletionToasts { get; set; } = DefaultShowCompletionToasts;
+
+    public bool CheckForUpdatesAtStartup { get; set; } = DefaultCheckForUpdatesAtStartup;
+
+    public bool AutoInstallUpdatesAtStartup { get; set; } = DefaultAutoInstallUpdatesAtStartup;
 
     /// <summary>
     /// When true, the upload pipeline's <see cref="HttpClient"/> instances

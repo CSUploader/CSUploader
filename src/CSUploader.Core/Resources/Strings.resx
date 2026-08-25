@@ -225,6 +225,14 @@ Use Help → Install Update to download and install.</value>
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>Couldn't check for updates: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>Update available: v{0}.
+
+This build isn't installed, so it can't update itself. Download the new version from the releases page.</value>
+  </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>Update check failed</value>
   </data>
@@ -692,6 +700,30 @@ Use Help → Install Update to download and install.</value>
   </data>
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>Show a popup notification when an upload finishes</value>
+  </data>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>Check for updates at startup</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>Install updates automatically at startup</value>
+  </data>
+  <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdatePrompt_Message_Format" xml:space="preserve">
+    <value>CSUploader v{0} is available. You have v{1}.</value>
+  </data>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>Check for updates at startup</value>
+  </data>
+  <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="UpdatePrompt_BtnLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Splash_Status_CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates…</value>
   </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>Confirmation Prompts</value>

@@ -912,4 +912,219 @@ public class SettingsViewModelTests : IDisposable
         Assert.Equal("Wrong password", after.StatusMessage);
         Assert.False(vm.IsCheckingAccount);
     }
+
+    /// <summary>
+    /// A gate over the real repository, so a test can hold a write open and watch whether its caller
+    /// waits — and count writes, so "exactly one" is checkable rather than assumed.
+    /// <para>
+    /// It overrides the INHERITED <c>InsertAsync</c>/<c>UpdateAsync</c> rather than
+    /// <c>UpsertAsync</c>, which is not virtual. That is the better seam anyway: the real
+    /// <c>UpsertAsync</c> still runs, so its find-then-insert-or-update logic is exercised instead
+    /// of replaced.
+    /// </para>
+    /// </summary>
+    private sealed class GatedSettingRepository(
+        Microsoft.EntityFrameworkCore.IDbContextFactory<CSUploader.Dal.CSUploaderDbContext> factory)
+        : SettingRepository(factory)
+    {
+        private int _writes;
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Writes => Volatile.Read(ref _writes);
+
+        public override async Task<int> InsertAsync(SettingDto dto, CancellationToken cancellationToken = default)
+        {
+            await GateAsync(dto.Key);
+            return await base.InsertAsync(dto, cancellationToken);
+        }
+
+        public override async Task<int> UpdateAsync(SettingDto dto, CancellationToken cancellationToken = default)
+        {
+            await GateAsync(dto.Key);
+            return await base.UpdateAsync(dto, cancellationToken);
+        }
+
+        private async Task GateAsync(string? key)
+        {
+            if (key != SettingKey.CheckForUpdatesAtStartup)
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref _writes);
+            Entered.TrySetResult();
+            await Release.Task;
+        }
+    }
+
+    /// <summary>
+    /// The preference must reach the store BEFORE the caller continues, because the caller's next
+    /// move is handing control to Velopack — which exits the process. The property setter's
+    /// auto-save is fire-and-forget, which is right for a user ticking a box in Settings and would
+    /// lose this one.
+    /// <para>
+    /// Gated rather than timed: an unawaited write still lands quickly against in-memory SQLite, so
+    /// a test that merely reads the value back afterwards passes either way. Holding the write open
+    /// is what distinguishes them.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task SetCheckForUpdatesAtStartupAsync_DoesNotReturnUntilTheWriteLands()
+    {
+        GatedSettingRepository gated = new(_factory);
+        SettingsViewModel vm = new(
+            gated,
+            CreateAccountVm(),
+            _appSettings,
+            Mock.Of<IDialogService>(),
+            Mock.Of<IAppLogger>());
+
+        Task saving = vm.SetCheckForUpdatesAtStartupAsync(false);
+        await gated.Entered.Task;
+
+        Assert.False(saving.IsCompleted, "it returned before the write it is supposed to wait for");
+
+        gated.Release.SetResult();
+        await saving;
+
+        // Exactly one write, not the setter's fire-and-forget save AND an awaited one. Two would not
+        // merely be wasteful: they race each other on the way out of the process.
+        Assert.Equal(1, gated.Writes);
+
+        SettingsViewModel reloaded = CreateVm();
+        await reloaded.LoadAsync();
+        Assert.False(reloaded.CheckForUpdatesAtStartup);
+    }
+
+    /// <summary>
+    /// ...and the ordinary path still persists. Deleting the property's auto-save hook would leave
+    /// every other test here green while the Settings checkbox silently stopped saving.
+    /// </summary>
+    [Fact]
+    public async Task TickingTheSettingsCheckbox_PersistsToo()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        vm.CheckForUpdatesAtStartup = false;
+
+        // The setter's save is fire-and-forget by design, so give it a moment to land.
+        SettingsViewModel reloaded = CreateVm();
+        for (int i = 0; i < 50 && reloaded.CheckForUpdatesAtStartup; i++)
+        {
+            await Task.Delay(20);
+            reloaded = CreateVm();
+            await reloaded.LoadAsync();
+        }
+
+        Assert.False(reloaded.CheckForUpdatesAtStartup);
+    }
+
+    /// <summary>
+    /// ...and exactly one write, not the setter's fire-and-forget save plus an awaited one. A second
+    /// write is not merely wasteful here: it races the first on the way out of the process.
+    /// </summary>
+    [Fact]
+    public async Task SetCheckForUpdatesAtStartupAsync_UpdatesTheVmAndTheSharedSettings()
+    {
+        SettingsViewModel vm = CreateVm();
+
+        await vm.SetCheckForUpdatesAtStartupAsync(false);
+
+        Assert.False(vm.CheckForUpdatesAtStartup);
+        Assert.False(_appSettings.CheckForUpdatesAtStartup);
+    }
+
+    /// <summary>The default is on: an install nobody has configured still looks for its updates.</summary>
+    [Fact]
+    public void CheckForUpdatesAtStartup_DefaultsToOn()
+        => Assert.True(CreateVm().CheckForUpdatesAtStartup);
+
+    /// <summary>
+    /// Hydration and the early reader must agree about a value that is neither "true" nor "false".
+    /// <para>
+    /// <c>StartupUpdatePreference</c> decides whether the splash appears at all, before this runs,
+    /// and treats an unrecognised value as unknown — falling back to the default, which is on.
+    /// Mapping it to false here would leave the two disagreeing: the splash appears on every launch
+    /// while Settings reports the feature off, and because the hydrated value matches what the user
+    /// then sees, nothing ever repairs it.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("yes")]
+    [InlineData(" false ")]
+    [InlineData(" true ")]
+    [InlineData("1")]
+    public async Task ACorruptStartupPreference_LeavesTheDefaultRatherThanReadingAsOff(string stored)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.CheckForUpdatesAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.True(vm.CheckForUpdatesAtStartup);
+    }
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("True", true)]
+    public async Task AValidStartupPreference_IsHydrated(string stored, bool expected)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.CheckForUpdatesAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.Equal(expected, vm.CheckForUpdatesAtStartup);
+    }
+
+    /// <summary>
+    /// Auto-install defaults OFF, and this is the one default worth a test of its own.
+    /// </summary>
+    /// <remarks>
+    /// Its neighbour decides WHEN the check runs, and defaults on because what it costs is a splash
+    /// and, at most, a question. This one decides whether what that check finds installs itself — it hands
+    /// the process to Velopack, which replaces the app and restarts it — so defaulting it wrong
+    /// means someone opens CSUploader and gets a restart they never agreed to. Opt-in, permanently.
+    /// </remarks>
+    [Fact]
+    public void AutoInstallUpdatesAtStartup_DefaultsToOff()
+        => Assert.False(CreateVm().AutoInstallUpdatesAtStartup);
+
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("True", true)]
+    public async Task AValidAutoInstallPreference_IsHydrated(string stored, bool expected)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.AutoInstallUpdatesAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.Equal(expected, vm.AutoInstallUpdatesAtStartup);
+    }
+
+    /// <summary>
+    /// An unreadable value leaves the default, exactly as its neighbour does — and here the default
+    /// is the safe direction anyway, so this is about the two settings behaving alike rather than
+    /// about the consequence.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("yes")]
+    [InlineData(" true ")]
+    public async Task ACorruptAutoInstallPreference_LeavesTheDefault(string stored)
+    {
+        await _settingRepo.UpsertAsync(SettingKey.AutoInstallUpdatesAtStartup, stored);
+
+        SettingsViewModel vm = CreateVm();
+        await vm.LoadAsync();
+
+        Assert.False(vm.AutoInstallUpdatesAtStartup);
+    }
 }

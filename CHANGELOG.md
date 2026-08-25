@@ -4,6 +4,39 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **CSUploader checks for updates before it opens.** A small splash says "Checking for updates…"
+  while it does, and anything it finds is offered before the main window appears — deliberately
+  before queued uploads can auto-start, so choosing to update never interrupts a transfer already
+  running. Two settings under **Settings → General** decide how it behaves. *Check for updates at
+  startup* (default on) decides whether the check happens in front of the window or quietly behind
+  it; turning it off is not turning updates off, it moves the check to just after the window opens,
+  and the six-hourly poll is unaffected either way. *Install updates automatically at startup*
+  (default off, and only available while the first is on) installs what the startup check finds
+  without asking — off keeps the existing behaviour, because installing hands over to the updater,
+  which replaces the app and restarts it.
+
+### Changed
+
+- **Builds that are not installed check for updates too.** Running from source or from unpacked
+  build output used to skip the check entirely. It now reads the release feed directly and reports a
+  newer version through **Help → Check for Updates** — while never offering to install one, because
+  an uninstalled build has no packaged copy for the updater to replace and the offer could only
+  fail.
+- **Help → Check for Updates stops waiting after 20 seconds.** It joins a check that is already
+  running rather than starting a second one, and a startup check cannot be cancelled, so the menu
+  item could previously sit there for as long as the request took.
+
+### Fixed
+
+- **The About box showed a stale version.** It read the assembly version, which the project file
+  pins to a literal and the release tag therefore never reaches — so a shipped 1.6.0 would have gone
+  on calling itself 1.5.0.0, beside an update prompt that correctly said 1.6.0. Both now read the
+  same value.
+
 ## [1.5.0] - 2026-08-24
 
 Uploads use every connection a host allows, at the speed you actually asked for: five hosters send a

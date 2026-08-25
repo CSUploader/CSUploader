@@ -87,6 +87,8 @@ Main_CheckForUpdates_DialogTitle  = 更新を確認
 Main_CheckForUpdates_AlreadyLatest = 最新バージョンを使用中です。
 Main_CheckForUpdates_Available_Format = 更新があります: v{0}。\n\nダウンロードとインストールには ヘルプ → 更新をインストール を使用してください。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 更新を確認できませんでした: {0}
+Main_CheckForUpdates_NotInstallable_Format = 更新があります: v{0}。\n\nこのビルドはインストールされていないため、自動で更新できません。リリースページから新しいバージョンをダウンロードしてください。   # {0} = available semver
+Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = 更新の確認に失敗しました
 Update_CheckFailed_ToastBody = CSUploader は更新を確認できませんでした。後でもう一度試します。
 ```
@@ -287,6 +289,14 @@ Settings_General_CloseAction_Exit        = アプリケーションを終了
 Settings_General_Notifications_Title  = 通知
 Settings_General_Notifications_Desc   = アップロード完了時に画面右下にポップアップを表示します。
 Settings_General_ShowCompletionToasts = アップロード完了時にポップアップ通知を表示
+Settings_General_CheckForUpdatesAtStartup = 起動時に更新を確認する
+Settings_General_AutoInstallUpdatesAtStartup = 起動時に更新を自動的にインストールする
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_CheckAtStartup         = 起動時に更新を確認する
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = 確認プロンプト
 Settings_General_ConfirmationPrompts_Desc  = チェックを入れると操作前に再度確認します。チェックを外すと、その操作の確認が省略されます。

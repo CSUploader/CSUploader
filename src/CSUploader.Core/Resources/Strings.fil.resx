@@ -204,6 +204,14 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>Hindi ma-check ang mga update: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>May available na update: v{0}.
+
+Hindi naka-install ang build na ito, kaya hindi ito puwedeng mag-update nang mag-isa. I-download ang bagong bersyon mula sa releases page.</value>
+  </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>Nabigo ang pag-check ng update</value>
   </data>
@@ -641,6 +649,30 @@ Gamitin ang Help → Install Update para i-download at i-install.</value>
   </data>
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>Magpakita ng popup na abiso kapag tapos na ang pag-upload</value>
+  </data>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>Mag-check ng updates sa startup</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>Awtomatikong i-install ang mga update sa startup</value>
+  </data>
+  <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdatePrompt_Message_Format" xml:space="preserve">
+    <value>CSUploader v{0} is available. You have v{1}.</value>
+  </data>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>Mag-check ng updates sa startup</value>
+  </data>
+  <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="UpdatePrompt_BtnLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Splash_Status_CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates…</value>
   </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>Confirmation Prompts</value>

@@ -204,6 +204,14 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>업데이트를 확인할 수 없습니다: {0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>업데이트 사용 가능: v{0}.
+
+이 빌드는 설치되지 않았으므로 스스로 업데이트할 수 없습니다. 릴리스 페이지에서 새 버전을 다운로드하세요.</value>
+  </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>업데이트 확인 실패</value>
   </data>
@@ -641,6 +649,30 @@
   </data>
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>업로드가 완료되면 팝업 알림 표시</value>
+  </data>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>시작할 때 업데이트 확인</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>시작할 때 업데이트 자동 설치</value>
+  </data>
+  <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdatePrompt_Message_Format" xml:space="preserve">
+    <value>CSUploader v{0} is available. You have v{1}.</value>
+  </data>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>시작할 때 업데이트 확인</value>
+  </data>
+  <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="UpdatePrompt_BtnLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Splash_Status_CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates…</value>
   </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>확인 메시지</value>

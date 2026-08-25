@@ -195,29 +195,66 @@ public partial class MainWindow : Window
         Close();
     }
 
+    /// <summary>How long Help → Check for Updates waits for an answer before saying it is still
+    /// working. Generous for a single HTTP round trip, short enough not to read as a hang.</summary>
+    private static readonly TimeSpan ManualCheckPatience = TimeSpan.FromSeconds(20);
+
     private async void MenuCheckForUpdates_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm)
         {
-            UpdateCheckResult result = await vm.CheckForUpdatesAsync(userInitiated: true);
-            string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
-            switch (result.Status)
+            // Bounded, because checks are single flight: pressing this while the startup check is
+            // still running JOINS that check rather than starting a second one, and the startup
+            // check has no cancellation - Velopack 1.2.0 offers none - so it can outlive its own
+            // deadline by a long way. Joining is still the right model (one network call, one
+            // answer); what must not happen is this menu item hanging for the remainder of a request
+            // the user never asked for. The check keeps running and still publishes its result.
+            UpdateCheckResult result;
+            try
             {
-                case UpdateCheckStatus.Available:
-                    await MessageBoxWindow.ShowInformationAsync(
-                        this,
-                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], result.Info!.NewVersion),
-                        title);
-                    break;
-                case UpdateCheckStatus.Failed:
-                    await MessageBoxWindow.ShowErrorAsync(
-                        this,
-                        string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Failed_Format"], result.FailureReason),
-                        title);
-                    break;
-                default: // UpToDate / NotInstalled
-                    await MessageBoxWindow.ShowInformationAsync(this, Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"], title);
-                    break;
+                result = await vm.CheckForUpdatesAsync(UpdateCheckOrigin.User).WaitAsync(ManualCheckPatience);
+            }
+            catch (TimeoutException)
+            {
+                result = UpdateCheckResult.Failed(Localizer.Instance["Main_CheckForUpdates_StillRunning"]);
+            }
+
+            string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
+
+            // A switch EXPRESSION, not the statement this used to be, and the difference is the
+            // point. The old form ended in `default:` = "you're on the latest version", so every
+            // status it had not been taught about was answered with the one sentence that is worst
+            // if wrong - AvailableNotInstallable means a newer release exists, and would have been
+            // reported as being up to date. An expression with no discard arm makes the next status
+            // a build failure here instead (CS8509).
+            //
+            // CS8524 is the other half of that diagnostic - a value cast from an int that matches no
+            // member - and is suppressed rather than answered. Adding a `_` arm to satisfy it would
+            // also satisfy CS8509, which is the one being relied on; the guard would be gone and the
+            // silent-wrong-answer would be back.
+#pragma warning disable CS8524
+            (bool isError, string body) = result.Status switch
+            {
+                UpdateCheckStatus.Available => (
+                    false,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Available_Format"], result.Info!.NewVersion)),
+                UpdateCheckStatus.AvailableNotInstallable => (
+                    false,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_NotInstallable_Format"], result.NewVersion)),
+                UpdateCheckStatus.Failed => (
+                    true,
+                    string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["Main_CheckForUpdates_Failed_Format"], result.FailureReason)),
+                UpdateCheckStatus.UpToDate => (false, Localizer.Instance["Main_CheckForUpdates_AlreadyLatest"]),
+            };
+#pragma warning restore CS8524
+
+            if (isError)
+            {
+                await MessageBoxWindow.ShowErrorAsync(this, body, title);
+            }
+            else
+            {
+                await MessageBoxWindow.ShowInformationAsync(this, body, title);
             }
         }
     }

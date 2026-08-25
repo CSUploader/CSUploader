@@ -204,6 +204,14 @@
   <data name="Main_CheckForUpdates_Failed_Format" xml:space="preserve">
     <value>无法检查更新：{0}</value>
   </data>
+  <data name="Main_CheckForUpdates_NotInstallable_Format" xml:space="preserve">
+    <value>有可用更新：v{0}。
+
+此版本未安装，无法自动更新。请从发布页面下载新版本。</value>
+  </data>
+  <data name="Main_CheckForUpdates_StillRunning" xml:space="preserve">
+    <value>A check that started earlier is still running. Try again in a moment.</value>
+  </data>
   <data name="Update_CheckFailed_ToastTitle" xml:space="preserve">
     <value>更新检查失败</value>
   </data>
@@ -641,6 +649,30 @@
   </data>
   <data name="Settings_General_ShowCompletionToasts" xml:space="preserve">
     <value>上传完成时显示弹出通知</value>
+  </data>
+  <data name="Settings_General_CheckForUpdatesAtStartup" xml:space="preserve">
+    <value>启动时检查更新</value>
+  </data>
+  <data name="Settings_General_AutoInstallUpdatesAtStartup" xml:space="preserve">
+    <value>启动时自动安装更新</value>
+  </data>
+  <data name="UpdatePrompt_WindowTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdatePrompt_Message_Format" xml:space="preserve">
+    <value>CSUploader v{0} is available. You have v{1}.</value>
+  </data>
+  <data name="UpdatePrompt_CheckAtStartup" xml:space="preserve">
+    <value>启动时检查更新</value>
+  </data>
+  <data name="UpdatePrompt_BtnUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="UpdatePrompt_BtnLater" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Splash_Status_CheckingForUpdates" xml:space="preserve">
+    <value>Checking for updates…</value>
   </data>
   <data name="Settings_General_ConfirmationPrompts_Title" xml:space="preserve">
     <value>确认提示</value>

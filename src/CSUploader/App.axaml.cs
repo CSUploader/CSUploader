@@ -151,9 +151,10 @@ public partial class App : Application
             // now-loaded AppSettings. Same awaited/fire-and-forget shape (async void event handler).
             //
             // ONE-SHOT: WPF's Loaded fires once, but Avalonia re-raises Opened on EVERY Hide()->Show()
-            // (Phase 7 close-to-tray makes hide->show reachable). MainViewModel.InitializeAsync is NOT
-            // idempotent — re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling
-            // and open a second --gallery window — so this guard runs the body exactly once. It also
+            // (Phase 7 close-to-tray makes hide->show reachable). The HYDRATION is not idempotent —
+            // re-running it would duplicate packages, re-persist logs N+1, risk re-scheduling and open a
+            // second --gallery window — but InitializeAsync now caches its task, so calling it again is
+            // safe. This guard remains for the POST-init work below, which has no such cache. It also
             // deliberately skips the post-init UpdateVisibility / --gallery re-runs on a
             // tray restore (WPF never re-ran those either).
             bool hydrated = false;
@@ -170,8 +171,20 @@ public partial class App : Application
                 {
                     if (mainWindow.DataContext is MainViewModel viewModel)
                     {
-                        await viewModel.InitializeAsync();
+                        // Recorded on BOTH paths. The gated one assigns this before awaiting; the
+                        // ungated one has to do it here, or --agent, --gallery and
+                        // preference-disabled runs reach Exit with it still null and dispose the
+                        // provider under an in-flight EF call - the exact case the guard exists for.
+                        _startupPipeline ??= viewModel.InitializeAsync();
+                        await _startupPipeline;
                     }
+                }
+                catch (OperationCanceledException)
+                {
+                    // The app is closing - the splash was dismissed, or the main window went away
+                    // while the remainder was still loading. That is a shutdown, not a failure, and
+                    // reporting it would put an error dialog in front of someone who just quit.
+                    return;
                 }
                 catch (Exception ex)
                 {
@@ -222,7 +235,55 @@ public partial class App : Application
 #endif
             };
 
-            desktop.MainWindow = mainWindow;
+            // === startup gate =================================================================
+            // Whether to hold the main window back behind an update check. Ordered so the excluded
+            // modes short-circuit before the database is touched.
+            //
+            // Gating does not depend on being INSTALLED. A loose build cannot install what it finds,
+            // but it can still answer the question the splash is asking - "are we on the latest
+            // version?" - because UpdateService goes to the release feed directly when there is no
+            // Velopack layout to ask through. What a loose build must never do is OFFER the install,
+            // and that is kept out by the answer having a status of its own rather than by anything
+            // here (see UpdateCheckStatus.AvailableNotInstallable).
+            //
+            // Two decisions, not one, and they are NOT the same question:
+            //   1. does the check happen in front of the window - behind a splash, free to act on
+            //      what it finds by asking or installing - or quietly behind it?
+            //   2. does it happen at all?
+            //
+            // The preference answers (1). Turning it off moves the check behind startup - the app
+            // opens straight away, and on an installed build the title bar reports any update once
+            // the quiet check lands - rather than cancelling it. Only the dev flags answer (2) with
+            // "no": --agent and --gallery must neither grow a window the AvaDevBridge screenshot
+            // loop and the dev gallery never had, nor make a LAUNCH-triggered request on their
+            // behalf. The six-hourly poll still starts for them; only startup is silenced.
+            bool devFlagRun = isAgent;
+#if DEBUG && WINDOWS
+            devFlagRun = devFlagRun || gallery;
+#endif
+
+            // && order matters: a dev-flag run must not touch the database to answer a question
+            // whose answer it does not use.
+            bool gateStartup =
+                !devFlagRun
+                && StartupUpdatePreference.ReadCheckForUpdatesAtStartup(
+                    _serviceProvider.GetRequiredService<IDbContextFactory<Dal.CSUploaderDbContext>>()) != false;
+
+            if (gateStartup)
+            {
+                StartSplashGatedStartup(desktop, mainWindow);
+            }
+            else
+            {
+                // Reaching here means devFlagRun OR the preference is off. So !devFlagRun is exactly
+                // "the owner turned it off" - the one ungated case that still wants a check.
+                if (mainWindow.DataContext is MainViewModel ungatedViewModel)
+                {
+                    ungatedViewModel.CheckForUpdatesAfterStartup = !devFlagRun;
+                }
+
+                desktop.MainWindow = mainWindow;
+            }
 
 #if AVA_BRIDGE
             // Debug-only, opt-in (Directory.Build.local.props present) agent dev-loop bridge.
@@ -241,10 +302,138 @@ public partial class App : Application
 
             // Mirror App.OnExit: dispose the provider (and its IDisposable singletons — tray icon,
             // DbContext factory) when the app exits.
-            desktop.Exit += (_, _) => _serviceProvider?.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                // Skipped while the startup pipeline is still running. Disposing the provider under
+                // an in-flight EF call throws ObjectDisposedException on a continuation nothing is
+                // left to observe, and the process is going away anyway - the OS reclaims what this
+                // would have released. Reached when the splash is closed before the swap, or the
+                // main window is closed while the post-gate remainder is still loading.
+                if (_startupPipeline is { IsCompleted: false })
+                {
+                    _serviceProvider?.GetService<IAppLogger>()?.Log(
+                        this, LogType.Status, "Exiting while startup is still running; leaving the service provider to the process.");
+                    return;
+                }
+
+                _serviceProvider?.Dispose();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>How long the splash may hold the main window back before startup carries on without
+    /// the answer. Long enough for one HTTP round trip on a slow link; short enough not to read as a
+    /// hang on a broken one.</summary>
+    private static readonly TimeSpan StartupCheckDeadline = TimeSpan.FromSeconds(5);
+
+    private Task? _startupPipeline;
+
+    /// <summary>
+    /// Shows the splash as the application's MainWindow, runs initialisation behind it, and swaps in
+    /// the real window when initialisation says it may.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The splash IS the MainWindow until the swap, which is what keeps
+    /// <see cref="ShutdownMode.OnMainWindowClose"/> working the whole way through: Avalonia decides
+    /// shutdown by comparing the closing window against the CURRENT MainWindow, so closing the
+    /// splash before the swap exits the app — which is what closing a splash should do — and closing
+    /// it after the swap does nothing, because by then it is not the main window any more.
+    /// </para>
+    /// <para>
+    /// It cannot be done inline in <c>OnFrameworkInitializationCompleted</c>: that method is
+    /// synchronous, and Avalonia shows <c>MainWindow</c> and starts pumping only after it returns.
+    /// So the sequence hangs off the splash's own <c>Opened</c>.
+    /// </para>
+    /// </remarks>
+    private void StartSplashGatedStartup(IClassicDesktopStyleApplicationLifetime desktop, Views.MainWindow mainWindow)
+    {
+        Views.SplashWindow splash = new();
+        CancellationTokenSource startupAborted = new();
+        ViewModels.StartupGate gate = new(StartupCheckDeadline, startupAborted.Token);
+        bool transitioning = false;
+
+        if (mainWindow.DataContext is MainViewModel viewModel)
+        {
+            viewModel.StartupGate = gate;
+        }
+
+        // A user closing the splash before the swap is TERMINAL. It is still the main window, so
+        // Avalonia is already shutting down; all this has to do is stop initialisation waiting for a
+        // transition that will never come, and stop itself trying to make one.
+        splash.Closing += (_, _) =>
+        {
+            if (transitioning)
+            {
+                return;
+            }
+
+            startupAborted.Cancel();
+            gate.Abandon();
+        };
+
+        splash.Opened += async (_, _) =>
+        {
+            try
+            {
+                _startupPipeline = viewModelOrNull(mainWindow)?.InitializeAsync() ?? Task.CompletedTask;
+
+                if (!await gate.WaitToShowMainWindowAsync(_startupPipeline))
+                {
+                    // Abandoned while waiting - the splash was closed after the wait completed but
+                    // before this continuation ran. Showing the window now would put one on screen
+                    // for an app that has already decided to quit.
+                    return;
+                }
+
+                transitioning = true;
+                desktop.MainWindow = mainWindow;
+                mainWindow.Show();
+                splash.Close();
+                gate.MarkMainWindowReady();
+            }
+            catch (OperationCanceledException)
+            {
+                // The splash was closed. Nothing to show, nothing to report.
+            }
+            catch (Exception ex)
+            {
+                // The transition itself failed - Show() threw, say. Leaving the lifetime pointing at
+                // an invisible window would be a process with no UI and no way to quit, so this
+                // gives up loudly rather than quietly.
+                //
+                // Recovery FIRST, logging second: the logger raises its event inline, so a throwing
+                // subscriber would otherwise take the shutdown with it.
+                startupAborted.Cancel();
+                gate.Abandon();
+                try
+                {
+                    _serviceProvider?.GetService<IAppLogger>()?.Log(
+                        this, LogType.Error, $"Startup transition failed: {ex}");
+                }
+                catch (Exception)
+                {
+                    // Nothing left to report it to.
+                }
+
+                desktop.Shutdown(1);
+            }
+        };
+
+        // Closed, not Closing: Closing is cancellable and fires for close-to-tray, which must NOT
+        // cancel initialisation. By the time Closed runs the window is really going away, and the
+        // post-gate remainder - proxies, packages, history - has nothing left to load them for.
+        mainWindow.Closed += (_, _) =>
+        {
+            startupAborted.Cancel();
+            gate.Abandon();
+        };
+
+        desktop.MainWindow = splash;
+
+        static MainViewModel? viewModelOrNull(Views.MainWindow window) => window.DataContext as MainViewModel;
     }
 
     // internal so the Avalonia head's DI smoke test can build the same provider this composes at
@@ -256,7 +445,8 @@ public partial class App : Application
 
         // UI services (Avalonia implementations of Core interfaces)
         services.AddSingleton<IDialogService, AvaloniaDialogService>();            // real message box + startup error + StorageProvider pickers; ported dialog windows land through later Phase 4 tasks; 3 account/proxy members Phase 5
-        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();  // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IUpdateProgressSink, AvaloniaUpdateProgressSink>();   // real: non-modal UpdateProgressWindow (Phase 4 Task 8)
+        services.AddSingleton<IStartupUpdatePrompt, AvaloniaStartupUpdatePrompt>();  // real: the modal UpdatePromptWindow, shown once at startup
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<IClipboardService, AvaloniaClipboardService>();
         services.AddSingleton<IFontEnumerationService, AvaloniaFontEnumerationService>();

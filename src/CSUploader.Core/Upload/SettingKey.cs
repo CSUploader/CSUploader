@@ -59,6 +59,10 @@ public static class SettingKey
 
     public static string ShowCompletionToasts { get; } = "showCompletionToasts";
 
+    public static string CheckForUpdatesAtStartup { get; } = "checkForUpdatesAtStartup";
+
+    public static string AutoInstallUpdatesAtStartup { get; } = "autoInstallUpdatesAtStartup";
+
     public static string WizardHosterAccountFilter { get; } = "wizardHosterAccountFilter";
 
     public static string DefaultUploadDirectory { get; } = "defaultUploadDirectory";

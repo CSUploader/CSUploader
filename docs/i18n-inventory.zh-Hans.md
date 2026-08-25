@@ -88,6 +88,8 @@ Main_CheckForUpdates_DialogTitle  = 检查更新
 Main_CheckForUpdates_AlreadyLatest = 您当前已是最新版本。
 Main_CheckForUpdates_Available_Format = 有可用更新：v{0}。\n\n请使用 帮助 → 安装更新 来下载并安装。   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = 无法检查更新：{0}
+Main_CheckForUpdates_NotInstallable_Format = 有可用更新：v{0}。\n\n此版本未安装，无法自动更新。请从发布页面下载新版本。   # {0} = available semver
+Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = 更新检查失败
 Update_CheckFailed_ToastBody = CSUploader 无法检查更新，稍后将重试。
 ```
@@ -288,6 +290,14 @@ Settings_General_CloseAction_Exit        = 退出应用
 Settings_General_Notifications_Title  = 通知
 Settings_General_Notifications_Desc   = 上传完成时在右下角显示弹出通知。
 Settings_General_ShowCompletionToasts = 上传完成时显示弹出通知
+Settings_General_CheckForUpdatesAtStartup = 启动时检查更新
+Settings_General_AutoInstallUpdatesAtStartup = 启动时自动安装更新
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_CheckAtStartup         = 启动时检查更新
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = 确认提示
 Settings_General_ConfirmationPrompts_Desc  = 勾选某项以在执行该操作前再次询问。取消勾选将不再显示该确认。

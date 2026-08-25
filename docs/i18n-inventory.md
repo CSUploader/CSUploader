@@ -95,6 +95,8 @@ Main_CheckForUpdates_DialogTitle  = Check for Updates
 Main_CheckForUpdates_AlreadyLatest = You're on the latest version.
 Main_CheckForUpdates_Available_Format = Update available: v{0}.\n\nUse Help → Install Update to download and install.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Couldn't check for updates: {0}
+Main_CheckForUpdates_NotInstallable_Format = Update available: v{0}.\n\nThis build isn't installed, so it can't update itself. Download the new version from the releases page.   # {0} = available semver
+Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = Update check failed
 Update_CheckFailed_ToastBody = CSUploader couldn't check for updates. It'll try again later.
 ```
@@ -306,6 +308,14 @@ Settings_General_CloseAction_Exit        = Exit the application
 Settings_General_Notifications_Title  = Notifications
 Settings_General_Notifications_Desc   = Bottom-right popup that appears when an upload finishes.
 Settings_General_ShowCompletionToasts = Show a popup notification when an upload finishes
+Settings_General_CheckForUpdatesAtStartup = Check for updates at startup
+Settings_General_AutoInstallUpdatesAtStartup = Install updates automatically at startup
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_CheckAtStartup         = Check for updates at startup
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = Confirmation Prompts
 Settings_General_ConfirmationPrompts_Desc  = Tick a prompt to have it ask again before the action. Untick to suppress the confirmation for that action.

@@ -27,10 +27,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly Services.IToastNotificationService _toastService;
     private readonly Services.IUiTimer _updateTimer;
     private readonly PropertyChangedEventHandler _localizerChanged;
+    private readonly Lock _checkGate = new();
+    private Task<UpdateCheckResult>? _inFlightCheck;
+    /// <summary>Whether any participant in the running check was the six-hourly poll, which is the
+    /// only origin that owes a toast on failure.</summary>
+    private bool _periodicAwaitingReport;
+
     private UpdateAvailableInfo? _availableUpdate;
     private bool _backgroundCheckFailing;
     private bool _suppressDarkModePersist;
-    private bool _initialized;
+    private readonly Lock _initializeGate = new();
+    private Task? _initializeTask;
     private bool _disposed;
 
     /// <summary>Tab order is Uploads, Uploaded, Settings, Logs — so Uploads is 0 and Uploaded is 1.</summary>
@@ -124,21 +131,95 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         // CreateTimer yields an inert timer when no UI thread is running (e.g. unit tests),
         // so this stays a no-op there just as the old Application.Current guard did.
-        // The tick discards the task (fire-and-forget) — harmonized with the startup check in
-        // InitializeAsync; CheckForUpdatesAsync cannot return a faulted task (both its awaits —
-        // the check and the dispatcher apply — are wrapped in try/catch).
-        _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync());
+        // The tick discards the task (fire-and-forget); CheckForUpdatesAsync cannot return a faulted
+        // task (both its awaits — the check and the dispatcher apply — are wrapped in try/catch).
+        //
+        // Started unconditionally, --agent and --gallery included: this setting decides where the
+        // STARTUP check happens, not whether polling continues. It is why turning that setting off
+        // costs nothing but the splash and whatever the gated check would have done with what it
+        // found - and why "no requests" claims elsewhere are about LAUNCH-triggered requests only.
+        _updateTimer = _uiDispatcher.CreateTimer(UpdateCheckInterval, () => _ = CheckForUpdatesAsync(UpdateCheckOrigin.Periodic));
         _updateTimer.Start();
     }
 
     /// <summary>
-    /// Polls for a newer release. Safe to call from any thread; publishes onto the UI dispatcher.
-    /// A background failure (<paramref name="userInitiated"/> == false) shows a debounced toast —
-    /// once per failure episode, re-armed after the next successful check — so a chronically
-    /// offline machine isn't nagged every poll. A user-initiated check shows nothing here; the
-    /// caller renders the returned <see cref="UpdateCheckResult"/>.
+    /// Runs an update check and publishes its result. This is the ONLY place update state is
+    /// written, so a startup check, the six-hourly poll and a user pressing Check for Updates cannot
+    /// each own a different idea of what version is available.
     /// </summary>
-    public async Task<UpdateCheckResult> CheckForUpdatesAsync(bool userInitiated = false)
+    /// <remarks>
+    /// <para>
+    /// <b>Single flight.</b> A caller arriving while a check is already running JOINS it rather than
+    /// queueing behind it. That is what stops the startup check - which outlives its own deadline,
+    /// because Velopack 1.2.0 offers no way to cancel one - from blocking a user who presses Check
+    /// for Updates a moment later. They get the in-flight answer, which is as current as the one a
+    /// second network round trip would have produced, and the app makes one call instead of two.
+    /// </para>
+    /// <para>
+    /// It also removes the ordering problem rather than managing it: only one check publishes at a
+    /// time and the next cannot start until it has, so no result can overwrite a newer one and no
+    /// generation stamp is needed to prevent it.
+    /// </para>
+    /// <para>
+    /// A joiner's reporting obligation is ADDED to the running check's rather than ranked against
+    /// it. Only the six-hourly poll owes a toast, so a poll joining a silent startup check still
+    /// gets one and a user joining a poll does not take one away; the user's own answer is the
+    /// returned result, which the menu handler renders itself.
+    /// </para>
+    /// </remarks>
+    public Task<UpdateCheckResult> CheckForUpdatesAsync(UpdateCheckOrigin origin)
+    {
+        TaskCompletionSource<UpdateCheckResult> started;
+        lock (_checkGate)
+        {
+            if (_inFlightCheck is { IsCompleted: false })
+            {
+                // Reporting obligations ACCUMULATE; they do not rank. A user joining a periodic
+                // check must not cancel the poll's toast, and a poll joining a user's check must
+                // not add a toast to a dialog the user is already reading.
+                _periodicAwaitingReport |= origin == UpdateCheckOrigin.Periodic;
+                return _inFlightCheck;
+            }
+
+            // Published before RunCheckAsync can run a line, for the same reason InitializeAsync
+            // publishes before FirstRun: the body reaches collaborator code - ApplyCheckResult logs
+            // synchronously for an available update - and a log subscriber calling back in here
+            // would otherwise find this null and start a second check. Assigning the result of
+            // RunCheckAsync(...) cannot do that, because the assignment happens only once the method
+            // has already returned, and a synchronously-completing check returns after logging.
+            started = new TaskCompletionSource<UpdateCheckResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _inFlightCheck = started.Task;
+            _periodicAwaitingReport = origin == UpdateCheckOrigin.Periodic;
+        }
+
+        _ = CompleteCheckAsync(started);
+        return started.Task;
+    }
+
+    private async Task CompleteCheckAsync(TaskCompletionSource<UpdateCheckResult> started)
+    {
+        try
+        {
+            started.TrySetResult(await RunCheckAsync());
+        }
+        catch (Exception ex)
+        {
+            // Normalised, not propagated. Every caller of this is either fire-and-forget from a
+            // timer or an async void event handler, so a faulted task has nowhere to be observed and
+            // would reach the dispatcher's unhandled hook. RunCheckAsync already converts the
+            // service's own failures; this covers what its collaborators can throw - a log
+            // subscriber, say, which the real Logger invokes without isolation.
+            //
+            // COMPLETED FIRST, logged second. The thing that threw is most likely that same log
+            // subscriber, and if it throws again on the way out, an uncompleted task here would
+            // leave _inFlightCheck permanently incomplete - every later check would join a shared
+            // task that never finishes, and update checking would be dead for the session.
+            started.TrySetResult(UpdateCheckResult.Failed(ex.Message));
+            SafeLog(LogType.Error, $"Update check pipeline failed: {ex.Message}");
+        }
+    }
+
+    private async Task<UpdateCheckResult> RunCheckAsync()
     {
         UpdateCheckResult result;
         try
@@ -154,7 +235,20 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _uiDispatcher.InvokeAsync(() => ApplyCheckResult(result, userInitiated));
+            await _uiDispatcher.InvokeAsync(() =>
+            {
+                bool toastOwed;
+                lock (_checkGate)
+                {
+                    // Read HERE, not before the dispatcher hop. A joiner can arrive during that hop
+                    // - the shared task is still incomplete - and a snapshot taken earlier would
+                    // have dropped the toast it was owed.
+                    toastOwed = _periodicAwaitingReport;
+                    _periodicAwaitingReport = false;
+                }
+
+                ApplyCheckResult(result, toastOwed);
+            });
         }
         catch (Exception ex)
         {
@@ -166,7 +260,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return result;
     }
 
-    private void ApplyCheckResult(UpdateCheckResult result, bool userInitiated)
+    private void ApplyCheckResult(UpdateCheckResult result, bool toastOwed)
     {
         switch (result.Status)
         {
@@ -179,18 +273,40 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 break;
 
             case UpdateCheckStatus.UpToDate:
-            case UpdateCheckStatus.NotInstalled:
                 _availableUpdate = null;
                 IsUpdateAvailable = false;
                 AvailableVersion = null;
                 _backgroundCheckFailing = false;
                 break;
 
+            case UpdateCheckStatus.AvailableNotInstallable:
+                // Cleared exactly as UpToDate is, which looks wrong and is not: a newer release does
+                // exist, but nothing in this process can install it, so leaving the install command
+                // armed would offer a button that cannot do the thing it names - it returns without
+                // acting, on the IsInstalled guard, which is a worse answer than not offering.
+                //
+                // The clearing happens BEFORE the log, not after. Logger.Log raises OnLogOutput
+                // inline, so a subscriber that throws would otherwise abandon this case halfway and
+                // leave a stale _availableUpdate armed behind it. It also counts as a SUCCESSFUL
+                // check, so it re-arms the periodic failure toast the same way the others do.
+                _availableUpdate = null;
+                IsUpdateAvailable = false;
+                AvailableVersion = null;
+                _backgroundCheckFailing = false;
+                _logger.Log(
+                    this,
+                    LogType.Status,
+                    $"Update available: v{result.NewVersion} (current v{_updateService.CurrentVersion}) — not installable, this build has no Velopack layout.");
+                break;
+
             case UpdateCheckStatus.Failed:
                 // A transient failure must NOT hide a previously-known available update, so leave
                 // IsUpdateAvailable/_availableUpdate as they are. Surface a background failure once
-                // per episode; a user-initiated failure is rendered by the caller from the result.
-                if (!userInitiated && !_backgroundCheckFailing)
+                // per episode; a user-initiated failure is rendered by the caller from the result,
+                // and a STARTUP failure is silent because nobody asked for it - see
+                // UpdateCheckOrigin.Startup, which now covers both the gated check (no window to
+                // toast onto yet) and the quiet one (a user who chose not to be interrupted).
+                if (toastOwed && !_backgroundCheckFailing)
                 {
                     _backgroundCheckFailing = true;
                     _toastService.ShowInfo(
@@ -207,7 +323,17 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
     private async Task InstallUpdateAsync()
     {
-        if (_availableUpdate is null)
+        // Snapshotted once rather than read from the field at each use below. CanExecute is not a
+        // gate a caller has to pass - ExecuteAsync runs the body regardless - and a check completing
+        // while the download is awaited can clear or replace _availableUpdate underneath it, which
+        // would hand ApplyAndRestart a different update than the one that was just downloaded.
+        UpdateAvailableInfo? update = _availableUpdate;
+
+        // IsInstalled is the belt to CanExecute's braces. AvailableNotInstallable already leaves
+        // _availableUpdate null, so this is unreachable by any route the app takes today; it stays
+        // because the cost of a future route reaching it is Velopack's DownloadUpdatesAsync throwing
+        // NotInstalledException into a progress window the user opened on purpose.
+        if (update is null || !_updateService.IsInstalled)
         {
             return;
         }
@@ -218,15 +344,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // remaining are all derived here. Progress<T> captures this thread's synchronization
         // context, which is the UI thread's, so every Report lands back on it - which is both what
         // the sink requires and what lets UpdateDownloadStats stay free of locking.
-        UpdateDownloadStats stats = new(_availableUpdate.DownloadPlan);
+        UpdateDownloadStats stats = new(update.DownloadPlan);
         Progress<int> progress = new(percent => _updateProgressSink.Report(stats.Report(percent)));
         try
         {
-            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], _availableUpdate.NewVersion));
-            await _updateService.DownloadAsync(_availableUpdate, progress).ConfigureAwait(true);
+            _updateProgressSink.SetStatus(string.Format(System.Globalization.CultureInfo.CurrentCulture, Localizer.Instance["UpdateProgress_StatusDownloading_Format"], update.NewVersion));
+            await _updateService.DownloadAsync(update, progress).ConfigureAwait(true);
 
             _updateProgressSink.SetStatus(Localizer.Instance["UpdateProgress_StatusRestarting"]);
-            _updateService.ApplyAndRestart(_availableUpdate);
+            _updateService.ApplyAndRestart(update);
         }
         catch (Exception ex)
         {
@@ -251,21 +377,258 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public LogsViewModel LogsViewModel { get; }
 
-    public async Task InitializeAsync()
+    /// <summary>
+    /// Runs startup hydration exactly once, and returns the SAME task to every caller.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It loads persisted packages, hydrates and wires log persistence, and restores the theme —
+    /// none of it safe to run twice — and the Avalonia head re-raises <c>Window.Opened</c> on every
+    /// tray restore, so it needs a guard.
+    /// </para>
+    /// <para>
+    /// The guard is a cached TASK rather than a bool. A bool made a second caller return
+    /// IMMEDIATELY while the first was still working, so it reported "initialised" for a database
+    /// that was not loaded yet — harmless while only one caller existed, and not harmless now that
+    /// the splash starts this and <c>MainWindow.Opened</c> also awaits it. Every caller now awaits
+    /// the same work and observes the same fault.
+    /// </para>
+    /// </remarks>
+    public Task InitializeAsync()
     {
-        // Idempotency guard (Phase 9 ledger fix b): InitializeAsync loads persisted packages, hydrates and
-        // wires log persistence, and restores theme — none of it safe to run twice (it would double-load
-        // packages and re-hydrate the Logs tab). The Avalonia head re-raises Window.Opened on every tray
-        // restore (App.axaml.cs one-shots the outer call too); guarding here makes the VM safe for any
-        // caller/head. The flag is set BEFORE the first await — FirstRun is synchronous, so on the single UI
-        // thread a re-entrant call short-circuits before any body work. WPF's Loaded fires once: unchanged.
-        if (_initialized)
+        TaskCompletionSource started;
+        lock (_initializeGate)
+        {
+            if (_initializeTask is not null)
+            {
+                return _initializeTask;
+            }
+
+            // Published BEFORE any work begins, not after InitializeCoreAsync returns its task. An
+            // async method runs synchronously to its first incomplete await, and the first thing
+            // this one does is FirstRun.InitializeDatabase - which LOGS, synchronously, to
+            // subscribers that run synchronously. A subscriber calling back in here would have
+            // found the field still null and started a second initialisation. The lock is no help
+            // against that: it is re-entrant on the calling thread.
+            started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _initializeTask = started.Task;
+        }
+
+        _ = CompleteInitializeAsync(started);
+        return started.Task;
+    }
+
+    private async Task CompleteInitializeAsync(TaskCompletionSource started)
+    {
+        try
+        {
+            await InitializeCoreAsync();
+            started.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            started.TrySetException(ex);
+        }
+    }
+
+    /// <summary>
+    /// Set by the head before initialisation starts when startup is GATED: the splash is up, the
+    /// real main window is not, and this view model owes the head a signal when it may swap.
+    /// </summary>
+    /// <remarks>
+    /// Null for <c>--agent</c>, <c>--gallery</c>, and any owner who turned the preference off.
+    /// Nothing below runs in that case; whether a check happens anyway is
+    /// <see cref="CheckForUpdatesAfterStartup"/>'s business, not this one's.
+    /// </remarks>
+    public StartupGate? StartupGate { get; set; }
+
+    /// <summary>
+    /// Set by the head when startup is NOT gated but an update check is still wanted — quietly,
+    /// after the window is already up, instead of in front of it.
+    /// </summary>
+    /// <remarks>
+    /// This is the OFF position of "check for updates at startup". Off moves the check behind
+    /// startup; it does not cancel it. Skipping it entirely is reserved for <c>--agent</c> and
+    /// <c>--gallery</c>, which are not user preferences and must make no launch-triggered request
+    /// at all. (The six-hourly poll still starts for them; only startup is silenced.)
+    /// <para>
+    /// The head sets at most one of this and <see cref="StartupGate"/>, and nothing here enforces
+    /// it. Setting both is not reliably harmless, and not reliably harmful either: single flight
+    /// coalesces checks that OVERLAP, and whether these two would is a race. The gate awaits its
+    /// check under a deadline but lets a slow one carry on past it, so by the time the branch below
+    /// runs, that check is either still in flight — and this joins it — or finished, and this starts
+    /// a second request. The head's two startup paths being mutually exclusive is the only thing
+    /// that makes the answer reliably "one", so that is where it has to stay true.
+    /// </para>
+    /// </remarks>
+    public bool CheckForUpdatesAfterStartup { get; set; }
+
+    /// <summary>
+    /// Runs the startup check behind a deadline, hands the head its cue to show the real window,
+    /// then decides what to do about any update it found — install it, ask about it, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The deadline stops GATING; it does not cancel. Velopack 1.2.0 offers no way to cancel a
+    /// check, so the request outlives it — and because checks are single flight, its result still
+    /// publishes through the normal path, lighting up Help → Install Update if what it found can
+    /// actually be installed. What a late result must never do is ACT: no prompt, and no automatic
+    /// install either, which is why both live inside the deadline.
+    /// </para>
+    /// <para>
+    /// Every path signals the gate, including the failing ones, because the head is waiting on it
+    /// and a startup that never showed a window is worse than one that showed it too early.
+    /// </para>
+    /// </remarks>
+    internal async Task RunStartupGateAsync()
+    {
+        if (StartupGate is not { } gate)
         {
             return;
         }
 
-        _initialized = true;
+        UpdateCheckResult? result = null;
 
+        // A finally, but a cancellation-aware one. The window must be released however this ends -
+        // and LOGGING can throw, because the real logger invokes its subscribers inline without
+        // isolation, so a release that came after a log statement would be a release that a bad
+        // subscriber could skip. The one case that must NOT release is cancellation: the head has
+        // already abandoned the transition, and releasing would be telling it to show a window it
+        // has decided not to show.
+        bool releaseWindow = true;
+        try
+        {
+            Task<UpdateCheckResult> check = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+            try
+            {
+                result = await check.WaitAsync(gate.Deadline, gate.CancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                // Still running. It keeps going and still publishes; it simply no longer holds the
+                // main window hostage, and it has forfeited its chance to act on what it finds -
+                // neither a prompt nor an automatic install can follow a result that arrives late.
+                SafeLog(LogType.Status, "Update check is taking too long; continuing startup without it.");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The splash was closed. Terminal: there is no window to show, and nothing to ask or
+            // install - closing the splash gives up on this launch's update entirely.
+            releaseWindow = false;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Defensive. CheckForUpdatesAsync normalises what its service and collaborators throw,
+            // so nothing is expected here and no test distinguishes this block from its absence -
+            // it stays because the cost of being wrong about that is an app that never appears.
+            SafeLog(LogType.Error, $"Startup update check failed: {ex.Message}");
+        }
+        finally
+        {
+            if (releaseWindow)
+            {
+                gate.ReleaseMainWindow();
+            }
+        }
+
+        await gate.MainWindowReady.WaitAsync(gate.CancellationToken);
+        gate.CancellationToken.ThrowIfCancellationRequested();
+
+        if (result?.Status != UpdateCheckStatus.Available || result.Info is null)
+        {
+            return;
+        }
+
+        await ResolveStartupUpdateAsync(result.Info);
+    }
+
+    /// <summary>
+    /// Logs without being able to break the thing it is reporting on. <c>Logger.Log</c> raises
+    /// <c>OnLogOutput</c> inline, so a throwing subscriber would otherwise propagate out of a
+    /// recovery path and defeat the recovery.
+    /// </summary>
+    private void SafeLog(LogType type, string message)
+    {
+        try
+        {
+            _logger.Log(this, type, message);
+        }
+        catch (Exception)
+        {
+            // Nowhere left to report it: the log IS the reporting channel.
+        }
+    }
+
+    /// <summary>
+    /// Decides what to do about an update the STARTUP check found: nothing, install it, or ask.
+    /// </summary>
+    /// <remarks>
+    /// Only ever reached from the gated path, which is what keeps "install automatically at startup"
+    /// honest — the quiet post-startup check cannot land here, so someone who turned the startup
+    /// check off never gets an unannounced restart out of a setting they left switched on behind a
+    /// greyed-out box.
+    /// </remarks>
+    private async Task ResolveStartupUpdateAsync(UpdateAvailableInfo info)
+    {
+        // The HYDRATED parent setting, re-checked here even though the head already decided to gate.
+        // Those two decisions read the store at different moments and can disagree:
+        // StartupUpdatePreference answers "unknown" for a database it could not read - locked by
+        // another process, mid-migration - and the head treats unknown as "gate", which is right for
+        // showing a splash and wrong as authority for installing anything. By the time this runs the
+        // real value has been loaded, and it may say the owner turned startup checks off.
+        //
+        // Getting this wrong is not a cosmetic mismatch. It is someone who opted out of startup
+        // checks, left auto-install switched on underneath the greyed-out box, and gets an
+        // unannounced restart because a transient file lock outvoted them.
+        if (!SettingsViewModel.CheckForUpdatesAtStartup)
+        {
+            _logger.Log(
+                this,
+                LogType.Status,
+                $"Update v{info.NewVersion} found at startup, but startup checks are turned off; leaving it to the menu.");
+            return;
+        }
+
+        if (SettingsViewModel.AutoInstallUpdatesAtStartup)
+        {
+            // No prompt, by request. The progress window still appears - this is "without being
+            // asked", not "without being told", and a restart that arrives with no explanation is a
+            // crash as far as anyone watching can tell.
+            _logger.Log(this, LogType.Status, $"Installing update v{info.NewVersion} automatically at startup.");
+            await InstallUpdateCommand.ExecuteAsync(null);
+            return;
+        }
+
+        Services.IStartupUpdatePrompt? prompt = _services.GetService<Services.IStartupUpdatePrompt>();
+        if (prompt is null)
+        {
+            return;
+        }
+
+        Services.StartupUpdatePromptResult answer = await prompt.ShowAsync(
+            info.NewVersion,
+            _updateService.CurrentVersion,
+            SettingsViewModel.CheckForUpdatesAtStartup);
+
+        if (answer.CheckAtStartup != SettingsViewModel.CheckForUpdatesAtStartup)
+        {
+            // AWAITED, and before the install. "Update now" hands over to an updater that exits the
+            // process, so a fire-and-forget write here can lose the preference just expressed.
+            await SettingsViewModel.SetCheckForUpdatesAtStartupAsync(answer.CheckAtStartup);
+        }
+
+        if (answer.UpdateNow)
+        {
+            // Awaited so package loading stays paused until it returns - which, on the success path,
+            // it never does: Velopack restarts the process from inside.
+            await InstallUpdateCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async Task InitializeCoreAsync()
+    {
         FirstRun.InitializeDatabase(_services, _logger);
 
         // Hydrate the Logs tab from the persisted store BEFORE wiring the persistence
@@ -356,6 +719,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         await SettingsViewModel.LoadAsync();
+
+        // === the startup gate ===================================================================
+        // Everything above is what the gate needs: a database, hydrated settings, the persisted
+        // language so any prompt speaks it. Everything below can happen with the main window
+        // already on screen - and the gate's DECISION has to happen before it does, because
+        // LoadPersistedPackagesAsync can auto-start uploads and installing restarts the process,
+        // whether the user pressed "Update now" or auto-install never asked them.
+        await RunStartupGateAsync();
+        // The app may have been closed while the gate was up, or while this remainder runs. Loading
+        // packages then would schedule uploads for a window that is going away.
+        StartupGate?.CancellationToken.ThrowIfCancellationRequested();
+
         // Load proxies before persisted packages so any auto-resumed uploads pick from
         // the user's configured proxy list.
         await _services.GetRequiredService<Lib.Net.ProxyManager>().ReloadAsync();
@@ -363,9 +738,22 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _services.GetRequiredService<PackageManager>().LoadPersistedPackagesAsync();
         await UploadedViewModel.LoadAsync();
 
-        // First update check happens shortly after startup (the timer fires every 6h
-        // thereafter). Fire-and-forget — a network failure shouldn't block init.
-        _ = CheckForUpdatesAsync();
+        // The unGATED check: no splash, no prompt, nothing in the user's way - the window is already
+        // up by the time this runs. It is what "check for updates at startup" being OFF buys: the
+        // check moves behind startup rather than disappearing, so an INSTALLED build still reports an
+        // update in the title bar without startup ever having waited on one. A loose build reports
+        // AvailableNotInstallable, which deliberately leaves the title alone - there is nothing it
+        // could offer to do about it.
+        //
+        // Driven by an explicit flag rather than by "no gate was set", because those are not the
+        // same question. --agent and --gallery also arrive here without a gate, and nothing at
+        // LAUNCH may make a request for them - a screenshot loop is not a user who wants to know
+        // about updates. (The six-hourly poll is a separate matter and still starts.)
+        if (CheckForUpdatesAfterStartup)
+        {
+            // Fire-and-forget: a network failure must not block init.
+            _ = CheckForUpdatesAsync(UpdateCheckOrigin.Startup);
+        }
     }
 
     partial void OnIsDarkModeChanged(bool value)

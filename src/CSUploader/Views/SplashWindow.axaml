@@ -1,0 +1,40 @@
+<!-- Copyright (c) CSUploader. All rights reserved. -->
+<!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
+
+<!-- Shown while the startup update check runs, and it IS the application's MainWindow until the real
+     one takes over. That is deliberate: Avalonia's classic desktop lifetime shows whatever MainWindow
+     holds when OnFrameworkInitializationCompleted returns, and decides shutdown by comparing the
+     closing window against the CURRENT MainWindow — so making this the main window and swapping later
+     keeps ShutdownMode.OnMainWindowClose working throughout, and makes closing the splash before the
+     swap exit the app, which is what closing a splash should do.
+
+     Status text, not just a spinner: the bar says something is happening, the text says what. -->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+        x:Class="CSUploader.Views.SplashWindow"
+        Title="CSUploader"
+        Width="360" SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="True"
+        Background="{DynamicResource SurfaceBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        Icon="/Assets/icon.ico">
+  <StackPanel Margin="24,20">
+    <TextBlock Text="CSUploader"
+               FontSize="18"
+               FontWeight="SemiBold"
+               HorizontalAlignment="Center" />
+    <TextBlock x:Name="StatusText"
+               Text="{loc:Loc Splash_Status_CheckingForUpdates}"
+               AutomationProperties.Name="{loc:Loc Splash_Status_CheckingForUpdates}"
+               FontSize="12"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               HorizontalAlignment="Center"
+               Margin="0,10,0,12" />
+    <ProgressBar x:Name="Progress"
+                 IsIndeterminate="True"
+                 Height="4" />
+  </StackPanel>
+</Window>

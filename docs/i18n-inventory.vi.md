@@ -96,6 +96,8 @@ Main_CheckForUpdates_DialogTitle  = Kiểm tra cập nhật
 Main_CheckForUpdates_AlreadyLatest = Bạn đang dùng phiên bản mới nhất.
 Main_CheckForUpdates_Available_Format = Có bản cập nhật: v{0}.\n\nVui lòng dùng Trợ giúp → Cài đặt bản cập nhật để tải xuống và cài đặt.   # {0} = available semver
 Main_CheckForUpdates_Failed_Format = Không thể kiểm tra bản cập nhật: {0}
+Main_CheckForUpdates_NotInstallable_Format = Có bản cập nhật: v{0}.\n\nBản dựng này chưa được cài đặt nên không thể tự cập nhật. Vui lòng tải phiên bản mới từ trang phát hành.   # {0} = available semver
+Main_CheckForUpdates_StillRunning = A check that started earlier is still running. Try again in a moment.
 Update_CheckFailed_ToastTitle = Kiểm tra cập nhật thất bại
 Update_CheckFailed_ToastBody = CSUploader không thể kiểm tra bản cập nhật. Sẽ thử lại sau.
 ```
@@ -296,6 +298,14 @@ Settings_General_CloseAction_Exit        = Thoát ứng dụng
 Settings_General_Notifications_Title  = Thông báo
 Settings_General_Notifications_Desc   = Cửa sổ bật lên ở góc dưới bên phải khi quá trình tải lên hoàn tất.
 Settings_General_ShowCompletionToasts = Hiển thị thông báo bật lên khi tải lên hoàn tất
+Settings_General_CheckForUpdatesAtStartup = Kiểm tra cập nhật khi khởi động
+Settings_General_AutoInstallUpdatesAtStartup = Tự động cài đặt bản cập nhật khi khởi động
+UpdatePrompt_WindowTitle          = Update available
+UpdatePrompt_Message_Format       = CSUploader v{0} is available. You have v{1}.                # {0} = new version, {1} = current
+UpdatePrompt_CheckAtStartup         = Kiểm tra cập nhật khi khởi động
+UpdatePrompt_BtnUpdateNow         = Update now
+UpdatePrompt_BtnLater             = Later
+Splash_Status_CheckingForUpdates  = Checking for updates…
 
 Settings_General_ConfirmationPrompts_Title = Hộp thoại xác nhận
 Settings_General_ConfirmationPrompts_Desc  = Đánh dấu một mục để được hỏi lại trước khi thực hiện hành động. Bỏ đánh dấu để tắt xác nhận cho hành động đó.

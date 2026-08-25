@@ -3,8 +3,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using System.Reflection;
 using Velopack;
+using Velopack.Logging;
 using Velopack.Sources;
 
 namespace CSUploader.Lib.Update;
@@ -14,17 +14,25 @@ public sealed class UpdateService : IUpdateService
     private const string GitHubRepoUrl = "https://github.com/CSUploader/CSUploader";
 
     private readonly UpdateManager _manager;
+    private readonly IUpdateSource _source;
     private readonly IAppLogger _logger;
 
     public UpdateService(IAppLogger logger)
+        : this(logger, new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false), AppVersion.Current)
+    {
+    }
+
+    /// <summary>
+    /// Test seam. The source and the version are the only two inputs the non-installed check has,
+    /// and both must be substitutable: a test process is never installed, so without this the
+    /// no-install branch below would put a live GitHub request in the unit-test suite.
+    /// </summary>
+    internal UpdateService(IAppLogger logger, IUpdateSource source, string currentVersion)
     {
         _logger = logger;
-        GithubSource source = new(GitHubRepoUrl, accessToken: null, prerelease: false);
+        _source = source;
         _manager = new UpdateManager(source);
-
-        Version? asmVersion = Assembly.GetEntryAssembly()?.GetName().Version
-                              ?? Assembly.GetExecutingAssembly().GetName().Version;
-        CurrentVersion = asmVersion?.ToString(3) ?? "0.0.0";
+        CurrentVersion = currentVersion;
     }
 
     public string CurrentVersion { get; }
@@ -33,14 +41,13 @@ public sealed class UpdateService : IUpdateService
 
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
-        if (!_manager.IsInstalled)
-        {
-            // Loose builds and `dotnet run` don't have a Velopack package layout to update.
-            return UpdateCheckResult.NotInstalled;
-        }
-
         try
         {
+            if (!_manager.IsInstalled)
+            {
+                return DescribeWithoutInstall(await ReadFeedAsync().ConfigureAwait(false), CurrentVersion);
+            }
+
             return Describe(await _manager.CheckForUpdatesAsync().ConfigureAwait(false));
         }
         catch (Exception ex)
@@ -48,6 +55,66 @@ public sealed class UpdateService : IUpdateService
             _logger.Log(this, LogType.Error, $"Update check failed: {ex.Message}");
             return UpdateCheckResult.Failed(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Asks the release source what it has, the way <c>UpdateManager</c> would if it could.
+    /// <para>
+    /// It cannot: <c>CheckForUpdatesAsync</c> opens with <c>EnsureInstalled()</c>, which throws
+    /// <c>NotInstalledException</c> without a Velopack layout — so a loose build has to go to the
+    /// source directly. Three of the arguments the manager would pass come from the install and are
+    /// dropped here: the app id, the staged-user id, and the local package a delta would build on.
+    /// That is safe against THIS source at THIS version and not in general — <c>GitBase</c> in
+    /// Velopack 1.2.0 ignores all three, deriving the feed purely from the channel. A source that
+    /// used them (staged rollouts, per-id feeds) would answer differently here than it does for an
+    /// installed build.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// <c>channel</c> is passed explicitly rather than as null. Velopack's own signature declares it
+    /// non-nullable and then falls back to this same expression internally, so null happens to work
+    /// in 1.2.0 — but relying on that is relying on an implementation detail contradicting the
+    /// declared contract. This is what <c>UpdateManager.DefaultChannel</c> resolves to for a
+    /// non-installed locator, so it is the same request.
+    /// </remarks>
+    private async Task<VelopackAsset[]> ReadFeedAsync()
+    {
+        VelopackAssetFeed feed = await _source.GetReleaseFeed(
+            NullVelopackLogger.Instance,
+            appId: null,
+            channel: VelopackRuntimeInfo.SystemOs.GetOsShortName()).ConfigureAwait(false);
+
+        // Returned as-is. Assets is non-nullable and Velopack initialises it to an empty array, so
+        // a null here means a source violating its own contract - and coercing that to an empty
+        // array would report "up to date", turning malformed input into a confident wrong answer.
+        // Left to throw instead, which CheckAsync turns into Failed.
+        return feed.Assets;
+    }
+
+    /// <summary>
+    /// Turns the raw release feed into an outcome for a build that cannot install what it finds.
+    /// </summary>
+    /// <remarks>
+    /// <b>An unreadable current version is a failed check, not an available update.</b> Every
+    /// published release is above <see cref="AppVersion.Unknown"/>, so treating "we don't know what we
+    /// are" as a real version would report an update every single time, for ever, on any host where
+    /// the version cannot be read. Answering <see cref="UpdateCheckStatus.Failed"/> says the true
+    /// thing: the comparison could not be made.
+    /// </remarks>
+    internal static UpdateCheckResult DescribeWithoutInstall(VelopackAsset[] assets, string currentVersion)
+    {
+        if (currentVersion == AppVersion.Unknown || !SemanticVersion.TryParse(currentVersion, out SemanticVersion? current))
+        {
+            return UpdateCheckResult.Failed($"Cannot compare releases: the running version ('{currentVersion}') could not be read.");
+        }
+
+        VelopackAsset? latest = assets
+            .Where(a => a.Type == VelopackAssetType.Full)
+            .MaxBy(a => a.Version);
+
+        return latest is not null && latest.Version > current
+            ? UpdateCheckResult.AvailableNotInstallable(latest.Version.ToString())
+            : UpdateCheckResult.UpToDate;
     }
 
     /// <summary>

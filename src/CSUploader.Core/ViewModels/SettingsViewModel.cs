@@ -176,6 +176,12 @@ public partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool ShowCompletionToasts { get; set; } = AppSettings.DefaultShowCompletionToasts;
 
+    [ObservableProperty]
+    public partial bool CheckForUpdatesAtStartup { get; set; } = AppSettings.DefaultCheckForUpdatesAtStartup;
+
+    [ObservableProperty]
+    public partial bool AutoInstallUpdatesAtStartup { get; set; } = AppSettings.DefaultAutoInstallUpdatesAtStartup;
+
     // ── Developer settings ──
 
     [ObservableProperty]
@@ -388,6 +394,34 @@ public partial class SettingsViewModel(
 
                     break;
 
+                case var k when k == SettingKey.CheckForUpdatesAtStartup:
+                    // A value that parses, or nothing. StartupUpdatePreference - which decides
+                    // whether the splash appears at all, before this runs - treats an unrecognised
+                    // value as "unknown" and falls back to the default. Mapping it to false here
+                    // would leave the two disagreeing: the splash would appear on every launch
+                    // while Settings said the feature was off, and nothing would ever repair it.
+                    // The SAME parser the pre-window read uses, not an equivalent one:
+                    // bool.TryParse accepts " false " and that one does not, which would recreate
+                    // the very disagreement sharing it exists to prevent.
+                    if (StartupUpdatePreference.Parse(setting.Value) is { } checkAtStartup)
+                    {
+                        CheckForUpdatesAtStartup = checkAtStartup;
+                    }
+
+                    break;
+
+                case var k when k == SettingKey.AutoInstallUpdatesAtStartup:
+                    // The same parser, though nothing reads this one before the window exists, so
+                    // there is no second reader to disagree with. Shared anyway, because an
+                    // unrecognised value ought to mean the same thing wherever it is stored: fall
+                    // back to the default rather than guess.
+                    if (StartupUpdatePreference.Parse(setting.Value) is { } autoInstall)
+                    {
+                        AutoInstallUpdatesAtStartup = autoInstall;
+                    }
+
+                    break;
+
                 case var k when k == SettingKey.ShowCompletionToasts:
                     ShowCompletionToasts = string.Equals(setting.Value, "true", StringComparison.OrdinalIgnoreCase);
                     break;
@@ -450,6 +484,8 @@ public partial class SettingsViewModel(
         _settings.MinimizeToTray = MinimizeToTray;
         _settings.CloseAction = CloseAction;
         _settings.ShowCompletionToasts = ShowCompletionToasts;
+        _settings.CheckForUpdatesAtStartup = CheckForUpdatesAtStartup;
+        _settings.AutoInstallUpdatesAtStartup = AutoInstallUpdatesAtStartup;
         _settings.WizardHosterAccountFilter = WizardHosterAccountFilter;
         _settings.DefaultUploadDirectory = DefaultUploadDirectory;
 
@@ -645,6 +681,49 @@ public partial class SettingsViewModel(
             return;
         _settings.WizardHosterAccountFilter = value;
         _ = AutoSaveAsync(SettingKey.WizardHosterAccountFilter, value.ToString());
+    }
+
+    partial void OnCheckForUpdatesAtStartupChanged(bool value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.CheckForUpdatesAtStartup = value;
+        _ = AutoSaveAsync(SettingKey.CheckForUpdatesAtStartup, value ? "true" : "false");
+    }
+
+    partial void OnAutoInstallUpdatesAtStartupChanged(bool value)
+    {
+        if (_suppressAutoSave)
+            return;
+        _settings.AutoInstallUpdatesAtStartup = value;
+        _ = AutoSaveAsync(SettingKey.AutoInstallUpdatesAtStartup, value ? "true" : "false");
+    }
+
+    /// <summary>
+    /// Sets the startup-check preference and WAITS for it to reach the database.
+    /// </summary>
+    /// <remarks>
+    /// The property setter above auto-saves fire-and-forget, which is right for a user ticking a
+    /// box in Settings and wrong for the startup prompt: choosing "Update now" hands straight over
+    /// to Velopack, which exits the process, so an unawaited write can lose the preference the user
+    /// just expressed. This is the same single write through the same path — the setter's own
+    /// auto-save is suppressed so it does not become two.
+    /// </remarks>
+    public async Task SetCheckForUpdatesAtStartupAsync(bool value, CancellationToken cancellationToken = default)
+    {
+        bool previous = _suppressAutoSave;
+        _suppressAutoSave = true;
+        try
+        {
+            CheckForUpdatesAtStartup = value;
+            _settings.CheckForUpdatesAtStartup = value;
+        }
+        finally
+        {
+            _suppressAutoSave = previous;
+        }
+
+        await SaveSettingAsync(SettingKey.CheckForUpdatesAtStartup, value ? "true" : "false", cancellationToken);
     }
 
     partial void OnShowCompletionToastsChanged(bool value)
