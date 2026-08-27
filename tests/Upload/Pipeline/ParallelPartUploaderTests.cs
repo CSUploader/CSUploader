@@ -97,21 +97,66 @@ public class ParallelPartUploaderTests
         Assert.Equal([0, 1, 2, 3, 4], order);
     }
 
+    /// <summary>
+    /// Once a part has failed, no waiting part ever starts — exactly, not "fewer than all of
+    /// them". The assert is deterministic because the guarantee is causal, not timed: the failing
+    /// part records its failure (which cancels) BEFORE its <c>finally</c> releases its slot, so by
+    /// the time any slot frees, every queued waiter either has its <c>WaitAsync</c> cancelled
+    /// outright or is admitted into the post-gate cancellation check — and both routes end without
+    /// invoking the delegate. Parts 0 and 1 hold both slots on completion sources; the test
+    /// releases NOTHING until the failure's cancellation is observable (via the linked token the
+    /// delegate was handed), because completing part 0 while part 1's rejection is still in flight
+    /// re-creates the exact race under test: part 0's release admits part 2 ahead of the cancel —
+    /// a first draft of this test did exactly that and flaked, as did the 10ms-delay version
+    /// before it, which could pass with any number of unwanted starts.
+    /// </summary>
     [Fact]
-    public async Task RunAsync_WhenAPartReturnsAnError_StopsStartingNewParts()
+    public async Task RunAsync_WhenAPartReturnsAnError_StartsNoFurtherParts()
     {
-        int started = 0;
+        var started = new System.Collections.Concurrent.ConcurrentQueue<int>();
+        TaskCompletionSource<PartResult>[] holds =
+        [
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+        ];
+        int arrived = 0;
+        TaskCompletionSource bothSlotsHeld = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource runCancelled = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await ParallelPartUploader.RunAsync(16, 2, async (i, ct) =>
+        Task<PartResult[]> run = ParallelPartUploader.RunAsync(16, 2, async (i, ct) =>
         {
-            Interlocked.Increment(ref started);
-            await Task.Delay(10, ct);
-            return i == 1
-                ? new PartResult(i + 1, null, "rejected")
-                : new PartResult(i + 1, "etag", null);
+            started.Enqueue(i);
+            if (i == 0)
+            {
+                // The linked token, straight from the SUT: RecordFailure cancels it before the
+                // failing part's slot is released, so its firing is the happens-before edge the
+                // test must see before letting part 0 finish.
+                ct.Register(() => runCancelled.TrySetResult());
+            }
+
+            if (Interlocked.Increment(ref arrived) == 2)
+            {
+                bothSlotsHeld.SetResult();
+            }
+
+            // Any part past the first two is already a regression (asserted below); completing it
+            // keeps the failure an assert instead of a hang.
+            return i < 2 ? await holds[i].Task : new PartResult(i + 1, "etag", null);
         }, CancellationToken.None);
 
-        Assert.True(started < 16, $"{started} of 16 parts started after an error");
+        await bothSlotsHeld.Task;
+        holds[1].SetResult(new PartResult(2, null, "rejected")); // the failure; part 0 still holds the other slot
+
+        // Bounded so a SUT that stops cancelling fails inside the timeout instead of hanging the run.
+        Assert.Same(runCancelled.Task, await Task.WhenAny(runCancelled.Task, Task.Delay(TimeSpan.FromSeconds(10))));
+
+        holds[0].SetResult(new PartResult(1, "etag-0", null));
+        PartResult[] results = await run;
+
+        Assert.Equal([0, 1], started.Order());
+        Assert.Equal("rejected", results[1].Error);
+        Assert.Equal("etag-0", results[0].ETag);
+        Assert.All(results.Skip(2), r => Assert.Equal(default, r)); // never started, never written
     }
 
     [Fact]

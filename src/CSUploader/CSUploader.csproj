@@ -76,9 +76,13 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" Condition="$(TargetFramework.Contains('windows'))" />
     <!-- CefGlue/CEF interactive sign-in host — NON-Windows only (Linux/macOS); Windows uses WebView2 above.
          120.6099.211 = CEF/Chromium 120. Avalonia.ReactiveUI is a transitive dep of CefGlue.Avalonia that
-         tops out at 11.3.9 (11.3.18 fails restore, NU1102) — pinned so it can't drag in 11.0.9. -->
+         tops out at 11.3.9 — pinned so it can't drag in 11.0.9. The package was RENAMED ReactiveUI.Avalonia
+         for Avalonia 12, but CefGlue depends on this identity, so the rename cannot satisfy it: referencing
+         the new name instead of this pin ships BOTH adapters and silently downgrades this one to 11.0.9.
+         Nothing else here uses ReactiveUI. An 11-era adapter over Avalonia 12 is unproven until the
+         sign-in host is launched on Linux — no CefGlue build for 12 exists. -->
     <PackageReference Include="CefGlue.Avalonia" Version="120.6099.211" Condition="!$(TargetFramework.Contains('windows'))" />
-    <PackageReference Include="ReactiveUI.Avalonia" Version="12.1.1" Condition="!$(TargetFramework.Contains('windows'))" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" Condition="!$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
          Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
          2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->

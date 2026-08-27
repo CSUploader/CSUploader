@@ -74,7 +74,7 @@ public class SettingsConnectionTests
         {
             DataGridCheckBoxColumn onColumn = view.ProxyGrid.Columns.OfType<DataGridCheckBoxColumn>().Single();
             var binding = Assert.IsType<CompiledBinding>(onColumn.Binding);
-            Assert.Equal("Enabled", binding.Path.ToString());
+            Assert.Equal("Enabled", binding.Path?.ToString());
             Assert.NotEqual(BindingMode.OneWay, binding.Mode);
         }
         finally

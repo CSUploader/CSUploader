@@ -277,6 +277,39 @@ public class SimpleDialogTests
         }
     }
 
+    /// <summary>
+    /// A payload with blank lines: the BOX shows the padded variant, the Copy button hands on the
+    /// pristine bytes. Both halves are load-bearing. Unpadded, this very test hangs the suite —
+    /// under the headless platform a wrapping TextBox measures through TextPresenter, which spins
+    /// on an empty line even in this fixed-size window (caught in a stack dump of the hung test
+    /// process; headless TextBlocks' fixed-size immunity does not transfer). And copying the
+    /// padded display would silently turn <c>\n\n</c> into <c>\n \n</c> in copied diagnostics —
+    /// blank lines are exactly what HTML error bodies carry.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task ErrorDetails_Copy_KeepsBlankLinesByteForByte_WhileTheBoxShowsThemPadded()
+    {
+        const string detail = "summary line\r\n\r\n<html>\n\nbody</html>";
+        var dlg = new ErrorDetailsWindow(detail);
+        try
+        {
+            dlg.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("summary line\r\n \r\n<html>\n \nbody</html>", dlg.DetailBox.Text);
+
+            Click(dlg.CopyButton);
+            Dispatcher.UIThread.RunJobs();
+
+            string? clip = await ClipboardExtensions.TryGetTextAsync(dlg.Clipboard!);
+            Assert.Equal(detail, clip);
+        }
+        finally
+        {
+            dlg.Close();
+        }
+    }
+
     // ── CloseActionDialog: outcome mapping through ShowDialog<CloseActionChoice?> (Task 6) ──
 
     [AvaloniaFact]

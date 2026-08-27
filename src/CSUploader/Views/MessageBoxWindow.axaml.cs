@@ -44,7 +44,8 @@ public partial class MessageBoxWindow : Window
         Title = title;
 
         // Padded, because several localized bodies contain \n\n and this is a wrapping TextBlock in
-        // a SizeToContent window - the exact shape Avalonia 12.1.1 cannot finish measuring.
+        // a SizeToContent window - the exact shape 12.1.1's HEADLESS platform (so, every test of
+        // this window) cannot finish measuring; see Avalonia12EmptyLineHang.
         MessageText.Text = Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(message);
         IconKind = icon;
 

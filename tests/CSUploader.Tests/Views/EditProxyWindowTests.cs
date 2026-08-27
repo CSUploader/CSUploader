@@ -220,6 +220,24 @@ public class EditProxyWindowTests
         }
     }
 
+    /// <summary>
+    /// Status text with an empty line arrives padded. The status TextBlock wraps inside a
+    /// SizeToContent="Height" window, and the test-proxy catch path hands it raw exception text —
+    /// the empty-line combination that hangs measure forever under the headless platform any test
+    /// of this window runs on (see Avalonia12EmptyLineHang). Asserted on the string, deliberately
+    /// without showing the window: a regression here would hang the suite, not fail it, if the
+    /// assert needed a measure pass.
+    /// </summary>
+    [AvaloniaFact]
+    public void SetStatus_PadsEmptyLines_BeforeTheWrappingStatusBlockMeasures()
+    {
+        var dlg = new EditProxyWindow(new ProxySettingDto { Type = ProxyType.Http, Host = "127.0.0.1", Port = 8080 });
+
+        dlg.SetStatus("Connection refused.\n\nInner detail.", isError: true);
+
+        Assert.Equal("Connection refused.\n \nInner detail.", dlg.TestStatusText.Text);
+    }
+
     [AvaloniaFact]
     public void PasswordBox_IsMasked()
     {
