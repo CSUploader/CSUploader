@@ -6,26 +6,28 @@
 namespace CSUploader.Lib.UI;
 
 /// <summary>
-/// Works around an Avalonia 12.1.1 layout hang that is specific to the HEADLESS platform: wrapping
-/// text that contains an EMPTY line spins forever inside
-/// <c>TextFormatterImpl.PerformTextWrapping</c> / <c>CreateEmptyTextLine</c>. The headless test
-/// suite runs every window on that platform, and several localized bodies (and every release-notes
-/// rendering) contain <c>\n\n</c> — so without this, the suite hangs instead of failing.
+/// Works around an Avalonia 12.1.1 layout hang: wrapping text that contains an EMPTY line spins
+/// forever inside <c>TextFormatterImpl.PerformTextWrapping</c> / <c>CreateEmptyTextLine</c>.
+/// Reproduced under Avalonia.Headless; NOT reproduced on the real Windows/Skia renderer, where
+/// every probed shape converges. The headless test suite runs every window on that platform, and
+/// several localized bodies (and every release-notes rendering) contain <c>\n\n</c> — so without
+/// this, the suite hangs instead of failing.
 /// </summary>
 /// <remarks>
-/// Headless-only, established by probing the same shapes on the real Windows renderer (12.1.1,
-/// Skia): a wrapping TextBlock and a wrapping TextBox, fixed-size and SizeToContent, all converge
-/// live with empty-line text — the degenerate metrics come from the headless text shaper. Under
-/// headless, bisection pinned the shapes that spin: wrap + empty line + a content-sized measure —
-/// a SizeToContent window's TextBlock, or a wrapping TextBox anywhere (its scroll presenter
-/// measures unbounded even in a fixed window; caught mid-spin in a stack dump of the test
-/// process). A fixed-size window's TextBlock is immune.
+/// The renderer split is empirical, not source-proven: a scratch 12.1.1 desktop app probed a
+/// wrapping TextBlock and a wrapping TextBox, fixed-size and SizeToContent, with empty-line text —
+/// all converge on Windows/Skia, which points at the headless text shaper's metrics, but other
+/// renderers and shapes were not probed. Under headless, bisection pinned the shapes that spin:
+/// wrap + empty line + a content-sized measure — a SizeToContent window's TextBlock, or a wrapping
+/// TextBox anywhere (its scroll presenter measures unbounded even in a fixed window; caught
+/// mid-spin in a stack dump of the test process). A fixed-size window's TextBlock is immune.
 /// <para>
-/// The mitigation is a single real space on each otherwise-empty line — invisible on screen, and a
-/// zero-width space does NOT work (it still shapes to a zero-width line and still hangs). It is
-/// applied in production code at the few sinks whose text can carry <c>\n\n</c>, because that is
-/// the one place that covers the app's headless tests and the live app alike, and the live cost is
-/// nil. REMOVE when the app moves to an Avalonia whose headless platform has the upstream fix; the
+/// The mitigation is a single real space on each otherwise-empty line — visually nil (no glyph,
+/// same line height), though it IS in the control's text, so selecting a padded blank line copies
+/// one space; a zero-width space does NOT work (it still shapes to a zero-width line and still
+/// hangs). It is applied in production code at the few sinks whose text can carry <c>\n\n</c>,
+/// because that is the one place that covers the app's headless tests and the live app alike.
+/// REMOVE when the app moves to an Avalonia whose headless platform has the upstream fix; the
 /// padder's unit tests and the prompt/message-box tests that hung without it are the regression
 /// net that makes removal safe to try. Closest known upstream report at the time of writing:
 /// AvaloniaUI/Avalonia#21685 (degenerate paragraph width in the same formatter).

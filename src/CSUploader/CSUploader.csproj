@@ -63,8 +63,9 @@
     <PackageReference Include="Avalonia" Version="12.1.1" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
-    <!-- DataGrid's 11.x line ends at 11.3.13; its dependency range accepts the 11.3.18 core.
-         Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
+    <!-- DataGrid versions independently of the core (12.1.2 is its current line against the 12.1
+         core). Pinned so the resolution graph is locked before any grid work (design §Hard
+         constraints). -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" Condition="'$(Configuration)' == 'Debug'" />
     <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
@@ -84,8 +85,9 @@
     <PackageReference Include="CefGlue.Avalonia" Version="120.6099.211" Condition="!$(TargetFramework.Contains('windows'))" />
     <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" Condition="!$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
-         Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
-         2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->
+         Svg.Skia + SkiaSharp, which can UPLIFT the app's SkiaSharp above the build Avalonia.Skia
+         pins (it did against 11.3.18's 2.88.9) - verified to render at runtime (live Skia proof),
+         not by faith. -->
     <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.16" />
   </ItemGroup>
 
