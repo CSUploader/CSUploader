@@ -217,7 +217,7 @@ public class MainWindowMenuTests
     }
 
     [AvaloniaFact]
-    public void MenuCheckForUpdates_WhenCheckFails_ShowsErrorDialog()
+    public async Task MenuCheckForUpdates_WhenCheckFails_ShowsErrorDialog()
     {
         // A user-initiated check that FAILS must surface an error dialog (not the "you're on the latest"
         // info box). Drives the real handler over a real MainViewModel whose IUpdateService returns Failed
@@ -249,18 +249,26 @@ public class MainWindowMenuTests
                 var help = (MenuItem)menu.Items[2]!;
                 var checkForUpdates = (MenuItem)help.Items[0]!;
                 checkForUpdates.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
 
-                // The handler is async void: CheckForUpdatesAsync hops through the dispatcher (InvokeAsync)
-                // before ShowErrorAsync opens the box, so pump until the owned dialog appears (bounded).
+                // The click's first visible effect is now the manual-check splash — the whole point
+                // of the choreography (an invisible await read as the menu item doing nothing).
+                Assert.NotNull(w.OwnedWindows.OfType<SplashWindow>().FirstOrDefault());
+
+                // The handler is async void, and the splash holds the answer back for its real-time
+                // display floor — so pump with real delays until the owned dialog appears (bounded).
                 MessageBoxWindow? box = null;
-                for (int i = 0; i < 20 && box is null; i++)
+                DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+                while (box is null && DateTime.UtcNow < deadline)
                 {
+                    await Task.Delay(10);
                     Dispatcher.UIThread.RunJobs();
                     box = w.OwnedWindows.OfType<MessageBoxWindow>().FirstOrDefault();
                 }
 
                 Assert.NotNull(box);
                 Assert.Equal(MessageBoxIcon.Error, box!.IconKind); // Failed rendered the error box, not the info box
+                Assert.Empty(w.OwnedWindows.OfType<SplashWindow>()); // and the splash is gone once the answer shows
 
                 box.Close();
                 Dispatcher.UIThread.RunJobs();
