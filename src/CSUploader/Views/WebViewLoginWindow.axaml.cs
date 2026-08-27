@@ -376,7 +376,7 @@ public partial class WebViewLoginWindow : Window
     private void OnWindowActivated(object? sender, EventArgs e)
         => _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
 
-    private void OnHostGotFocus(object? sender, GotFocusEventArgs e)
+    private void OnHostGotFocus(object? sender, Avalonia.Input.FocusChangedEventArgs e)
         => _controller?.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
 
     private void OnControllerMoveFocusRequested(object? sender, CoreWebView2MoveFocusRequestedEventArgs e)

@@ -95,6 +95,19 @@ public static class ParallelPartUploader
                 return; // the run is already doomed; this part never started, and never took a slot
             }
 
+            // Checked AFTER the gate as well as through it, because the two are not the same guard:
+            // SemaphoreSlim hands a queued waiter its slot at Release time even while cancellation
+            // is racing in, and a satisfied waiter cannot be retracted. Under load that let every
+            // finishing part admit the next one ahead of the cancel, so parts kept STARTING -
+            // spending the user's bandwidth - after a rejection had already doomed the attempt. The
+            // failing part records its failure (which cancels) before releasing its own slot, so
+            // anything that part admits is guaranteed to see the flag here.
+            if (linked.IsCancellationRequested)
+            {
+                gate.Release();
+                return;
+            }
+
             try
             {
                 results[index] = await uploadPart(index, linked.Token).ConfigureAwait(false);

@@ -42,7 +42,10 @@ public partial class MessageBoxWindow : Window
     {
         InitializeComponent();
         Title = title;
-        MessageText.Text = message;
+
+        // Padded, because several localized bodies contain \n\n and this is a wrapping TextBlock in
+        // a SizeToContent window - the exact shape Avalonia 12.1.1 cannot finish measuring.
+        MessageText.Text = Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(message);
         IconKind = icon;
 
         // Reproduce the WPF system icon: bind the window-local glyph + a theme brush via DynamicResource so

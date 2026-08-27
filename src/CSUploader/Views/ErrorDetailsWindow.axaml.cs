@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia.Input.Platform;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -31,7 +32,9 @@ public partial class ErrorDetailsWindow : Window
     public ErrorDetailsWindow(string detail)
     {
         InitializeComponent();
-        DetailBox.Text = detail;
+
+        // Error text is arbitrary and can carry blank lines; see Avalonia12EmptyLineHang.
+        DetailBox.Text = Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(detail);
     }
 
     private async void Copy_Click(object? sender, RoutedEventArgs e)
@@ -42,7 +45,7 @@ public partial class ErrorDetailsWindow : Window
             // WPF original: the clipboard can be held by another app, and the text stays selectable here.
             if (Clipboard is not null)
             {
-                await Clipboard.SetTextAsync(DetailBox.Text ?? string.Empty);
+                await Clipboard.SetValueAsync(global::Avalonia.Input.DataFormat.Text, DetailBox.Text ?? string.Empty);
             }
         }
         catch

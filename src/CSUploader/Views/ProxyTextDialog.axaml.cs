@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia.Input.Platform;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using CSUploader.Lib.Localization;
@@ -60,7 +61,7 @@ public partial class ProxyTextDialog : Window
             // WPF original — the clipboard can be held by another app and the text stays selectable.
             if (Clipboard is not null)
             {
-                await Clipboard.SetTextAsync(BodyBox.Text ?? string.Empty);
+                await Clipboard.SetValueAsync(global::Avalonia.Input.DataFormat.Text, BodyBox.Text ?? string.Empty);
             }
         }
         catch

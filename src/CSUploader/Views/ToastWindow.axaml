@@ -2,7 +2,7 @@
 <!-- Licensed under the MIT license. See LICENSE file in the project root for full license information. -->
 
 <!-- Avalonia bottom-right completion-toast (port of the WPF src/Views/ToastWindow.xaml, port rule 42):
-     chrome-less (SystemDecorations=None) + transparent + topmost + non-activated card with an accent
+     chrome-less (WindowDecorations=None) + transparent + topmost + non-activated card with an accent
      stripe, icon, title/message and a close button. The WPF DropShadowEffect becomes Border.BoxShadow;
      positioned physically by AvaloniaToastHost via Window.Position. SurfaceBrush/AccentBrush/
      TextPrimaryBrush and ResourceKeyToImageConverter are app-scoped (App.axaml) — no local resources.
@@ -14,7 +14,7 @@
         x:Class="CSUploader.Views.ToastWindow"
         x:DataType="vm:ToastViewModel"
         Width="360" Height="80"
-        SystemDecorations="None"
+        WindowDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
         ShowInTaskbar="False"

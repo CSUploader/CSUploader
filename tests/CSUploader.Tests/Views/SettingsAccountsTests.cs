@@ -51,16 +51,16 @@ public class SettingsAccountsTests
             // The single-source text columns (Username / Type / Used / Added / Refreshed) must be OneWay —
             // Avalonia's DataGridTextColumn.Binding defaults to TwoWay and pushes ConvertBack on bind, which
             // with a throwing converter (ByteUnit / DateTimeFormat) would blank the cell/DTO. The columns are
-            // x:DataType'd (dal:FileHosterLoginDto), so each is a CompiledBindingExtension now; the Available
+            // x:DataType'd (dal:FileHosterLoginDto), so each is a CompiledBinding now; the Available
             // column's MultiBinding is filtered out by the type check exactly as it was before.
             var textBindings = view.accountsGrid.Columns
                 .OfType<DataGridTextColumn>()
                 .Select(c => c.Binding)
-                .OfType<CompiledBindingExtension>()
+                .OfType<CompiledBinding>()
                 .ToList();
 
             // Exactly the five single-source text columns (Username / Type / Used / Added / Refreshed) —
-            // the Available column's MultiBinding is not a CompiledBindingExtension and is asserted by its
+            // the Available column's MultiBinding is not a CompiledBinding and is asserted by its
             // own test. Pinning the count keeps a column that silently fell back to reflection from
             // passing as "one fewer compiled binding".
             Assert.Equal(5, textBindings.Count);

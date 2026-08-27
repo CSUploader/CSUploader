@@ -60,12 +60,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.18" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.18" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.18" />
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <!-- DataGrid's 11.x line ends at 11.3.13; its dependency range accepts the 11.3.18 core.
          Pinned NOW so the resolution graph is locked before any grid work (design §Hard constraints). -->
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" Condition="'$(Configuration)' == 'Debug'" />
     <!-- Reserved for head-local MVVM helpers as views arrive; if still unused at the Phase 9
          cutover, drop it (same rule that removed it from the WPF head in c4e9b82). -->
@@ -78,11 +78,11 @@
          120.6099.211 = CEF/Chromium 120. Avalonia.ReactiveUI is a transitive dep of CefGlue.Avalonia that
          tops out at 11.3.9 (11.3.18 fails restore, NU1102) — pinned so it can't drag in 11.0.9. -->
     <PackageReference Include="CefGlue.Avalonia" Version="120.6099.211" Condition="!$(TargetFramework.Contains('windows'))" />
-    <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" Condition="!$(TargetFramework.Contains('windows'))" />
+    <PackageReference Include="ReactiveUI.Avalonia" Version="12.1.1" Condition="!$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on
          Svg.Skia + SkiaSharp, which UPLIFTS the app's SkiaSharp above Avalonia.Skia 11.3.18's own
          2.88.9 build - verified to render at runtime (live Skia proof), not by faith. -->
-    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.5" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.16" />
   </ItemGroup>
 
   <ItemGroup>

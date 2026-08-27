@@ -571,10 +571,10 @@ public class UploadWizardStepsTests
             DataGridColumn captchaColumn = wizard.fileHostersGrid.Columns[^2];
             Assert.Equal(nameof(FileHosterSelectionViewModel.DownloadCaptchaSortKey), captchaColumn.SortMemberPath);
             // Compiled bindings are this project's default, so the XAML produces a
-            // CompiledBindingExtension, not a reflection Binding.
-            var clipboard = Assert.IsType<global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindingExtension>(
+            // CompiledBinding, not a reflection Binding.
+            var clipboard = Assert.IsType<global::Avalonia.Data.CompiledBinding>(
                 captchaColumn.ClipboardContentBinding);
-            Assert.Equal(nameof(FileHosterSelectionViewModel.DownloadCaptchaDisplay), clipboard.Path.ToString());
+            Assert.Equal(nameof(FileHosterSelectionViewModel.DownloadCaptchaDisplay), clipboard.Path?.ToString());
             TextBlock header = Assert.IsType<TextBlock>(captchaColumn.Header);
             Assert.Equal(CSUploader.Lib.Localization.Localizer.Instance["Wizard_Step2_Col_Captcha"], header.Text);
             Assert.Equal(

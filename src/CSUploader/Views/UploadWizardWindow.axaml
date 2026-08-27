@@ -397,7 +397,7 @@
                      Foreground="{DynamicResource TextSecondaryBrush}" />
           <TextBox Grid.Column="1" x:Name="HosterFilterBox"
                    Text="{Binding HosterFilterText}"
-                   Watermark="{loc:Loc Wizard_Step2_FilterWatermark}"
+                   PlaceholderText="{loc:Loc Wizard_Step2_FilterWatermark}"
                    FontSize="11" Padding="6,3" VerticalContentAlignment="Center" />
           <!-- Account mode. A dropdown and not two checkboxes because the three states are mutually
                exclusive: Both / Anonymous only / Account only. The last is SupportsAccounts, not

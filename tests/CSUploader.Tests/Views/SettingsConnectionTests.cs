@@ -54,7 +54,7 @@ public class SettingsConnectionTests
             foreach (string path in new[] { "Host", "Port", "Username", "Password" })
             {
                 DataGridTextColumn col = TextColumn(view.ProxyGrid, path);
-                var binding = Assert.IsType<CompiledBindingExtension>(col.Binding);
+                var binding = Assert.IsType<CompiledBinding>(col.Binding);
                 Assert.NotEqual(BindingMode.OneWay, binding.Mode); // Default (→TwoWay) or TwoWay — never OneWay
             }
         }
@@ -73,7 +73,7 @@ public class SettingsConnectionTests
         try
         {
             DataGridCheckBoxColumn onColumn = view.ProxyGrid.Columns.OfType<DataGridCheckBoxColumn>().Single();
-            var binding = Assert.IsType<CompiledBindingExtension>(onColumn.Binding);
+            var binding = Assert.IsType<CompiledBinding>(onColumn.Binding);
             Assert.Equal("Enabled", binding.Path.ToString());
             Assert.NotEqual(BindingMode.OneWay, binding.Mode);
         }
@@ -461,13 +461,13 @@ public class SettingsConnectionTests
 
     // ── helpers ──
 
-    // CompiledBindingExtension, not Binding: the proxy grid's rows are typed (the compiler infers
+    // CompiledBinding, not Binding: the proxy grid's rows are typed (the compiler infers
     // ProxySettingItem from the ConnectionManagerViewModel.Proxies ItemsSource), so its columns are
     // compiled bindings. Matching on the compiled type is also what pins them there — a column that
     // fell back to reflection would no longer be found by this helper.
     private static DataGridTextColumn TextColumn(DataGrid grid, string path)
         => grid.Columns.OfType<DataGridTextColumn>()
-            .First(c => c.Binding is CompiledBindingExtension b && b.Path.ToString() == path);
+            .First(c => c.Binding is CompiledBinding b && b.Path?.ToString() == path);
 
     private static DataGridRow RowFor(DataGrid grid, ProxySettingItem item)
         => grid.GetVisualDescendants().OfType<DataGridRow>().First(r => ReferenceEquals(r.DataContext, item));
