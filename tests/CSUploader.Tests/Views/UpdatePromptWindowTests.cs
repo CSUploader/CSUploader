@@ -41,7 +41,9 @@ public class UpdatePromptWindowTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.NotesSection.IsVisible);
-            Assert.Equal("Highlights" + "\n\n" + "Bold thing happened.", window.NotesText.Text); // rendered, not raw markdown
+            // The blank line carries one space: the Avalonia 12.1.1 empty-line measure hang means
+            // this exact window with this exact text WAS the suite's hang until the padding landed.
+            Assert.Equal("Highlights" + "\n \n" + "Bold thing happened.", window.NotesText.Text); // rendered, not raw markdown
         }
         finally
         {

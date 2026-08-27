@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia.Input.Platform;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -21,6 +22,11 @@ namespace CSUploader.Views;
 /// </remarks>
 public partial class ErrorDetailsWindow : Window
 {
+    // The text as constructed, for Copy. The BOX shows the padded variant (below); this box is a
+    // diagnostics source, so the promoted affordance must hand on byte-for-byte what the error
+    // carried, not the display workaround's spaces.
+    private readonly string _detail;
+
     // Parameterless ctor for the Avalonia XAML tooling / runtime loader (AVLN3001); the app always uses
     // the detail overload.
     public ErrorDetailsWindow()
@@ -31,7 +37,16 @@ public partial class ErrorDetailsWindow : Window
     public ErrorDetailsWindow(string detail)
     {
         InitializeComponent();
-        DetailBox.Text = detail;
+        _detail = detail;
+
+        // Error text is arbitrary and can carry blank lines — and the fixed Width/Height is NOT
+        // immunity here: under the HEADLESS platform (every test) a wrapping TextBox measures
+        // through TextPresenter, which was caught spinning in PerformTextWrapping/
+        // CreateEmptyTextLine on exactly this box — the fixed-size immunity headless TextBlocks
+        // enjoy does not transfer to TextBoxes. See Avalonia12EmptyLineHang. The cost is that
+        // MANUAL selection copies a padded blank line as one space; the Copy button hands on the
+        // pristine text.
+        DetailBox.Text = Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(detail);
     }
 
     private async void Copy_Click(object? sender, RoutedEventArgs e)
@@ -42,7 +57,8 @@ public partial class ErrorDetailsWindow : Window
             // WPF original: the clipboard can be held by another app, and the text stays selectable here.
             if (Clipboard is not null)
             {
-                await Clipboard.SetTextAsync(DetailBox.Text ?? string.Empty);
+                // _detail, not DetailBox.Text: the box displays the empty-line-padded variant.
+                await Clipboard.SetValueAsync(global::Avalonia.Input.DataFormat.Text, _detail);
             }
         }
         catch

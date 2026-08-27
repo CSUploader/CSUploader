@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- xUnit1051 (v3 advisory): pass TestContext.Current.CancellationToken to every
+         cancellable call. Over a thousand call sites in a suite whose tests are not
+         cancellation-responsive by design; the churn buys nothing here. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <AssemblyName>CSUploader.Core.Tests</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -22,7 +27,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="SourceGear.sqlite3" Version="3.50.4.5" />
-    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

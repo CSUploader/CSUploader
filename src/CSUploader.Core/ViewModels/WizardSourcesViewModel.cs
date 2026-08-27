@@ -360,13 +360,14 @@ public sealed partial class WizardSourcesViewModel : ObservableObject
     /// Whether this platform can actually receive a dropped file, which is what decides if the
     /// step's "…or drop files and folders anywhere on this page" hint is shown at all.
     /// <para>
-    /// FALSE ON LINUX, and not as a precaution: Avalonia's X11 backend implements no XDND. Verified
-    /// against the shipped assemblies — Avalonia.Win32 carries a full OLE drop target
-    /// (<c>OleDropTarget</c>, <c>IDropTarget</c>, <c>DROPFILES</c>) and Avalonia.Native a macOS one
-    /// (<c>AvaloniaNativeDragSource</c>, <c>DndCallback</c>), while Avalonia.X11 defines no
-    /// drag-drop types and, decisively, none of the <c>Xdnd*</c> atoms the protocol requires. It
-    /// therefore never sets <c>XdndAware</c> on its windows, so no file manager will even offer one
-    /// a drop. Same in 11.3.12, 11.3.18 and 12.0.5, so this is not waiting on a version bump.
+    /// STILL FALSE ON LINUX, but since Avalonia 12.1 as a choice rather than a physical limit.
+    /// Through 12.0.5 the X11 backend implemented no XDND at all — no drag-drop types, none of the
+    /// <c>Xdnd*</c> atoms, never <c>XdndAware</c> on its windows, so no file manager would even
+    /// offer a drop (verified against the shipped assemblies; Win32 has its OLE drop target and
+    /// Avalonia.Native its macOS one). Avalonia 12.1 introduced the XDND implementation
+    /// (<c>XdndAware</c>/<c>XdndDrop</c> and friends are in Avalonia.X11 12.1.1), which this app
+    /// now ships — but the PROMISE stays withheld until drag-and-drop is validated on a live Linux
+    /// desktop, which cannot be done from this machine. Flipping this on is that follow-up's job.
     /// </para>
     /// <para>
     /// The drop HANDLER in the head is left wired regardless — it costs nothing when the platform

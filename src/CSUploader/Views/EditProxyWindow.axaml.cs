@@ -148,9 +148,14 @@ public partial class EditProxyWindow : Window
         _ = window.ShowDialog(this);
     }
 
-    private void SetStatus(string message, bool isError)
+    // Internal for the padding regression test: the catch path is the only route that carries
+    // arbitrary (exception) text, and a test cannot provoke it without a real failing proxy probe.
+    internal void SetStatus(string message, bool isError)
     {
-        TestStatusText.Text = message;
+        // TestStatusText wraps inside a SizeToContent="Height" window, and the catch path above
+        // hands this arbitrary exception text — see Avalonia12EmptyLineHang. The result-message
+        // path already collapses to a first line, but padding the one funnel covers every caller.
+        TestStatusText.Text = Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(message);
         TestStatusText.Classes.Set("error", isError);
         TestStatusText.IsVisible = true;
     }

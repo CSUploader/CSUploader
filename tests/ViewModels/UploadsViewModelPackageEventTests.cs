@@ -68,9 +68,9 @@ public sealed class UploadsViewModelPackageEventTests : IAsyncLifetime
         Directory.CreateDirectory(_tempDir);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         foreach (UploadsViewModel vm in _vms)
         {

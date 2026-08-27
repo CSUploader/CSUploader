@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using Avalonia.Input.Platform;
 using System.ComponentModel;
 using System.Text;
 using Avalonia;
@@ -557,7 +558,7 @@ public partial class UploadsView : UserControl
             // fire-and-forget shape returned the task unawaited, so the catch could never see it (rule 9).
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
             {
-                await clipboard.SetTextAsync(text);
+                await clipboard.SetValueAsync(global::Avalonia.Input.DataFormat.Text, text);
             }
         }
         catch
@@ -628,7 +629,7 @@ public partial class UploadsView : UserControl
     /// pipeline honours the same converters/StringFormat the grid's own copy uses, so this keeps parity
     /// without re-implementing them. Mirrors the WPF <c>EvaluateClipboardBinding</c> (UploadsView.xaml.cs:432-444).
     /// </summary>
-    private static string EvaluateClipboardBinding(IBinding? binding, object item)
+    private static string EvaluateClipboardBinding(Avalonia.Data.BindingBase? binding, object item)
     {
         if (binding is null)
         {

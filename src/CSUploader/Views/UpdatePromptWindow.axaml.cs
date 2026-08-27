@@ -56,7 +56,10 @@ public partial class UpdatePromptWindow : Window
         // Rendered to plain text here, absent entirely when there is nothing to show: packages
         // built before CI embedded notes carry none, and a header over an empty box would read as
         // a bug rather than an absence.
-        string? notes = CSUploader.Lib.Update.ReleaseNotesFormatter.ToPlainText(releaseNotesMarkdown);
+        // Padded on top of the formatting: the formatter emits \n\n between blocks by design, and
+        // this is a wrapping TextBlock measured under SizeToContent - see Avalonia12EmptyLineHang.
+        string? notes = CSUploader.Lib.UI.Avalonia12EmptyLineHang.PadEmptyLines(
+            CSUploader.Lib.Update.ReleaseNotesFormatter.ToPlainText(releaseNotesMarkdown));
         NotesSection.IsVisible = notes is not null;
         NotesText.Text = notes ?? string.Empty;
     }

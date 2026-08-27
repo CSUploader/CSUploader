@@ -32,7 +32,7 @@ namespace CSUploader.Tests.Upload;
 // WaitForAsync polling (50×50ms). Draining via PackageManager.DrainPendingPersistenceAsync
 // (which takes + releases the same _persistLock those callbacks use) makes the teardown
 // deterministic. See the dotnet-concurrency-specialist analysis for the full chain.
-public class PackageManagerSoftRemoveTests : IAsyncLifetime
+public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
 {
     private readonly SqliteConnection _connection;
     private readonly string _connectionString;
@@ -90,9 +90,9 @@ public class PackageManagerSoftRemoveTests : IAsyncLifetime
         _packageManager = new PackageManager(settings, _scheduler, _packageRepo, _fileRepo, _loginRepo, _logger, registry);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         // Stop the source of new FileStateChanged events first — the scheduler's channel
         // consumer is what raises those, and disposing it drains the consumer loop.

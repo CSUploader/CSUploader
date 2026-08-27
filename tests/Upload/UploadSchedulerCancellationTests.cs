@@ -65,7 +65,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
         Directory.CreateDirectory(_tempDir);
     }
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
     /// <summary>
     /// Drains before deleting anything. The workers are detached — <c>UploadScheduler.Dispose</c>
@@ -73,7 +73,7 @@ public sealed class UploadSchedulerCancellationTests : IAsyncLifetime
     /// still be reading a temp file while this method deletes it, and stray bodies leak into the
     /// next test's thread pool (see tests/CLAUDE.md).
     /// </summary>
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         foreach (GatedPipeline pipeline in _pipelines)
         {

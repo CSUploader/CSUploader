@@ -575,7 +575,7 @@
           <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Upload_DefaultUploadDirectory}" Classes="setting-label" />
           <TextBox Grid.Column="1" HorizontalAlignment="Stretch" Classes="setting-input"
                    Text="{Binding DefaultUploadDirectory, UpdateSourceTrigger=LostFocus}"
-                   Watermark="{loc:Loc Settings_Upload_DefaultUploadDirectory_Watermark}" />
+                   PlaceholderText="{loc:Loc Settings_Upload_DefaultUploadDirectory_Watermark}" />
           <Button Grid.Column="2" Content="{loc:Loc Common_Browse}" Margin="8,0,0,0"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                   Command="{Binding BrowseForDefaultUploadDirectoryCommand}" />

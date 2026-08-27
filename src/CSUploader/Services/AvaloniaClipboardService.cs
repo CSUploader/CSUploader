@@ -18,7 +18,7 @@ public sealed class AvaloniaClipboardService : IClipboardService
     public Task SetTextAsync(string text)
     {
         IClipboard? clipboard = ResolveClipboard();
-        return clipboard is null ? Task.CompletedTask : clipboard.SetTextAsync(text);
+        return clipboard is null ? Task.CompletedTask : clipboard.SetValueAsync(global::Avalonia.Input.DataFormat.Text, text);
     }
 
     public Task ClearAsync()
