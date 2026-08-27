@@ -22,12 +22,12 @@
     <TargetFrameworks>net10.0-windows10.0.17763.0;net10.0</TargetFrameworks>
     <RootNamespace>CSUploader</RootNamespace>
     <AssemblyName>CSUploader</AssemblyName>
-    <!-- First Avalonia release. release.yml derives the SHIPPED version from the pushed vX.Y.Z tag
+    <!-- release.yml derives the SHIPPED version from the pushed vX.Y.Z tag
          (-p:Version), so this is the loose-build fallback — keep it in sync with the release tag. -->
-    <Version>1.6.0</Version>
-    <AssemblyVersion>1.6.0.0</AssemblyVersion>
+    <Version>1.7.0</Version>
+    <AssemblyVersion>1.7.0.0</AssemblyVersion>
     <!-- Was left at 1.0.0.0 through the 1.1.0 release; kept in step with the others from 1.2.0 on. -->
-    <FileVersion>1.6.0.0</FileVersion>
+    <FileVersion>1.7.0.0</FileVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -80,8 +80,9 @@
          tops out at 11.3.9 — pinned so it can't drag in 11.0.9. The package was RENAMED ReactiveUI.Avalonia
          for Avalonia 12, but CefGlue depends on this identity, so the rename cannot satisfy it: referencing
          the new name instead of this pin ships BOTH adapters and silently downgrades this one to 11.0.9.
-         Nothing else here uses ReactiveUI. An 11-era adapter over Avalonia 12 is unproven until the
-         sign-in host is launched on Linux — no CefGlue build for 12 exists. -->
+         Nothing else here uses ReactiveUI. This 11-era adapter over Avalonia 12 was live-validated
+         on Linux before v1.7.0; no CefGlue build for 12 exists, so revalidate there after either
+         dependency changes. -->
     <PackageReference Include="CefGlue.Avalonia" Version="120.6099.211" Condition="!$(TargetFramework.Contains('windows'))" />
     <PackageReference Include="Avalonia.ReactiveUI" Version="11.3.9" Condition="!$(TargetFramework.Contains('windows'))" />
     <!-- File-type SVG rendering (FileTypeIconConverter to a cached SvgImage) via Svg.Skia. Depends on

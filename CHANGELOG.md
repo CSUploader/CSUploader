@@ -4,7 +4,12 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.7.0] - 2026-08-27
+
+The app's UI framework moved from Avalonia 11 to 12.1 — deliberately invisible on screen, and the
+version whose Linux side finally implements drag-and-drop, for a future release to build on. A
+bandwidth leak in parallel part uploads is fixed. See
+[docs/release-notes/v1.7.0.md](docs/release-notes/v1.7.0.md) for the full notes.
 
 ### Changed
 
@@ -526,6 +531,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.7.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.7.0
 [1.6.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.6.0
 [1.5.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.5.0
 [1.4.5]: https://github.com/CSUploader/CSUploader/releases/tag/v1.4.5
