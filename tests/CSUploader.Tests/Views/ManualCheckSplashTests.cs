@@ -60,6 +60,8 @@ public class ManualCheckSplashTests
             // Show(owner) mutant passed every other assert in this file.
             Assert.True(splash.IsDialog);
             Assert.False(splash.ShowInTaskbar); // the owner already has the app's taskbar entry
+            Assert.False(splash.CanMinimize); // minimized + no taskbar entry + disabled owner = nothing clickable
+            Assert.Equal(WindowStartupLocation.CenterOwner, splash.WindowStartupLocation); // not the startup CenterScreen
 
             check.SetResult(UpdateCheckResult.UpToDate);
             UpdateCheckResult? result = await PumpToCompletionAsync(run);
@@ -115,10 +117,10 @@ public class ManualCheckSplashTests
 
     /// <summary>
     /// The user closing the splash DURING the display floor — after the answer already arrived —
-    /// still suppresses the result. This is its own test because the guard is one easily-lost
-    /// ternary on the floor path: a mutant that returned the result regardless passed every other
-    /// test in this file, and the failure it allows is exactly the promise-breaker — the user
-    /// dismisses the splash and a result dialog pops up anyway.
+    /// still suppresses the result, and ends the wait THERE, not when the floor runs out. Its own
+    /// test because both halves were surviving mutants: one that returned the result regardless,
+    /// and one that kept padding the floor after the dismissal — which quietly extends the
+    /// handler's life into territory a second click can reach once the modal is gone.
     /// </summary>
     [AvaloniaFact]
     public async Task ClosingTheSplashDuringTheDisplayFloor_StillSuppressesTheResult()
@@ -129,12 +131,14 @@ public class ManualCheckSplashTests
             owner.Show();
             Dispatcher.UIThread.RunJobs();
 
-            // A generous floor: the close below must land inside it even on a stalled runner.
+            // A deliberately long floor: the close below must land inside it even on a stalled
+            // runner, and the prompt-completion bound below must clear the stall margin too.
+            var stopwatch = Stopwatch.StartNew();
             Task<UpdateCheckResult?> run = ManualCheckSplash.WaitAsync(
                 owner,
                 Task.FromResult(UpdateCheckResult.UpToDate), // answered instantly — only the floor holds the splash
                 patience: TimeSpan.FromSeconds(30),
-                minimumDisplay: TimeSpan.FromSeconds(1));
+                minimumDisplay: TimeSpan.FromSeconds(3));
             Dispatcher.UIThread.RunJobs();
 
             SplashWindow splash = Assert.IsType<SplashWindow>(Assert.Single(owner.OwnedWindows));
@@ -142,8 +146,106 @@ public class ManualCheckSplashTests
             Dispatcher.UIThread.RunJobs();
 
             UpdateCheckResult? result = await PumpToCompletionAsync(run);
+            stopwatch.Stop();
 
             Assert.Null(result);
+            Assert.True(stopwatch.ElapsedMilliseconds < 2000,
+                $"dismissal took {stopwatch.ElapsedMilliseconds}ms — the wait sat out the floor instead of ending at the close");
+        }
+        finally
+        {
+            owner.Close();
+        }
+    }
+
+    /// <summary>
+    /// The owner going INVISIBLE under the splash dismisses the wait too. The close-to-tray
+    /// reroute reaches the main window even while a modal is up (the taskbar thumbnail's Close)
+    /// and Hide()s it — which completes nothing the helper awaits, so without this the splash
+    /// stood stranded over an invisible window until the patience lapsed, and the result box then
+    /// threw on its non-visible owner (swallowed; result silently lost).
+    /// </summary>
+    [AvaloniaFact]
+    public async Task TheOwnerHiding_DismissesTheWait()
+    {
+        var owner = new Window { Width = 300, Height = 200 };
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            TaskCompletionSource<UpdateCheckResult> check = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<UpdateCheckResult?> run = ManualCheckSplash.WaitAsync(
+                owner, check.Task, patience: TimeSpan.FromSeconds(30), minimumDisplay: TimeSpan.Zero);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Single(owner.OwnedWindows);
+
+            owner.Hide(); // the minimize-to-tray reroute's effect on the main window
+            Dispatcher.UIThread.RunJobs();
+
+            UpdateCheckResult? result = await PumpToCompletionAsync(run);
+
+            Assert.Null(result);
+            Assert.Empty(owner.OwnedWindows); // no splash stranded over the hidden window
+        }
+        finally
+        {
+            owner.Close();
+        }
+    }
+
+    /// <summary>
+    /// The owner CLOSING (app exit while the splash is up) unwinds cleanly: Avalonia closes owned
+    /// windows with their owner, the dialog task completes, and the helper answers null rather
+    /// than hanging on a wait nothing will ever finish.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task TheOwnerClosing_UnwindsToNull()
+    {
+        var owner = new Window { Width = 300, Height = 200 };
+        owner.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        TaskCompletionSource<UpdateCheckResult> check = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<UpdateCheckResult?> run = ManualCheckSplash.WaitAsync(
+            owner, check.Task, patience: TimeSpan.FromSeconds(30), minimumDisplay: TimeSpan.Zero);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Single(owner.OwnedWindows);
+
+        owner.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        UpdateCheckResult? result = await PumpToCompletionAsync(run);
+
+        Assert.Null(result);
+    }
+
+    /// <summary>
+    /// A check task that faults with something other than a timeout propagates to the caller —
+    /// but never leaves the modal splash standing, which would wedge the whole app behind a
+    /// window nothing will close. (The production check task normalizes everything to a Failed
+    /// result, so this is the helper's own contract being pinned, not a reachable app state.)
+    /// </summary>
+    [AvaloniaFact]
+    public async Task AFaultedCheck_ClosesTheSplash_AndPropagates()
+    {
+        var owner = new Window { Width = 300, Height = 200 };
+        try
+        {
+            owner.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            TaskCompletionSource<UpdateCheckResult> check = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task<UpdateCheckResult?> run = ManualCheckSplash.WaitAsync(
+                owner, check.Task, patience: TimeSpan.FromSeconds(30), minimumDisplay: TimeSpan.Zero);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Single(owner.OwnedWindows);
+
+            check.SetException(new InvalidOperationException("the feed exploded"));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await PumpToCompletionAsync(run));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(owner.OwnedWindows); // the splash did not outlive the wait
         }
         finally
         {

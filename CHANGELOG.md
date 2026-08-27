@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wait invisibly — up to twenty seconds with nothing on screen — which read as it doing nothing.
   It now opens the same "Checking for updates…" window the app shows at launch, centered on the
   main window, and the answer replaces it. Closing the splash means "stop waiting": no result
-  dialog appears, and the check finishes quietly in the background as before.
+  dialog appears, and the check continues in the background with its normal background reporting.
 
 ## [1.7.0] - 2026-08-27
 

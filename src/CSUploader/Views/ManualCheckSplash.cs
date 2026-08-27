@@ -19,9 +19,11 @@ internal static class ManualCheckSplash
 {
     /// <summary>
     /// Waits for <paramref name="check"/> behind a modal splash and returns the result to report —
-    /// or null when the user closed the splash themselves, which means "stop waiting": the caller
-    /// shows nothing, and the check (which Velopack cannot cancel) finishes elsewhere and still
-    /// publishes wherever its results already go.
+    /// or null when the wait was dismissed: the user closed the splash, or the owner went
+    /// invisible under it (the close-to-tray reroute hides the main window even while a modal is
+    /// up). Either way the caller shows nothing — a result dialog needs a visible owner — and the
+    /// check (which Velopack cannot cancel) finishes elsewhere with its normal background
+    /// reporting.
     /// </summary>
     /// <param name="owner">The window the splash is centered on and modal to.</param>
     /// <param name="check">The in-flight check; single-flight joining is the caller's concern.</param>
@@ -36,10 +38,13 @@ internal static class ManualCheckSplash
         {
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
 
-            // The startup splash wants its taskbar entry (it IS the app at that point); this one
-            // is an owned modal over a window that already has one — a second identical
-            // "CSUploader" entry for the duration of the check would just be clutter.
+            // The startup splash wants its taskbar entry and caption buttons (it IS the app at
+            // that point); this one is an owned modal over a window that already has both. A
+            // second identical "CSUploader" taskbar entry would be clutter — and with no entry,
+            // minimizing must be off the table too: a minimized modal with a modality-disabled
+            // owner and no taskbar presence is an app with no clickable window at all.
             ShowInTaskbar = false,
+            CanMinimize = false,
         };
 
         // ShowDialog's task doubles as the "user closed it" signal: until this helper calls
@@ -49,7 +54,23 @@ internal static class ManualCheckSplash
         Task floor = Task.Delay(minimumDisplay);
         Task<UpdateCheckResult> bounded = check.WaitAsync(patience);
 
-        // Observed up front because the user-close paths below return WITHOUT awaiting bounded,
+        // The owner hiding is the third way the wait ends. Close-to-tray reaches the main window
+        // even while this modal is up (the taskbar thumbnail's Close), and its reroute Hide()s the
+        // owner rather than closing it — which completes nothing this method awaits, so without
+        // this the splash would stand stranded over an invisible window until the patience ran
+        // out, and the result box would then throw on its non-visible owner.
+        TaskCompletionSource ownerHidden = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnOwnerPropertyChanged(object? _, global::Avalonia.AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == Window.IsVisibleProperty && !owner.IsVisible)
+            {
+                ownerHidden.TrySetResult();
+            }
+        }
+
+        owner.PropertyChanged += OnOwnerPropertyChanged;
+
+        // Observed up front because the dismissal paths below return WITHOUT awaiting bounded,
         // and an abandoned WaitAsync faults with TimeoutException when the patience lapses — an
         // unobserved-exception mine for the day the app wires UnobservedTaskException. A task
         // that IS awaited later is simply observed twice, which costs nothing.
@@ -59,12 +80,14 @@ internal static class ManualCheckSplash
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
 
+        bool Dismissed() => dialog.IsCompleted || ownerHidden.Task.IsCompleted;
+
         try
         {
-            await Task.WhenAny(bounded, dialog);
-            if (dialog.IsCompleted)
+            await Task.WhenAny(bounded, dialog, ownerHidden.Task);
+            if (Dismissed())
             {
-                return null; // the user dismissed the wait; report nothing
+                return null; // the wait was dismissed; report nothing
             }
 
             UpdateCheckResult result;
@@ -77,11 +100,16 @@ internal static class ManualCheckSplash
                 result = UpdateCheckResult.Failed(Localizer.Instance["Main_CheckForUpdates_StillRunning"]);
             }
 
-            await floor;
-            return dialog.IsCompleted ? null : result; // closed while the floor padded a fast answer
+            // The floor is raced, not merely awaited: a dismissal during it must end the wait
+            // there and then — the splash is already gone, so padding out the rest of the floor
+            // would only keep this handler alive into territory a second click can reach.
+            await Task.WhenAny(floor, dialog, ownerHidden.Task);
+            return Dismissed() ? null : result;
         }
         finally
         {
+            owner.PropertyChanged -= OnOwnerPropertyChanged;
+
             // Also the guard for a check task that faults with something other than a timeout: the
             // exception propagates to the caller, but a modal splash must never outlive the wait.
             if (!dialog.IsCompleted)
