@@ -4,6 +4,21 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **CSUploader now runs on Avalonia 12.1**, the current release of its UI framework. The app is
+  meant to look and behave exactly as it did; under the hood, this is the framework version that
+  adds the Linux side of file drag-and-drop, so a future release can finally offer dropping files
+  onto the window there.
+
+### Fixed
+
+- **A failed part upload stops its attempt sooner.** When a hoster rejected one part of a parallel
+  upload, parts still waiting for a slot could keep starting — spending bandwidth on an attempt
+  that could no longer succeed. Once a part has failed, the waiting parts no longer start.
+
 ## [1.6.0] - 2026-08-26
 
 CSUploader looks for updates before it opens and asks before installing them, with a setting for
