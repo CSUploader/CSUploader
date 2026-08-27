@@ -199,6 +199,10 @@ public partial class MainWindow : Window
     /// working. Generous for a single HTTP round trip, short enough not to read as a hang.</summary>
     private static readonly TimeSpan ManualCheckPatience = TimeSpan.FromSeconds(20);
 
+    /// <summary>How long the manual check's splash stays up even when the answer beats it — long
+    /// enough to register as "it checked", short enough not to read as added latency.</summary>
+    private static readonly TimeSpan ManualCheckSplashMinimumDisplay = TimeSpan.FromMilliseconds(400);
+
     private async void MenuCheckForUpdates_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm)
@@ -209,14 +213,15 @@ public partial class MainWindow : Window
             // deadline by a long way. Joining is still the right model (one network call, one
             // answer); what must not happen is this menu item hanging for the remainder of a request
             // the user never asked for. The check keeps running and still publishes its result.
-            UpdateCheckResult result;
-            try
+            //
+            // The wait happens behind the same splash the startup check shows — an invisible await
+            // here read as the menu item doing nothing. Modal on purpose: it also makes a second
+            // click impossible while one check is being waited on.
+            UpdateCheckResult? result = await ManualCheckSplash.WaitAsync(
+                this, vm.CheckForUpdatesAsync(UpdateCheckOrigin.User), ManualCheckPatience, ManualCheckSplashMinimumDisplay);
+            if (result is null)
             {
-                result = await vm.CheckForUpdatesAsync(UpdateCheckOrigin.User).WaitAsync(ManualCheckPatience);
-            }
-            catch (TimeoutException)
-            {
-                result = UpdateCheckResult.Failed(Localizer.Instance["Main_CheckForUpdates_StillRunning"]);
+                return; // the user closed the splash: stop waiting, report nothing
             }
 
             string title = Localizer.Instance["Main_CheckForUpdates_DialogTitle"];
