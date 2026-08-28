@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Updates download only what changed.** From this release on, every release ships a delta
+  package alongside the full one, and installed builds apply the delta when they can — a release
+  that only touches app code is a fraction of a megabyte instead of the whole 63 MB (Windows) /
+  196 MB (Linux) package. The update *to* this release already downloads small: the delta
+  support has always been in the installed app, the packages just never existed. Builds more
+  than ten versions behind, or without a usable delta chain, quietly fall back to the full
+  download, exactly as before.
+
 - **Help → Check for Updates shows the startup splash while it checks.** The menu item used to
   wait invisibly — up to twenty seconds with nothing on screen — which read as it doing nothing.
   It now opens the same "Checking for updates…" window the app shows at launch, centered on the
