@@ -5,6 +5,12 @@ name: Release
 # Windows assets. The Linux job then packs a Velopack AppImage and uploads the Linux assets
 # to the SAME release. UpdateService.cs (GithubSource) auto-selects the per-OS channel
 # ("win" default vs "linux") on its next periodic poll, so the two asset sets coexist.
+#
+# Both jobs fetch the PREVIOUS release's full package before packing: that is what makes
+# vpk pack emit a -delta.nupkg, which is what turns an update from "the whole app again"
+# (63 MB win / 196 MB linux) into "the bytes that changed". Installed builds apply deltas
+# automatically and fall back to the full package when the chain is unusable (see
+# UpdateService.PlanDownload, which models exactly this decision).
 
 on:
   push:
@@ -74,6 +80,19 @@ jobs:
             throw "Missing or blank $notesFile - the update prompt's What's-new section is embedded from it at pack time. Write it (see docs/release-notes/ for the shape) and re-tag."
           }
 
+      # Delta generation is opt-in by presence: vpk pack emits a -delta.nupkg only when the
+      # previous full package sits in --outputDir, and a CI runner starts empty — without this
+      # step every release silently ships full-size updates only. At this point in the run the
+      # latest GitHub release is still the PREVIOUS version (this tag's release is created
+      # below), so "download latest" is exactly the delta base wanted. Kept after the
+      # release-notes gate: a doomed run should fail before a 60 MB download, not after.
+      - name: Download previous release (delta base)
+        run: |
+          vpk download github `
+            --repoUrl https://github.com/${{ github.repository }} `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases
+
       - name: Velopack pack
         run: |
           vpk pack `
@@ -100,12 +119,31 @@ jobs:
             }
           }
 
+      # Companion to the download step above, in the same spirit as the notes guard: if delta
+      # generation quietly stopped (base package missing, vpk behavior change), every update
+      # would go back to full-size downloads and a green run would never say so. If this fires
+      # because past releases were legitimately deleted, that is a deliberate relaxation to
+      # make here — not a silent one.
+      - name: Assert a delta package was produced
+        shell: pwsh
+        run: |
+          if (-not (Get-ChildItem releases -Filter '*-delta.nupkg')) {
+            throw "No -delta.nupkg in releases/ - delta generation stopped working (did the previous full package land in releases/ before vpk pack?)."
+          }
+
       - name: Create GitHub Release + upload Windows assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          $assets = Get-ChildItem releases | ForEach-Object { $_.FullName }
+          # The delta-base download left the PREVIOUS version's full package in releases/
+          # (vpk pack needs it there to diff against). Re-uploading it would attach a stale
+          # package to the new release, so only nupkgs carrying THIS version's number go up;
+          # everything else (Setup, Portable, feed files) is freshly written by pack.
+          $version = "${{ steps.version.outputs.version }}"
+          $assets = Get-ChildItem releases |
+            Where-Object { $_.Name -notlike '*.nupkg' -or $_.Name -like "*-$version-*.nupkg" } |
+            ForEach-Object { $_.FullName }
           # Unconditional: the required-file gate above already failed the run if the hand-written
           # notes file is absent, so the old --generate-notes fallback was unreachable dead weight.
           gh release create "${{ github.ref_name }}" $assets `
@@ -158,6 +196,27 @@ jobs:
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk --version 1.2.0
 
+      # Same delta story as the Windows job, but vpk download cannot be trusted here: the
+      # Windows job has ALREADY created this tag's release, and it carries no
+      # releases.linux.json yet (this job uploads it below) — so what vpk would resolve as
+      # "latest" for the linux channel mid-release is undefined. Naming the previous tag and
+      # fetching its linux package directly is correct regardless.
+      - name: Download previous release (delta base)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prev=$(gh release list --repo "${{ github.repository }}" \
+            --exclude-drafts --exclude-pre-releases --json tagName \
+            --jq '[.[] | select(.tagName != "${{ github.ref_name }}")][0].tagName')
+          if [ -z "$prev" ] || [ "$prev" = "null" ]; then
+            echo "No previous release found to build a delta from." >&2
+            exit 1
+          fi
+          echo "Delta base: $prev"
+          mkdir -p releases-linux
+          gh release download "$prev" --repo "${{ github.repository }}" \
+            --pattern '*-linux-full.nupkg' --dir releases-linux
+
       # APPIMAGE_EXTRACT_AND_RUN lets vpk's bundled appimagetool run without libfuse2 (which
       # modern Ubuntu no longer ships). CEF itself already launches with --no-sandbox
       # (CefBootstrap.cs), which is exactly what a portable AppImage needs.
@@ -189,9 +248,28 @@ jobs:
                   sys.exit(f"releases.linux.json asset {asset['FileName']} has blank NotesMarkdown - the --releaseNotes embedding broke.")
           CHECK
 
+      # Same guard as the Windows job: a green run with no delta means every Linux update
+      # quietly went back to downloading the whole ~196 MB package.
+      - name: Assert a delta package was produced
+        run: |
+          if ! ls releases-linux/*-delta.nupkg >/dev/null 2>&1; then
+            echo "No -delta.nupkg in releases-linux/ - delta generation stopped working (did the previous full package land in releases-linux/ before vpk pack?)." >&2
+            exit 1
+          fi
+
       - name: Upload Linux assets to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.ref_name }}" releases-linux/* \
+          # Mirror of the Windows job's filter: the delta base downloaded above is the
+          # previous version's package and must not be re-attached to the new release.
+          version="${{ steps.version.outputs.version }}"
+          assets=()
+          for f in releases-linux/*; do
+            case "$f" in
+              *.nupkg) if [[ "$f" == *"-$version-"* ]]; then assets+=("$f"); fi ;;
+              *) assets+=("$f") ;;
+            esac
+          done
+          gh release upload "${{ github.ref_name }}" "${assets[@]}" \
             --repo "${{ github.repository }}" --clobber
