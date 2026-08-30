@@ -292,7 +292,8 @@ public class SettingsViewTests
 
     // ── helpers ──
 
-    private static (Window Window, SettingsView View) Show(SettingsViewModel vm)
+    /// <summary>Shared with <c>DeveloperSettingsTabTests</c>, which drives the same realized view.</summary>
+    internal static (Window Window, SettingsView View) Show(SettingsViewModel vm)
     {
         SettingsView view = new() { DataContext = vm };
         Window window = new() { Width = 1024, Height = 900, Content = view };
@@ -307,7 +308,9 @@ public class SettingsViewTests
     /// has items. LoadAsync is intentionally NOT called: the view tests drive the observable properties
     /// directly, so the DB stays empty (the auto-save partials fire-and-forget into the scratch repo).
     /// </summary>
-    private sealed class VmHarness : IDisposable
+    /// <summary>Shared with <c>DeveloperSettingsTabTests</c> rather than duplicated — one Settings
+    /// harness, so a change to the stack it builds cannot drift between the two suites.</summary>
+    internal sealed class VmHarness : IDisposable
     {
         private readonly SqliteConnection _connection;
 
