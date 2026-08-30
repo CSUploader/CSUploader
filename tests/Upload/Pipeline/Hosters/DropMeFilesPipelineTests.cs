@@ -254,10 +254,10 @@ public class DropMeFilesPipelineTests
         Assert.True(pipeline.SupportsAnonymousUpload);
         Assert.Equal(53_687_091_200L, pipeline.MaxFileSize);  // the site's own "up to 50 Gb"
 
-        // Capped rather than unlimited: each file needs its own drop and bursts of those earn a
-        // "Spam" refusal. The figure is a judgement — five was tried and real batches still came
-        // back refused — so what matters here is that a cap exists and is small.
-        Assert.Equal(2, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { Id = 0 }));
+        // Fully serialised: each file needs its own drop and bursts of those earn a "Spam"
+        // refusal. Five and then two were both tried and both came back refused in real batches,
+        // so this is the bottom of that lever rather than another guess at a number.
+        Assert.Equal(1, pipeline.MaxConcurrentUploadsFor(new FileHosterLoginDto { Id = 0 }));
 
         Assert.True(FileHosterClient.FileHosters.ContainsKey("DropMeFiles"));
         Assert.Equal("dropmefiles.com", FileHosterClient.FileHosters["DropMeFiles"]);
