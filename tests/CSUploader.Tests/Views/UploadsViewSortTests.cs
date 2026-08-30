@@ -4,6 +4,7 @@
 // </copyright>
 
 using System.ComponentModel;
+using Shapes = Avalonia.Controls.Shapes;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -350,6 +351,42 @@ public class UploadsViewSortTests
             window.Close();
         }
     }
+
+    [AvaloniaFact]
+    public void SortIndicator_ActuallyRendersTheGlyph()
+    {
+        // Asserting the CLASS alone would pass even if the header theme's selector no longer
+        // matched it — and the selectors had to change (from the stock :sortascending pseudo-class,
+        // which the DataGrid clears out from under us, to our own class). So check the effect the
+        // style is supposed to have: the glyph Path visible, carrying the right geometry.
+        using UploadsViewTests.VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "a.bin");
+        (Window window, UploadsView view) = UploadsViewTests.Show(harness.Vm);
+        try
+        {
+            Shapes.Path glyph = GlyphOf(HeaderFor(view, "Name"));
+            Assert.False(glyph.IsVisible);
+
+            ClickHeader(window, view, "Name");
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(glyph.IsVisible, "the ascending sort glyph never became visible");
+            object? ascending = view.FindResource("UploadsSortIconAscendingPath");
+            Assert.Equal(ascending, glyph.Data);
+
+            ClickHeader(window, view, "Name");
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(glyph.IsVisible);
+            Assert.Equal(view.FindResource("UploadsSortIconDescendingPath"), glyph.Data);
+            Assert.NotEqual(ascending, glyph.Data);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static Shapes.Path GlyphOf(DataGridColumnHeader header)
+        => header.GetVisualDescendants().OfType<Shapes.Path>().Single(p => p.Name == "SortIcon");
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────────
 
