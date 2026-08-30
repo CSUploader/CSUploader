@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-
-
 - **Every column on the Uploads tab sorts, and sorting keeps packages and their files together.**
   Clicking Hoster, Name, Size, Status, Progress or Order did nothing at all before; those six
   columns now sort like the rest. Sorting is also hierarchical: packages are ranked against each
@@ -34,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It now opens the same "Checking for updates…" window the app shows at launch, centered on the
   main window, and the answer replaces it. Closing the splash means "stop waiting": no result
   dialog appears, and the check continues in the background with its normal background reporting.
+
+### Fixed
+
+- **DropMeFiles stops refusing batches with "Spam".** Its anti-abuse answers a burst of uploads
+  from one address by rejecting them outright, and the app was letting five run at once — enough
+  to trigger it, so files failed before they started. Two at a time now.
 
 ## [1.7.0] - 2026-08-27
 
