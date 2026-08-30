@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The mock-server switch is a developer-build feature now.** Settings gains a **Developer**
+  category holding the "use mock server" option that used to sit under General — and that whole
+  category exists only in development builds, so a released CSUploader no longer carries it. The
+  setting is ignored outside a development build too, so a flag left switched on cannot follow you
+  into a release and quietly send every upload to localhost.
+
 - **Every column on the Uploads tab sorts, and sorting keeps packages and their files together.**
   Clicking Hoster, Name, Size, Status, Progress or Order did nothing at all before; those six
   columns now sort like the rest. Sorting is also hierarchical: packages are ranked against each

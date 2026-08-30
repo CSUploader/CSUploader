@@ -129,6 +129,16 @@
     <InternalsVisibleTo Include="CSUploader.Tests" />
   </ItemGroup>
 
+  <!-- The Developer settings category is a DEBUG-only tool: drop its view and code-behind from every
+       other configuration so a shipped build contains neither the page nor the mock-server switch.
+       SettingsView.axaml.cs guards the only reference to the type with #if DEBUG, so the two cannot
+       drift apart — removing the file without the guard would fail the build rather than ship a
+       dangling page. Same Remove idiom as the per-TFM exclusions below, keyed on Configuration. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Views\DeveloperSettingsView.axaml.cs" />
+    <AvaloniaXaml Remove="Views\DeveloperSettingsView.axaml" />
+  </ItemGroup>
+
   <!-- CefGlue sign-in code references the non-Windows-only CefGlue packages, so exclude it from the
        WINDOWS compile (the inverse of the WebView2 exclusion below). Globs match zero files until the
        Cef* files land (Tasks 4/5). -->

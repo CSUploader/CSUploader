@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:CSUploader.Lib.Localization"
+             xmlns:vm="clr-namespace:CSUploader.ViewModels;assembly=CSUploader.Core"
+             x:DataType="vm:SettingsViewModel"
+             x:CompileBindings="False"
+             x:Class="CSUploader.Views.DeveloperSettingsView">
+
+  <!--
+    The Settings sidebar's "Developer" category — DEBUG-ONLY.
+
+    This file and its code-behind are removed from the compile in every non-Debug configuration
+    (see the Configuration-conditional ItemGroup in CSUploader.csproj), so a release build carries
+    neither the markup nor the mock-server switch. The sidebar entry that reaches it is added in
+    SettingsView.axaml.cs under #if DEBUG, so nothing points at a page that is not there.
+
+    It styles itself from SettingsView's resources rather than declaring its own: the classes used
+    here (section-title, section-desc, setting-row) are defined on the SettingsView that hosts this
+    control, and Avalonia resolves style classes up the logical tree. Keeping them here would mean
+    two definitions of the same look, one of which ships and one of which does not.
+  -->
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                Background="{DynamicResource SurfaceBrush}" Padding="0">
+    <StackPanel Margin="20,16,20,20" MaxWidth="900">
+
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+        <PathIcon Data="{StaticResource SettingsDeveloperGeometry}"
+                  Foreground="{DynamicResource AccentBrush}"
+                  Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
+        <TextBlock Text="{loc:Loc Settings_General_Developer_Title}" Classes="section-title" />
+      </StackPanel>
+      <Separator Margin="0,0,0,4" />
+      <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Developer_Desc}" />
+
+      <Grid Classes="setting-row">
+        <CheckBox Content="{loc:Loc Settings_General_UseMockServer}"
+                  IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
+      </Grid>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

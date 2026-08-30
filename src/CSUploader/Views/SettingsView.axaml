@@ -249,8 +249,9 @@
 
     <Border Grid.Column="1" Background="{DynamicResource SidebarSeparatorBrush}" />
 
-    <!-- Content panels (switched by SelectedCategoryIndex; rule 39). All four occupy Column 2 and
-         overlap — IsVisible picks the live one. -->
+    <!-- Content panels (switched by SelectedCategoryIndex; rule 39). They all occupy Column 2 and
+         overlap — IsVisible picks the live one. The fifth (index 4, Developer) is a DEBUG-only host
+         filled from code-behind; see DeveloperHost at the bottom of this file. -->
 
     <!-- 0: General -->
     <ScrollViewer Grid.Column="2" x:Name="GeneralPanel"
@@ -287,20 +288,6 @@
                     DisplayMemberBinding="{CompiledBinding Label, DataType={x:Type vm:SettingsViewModel+LanguageEntry}}"
                     SelectedValue="{Binding Language}"
                     FontSize="12" Padding="4,3" />
-        </Grid>
-
-        <StackPanel Orientation="Horizontal" Margin="0,20,0,2">
-          <PathIcon Data="{StaticResource SettingsDeveloperGeometry}"
-                    Foreground="{DynamicResource AccentBrush}"
-                    Width="20" Height="20" VerticalAlignment="Center" Margin="2,0,10,0" />
-          <TextBlock Text="{loc:Loc Settings_General_Developer_Title}" Classes="section-title" />
-        </StackPanel>
-        <Separator Margin="0,0,0,4" />
-        <TextBlock Classes="section-desc" Text="{loc:Loc Settings_General_Developer_Desc}" />
-
-        <Grid Classes="setting-row">
-          <CheckBox Content="{loc:Loc Settings_General_UseMockServer}"
-                    IsChecked="{Binding UseMockServer}" VerticalAlignment="Center" />
         </Grid>
 
         <!-- Grid appearance (font for Uploads / Uploaded tabs) -->
@@ -1079,6 +1066,14 @@
       </TextBlock>
 
     </Grid>
+
+    <!-- 4: Developer (DEBUG-only). Deliberately an EMPTY host: the page itself lives in
+         DeveloperSettingsView, which is excluded from the compile in every non-Debug configuration,
+         and SettingsView.axaml.cs fills this and adds the matching sidebar entry under #if DEBUG.
+         So a release build keeps an unreachable empty ContentControl and nothing else — no
+         developer markup, no mock-server switch. Putting the page here instead would ship both. -->
+    <ContentControl Grid.Column="2" x:Name="DeveloperHost"
+                    IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}" />
 
   </Grid>
 </UserControl>

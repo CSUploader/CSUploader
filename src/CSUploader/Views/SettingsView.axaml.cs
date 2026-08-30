@@ -10,6 +10,9 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using CSUploader.Lib.Localization;
 using Avalonia.VisualTree;
 using CSUploader.Dal;
 using CSUploader.ViewModels;
@@ -51,6 +54,10 @@ public partial class SettingsView : UserControl
     public SettingsView()
     {
         InitializeComponent();
+
+#if DEBUG
+        AddDeveloperCategory();
+#endif
 
         // Rule 19: the SelectedItems-carrying context-menu commands take the grid's live SelectedItems as
         // their parameter (one IList for the control's lifetime — what the WPF PlacementTarget binding
@@ -293,4 +300,60 @@ public partial class SettingsView : UserControl
             ? [.. selected.OfType<FileHosterLoginDto>()]
             : [clicked];
     }
+
+#if DEBUG
+    /// <summary>
+    /// Adds the DEBUG-only "Developer" category: the fifth sidebar entry and the page behind it.
+    /// <para>
+    /// Built here rather than in XAML because the requirement is that a release build not CONTAIN
+    /// it, which markup cannot express — XAML has no conditional compilation, so a page declared
+    /// there ships either way and can only be hidden. <see cref="DeveloperSettingsView"/> and its
+    /// XAML are instead removed from the compile for every non-Debug configuration (see the
+    /// Configuration-conditional ItemGroup in CSUploader.csproj), and this method — the only thing
+    /// that names the type — is compiled out by the same switch. Neither half can be left behind
+    /// without the other failing to build.
+    /// </para>
+    /// <para>
+    /// The label reuses the existing <c>Settings_General_Developer_Title</c> resource rather than
+    /// adding a sidebar key of its own. The inventory parity gate is strict and has no allowlist,
+    /// so a new key would mean translating "Developer" into five languages for a page those users
+    /// can never see.
+    /// </para>
+    /// </summary>
+    private void AddDeveloperCategory()
+    {
+        // Mirrors the four XAML sidebar entries (32px icon over an 11pt centred label in a 120-wide
+        // stack). Those use bitmap resources; there is no developer bitmap, so this borrows the
+        // geometry the Developer section header already uses. Brushes are bound as DYNAMIC
+        // resources, not resolved once, so the entry follows a theme change like its siblings.
+        StackPanel content = new() { HorizontalAlignment = HorizontalAlignment.Center, Width = 120 };
+
+        PathIcon icon = new()
+        {
+            Width = 32,
+            Height = 32,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        // Geometry bound dynamically, not looked up here: this runs from the constructor, before
+        // the control is in the visual tree, so FindResource has nothing above it to search and
+        // returns null.
+        icon[!PathIcon.DataProperty] = new DynamicResourceExtension("SettingsDeveloperGeometry");
+        icon[!ForegroundProperty] = new DynamicResourceExtension("TextPrimaryBrush");
+        content.Children.Add(icon);
+
+        TextBlock label = new()
+        {
+            Text = Localizer.Instance["Settings_General_Developer_Title"],
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 3, 0, 0),
+        };
+        label[!ForegroundProperty] = new DynamicResourceExtension("TextPrimaryBrush");
+        content.Children.Add(label);
+
+        Sidebar.Items.Add(new ListBoxItem { Content = content });
+        DeveloperHost.Content = new DeveloperSettingsView();
+    }
+#endif
 }
