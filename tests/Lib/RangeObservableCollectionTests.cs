@@ -105,4 +105,48 @@ public class RangeObservableCollectionTests
         Assert.Equal([1], col);
         Assert.Empty(events);
     }
+    [Fact]
+    public void ReplaceAll_RaisesExactlyOneReset_NeverAnEmptyOne()
+    {
+        // The Uploads tab re-ranks in one step when a sort is applied. Clear() + InsertRange is
+        // TWO resets, and the first one is an EMPTY collection: the grid drops selection and
+        // currency against a momentarily empty list before the rows come back. One reset over
+        // already-swapped contents keeps whatever still exists selected.
+        RangeObservableCollection<int> col = [1, 2, 3];
+        List<NotifyCollectionChangedEventArgs> events = [];
+        List<int> countsSeen = [];
+        col.CollectionChanged += (_, e) =>
+        {
+            events.Add(e);
+            countsSeen.Add(col.Count);
+        };
+
+        col.ReplaceAll([3, 2, 1]);
+
+        Assert.Equal([3, 2, 1], col);
+        Assert.Single(events);
+        Assert.Equal(NotifyCollectionChangedAction.Reset, events[0].Action);
+        Assert.Equal([3], countsSeen);
+    }
+
+    [Fact]
+    public void ReplaceAll_WithIdenticalContent_StillReordersInPlace()
+    {
+        RangeObservableCollection<int> col = [1, 2, 3];
+
+        col.ReplaceAll([2, 3, 1]);
+
+        Assert.Equal([2, 3, 1], col);
+    }
+
+    [Fact]
+    public void ReplaceAll_Empty_ClearsTheCollection()
+    {
+        RangeObservableCollection<int> col = [1, 2, 3];
+
+        col.ReplaceAll([]);
+
+        Assert.Empty(col);
+    }
+
 }

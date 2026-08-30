@@ -142,11 +142,11 @@
       <Style Selector="^:pointerover /template/ Grid#PART_ColumnHeaderRoot">
         <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
       </Style>
-      <Style Selector="^:sortascending /template/ Path#SortIcon">
+      <Style Selector="^.sorted-asc /template/ Path#SortIcon">
         <Setter Property="IsVisible" Value="True" />
         <Setter Property="Data" Value="{StaticResource UploadsSortIconAscendingPath}" />
       </Style>
-      <Style Selector="^:sortdescending /template/ Path#SortIcon">
+      <Style Selector="^.sorted-desc /template/ Path#SortIcon">
         <Setter Property="IsVisible" Value="True" />
         <Setter Property="Data" Value="{StaticResource UploadsSortIconDescendingPath}" />
       </Style>
@@ -483,7 +483,8 @@
 
       <DataGrid.Columns>
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Name}" Width="248" CanUserReorder="False"
-                                ClipboardContentBinding="{Binding Name}">
+                                ClipboardContentBinding="{Binding Name}"
+                                SortMemberPath="Name">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <!-- Horizontal stack: collapsed elements take zero width, so the package row's name slides
@@ -540,7 +541,8 @@
         </DataGridTemplateColumn>
 
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Size}" Width="120"
-                                ClipboardContentBinding="{Binding Size, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}">
+                                ClipboardContentBinding="{Binding Size, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
+                                SortMemberPath="Size">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -555,7 +557,8 @@
         </DataGridTemplateColumn>
 
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Hoster}" Width="120"
-                                ClipboardContentBinding="{Binding HosterDisplay}">
+                                ClipboardContentBinding="{Binding HosterDisplay}"
+                                SortMemberPath="HosterDisplay">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -571,10 +574,12 @@
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Account}"
                             Binding="{Binding AccountDisplay, Mode=OneWay}"
                             ClipboardContentBinding="{Binding AccountDisplay}"
-                            Width="130" />
+                            Width="130"
+                            SortMemberPath="AccountDisplay" />
 
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Status}" Width="140"
-                                ClipboardContentBinding="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}">
+                                ClipboardContentBinding="{Binding State, Converter={StaticResource FileStateConverter}, TargetNullValue=''}"
+                                SortMemberPath="State">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -590,22 +595,27 @@
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Speed}"
                             Binding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding Speed, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
-                            Width="90" />
+                            Width="90"
+                            SortMemberPath="Speed" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_ETA}"
                             Binding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding TimeRemaining, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
-                            Width="80" />
+                            Width="80"
+                            SortMemberPath="TimeRemaining" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesLoaded}"
                             Binding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding BytesLoaded, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
-                            Width="100" />
+                            Width="100"
+                            SortMemberPath="BytesLoaded" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_BytesRemaining}"
                             Binding="{Binding BytesRemaining, Converter={StaticResource ByteUnitConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding BytesRemaining, Converter={StaticResource ByteUnitConverter}, TargetNullValue=''}"
-                            Width="110" />
+                            Width="110"
+                            SortMemberPath="BytesRemaining" />
 
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Progress}" Width="140"
-                                ClipboardContentBinding="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}">
+                                ClipboardContentBinding="{Binding Progress, StringFormat='{}{0:0.0}%', TargetNullValue=''}"
+                                SortMemberPath="Progress">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <!-- Rule 35: WPF's ActualWidth -> Avalonia Bounds.Width; the ElementName binding resolves
@@ -633,36 +643,47 @@
                             Binding="{Binding Path, Mode=OneWay}"
                             ClipboardContentBinding="{Binding Path}"
                             CellStyleClasses="path-cell"
-                            Width="180" />
+                            Width="180"
+                            SortMemberPath="Path" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Added}"
                             Binding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}, Mode=OneWay}"
                             ClipboardContentBinding="{Binding AddedDate, Converter={StaticResource DateTimeConverter}}"
-                            Width="130" IsVisible="False" />
+                            Width="130" IsVisible="False"
+                            SortMemberPath="AddedDate" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Finished}"
                             Binding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding FinishedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
-                            Width="130" IsVisible="False" />
+                            Width="130" IsVisible="False"
+                            SortMemberPath="FinishedDate" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Started}"
                             Binding="{Binding StartedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding StartedDate, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
-                            Width="130" IsVisible="False" />
+                            Width="130" IsVisible="False"
+                            SortMemberPath="StartedDate" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_ScheduledAt}"
                             Binding="{Binding ScheduledStartTime, Converter={StaticResource DateTimeConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding ScheduledStartTime, Converter={StaticResource DateTimeConverter}, TargetNullValue=''}"
-                            Width="130" IsVisible="False" />
+                            Width="130" IsVisible="False"
+                            SortMemberPath="ScheduledStartTime" />
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_Duration}"
                             Binding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue='', Mode=OneWay}"
                             ClipboardContentBinding="{Binding Duration, Converter={StaticResource TimeSpanConverter}, TargetNullValue=''}"
-                            Width="80" IsVisible="False" />
+                            Width="80" IsVisible="False"
+                            SortMemberPath="Duration" />
 
         <!-- Order: display OrderDisplay + a OneWay editing TextBox. The editable commit path (BeginningEdit/
              CellEditEnding guards) is Task 11; the OneWay editing box is load-bearing so a TwoWay box can't
              fight SetOrderCommand by writing QueueOrder back. -->
         <!-- Task 11 resolves this column by its header ("Order") for the BeginningEdit/CellEditEnding guards:
              Avalonia's DataGridColumn is not a namescope StyledElement, so x:Name does not apply to it. -->
+        <!-- CanUserSort is EXPLICIT here and nowhere else: Avalonia infers it by looking for the sort
+             path on the collection view's item type, which resolves to Package (the first row) — and
+             QueueOrder is the one path packages do not have, so the header was inert. -->
         <DataGridTemplateColumn Header="{loc:Loc Uploads_Col_Order}" Width="60"
                                 IsVisible="False"
-                                ClipboardContentBinding="{Binding OrderDisplay}">
+                                ClipboardContentBinding="{Binding OrderDisplay}"
+                                SortMemberPath="QueueOrder"
+                                CanUserSort="True">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <TextBlock Text="{Binding OrderDisplay}" VerticalAlignment="Center" Margin="4,0,0,0" />
@@ -678,7 +699,8 @@
         <DataGridTextColumn Header="{loc:Loc Uploads_Col_SpeedLimit}"
                             Binding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}, Mode=OneWay}"
                             ClipboardContentBinding="{Binding EffectiveSpeedLimitKBps, Converter={StaticResource SpeedLimitConverter}}"
-                            Width="90" IsVisible="False" />
+                            Width="90" IsVisible="False"
+                            SortMemberPath="EffectiveSpeedLimitKBps" />
 
         <!-- Hash / URL: template columns so the value can be blanked on package rows (they aggregate none).
              WPF used a style-setter Text trigger; Avalonia hides the value TextBlock via IsVisible on file
@@ -714,7 +736,8 @@
                             Binding="{Binding Error, Converter={StaticResource SingleLineConverter}, Mode=OneWay}"
                             ClipboardContentBinding="{Binding Error}"
                             CellStyleClasses="error-cell"
-                            Width="220" MinWidth="60" />
+                            Width="220" MinWidth="60"
+                            SortMemberPath="Error" />
       </DataGrid.Columns>
     </DataGrid>
 

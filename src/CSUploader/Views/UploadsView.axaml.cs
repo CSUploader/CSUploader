@@ -14,6 +14,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using CSUploader.Dal;
 using CSUploader.Lib.Localization;
 using CSUploader.Lib.UI;
 using CSUploader.Upload;
@@ -131,6 +132,7 @@ public partial class UploadsView : UserControl
         if (_wiredViewModel is not null)
         {
             _wiredViewModel.FilterInvalidated -= ViewModel_FilterInvalidated;
+            _wiredViewModel.SortCleared -= OnViewModelSortCleared;
             _wiredViewModel = null;
             _rowsView = null;
         }
@@ -146,9 +148,19 @@ public partial class UploadsView : UserControl
             Filter = vm.MatchesFilter,
         };
         vm.FilterInvalidated += ViewModel_FilterInvalidated;
+
+        // Per VM, and released above on a swap — NOT in OnGridLoaded, whose _columnsWired guard
+        // runs once per control. Wiring it there would leave the first VM subscribed for the
+        // control's life (the Phase 5 leak class this file already guards _rowsView against) and
+        // leave every later VM's cleared-sort unheard.
+        vm.SortCleared += OnViewModelSortCleared;
         _wiredViewModel = vm;
         uploadsGrid.ItemsSource = _rowsView;
         WireDeleteKeyBinding(vm);
+
+        // The glyph belongs to the VM, not the control: without this the outgoing VM's sort arrow
+        // stays lit over an incoming VM that is not sorted at all.
+        ShowSortIndicator(vm.ActiveSort);
     }
 
     private void ViewModel_FilterInvalidated(object? sender, EventArgs e) => _rowsView?.Refresh();
@@ -189,12 +201,23 @@ public partial class UploadsView : UserControl
     private async void OnGridLoaded(object? sender, RoutedEventArgs e)
     {
         // Loaded can fire more than once (tab switches re-attach the control); wire columns only once.
-        if (_columnsWired || DataContext is not UploadsViewModel vm || vm.SettingRepo is not { } repo)
+        if (_columnsWired || DataContext is not UploadsViewModel vm)
         {
             return;
         }
 
         _columnsWired = true;
+
+        // FIRST, and outside the SettingRepo guard below: until this is attached, a header click
+        // runs Avalonia's own flat sort, which is exactly the row-scrambling this feature exists to
+        // replace. Wiring it after the awaits left that window open on every launch, and wiring it
+        // after the repo check left it open forever for a VM with no settings repository.
+        uploadsGrid.Sorting += OnGridSorting;
+
+        if (vm.SettingRepo is not { } repo)
+        {
+            return;
+        }
 
         // Capture XAML defaults *before* applying persisted overrides so "Reset columns" can restore them.
         _defaultColumnState = DataGridColumnVisibilityPersistence.CaptureCurrentState(uploadsGrid);
@@ -213,7 +236,142 @@ public partial class UploadsView : UserControl
         // Persist column reorders the user does after the initial Apply.
         uploadsGrid.ColumnDisplayIndexChanged += async (_, _) =>
             await DataGridColumnVisibilityPersistence.PersistAsync(uploadsGrid, repo, SettingKey.UploadsTabHiddenColumns);
+
+        // After the column state, so a sort naming a column the user has since hidden can be
+        // dropped rather than applied invisibly.
+        await RestorePersistedSortAsync(vm, repo);
     }
+
+    /// <summary>
+    /// A header click. The stock sort is suppressed and replaced with the ViewModel's hierarchical
+    /// one — clicking the same column again flips it, clicking another starts that column ascending.
+    /// </summary>
+    private void OnGridSorting(object? sender, DataGridColumnEventArgs e)
+    {
+        // Stops DataGrid.ProcessSort from adding a sort description of its own, which would rank
+        // every row against every other and pull files out from under their packages.
+        e.Handled = true;
+
+        if (DataContext is not UploadsViewModel vm || string.IsNullOrEmpty(e.Column.SortMemberPath))
+        {
+            return;
+        }
+
+        ListSortDirection direction =
+            vm.ActiveSort is { } active
+            && string.Equals(active.Path, e.Column.SortMemberPath, StringComparison.Ordinal)
+            && active.Direction == ListSortDirection.Ascending
+                ? ListSortDirection.Descending
+                : ListSortDirection.Ascending;
+
+        ApplyAndPersistSort(vm, new UploadSort(e.Column.SortMemberPath, direction));
+    }
+
+    /// <summary>The VM dropped the sort itself, on a reorder — take the indicator down to match.</summary>
+    private void OnViewModelSortCleared(object? sender, EventArgs e)
+    {
+        ShowSortIndicator(null);
+        PersistSort(null);
+    }
+
+    private void ApplyAndPersistSort(UploadsViewModel vm, UploadSort? sort)
+    {
+        vm.ApplySort(sort);
+        ShowSortIndicator(sort);
+        PersistSort(sort);
+    }
+
+    private void PersistSort(UploadSort? sort)
+    {
+        if (DataContext is not UploadsViewModel vm || vm.SettingRepo is not { } repo)
+        {
+            return;
+        }
+
+        // Not awaited — the grid must not block on a settings write — but strictly SERIALISED, which
+        // plain fire-and-forget is not. UpsertAsync is an unsynchronised find-then-insert-or-update
+        // over a table with no unique key, so two writes in flight at once (an asc/desc double click,
+        // or a clear chased by a new sort) can both see no row and insert two, or finish out of order
+        // and leave the older value stored. Chaining keeps the last click the last write.
+        _sortPersist = _sortPersist.ContinueWith(
+            _ => repo.UpsertAsync(SettingKey.UploadsTabSort, sort?.Format() ?? string.Empty),
+            CancellationToken.None,
+            TaskContinuationOptions.None,
+            TaskScheduler.Default).Unwrap();
+    }
+
+    private async Task RestorePersistedSortAsync(UploadsViewModel vm, SettingRepository repo)
+    {
+        SettingDto? row = await repo.FindByKeyAsync(SettingKey.UploadsTabSort);
+
+        // Two awaits stand between the click that could start this and the answer coming back. In
+        // that window the user may have sorted for themselves, or the tab may have been handed a
+        // different ViewModel — in either case a restored sort is stale news and must not land.
+        if (!ReferenceEquals(DataContext, vm) || vm.ActiveSort is not null)
+        {
+            return;
+        }
+
+        if (!UploadSort.TryParse(row?.Value, out UploadSort? sort) || sort is null)
+        {
+            return;
+        }
+
+        // A sort whose column has since been renamed, removed or hidden is dropped rather than
+        // applied: an active sort with no visible header to show for it is a grid the user can
+        // neither explain nor undo. The stored value is cleared with it, so that showing the column
+        // again months later cannot resurrect a sort nobody asked for.
+        DataGridColumn? column = uploadsGrid.Columns
+            .FirstOrDefault(c => string.Equals(c.SortMemberPath, sort.Path, StringComparison.Ordinal));
+        if (column is null || !column.IsVisible)
+        {
+            PersistSort(null);
+            return;
+        }
+
+        vm.ApplySort(sort);
+        ShowSortIndicator(sort);
+    }
+
+    /// <summary>
+    /// Marks the sorted column's header, and clears every other.
+    /// <para>
+    /// Uses OUR OWN style classes rather than the stock <c>:sortascending</c> /
+    /// <c>:sortdescending</c> pseudo-classes, because those are not ours to set:
+    /// <c>DataGridColumnHeader.UpdatePseudoClasses</c> derives them from the column's sort
+    /// description and clears them when there is none — and there never is one here. It runs on
+    /// ordinary pointer press, release and exit, so a manually-set pseudo-class would survive only
+    /// until the pointer left the header.
+    /// </para>
+    /// </summary>
+    private void ShowSortIndicator(UploadSort? sort)
+    {
+        foreach (DataGridColumnHeader header in uploadsGrid.GetVisualDescendants().OfType<DataGridColumnHeader>())
+        {
+            // Same content-match association the lock toggle uses — OwningColumn is internal, and
+            // the 21 Uploads_Col_* headers are unique.
+            DataGridColumn? column = uploadsGrid.Columns.FirstOrDefault(c => Equals(c.Header, header.Content));
+            bool ascending = sort is not null
+                && column is not null
+                && string.Equals(column.SortMemberPath, sort.Path, StringComparison.Ordinal)
+                && sort.Direction == ListSortDirection.Ascending;
+            bool descending = sort is not null
+                && column is not null
+                && string.Equals(column.SortMemberPath, sort.Path, StringComparison.Ordinal)
+                && sort.Direction == ListSortDirection.Descending;
+
+            header.Classes.Set(SortAscendingClass, ascending);
+            header.Classes.Set(SortDescendingClass, descending);
+        }
+    }
+
+    /// <summary>Tail of the chain of sort-setting writes. See <see cref="PersistSort"/>.</summary>
+    private Task _sortPersist = Task.CompletedTask;
+
+    /// <summary>Style classes the header template keys its sort glyph off. See <see cref="ShowSortIndicator"/>
+    /// for why the stock pseudo-classes cannot be used.</summary>
+    private const string SortAscendingClass = "sorted-asc";
+    private const string SortDescendingClass = "sorted-desc";
 
     /// <summary>
     /// Toggles the column-width lock for the column whose header carries the clicked lock toggle. Splits the

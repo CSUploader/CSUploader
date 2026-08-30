@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+
+
+- **Every column on the Uploads tab sorts, and sorting keeps packages and their files together.**
+  Clicking Hoster, Name, Size, Status, Progress or Order did nothing at all before; those six
+  columns now sort like the rest. Sorting is also hierarchical: packages are ranked against each
+  other and each package's files are ranked *within* it, so a package always stays directly above
+  its own files instead of the grid collapsing into one flat list. The sort is remembered between
+  restarts, alongside the column widths and visibility. It only changes how the queue is
+  displayed — upload order is still the queue's own, driven by the Order column and Move Up/Down,
+  and moving a row clears the sort so the grid goes back to its normal order. Rows are ranked as
+  they stood when you sorted and then hold still, so a sort by Speed or Progress does not make
+  rows jump around while uploads run; click the header again to re-rank.
+
 - **Updates download only what changed.** From this release on, every release ships a delta
   package alongside the full one, and installed builds apply the delta when they can — a release
   that only touches app code is a fraction of a megabyte instead of the whole 63 MB (Windows) /
