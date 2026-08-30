@@ -119,6 +119,49 @@ public class RangeObservableCollection<T> : ObservableCollection<T>
         RaiseReset();
     }
 
+    /// <summary>
+    /// Swaps the entire contents for <paramref name="items"/> and raises exactly ONE
+    /// <see cref="NotifyCollectionChangedAction.Reset"/>, after the new contents are in place.
+    /// <para>
+    /// The ordering is the whole point, and it is why <c>Clear()</c> followed by an insert will
+    /// not do. That sequence raises two notifications, the first of them over an EMPTY
+    /// collection: a bound DataGrid drops selection and currency against the empty list, then
+    /// rebuilds from nothing, so the user's selection is gone even for rows that are still there
+    /// afterwards. Swapping first and notifying once lets the grid re-index the objects it still
+    /// holds and keep them selected.
+    /// </para>
+    /// <para>
+    /// Unconditionally one Reset, with no <see cref="RangeThreshold"/> exemption: a re-rank moves
+    /// most rows even when the collection is small, so there is no granular event sequence that
+    /// would describe it more cheaply.
+    /// </para>
+    /// </summary>
+    public void ReplaceAll(IReadOnlyList<T> items)
+    {
+        CheckReentrancy();
+
+        // Snapshot first when handed our own contents (directly or through a lazy sequence over
+        // them): the Clear below would otherwise empty the very thing being copied back in.
+        IReadOnlyList<T> source = ReferenceEquals(items, this) || ReferenceEquals(items, Items)
+            ? [.. items]
+            : items;
+
+        Items.Clear();
+        if (Items is List<T> list)
+        {
+            list.AddRange(source);
+        }
+        else
+        {
+            foreach (T item in source)
+            {
+                Items.Add(item);
+            }
+        }
+
+        RaiseReset();
+    }
+
     private void RaiseReset()
     {
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));

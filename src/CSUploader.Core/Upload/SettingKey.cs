@@ -72,4 +72,10 @@ public static class SettingKey
     public static string LastBrowsedFolder { get; } = "lastBrowsedFolder";
 
     public static string AllowInvalidServerCertificates { get; } = "allowInvalidServerCertificates";
+
+    /// <summary>The Uploads grid's active sort, as "&lt;sortMemberPath&gt;|asc" or "…|desc"; absent or
+    /// blank means default order. Its own row rather than a field inside
+    /// <see cref="UploadsTabHiddenColumns"/>, so clearing a sort does not rewrite the column widths
+    /// and visibility stored beside it.</summary>
+    public static string UploadsTabSort { get; } = "uploadsTabSort";
 }

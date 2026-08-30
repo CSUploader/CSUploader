@@ -1,7 +1,7 @@
 # Hierarchical sorting on the Uploads tab
 
 Date: 2026-08-30
-Status: approved (design), revision 2
+Status: implemented, revision 3
 
 Revision 2 replaces the comparer-based approach of revision 1, which probing falsified. The
 record of that is kept below under "What we probed", because the failure is the reason the
@@ -57,6 +57,8 @@ probes against Avalonia 12.1.2 (deleted after use) **falsified that**:
 | `SortDescriptions.Clear()` | Returns the view to source order |
 | `FromComparer(cmp, Descending)` | Inverts the comparer's whole result |
 | `DataGridTextColumn.SortMemberPath` with a binding | **Empty string** — the path is not recoverable from the column |
+| **Granular insert into a *filtered* view (no sort descriptions)** | **Wrong position** — the raw SOURCE index is used against the filtered list, never translated |
+| `DataGridColumn.CanUserSort` for a path absent on the first row's type | **False** — inferred from the item type, which resolves to `Package` |
 
 `DataGridCollectionView.ProcessInsertToCollection` only validates the neighbour when the insert
 index is below `Count-1`; otherwise it trusts the source index. Our tree splices files in at
@@ -77,10 +79,11 @@ Order is produced by construction rather than by a row comparer:
 
 ```
 BuildRows(packages, sort):
-    for package in packages.OrderBy(p => Key(p, sort.Path), sort.Direction):
+    comparer = UploadKeyComparer(sort.Direction)     # direction lives INSIDE the comparer
+    for package in packages.OrderBy(p => Key(p, sort.Path), comparer):
         emit package
         if package.IsExpanded:
-            for file in package.OrderBy(f => Key(f, sort.Path), sort.Direction):
+            for file in package.OrderBy(f => Key(f, sort.Path), comparer):
                 emit file
 ```
 
@@ -92,20 +95,62 @@ subtraction overflow, and none of the strict-weak-ordering hazards a row compare
 mutating on an upload thread mid-sort cannot produce an inconsistent ordering.
 
 What remains is a **key comparer** — how two values of one column rank — which is pure, small,
-and the thing worth testing hard.
+and the thing worth testing hard. Note the direction is applied inside it rather than by switching
+to `OrderByDescending`: descending must not also flip "nulls last", and reversing the sequence
+afterwards would reverse tied groups too.
 
-### When rows are rebuilt
+### When rows are re-ranked
 
-Only while a sort is active. With no sort the VM keeps today's incremental splicing untouched,
-so all risk is confined to the sorted mode.
+The whole row list is rebuilt in exactly ONE place: an explicit sort, applied by the user
+clicking a header or restored at startup. Nothing else ever re-ranks the grid.
 
-While sorted, a **structural** change rebuilds the list in one `Reset`: package added or
-removed, files added, expand/collapse. Value changes (`Speed`, `Progress`, `BytesLoaded`, `ETA`)
-do **not** rebuild — rows hold still while the queue runs, which is what makes the grid usable
-during uploads, and re-clicking the header re-ranks on demand. A structural change re-ranks with
-current values; that is acceptable precisely because the user just did something structural.
+Everything structural is instead placed incrementally, keeping the tree without disturbing what
+the user is looking at:
 
-Rebuilding costs one `Reset` where today's splice raises `Reset` for large packages anyway.
+| Event | While sorted |
+| --- | --- |
+| A package arrives | Its block (row + its files) is inserted at its rank, in one positional insert |
+| A package is expanded, or gains files | Its files are spliced in ranked, under it, as today |
+| Anything is removed | Untouched — removing rows from a ranked list leaves it ranked |
+| A value changes (Speed, Progress, …) | Nothing moves |
+
+That the insert index is always a PACKAGE row is what makes the tree structural: a block can
+never be dropped between another package and its own files, whatever the ranking says.
+
+**Except while a filter is on**, where positional insertion is abandoned for a full rebuild. The
+head wraps these rows in a collection view, and on a granular Add that view inserts at the raw
+source index clamped to its own filtered length — it never translates one into the other (probed).
+A row aimed at the middle of a filtered view therefore arrives somewhere else, which for a sorted
+grid means a mis-ranked package and a package separated from its own file by an unrelated row. A
+whole-list replacement raises a Reset, and a Reset makes that view rebuild its filtered list
+correctly. It costs the selection, which beats showing a broken tree, and only while a sort and a
+filter are both active.
+
+**The Order column needs `CanUserSort="True"` spelled out**, alone among the 21. Avalonia decides
+whether a header may sort by looking for the sort path on the collection view's item type, which
+resolves to `Package` — the first row — and `QueueOrder` is the one path packages do not have. The
+header was inert without it, and a sweep of visible headers could not see it, because Order ships
+hidden.
+
+The rebuild uses `RangeObservableCollection.ReplaceAll`, added for this, which raises a single
+Reset over the finished contents. `Clear()` followed by an insert would raise two, the first over
+an EMPTY collection — the grid drops selection and currency against that empty list and never
+gets them back.
+
+### Live values: the ranking is a snapshot
+
+`Speed`, `Progress`, `BytesLoaded`, `ETA` and `Finished` change about twice a second on an active
+queue, and the grid does **not** re-rank as they do. A sort ranks the rows as they stood when it
+was applied; they hold still afterwards, and clicking the header again re-ranks on demand.
+
+This is a decision, not an omission. Re-ranking live would make rows leap under the pointer on
+exactly the columns most worth watching during an upload, and would fight selection and the
+editable Order cell. The alternative of re-ranking on unrelated structural events is worse than
+either: expanding one package would silently reshuffle the whole grid using values that have
+moved since. So a newly arrived package is placed by its rank AT ARRIVAL, and nothing else moves.
+
+The cost is that a rank can go stale — including after a rename under a Name sort. Staleness is
+bounded and visible; it can never break the tree, because adjacency is structural.
 
 ## Components
 
@@ -113,7 +158,7 @@ Rebuilding costs one `Reset` where today's splice raises `Reset` for large packa
 path)` property accessor. `Package` and `PackageFile` expose all 21 paths under the same names
 (verified) except `QueueOrder`, which only files have; a path a type lacks yields null.
 
-**`UploadRowKeyComparer` (Core).** Ranks two key values. Nulls last in **both** directions
+**`UploadKeyComparer` (Core).** Ranks two key values. Nulls last in **both** directions
 (an idle queue keeps its blank Speed/ETA rows at the bottom either way); strings compare
 `CurrentCultureIgnoreCase`, the app being localized; `Status` ranks by `FileState` enum order,
 grouping by lifecycle rather than localized spelling; otherwise `IComparable`. Values of
@@ -146,9 +191,13 @@ and leaves default order — the same fallback the column-state persistence alre
 **The filter already breaks parent/child adjacency.** `MatchesFilter` matches package rows on
 package name and file rows on file name independently (`UploadsViewModel.cs:186`), so a filter
 can show a file whose package row is filtered out — `UploadsViewTests.cs:219` asserts exactly
-that, deliberately. No ordering can put a file below a parent that is not there. The invariant
-is therefore stated as: **within the rows the filter admits**, a package is immediately followed
-by its own admitted files. Sorting does not change filtering, and this design does not touch it.
+that, deliberately. No ordering can put a file below a parent that is not there, and an
+orphaned file will visually appear under whichever package precedes it.
+
+The honest invariant is therefore narrower than "the tree is preserved": **for every admitted
+file whose package is also admitted, that package precedes it with no row from another package
+in between.** An admitted file whose package the filter excluded is displayed unparented. Sorting
+neither causes nor fixes that; this design does not touch filtering.
 
 **Move and queue order.** The agreed rule was "moving clears the sort so the row is seen to
 move". Half of that is not achievable, for a reason that predates this work: `MoveFilesBy` and
@@ -160,9 +209,10 @@ its *position* does not — exactly as today, unsorted.
 
 The clear is still worth doing: leaving the grid sorted after a move would show a stale ranking.
 But the "see it move" half needs the grid to be orderable by queue position, which is a separate
-change, flagged and deliberately not smuggled in here. Sorting by the `Order` column is the
-workaround available to a user who wants that view, and it now works, since `Order` is one of
-the six columns this change makes sortable.
+change, flagged and deliberately not smuggled in here. Note that sorting by the `Order` column is
+NOT a substitute: `QueueOrder` is global across all packages, while this design ranks files only
+WITHIN their package, so that column orders each package's children by queue position rather than
+showing the global queue.
 
 The clear is also **deferred**, not synchronous: `SetOrderCommand` runs from
 `UploadsGrid_CellEditEnding` (`UploadsView.axaml.cs:394`), and mutating rows inside a
@@ -173,6 +223,17 @@ collection-view edit transaction is unsafe. The VM posts the rebuild instead.
 An unknown or unreadable persisted sort path leaves default order. A key that cannot be compared
 falls back to a string comparison rather than throwing, so one odd row cannot break a sort.
 Sorting never mutates a `Package` or `PackageFile`.
+
+## Known and accepted
+
+- A move clears the sort on the REQUEST, not on the reorder completing: the scheduler applies the
+  move on its own queue, so a move that turns out to be a no-op still clears. Clearing on
+  completion would need `QueueOrderChanged`, which also fires for ordinary queue maintenance and
+  would clear sorts nobody touched.
+- Hiding the sorted column at runtime leaves the sort active but its indicator off-screen. Only
+  the startup restore drops a hidden column's sort (and clears the stored value with it).
+- A rename under a Name sort leaves the row at its old rank until the next explicit sort — the
+  same snapshot rule as the live value columns.
 
 ## Testing
 

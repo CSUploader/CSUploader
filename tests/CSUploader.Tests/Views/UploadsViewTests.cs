@@ -3,6 +3,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.ComponentModel;
 using System.IO;
 using System.Net.Http;
 using Avalonia;
@@ -115,8 +116,8 @@ public class UploadsViewTests
         (Window window, UploadsView view) = Show(harness.Vm);
         try
         {
-            // Account is a DataGridTextColumn (its Binding is the sort path); template columns without a
-            // SortMemberPath don't sort, matching the WPF, so a bound text header is the sort probe.
+            // Every column now declares an explicit SortMemberPath, so any header would do; Account
+            // stays the probe so this remains the same measurement it always was.
             DataGridColumnHeader accountHeader = HeaderWithContent(view, "Account");
 
             Point centre = CenterInWindow(accountHeader, window);
@@ -125,10 +126,15 @@ public class UploadsViewTests
             window.MouseUp(centre, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
 
-            // The header reflects the sort via its :sortascending pseudo-class (set after ProcessSort) and
-            // the view gained a sort description — the sort FUNCTION fired through the re-templated header.
-            Assert.Contains(":sortascending", accountHeader.Classes);
-            Assert.NotEmpty(view.RowsView!.SortDescriptions);
+            // What this probe measures is unchanged — a click on the re-templated header reaches the
+            // sort function — but what sorting IS has changed underneath it. The ViewModel now ranks
+            // the rows hierarchically and the grid's own sort is suppressed, so the assertions move
+            // from Avalonia's sort description and pseudo-class to ours. An EMPTY SortDescriptions is
+            // now itself the point: a stock sort description here would rank every row against every
+            // other and pull files out from under their packages.
+            Assert.Equal(new UploadSort("AccountDisplay", ListSortDirection.Ascending), harness.Vm.ActiveSort);
+            Assert.Contains("sorted-asc", accountHeader.Classes);
+            Assert.Empty(view.RowsView!.SortDescriptions);
         }
         finally
         {
@@ -1100,7 +1106,8 @@ public class UploadsViewTests
 
     private static int CountOf(DataGridCollectionView view) => view.Count;
 
-    private static (Window Window, UploadsView View) Show(UploadsViewModel vm)
+    /// <summary>Shared with <c>UploadsViewSortTests</c>, which drives the same realized grid.</summary>
+    internal static (Window Window, UploadsView View) Show(UploadsViewModel vm)
     {
         // Wide enough that the leading columns (through Progress) are in the horizontal viewport — the
         // DataGrid virtualizes columns, so a narrow window leaves the progress cells unrealized.
@@ -1168,7 +1175,9 @@ public class UploadsViewTests
     /// so nothing races the scratch connection dispose; nothing is ever scheduled, so no upload runs. The
     /// <see cref="SettingRepository"/> backs the column-menu persistence path.
     /// </summary>
-    private sealed class VmHarness : IDisposable
+    /// <summary>Shared with <c>UploadsViewSortTests</c> rather than duplicated — one Uploads-tab
+    /// harness, so a change to the stack it builds cannot drift between the two suites.</summary>
+    internal sealed class VmHarness : IDisposable
     {
         private readonly SqliteConnection _connection;
         private readonly UploadScheduler _scheduler;
@@ -1210,6 +1219,38 @@ public class UploadsViewTests
         /// <summary>The dialog service the VM's RemoveSelected confirmation flows through — verifiable so the
         /// Delete-key guard tests can assert the remove path did / did not fire (Times.Never / Times.Once).</summary>
         public Mock<IDialogService> DialogMock { get; } = new();
+
+        /// <summary>
+        /// Seeds through the REAL <see cref="PackageManager"/>, so the VM's PackageAdded handler runs
+        /// and subscribes the package's <c>PropertyChanged</c>.
+        /// <para>
+        /// <see cref="SeedPackage"/> deliberately does not: it writes the rows straight into the VM's
+        /// collections, which is enough for tests about columns or headers but leaves expand/collapse
+        /// INERT — setting <c>IsExpanded</c> on such a package changes no rows at all, and a test that
+        /// toggles it is asserting nothing. Use this one whenever the test's subject is a structural
+        /// change.
+        /// </para>
+        /// </summary>
+        public async Task<Package> AddPackageThroughManagerAsync(string title, params string[] fileNames)
+        {
+            List<string> paths = [];
+            foreach (string name in fileNames)
+            {
+                string path = Path.Combine(_tempDir, name);
+                File.WriteAllBytes(path, [1]);
+                paths.Add(path);
+            }
+
+            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+            return await _manager.AddPackageOnlyAsync(new PackageOptions
+            {
+                Title = title,
+                Logger = Mock.Of<IAppLogger>(),
+                Settings = new AppSettings(),
+                SelectedFiles = paths,
+                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator", IsAnonymous = true } } },
+            });
+        }
 
         /// <summary>Seeds a package (default expanded) and its files straight into the VM's collections — the
         /// exact row shape the VM's PackageAdded handler builds (package row followed by its file rows).</summary>

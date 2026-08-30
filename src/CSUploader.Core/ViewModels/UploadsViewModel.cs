@@ -162,6 +162,94 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     public RangeObservableCollection<object> VisibleRows { get; } = [];
 
     /// <summary>
+    /// The column <see cref="VisibleRows"/> is currently ranked by, or null for default order.
+    /// <para>
+    /// The ViewModel ranks the rows itself rather than letting the head's collection view sort
+    /// them — see <see cref="UploadRowOrder"/> for the Avalonia behaviour that forced this.
+    /// </para>
+    /// </summary>
+    public UploadSort? ActiveSort { get; private set; }
+
+    /// <summary>
+    /// Raised when the ViewModel drops the sort of its own accord — which only happens on a
+    /// reorder (see <see cref="ClearSortForReorder"/>). The head listens so it can take the
+    /// header indicator down and persist the change; it is deliberately NOT raised by
+    /// <see cref="ApplySort"/>, whose caller is the head and already knows.
+    /// </summary>
+    public event EventHandler? SortCleared;
+
+    /// <summary>
+    /// Ranks <see cref="VisibleRows"/> by <paramref name="sort"/>, or restores default order when
+    /// it is null. This is the ONLY place the whole row list is rebuilt.
+    /// <para>
+    /// The rebuild goes through <see cref="RangeObservableCollection{T}.ReplaceAll"/> so the grid
+    /// sees exactly one Reset over the finished contents. Clearing and refilling would show it an
+    /// empty collection first, and the user's selection would not survive that.
+    /// </para>
+    /// </summary>
+    public void ApplySort(UploadSort? sort)
+    {
+        _sortGeneration++;
+        ActiveSort = sort;
+        RebuildVisibleRows();
+    }
+
+    private void RebuildVisibleRows() => VisibleRows.ReplaceAll(UploadRowOrder.Build(Packages, ActiveSort));
+
+    /// <summary>
+    /// Whether a positional insert into <see cref="VisibleRows"/> can still be trusted to land where
+    /// it was aimed.
+    /// <para>
+    /// It cannot while a filter is hiding rows. The head wraps this collection in a
+    /// <c>DataGridCollectionView</c>, and on a granular Add that view inserts at the RAW SOURCE
+    /// index clamped to its own filtered length — it never translates the source index into a
+    /// filtered one (probed on Avalonia 12.1.2). So a row aimed at the middle of a filtered view
+    /// arrives somewhere else, which for a sorted grid means a mis-ranked package and, worse, a
+    /// package separated from its own files by somebody else's row.
+    /// </para>
+    /// <para>
+    /// A whole-list replacement raises a Reset instead, and a Reset makes that view rebuild its
+    /// filtered list from scratch — correctly. It costs the selection, which is the right trade
+    /// against showing a broken tree, and only while a sort and a filter are both on.
+    /// </para>
+    /// </summary>
+    private bool CanPlaceRowsPositionally => string.IsNullOrWhiteSpace(FilterText);
+
+    /// <summary>
+    /// Drops the sort because the user reordered the queue. Leaving the grid ranked after a move
+    /// would show a stale ordering that no longer matches what was just asked for.
+    /// <para>
+    /// Posted rather than applied inline: one caller is the Order cell's commit, which runs inside
+    /// the grid's cell-edit transaction, and replacing every row underneath an in-flight edit is
+    /// not safe. The generation check is what makes that gap survivable — the user can click a
+    /// header before this callback gets its turn, and a stale clear landing afterwards would throw
+    /// the newer sort away without anyone touching a Clear.
+    /// </para>
+    /// </summary>
+    private void ClearSortForReorder()
+    {
+        if (ActiveSort is null)
+        {
+            return;
+        }
+
+        int generation = _sortGeneration;
+        _uiDispatcher.Post(() =>
+        {
+            if (generation != _sortGeneration)
+            {
+                return;
+            }
+
+            ApplySort(null);
+            SortCleared?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
+    /// <summary>Bumped by every sort change so a queued clear can tell it has been superseded.</summary>
+    private int _sortGeneration;
+
+    /// <summary>
     /// Filter text bound to the JD2-style filter bar at the bottom of the Uploads tab.
     /// Filters by package name (for package rows) and by file name (for file rows).
     /// </summary>
@@ -292,6 +380,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         if (item is PackageFile file)
         {
             _packageManager.MoveFilesBy([file], -1);
+            ClearSortForReorder();
         }
     }
 
@@ -302,6 +391,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         if (item is PackageFile file)
         {
             _packageManager.MoveFilesBy([file], +1);
+            ClearSortForReorder();
         }
     }
 
@@ -326,13 +416,17 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         if (files.Length > 0)
         {
             _packageManager.MoveFilesBy(files, delta);
+            ClearSortForReorder();
         }
     }
 
     /// <summary>Commit of the editable Order cell — move the file to the typed 1-based position.</summary>
     [RelayCommand]
     private void SetOrder((PackageFile File, int Target) arg)
-        => _packageManager.MoveFileTo(arg.File, arg.Target);
+    {
+        _packageManager.MoveFileTo(arg.File, arg.Target);
+        ClearSortForReorder();
+    }
 
     /// <summary>Commit of the editable Name cell on a package row — rename in memory (+ persisted when
     /// the package has a DB row). The view's edit guard restricts Name edits to package rows and drops
@@ -1078,15 +1172,45 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
 
     private void AddPackageToVisibleRows(Package package)
     {
-        VisibleRows.Add(package);
+        if (ActiveSort is null)
+        {
+            VisibleRows.Add(package);
+            if (package.IsExpanded)
+            {
+                InsertPackageFiles(package);
+            }
+
+            return;
+        }
+
+        if (!CanPlaceRowsPositionally)
+        {
+            RebuildVisibleRows();
+            return;
+        }
+
+        // Sorted: put the package's whole block in at its rank, in ONE positional insert. Doing it
+        // as a block rather than re-ranking the grid is what keeps a new arrival from costing a
+        // full Reset — selection and scroll survive — and it is also what makes the tree
+        // structural: the insert index is always a package row, so a block can never be dropped
+        // between another package and its own files, however stale the ranking has gone.
+        List<object> block = [package];
         if (package.IsExpanded)
         {
-            InsertPackageFiles(package);
+            block.AddRange(UploadRowOrder.OrderFiles(package, ActiveSort));
         }
+
+        VisibleRows.InsertRange(UploadRowOrder.IndexForPackage(VisibleRows, package, ActiveSort), block);
     }
 
     private void InsertPackageFiles(Package package)
     {
+        if (ActiveSort is not null && !CanPlaceRowsPositionally)
+        {
+            RebuildVisibleRows();
+            return;
+        }
+
         int insertIndex = VisibleRows.IndexOf(package) + 1;
         if (insertIndex <= 0)
         {
@@ -1099,7 +1223,10 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         // via InsertRange, which raises a single Reset for big packages instead of one event per row.
         HashSet<object> present = [.. VisibleRows];
         List<object> toInsert = [];
-        foreach (PackageFile file in package)
+
+        // Ranked when a sort is active, so an expand drops the files in already ordered rather
+        // than needing the grid re-ranked afterwards.
+        foreach (PackageFile file in UploadRowOrder.OrderFiles(package, ActiveSort))
         {
             if (!present.Contains(file))
             {
