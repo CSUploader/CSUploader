@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Litterbox retries when its server has a moment.** Uploads to Litterbox were given up on after
+  a single try, so a passing server-side hiccup — an internal server error, or the host answering
+  "No file!" after receiving the whole upload — failed the file outright. Those two now get up to
+  three attempts. Refusals that are actually about the file, such as it being too large, still fail
+  immediately, because re-sending it would only earn the same answer.
+
 - **DropMeFiles stops refusing batches with "Spam".** Its anti-abuse answers a burst of uploads
   from one address by rejecting them outright, and the app was letting five run at once — enough
   to trigger it, so files failed before they started. Uploads to DropMeFiles now go one at a time.

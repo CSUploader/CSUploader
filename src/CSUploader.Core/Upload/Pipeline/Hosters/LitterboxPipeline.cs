@@ -134,6 +134,14 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
         (string? url, string? error) = ParseUploadResponse(response);
         if (error is not null)
         {
+            // A failure the HOST is describing about itself is thrown, not yielded, because that is
+            // the only thing AttemptRunner will re-run: a yielded AttemptFailed is a server verdict
+            // and terminal by design. Everything else stays a verdict.
+            if (IsTransientHostFailure(response))
+            {
+                throw new UploadProcessingFailedException(error);
+            }
+
             yield return new AttemptFailed(error, null);
             yield break;
         }
@@ -176,6 +184,34 @@ public sealed class LitterboxPipeline : IFileHosterPipeline
             ? (body, null)
             : (null, $"Litterbox returned no link: {Snippet(body)}");
     }
+
+    /// <summary>
+    /// Whether an upload failure is the host describing ITS OWN trouble — worth re-running — rather
+    /// than a verdict on the file we sent, which re-uploading would only earn again at the cost of
+    /// the whole file. Internal for testing.
+    /// <para>
+    /// Same rule <see cref="XFileSharingApiPipeline"/> already applies to XFS nodes, whose
+    /// <c>IsTransientNodeFailure</c> retries "Internal Server Error", "Bad Gateway",
+    /// "Service Unavailable" and "No file on disk" for exactly this reason.
+    /// </para>
+    /// <para>
+    /// <b>5xx.</b> Seen live as a BunkerWeb error page — their proxy reporting the PHP backend died
+    /// before answering. Strictly this is the one case where "no file was created" is an ASSUMPTION
+    /// rather than something the server said, so re-running could in principle leave an orphan. That
+    /// is acceptable HERE and should not be generalised to a durable host: no link comes back so
+    /// nothing is user-visible, names are unguessable 16-character codes, and everything on this
+    /// host expires within <see cref="Retention"/> regardless.
+    /// </para>
+    /// <para>
+    /// <b>"No file!".</b> No assumption needed — the server is stating that it stored nothing. Seen
+    /// live as a 412 from PHP itself (it set a PHPSESSID and PHP's 1981 Expires header, so the
+    /// request reached the application) on an upload whose body had been sent in full. Matched on
+    /// the text rather than the status, because it is the sentence that carries the meaning.
+    /// </para>
+    /// </summary>
+    internal static bool IsTransientHostFailure(HttpResponseSnapshot response)
+        => response.StatusCode >= 500
+           || response.Body.Contains("No file", StringComparison.OrdinalIgnoreCase);
 
     private static string Snippet(string body)
     {
