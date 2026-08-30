@@ -94,10 +94,64 @@ public class TempShAndLitterboxTests
         Assert.Equal(ok, tempUrl is not null);
         Assert.Equal(ok, tempError is null);
 
-        // Litterbox's parser must behave identically — same response shape, same rules.
+        // Litterbox's parser must behave identically — same response shape, same rules. What the
+        // two do with a failure now differs (Litterbox retries the transient ones — see
+        // IsTransientHostFailure below), but that is a decision made ON the parser's output, not a
+        // change to it.
         (string? litterUrl, string? litterError) = LitterboxPipeline.ParseUploadResponse(snap);
         Assert.Equal(ok, litterUrl is not null);
         Assert.Equal(ok, litterError is null);
+    }
+
+    [Theory]
+    // The server describing ITS OWN failure — safe to re-run, because it kept nothing.
+    [InlineData(500, "<html>500 | Internal Server Error</html>", true)]
+    [InlineData(502, "", true)]
+    [InlineData(503, "", true)]
+    // "No file!" is the host stating outright that it stored no file. Seen live as a 412 on an
+    // upload whose body was sent in full.
+    [InlineData(412, "No file!", true)]
+    // A verdict on the file we sent: re-uploading would only earn it again, at the cost of the
+    // whole file.
+    [InlineData(413, "File too large", false)]
+    [InlineData(403, "Extension not allowed", false)]
+    [InlineData(412, "Precondition failed for some other reason", false)]
+    [InlineData(200, "not a url at all", false)]
+    public void IsTransientHostFailure_RetriesTheHostsOwnFailures_NotItsVerdicts(int status, string body, bool transient)
+    {
+        HttpResponseSnapshot snap = new(status, body, Array.Empty<string>());
+
+        Assert.Equal(transient, LitterboxPipeline.IsTransientHostFailure(snap));
+    }
+
+    [Fact]
+    public async Task Litterbox_TransientHostFailure_IsThrownSoTheSharedRetryLayerReRunsIt()
+    {
+        // AttemptRunner only re-runs an attempt that THREW one of its two safe-to-retry faults; a
+        // yielded AttemptFailed is a server verdict and terminal by design. So the difference
+        // between "retried" and "not retried" is entirely which of those two this produces.
+        LitterboxPipeline pipeline = new((_, _, _, _, _) =>
+            Task.FromResult(new HttpResponseSnapshot(412, "No file!", Array.Empty<string>())));
+
+        UploadProcessingFailedException ex = await Assert.ThrowsAsync<UploadProcessingFailedException>(
+            () => DrainAsync(pipeline.RunAsync(MakeContext("Litterbox"), CancellationToken.None)));
+
+        // The server's own words survive into the message, so an exhausted retry is diagnosable.
+        Assert.Contains("No file!", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("412", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Litterbox_VerdictOnTheFile_StaysTerminal()
+    {
+        LitterboxPipeline pipeline = new((_, _, _, _, _) =>
+            Task.FromResult(new HttpResponseSnapshot(413, "File too large", Array.Empty<string>())));
+
+        List<UploadEvent> events = await DrainAsync(
+            pipeline.RunAsync(MakeContext("Litterbox"), CancellationToken.None));
+
+        AttemptFailed failed = Assert.IsType<AttemptFailed>(events[^1]);
+        Assert.Contains("File too large", failed.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
