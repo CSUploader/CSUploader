@@ -44,8 +44,8 @@ namespace CSUploader.Upload.Pipeline.Hosters;
 /// app models a link per file, so each upload creates its own. That is also what the host's
 /// anti-abuse sees, and it is not free: probing it produced
 /// <c>{"error":{"code":99,"message":"Spam"}}</c> from <c>upload/create</c> after about ten calls
-/// from one address. Uploads are therefore serialised (<see cref="MaxConcurrentUploads"/> = 1) to
-/// look like a person rather than a swarm.
+/// from one address. Concurrency is therefore capped
+/// (<see cref="MaxConcurrentUploadsFor"/> = 2) to look like a person rather than a swarm.
 /// </para>
 /// <para>
 /// <b>Links expire.</b> This is a transfer service: retention is chosen per drop and the longest
@@ -129,13 +129,19 @@ public sealed class DropMeFilesPipeline : IFileHosterPipeline
     public int? MaxFilesPerPackage => null;
 
     /// <summary>
-    /// Five at a time, whatever the account. Each file needs its own drop, and the host's anti-abuse
-    /// answers a burst of <c>upload/create</c> calls with "Spam" — so this is capped rather than
-    /// unlimited. Five is a judgement, not a measured limit: the refusal was seen at roughly ten
-    /// rapid creates while probing, and whether it counts concurrency, rate or total was never
-    /// established. If a batch starts failing with "Spam", lower it.
+    /// Two at a time, whatever the account. Each file needs its own drop, and the host's anti-abuse
+    /// answers a burst of <c>upload/create</c> calls with "Spam".
+    /// <para>
+    /// This was five, chosen as a judgement while probing. Five turned out to be too many: real
+    /// batches came back with
+    /// <c>{"error":{"code":99,"message":"Spam"}}</c> and no upload started at all, which is the
+    /// "lower it" the previous note asked for. Two is the replacement judgement, not a measured
+    /// limit either — whether the host counts concurrency, rate or total was never established, so
+    /// if "Spam" comes back at two, the next step is a minimum INTERVAL between creates rather than
+    /// a smaller number, because a rate limit does not care how few uploads run at once.
+    /// </para>
     /// </summary>
-    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => 5;
+    public int? MaxConcurrentUploadsFor(Dal.FileHosterLoginDto credentials) => 2;
 
     /// <summary>No account exists to attach an upload to — the drop is the whole identity.</summary>
     public bool SupportsAnonymousUpload => true;
