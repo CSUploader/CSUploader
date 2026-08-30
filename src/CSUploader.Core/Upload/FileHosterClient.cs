@@ -418,7 +418,7 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // dropmefiles.com — anonymous, no login. Scrape SERVERID → upload/create (a drop uid) → 4 MB
         // chunks over the resumable nginx protocol (Session-ID + Content-Range + Content-Disposition;
         // WITHOUT those it 415s) → upload/save. Link is dropmefiles.com/<uid> and EXPIRES in 14 days.
-        // Capped at two uploads at a time — its anti-abuse answers bursts with "Spam". See
+        // Serialised to one upload at a time — its anti-abuse answers bursts with "Spam". See
         // DropMeFilesPipeline.cs.
         { "DropMeFiles", "dropmefiles.com" },
         // sendspace.com — anonymous, no login and no captcha: scrape the homepage's rotating upload
