@@ -4,7 +4,12 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.8.0] - 2026-08-31
+
+Updates now download only what changed — a fraction of a megabyte instead of the whole package —
+and every column on the Uploads tab sorts, keeping packages above their own files. Two hosters that
+were failing uploads outright, DropMeFiles and Litterbox, are fixed. See
+[docs/release-notes/v1.8.0.md](docs/release-notes/v1.8.0.md) for the full notes.
 
 ### Changed
 
@@ -578,6 +583,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.8.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.8.0
 [1.7.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.7.0
 [1.6.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.6.0
 [1.5.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.5.0
