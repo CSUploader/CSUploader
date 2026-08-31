@@ -17,11 +17,17 @@ namespace CSUploader.Tests.Avalonia.Views;
 /// <summary>
 /// The DEBUG-only "Developer" settings category.
 /// <para>
-/// Only half of this can be observed by running code: the test suite is itself a Debug build, so
-/// the release behaviour — the page absent from the compile entirely — is unobservable from here
-/// and is pinned by asserting the build switches that produce it. That is weaker than executing
-/// it, and deliberately not dressed up as more: what these guard is that somebody deleting the
+/// Only half of this can be observed by running code. This suite is built in BOTH configurations
+/// — Debug locally, Release by the release workflow's gate — but under Release the page is excluded
+/// from the compile, so there is nothing left to instantiate and assert against. That half is
+/// pinned instead by asserting the build switches that produce it, which is weaker than executing
+/// it and deliberately not dressed up as more: what those guard is that somebody deleting the
 /// csproj exclusion or the <c>#if DEBUG</c> has to delete a test with it.
+/// </para>
+/// <para>
+/// Do not read that as "the suite only ever builds Debug" — assuming so is what once left two
+/// mock-server tests asserting the Debug branch unconditionally, and they failed the release gate.
+/// Where a release branch CAN be executed, execute it: see <c>MockServerConfigTests</c>.
 /// </para>
 /// </summary>
 public class DeveloperSettingsTabTests
