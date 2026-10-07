@@ -351,7 +351,7 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
     /// </summary>
     public PackageAggregate ComputeAggregate()
     {
-        int count = 0, uploading = 0, completed = 0, cancelled = 0, failed = 0;
+        int count = 0, uploading = 0, completed = 0, cancelled = 0, failed = 0, inFlight = 0;
         long size = 0, loaded = 0, remaining = 0, speed = 0;
         bool anyActiveSpeed = false;
         DateTime? oldestActiveStart = null;
@@ -412,10 +412,15 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
                         failed++;
                         break;
                 }
+
+                if (state is FileState.HashQueued or FileState.Hashing or FileState.UploadQueued or FileState.Uploading)
+                {
+                    inFlight++;
+                }
             }
         }
 
-        return new PackageAggregate(count, size, loaded, remaining, anyActiveSpeed ? speed : 0, uploading, completed, cancelled, failed, oldestActiveStart);
+        return new PackageAggregate(count, size, loaded, remaining, anyActiveSpeed ? speed : 0, uploading, completed, cancelled, failed, oldestActiveStart, inFlight);
     }
 
     /// <summary>
@@ -920,8 +925,9 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 
 /// <summary>
 /// Immutable per-package rollup produced by <see cref="Package.ComputeAggregate"/>: the file count,
-/// byte totals, active-upload speed, and terminal-state counts, all summed in a single pass. The Uploads
-/// footer adds these across packages instead of re-scanning every file once per displayed field.
+/// byte totals, active-upload speed, terminal-state counts and in-flight count, all summed in a single
+/// pass. The Uploads footer adds these across packages instead of re-scanning every file once per
+/// displayed field.
 /// </summary>
 /// <param name="FileCount">Number of files in the package.</param>
 /// <param name="TotalBytes">Sum of file sizes (0 when none are known) — matches <c>Package.Size ?? 0</c>.</param>
@@ -936,6 +942,10 @@ public class Package(PackageOptions options) : IEnumerable<PackageFile>, INotify
 /// <param name="OldestActiveStart">Earliest <see cref="PackageFile.StartedDate"/> among files currently
 /// hashing/uploading, or null when none are active — seeds the Overview's Elapsed clock when a run is
 /// first observed already in flight.</param>
+/// <param name="InFlight">Files queued or working — <see cref="FileState.HashQueued"/>,
+/// <see cref="FileState.Hashing"/>, <see cref="FileState.UploadQueued"/> or <see cref="FileState.Uploading"/>.
+/// Unlike <paramref name="Uploading"/> it stays above zero between one file finishing and the next starting,
+/// because a run's waiting files sit in the queued states.</param>
 public readonly record struct PackageAggregate(
     int FileCount,
     long TotalBytes,
@@ -946,4 +956,5 @@ public readonly record struct PackageAggregate(
     int Completed,
     int Cancelled,
     int Failed,
-    DateTime? OldestActiveStart = null);
+    DateTime? OldestActiveStart = null,
+    int InFlight = 0);

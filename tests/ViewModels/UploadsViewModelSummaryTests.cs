@@ -180,6 +180,53 @@ public sealed class UploadsViewModelSummaryTests : IDisposable
         Assert.Equal(50, vm.CurrentSpeedBytesPerSecond);
     }
 
+    // The Upload Overview holds its stats' widths while files are in flight and recompacts once none are, so
+    // a state wrongly left out would recompact the bar mid-run — between files, a run's waiting files sit in
+    // HashQueued / UploadQueued — and a state wrongly let in would hold it after the run has ended.
+    [Theory]
+    [InlineData(FileState.Idle, false)]
+    [InlineData(FileState.HashQueued, true)]
+    [InlineData(FileState.Hashing, true)]
+    [InlineData(FileState.UploadQueued, true)]
+    [InlineData(FileState.Uploading, true)]
+    [InlineData(FileState.Completed, false)]
+    [InlineData(FileState.Failed, false)]
+    [InlineData(FileState.Paused, false)]
+    [InlineData(FileState.Cancelled, false)]
+    public void Tick_HasFilesInFlight_IsTrueWhileAFileIsQueuedHashingOrUploading(FileState state, bool expected)
+    {
+        InlineUiDispatcher dispatcher = new();
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), dispatcher, Mock.Of<IClipboardService>());
+        Package p = MakePackage("P");
+        p.AddPackageFiles([MakeFile(p, size: 1000, loaded: null, remaining: 1000, speed: null, state)]);
+        vm.Packages.Add(p);
+
+        dispatcher.Timers[0].Tick();
+
+        Assert.Equal(expected, vm.HasFilesInFlight);
+    }
+
+    [Fact]
+    public void Tick_HasFilesInFlight_CountsEveryPackage_AndClearsOnceTheLastFileLands()
+    {
+        InlineUiDispatcher dispatcher = new();
+        UploadsViewModel vm = new(_packageManager, new AppSettings(), Mock.Of<IDialogService>(), dispatcher, Mock.Of<IClipboardService>());
+        Package busy = MakePackage("Busy");
+        PackageFile waiting = MakeFile(busy, size: 1000, loaded: null, remaining: 1000, speed: null, FileState.UploadQueued);
+        busy.AddPackageFiles([waiting]);
+        Package done = MakePackage("Done");
+        done.AddPackageFiles([MakeFile(done, size: 1000, loaded: 1000, remaining: null, speed: null, FileState.Completed)]);
+        vm.Packages.Add(busy); // first, so a finished package after it cannot mask it
+        vm.Packages.Add(done);
+
+        dispatcher.Timers[0].Tick();
+        Assert.True(vm.HasFilesInFlight);
+
+        waiting.State = FileState.Completed;
+        dispatcher.Timers[0].Tick();
+        Assert.False(vm.HasFilesInFlight);
+    }
+
     private static Package MakePackage(string name)
     {
         FileHosterClient hoster = new("TestHost", Protocol.Http);

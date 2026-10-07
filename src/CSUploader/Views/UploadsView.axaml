@@ -801,8 +801,12 @@
             </ContextMenu>
           </Border.ContextMenu>
 
-          <!-- Each stat is a label+value pair that collapses when toggled off (WrapPanel order verbatim from WPF). -->
-          <WrapPanel Orientation="Horizontal">
+          <!-- Each stat is a label+value pair that collapses when toggled off (order verbatim from the WPF
+               WrapPanel). StableWrapPanel wraps like a WrapPanel but holds each stat's widest width while files
+               are in flight: the values change width every tick (a byte count that drops a trailing zero is a
+               digit shorter), and a bar that only just overflowed its line kept flipping between one line and
+               two, resizing the grid above it each time. -->
+          <ctrl:StableWrapPanel HoldWidths="{Binding HasFilesInFlight}">
             <StackPanel x:Name="PackagesStat" Classes="stat" IsVisible="{Binding ShowPackages}">
               <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_PackagesLabel}" />
               <TextBlock Classes="stat-value" Text="{Binding PackageCount}" />
@@ -859,7 +863,7 @@
               <TextBlock Classes="stat-label" Text="{loc:Loc Uploads_Overview_FailedLinksLabel}" />
               <TextBlock Classes="stat-value" Text="{Binding FailedLinks}" />
             </StackPanel>
-          </WrapPanel>
+          </ctrl:StableWrapPanel>
         </Border>
       </Grid>
     </Border>

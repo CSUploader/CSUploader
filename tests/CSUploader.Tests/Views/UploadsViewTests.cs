@@ -30,6 +30,7 @@ using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using CSUploader.ViewModels;
 using CSUploader.Views;
+using CSUploader.Views.Controls;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -978,6 +979,33 @@ public class UploadsViewTests
         }
     }
 
+    // ── Overview stats hold their widths while files are in flight, so the bar cannot flip between lines ──
+
+    [AvaloniaFact]
+    public void OverviewStats_HoldTheirWidths_ExactlyWhileFilesAreInFlight()
+    {
+        using VmHarness harness = new();
+        PackageFile file = harness.SeedPackage("Alpha pack", "alpha1.bin").First();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            StableWrapPanel stats = Assert.IsType<StableWrapPanel>(view.OverviewStatsArea.Child);
+            Assert.False(stats.HoldWidths); // nothing queued yet
+
+            file.State = FileState.Uploading;
+            RefreshNow(harness.Vm);
+            Assert.True(stats.HoldWidths);
+
+            file.State = FileState.Completed;
+            RefreshNow(harness.Vm);
+            Assert.False(stats.HoldWidths);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── Add→wizard (Task 12): the Add toolbar button opens a UploadWizardWindow via the factory seam ──
 
     [AvaloniaFact]
@@ -1116,6 +1144,17 @@ public class UploadsViewTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
         return (window, view);
+    }
+
+    /// <summary>
+    /// Runs the VM's refresh pass now. The harness dispatcher never ticks the refresh timer, but switching the tab
+    /// away and back runs the same pass immediately (<see cref="UploadsViewModel.SetActive"/>).
+    /// </summary>
+    private static void RefreshNow(UploadsViewModel vm)
+    {
+        vm.SetActive(false);
+        vm.SetActive(true);
+        Dispatcher.UIThread.RunJobs();
     }
 
     private static void PumpUntil(Func<bool> condition)
