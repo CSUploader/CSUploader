@@ -57,6 +57,22 @@ public class PackageAggregateTests
     }
 
     [Fact]
+    public void ComputeAggregate_InFlight_CountsQueuedHashingAndUploadingFiles()
+    {
+        // Queued files count too: that is what keeps the Upload Overview's hold on through the gap between one
+        // file finishing and the next starting.
+        Package pkg = MakePackage();
+        FileState[] states =
+        [
+            FileState.Idle, FileState.HashQueued, FileState.Hashing, FileState.UploadQueued, FileState.Uploading,
+            FileState.Completed, FileState.Failed, FileState.Paused, FileState.Cancelled,
+        ];
+        pkg.AddPackageFiles([.. states.Select(s => MakeFile(pkg, size: 100, loaded: null, remaining: 100, speed: null, s))]);
+
+        Assert.Equal(4, pkg.ComputeAggregate().InFlight); // HashQueued, Hashing, UploadQueued, Uploading
+    }
+
+    [Fact]
     public void ComputeAggregate_EmptyPackage_IsAllZero()
         => Assert.Equal(default, MakePackage().ComputeAggregate());
 

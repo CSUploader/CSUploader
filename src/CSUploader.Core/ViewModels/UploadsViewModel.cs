@@ -45,6 +45,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     private int _finishedLinks;
     private int _skippedLinks;
     private int _failedLinks;
+    private int _filesInFlight;
 
     // Fix C: the 500 ms refresh only does work while the Uploads tab is visible. Off-tab the grid, footer,
     // and speedometer aren't on screen, so refreshing them is wasted — the model keeps updating in the
@@ -316,6 +317,13 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         : "0 B/s";
 
     public int RunningUploads => _runningUploads;
+
+    /// <summary>True while any file is queued, hashing or uploading — from a run's start until its last file lands,
+    /// including the gaps between files. The Upload Overview holds its stats' widths while this is true, so a
+    /// value getting shorter cannot pull the next stat back up a line mid-run. A package added during a global
+    /// pause is queued without starting, so it keeps this true through the pause; harmless, as nothing changes
+    /// width while paused.</summary>
+    public bool HasFilesInFlight => _filesInFlight > 0;
 
     public int FinishedLinks => _finishedLinks;
 
@@ -1252,7 +1260,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
     /// </summary>
     private void RecomputeSummary()
     {
-        int files = 0, running = 0, finished = 0, skipped = 0, failed = 0;
+        int files = 0, running = 0, finished = 0, skipped = 0, failed = 0, inFlight = 0;
         long size = 0, loaded = 0, remaining = 0, speed = 0;
         DateTime? oldestActiveStart = null;
 
@@ -1268,6 +1276,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
             finished += a.Completed;
             skipped += a.Cancelled;
             failed += a.Failed;
+            inFlight += a.InFlight;
             if (a.OldestActiveStart is { } start && (oldestActiveStart is null || start < oldestActiveStart))
             {
                 oldestActiveStart = start;
@@ -1283,6 +1292,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         _finishedLinks = finished;
         _skippedLinks = skipped;
         _failedLinks = failed;
+        _filesInFlight = inFlight;
 
         // Elapsed run clock: start on the first tick that sees uploads running (seeded from the oldest
         // active file's StartedDate so a run discovered mid-flight isn't under-counted); freeze the total
@@ -1356,6 +1366,7 @@ public partial class UploadsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(UploadSpeed));
         OnPropertyChanged(nameof(SpeedHistory));
         OnPropertyChanged(nameof(RunningUploads));
+        OnPropertyChanged(nameof(HasFilesInFlight));
         OnPropertyChanged(nameof(Eta));
         OnPropertyChanged(nameof(Elapsed));
         OnPropertyChanged(nameof(FinishAt));
