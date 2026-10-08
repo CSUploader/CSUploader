@@ -4,6 +4,22 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-10-08
+
+The Upload Overview no longer flips between one row and two while uploads run. See
+[docs/release-notes/v1.9.0.md](docs/release-notes/v1.9.0.md) for the full notes.
+
+### Fixed
+
+- **The Upload Overview flipped between one row and two during uploads.** Its figures refresh twice
+  a second, and sizes and speeds drop trailing zeros (649.00 MiB is written 649 MiB), so when the
+  figures only just overflowed a row, every figure that ticked a digit shorter let the last one jump
+  back up and the next tick sent it down again, resizing the upload list above each time. While any
+  file is queued, hashing or uploading, each figure now keeps the widest space it has needed: a
+  shorter value leaves a gap instead of letting the figures after it slide back, a longer one still
+  widens at once, and nothing moves back up by itself until no file is left queued, hashing or
+  uploading (a paused one doesn't count), when the figures close up once.
+
 ## [1.8.0] - 2026-08-31
 
 Updates now download only what changed — a fraction of a megabyte instead of the whole package —
@@ -583,6 +599,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.9.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.9.0
 [1.8.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.8.0
 [1.7.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.7.0
 [1.6.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.6.0
