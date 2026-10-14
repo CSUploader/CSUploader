@@ -62,9 +62,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         // until the app restarted. Reloading on show fixes that for ANY writer, not just the wizard,
         // and costs one small read of a table with a handful of rows. LoadAccountsAsync re-selects
         // the previous row by id, so nothing the user had highlighted is lost.
+        //
+        // Posted, not run here: this handler runs as the index changes, BEFORE the TabControl puts the
+        // Settings view back in the window, and the reload's query completes synchronously. Run here,
+        // it rebuilt the list behind a detached grid, and the grid dropped the re-selection once it was
+        // re-attached. Posted, the reload lands after the view is back.
         if (value == SettingsTabIndex)
         {
-            SettingsViewModel.AccountManager.ReloadAccountsAsync();
+            _uiDispatcher.Post(SettingsViewModel.AccountManager.ReloadAccountsAsync);
         }
     }
 

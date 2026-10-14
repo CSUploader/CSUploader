@@ -50,6 +50,11 @@ public partial class UploadsView : UserControl
     private DataGridCollectionView? _rowsView;
     private UploadsViewModel? _wiredViewModel;
 
+    // One view PER VM, weakly held (the UploadedView pattern): a DataContext bounce (VM A -> null or B ->
+    // back to A) must get A's view back, because a fresh one would leave the abandoned view subscribed to
+    // VisibleRows for good. Weak, so the cache never keeps a dead VM alive.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<UploadsViewModel, DataGridCollectionView> _viewsByVm = [];
+
     // True when the last right-button press landed on a package/file row (vs empty space below the rows).
     // The ContextMenu.Opening handler reads it to suppress the menu on a whitespace right-click — Opening
     // carries no pointer source, so the decision is recorded here at press time (rule 18). The actual row
@@ -143,10 +148,7 @@ public partial class UploadsView : UserControl
             return;
         }
 
-        _rowsView = new DataGridCollectionView(vm.VisibleRows)
-        {
-            Filter = vm.MatchesFilter,
-        };
+        _rowsView = _viewsByVm.GetValue(vm, static v => new DataGridCollectionView(v.VisibleRows) { Filter = v.MatchesFilter });
         vm.FilterInvalidated += ViewModel_FilterInvalidated;
 
         // Per VM, and released above on a swap — NOT in OnGridLoaded, whose _columnsWired guard
@@ -163,7 +165,33 @@ public partial class UploadsView : UserControl
         ShowSortIndicator(vm.ActiveSort);
     }
 
-    private void ViewModel_FilterInvalidated(object? sender, EventArgs e) => _rowsView?.Refresh();
+    /// <summary>
+    /// Re-filters the rows. A view with an edit open refuses to, and one can be: a rename or an Order
+    /// number still being typed when focus moves to the filter box (the grid leaves an edit in a template
+    /// cell open when focus leaves it). That edit is finished first, through the grid, as Enter would —
+    /// what was typed is kept. The grid cannot refuse here: both editors are OneWay and their commit
+    /// handler never cancels. The view can also hold an edit the grid has already let go of — the grid
+    /// cancels an open edit when the rows are rebuilt or it comes back into the window, and an upload row,
+    /// not being an IEditableObject, cannot cancel one — and that one is closed at the view.
+    /// </summary>
+    private void ViewModel_FilterInvalidated(object? sender, EventArgs e)
+    {
+        if (_rowsView is null)
+        {
+            return;
+        }
+
+        if (_rowsView.IsEditingItem)
+        {
+            uploadsGrid.CommitEdit();
+            if (_rowsView.IsEditingItem)
+            {
+                _rowsView.CommitEdit();
+            }
+        }
+
+        _rowsView.Refresh();
+    }
 
     /// <summary>
     /// Delete key → <see cref="UploadsViewModel.RemoveSelectedCommand"/> (rule 24). A <see cref="KeyBinding"/>

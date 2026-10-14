@@ -13,6 +13,7 @@ using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using CSUploader.Tests.TestSupport;
 using Moq;
 
 namespace CSUploader.Tests.Upload;
@@ -49,6 +50,11 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     // since a reloaded file whose persisted QueueOrder is 0 makes the scheduler assign one and
     // write it back, and that write must not race the shared SQLite connection's dispose.
     private readonly List<(UploadScheduler Scheduler, PackageManager Manager)> _localPairs = [];
+
+    // Folders for the real files a PackageFile needs on disk. Deleted in DisposeAsync, once the
+    // schedulers are stopped: a test's own finally ran first, while a scheduler it started could still
+    // be hashing a file in there, so the delete failed now and then and left the folder in %TEMP%.
+    private readonly TempFolders _temp = new();
 
     public PackageManagerSoftRemoveTests()
     {
@@ -115,6 +121,7 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         }
 
         _connection.Dispose();
+        _temp.Dispose();
     }
 
     /// <summary>
@@ -194,28 +201,18 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // The transferred-byte / progress counters aren't persisted (only State is). A restored Completed
         // row must still read 100% with all bytes sent — not an empty 0% bar with blank "Bytes Loaded".
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            int pkgId = await InsertPackageAsync("done");           // default settings keep completed packages (Never)
-            await InsertFileAtAsync(tempDir, pkgId, "a.iso", FileState.Completed);
+        string tempDir = _temp.Create("csu-test");
+        int pkgId = await InsertPackageAsync("done");           // default settings keep completed packages (Never)
+        await InsertFileAtAsync(tempDir, pkgId, "a.iso", FileState.Completed);
 
-            await _packageManager.LoadPersistedPackagesAsync();
+        await _packageManager.LoadPersistedPackagesAsync();
 
-            Package pkg = _packageManager.Packages.Single(p => p.DbId == pkgId);
-            PackageFile file = Assert.Single(pkg);
-            Assert.Equal(FileState.Completed, file.State);
-            Assert.Equal(100.0, file.Progress);
-            Assert.Equal(file.Size, file.BytesLoaded);
-            Assert.Equal(0L, file.BytesRemaining);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Package pkg = _packageManager.Packages.Single(p => p.DbId == pkgId);
+        PackageFile file = Assert.Single(pkg);
+        Assert.Equal(FileState.Completed, file.State);
+        Assert.Equal(100.0, file.Progress);
+        Assert.Equal(file.Size, file.BytesLoaded);
+        Assert.Equal(0L, file.BytesRemaining);
     }
 
     [Fact]
@@ -226,49 +223,39 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Uploads tab starts the session clean. Persisted history on the Uploaded tab
         // is untouched (the row stays in the DB).
         // PackageFile's ctor reads FileInfo.Length so the test files have to exist on
-        // disk; we use a temp dir cleaned up in finally.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        // disk, in a temp folder the class deletes once the test is over.
+        string tempDir = _temp.Create("csu-test");
+        // AutostartUploads=Never: the default OnlyIfRunningAtLastSession would schedule the
+        // reloaded Uploading file (c.iso) → EnsureQueueOrdered → a fire-and-forget
+        // UpdateQueueOrderAsync that opens an explicit transaction on the shared per-test
+        // SqliteConnection, racing this test's own unsynchronized FindAsync reads below.
+        AppSettings settings = new()
         {
-            // AutostartUploads=Never: the default OnlyIfRunningAtLastSession would schedule the
-            // reloaded Uploading file (c.iso) → EnsureQueueOrdered → a fire-and-forget
-            // UpdateQueueOrderAsync that opens an explicit transaction on the shared per-test
-            // SqliteConnection, racing this test's own unsynchronized FindAsync reads below.
-            AppSettings settings = new()
-            {
-                RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup,
-                AutostartUploads = AutostartUploadsMode.Never,
-            };
-            DefaultFileHosterRegistry reg1 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg1);
+            RemoveFinishedUploads = RemoveFinishedUploadsMode.AtStartup,
+            AutostartUploads = AutostartUploadsMode.Never,
+        };
+        DefaultFileHosterRegistry reg1 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg1);
 
-            int doneId = await InsertPackageAsync("done");
-            await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
-            await InsertFileAtAsync(tempDir, doneId, "b.iso", FileState.Completed);
+        int doneId = await InsertPackageAsync("done");
+        await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
+        await InsertFileAtAsync(tempDir, doneId, "b.iso", FileState.Completed);
 
-            int activeId = await InsertPackageAsync("active");
-            await InsertFileAtAsync(tempDir, activeId, "c.iso", FileState.Uploading);
+        int activeId = await InsertPackageAsync("active");
+        await InsertFileAtAsync(tempDir, activeId, "c.iso", FileState.Uploading);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            // Belt-and-braces: drain any in-flight fire-and-forget persistence so the DB reads
-            // below can't observe a half-written row (or race the write's transaction).
-            await manager.DrainPendingPersistenceAsync();
+        // Belt-and-braces: drain any in-flight fire-and-forget persistence so the DB reads
+        // below can't observe a half-written row (or race the write's transaction).
+        await manager.DrainPendingPersistenceAsync();
 
-            UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
-            UploadPackageDto? activeRow = await _packageRepo.FindAsync(activeId);
-            Assert.NotNull(doneRow);
-            Assert.True(doneRow!.IsRemovedFromUploads, "fully-completed package should be soft-removed");
-            Assert.NotNull(activeRow);
-            Assert.False(activeRow!.IsRemovedFromUploads, "in-flight package should stay visible");
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
+        UploadPackageDto? activeRow = await _packageRepo.FindAsync(activeId);
+        Assert.NotNull(doneRow);
+        Assert.True(doneRow!.IsRemovedFromUploads, "fully-completed package should be soft-removed");
+        Assert.NotNull(activeRow);
+        Assert.False(activeRow!.IsRemovedFromUploads, "in-flight package should stay visible");
     }
 
     [Fact]
@@ -276,54 +263,34 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Mode Never: the package loads (visible on Uploads tab) but the scheduler
         // doesn't pick it up. The user has to click Start.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
-            DefaultFileHosterRegistry reg2 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg2, out UploadScheduler scheduler);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
+        DefaultFileHosterRegistry reg2 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg2, out UploadScheduler scheduler);
 
-            int packageId = await InsertPackageAsync("queued");
-            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+        int packageId = await InsertPackageAsync("queued");
+        await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            Assert.Equal(0, scheduler.RegisteredPackageCount);
-            Assert.Single(manager.Packages); // still loaded — just not scheduled
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(0, scheduler.RegisteredPackageCount);
+        Assert.Single(manager.Packages); // still loaded — just not scheduled
     }
 
     [Fact]
     public async Task LoadPersistedPackagesAsync_AutostartAlways_SchedulesQueuedPackages()
     {
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
-            DefaultFileHosterRegistry reg3 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg3, out UploadScheduler scheduler);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
+        DefaultFileHosterRegistry reg3 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg3, out UploadScheduler scheduler);
 
-            int packageId = await InsertPackageAsync("queued");
-            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+        int packageId = await InsertPackageAsync("queued");
+        await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            Assert.Equal(1, scheduler.RegisteredPackageCount);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(1, scheduler.RegisteredPackageCount);
     }
 
     [Fact]
@@ -335,57 +302,37 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // leaves the package unscheduled. Belt-and-braces vs. PauseAll: latching alone stops the
         // queuing here; PauseAll alone would leave files queued and one FillAvailableSlots/StartAll
         // away from really uploading, which is why the head applies both.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
-            settings.ForceAutostartUploadsNever(); // the --agent latch
-            DefaultFileHosterRegistry reg = new([]);
-            PackageManager manager = NewLocalManager(settings, reg, out UploadScheduler scheduler);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Always };
+        settings.ForceAutostartUploadsNever(); // the --agent latch
+        DefaultFileHosterRegistry reg = new([]);
+        PackageManager manager = NewLocalManager(settings, reg, out UploadScheduler scheduler);
 
-            int packageId = await InsertPackageAsync("queued");
-            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
+        int packageId = await InsertPackageAsync("queued");
+        await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.UploadQueued);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            Assert.Equal(0, scheduler.RegisteredPackageCount);
-            Assert.Single(manager.Packages); // still loaded — just not scheduled
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(0, scheduler.RegisteredPackageCount);
+        Assert.Single(manager.Packages); // still loaded — just not scheduled
     }
 
     [Fact]
     public async Task LoadPersistedPackagesAsync_AutostartOnlyIfRunning_ActiveState_SchedulesPackage()
     {
         // OnlyIfRunningAtLastSession + a file in an active state (Uploading) → schedule.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
-            DefaultFileHosterRegistry reg4 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg4, out UploadScheduler scheduler);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
+        DefaultFileHosterRegistry reg4 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg4, out UploadScheduler scheduler);
 
-            int packageId = await InsertPackageAsync("running");
-            // Pre-remap state Uploading counts as "was running at shutdown".
-            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Uploading);
+        int packageId = await InsertPackageAsync("running");
+        // Pre-remap state Uploading counts as "was running at shutdown".
+        await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Uploading);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            Assert.Equal(1, scheduler.RegisteredPackageCount);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(1, scheduler.RegisteredPackageCount);
     }
 
     [Fact]
@@ -393,55 +340,35 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // OnlyIfRunningAtLastSession + only Paused files → don't schedule. The user
         // explicitly paused, so we honour that on next launch.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
-            DefaultFileHosterRegistry reg5 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg5, out UploadScheduler scheduler);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession };
+        DefaultFileHosterRegistry reg5 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg5, out UploadScheduler scheduler);
 
-            int packageId = await InsertPackageAsync("paused");
-            await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Paused);
+        int packageId = await InsertPackageAsync("paused");
+        await InsertFileAtAsync(tempDir, packageId, "a.iso", FileState.Paused);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            Assert.Equal(0, scheduler.RegisteredPackageCount);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(0, scheduler.RegisteredPackageCount);
     }
 
     [Fact]
     public async Task LoadPersistedPackagesAsync_NeverMode_LeavesAllPackagesVisible()
     {
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.Never };
-            DefaultFileHosterRegistry reg6 = new([]);
-            PackageManager manager = NewLocalManager(settings, reg6);
+        string tempDir = _temp.Create("csu-test");
+        AppSettings settings = new() { RemoveFinishedUploads = RemoveFinishedUploadsMode.Never };
+        DefaultFileHosterRegistry reg6 = new([]);
+        PackageManager manager = NewLocalManager(settings, reg6);
 
-            int doneId = await InsertPackageAsync("done");
-            await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
+        int doneId = await InsertPackageAsync("done");
+        await InsertFileAtAsync(tempDir, doneId, "a.iso", FileState.Completed);
 
-            await manager.LoadPersistedPackagesAsync();
+        await manager.LoadPersistedPackagesAsync();
 
-            UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
-            Assert.NotNull(doneRow);
-            Assert.False(doneRow!.IsRemovedFromUploads);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageDto? doneRow = await _packageRepo.FindAsync(doneId);
+        Assert.NotNull(doneRow);
+        Assert.False(doneRow!.IsRemovedFromUploads);
     }
 
     private async Task<int> InsertFileAtAsync(string dir, int packageId, string fileName, FileState state)
@@ -487,44 +414,34 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Repro: user added a package with Schedule mode and the delay hasn't elapsed.
         // Right-clicking → Start must override the schedule, register the package with
         // the scheduler, and queue any Idle files.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "scheduled",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "scheduled",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+        PackageFile file = package.Single();
+        Assert.Equal(FileState.Idle, file.State);
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        Assert.NotNull(package.ScheduledStartTime);
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
-            PackageFile file = package.Single();
-            Assert.Equal(FileState.Idle, file.State);
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
-            Assert.NotNull(package.ScheduledStartTime);
+        _packageManager.StartPackage(package);
+        await _scheduler.DrainAsync(); // the queuing runs on the pump now, not on this thread
 
-            _packageManager.StartPackage(package);
-            await _scheduler.DrainAsync(); // the queuing runs on the pump now, not on this thread
-
-            Assert.Null(package.ScheduledStartTime);
-            Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            // Could be HashQueued/UploadQueued or already advanced to Hashing/Uploading
-            // by the scheduler's background loop — any non-Idle state proves we kicked it off.
-            Assert.NotEqual(FileState.Idle, file.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Null(package.ScheduledStartTime);
+        Assert.Equal(1, _scheduler.RegisteredPackageCount);
+        // Could be HashQueued/UploadQueued or already advanced to Hashing/Uploading
+        // by the scheduler's background loop — any non-Idle state proves we kicked it off.
+        Assert.NotEqual(FileState.Idle, file.State);
     }
 
     [Fact]
@@ -534,50 +451,40 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // accounts table — i.e. the user picked a saved account in the wizard. This
         // is the path real users hit (the login lookup at LoadPersistedPackagesAsync
         // line 209 returns a real row instead of null).
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        // Persist a hoster login first.
+        FileHosterLoginDto savedLogin = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            FileHosterName = "Rapidgator",
+            Username = "user",
+            Password = "pw",
+        };
+        await _loginRepo.InsertAsync(savedLogin);
+        Assert.True(savedLogin.Id > 0);
 
-            // Persist a hoster login first.
-            FileHosterLoginDto savedLogin = new()
-            {
-                FileHosterName = "Rapidgator",
-                Username = "user",
-                Password = "pw",
-            };
-            await _loginRepo.InsertAsync(savedLogin);
-            Assert.True(savedLogin.Id > 0);
-
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "later",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, savedLogin } },
-            };
-
-            Package added = await _packageManager.AddPackageOnlyAsync(options);
-
-            AppSettings settings = new();
-            DefaultFileHosterRegistry reg = new([]);
-            // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
-            // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
-            PackageManager freshManager = NewLocalManager(settings, reg);
-
-            await freshManager.LoadPersistedPackagesAsync();
-
-            Assert.Single(freshManager.Packages);
-        }
-        finally
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+            Title = "later",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, savedLogin } },
+        };
+
+        Package added = await _packageManager.AddPackageOnlyAsync(options);
+
+        AppSettings settings = new();
+        DefaultFileHosterRegistry reg = new([]);
+        // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
+        // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
+        PackageManager freshManager = NewLocalManager(settings, reg);
+
+        await freshManager.LoadPersistedPackagesAsync();
+
+        Assert.Single(freshManager.Packages);
     }
 
     [Fact]
@@ -586,46 +493,36 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // End-to-end repro: drive the wizard's "Add later" path via AddPackageOnlyAsync,
         // then create a fresh PackageManager pointing at the same DB and call
         // LoadPersistedPackagesAsync. The reload should produce the same package.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "later",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "later",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package added = await _packageManager.AddPackageOnlyAsync(options);
+        Assert.NotNull(added.DbId);
+        int packageId = added.DbId!.Value;
 
-            Package added = await _packageManager.AddPackageOnlyAsync(options);
-            Assert.NotNull(added.DbId);
-            int packageId = added.DbId!.Value;
+        // Fresh manager+scheduler against the same shared SQLite — simulates a restart.
+        // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
+        // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
+        AppSettings settings = new();
+        DefaultFileHosterRegistry reg = new([]);
+        PackageManager freshManager = NewLocalManager(settings, reg);
 
-            // Fresh manager+scheduler against the same shared SQLite — simulates a restart.
-            // NewLocalManager tracks the pair so DisposeAsync drains the fire-and-forget queue-order
-            // write that reloading a QueueOrder-0 file triggers (would otherwise race conn dispose).
-            AppSettings settings = new();
-            DefaultFileHosterRegistry reg = new([]);
-            PackageManager freshManager = NewLocalManager(settings, reg);
+        await freshManager.LoadPersistedPackagesAsync();
 
-            await freshManager.LoadPersistedPackagesAsync();
-
-            Assert.Single(freshManager.Packages);
-            Package loaded = freshManager.Packages.Single();
-            Assert.Equal(packageId, loaded.DbId);
-            Assert.Single(loaded);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Single(freshManager.Packages);
+        Package loaded = freshManager.Packages.Single();
+        Assert.Equal(packageId, loaded.DbId);
+        Assert.Single(loaded);
     }
 
     [Fact]
@@ -635,66 +532,56 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // FileNotFoundException out of FileInfo.Length inside PackageFile.ctor,
         // and the exception escaped the per-package loop — wiping every package
         // remaining in iteration order from the Uploads tab on restart.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string goodPath = Path.Combine(tempDir, "good.iso");
+        await File.WriteAllBytesAsync(goodPath, new byte[] { 0 });
+        string ghostPath = Path.Combine(tempDir, "ghost.iso");
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+
+        // Persist a "ghost" package whose Completed file points at a path that
+        // no longer exists on disk. Insert it FIRST so it's iterated first —
+        // before the bug fix this would tank the load for every later package.
+        UploadPackageDto ghostPkg = new()
         {
-            string goodPath = Path.Combine(tempDir, "good.iso");
-            await File.WriteAllBytesAsync(goodPath, new byte[] { 0 });
-            string ghostPath = Path.Combine(tempDir, "ghost.iso");
-
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-
-            // Persist a "ghost" package whose Completed file points at a path that
-            // no longer exists on disk. Insert it FIRST so it's iterated first —
-            // before the bug fix this would tank the load for every later package.
-            UploadPackageDto ghostPkg = new()
-            {
-                Name = "ghost",
-                CreatedDateTime = DateTime.Now,
-                IsCompleted = true,
-            };
-            await _packageRepo.InsertAsync(ghostPkg);
-            await _fileRepo.InsertAsync(new UploadPackageFileDto
-            {
-                FileName = "ghost.iso",
-                FileDirectory = tempDir,
-                FileSize = 1,
-                FileHoster = "Rapidgator",
-                FileHosterName = "Rapidgator",
-                FileHosterLoginId = 0,
-                State = FileState.Completed,
-                PackageId = ghostPkg.Id,
-            });
-
-            // Then a normal package whose file is on disk.
-            PackageOptions options = new()
-            {
-                Title = "good",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [goodPath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
-            await _packageManager.AddPackageOnlyAsync(options);
-
-            AppSettings settings = new();
-            DefaultFileHosterRegistry reg = new([]);
-            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
-            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
-            PackageManager freshManager = NewLocalManager(settings, reg);
-
-            await freshManager.LoadPersistedPackagesAsync();
-
-            // The ghost package's terminal-state row keeps it visible (no disk read
-            // needed for display); the good package must also load.
-            Assert.Contains(freshManager.Packages, p => p.Name == "good");
-        }
-        finally
+            Name = "ghost",
+            CreatedDateTime = DateTime.Now,
+            IsCompleted = true,
+        };
+        await _packageRepo.InsertAsync(ghostPkg);
+        await _fileRepo.InsertAsync(new UploadPackageFileDto
         {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+            FileName = "ghost.iso",
+            FileDirectory = tempDir,
+            FileSize = 1,
+            FileHoster = "Rapidgator",
+            FileHosterName = "Rapidgator",
+            FileHosterLoginId = 0,
+            State = FileState.Completed,
+            PackageId = ghostPkg.Id,
+        });
+
+        // Then a normal package whose file is on disk.
+        PackageOptions options = new()
+        {
+            Title = "good",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [goodPath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
+        await _packageManager.AddPackageOnlyAsync(options);
+
+        AppSettings settings = new();
+        DefaultFileHosterRegistry reg = new([]);
+        // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+        // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+        PackageManager freshManager = NewLocalManager(settings, reg);
+
+        await freshManager.LoadPersistedPackagesAsync();
+
+        // The ghost package's terminal-state row keeps it visible (no disk read
+        // needed for display); the good package must also load.
+        Assert.Contains(freshManager.Packages, p => p.Name == "good");
     }
 
     [Fact]
@@ -741,51 +628,41 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // unset on the in-memory PackageFile, so Completed files reloaded from a
         // previous session showed a blank "Finished" column even though the DB had
         // the timestamp.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        DateTime started = new(2026, 5, 12, 19, 17, 10, DateTimeKind.Local);
+        DateTime finished = new(2026, 5, 12, 19, 17, 25, DateTimeKind.Local);
+
+        UploadPackageDto pkg = new() { Name = "completed", CreatedDateTime = DateTime.Now, IsCompleted = true };
+        await _packageRepo.InsertAsync(pkg);
+        await _fileRepo.InsertAsync(new UploadPackageFileDto
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            FileName = "a.iso",
+            FileDirectory = tempDir,
+            FileSize = 1,
+            FileHoster = "Rapidgator",
+            FileHosterName = "Rapidgator",
+            State = FileState.Completed,
+            PackageId = pkg.Id,
+            StartDateTime = started,
+            FinishedDateTime = finished,
+        });
 
-            DateTime started = new(2026, 5, 12, 19, 17, 10, DateTimeKind.Local);
-            DateTime finished = new(2026, 5, 12, 19, 17, 25, DateTimeKind.Local);
+        AppSettings settings = new();
+        DefaultFileHosterRegistry reg = new([]);
+        // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+        // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+        PackageManager freshManager = NewLocalManager(settings, reg);
 
-            UploadPackageDto pkg = new() { Name = "completed", CreatedDateTime = DateTime.Now, IsCompleted = true };
-            await _packageRepo.InsertAsync(pkg);
-            await _fileRepo.InsertAsync(new UploadPackageFileDto
-            {
-                FileName = "a.iso",
-                FileDirectory = tempDir,
-                FileSize = 1,
-                FileHoster = "Rapidgator",
-                FileHosterName = "Rapidgator",
-                State = FileState.Completed,
-                PackageId = pkg.Id,
-                StartDateTime = started,
-                FinishedDateTime = finished,
-            });
+        await freshManager.LoadPersistedPackagesAsync();
 
-            AppSettings settings = new();
-            DefaultFileHosterRegistry reg = new([]);
-            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
-            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
-            PackageManager freshManager = NewLocalManager(settings, reg);
-
-            await freshManager.LoadPersistedPackagesAsync();
-
-            Package loaded = Assert.Single(freshManager.Packages);
-            PackageFile file = loaded.Single();
-            Assert.Equal(started, file.StartedDate);
-            Assert.Equal(finished, file.FinishedDate);
-            Assert.Equal(finished - started, file.Duration);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Package loaded = Assert.Single(freshManager.Packages);
+        PackageFile file = loaded.Single();
+        Assert.Equal(started, file.StartedDate);
+        Assert.Equal(finished, file.FinishedDate);
+        Assert.Equal(finished - started, file.Duration);
     }
 
     [Fact]
@@ -795,49 +672,39 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // FileHosterLoginId=0 — there's no account row. On reload the credential must come
         // back flagged IsAnonymous so the pipeline takes its no-login path; otherwise an
         // anonymous package reloaded after a restart fails with "no API key / no username".
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        UploadPackageDto pkg = new() { Name = "anon", CreatedDateTime = DateTime.Now };
+        await _packageRepo.InsertAsync(pkg);
+        await _fileRepo.InsertAsync(new UploadPackageFileDto
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            FileName = "a.iso",
+            FileDirectory = tempDir,
+            FileSize = 1,
+            FileHoster = "Hexload",
+            FileHosterName = "Hexload",
+            FileHosterLoginId = 0,           // the anonymous sentinel
+            State = FileState.UploadQueued,
+            PackageId = pkg.Id,
+        });
 
-            UploadPackageDto pkg = new() { Name = "anon", CreatedDateTime = DateTime.Now };
-            await _packageRepo.InsertAsync(pkg);
-            await _fileRepo.InsertAsync(new UploadPackageFileDto
-            {
-                FileName = "a.iso",
-                FileDirectory = tempDir,
-                FileSize = 1,
-                FileHoster = "Hexload",
-                FileHosterName = "Hexload",
-                FileHosterLoginId = 0,           // the anonymous sentinel
-                State = FileState.UploadQueued,
-                PackageId = pkg.Id,
-            });
+        // Never mode keeps the scheduler from starting the reloaded package — we only
+        // care that the credential was reconstituted correctly.
+        AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
+        DefaultFileHosterRegistry reg = new([]);
+        // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
+        // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
+        PackageManager freshManager = NewLocalManager(settings, reg);
 
-            // Never mode keeps the scheduler from starting the reloaded package — we only
-            // care that the credential was reconstituted correctly.
-            AppSettings settings = new() { AutostartUploads = AutostartUploadsMode.Never };
-            DefaultFileHosterRegistry reg = new([]);
-            // Tracked pair so DisposeAsync drains the fire-and-forget queue-order write a reloaded
-            // QueueOrder-0 file triggers (would otherwise race the shared connection's dispose).
-            PackageManager freshManager = NewLocalManager(settings, reg);
+        await freshManager.LoadPersistedPackagesAsync();
 
-            await freshManager.LoadPersistedPackagesAsync();
-
-            Package loaded = Assert.Single(freshManager.Packages);
-            PackageFile file = loaded.Single();
-            Assert.NotNull(file.FileHosterLogin);
-            Assert.True(file.FileHosterLogin.IsAnonymous);
-            Assert.Equal("Hexload", file.FileHosterLogin.FileHosterName);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Package loaded = Assert.Single(freshManager.Packages);
+        PackageFile file = loaded.Single();
+        Assert.NotNull(file.FileHosterLogin);
+        Assert.True(file.FileHosterLogin.IsAnonymous);
+        Assert.Equal("Hexload", file.FileHosterLogin.FileHosterName);
     }
 
     [Fact]
@@ -847,48 +714,38 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // HashQueued but the scheduler never picked it up because nothing called
         // StartAll afterwards (and AddPackage is idempotent — no work for an already-
         // registered package).
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "p",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        PackageFile file = package.Single();
+        // Simulate a stopped/failed state — the scenario the user reported.
+        file.State = FileState.Failed;
+        file.Error = "boom";
+        _scheduler.PauseAll();
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            PackageFile file = package.Single();
-            // Simulate a stopped/failed state — the scenario the user reported.
-            file.State = FileState.Failed;
-            file.Error = "boom";
-            _scheduler.PauseAll();
+        _packageManager.ResetPackage(file);
 
-            _packageManager.ResetPackage(file);
+        // Reset posts the file mutation and then the slot-fill onto the scheduler's pump, so
+        // one drain covers both: it cannot complete until every action queued ahead of it has
+        // run. IsPaused going false is what proves the slot-fill was actually queued and
+        // processed — the original bug was that nothing resumed the scheduler at all, leaving
+        // the reset file sitting in the queue forever.
+        await _scheduler.DrainAsync();
 
-            // Reset posts the file mutation and then the slot-fill onto the scheduler's pump, so
-            // one drain covers both: it cannot complete until every action queued ahead of it has
-            // run. IsPaused going false is what proves the slot-fill was actually queued and
-            // processed — the original bug was that nothing resumed the scheduler at all, leaving
-            // the reset file sitting in the queue forever.
-            await _scheduler.DrainAsync();
-
-            Assert.Null(file.Error);
-            Assert.NotEqual(FileState.Failed, file.State);
-            Assert.False(_scheduler.IsPaused);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Null(file.Error);
+        Assert.NotEqual(FileState.Failed, file.State);
+        Assert.False(_scheduler.IsPaused);
     }
 
     [Fact]
@@ -899,42 +756,32 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // queue. So right-clicking one row and choosing Start ran everything. The fix uses
         // FillAvailableSlots (no requeue) + register-without-scheduling, so only the picked
         // file starts and other packages' idle files stay idle.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        Package pkg1 = await CreateIdlePackageAsync(tempDir, "p1", "a.iso");
+        Package pkg2 = await CreateIdlePackageAsync(tempDir, "p2", "b.iso");
+        PackageFile fileA = pkg1.Single();
+        PackageFile fileB = pkg2.Single();
+
+        // Register pkg2 with the scheduler WITHOUT queuing its idle file, so it's in the
+        // scheduler's package set (the precondition that let the old RequeueStartableFiles
+        // sweep fileB) while fileB stays Idle.
+        _scheduler.AddPackage(pkg2, scheduleIdleFiles: false);
+
+        Assert.Equal(FileState.Idle, fileA.State);
+        Assert.Equal(FileState.Idle, fileB.State);
+
+        // Start only fileA.
+        _packageManager.StartPackage(fileA);
+
+        // Poll until fileA leaves Idle — proves the async FillSlots actually ran.
+        for (int i = 0; i < 250 && fileA.State == FileState.Idle; i++)
         {
-            Package pkg1 = await CreateIdlePackageAsync(tempDir, "p1", "a.iso");
-            Package pkg2 = await CreateIdlePackageAsync(tempDir, "p2", "b.iso");
-            PackageFile fileA = pkg1.Single();
-            PackageFile fileB = pkg2.Single();
-
-            // Register pkg2 with the scheduler WITHOUT queuing its idle file, so it's in the
-            // scheduler's package set (the precondition that let the old RequeueStartableFiles
-            // sweep fileB) while fileB stays Idle.
-            _scheduler.AddPackage(pkg2, scheduleIdleFiles: false);
-
-            Assert.Equal(FileState.Idle, fileA.State);
-            Assert.Equal(FileState.Idle, fileB.State);
-
-            // Start only fileA.
-            _packageManager.StartPackage(fileA);
-
-            // Poll until fileA leaves Idle — proves the async FillSlots actually ran.
-            for (int i = 0; i < 250 && fileA.State == FileState.Idle; i++)
-            {
-                await Task.Delay(20);
-            }
-            Assert.NotEqual(FileState.Idle, fileA.State);
-
-            // The OTHER package's idle file must NOT have been swept into the queue.
-            Assert.Equal(FileState.Idle, fileB.State);
+            await Task.Delay(20);
         }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.NotEqual(FileState.Idle, fileA.State);
+
+        // The OTHER package's idle file must NOT have been swept into the queue.
+        Assert.Equal(FileState.Idle, fileB.State);
     }
 
     [Fact]
@@ -944,44 +791,34 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // so never reached the DB. The row stayed Uploading on disk, and the loader's default
         // OnlyIfRunningAtLastSession policy reads that as "was running when we closed" — so a
         // stopped upload came back and resumed on the next launch.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
 
-            // Put the row where a running upload leaves it, on disk as well as in memory.
-            file.State = FileState.Uploading;
-            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
+        // Put the row where a running upload leaves it, on disk as well as in memory.
+        file.State = FileState.Uploading;
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
 
-            _packageManager.StopPackage(file);
-            await _scheduler.DrainAsync();
-            await _packageManager.DrainPendingPersistenceAsync();
+        _packageManager.StopPackage(file);
+        await _scheduler.DrainAsync();
+        await _packageManager.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.Equal(FileState.Cancelled, persisted?.State);
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.Cancelled, persisted?.State);
 
-            // ...and go the whole way: a fresh manager loading that row must leave the file alone.
-            // Uploading is what the loader re-queues; Cancelled is terminal and stays put.
-            PackageManager restarted = NewLocalManager(
-                new AppSettings { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession },
-                new DefaultFileHosterRegistry([]),
-                out UploadScheduler restartedScheduler);
-            await restarted.LoadPersistedPackagesAsync();
-            await restartedScheduler.DrainAsync();
-            await restarted.DrainPendingPersistenceAsync();
+        // ...and go the whole way: a fresh manager loading that row must leave the file alone.
+        // Uploading is what the loader re-queues; Cancelled is terminal and stays put.
+        PackageManager restarted = NewLocalManager(
+            new AppSettings { AutostartUploads = AutostartUploadsMode.OnlyIfRunningAtLastSession },
+            new DefaultFileHosterRegistry([]),
+            out UploadScheduler restartedScheduler);
+        await restarted.LoadPersistedPackagesAsync();
+        await restartedScheduler.DrainAsync();
+        await restarted.DrainPendingPersistenceAsync();
 
-            PackageFile reloaded = restarted.Packages.SelectMany(p => p).Single(f => f.DbId == fileId);
-            Assert.Equal(FileState.Cancelled, reloaded.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        PackageFile reloaded = restarted.Packages.SelectMany(p => p).Single(f => f.DbId == fileId);
+        Assert.Equal(FileState.Cancelled, reloaded.State);
     }
 
     [Fact]
@@ -991,42 +828,32 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // hash — it only writes one — so the row kept the old hash and its IsHashingComplete flag.
         // Reset a file, close before it gets a slot, and it came back hashed and went straight to
         // uploading: the one thing Reset exists to prevent.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
 
-            file.FileHash = "deadbeef";
-            file.IsHashingComplete = true;
-            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+        file.FileHash = "deadbeef";
+        file.IsHashingComplete = true;
+        await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
 
-            // A manager whose scheduler admits nothing, so the reset is observed as it lands rather
-            // than after the queue has already re-hashed the file and written a fresh hash over it.
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        // A manager whose scheduler admits nothing, so the reset is observed as it lands rather
+        // than after the queue has already re-hashed the file and written a fresh hash over it.
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.ResetPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.ResetPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
-            Assert.False(persisted?.IsHashingComplete);
-            Assert.Equal(FileState.HashQueued, persisted?.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
+        Assert.False(persisted?.IsHashingComplete);
+        Assert.Equal(FileState.HashQueued, persisted?.State);
     }
 
     [Fact]
@@ -1034,41 +861,31 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Retrying a Failed row has to reach the DB too, or a restart restores the failure the user
         // just retried away from.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
 
-            file.State = FileState.Failed;
-            file.Error = "boom";
-            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Failed, "boom", null);
+        file.State = FileState.Failed;
+        file.Error = "boom";
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Failed, "boom", null);
 
-            // Admits nothing, so what is asserted is the requeue itself — not the outcome of the
-            // attempt the queue would otherwise go on to run (and, with no real hoster, fail).
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        // Admits nothing, so what is asserted is the requeue itself — not the outcome of the
+        // attempt the queue would otherwise go on to run (and, with no real hoster, fail).
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.StartPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.StartPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.NotEqual(FileState.Failed, persisted?.State);
-            Assert.True(string.IsNullOrEmpty(persisted?.Error), $"the old error survived the retry: {persisted?.Error}");
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.NotEqual(FileState.Failed, persisted?.State);
+        Assert.True(string.IsNullOrEmpty(persisted?.Error), $"the old error survived the retry: {persisted?.Error}");
     }
 
     [Fact]
@@ -1079,36 +896,26 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Cancelled could reach SQLite after the Reset's HashQueued and leave the row stopped.
         // A guard rather than a reproduction: with the writes chained the order is structural, and
         // this fails the moment anything makes them independent again.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
-            file.State = FileState.Uploading;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
+        file.State = FileState.Uploading;
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.StopPackage(file);
-            idle.ResetPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.StopPackage(file);
+        idle.ResetPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.Equal(FileState.HashQueued, persisted?.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.HashQueued, persisted?.State);
     }
 
     [Fact]
@@ -1118,41 +925,31 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // SetFileState announces nothing — so the write that carries the cleared hash never
         // happened, and the file came back hashed after a restart. The one case where a mutation
         // is worth persisting without a state change.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
 
-            file.State = FileState.HashQueued;
-            file.FileHash = "deadbeef";
-            file.IsHashingComplete = true;
-            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
-            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.HashQueued, null, null);
+        file.State = FileState.HashQueued;
+        file.FileHash = "deadbeef";
+        file.IsHashingComplete = true;
+        await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.HashQueued, null, null);
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.ResetPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.ResetPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
-            Assert.False(persisted?.IsHashingComplete);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the reset: {persisted?.FileHash}");
+        Assert.False(persisted?.IsHashingComplete);
     }
 
     [Fact]
@@ -1161,35 +958,25 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Nothing ever wrote IsCompleted back to false, so retrying one file left queued rows
         // inside a package the DB still called complete — and the Uploaded tab's export reads by
         // exactly that flag, so an in-progress package could be exported as finished.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Completed;
-            await _packageRepo.UpdateCompletedFlagAsync(package.DbId!.Value, true);
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Completed;
+        await _packageRepo.UpdateCompletedFlagAsync(package.DbId!.Value, true);
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.ResetPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.ResetPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
-            Assert.False(persisted?.IsCompleted, "the package is running again — it is not completed");
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
+        Assert.False(persisted?.IsCompleted, "the package is running again — it is not completed");
     }
 
     [Fact]
@@ -1198,35 +985,25 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // The Uploaded tab lists rows the DB calls Completed and refreshes on FileCompleted. Once
         // Reset started persisting, a reset row stopped being Completed on disk while still sitting
         // in that grid, with no event to tell it otherwise.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Completed;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Completed;
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
-            List<PackageFile> reopened = [];
-            idle.FileReopened += (_, f) => reopened.Add(f);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
+        List<PackageFile> reopened = [];
+        idle.FileReopened += (_, f) => reopened.Add(f);
 
-            idle.ResetPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.ResetPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            Assert.Equal([file], reopened);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal([file], reopened);
     }
 
     [Fact]
@@ -1234,39 +1011,29 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // The re-upload path discards the hash for the same reason Reset does — the file on disk
         // may have changed — and had the same gap: it only cleared the in-memory copy.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
-            file.State = FileState.Completed;
-            file.FileHash = "deadbeef";
-            file.IsHashingComplete = true;
-            await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
+        file.State = FileState.Completed;
+        file.FileHash = "deadbeef";
+        file.IsHashingComplete = true;
+        await _fileRepo.UpdateHashAsync(fileId, "deadbeef");
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            idle.ForceStartPackage(file);
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        idle.ForceStartPackage(file);
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the re-upload: {persisted?.FileHash}");
-            Assert.False(persisted?.IsHashingComplete);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.True(string.IsNullOrEmpty(persisted?.FileHash), $"the stale hash survived the re-upload: {persisted?.FileHash}");
+        Assert.False(persisted?.IsHashingComplete);
     }
 
     [Fact]
@@ -1275,49 +1042,39 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // The persistence contract: every event announces a fact as PERSISTED. When the
         // transaction rolls back, none of them are facts — a FileCompleted fired anyway would let
         // RemoveFinishedUploads=Immediately prune a row whose database state still says Uploading.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
-            file.State = FileState.Uploading;
-            await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
+        file.State = FileState.Uploading;
+        await _fileRepo.UpdateStateAsync(fileId, (int)FileState.Uploading, null, null);
 
-            // A manager whose FILE repository fails every write, over the same database.
-            DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
-                .UseSqlite(_connectionString)
-                .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackageFile\""))
-                .Options;
-            UploadScheduler scheduler = new(NoSlots(), BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new DefaultFileHosterRegistry([]));
-            PackageManager manager = new(
-                NoSlots(), scheduler, _packageRepo,
-                new UploadPackageFileRepository(new TestDbContextFactory(faultingOptions)),
-                _loginRepo, _logger, new DefaultFileHosterRegistry([]));
-            _localPairs.Add((scheduler, manager));
+        // A manager whose FILE repository fails every write, over the same database.
+        DbContextOptions<CSUploaderDbContext> faultingOptions = new DbContextOptionsBuilder<CSUploaderDbContext>()
+            .UseSqlite(_connectionString)
+            .AddInterceptors(new FaultingCommandInterceptor("\"UploadPackageFile\""))
+            .Options;
+        UploadScheduler scheduler = new(NoSlots(), BuildAttemptRunner(), Mock.Of<IAppLogger>(), new CSUploader.Lib.Crypto.HashingService(), new DefaultFileHosterRegistry([]));
+        PackageManager manager = new(
+            NoSlots(), scheduler, _packageRepo,
+            new UploadPackageFileRepository(new TestDbContextFactory(faultingOptions)),
+            _loginRepo, _logger, new DefaultFileHosterRegistry([]));
+        _localPairs.Add((scheduler, manager));
 
-            List<string> fired = [];
-            manager.FileCompleted += (_, _) => fired.Add("FileCompleted");
-            manager.FileReopened += (_, _) => fired.Add("FileReopened");
-            manager.PackageCompleted += (_, _) => fired.Add("PackageCompleted");
+        List<string> fired = [];
+        manager.FileCompleted += (_, _) => fired.Add("FileCompleted");
+        manager.FileReopened += (_, _) => fired.Add("FileReopened");
+        manager.PackageCompleted += (_, _) => fired.Add("PackageCompleted");
 
-            manager.StopPackage(file);
-            await scheduler.DrainAsync();
-            await manager.DrainPendingPersistenceAsync();
+        manager.StopPackage(file);
+        await scheduler.DrainAsync();
+        await manager.DrainPendingPersistenceAsync();
 
-            Assert.Empty(fired);
-            Assert.Contains(_logger.Messages, m => m.Contains("Failed to persist state", StringComparison.Ordinal));
+        Assert.Empty(fired);
+        Assert.Contains(_logger.Messages, m => m.Contains("Failed to persist state", StringComparison.Ordinal));
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.Equal(FileState.Uploading, persisted?.State); // the row kept its pre-stop shape
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.Equal(FileState.Uploading, persisted?.State); // the row kept its pre-stop shape
     }
 
     [Fact]
@@ -1326,41 +1083,31 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Hashing → UploadQueued is how every routine pre-upload hash lands in the DB — the ONLY
         // route, since nothing else in production writes a hash. A restart must find it, or
         // hash-before-upload hosters re-hash multi-GB files every session.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            int fileId = file.DbId!.Value;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        int fileId = file.DbId!.Value;
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
 
-            // The shape OnHashCompleted leaves behind: hash computed and valid, transitioning off
-            // Hashing. Driven through ApplyFileState so it takes the real persistence path.
-            file.State = FileState.Hashing;
-            file.FileHash = "cafebabe";
-            file.IsHashingComplete = true;
-            scheduler.PostFileMutation(() => scheduler.ApplyFileState(file, FileState.UploadQueued));
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        // The shape OnHashCompleted leaves behind: hash computed and valid, transitioning off
+        // Hashing. Driven through ApplyFileState so it takes the real persistence path.
+        file.State = FileState.Hashing;
+        file.FileHash = "cafebabe";
+        file.IsHashingComplete = true;
+        scheduler.PostFileMutation(() => scheduler.ApplyFileState(file, FileState.UploadQueued));
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
-            Assert.Equal("cafebabe", persisted?.FileHash);
-            Assert.True(persisted?.IsHashingComplete);
-            Assert.Equal(FileState.UploadQueued, persisted?.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        UploadPackageFileDto? persisted = await _fileRepo.FindAsync(fileId);
+        Assert.Equal("cafebabe", persisted?.FileHash);
+        Assert.True(persisted?.IsHashingComplete);
+        Assert.Equal(FileState.UploadQueued, persisted?.State);
     }
 
     [Fact]
@@ -1370,59 +1117,49 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // transition failed and rolled back earlier in the chain, so its row is still running.
         // Announcing completion then would export a "finished" package that is missing work; the
         // database is the arbiter, and it declines.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string pathA = Path.Combine(tempDir, "a.iso");
+        string pathB = Path.Combine(tempDir, "b.iso");
+        await File.WriteAllBytesAsync(pathA, new byte[] { 0 });
+        await File.WriteAllBytesAsync(pathB, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string pathA = Path.Combine(tempDir, "a.iso");
-            string pathB = Path.Combine(tempDir, "b.iso");
-            await File.WriteAllBytesAsync(pathA, new byte[] { 0 });
-            await File.WriteAllBytesAsync(pathB, new byte[] { 0 });
+            Title = "p",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [pathA, pathB],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        PackageFile fileA = package.First();
+        PackageFile fileB = package.Skip(1).First();
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "p",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [pathA, pathB],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            PackageFile fileA = package.First();
-            PackageFile fileB = package.Skip(1).First();
+        // Simulate fileA's failed write: MEMORY says terminal, its ROW still says Uploading.
+        fileA.State = FileState.Failed;
+        await _fileRepo.UpdateStateAsync(fileA.DbId!.Value, (int)FileState.Uploading, null, null);
 
-            // Simulate fileA's failed write: MEMORY says terminal, its ROW still says Uploading.
-            fileA.State = FileState.Failed;
-            await _fileRepo.UpdateStateAsync(fileA.DbId!.Value, (int)FileState.Uploading, null, null);
+        PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
 
-            PackageManager idle = NewLocalManager(NoSlots(), new DefaultFileHosterRegistry([]), out UploadScheduler scheduler);
+        // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
+        // outside their manager's Packages (see PackageManager.IsAlive). In production the one
+        // manager both created and revives; these tests split those roles to pin settings.
+        idle.Packages.Add(package);
+        List<Package> completed = [];
+        idle.PackageCompleted += (_, p) => completed.Add(p);
 
-            // The reviving manager must OWN the package — Start/Reset/ForceStart decline items
-            // outside their manager's Packages (see PackageManager.IsAlive). In production the one
-            // manager both created and revives; these tests split those roles to pin settings.
-            idle.Packages.Add(package);
-            List<Package> completed = [];
-            idle.PackageCompleted += (_, p) => completed.Add(p);
+        fileB.State = FileState.Uploading;
+        scheduler.PostFileMutation(() => scheduler.ApplyFileState(fileB, FileState.Completed));
+        await scheduler.DrainAsync();
+        await idle.DrainPendingPersistenceAsync();
 
-            fileB.State = FileState.Uploading;
-            scheduler.PostFileMutation(() => scheduler.ApplyFileState(fileB, FileState.Completed));
-            await scheduler.DrainAsync();
-            await idle.DrainPendingPersistenceAsync();
+        Assert.Empty(completed);
+        UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
+        Assert.False(persisted?.IsCompleted);
 
-            Assert.Empty(completed);
-            UploadPackageDto? persisted = await _packageRepo.FindAsync(package.DbId!.Value);
-            Assert.False(persisted?.IsCompleted);
-
-            // FileB's own completion DID land — only the package-level claim was declined.
-            UploadPackageFileDto? b = await _fileRepo.FindAsync(fileB.DbId!.Value);
-            Assert.Equal(FileState.Completed, b?.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        // FileB's own completion DID land — only the package-level claim was declined.
+        UploadPackageFileDto? b = await _fileRepo.FindAsync(fileB.DbId!.Value);
+        Assert.Equal(FileState.Completed, b?.State);
     }
 
     [Theory]
@@ -1435,39 +1172,29 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // left its package. Reviving it re-registered the package with the scheduler (a phantom
         // empty row for the UI) and mutated a file nothing would ever schedule. All three revival
         // entry points decline dead items instead.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Completed;
+
+        // The auto-remove path: the file leaves its package, the empty package leaves the manager.
+        _packageManager.RemovePackage(file);
+        _packageManager.RemovePackage(package);
+        await _scheduler.DrainAsync();
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+        switch (via)
         {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Completed;
-
-            // The auto-remove path: the file leaves its package, the empty package leaves the manager.
-            _packageManager.RemovePackage(file);
-            _packageManager.RemovePackage(package);
-            await _scheduler.DrainAsync();
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
-
-            switch (via)
-            {
-                case "start": _packageManager.StartPackage(file); break;
-                case "force": _packageManager.ForceStartPackage(file); break;
-                default: _packageManager.ResetPackage(file); break;
-            }
-
-            await _scheduler.DrainAsync();
-            await _packageManager.DrainPendingPersistenceAsync();
-
-            Assert.Equal(0, _scheduler.RegisteredPackageCount); // no resurrection
-            Assert.Equal(FileState.Completed, file.State);      // the ghost was left alone
+            case "start": _packageManager.StartPackage(file); break;
+            case "force": _packageManager.ForceStartPackage(file); break;
+            default: _packageManager.ResetPackage(file); break;
         }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+
+        await _scheduler.DrainAsync();
+        await _packageManager.DrainPendingPersistenceAsync();
+
+        Assert.Equal(0, _scheduler.RegisteredPackageCount); // no resurrection
+        Assert.Equal(FileState.Completed, file.State);      // the ghost was left alone
     }
 
     [Fact]
@@ -1475,55 +1202,45 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // The package flavour: reset a package row whose package was already auto-removed. The
         // scheduler must not learn about it again.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        Assert.Contains(package, _packageManager.Packages); // genuinely managed first
+
+        _packageManager.RemovePackage(package);
+        await _scheduler.DrainAsync();
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+        _packageManager.ResetPackage(package);
+        _packageManager.StartPackage(package);
+        _packageManager.ForceStartPackage(package);
+        await _scheduler.DrainAsync();
+
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+
+        // A file still INSIDE a package this manager never owned is just as dead — the file
+        // overload must not let the unmanaged package in through the side door.
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
+        Package foreign = new(new PackageOptions
         {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            Assert.Contains(package, _packageManager.Packages); // genuinely managed first
+            Title = "foreign",
+            Logger = Mock.Of<IAppLogger>(),
+            Settings = new AppSettings(),
+            FileHosters = new() { { hoster, login } },
+        });
+        string path = Path.Combine(tempDir, "foreign.iso");
+        await File.WriteAllBytesAsync(path, new byte[] { 0 });
+        PackageFile orphan = new(foreign, path, hoster, login);
+        foreign.AddPackageFiles([orphan]);
+        orphan.State = FileState.Failed;
 
-            _packageManager.RemovePackage(package);
-            await _scheduler.DrainAsync();
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        _packageManager.StartPackage(orphan);
+        _packageManager.ResetPackage(orphan);
+        _packageManager.ForceStartPackage(orphan);
+        await _scheduler.DrainAsync();
 
-            _packageManager.ResetPackage(package);
-            _packageManager.StartPackage(package);
-            _packageManager.ForceStartPackage(package);
-            await _scheduler.DrainAsync();
-
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
-
-            // A file still INSIDE a package this manager never owned is just as dead — the file
-            // overload must not let the unmanaged package in through the side door.
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            FileHosterLoginDto login = new() { FileHosterName = "Rapidgator", IsAnonymous = true };
-            Package foreign = new(new PackageOptions
-            {
-                Title = "foreign",
-                Logger = Mock.Of<IAppLogger>(),
-                Settings = new AppSettings(),
-                FileHosters = new() { { hoster, login } },
-            });
-            string path = Path.Combine(tempDir, "foreign.iso");
-            await File.WriteAllBytesAsync(path, new byte[] { 0 });
-            PackageFile orphan = new(foreign, path, hoster, login);
-            foreign.AddPackageFiles([orphan]);
-            orphan.State = FileState.Failed;
-
-            _packageManager.StartPackage(orphan);
-            _packageManager.ResetPackage(orphan);
-            _packageManager.ForceStartPackage(orphan);
-            await _scheduler.DrainAsync();
-
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
-            Assert.Equal(FileState.Failed, orphan.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        Assert.Equal(FileState.Failed, orphan.State);
     }
 
     /// <summary>
@@ -1569,37 +1286,27 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Toolbar Start-all should not start packages whose scheduled time hasn't elapsed.
         // The user has to right-click → "Start now" to override.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "scheduled",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "scheduled",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        _packageManager.StartPackages();
 
-            _packageManager.StartPackages();
-
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
-            Assert.NotNull(package.ScheduledStartTime);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        Assert.NotNull(package.ScheduledStartTime);
     }
 
     [Fact]
@@ -1607,38 +1314,28 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // A package whose scheduled time has already elapsed should be picked up by
         // Start-all — its schedule has effectively expired.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "expired",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "expired",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        // Past schedule — ScheduleDelayedStart adds immediately when delay <= 0,
+        // but for this assertion we keep the in-memory ScheduledStartTime set so
+        // StartPackages still has to make the >Now decision.
+        package.ScheduledStartTime = DateTime.Now.AddMinutes(-5);
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            // Past schedule — ScheduleDelayedStart adds immediately when delay <= 0,
-            // but for this assertion we keep the in-memory ScheduledStartTime set so
-            // StartPackages still has to make the >Now decision.
-            package.ScheduledStartTime = DateTime.Now.AddMinutes(-5);
+        _packageManager.StartPackages();
 
-            _packageManager.StartPackages();
-
-            Assert.Equal(1, _scheduler.RegisteredPackageCount);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Equal(1, _scheduler.RegisteredPackageCount);
     }
 
     [Fact]
@@ -1647,45 +1344,35 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Right-click a single file (not the whole package) → Start. The package should
         // get registered with the scheduler, only the chosen file should be queued, and
         // its parent's pending schedule should be cleared.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string fileA = Path.Combine(tempDir, "a.iso");
+        string fileB = Path.Combine(tempDir, "b.iso");
+        await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
+        await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string fileA = Path.Combine(tempDir, "a.iso");
-            string fileB = Path.Combine(tempDir, "b.iso");
-            await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
-            await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+            Title = "scheduled",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [fileA, fileB],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "scheduled",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [fileA, fileB],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+        PackageFile target = package.First();
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
-            PackageFile target = package.First();
+        _packageManager.StartPackage(target);
 
-            _packageManager.StartPackage(target);
+        // ForceQueueIfStartable runs on the scheduler's pump (it writes file.State), so drain
+        // before reading the target's state. Sibling files are NOT asserted: with
+        // scheduleIdleFiles:false nothing sweeps them, which is the point of the per-row Start.
+        await _scheduler.DrainAsync();
 
-            // ForceQueueIfStartable runs on the scheduler's pump (it writes file.State), so drain
-            // before reading the target's state. Sibling files are NOT asserted: with
-            // scheduleIdleFiles:false nothing sweeps them, which is the point of the per-row Start.
-            await _scheduler.DrainAsync();
-
-            Assert.Null(package.ScheduledStartTime);
-            Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            Assert.NotEqual(FileState.Idle, target.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.Null(package.ScheduledStartTime);
+        Assert.Equal(1, _scheduler.RegisteredPackageCount);
+        Assert.NotEqual(FileState.Idle, target.State);
     }
 
     [Fact]
@@ -1693,45 +1380,35 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Force start on a future-scheduled package must override the schedule, register the
         // package, and kick the file off — like Start now, but past the concurrency gate.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "scheduled",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "scheduled",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
+        PackageFile file = package.Single();
+        Assert.Equal(FileState.Idle, file.State);
+        Assert.Equal(0, _scheduler.RegisteredPackageCount);
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            _packageManager.ScheduleDelayedStart(package, DateTime.Now.AddHours(1));
-            PackageFile file = package.Single();
-            Assert.Equal(FileState.Idle, file.State);
-            Assert.Equal(0, _scheduler.RegisteredPackageCount);
+        _packageManager.ForceStartPackage(package);
 
-            _packageManager.ForceStartPackage(package);
-
-            Assert.Null(package.ScheduledStartTime);
-            Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
-            {
-                await Task.Delay(20);
-            }
-
-            Assert.NotEqual(FileState.Idle, file.State);
-        }
-        finally
+        Assert.Null(package.ScheduledStartTime);
+        Assert.Equal(1, _scheduler.RegisteredPackageCount);
+        for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
         {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
+            await Task.Delay(20);
         }
+
+        Assert.NotEqual(FileState.Idle, file.State);
     }
 
     [Fact]
@@ -1740,49 +1417,39 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // The discriminator vs. StartPackage: a global pause makes StartPackage a no-op (the
         // file stays Idle), but ForceStartPackage launches the file anyway and leaves the pause
         // in place for everything else.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string filePath = Path.Combine(tempDir, "a.iso");
+        await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string filePath = Path.Combine(tempDir, "a.iso");
-            await File.WriteAllBytesAsync(filePath, new byte[] { 0 });
+            Title = "paused",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [filePath],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "paused",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [filePath],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        PackageFile file = package.Single();
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            PackageFile file = package.Single();
-
-            _scheduler.PauseAll();
-            for (int i = 0; i < 250 && !_packageManager.IsPaused; i++)
-            {
-                await Task.Delay(20);
-            }
-
-            Assert.True(_packageManager.IsPaused);
-
-            _packageManager.ForceStartPackage(file);
-
-            for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
-            {
-                await Task.Delay(20);
-            }
-
-            Assert.NotEqual(FileState.Idle, file.State);
-            Assert.True(_packageManager.IsPaused); // force start must not lift the global pause
-        }
-        finally
+        _scheduler.PauseAll();
+        for (int i = 0; i < 250 && !_packageManager.IsPaused; i++)
         {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
+            await Task.Delay(20);
         }
+
+        Assert.True(_packageManager.IsPaused);
+
+        _packageManager.ForceStartPackage(file);
+
+        for (int i = 0; i < 250 && file.State == FileState.Idle; i++)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.NotEqual(FileState.Idle, file.State);
+        Assert.True(_packageManager.IsPaused); // force start must not lift the global pause
     }
 
     [Fact]
@@ -1790,45 +1457,35 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Force-starting one file must register the package without sweeping its other idle
         // files into the queue (same surgical contract as the per-row Start).
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
+        string tempDir = _temp.Create("csu-test");
+        string fileA = Path.Combine(tempDir, "a.iso");
+        string fileB = Path.Combine(tempDir, "b.iso");
+        await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
+        await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+
+        FileHosterClient hoster = new("Rapidgator", Protocol.Http);
+        PackageOptions options = new()
         {
-            string fileA = Path.Combine(tempDir, "a.iso");
-            string fileB = Path.Combine(tempDir, "b.iso");
-            await File.WriteAllBytesAsync(fileA, new byte[] { 0 });
-            await File.WriteAllBytesAsync(fileB, new byte[] { 0 });
+            Title = "two",
+            Logger = Mock.Of<IAppLogger>(),
+            SelectedFiles = [fileA, fileB],
+            FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
+        };
 
-            FileHosterClient hoster = new("Rapidgator", Protocol.Http);
-            PackageOptions options = new()
-            {
-                Title = "two",
-                Logger = Mock.Of<IAppLogger>(),
-                SelectedFiles = [fileA, fileB],
-                FileHosters = new() { { hoster, new FileHosterLoginDto { FileHosterName = "Rapidgator" } } },
-            };
+        Package package = await _packageManager.AddPackageOnlyAsync(options);
+        PackageFile target = package.First();
+        PackageFile sibling = package.Last();
 
-            Package package = await _packageManager.AddPackageOnlyAsync(options);
-            PackageFile target = package.First();
-            PackageFile sibling = package.Last();
+        _packageManager.ForceStartPackage(target);
 
-            _packageManager.ForceStartPackage(target);
-
-            Assert.Equal(1, _scheduler.RegisteredPackageCount);
-            for (int i = 0; i < 250 && target.State == FileState.Idle; i++)
-            {
-                await Task.Delay(20);
-            }
-
-            Assert.NotEqual(FileState.Idle, target.State);
-            Assert.Equal(FileState.Idle, sibling.State);
-        }
-        finally
+        Assert.Equal(1, _scheduler.RegisteredPackageCount);
+        for (int i = 0; i < 250 && target.State == FileState.Idle; i++)
         {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
+            await Task.Delay(20);
         }
+
+        Assert.NotEqual(FileState.Idle, target.State);
+        Assert.Equal(FileState.Idle, sibling.State);
     }
 
     [Fact]
@@ -1837,27 +1494,17 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
         // Closes the Stop-during-force-hash race: a force-started file that is stopped must have
         // ForceStart cleared, so if its in-flight hash completes the scheduler does NOT take the
         // force branch and launch an over-limit upload for the stopped file.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Hashing; // simulate a force-started file mid-hash
-            file.ForceStart = true;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Hashing; // simulate a force-started file mid-hash
+        file.ForceStart = true;
 
-            _packageManager.StopPackage(file);
-            await _scheduler.DrainAsync(); // the stop runs on the pump now, not on this thread
+        _packageManager.StopPackage(file);
+        await _scheduler.DrainAsync(); // the stop runs on the pump now, not on this thread
 
-            Assert.False(file.ForceStart);
-            Assert.Equal(FileState.Cancelled, file.State);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.False(file.ForceStart);
+        Assert.Equal(FileState.Cancelled, file.State);
     }
 
     [Fact]
@@ -1865,26 +1512,16 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Reset routes through StopFile, which must clear ForceStart — otherwise a hash that
         // finishes in the window would launch an upload with the just-cleared hash, over the limit.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Hashing;
-            file.ForceStart = true;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Hashing;
+        file.ForceStart = true;
 
-            _packageManager.ResetPackage(file);
-            await _scheduler.DrainAsync(); // the reset runs on the pump now, not on this thread
+        _packageManager.ResetPackage(file);
+        await _scheduler.DrainAsync(); // the reset runs on the pump now, not on this thread
 
-            Assert.False(file.ForceStart);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.False(file.ForceStart);
     }
 
     [Fact]
@@ -1892,26 +1529,16 @@ public sealed class PackageManagerSoftRemoveTests : IAsyncLifetime
     {
         // Removing a force-started file must clear ForceStart so a hash completing after removal
         // can't launch a detached, over-limit upload.
-        string tempDir = Path.Combine(Path.GetTempPath(), $"csu-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        try
-        {
-            Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
-            PackageFile file = package.Single();
-            file.State = FileState.Hashing;
-            file.ForceStart = true;
+        string tempDir = _temp.Create("csu-test");
+        Package package = await CreateIdlePackageAsync(tempDir, "p", "a.iso");
+        PackageFile file = package.Single();
+        file.State = FileState.Hashing;
+        file.ForceStart = true;
 
-            _packageManager.RemovePackage(file);
-            await _scheduler.DrainAsync(); // the detach runs on the pump now, not on this thread
+        _packageManager.RemovePackage(file);
+        await _scheduler.DrainAsync(); // the detach runs on the pump now, not on this thread
 
-            Assert.False(file.ForceStart);
-        }
-        finally
-        {
-            try
-            { Directory.Delete(tempDir, recursive: true); }
-            catch { }
-        }
+        Assert.False(file.ForceStart);
     }
 
     /// <summary>

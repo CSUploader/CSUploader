@@ -4,6 +4,27 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Switching tabs no longer resets the grids or leaks memory.** Coming back to a tab found its grids
+  scrolled to the top with nothing selected — on Settings and Logs unsorted as well — and the account
+  selected in Settings → Accounts gone. Every visit also left behind a copy of the grids' lists that went
+  on processing every later change until the app closed, four of them per visit to the Logs tab. Now the
+  grids keep their sort, selection and scroll position, and nothing piles up. The one exception is
+  Settings → Accounts, which reloads its list on every visit: it keeps its sort and the selected account,
+  but still comes back scrolled to the top, and with only that one account selected if there were several.
+
+- **The ▲/▼ priority buttons in Settings → Connection move the row straight away.** The new order was
+  saved, but the list kept showing the old one until you left Settings and came back. A cell still being
+  edited is finished first, as clicking another row does. If the list is sorted by a column, ▲/▼ put it
+  back in priority order, as reordering the Uploads queue already does.
+
+- **The Uploads filter works while a rename or an Order number is still being typed.** Typing in the
+  filter box with one of those edits still open did nothing but log an error until the edit was
+  confirmed. The edit is now finished first, keeping what you typed, and the filter applies.
+
 ## [1.9.0] - 2026-10-08
 
 The Upload Overview no longer flips between one row and two while uploads run. See

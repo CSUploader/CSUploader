@@ -19,12 +19,16 @@ namespace CSUploader.Tests.Upload;
 /// here is who shares with whom, and <c>ConditionalWeakTable</c> makes reference identity the exact
 /// expression of that.
 /// </summary>
-public class SpeedLimiterScopeTests
+public class SpeedLimiterScopeTests : IDisposable
 {
+    private readonly TempFolders _temp = new();
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void TwoFilesInOnePackage_ResolveToOneBucket()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: 100);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: 100);
 
         Assert.Same(package.First().SpeedLimiter, package.Skip(1).First().SpeedLimiter);
     }
@@ -32,7 +36,7 @@ public class SpeedLimiterScopeTests
     [Fact]
     public void AFileWithItsOwnLimit_ResolvesToItsOwnBucket()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: 100);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: 100);
         PackageFile capped = package.First();
         capped.SpeedLimitKBps = 200;
 
@@ -45,7 +49,7 @@ public class SpeedLimiterScopeTests
     [Fact]
     public void ClearingAFileOverride_ResolvesBackToThePackagesBucket()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: 100);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: 100);
         PackageFile file = package.First();
         file.SpeedLimitKBps = 200;
         Assert.NotSame(package.SpeedLimiter, file.SpeedLimiter);
@@ -59,8 +63,8 @@ public class SpeedLimiterScopeTests
     public void PackagesWithNoOverride_ResolveToTheOneGlobalBucket()
     {
         AppSettings settings = new() { SpeedLimit = 100 };
-        Package a = SpeedLimitTestFactory.Package(settings, packageLimitKBps: null);
-        Package b = SpeedLimitTestFactory.Package(settings, packageLimitKBps: null);
+        Package a = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: null);
+        Package b = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: null);
 
         Assert.Same(a.SpeedLimiter, b.SpeedLimiter);
     }
@@ -74,8 +78,8 @@ public class SpeedLimiterScopeTests
     public void AnOverrideMayExceedTheGlobalLimit_AndGetsItsOwnBucketToDoIt()
     {
         AppSettings settings = new() { SpeedLimit = 100 };
-        Package overriding = SpeedLimitTestFactory.Package(settings, packageLimitKBps: 500);
-        Package inheriting = SpeedLimitTestFactory.Package(settings, packageLimitKBps: null);
+        Package overriding = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: 500);
+        Package inheriting = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: null);
 
         Assert.NotSame(overriding.SpeedLimiter, inheriting.SpeedLimiter);
         Assert.Equal(500L * 1024, overriding.SpeedLimiter.CurrentLimitBytesPerSecond);
@@ -89,7 +93,7 @@ public class SpeedLimiterScopeTests
     [Fact]
     public void AnUnlimitedGlobal_ResolvesToTheSharedUnlimitedInstance()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: null);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: null);
 
         Assert.Same(SpeedLimiter.Unlimited, package.SpeedLimiter);
         Assert.Same(SpeedLimiter.Unlimited, package.First().SpeedLimiter);
@@ -102,7 +106,7 @@ public class SpeedLimiterScopeTests
     [Fact]
     public async Task ConcurrentFirstAccess_YieldsOneBucket()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: 100, fileCount: 32);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: 100, fileCount: 32);
         using Barrier barrier = new(32);
 
         SpeedLimiter[] buckets = await Task.WhenAll(package.Select(file => Task.Run(() =>
@@ -121,7 +125,7 @@ public class SpeedLimiterScopeTests
     [Fact]
     public void BuildAttemptInputs_CarriesABudgetResolvingToThatFilesBucket()
     {
-        Package package = SpeedLimitTestFactory.Package(new AppSettings(), packageLimitKBps: 100);
+        Package package = SpeedLimitTestFactory.Package(_temp, new AppSettings(), packageLimitKBps: 100);
         PackageFile a = package.First();
         PackageFile b = package.Skip(1).First();
 

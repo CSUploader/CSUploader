@@ -27,7 +27,8 @@ public partial class SettingsViewModel(
     UploadPackageRepository? uploadPackageRepository = null,
     LogEntryRepository? logEntryRepository = null,
     LogsViewModel? logsViewModel = null,
-    Upload.UploadScheduler? uploadScheduler = null) : ObservableObject
+    Upload.UploadScheduler? uploadScheduler = null,
+    ConnectionManagerViewModel? connectionManager = null) : ObservableObject
 {
     private readonly SettingRepository _settingRepository = settingRepository;
     private readonly AppSettings _settings = settings;
@@ -43,6 +44,14 @@ public partial class SettingsViewModel(
     /// wizard and the head shell reach the SAME account list this page shows.
     /// </summary>
     public AccountManagerViewModel AccountManager { get; } = accountManager;
+
+    /// <summary>
+    /// The Settings tab's Connection page (the proxy list), exposed the way <see cref="AccountManager"/>
+    /// is so the page binds to it directly instead of reaching through the window's DataContext. The DI
+    /// singleton the main window shares; optional only so tests that never open that page can leave it
+    /// out.
+    /// </summary>
+    public ConnectionManagerViewModel? ConnectionManager { get; } = connectionManager;
 
     // Optional so existing tests that don't exercise the Database section don't have to
     // construct an upload-package repo. Wired by DI in the real app.

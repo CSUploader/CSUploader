@@ -9,12 +9,17 @@ using CSUploader.Lib;
 using CSUploader.Lib.Net;
 using CSUploader.Upload;
 using CSUploader.Upload.Pipeline;
+using CSUploader.Tests.TestSupport;
 using Moq;
 
 namespace CSUploader.Tests.Upload;
 
-public class PackageFilePipelineEventsTests
+public class PackageFilePipelineEventsTests : IDisposable
 {
+    private readonly TempFolders _temp = new();
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void ApplyEvent_TransferProgress_UpdatesProgressFields()
     {
@@ -152,10 +157,10 @@ public class PackageFilePipelineEventsTests
         Assert.Equal(1000, file.BytesRemaining);
     }
 
-    private static PackageFile MakeFile(out FileHosterClient client)
+    private PackageFile MakeFile(out FileHosterClient client)
     {
-        // Use any tempfile path that exists for the FileInfo construction
-        string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        // Any file that exists will do for the FileInfo construction
+        string path = Path.Combine(_temp.Create("csu-pkgfile"), "f.bin");
         File.WriteAllText(path, "x");
         Package pkg = new(new PackageOptions { Title = "test", SelectedFiles = [path], Logger = Mock.Of<IAppLogger>() });
         client = new FileHosterClient("Stub", Protocol.Http);

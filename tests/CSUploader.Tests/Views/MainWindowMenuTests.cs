@@ -158,9 +158,13 @@ public class MainWindowMenuTests
         finally
         {
             provider.Dispose(); // stops the VM's timers + detaches its Localizer subscription
+
+            // The SQLite pool keeps the database file open after the provider is gone, which made the
+            // delete below fail on every run and left a folder behind in %TEMP%.
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try
             { Directory.Delete(tempDir, recursive: true); }
-            catch { /* best-effort; Windows may still hold a handle on the SQLite file */ }
+            catch { /* best-effort */ }
         }
     }
 
@@ -281,9 +285,13 @@ public class MainWindowMenuTests
         finally
         {
             provider.Dispose(); // stops the VM's 6h timer + detaches its Localizer subscription
+
+            // The SQLite pool keeps the database file open after the provider is gone, which made the
+            // delete below fail on every run and left a folder behind in %TEMP%.
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try
             { Directory.Delete(tempDir, recursive: true); }
-            catch { /* best-effort; Windows may still hold a handle on the SQLite file */ }
+            catch { /* best-effort */ }
         }
     }
 

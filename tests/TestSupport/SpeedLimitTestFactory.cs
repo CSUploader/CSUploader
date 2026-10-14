@@ -14,15 +14,14 @@ namespace CSUploader.Tests.TestSupport;
 internal static class SpeedLimitTestFactory
 {
     /// <summary>
-    /// A package backed by REAL files in a fresh temp directory — <see cref="PackageFile"/> reads
-    /// <c>FileInfo.Length</c> on construction, so the paths must exist. Takes the
-    /// <see cref="AppSettings"/> rather than a limit value so two packages can share one global
-    /// scope, which is what the override-exceeds-global case needs.
+    /// A package backed by REAL files in a fresh folder from <paramref name="temp"/>, which the calling test
+    /// disposes — <see cref="PackageFile"/> reads <c>FileInfo.Length</c> on construction, so the paths must
+    /// exist. Takes the <see cref="AppSettings"/> rather than a limit value so two packages can share one
+    /// global scope, which is what the override-exceeds-global case needs.
     /// </summary>
-    internal static Package Package(AppSettings settings, int? packageLimitKBps, int fileCount = 2)
+    internal static Package Package(TempFolders temp, AppSettings settings, int? packageLimitKBps, int fileCount = 2)
     {
-        string dir = Path.Combine(Path.GetTempPath(), $"csu-speed-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
+        string dir = temp.Create("csu-speed");
 
         List<string> paths = [];
         for (int i = 0; i < fileCount; i++)
