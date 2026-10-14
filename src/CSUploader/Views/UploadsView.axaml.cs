@@ -165,7 +165,33 @@ public partial class UploadsView : UserControl
         ShowSortIndicator(vm.ActiveSort);
     }
 
-    private void ViewModel_FilterInvalidated(object? sender, EventArgs e) => _rowsView?.Refresh();
+    /// <summary>
+    /// Re-filters the rows. A view with an edit open refuses to, and one can be: a rename or an Order
+    /// number still being typed when focus moves to the filter box (the grid leaves an edit in a template
+    /// cell open when focus leaves it). That edit is finished first, through the grid, as Enter would —
+    /// what was typed is kept. The grid cannot refuse here: both editors are OneWay and their commit
+    /// handler never cancels. The view can also hold an edit the grid has already let go of — the grid
+    /// cancels an open edit when the rows are rebuilt or it comes back into the window, and an upload row,
+    /// not being an IEditableObject, cannot cancel one — and that one is closed at the view.
+    /// </summary>
+    private void ViewModel_FilterInvalidated(object? sender, EventArgs e)
+    {
+        if (_rowsView is null)
+        {
+            return;
+        }
+
+        if (_rowsView.IsEditingItem)
+        {
+            uploadsGrid.CommitEdit();
+            if (_rowsView.IsEditingItem)
+            {
+                _rowsView.CommitEdit();
+            }
+        }
+
+        _rowsView.Refresh();
+    }
 
     /// <summary>
     /// Delete key → <see cref="UploadsViewModel.RemoveSelectedCommand"/> (rule 24). A <see cref="KeyBinding"/>

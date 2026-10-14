@@ -277,6 +277,45 @@ public class UploadsViewTests
         }
     }
 
+    // ── The filter box while a rename or an Order number is still being typed. The grid leaves an edit in
+    //    one of those cells open when focus moves to the filter box, and its view refuses to re-filter
+    //    while one is, so typing a filter did nothing but log an error until the edit was confirmed. The
+    //    edit is now finished first, as pressing Enter would: what was typed is kept, and the filter
+    //    applies. ──
+
+    [AvaloniaFact]
+    public void FilterText_WhileARenameIsOpen_KeepsTheRenameAndFilters()
+    {
+        using VmHarness harness = new();
+        Package alpha = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        harness.SeedPackage("Beta pack", "beta1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.uploadsGrid;
+            grid.SelectedItem = alpha;
+            grid.CurrentColumn = NameColumnOf(view);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(grid.BeginEdit(), "BeginEdit should open the package's Name cell for a rename");
+            Dispatcher.UIThread.RunJobs();
+
+            // The only TextBox realized inside the grid is the Name CellEditingTemplate editor.
+            grid.GetVisualDescendants().OfType<TextBox>().Single().Text = "Gamma pack";
+
+            harness.Vm.FilterText = "gamma";
+            Dispatcher.UIThread.RunJobs();
+
+            var rowsView = (DataGridCollectionView)grid.ItemsSource!;
+            Assert.Equal("Gamma pack", alpha.Name);
+            Assert.False(rowsView.IsEditingItem);
+            Assert.Equal(1, CountOf(rowsView)); // the renamed package; no file name has "gamma" in it
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── An edit still open when the Uploads tab is left — an Order number or a rename not yet confirmed.
     //    Coming back, the grid cancels it, but an upload row cannot cancel an edit (it is not an
     //    IEditableObject): the grid let go of the edit while its view kept it open, and the view refuses to
@@ -1189,6 +1228,9 @@ public class UploadsViewTests
 
     private static DataGridColumn OrderColumnOf(UploadsView view)
         => view.uploadsGrid.Columns.First(c => Equals(c.Header, Localizer.Instance["Uploads_Col_Order"]));
+
+    private static DataGridColumn NameColumnOf(UploadsView view)
+        => view.uploadsGrid.Columns.First(c => Equals(c.Header, Localizer.Instance["Uploads_Col_Name"]));
 
     // Raises a real Ctrl+<key> KeyDown through the grid's TUNNEL handler (UploadsGrid_KeyDown) and returns
     // whether it was Handled — the copy interception mirrors the built-in DataGrid's ProcessCopyKey gestures.

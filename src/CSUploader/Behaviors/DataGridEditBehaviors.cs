@@ -22,9 +22,10 @@ namespace CSUploader.Behaviors;
 /// that is not an <see cref="IEditableObject"/> cannot cancel an edit, so the grid puts the cell back and
 /// forgets the edit while its <see cref="DataGridCollectionView"/> keeps it open. A view with an edit open
 /// throws when asked to refresh, re-sort or re-filter, so whatever the grid did through its view failed
-/// from then on — the proxy grid's column sort and its ▲/▼ buttons, the Uploads filter — until an edit
-/// started somewhere in the grid. Back when every tab visit gave the grid a new view, the stuck one was
-/// thrown away with the visit.
+/// from then on — for the proxy grid, its column sort and its ▲/▼ buttons — until an edit started
+/// somewhere in the grid. Back when every tab visit gave the grid a new view, the stuck one was thrown
+/// away with the visit. (The Uploads grid does not need this: the only thing it does through its view is
+/// filter, and its filter handler closes such an edit itself.)
 /// </para>
 /// <para>
 /// Closing the edit at the view loses nothing: the grid has already put the cell back. It runs from

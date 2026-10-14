@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   edited is finished first, as clicking another row does. If the list is sorted by a column, ▲/▼ put it
   back in priority order, as reordering the Uploads queue already does.
 
+- **The Uploads filter works while a rename or an Order number is still being typed.** Typing in the
+  filter box with one of those edits still open did nothing but log an error until the edit was
+  confirmed. The edit is now finished first, keeping what you typed, and the filter applies.
+
 ## [1.9.0] - 2026-10-08
 
 The Upload Overview no longer flips between one row and two while uploads run. See
