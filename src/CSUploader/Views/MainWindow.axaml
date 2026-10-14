@@ -31,11 +31,18 @@
       </MenuItem>
     </Menu>
 
+    <!-- Each view's DataContext is bound on its TabItem, not on the view. A DataContext binding follows the
+         VISUAL parent, and the TabControl takes a deselected tab's view out of the visual tree, so a binding
+         on the view turned its DataContext to null on every tab switch and back on return. Each grid then
+         came back unselected and scrolled to the top — the Settings and Logs grids unsorted too — and every
+         grid but History's got a new DataGridCollectionView, which subscribes to its collection for good.
+         TabItems stay in the tab strip, so their bindings never break, and each view inherits a DataContext
+         that stays put. -->
     <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
-      <TabItem Header="{loc:Loc Main_Tab_Uploads}"><views:UploadsView DataContext="{Binding UploadsViewModel}" /></TabItem>
-      <TabItem Header="{loc:Loc Main_Tab_Uploaded}"><views:UploadedView DataContext="{Binding UploadedViewModel}" /></TabItem>
-      <TabItem Header="{loc:Loc Main_Tab_Settings}"><views:SettingsView DataContext="{Binding SettingsViewModel}" /></TabItem>
-      <TabItem Header="{loc:Loc Main_Tab_Logs}"><views:LogsView DataContext="{Binding LogsViewModel}" /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Uploads}" DataContext="{Binding UploadsViewModel}"><views:UploadsView /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Uploaded}" DataContext="{Binding UploadedViewModel}"><views:UploadedView /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Settings}" DataContext="{Binding SettingsViewModel}"><views:SettingsView /></TabItem>
+      <TabItem Header="{loc:Loc Main_Tab_Logs}" DataContext="{Binding LogsViewModel}"><views:LogsView /></TabItem>
     </TabControl>
   </Grid>
 </Window>

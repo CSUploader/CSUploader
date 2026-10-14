@@ -95,7 +95,8 @@ public partial class UploadedView : UserControl
     {
         // A DataContext/VM swap (tab or window reuse) must not double-subscribe or leave the grid bound to
         // the previous VM's collection: drop the old VM's CollectionChanged hook and the old grouped view.
-        if (_vm is not null)
+        // The hooks exist only while a view is bound (see BindView).
+        if (_vm is not null && _view is not null)
         {
             _vm.Files.CollectionChanged -= OnFilesChanged;
             _vm.SearchInvalidated -= OnSearchInvalidated;
@@ -107,6 +108,40 @@ public partial class UploadedView : UserControl
         if (_vm is null)
         {
             FilesGrid.ItemsSource = null;
+            return;
+        }
+
+        WireDeleteKeyBinding(_vm);
+        if (TopLevel.GetTopLevel(this) is null)
+        {
+            // Not on screen (yet): OnAttachedToVisualTree binds the view the first time it is shown.
+            FilesGrid.ItemsSource = null;
+            return;
+        }
+
+        BindView();
+    }
+
+    /// <summary>
+    /// Binds the grouped view the first time History is shown rather than when the VM arrives. MainWindow
+    /// hands this view its DataContext as the window opens, and the startup history load adds its rows one
+    /// at a time; through a live grouped view each of those adds would regroup, so binding at startup would
+    /// cost every launch time that grows faster than the history does — for a tab the user may never open.
+    /// Unbound, the load is plain list adds, and the view below is built over the finished list in one pass.
+    /// </summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_vm is not null && _view is null)
+        {
+            BindView();
+        }
+    }
+
+    private void BindView()
+    {
+        if (_vm is null)
+        {
             return;
         }
 
@@ -125,7 +160,6 @@ public partial class UploadedView : UserControl
         FilesGrid.ItemsSource = _view;
         _vm.Files.CollectionChanged += OnFilesChanged;
         _vm.SearchInvalidated += OnSearchInvalidated;
-        WireDeleteKeyBinding(_vm);
     }
 
     /// <summary>

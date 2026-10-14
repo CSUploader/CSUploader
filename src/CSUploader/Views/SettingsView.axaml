@@ -571,19 +571,19 @@
     </ScrollViewer>
 
     <!-- 2: Connection Manager (editable proxies grid). Its CONTENT runs on the ConnectionManagerViewModel,
-         reached via the parent Window's MainViewModel (the SettingsView's own DataContext is the
-         SettingsViewModel); §Reality-check #19.
+         reached through SettingsViewModel.ConnectionManager (the SettingsView's own DataContext is the
+         SettingsViewModel), the way the Accounts page reaches its AccountManager; §Reality-check #19.
 
          The Grid itself deliberately does NOT override DataContext — each of its three row children
          carries the ConnectionManagerViewModel instead. That looks like duplication and is load-bearing:
          this panel's visibility belongs to the SettingsViewModel, so with the override here IsVisible had
          to reach back up as `$visualParent[UserControl].DataContext.SelectedCategoryIndex`, and that
-         explicit DataContext hop is evaluated BEFORE the DataContext arrives — MainWindow hosts this view
-         as <views:SettingsView DataContext="{Binding SettingsViewModel}" /> inside a TabItem, so it is in
-         the visual tree first. Result: two "'Value is null.' (Grid #ConnectionPanel)" binding errors on
-         every startup. Leaving the Grid on the inherited SettingsViewModel lets IsVisible bind straight to
-         SelectedCategoryIndex with no hop to be null — which is exactly how every sibling panel here works,
-         and why none of them ever logged this.
+         explicit DataContext hop is evaluated BEFORE the DataContext arrives — MainWindow hosted this view
+         as <views:SettingsView DataContext="{Binding SettingsViewModel}" /> inside a TabItem (that binding
+         lives on the TabItem now), so it was in the visual tree first. Result: two "'Value is null.'
+         (Grid #ConnectionPanel)" binding errors on every startup. Leaving the Grid on the inherited
+         SettingsViewModel lets IsVisible bind straight to SelectedCategoryIndex with no hop to be null —
+         which is exactly how every sibling panel here works, and why none of them ever logged this.
 
          Rule 32 is PER-GRID and THIS grid is the exception: the Host/Port/User/Password
          DataGridTextColumns, the Enabled DataGridCheckBoxColumn and the Type template ComboBox ALL stay
@@ -593,15 +593,17 @@
           RowDefinitions="Auto,*,Auto"
           IsVisible="{Binding SelectedCategoryIndex, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
 
-      <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment.
-           Only the ACQUISITION is unknowable: it reaches through the ancestor WINDOW's untyped
-           DataContext, whose runtime type varies by host (MainWindow's MainViewModel in production,
-           plain test doubles in the headless suites), so no cast would be truthful — hence an explicit
-           {ReflectionBinding} for that one hop on each of the three. What it yields is always a
-           ConnectionManagerViewModel, so the subtree declares it and everything below compiles. -->
+      <!-- The three row children each carry the ConnectionManagerViewModel — see the Grid's comment — taken
+           from SettingsViewModel.ConnectionManager. The binding names its SOURCE type, because each
+           element's own x:DataType describes the ConnectionManagerViewModel it provides to what is below.
+           These used to reach up to the ancestor Window's DataContext. Looked up through the visual tree,
+           the Window is lost whenever the Settings tab is deselected (the proxy grid then re-wrapped Proxies
+           in a new DataGridCollectionView on every return, and that view never unsubscribes); looked up
+           through the logical tree, it is found before App has given it a DataContext, which logs a
+           "Value is null" binding error at startup. -->
       <StackPanel Grid.Row="0" Margin="20,16,20,0"
                   x:DataType="vm:ConnectionManagerViewModel"
-                  DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
+                  DataContext="{CompiledBinding ConnectionManager, DataType={x:Type vm:SettingsViewModel}}">
         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
           <Image Source="{StaticResource ActionSpeedImage}" Width="24" Height="24"
                  VerticalAlignment="Center" Margin="0,0,8,0" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -627,7 +629,7 @@
            stays interactive so proxies can be curated before flipping the master switch back on. -->
       <DataGrid x:Name="ProxyGrid" Grid.Row="1" Margin="20,8,20,8"
                 x:DataType="vm:ConnectionManagerViewModel"
-                DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}"
+                DataContext="{CompiledBinding ConnectionManager, DataType={x:Type vm:SettingsViewModel}}"
                 Classes.proxies-off="{Binding !ProxiesEnabled}"
                 ItemsSource="{Binding Proxies}"
                 AutoGenerateColumns="False"
@@ -640,7 +642,8 @@
                 VerticalGridLinesBrush="{DynamicResource BorderSubtleBrush}"
                 beh:DataGridZebraStriping.IsEnabled="True"
                 beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
-                beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+                beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
+                beh:DataGridEditBehaviors.EndDroppedEdits="True">
 
         <!-- Row context menu (rules 18/19): commands bind through the ContextMenu's inherited DataContext
              (the grid's ConnectionManagerViewModel); the SelectedItems-carrying parameters (Test / Remove /
@@ -763,7 +766,7 @@
            params are code-behind). Add / Test All are plain buttons bound directly to the inherited VM. -->
       <DockPanel Grid.Row="2" Margin="20,0,20,16"
                  x:DataType="vm:ConnectionManagerViewModel"
-                 DataContext="{ReflectionBinding DataContext.ConnectionManagerViewModel, RelativeSource={RelativeSource AncestorType=Window}}">
+                 DataContext="{CompiledBinding ConnectionManager, DataType={x:Type vm:SettingsViewModel}}">
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Classes="jd2" Margin="0,0,8,0">
             <Button.Flyout>

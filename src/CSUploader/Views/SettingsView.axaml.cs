@@ -4,8 +4,11 @@
 // </copyright>
 
 using System.Collections;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
@@ -23,10 +26,11 @@ namespace CSUploader.Views;
 /// The Settings tab: a ListBox sidebar over four SelectedCategoryIndex-switched panels. Avalonia port of
 /// the WPF <c>SettingsView</c>. Task 4 landed the shell + the General and Upload panels (bound directly to
 /// <see cref="ViewModels.SettingsViewModel"/>); Task 5 fills the Connection (proxies) panel — an EDITABLE
-/// grid whose DataContext is the <see cref="ConnectionManagerViewModel"/> reached via the parent Window's
-/// MainViewModel. This code-behind carries only what the ported XAML can't express: the proxy grid's
-/// row-vs-whitespace context-menu flip (recorded at right-click press time, rule 18), the SelectedItems
-/// command parameters (rule 19), the Delete key binding (rule 24), and the split-button flyout actions.
+/// grid whose DataContext is the <see cref="ConnectionManagerViewModel"/> the SettingsViewModel exposes as
+/// <c>ConnectionManager</c>. This code-behind carries only what the ported XAML can't express: the proxy
+/// grid's row-vs-whitespace context-menu flip (recorded at right-click press time, rule 18), the
+/// SelectedItems command parameters (rule 19), the Delete key binding (rule 24), the split-button flyout
+/// actions, and keeping the grid's shown order in step with the ▲/▼ priority buttons.
 /// Task 6 fills panel 3 — the READ-ONLY accounts grid. Its code-behind mirrors the proxy grid's
 /// context-menu flip / SelectedItems / Delete plumbing, plus the double-tap-to-edit (rule 22) and the
 /// enable/disable checkbox fan-out (the clicked row alone, or the whole selection when it is selected).
@@ -46,6 +50,9 @@ public partial class SettingsView : UserControl
     // so the decision is recorded here at press time (mirror of the WPF ProxyGrid_ContextMenuOpening walk).
     private bool _proxyRightClickOnItem;
     private bool _proxyDeleteWired;
+
+    // The proxies the grid shows, watched for the Move the ▲/▼ buttons make (see OnProxiesChanged).
+    private ObservableCollection<ProxySettingItem>? _watchedProxies;
 
     // The same row-vs-whitespace flag + Delete-wired guard for the accounts grid.
     private bool _accountRightClickOnItem;
@@ -70,9 +77,12 @@ public partial class SettingsView : UserControl
         // Record row-vs-whitespace at press time (tunnel, so it beats the menu's Opening).
         ProxyGrid.AddHandler(InputElement.PointerPressedEvent, ProxyGrid_PointerPressed, RoutingStrategies.Tunnel);
 
-        // The proxy grid's VM (ConnectionManagerViewModel) arrives via the Window-ancestor binding once the
-        // panel is attached, not at construction — wire the Delete key when the DataContext resolves.
+        // The proxy grid's VM (SettingsViewModel.ConnectionManager) arrives with the view's DataContext, not at
+        // construction — wire the Delete key when it resolves.
         ProxyGrid.DataContextChanged += OnProxyGridDataContextChanged;
+
+        // ▲/▼ end any open cell edit before their command moves the row (see ProxyGrid_PriorityClick).
+        ProxyGrid.AddHandler(Button.ClickEvent, ProxyGrid_PriorityClick);
 
         // ── Accounts grid (Task 6): same rule-19 SelectedItems wiring. The IList commands (Refresh / Enable /
         // Disable / Delete) and the bottom-bar Remove button take the grid's live SelectedItems; Edit has no
@@ -91,11 +101,14 @@ public partial class SettingsView : UserControl
         accountsGrid.DataContextChanged += OnAccountsGridDataContextChanged;
     }
 
-    /// <summary>The proxy grid's VM, resolved from its Window-ancestor-bound DataContext (null until attached).</summary>
+    /// <summary>The proxy grid's VM: SettingsViewModel.ConnectionManager, through the grid's DataContext (null
+    /// until the view has its DataContext, or when the SettingsViewModel was built without one).</summary>
     private ConnectionManagerViewModel? ConnVm => ProxyGrid.DataContext as ConnectionManagerViewModel;
 
     private void OnProxyGridDataContextChanged(object? sender, EventArgs e)
     {
+        WatchProxiesForMoves((ProxyGrid.DataContext as ConnectionManagerViewModel)?.Proxies);
+
         if (_proxyDeleteWired || ProxyGrid.DataContext is not ConnectionManagerViewModel vm)
         {
             return;
@@ -109,6 +122,88 @@ public partial class SettingsView : UserControl
         // editor holds focus, Delete edits text instead of removing the row being edited (WPF parity).
         ProxyGrid.KeyBindings.Add(DataGridDeleteKeyGuard.CreateDeleteKeyBinding(
             ProxyGrid, vm.RemoveSelectedCommand, ProxyGrid.SelectedItems));
+    }
+
+    private void WatchProxiesForMoves(ObservableCollection<ProxySettingItem>? proxies)
+    {
+        if (ReferenceEquals(proxies, _watchedProxies))
+        {
+            return;
+        }
+
+        if (_watchedProxies is not null)
+        {
+            _watchedProxies.CollectionChanged -= OnProxiesChanged;
+        }
+
+        _watchedProxies = proxies;
+        if (proxies is not null)
+        {
+            proxies.CollectionChanged += OnProxiesChanged;
+        }
+    }
+
+    /// <summary>
+    /// Ends an open cell edit before a ▲/▼ click moves its row — ticking "On" or typing in a cell leaves
+    /// one open, the button keeps the press from the grid, and the grid's view refuses to re-read its
+    /// order while an edit is open. Clicking ▲/▼ commits the edit the way clicking another row does; and
+    /// as there, a cell holding a value it cannot take keeps the grid in it, so the move is skipped
+    /// (the Click is raised before the button runs its command, and a handled Click stops the command).
+    /// </summary>
+    private void ProxyGrid_PriorityClick(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is Button button && button.Classes.Contains("prio-btn") && !ProxyGrid.CommitEdit())
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// The ▲/▼ buttons reorder Proxies with a Move, which keeps the moved row and its selection intact.
+    /// But the grid shows Proxies through a DataGridCollectionView, which does not act on a Move, so the
+    /// grid would keep the old order. Have the view re-read the order — dropping a column sort to do it,
+    /// as reordering the Uploads queue does: under a sort the moved row would stay where the sort puts it.
+    /// Then put the selection back, primary first: re-reading selects the grid's current row whether or
+    /// not it was selected, and the first row added after a Clear becomes the current one (the recipe
+    /// <see cref="UploadedView"/>'s search refresh uses).
+    /// </summary>
+    private void OnProxiesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // A view with an edit open throws instead of re-reading. The ▲/▼ click ends the edit before the move
+        // (ProxyGrid_PriorityClick), so only a move made in code can arrive here with one open; that order
+        // shows with the next move.
+        if (e.Action != NotifyCollectionChangedAction.Move
+            || ProxyGrid.CollectionView is not DataGridCollectionView view
+            || view.IsEditingItem
+            || view.IsAddingNew)
+        {
+            return;
+        }
+
+        object[] selected = [.. ProxyGrid.SelectedItems.Cast<object>()];
+        object? primary = ProxyGrid.SelectedItem is { } current && selected.Contains(current) ? current : null;
+        if (view.SortDescriptions.Count > 0)
+        {
+            view.SortDescriptions.Clear(); // re-reads the order as it un-sorts
+        }
+        else
+        {
+            view.Refresh();
+        }
+
+        ProxyGrid.SelectedItems.Clear();
+        if (primary is not null)
+        {
+            ProxyGrid.SelectedItems.Add(primary);
+        }
+
+        foreach (object item in selected)
+        {
+            if (!ReferenceEquals(item, primary))
+            {
+                ProxyGrid.SelectedItems.Add(item);
+            }
+        }
     }
 
     private void ProxyGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -174,7 +269,7 @@ public partial class SettingsView : UserControl
     // ── Accounts grid (Task 6) ──
 
     /// <summary>The AccountManagerViewModel the accounts grid inherits — the accounts panel re-points
-    /// its DataContext to <c>SettingsViewModel.AccountManager</c> (null until the view is attached).</summary>
+    /// its DataContext to <c>SettingsViewModel.AccountManager</c> (null until the view has its DataContext).</summary>
     private AccountManagerViewModel? AccountsVm => accountsGrid.DataContext as AccountManagerViewModel;
 
     private void OnAccountsGridDataContextChanged(object? sender, EventArgs e)

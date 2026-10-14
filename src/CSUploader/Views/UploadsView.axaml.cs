@@ -50,6 +50,11 @@ public partial class UploadsView : UserControl
     private DataGridCollectionView? _rowsView;
     private UploadsViewModel? _wiredViewModel;
 
+    // One view PER VM, weakly held (the UploadedView pattern): a DataContext bounce (VM A -> null or B ->
+    // back to A) must get A's view back, because a fresh one would leave the abandoned view subscribed to
+    // VisibleRows for good. Weak, so the cache never keeps a dead VM alive.
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<UploadsViewModel, DataGridCollectionView> _viewsByVm = [];
+
     // True when the last right-button press landed on a package/file row (vs empty space below the rows).
     // The ContextMenu.Opening handler reads it to suppress the menu on a whitespace right-click — Opening
     // carries no pointer source, so the decision is recorded here at press time (rule 18). The actual row
@@ -143,10 +148,7 @@ public partial class UploadsView : UserControl
             return;
         }
 
-        _rowsView = new DataGridCollectionView(vm.VisibleRows)
-        {
-            Filter = vm.MatchesFilter,
-        };
+        _rowsView = _viewsByVm.GetValue(vm, static v => new DataGridCollectionView(v.VisibleRows) { Filter = v.MatchesFilter });
         vm.FilterInvalidated += ViewModel_FilterInvalidated;
 
         // Per VM, and released above on a swap — NOT in OnGridLoaded, whose _columnsWired guard

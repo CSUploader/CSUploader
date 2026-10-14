@@ -66,14 +66,16 @@ public class ReflectionContractTests
     public void ObservableCollection_CollectionChangedBackingField_StillExists()
     {
         // LeakProbes.CollectionChangedSubscriberCount reads this off the bound source collection; its
-        // dependents are the DataGridBehaviorTests, LogsViewTests and UploadedViewTests leak checks.
+        // dependents are the DataGridBehaviorTests, LogsViewTests, UploadedViewTests, UploadsViewTests and
+        // MainWindowTabSwitchTests leak checks.
         FieldInfo? field = typeof(ObservableCollection<int>).GetField(
             "CollectionChanged", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.True(
             field is not null,
             "ObservableCollection<T>'s field-like CollectionChanged backing field is gone — "
             + "LeakProbes.CollectionChangedSubscriberCount would silently measure 0 and pass vacuously "
-            + "(DataGridBehaviorTests / LogsViewTests / UploadedViewTests leak checks).");
+            + "(DataGridBehaviorTests / LogsViewTests / UploadedViewTests / UploadsViewTests / "
+            + "MainWindowTabSwitchTests leak checks).");
     }
 
     [Fact]

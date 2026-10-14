@@ -356,7 +356,8 @@
               ColumnHeaderTheme="{StaticResource LockableHeaderTheme}"
               beh:DataGridZebraStriping.IsEnabled="True"
               beh:DataGridSelectionBehaviors.ClearSelectionOnEmptyClick="True"
-              beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True">
+              beh:DataGridSelectionBehaviors.SelectRowOnRightClick="True"
+              beh:DataGridEditBehaviors.EndDroppedEdits="True">
 
       <!-- Row context menu (rules 18/19, Task 11): commands bind through the ContextMenu's inherited
            DataContext (the grid's VM), so the WPF PlacementTarget.Tag / RelativeSource=ContextMenu bindings

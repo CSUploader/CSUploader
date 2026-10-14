@@ -207,6 +207,39 @@ public class UploadsViewTests
         }
     }
 
+    /// <summary>
+    /// A DataContext bounce (away and back to the same VM) must REUSE that VM's filtered view, as
+    /// <c>UploadedViewTests.DataContextBounce_ReusesTheViewAndAddsNoSubscriber</c> pins for the History tab.
+    /// DataGridCollectionView's ctor subscribes to VisibleRows.CollectionChanged and offers no detach, so a
+    /// fresh view per return leaves the abandoned one processing every later row change. Every tab switch
+    /// bounced it this way until MainWindow bound the DataContext on the TabItem.
+    /// </summary>
+    [AvaloniaFact]
+    public void DataContextBounce_ReusesTheRowsViewAndAddsNoSubscriber()
+    {
+        using VmHarness harness = new();
+        harness.SeedPackage("Alpha pack", "alpha1.bin");
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            object viewBefore = view.uploadsGrid.ItemsSource!;
+            int baseline = CollectionChangedSubscriberCount(harness.Vm.VisibleRows);
+
+            view.DataContext = null;
+            Dispatcher.UIThread.RunJobs();
+            view.DataContext = harness.Vm;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(viewBefore, view.uploadsGrid.ItemsSource);
+            Assert.Same(viewBefore, view.RowsView);
+            Assert.Equal(baseline, CollectionChangedSubscriberCount(harness.Vm.VisibleRows));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // ── FilterText filters the flat VisibleRows through the head's view.Filter = vm.MatchesFilter ──
 
     [AvaloniaFact]
@@ -237,6 +270,50 @@ public class UploadsViewTests
             harness.Vm.FilterText = string.Empty;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(4, CountOf(rowsView));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // ── An edit still open when the Uploads tab is left — an Order number or a rename not yet confirmed.
+    //    Coming back, the grid cancels it, but an upload row cannot cancel an edit (it is not an
+    //    IEditableObject): the grid let go of the edit while its view kept it open, and the view refuses to
+    //    filter while it does, so the filter box stopped working. Each visit used to give the grid a new
+    //    view, which hid this. ──
+
+    [AvaloniaFact]
+    public void BackWithAnEditLeftOpen_TheFilterStillApplies()
+    {
+        using VmHarness harness = new();
+        Package package = harness.SeedPackage("Alpha pack", "alpha1.bin");
+        harness.SeedPackage("Beta pack", "beta1.bin");
+        PackageFile file = package.Single();
+        (Window window, UploadsView view) = Show(harness.Vm);
+        try
+        {
+            DataGrid grid = view.uploadsGrid;
+            DataGridColumn orderColumn = OrderColumnOf(view);
+            orderColumn.IsVisible = true; // the Order column ships hidden (the column menu toggles it)
+            Dispatcher.UIThread.RunJobs();
+            grid.SelectedItem = file;
+            grid.ScrollIntoView(file, orderColumn);
+            grid.CurrentColumn = orderColumn;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(grid.BeginEdit(), "BeginEdit should enter edit mode on the Order cell");
+            Dispatcher.UIThread.RunJobs();
+
+            window.Content = null; // leaving the tab takes the view out of the window…
+            Dispatcher.UIThread.RunJobs();
+            window.Content = view; // …and coming back puts it back
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(file, grid.SelectedItem); // the edited row is still the selected one
+
+            harness.Vm.FilterText = "beta1";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, CountOf((DataGridCollectionView)grid.ItemsSource!));
         }
         finally
         {
