@@ -23,7 +23,11 @@ public class SpeedLimiterScopeTests : IDisposable
 {
     private readonly TempFolders _temp = new();
 
-    public void Dispose() => _temp.Dispose();
+    public void Dispose()
+    {
+        _temp.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public void TwoFilesInOnePackage_ResolveToOneBucket()

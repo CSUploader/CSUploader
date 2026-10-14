@@ -20,7 +20,11 @@ public class PackageTests : IDisposable
 {
     private readonly TempFolders _temp = new();
 
-    public void Dispose() => _temp.Dispose();
+    public void Dispose()
+    {
+        _temp.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public void AddPackageFiles_NoArg_AddsOneFilePerSelectedFilePerHoster()
