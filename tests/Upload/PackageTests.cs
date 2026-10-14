@@ -11,12 +11,17 @@ using CSUploader.Lib.Net;
 using CSUploader.Lib.Net.Http;
 using CSUploader.Upload;
 using CSUploader.ViewModels;
+using CSUploader.Tests.TestSupport;
 using Moq;
 
 namespace CSUploader.Tests.Upload;
 
-public class PackageTests
+public class PackageTests : IDisposable
 {
+    private readonly TempFolders _temp = new();
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void AddPackageFiles_NoArg_AddsOneFilePerSelectedFilePerHoster()
     {
@@ -677,10 +682,9 @@ public class PackageTests
         Assert.Equal("12GHte**", package.AccountDisplay);
     }
 
-    private static Package MakePackageWithLogin(FileHosterLoginDto login)
+    private Package MakePackageWithLogin(FileHosterLoginDto login)
     {
-        string dir = Path.Combine(Path.GetTempPath(), $"csu-acct-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
+        string dir = _temp.Create("csu-acct");
         string p = Path.Combine(dir, "f.bin");
         File.WriteAllText(p, "x");
 
@@ -719,10 +723,9 @@ public class PackageTests
         Assert.Equal(early, package.StartedDate);
     }
 
-    private static Package MakePackageWithFiles(params FileState[] fileStates)
+    private Package MakePackageWithFiles(params FileState[] fileStates)
     {
-        string dir = Path.Combine(Path.GetTempPath(), $"csu-status-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
+        string dir = _temp.Create("csu-status");
         List<string> paths = [];
         for (int i = 0; i < fileStates.Length; i++)
         {

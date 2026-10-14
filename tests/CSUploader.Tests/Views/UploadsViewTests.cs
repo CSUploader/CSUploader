@@ -1205,12 +1205,17 @@ public class UploadsViewTests
         finally
         {
             provider.Dispose();
+
+            // The SQLite pool keeps the database file open after the provider is gone, which made the
+            // delete below fail on every run and left a folder behind in %TEMP%.
+            SqliteConnection.ClearAllPools();
             try
             {
                 Directory.Delete(tempDir, recursive: true);
             }
             catch
             {
+                // best-effort
             }
         }
     }

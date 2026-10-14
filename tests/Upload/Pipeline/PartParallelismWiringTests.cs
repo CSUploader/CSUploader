@@ -25,13 +25,17 @@ namespace CSUploader.Tests.Upload.Pipeline;
 /// <c>AttemptInputs</c>, and <c>AttemptRunner</c> combining it with the pipeline's declaration.
 /// </para>
 /// </summary>
-public class PartParallelismWiringTests
+public class PartParallelismWiringTests : IDisposable
 {
+    private readonly TempFolders _temp = new();
+
+    public void Dispose() => _temp.Dispose();
+
     [Fact]
     public void BuildAttemptInputs_CarriesTheUsersCeilingFromSettings()
     {
         AppSettings settings = new() { MaxParallelPartsPerFile = 6 };
-        Package package = SpeedLimitTestFactory.Package(settings, packageLimitKBps: null);
+        Package package = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: null);
 
         AttemptInputs inputs = package.First().BuildAttemptInputs(Mock.Of<IAppLogger>());
 
@@ -43,7 +47,7 @@ public class PartParallelismWiringTests
     {
         // PackageOptions.Settings is nullable for non-DI callers, so this path is reachable.
         AppSettings settings = new();
-        Package package = SpeedLimitTestFactory.Package(settings, packageLimitKBps: null);
+        Package package = SpeedLimitTestFactory.Package(_temp, settings, packageLimitKBps: null);
 
         AttemptInputs inputs = package.First().BuildAttemptInputs(Mock.Of<IAppLogger>());
 
