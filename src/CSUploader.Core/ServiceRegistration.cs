@@ -233,7 +233,8 @@ public static class ServiceRegistration
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.FilegoPipeline>();
 
         // DropMB — a Pingvin Share instance: create share -> chunked octet-stream POSTs -> complete.
-        // Anonymous or signed in (one access_token cookie). See DropMbPipeline.cs.
+        // ACCOUNT-ONLY since 2026-10-24 (one access_token cookie); anonymous create-share is a 403 now.
+        // See DropMbPipeline.cs.
         services.AddSingleton<Upload.Pipeline.IFileHosterPipeline, Upload.Pipeline.Hosters.DropMbPipeline>();
 
         // Hostize — ANONYMOUS, 20 GB, presigned S3 multipart (the storage.to / VikingFile shape).

@@ -4,6 +4,23 @@ All notable changes to CSUploader are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-10-25
+
+DropMB uploads work again, but only with an account: DropMB no longer takes anonymous uploads, and the
+sign-in the app kept for it lapsed after 15 minutes. See
+[docs/release-notes/v1.9.2.md](docs/release-notes/v1.9.2.md) for the full notes.
+
+### Fixed
+
+- **DropMB uploads failed with "HTTP 403 … Forbidden resource".** DropMB has stopped taking uploads
+  from anyone who isn't signed in, so its Anonymous option is gone from the wizard and it now needs an
+  account, entered as a username or an email plus the password. Signed-in uploads were failing with the
+  same message for a second reason: the sign-in the app kept is only good for 15 minutes, and DropMB
+  refuses a lapsed one exactly as it refuses no sign-in at all. The app now signs in again with the saved
+  password whenever that happens — once per account rather than once per file, and part-way through a
+  large file too. DropMB also no longer reads Permanent in the "Kept for" column: its own page says a
+  share is deleted after 100 days without a visit, and the column now says that.
+
 ## [1.9.1] - 2026-10-14
 
 Switching tabs no longer resets the lists, which keep their sort, selection and scroll position, and no
@@ -625,6 +642,7 @@ First public release.
 - Targets `net10.0-windows10.0.17763.0` (Windows 10 1809+).
 - Self-contained `win-x64` build is published from the release workflow; first install is a full bundle, subsequent updates are delta patches.
 
+[1.9.2]: https://github.com/CSUploader/CSUploader/releases/tag/v1.9.2
 [1.9.1]: https://github.com/CSUploader/CSUploader/releases/tag/v1.9.1
 [1.9.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.9.0
 [1.8.0]: https://github.com/CSUploader/CSUploader/releases/tag/v1.8.0
