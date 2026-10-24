@@ -49,7 +49,6 @@ public class HosterRetentionTests
     {
         Assert.Equal(FileRetention.Permanent, ((IFileHosterPipeline)new CatboxPipeline()).RetentionFor(Anonymous));
         Assert.Equal(FileRetention.Permanent, ((IFileHosterPipeline)new QuAxPipeline()).RetentionFor(Anonymous));
-        Assert.Equal(FileRetention.Permanent, ((IFileHosterPipeline)new DropMbPipeline()).RetentionFor(Anonymous));
         Assert.Equal(FileRetention.Permanent, ((IFileHosterPipeline)new UdropPipeline()).RetentionFor(Anonymous));
     }
 
@@ -83,6 +82,17 @@ public class HosterRetentionTests
         IFileHosterPipeline pipeline = new VikingFilePipeline();
 
         Assert.Equal(FileRetention.DaysAfterLastDownload(15), pipeline.RetentionFor(Anonymous));
+    }
+
+    [Fact]
+    public void DropMB_FollowsItsPublishedHundredDaysFromTheLastVisit()
+    {
+        // Its imprint (2026-10-24): "expire after 100 days without a visit. Each visit renews the 100-day
+        // window." This read Permanent while the host's own text was silent, on the strength of an August
+        // upload of "never"; the host has since said otherwise, and over-promising is the costly error.
+        IFileHosterPipeline pipeline = new DropMbPipeline();
+
+        Assert.Equal(FileRetention.DaysAfterLastDownload(100), pipeline.RetentionFor(FreeAccount));
     }
 
     [Fact]

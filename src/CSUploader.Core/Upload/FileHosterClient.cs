@@ -319,9 +319,11 @@ public sealed class FileHosterClient(string name, Protocol protocol)
         // ⚠ Every reply is HTTP 200, verdict included. See FilegoPipeline.cs.
         { "Filego", "filego.io" },
 
-        // DropMB — ANONYMOUS or account, 512 MB, 10 MB chunks. A Pingvin Share instance, so it
-        // publishes its own limits at GET /api/configs. ⚠ The share id is CLIENT-minted and is the
-        // whole security model (its own default length is 4). See DropMbPipeline.cs.
+        // DropMB — ACCOUNT-ONLY since 2026-10-24 (it was anonymous when it shipped; an anonymous
+        // POST /api/shares now answers 403 "Forbidden resource"), 512 MB, 10 MB chunks. A Pingvin
+        // Share instance, so it publishes its own limits at GET /api/configs. ⚠ The share id is
+        // CLIENT-minted and is the whole security model (its own default length is 4). See
+        // DropMbPipeline.cs.
         { "DropMB", "dropmb.com" },
 
         // Hostize — ANONYMOUS, keyless, 20 GB, presigned S3 multipart. ⚠ Its DOCUMENTED /api/v1/*

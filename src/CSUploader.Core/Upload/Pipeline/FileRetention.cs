@@ -47,7 +47,7 @@ public readonly record struct FileRetention(FileRetentionBasis Basis, TimeSpan? 
     public static FileRetention Unspecified => default;
 
     /// <summary>The hoster keeps files indefinitely — only for hosts that say so (catbox, udrop) or
-    /// where this app explicitly asks for no expiry and the host confirmed it (qu.ax, DropMB).</summary>
+    /// where this app explicitly asks for no expiry and the host confirmed it (qu.ax).</summary>
     public static FileRetention Permanent => new(FileRetentionBasis.Permanent, null);
 
     /// <summary>Files are deleted <paramref name="duration"/> after upload, whatever the traffic.</summary>
